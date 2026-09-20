@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 
 import { seriesApi } from '@/api/series'
-import { SeriesCard } from '@/components/series/series-card'
 import { missingKeys } from '@/hooks/use-missing'
 import { seriesKeys } from '@/hooks/use-series'
 
@@ -72,7 +71,6 @@ export const tvModuleConfig: ModuleConfig = {
   tableColumns: { static: [], defaults: [] },
 
   listComponent: SeriesListPage,
-  cardComponent: SeriesCard,
   detailComponent: () => null,
 
   missingTabValue: 'series',

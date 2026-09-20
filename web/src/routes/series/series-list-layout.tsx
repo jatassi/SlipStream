@@ -1,43 +1,38 @@
-import { MediaListLayout } from '@/components/media/media-list-layout'
-import { SeriesCard } from '@/components/series/series-card'
+import { seriesToCell } from '@/components/media/library-cells'
+import { LibraryScreen } from '@/components/media/library-screen'
 import { SERIES_COLUMNS } from '@/lib/table-columns'
 import { getModuleOrThrow } from '@/modules'
+import type { Series } from '@/types'
 
-import type { SeriesListState } from './use-series-list'
+import type { FilterStatus, SeriesListState } from './use-series-list'
 
 const mod = getModuleOrThrow('tv')
-const ModIcon = mod.icon
-
-const EMPTY_ACTION = { label: `Add ${mod.singularName}`, onClick: () => document.getElementById('global-search')?.focus() }
 
 export function SeriesListLayout({ state: s }: { state: SeriesListState }) {
   return (
-    <MediaListLayout
-      theme={mod.themeColor} title={mod.name} addLabel={`Add ${mod.singularName}`}
-      mediaLabel={mod.singularName} pluralMediaLabel={mod.pluralName} libraryCount={s.seriesList?.length}
-      filterOptions={mod.filterOptions as never} sortOptions={mod.sortOptions as never}
+    <LibraryScreen<Series>
+      moduleId={mod.id} theme={mod.themeColor} title={mod.name}
+      addLabel={`Add ${mod.singularName}`} mediaLabel={mod.singularName} pluralMediaLabel={mod.pluralName}
+      isLoading={s.isLoading} items={s.sortedSeries} groups={s.groups}
+      toCell={(series) => seriesToCell(series, s.profileNameMap)}
+      emptyTitle={`No ${mod.pluralName.toLowerCase()} found`}
+      filterOptions={mod.filterOptions} statusFilters={s.statusFilters} onToggleFilter={(value) => s.handleToggleFilter(value as FilterStatus)}
+      sortOptions={mod.sortOptions} sortField={s.sortField} sortDirection={s.sortDirection}
+      onSortFieldChange={s.handleSortFieldChange} onColumnSort={s.handleColumnSort}
+      view={s.seriesView} onViewChange={s.setSeriesView}
+      posterSize={s.posterSize} onPosterSizeChange={s.setPosterSize}
       allTableColumns={s.allColumns} staticColumns={SERIES_COLUMNS}
       visibleColumnIds={s.seriesTableColumns} onTableColumnsChange={s.setSeriesTableColumns}
-      isLoading={s.isLoading} editMode={s.editMode} selectedIds={s.selectedIds}
-      filteredCount={s.filteredSeries.length} allFiltersSelected={s.allFiltersSelected}
-      statusFilters={s.statusFilters} sortField={s.sortField}
-      sortDirection={s.sortDirection} view={s.seriesView} posterSize={s.posterSize}
-      items={s.sortedSeries} groups={s.groups} renderContext={s.renderContext}
-      qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
-      showDeleteDialog={s.showDeleteDialog} deleteFiles={s.deleteFiles}
-      isBulkDeleting={s.bulkDeleteMutation.isPending} isRefreshing={s.refreshAllMutation.isPending}
-      emptyIcon={<ModIcon className="text-tv-500 size-8" />} emptyTitle={`No ${mod.pluralName.toLowerCase()} found`}
-      emptyAction={EMPTY_ACTION}
-      renderCard={(series, opts) => <SeriesCard key={series.id} series={series} {...opts} />}
-      onToggleFilter={s.handleToggleFilter} onResetFilters={s.handleResetFilters}
-      onSortFieldChange={s.handleSortFieldChange} onViewChange={s.handleViewChange}
-      onPosterSizeChange={s.handlePosterSizeChange} onColumnSort={s.handleColumnSort}
-      onToggleSelect={s.handleToggleSelect} onSelectAll={s.handleSelectAll}
-      onBulkMonitor={s.handleBulkMonitor} onBulkChangeQualityProfile={s.handleBulkChangeQualityProfile}
-      onDelete={() => s.setShowDeleteDialog(true)} onRefreshAll={s.handleRefreshAll}
+      renderContext={s.renderContext}
+      editMode={s.editMode} selectedIds={s.selectedIds} filteredCount={s.filteredSeries.length}
       onEnterEdit={() => s.setEditMode(true)} onExitEdit={s.handleExitEditMode}
-      onShowDeleteDialog={s.setShowDeleteDialog} onDeleteFilesChange={s.setDeleteFiles}
-      onBulkDelete={s.handleBulkDelete}
+      onToggleSelect={s.handleToggleSelect} onSelectAll={s.handleSelectAll}
+      qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
+      isBulkDeleting={s.bulkDeleteMutation.isPending} isRefreshing={s.refreshAllMutation.isPending}
+      onBulkMonitor={s.handleBulkMonitor} onBulkChangeQualityProfile={s.handleBulkChangeQualityProfile}
+      onBulkDelete={s.handleBulkDelete} onRefreshAll={s.handleRefreshAll}
+      showDeleteDialog={s.showDeleteDialog} onShowDeleteDialog={s.setShowDeleteDialog}
+      deleteFiles={s.deleteFiles} onDeleteFilesChange={s.setDeleteFiles}
     />
   )
 }

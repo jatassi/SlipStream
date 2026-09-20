@@ -6,9 +6,9 @@ import type { FilterStatus, SortField } from './use-movie-list'
 export function filterMovies(
   movies: Movie[],
   statusFilters: FilterStatus[],
-  allFiltersSelected: boolean,
+  unfiltered: boolean,
 ): Movie[] {
-  if (allFiltersSelected) {
+  if (unfiltered) {
     return movies
   }
   return movies.filter((movie) => {

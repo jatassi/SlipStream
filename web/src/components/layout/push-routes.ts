@@ -50,5 +50,8 @@ export function isScreenFillPath(pathname: string): boolean {
   if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
     return true
   }
+  if (pane === 'movies' || pane === 'series') {
+    return true
+  }
   return isDetailPath(pathname) || isSettingsPath(pathname)
 }

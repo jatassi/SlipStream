@@ -4,6 +4,9 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 
 import { EmptyState } from '@/components/data/empty-state'
+import { movieToCell, seriesToCell } from '@/components/media/library-cells'
+import type { PosterCellItem } from '@/components/media/poster-cell'
+import { PosterCell } from '@/components/media/poster-cell'
 import {
   ExpandableMediaGrid,
   ExternalMediaCard,
@@ -14,7 +17,7 @@ import { SearchBar } from '@/components/search/search-bar'
 import { useMovies, useMovieSearch, useSeries, useSeriesSearch } from '@/hooks'
 import { useAdminRequests } from '@/hooks/admin/use-admin-requests'
 import { getEnabledModules } from '@/modules'
-import type { AvailabilityInfo, RequestStatus } from '@/types'
+import type { AvailabilityInfo, Movie, RequestStatus, Series } from '@/types'
 
 type RequestEntry = { id: number; status: string }
 
@@ -60,11 +63,13 @@ function toAvailability(entry: RequestEntry | undefined): AvailabilityInfo | und
 
 const ADD_ICON = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
 
-// Module-to-card-props mapping for rendering library results
-function getCardProps(moduleId: string, item: unknown): Record<string, unknown> {
-  if (moduleId === 'movie') {return { movie: item }}
-  if (moduleId === 'tv') {return { series: item }}
-  return { item }
+const NO_PROFILE_NAMES = new Map<number, string>()
+
+function toLibraryCell(moduleId: string, item: unknown): PosterCellItem {
+  if (moduleId === 'movie') {
+    return movieToCell(item as Movie, NO_PROFILE_NAMES)
+  }
+  return seriesToCell(item as Series, NO_PROFILE_NAMES)
 }
 
 function useLibrarySearch(query: string) {
@@ -227,7 +232,7 @@ function SearchPageResults({
                 getKey={(item) => (item as { id: number }).id}
                 label={mod.name}
                 icon={mod.themeColor}
-                renderItem={(item) => <mod.cardComponent {...getCardProps(mod.id, item)} />}
+                renderItem={(item) => <PosterCell item={toLibraryCell(mod.id, item)} />}
               />
             )
           })}

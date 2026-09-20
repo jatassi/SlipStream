@@ -50,16 +50,6 @@ function isSortField(v: string): v is SortField {
   return (SORT_FIELDS as string[]).includes(v)
 }
 
-const ALL_FILTERS: FilterStatus[] = [
-  'monitored',
-  'unreleased',
-  'missing',
-  'downloading',
-  'failed',
-  'upgradable',
-  'available',
-]
-
 export type MovieListState = ReturnType<typeof useMovieList>
 
 export function useMovieList() {
@@ -69,7 +59,7 @@ export function useMovieList() {
   const derived = useDerivedData(local, queries)
   const edit = useEditHandlers({ local, derived })
   const bulk = useBulkHandlers({ local, queries, onExitEditMode: edit.handleExitEditMode })
-  const view = useViewHandlers(local, ui)
+  const view = useViewHandlers(local)
 
   return { ...ui, ...local, ...queries, ...derived, ...edit, ...bulk, ...view }
 }
@@ -97,7 +87,7 @@ function useLocalState() {
   const setSortField = useUIStore((s) => s.setMovieSortField)
   const sortDirection = useUIStore((s) => s.movieSortDirection)
   const setSortDirection = useUIStore((s) => s.setMovieSortDirection)
-  const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([...ALL_FILTERS])
+  const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([])
   const [editMode, setEditMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -137,7 +127,7 @@ function useQueryLayer() {
 
 type LocalState = ReturnType<typeof useLocalState>
 type QueryLayer = ReturnType<typeof useQueryLayer>
-type UIState = ReturnType<typeof useUIState>
+
 
 function useDerivedData(local: LocalState, queries: QueryLayer) {
   const profileNameMap = new Map(queries.qualityProfiles?.map((p) => [p.id, p.name]))
@@ -147,8 +137,8 @@ function useDerivedData(local: LocalState, queries: QueryLayer) {
     rootFolderNames: rootFolderNameMap,
   }
 
-  const allFiltersSelected = local.statusFilters.length >= ALL_FILTERS.length
-  const filteredMovies = filterMovies(queries.movies ?? [], local.statusFilters, allFiltersSelected)
+  const unfiltered = local.statusFilters.length === 0
+  const filteredMovies = filterMovies(queries.movies ?? [], local.statusFilters, unfiltered)
   const sortedMovies = sortMovies(filteredMovies, {
     sortField: local.sortField,
     sortDirection: local.sortDirection,
@@ -191,7 +181,7 @@ function useDerivedData(local: LocalState, queries: QueryLayer) {
 
   return {
     profileNameMap, renderContext,
-    allFiltersSelected, filteredMovies, sortedMovies, groups, allColumns,
+    unfiltered, filteredMovies, sortedMovies, groups, allColumns,
   }
 }
 
@@ -296,7 +286,7 @@ function useBulkHandlers({ local, queries, onExitEditMode }: BulkDeps) {
   return { handleRefreshAll, handleBulkDelete, handleBulkMonitor, handleBulkChangeQualityProfile }
 }
 
-function useViewHandlers(local: LocalState, ui: UIState) {
+function useViewHandlers(local: LocalState) {
   const handleColumnSort = (field: string) => {
     if (field === local.sortField) {
       local.setSortDirection(local.sortDirection === 'asc' ? 'desc' : 'asc')
@@ -312,28 +302,11 @@ function useViewHandlers(local: LocalState, ui: UIState) {
     )
   }
 
-  const handleResetFilters = () => local.setStatusFilters([...ALL_FILTERS])
-
   const handleSortFieldChange = handleColumnSort
-
-  const handleViewChange = (v: string[]) => {
-    if (v[0] === 'grid' || v[0] === 'table') {
-      ui.setMoviesView(v[0])
-    }
-  }
-
-  const handlePosterSizeChange = (v: number | readonly number[]) => {
-    if (Array.isArray(v) && typeof v[0] === 'number') {
-      ui.setPosterSize(v[0])
-    }
-  }
 
   return {
     handleColumnSort,
     handleToggleFilter,
-    handleResetFilters,
     handleSortFieldChange,
-    handleViewChange,
-    handlePosterSizeChange,
   }
 }

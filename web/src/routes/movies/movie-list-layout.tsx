@@ -1,40 +1,38 @@
-import { MediaListLayout } from '@/components/media/media-list-layout'
-import { MovieCard } from '@/components/movies/movie-card'
+import { movieToCell } from '@/components/media/library-cells'
+import { LibraryScreen } from '@/components/media/library-screen'
 import { MOVIE_COLUMNS } from '@/lib/table-columns'
 import { getModuleOrThrow } from '@/modules'
+import type { Movie } from '@/types'
 
-import type { MovieListState } from './use-movie-list'
+import type { FilterStatus, MovieListState } from './use-movie-list'
 
 const mod = getModuleOrThrow('movie')
-const ModIcon = mod.icon
 
 export function MovieListLayout({ state: s }: { state: MovieListState }) {
   return (
-    <MediaListLayout
-      theme={mod.themeColor} title={mod.name} addLabel={`Add ${mod.singularName}`}
-      mediaLabel={mod.singularName} pluralMediaLabel={mod.pluralName} libraryCount={s.movies?.length}
-      filterOptions={mod.filterOptions as never} sortOptions={mod.sortOptions as never}
+    <LibraryScreen<Movie>
+      moduleId={mod.id} theme={mod.themeColor} title={mod.name}
+      addLabel={`Add ${mod.singularName}`} mediaLabel={mod.singularName} pluralMediaLabel={mod.pluralName}
+      isLoading={s.isLoading} items={s.sortedMovies} groups={s.groups}
+      toCell={(movie) => movieToCell(movie, s.profileNameMap)}
+      emptyTitle={`No ${mod.pluralName.toLowerCase()} found`}
+      filterOptions={mod.filterOptions} statusFilters={s.statusFilters} onToggleFilter={(value) => s.handleToggleFilter(value as FilterStatus)}
+      sortOptions={mod.sortOptions} sortField={s.sortField} sortDirection={s.sortDirection}
+      onSortFieldChange={s.handleSortFieldChange} onColumnSort={s.handleColumnSort}
+      view={s.moviesView} onViewChange={s.setMoviesView}
+      posterSize={s.posterSize} onPosterSizeChange={s.setPosterSize}
       allTableColumns={s.allColumns} staticColumns={MOVIE_COLUMNS}
       visibleColumnIds={s.movieTableColumns} onTableColumnsChange={s.setMovieTableColumns}
-      isLoading={s.isLoading} editMode={s.editMode} selectedIds={s.selectedIds}
-      filteredCount={s.filteredMovies.length} allFiltersSelected={s.allFiltersSelected}
-      statusFilters={s.statusFilters} sortField={s.sortField}
-      sortDirection={s.sortDirection} view={s.moviesView} posterSize={s.posterSize}
-      items={s.sortedMovies} groups={s.groups} renderContext={s.renderContext}
-      qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
-      showDeleteDialog={s.showDeleteDialog} deleteFiles={s.deleteFiles}
-      isBulkDeleting={s.bulkDeleteMutation.isPending} isRefreshing={s.refreshAllMutation.isPending}
-      emptyIcon={<ModIcon className="text-movie-500 size-8" />} emptyTitle={`No ${mod.pluralName.toLowerCase()} found`}
-      renderCard={(movie, opts) => <MovieCard key={movie.id} movie={movie} {...opts} />}
-      onToggleFilter={s.handleToggleFilter} onResetFilters={s.handleResetFilters}
-      onSortFieldChange={s.handleSortFieldChange} onViewChange={s.handleViewChange}
-      onPosterSizeChange={s.handlePosterSizeChange} onColumnSort={s.handleColumnSort}
-      onToggleSelect={s.handleToggleSelect} onSelectAll={s.handleSelectAll}
-      onBulkMonitor={s.handleBulkMonitor} onBulkChangeQualityProfile={s.handleBulkChangeQualityProfile}
-      onDelete={() => s.setShowDeleteDialog(true)} onRefreshAll={s.handleRefreshAll}
+      renderContext={s.renderContext}
+      editMode={s.editMode} selectedIds={s.selectedIds} filteredCount={s.filteredMovies.length}
       onEnterEdit={() => s.setEditMode(true)} onExitEdit={s.handleExitEditMode}
-      onShowDeleteDialog={s.setShowDeleteDialog} onDeleteFilesChange={s.setDeleteFiles}
-      onBulkDelete={s.handleBulkDelete}
+      onToggleSelect={s.handleToggleSelect} onSelectAll={s.handleSelectAll}
+      qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
+      isBulkDeleting={s.bulkDeleteMutation.isPending} isRefreshing={s.refreshAllMutation.isPending}
+      onBulkMonitor={s.handleBulkMonitor} onBulkChangeQualityProfile={s.handleBulkChangeQualityProfile}
+      onBulkDelete={s.handleBulkDelete} onRefreshAll={s.handleRefreshAll}
+      showDeleteDialog={s.showDeleteDialog} onShowDeleteDialog={s.setShowDeleteDialog}
+      deleteFiles={s.deleteFiles} onDeleteFilesChange={s.setDeleteFiles}
     />
   )
 }

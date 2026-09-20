@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 
 import { moviesApi } from '@/api/movies'
-import { MovieCard } from '@/components/movies/movie-card'
 import { missingKeys } from '@/hooks/use-missing'
 import { movieKeys } from '@/hooks/use-movies'
 
@@ -68,7 +67,6 @@ export const movieModuleConfig: ModuleConfig = {
   tableColumns: { static: [], defaults: [] },
 
   listComponent: MovieListPage,
-  cardComponent: MovieCard,
   detailComponent: () => null,
 
   missingTabValue: 'movies',
