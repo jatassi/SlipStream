@@ -281,6 +281,8 @@ func (s *Service) enrichMediaInfo(ctx context.Context, entry *Entry) {
 		s.enrichMovieInfo(ctx, entry)
 	case MediaTypeEpisode:
 		s.enrichEpisodeInfo(ctx, entry)
+	case MediaTypeSeason:
+		s.enrichSeasonInfo(ctx, entry)
 	}
 }
 
@@ -313,6 +315,24 @@ func (s *Service) enrichEpisodeInfo(ctx context.Context, entry *Entry) {
 
 	entry.MediaTitle = series.Title
 	entry.MediaQualifier = fmt.Sprintf("S%02dE%02d", episode.SeasonNumber, episode.EpisodeNumber)
+}
+
+func (s *Service) enrichSeasonInfo(ctx context.Context, entry *Entry) {
+	season, err := s.queries.GetSeason(ctx, entry.EntityID)
+	if err != nil {
+		return
+	}
+
+	seriesID := season.SeriesID
+	entry.SeriesID = &seriesID
+
+	series, err := s.queries.GetSeries(ctx, seriesID)
+	if err != nil {
+		return
+	}
+
+	entry.MediaTitle = series.Title
+	entry.MediaQualifier = fmt.Sprintf("S%02d", season.SeasonNumber)
 }
 
 func (s *Service) enrichQualityInfo(entry *Entry) {

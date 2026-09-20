@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -306,5 +307,54 @@ func TestHistoryService_Pagination(t *testing.T) {
 	}
 	if resp.TotalPages != 3 {
 		t.Errorf("TotalPages = %d, want 3", resp.TotalPages)
+	}
+}
+
+func TestHistoryService_SeasonEntryCarriesSeriesTitle(t *testing.T) {
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	queries := sqlc.New(tdb.Conn)
+	ctx := context.Background()
+	series, err := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
+		Title:            "Severance",
+		SortTitle:        "severance",
+		Monitored:        true,
+		ProductionStatus: "continuing",
+	})
+	if err != nil {
+		t.Fatalf("CreateSeries() error = %v", err)
+	}
+	season, err := queries.CreateSeason(ctx, sqlc.CreateSeasonParams{SeriesID: series.ID, SeasonNumber: 2, Monitored: true})
+	if err != nil {
+		t.Fatalf("CreateSeason() error = %v", err)
+	}
+
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
+	if err := service.LogAutoSearchDownload(ctx, MediaTypeSeason, season.ID, "WEBDL-1080p", &AutoSearchDownloadData{
+		ReleaseName: "Severance.S02.1080p.WEB-DL",
+		Indexer:     "test-indexer",
+		ClientName:  "test-client",
+		DownloadID:  "dl-season",
+		Source:      "scheduled",
+	}); err != nil {
+		t.Fatalf("LogAutoSearchDownload() error = %v", err)
+	}
+
+	entries, err := service.ListByMedia(ctx, MediaTypeSeason, season.ID)
+	if err != nil {
+		t.Fatalf("ListByMedia() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("ListByMedia() returned %d entries, want 1", len(entries))
+	}
+	if entries[0].MediaTitle != "Severance" {
+		t.Errorf("MediaTitle = %q, want %q", entries[0].MediaTitle, "Severance")
+	}
+	if entries[0].MediaQualifier != "S02" {
+		t.Errorf("MediaQualifier = %q, want %q", entries[0].MediaQualifier, "S02")
+	}
+	if entries[0].SeriesID == nil || *entries[0].SeriesID != series.ID {
+		t.Errorf("SeriesID = %v, want %d", entries[0].SeriesID, series.ID)
 	}
 }
