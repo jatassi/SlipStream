@@ -67,20 +67,52 @@ export function StackedRow({
   )
 }
 
+export function ControlStack({
+  footer,
+  children,
+  className,
+}: {
+  footer?: ReactNode
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={className}>
+      <div className="divide-y divide-border/70 overflow-hidden rounded-card border">{children}</div>
+      {footer !== undefined && (
+        <div className="text-footnote px-3 pt-2 text-muted-foreground">{footer}</div>
+      )}
+    </div>
+  )
+}
+
 export function SwitchRow({
   label,
+  description,
   checked,
   onCheckedChange,
   disabled,
 }: {
   label: string
+  description?: string
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   disabled?: boolean
 }) {
   return (
     <ControlRow
-      label={label}
+      label={
+        description === undefined ? (
+          label
+        ) : (
+          <span className="block">
+            {label}
+            <span className="text-footnote block font-normal text-muted-foreground">
+              {description}
+            </span>
+          </span>
+        )
+      }
       trailing={
         <Switch
           aria-label={label}

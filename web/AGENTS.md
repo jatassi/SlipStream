@@ -175,14 +175,34 @@ is the flex row that holds three of them.
 
 `SheetPresenter` (`src/components/presenter/sheet-presenter.tsx`) is the form counterpart of
 `ActionPresenter`: a draggable vaul bottom sheet on phones, the existing `Dialog` on wide screens,
-from one set of props — `title`, `description`, `open`, `onOpenChange`, `children` and an optional
-`footer`. The media edit form is its first consumer; settings and requests forms adopt it next.
+from one set of props — `title`, `description`, `open`, `onOpenChange`, `children`, an optional
+`footer`, `wideClassName` for a form that needs more than the default dialog width, and `nested`
+for a presenter opened from inside another presenter's children.
 
 - Never branch on `useViewport()` at the call site and never hand-roll a second sheet.
 - vaul ships no stylesheet through its package exports, so `sheet-presenter.css` carries the
   geometry and the motion: the sheet slides on `--dur-sheet` and reduced motion swaps the slide for
   a fade. Drag is vaul's — 1:1, rubber-banded, velocity dismiss, catchable mid-animation — and it
   ignores a gesture that starts within 500 ms of the sheet opening.
+- Every create and edit form presents through it: media edit, indexer (create, edit and the
+  Prowlarr per-indexer settings), download client, quality profile, notification, root folder, the
+  folder browser, the version-slot dry run with its confirm and assign steps, both resolve flows
+  and both token builders. There are no bespoke form dialogs left in settings.
+- The presenter tags its body `presented-form`, and that class makes every input, textarea and
+  select trigger inside it 44 px tall at 16 px. The rule lives there rather than on each field
+  because indexer and notification provider schemas build their fields at runtime.
+- `nested` renders vaul's `Drawer.NestedRoot`, which needs the parent drawer's context: a nested
+  presenter has to be rendered inside the parent's `children` (the folder browser lives inside the
+  root-folder form, not beside it on the page).
+- `FormActions` (`src/components/presenter/form-actions.tsx`) is the footer they all share: an
+  optional `leading` slot for Test and Debug, then Cancel and the confirm button, 44 px and stacked
+  on a phone.
+- A modal surface turns pointer events off on the body, so anything that portals out of it — the
+  Select popup, for one — has to turn them back on or it is dead to touch.
+
+Fields inside a presented form reuse the settings control rows. `ControlStack`
+(`src/components/settings/control-row.tsx`) is the bordered, divided stack that holds them there,
+with the explanatory copy in its `footer` rather than between the rows.
 
 ## Search
 

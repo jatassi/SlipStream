@@ -58,6 +58,16 @@
   touch-action: inherit;
 }
 
+/* Every control a presented form renders is thumb-sized and typed at 16px, so a
+   field is tappable and focusing it never zooms the page. The rule lives on the
+   presenter rather than on each form: dynamic provider and indexer schemas build
+   their fields at runtime and would otherwise each need to remember. */
+.presented-form :is(input, textarea):not([type='checkbox'], [type='radio'], [type='range']),
+.presented-form [data-slot='select-trigger'] {
+  min-height: var(--spacing-tap);
+  font-size: 1rem;
+}
+
 .sheet-presenter-scrim {
   position: fixed;
   inset: 0;

@@ -1,98 +1,95 @@
 import { FolderSearch } from 'lucide-react'
 
+import { FolderBrowser } from '@/components/forms/folder-browser'
+import { FormActions, SheetPresenter } from '@/components/presenter'
+import { ControlStack, InputRow, SelectRow, StackedRow } from '@/components/settings/control-row'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 import type { useRootFoldersPage } from './use-root-folders-page'
 
 type PageState = ReturnType<typeof useRootFoldersPage>
 
-function AddFolderFormBody({ page }: { page: PageState }) {
-  const { state, setName, setPath, setMediaType } = page.newFolder
+const MEDIA_TYPE_OPTIONS = [
+  { value: 'movie', label: 'Movies' },
+  { value: 'tv', label: 'TV Shows' },
+]
+
+function PathRow({ page }: { page: PageState }) {
+  const { state, setPath } = page.newFolder
 
   return (
-    <div className="space-y-4 py-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
+    <StackedRow>
+      <Label htmlFor="root-folder-path" className="text-body min-w-0 flex-1 font-medium">
+        Path
+      </Label>
+      <div className="flex gap-2">
         <Input
-          id="name"
-          placeholder="Folder name (defaults to directory name)"
-          value={state.name}
-          onChange={(e) => setName(e.target.value)}
+          id="root-folder-path"
+          placeholder="/path/to/media or C:\path\to\media"
+          value={state.path}
+          onChange={(e) => setPath(e.target.value)}
+          className="h-11 flex-1 text-base"
         />
+        <Button
+          type="button"
+          variant="outline"
+          className="size-11 shrink-0"
+          aria-label="Browse folders"
+          onClick={() => page.setShowBrowser(true)}
+        >
+          <FolderSearch className="size-4" />
+        </Button>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="path">Path</Label>
-        <div className="flex gap-2">
-          <Input
-            id="path"
-            placeholder="/path/to/media or C:\path\to\media"
-            value={state.path}
-            onChange={(e) => setPath(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => page.setShowBrowser(true)}
-            title="Browse folders"
-          >
-            <FolderSearch className="size-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="mediaType">Media Type</Label>
-        <Select value={state.mediaType} onValueChange={(v) => v && setMediaType(v)}>
-          <SelectTrigger>
-            <SelectValue>{state.mediaType === 'movie' ? 'Movies' : 'TV Shows'}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="movie">Movies</SelectItem>
-            <SelectItem value="tv">TV Shows</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+    </StackedRow>
   )
 }
 
 export function AddRootFolderDialog({ page }: { page: PageState }) {
+  const { state, setName, setMediaType } = page.newFolder
+
   return (
-    <Dialog open={page.showAddDialog} onOpenChange={page.setShowAddDialog}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add Root Folder</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <AddFolderFormBody page={page} />
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => page.setShowAddDialog(false)}>
-            Cancel
-          </Button>
-          <Button onClick={page.handleAdd} disabled={page.isPending}>
-            Add
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SheetPresenter
+      open={page.showAddDialog}
+      onOpenChange={page.setShowAddDialog}
+      title="Add Root Folder"
+      description="Point SlipStream at a folder that holds your library."
+      footer={
+        <FormActions
+          onCancel={() => page.setShowAddDialog(false)}
+          confirmLabel="Add"
+          onConfirm={page.handleAdd}
+          loading={page.isPending}
+        />
+      }
+    >
+      <div className="space-y-4 py-2">
+        <ControlStack>
+          <InputRow
+            stacked
+            label="Name"
+            aria-label="Name"
+            placeholder="Folder name (defaults to directory name)"
+            value={state.name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <PathRow page={page} />
+          <SelectRow
+            label="Media Type"
+            value={state.mediaType}
+            onChange={(value) => setMediaType(value as 'movie' | 'tv')}
+            options={MEDIA_TYPE_OPTIONS}
+          />
+        </ControlStack>
+      </div>
+      <FolderBrowser
+        nested
+        open={page.showBrowser}
+        onOpenChange={page.setShowBrowser}
+        initialPath={state.path}
+        onSelect={(path) => page.newFolder.setPath(path)}
+      />
+    </SheetPresenter>
   )
 }

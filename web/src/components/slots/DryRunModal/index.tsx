@@ -1,12 +1,6 @@
 import { Loader2 } from 'lucide-react'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { SheetPresenter } from '@/components/presenter'
 
 import type { DryRunModalProps } from '../shared/types'
 import { ConfirmModal } from './confirm-modal'
@@ -20,10 +14,13 @@ export function DryRunModal(props: DryRunModalProps) {
   const s = useDryRunModal(props)
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-h-[90vh] sm:max-w-4xl">
-        <ModalHeader />
-        <ModalBody state={s} />
+    <SheetPresenter
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      title="Migration Dry Run Preview"
+      description="Review how your existing files will be assigned to version slots"
+      wideClassName="max-h-[90vh] sm:max-w-4xl"
+      footer={
         <ModalFooter
           developerMode={s.developerMode}
           isDebugData={s.isDebugData}
@@ -35,7 +32,9 @@ export function DryRunModal(props: DryRunModalProps) {
           onCancel={() => props.onOpenChange(false)}
           onEnable={() => s.setConfirmModalOpen(true)}
         />
-      </DialogContent>
+      }
+    >
+      <ModalBody state={s} />
       <ConfirmModal
         open={s.confirmModalOpen}
         onOpenChange={s.setConfirmModalOpen}
@@ -44,18 +43,7 @@ export function DryRunModal(props: DryRunModalProps) {
         isExecuting={s.isExecuting}
         onExecute={s.handleExecute}
       />
-    </Dialog>
-  )
-}
-
-function ModalHeader() {
-  return (
-    <DialogHeader>
-      <DialogTitle>Migration Dry Run Preview</DialogTitle>
-      <DialogDescription>
-        Review how your existing files will be assigned to version slots
-      </DialogDescription>
-    </DialogHeader>
+    </SheetPresenter>
   )
 }
 

@@ -1,26 +1,8 @@
 import { Bug, TestTube } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormActions, SheetPresenter } from '@/components/presenter'
+import { ControlStack, InputRow, SelectRow, SwitchRow } from '@/components/settings/control-row'
 import { LoadingButton } from '@/components/ui/loading-button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import type { DownloadClient, DownloadClientType } from '@/types'
 
 import { clientTypeConfigs, useDownloadClientDialog } from './use-download-client-dialog'
@@ -35,275 +17,225 @@ export function DownloadClientDialog({ open, onOpenChange, client }: DownloadCli
   const hook = useDownloadClientDialog(open, client, onOpenChange)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {hook.isEditing ? 'Edit Download Client' : 'Add Download Client'}
-          </DialogTitle>
-          <DialogDescription>
-            Configure connection settings for your download client.
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogBody className="space-y-4 py-4">
-          <ClientTypeSelect hook={hook} />
-          <NameInput hook={hook} />
-          <HostPortInputs hook={hook} />
-          <SslToggle hook={hook} />
-          {hook.config.supportsUrlBase ? <UrlBaseInput hook={hook} /> : null}
-          {hook.config.supportsUsername ? <UsernameInput hook={hook} /> : null}
-          {hook.config.supportsPassword ? <PasswordInput hook={hook} /> : null}
-          {hook.config.supportsApiKey ? <ApiKeyInput hook={hook} /> : null}
-          {hook.config.supportsCategory ? <CategoryInput hook={hook} /> : null}
-          <PriorityInput hook={hook} />
-          <EnabledToggle hook={hook} />
-        </DialogBody>
-
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <ActionButtons hook={hook} onCancel={() => onOpenChange(false)} />
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SheetPresenter
+      open={open}
+      onOpenChange={onOpenChange}
+      title={hook.isEditing ? 'Edit Download Client' : 'Add Download Client'}
+      description="Configure connection settings for your download client."
+      footer={<ActionButtons hook={hook} onCancel={() => onOpenChange(false)} />}
+    >
+      <ClientForm hook={hook} />
+    </SheetPresenter>
   )
 }
 
 type HookValues = ReturnType<typeof useDownloadClientDialog>
 
-function ClientTypeSelect({ hook }: { hook: HookValues }) {
+const TYPE_OPTIONS = (Object.entries(clientTypeConfigs) as [DownloadClientType, { label: string }][])
+  .map(([value, config]) => ({ value, label: config.label }))
+
+function ClientForm({ hook }: { hook: HookValues }) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor="type">Client Type</Label>
-      <Select
-        value={hook.formData.type}
-        onValueChange={(v) => v && hook.handleTypeChange(v as DownloadClientType)}
-      >
-        <SelectTrigger>
-          <SelectValue>{clientTypeConfigs[hook.formData.type].label}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {(Object.entries(clientTypeConfigs) as [DownloadClientType, { label: string }][]).map(
-            ([value, config]) => (
-              <SelectItem key={value} value={value}>
-                {config.label}
-              </SelectItem>
-            ),
-          )}
-        </SelectContent>
-      </Select>
+    <div className="space-y-4 py-2">
+      <IdentityFields hook={hook} />
+      <ConnectionFields hook={hook} />
+      <CredentialFields hook={hook} />
+      <BehaviourFields hook={hook} />
     </div>
   )
 }
 
-function NameInput({ hook }: { hook: HookValues }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="name">Name</Label>
-      <Input
-        id="name"
-        placeholder="My Download Client"
-        value={hook.formData.name}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, name: e.target.value }))}
-      />
-    </div>
-  )
-}
+function IdentityFields({ hook }: { hook: HookValues }) {
+  const { formData, setFormData } = hook
 
-function HostPortInputs({ hook }: { hook: HookValues }) {
   return (
-    <div className="grid grid-cols-3 gap-4">
-      <div className="col-span-2 space-y-2">
-        <Label htmlFor="host">Host</Label>
-        <Input
-          id="host"
-          placeholder="localhost"
-          value={hook.formData.host}
-          onChange={(e) => hook.setFormData((prev) => ({ ...prev, host: e.target.value }))}
+    <ControlStack>
+        <SelectRow
+          label="Client Type"
+          value={formData.type}
+          onChange={(value) => hook.handleTypeChange(value as DownloadClientType)}
+          options={TYPE_OPTIONS}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="port">Port</Label>
-        <Input
-          id="port"
+        <InputRow
+          stacked
+          label="Name"
+          aria-label="Name"
+          placeholder="My Download Client"
+          value={formData.name}
+          onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+        />
+    </ControlStack>
+  )
+}
+
+function ConnectionFields({ hook }: { hook: HookValues }) {
+  const { formData, setFormData, config } = hook
+
+  return (
+    <ControlStack>
+        <InputRow
+          stacked
+          label="Host"
+          aria-label="Host"
+          placeholder="localhost"
+          value={formData.host}
+          onChange={(e) => setFormData((prev) => ({ ...prev, host: e.target.value }))}
+        />
+        <InputRow
+          label="Port"
+          aria-label="Port"
           type="number"
-          value={hook.formData.port}
+          value={formData.port}
           onChange={(e) =>
-            hook.setFormData((prev) => ({ ...prev, port: Number.parseInt(e.target.value) || 0 }))
+            setFormData((prev) => ({ ...prev, port: Number.parseInt(e.target.value) || 0 }))
           }
         />
-      </div>
-    </div>
+        <SwitchRow
+          label="Use SSL"
+          checked={formData.useSsl ?? false}
+          onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, useSsl: checked }))}
+        />
+        {config.supportsUrlBase ? (
+          <InputRow
+            stacked
+            label="URL Base (optional)"
+            aria-label="URL Base"
+            placeholder="/"
+            value={formData.urlBase}
+            onChange={(e) => setFormData((prev) => ({ ...prev, urlBase: e.target.value }))}
+          />
+      ) : null}
+    </ControlStack>
   )
 }
 
-function SslToggle({ hook }: { hook: HookValues }) {
+function BehaviourFields({ hook }: { hook: HookValues }) {
+  const { formData, setFormData } = hook
+
   return (
-    <div className="flex items-center justify-between">
-      <Label htmlFor="useSsl">Use SSL</Label>
-      <Switch
-        id="useSsl"
-        checked={hook.formData.useSsl}
-        onCheckedChange={(checked) => hook.setFormData((prev) => ({ ...prev, useSsl: checked }))}
+    <ControlStack footer="Lower values have higher priority (1-100).">
+        <InputRow
+          label="Priority"
+          aria-label="Priority"
+          type="number"
+          min={1}
+          max={100}
+          value={formData.priority}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, priority: Number.parseInt(e.target.value) || 50 }))
+          }
+        />
+        <SwitchRow
+          label="Enabled"
+          checked={formData.enabled ?? true}
+      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: checked }))}
       />
-    </div>
+    </ControlStack>
   )
 }
 
-function UrlBaseInput({ hook }: { hook: HookValues }) {
+function CredentialFields({ hook }: { hook: HookValues }) {
+  const { formData, setFormData, config } = hook
+  const hasAny =
+    config.supportsUsername || config.supportsPassword || config.supportsApiKey || config.supportsCategory
+
+  if (!hasAny) {
+    return null
+  }
+
   return (
-    <div className="space-y-2">
-      <Label htmlFor="urlBase">
-        URL Base
-        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-      </Label>
-      <Input
-        id="urlBase"
-        placeholder="/"
-        value={hook.formData.urlBase}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, urlBase: e.target.value }))}
-      />
-    </div>
+    <ControlStack>
+      <AuthFields hook={hook} />
+      {config.supportsCategory ? (
+        <InputRow
+          stacked
+          label="Category (optional)"
+          aria-label="Category"
+          placeholder="slipstream"
+          value={formData.category}
+          onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+        />
+      ) : null}
+    </ControlStack>
   )
 }
 
-function UsernameInput({ hook }: { hook: HookValues }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="username">
-        {hook.config.usernameLabel}
-        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-      </Label>
-      <Input
-        id="username"
-        value={hook.formData.username}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, username: e.target.value }))}
-      />
-    </div>
-  )
-}
+function AuthFields({ hook }: { hook: HookValues }) {
+  const { formData, setFormData, config } = hook
 
-function PasswordInput({ hook }: { hook: HookValues }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="password">
-        {hook.config.passwordLabel}
-        {!hook.config.passwordRequired && (
-          <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-        )}
-      </Label>
-      <Input
-        id="password"
-        type="password"
-        value={hook.formData.password}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, password: e.target.value }))}
-      />
-    </div>
-  )
-}
-
-function ApiKeyInput({ hook }: { hook: HookValues }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="apiKey">
-        {hook.config.apiKeyLabel}
-        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-      </Label>
-      <Input
-        id="apiKey"
-        type="password"
-        value={hook.formData.apiKey}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, apiKey: e.target.value }))}
-      />
-    </div>
-  )
-}
-
-function CategoryInput({ hook }: { hook: HookValues }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="category">
-        Category
-        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-      </Label>
-      <Input
-        id="category"
-        placeholder="slipstream"
-        value={hook.formData.category}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, category: e.target.value }))}
-      />
-    </div>
-  )
-}
-
-function PriorityInput({ hook }: { hook: HookValues }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="priority">Priority</Label>
-      <Input
-        id="priority"
-        type="number"
-        min={1}
-        max={100}
-        value={hook.formData.priority}
-        onChange={(e) =>
-          hook.setFormData((prev) => ({
-            ...prev,
-            priority: Number.parseInt(e.target.value) || 50,
-          }))
-        }
-      />
-      <p className="text-muted-foreground text-xs">
-        Lower values have higher priority (1-100)
-      </p>
-    </div>
-  )
-}
-
-function EnabledToggle({ hook }: { hook: HookValues }) {
-  return (
-    <div className="flex items-center justify-between">
-      <Label htmlFor="enabled">Enabled</Label>
-      <Switch
-        id="enabled"
-        checked={hook.formData.enabled}
-        onCheckedChange={(checked) => hook.setFormData((prev) => ({ ...prev, enabled: checked }))}
-      />
-    </div>
-  )
-}
-
-function ActionButtons({ hook, onCancel }: { hook: HookValues; onCancel: () => void }) {
   return (
     <>
-      <LeftButtons hook={hook} />
-      <RightButtons onCancel={onCancel} hook={hook} />
+      {config.supportsUsername ? (
+        <InputRow
+          stacked
+          label={`${config.usernameLabel} (optional)`}
+          aria-label={config.usernameLabel}
+          value={formData.username}
+          onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
+        />
+      ) : null}
+      {config.supportsPassword ? (
+        <InputRow
+          stacked
+          label={config.passwordRequired ? config.passwordLabel : `${config.passwordLabel} (optional)`}
+          aria-label={config.passwordLabel}
+          type="password"
+          value={formData.password}
+          onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+        />
+      ) : null}
+      {config.supportsApiKey ? (
+        <InputRow
+          stacked
+          label={`${config.apiKeyLabel} (optional)`}
+          aria-label={config.apiKeyLabel}
+          type="password"
+          value={formData.apiKey}
+          onChange={(e) => setFormData((prev) => ({ ...prev, apiKey: e.target.value }))}
+        />
+      ) : null}
     </>
   )
 }
 
-function LeftButtons({ hook }: { hook: HookValues }) {
+function ActionButtons({ hook, onCancel }: { hook: HookValues; onCancel: () => void }) {
   const showDebug = hook.developerMode && hook.isEditing
+
   return (
-    <div className="flex gap-2">
-      <LoadingButton loading={hook.isTesting} icon={TestTube} variant="outline" onClick={hook.handleTest}>
-        Test
-      </LoadingButton>
-      {showDebug ? <LoadingButton loading={hook.isAddingDebugTorrent} icon={Bug} variant="outline" onClick={hook.handleDebugTorrent} title="Add mock download for testing">
-          Debug
-        </LoadingButton> : null}
-    </div>
+    <FormActions
+      leading={<SecondaryActions hook={hook} showDebug={showDebug} />}
+      onCancel={onCancel}
+      confirmLabel={hook.isEditing ? 'Save' : 'Add'}
+      onConfirm={hook.handleSubmit}
+      loading={hook.isPending}
+    />
   )
 }
 
-function RightButtons({ onCancel, hook }: { onCancel: () => void; hook: HookValues }) {
+function SecondaryActions({ hook, showDebug }: { hook: HookValues; showDebug: boolean }) {
   return (
-    <div className="flex gap-2 sm:ml-auto">
-      <Button variant="outline" onClick={onCancel}>
-        Cancel
-      </Button>
-      <LoadingButton loading={hook.isPending} onClick={hook.handleSubmit}>
-        {hook.isEditing ? 'Save' : 'Add'}
+    <div className="flex gap-2">
+      <LoadingButton
+        className="min-h-tap flex-1"
+        loading={hook.isTesting}
+        icon={TestTube}
+        variant="outline"
+        onClick={hook.handleTest}
+      >
+        Test
       </LoadingButton>
+      {showDebug ? (
+        <LoadingButton
+          className="min-h-tap flex-1"
+          loading={hook.isAddingDebugTorrent}
+          icon={Bug}
+          variant="outline"
+          onClick={hook.handleDebugTorrent}
+          title="Add mock download for testing"
+        >
+          Debug
+        </LoadingButton>
+      ) : null}
     </div>
   )
 }

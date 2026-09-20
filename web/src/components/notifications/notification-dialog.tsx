@@ -1,15 +1,6 @@
 import { ExternalLink, TestTube } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import { LoadingButton } from '@/components/ui/loading-button'
 
 import type { NotificationDialogProps } from './notification-dialog-types'
@@ -20,17 +11,19 @@ export function NotificationDialog(props: NotificationDialogProps) {
   const state = useNotificationDialog(props)
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <NotificationDialogHeader
-          isEditing={state.isEditing}
+    <SheetPresenter
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      title={state.isEditing ? 'Edit Notification' : 'Add Notification'}
+      description={
+        <Description
           description={state.currentSchema?.description}
           infoUrl={state.currentSchema?.infoUrl}
         />
-        <DialogBody>
-          <NotificationFormBody state={state} />
-        </DialogBody>
-        <NotificationDialogFooter
+      }
+      wideClassName="sm:max-w-lg"
+      footer={
+        <NotificationFooter
           isTesting={state.isTesting}
           isPending={state.isPending}
           isEditing={state.isEditing}
@@ -38,39 +31,32 @@ export function NotificationDialog(props: NotificationDialogProps) {
           onSubmit={state.handleSubmit}
           onCancel={() => props.onOpenChange(false)}
         />
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <NotificationFormBody state={state} />
+    </SheetPresenter>
   )
 }
 
-function NotificationDialogHeader({
-  isEditing,
-  description,
-  infoUrl,
-}: {
-  isEditing: boolean
-  description?: string
-  infoUrl?: string
-}) {
+function Description({ description, infoUrl }: { description?: string; infoUrl?: string }) {
   return (
-    <DialogHeader>
-      <DialogTitle>{isEditing ? 'Edit Notification' : 'Add Notification'}</DialogTitle>
-      <DialogDescription>
-        {description ?? 'Configure notification settings and triggers.'}
-        {infoUrl ? <a
-            href={infoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary ml-1 inline-flex items-center gap-1 hover:underline"
-          >
-            Learn more <ExternalLink className="size-3" />
-          </a> : null}
-      </DialogDescription>
-    </DialogHeader>
+    <>
+      {description ?? 'Configure notification settings and triggers.'}
+      {infoUrl ? (
+        <a
+          href={infoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary ml-1 inline-flex items-center gap-1 hover:underline"
+        >
+          Learn more <ExternalLink className="size-3" />
+        </a>
+      ) : null}
+    </>
   )
 }
 
-function NotificationDialogFooter({
+function NotificationFooter({
   isTesting,
   isPending,
   isEditing,
@@ -86,18 +72,22 @@ function NotificationDialogFooter({
   onCancel: () => void
 }) {
   return (
-    <DialogFooter className="flex-col gap-2 sm:flex-row">
-      <LoadingButton loading={isTesting} icon={TestTube} variant="outline" onClick={onTest}>
-        Test
-      </LoadingButton>
-      <div className="flex gap-2 sm:ml-auto">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <LoadingButton loading={isPending} onClick={onSubmit}>
-          {isEditing ? 'Save' : 'Add'}
+    <FormActions
+      leading={
+        <LoadingButton
+          className="min-h-tap"
+          loading={isTesting}
+          icon={TestTube}
+          variant="outline"
+          onClick={onTest}
+        >
+          Test
         </LoadingButton>
-      </div>
-    </DialogFooter>
+      }
+      onCancel={onCancel}
+      confirmLabel={isEditing ? 'Save' : 'Add'}
+      onConfirm={onSubmit}
+      loading={isPending}
+    />
   )
 }

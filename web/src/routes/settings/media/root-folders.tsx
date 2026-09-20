@@ -1,6 +1,5 @@
 import { Film, Tv } from 'lucide-react'
 
-import { FolderBrowser } from '@/components/forms/folder-browser'
 import { IconTile } from '@/components/grouped-list'
 import { usePushBack } from '@/components/layout/use-push-back'
 import { Screen } from '@/components/screen/screen'
@@ -35,12 +34,6 @@ export function RootFoldersPage() {
         ))}
       </SettingsList>
       <AddRootFolderDialog page={page} />
-      <FolderBrowser
-        open={page.showBrowser}
-        onOpenChange={page.setShowBrowser}
-        initialPath={page.newFolder.state.path}
-        onSelect={(path) => page.newFolder.setPath(path)}
-      />
     </Screen>
   )
 }

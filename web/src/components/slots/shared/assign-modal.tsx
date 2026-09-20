@@ -2,16 +2,7 @@ import { useState } from 'react'
 
 import { Layers } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import type { Slot } from '@/types'
@@ -42,8 +33,8 @@ function SlotSelectField({
   onValueChange: (value: string) => void
 }) {
   return (
-    <div className="py-4">
-      <Label htmlFor="slot-select" className="mb-2 block text-sm font-medium">
+    <div className="py-2">
+      <Label htmlFor="slot-select" className="text-body mb-2 block font-medium">
         Select Slot
       </Label>
       <Select value={selectedSlotId} onValueChange={(value) => onValueChange(value ?? '')}>
@@ -83,25 +74,22 @@ export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign
   const s = useAssignModal(open, slots, onAssign)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Assign to Slot</DialogTitle>
-          <DialogDescription>
-            Select a slot to assign {selectedCount} selected file{selectedCount === 1 ? '' : 's'} to
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody>
-          <SlotSelectField slots={slots} selectedSlotId={s.selectedSlotId} onValueChange={s.setSelectedSlotId} />
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={s.handleAssign} disabled={!s.selectedSlotId}>
-            <Layers className="mr-2 size-4" />
-            Assign
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SheetPresenter
+      nested
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Assign to Slot"
+      description={`Select a slot to assign ${selectedCount} selected file${selectedCount === 1 ? '' : 's'} to`}
+      footer={
+        <FormActions
+          onCancel={() => onOpenChange(false)}
+          confirmLabel="Assign"
+          onConfirm={s.handleAssign}
+          confirmDisabled={!s.selectedSlotId}
+        />
+      }
+    >
+      <SlotSelectField slots={slots} selectedSlotId={s.selectedSlotId} onValueChange={s.setSelectedSlotId} />
+    </SheetPresenter>
   )
 }

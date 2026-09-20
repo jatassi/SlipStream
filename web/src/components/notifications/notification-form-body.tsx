@@ -1,10 +1,7 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
+import { ControlStack, InputRow, SelectRow, SwitchRow } from '@/components/settings/control-row'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { useNotificationEventCatalog } from '@/hooks'
 import type { CreateNotificationInput, NotificationEventGroup, NotifierType } from '@/types'
 
@@ -24,9 +21,11 @@ export function NotificationFormBody({ state: s }: { state: NotificationDialogSt
   }
 
   return (
-    <div className="space-y-6 py-4">
-      <TypeSelector formType={s.formData.type} schemas={s.schemas} isEditing={s.isEditing} onTypeChange={s.handleTypeChange} />
-      <NameInput value={s.formData.name} onChange={(v) => s.handleFormDataChange('name', v)} />
+    <div className="space-y-4 py-2">
+      <ControlStack>
+        <TypeSelector formType={s.formData.type} schemas={s.schemas} isEditing={s.isEditing} onTypeChange={s.handleTypeChange} />
+        <NameInput value={s.formData.name} onChange={(v) => s.handleFormDataChange('name', v)} />
+      </ControlStack>
       <ProviderFields fields={basicFields} {...shared} />
       <PlexSections
         isPlex={s.isPlex} hasPlexToken={s.hasPlexToken} serverId={s.formData.settings.serverId}
@@ -69,36 +68,36 @@ function TypeSelector({ formType, schemas, isEditing, onTypeChange }: {
   isEditing: boolean
   onTypeChange: (type: NotifierType) => void
 }) {
+  const options = (schemas ?? []).map((schema) => ({ value: schema.type, label: schema.name }))
   return (
-    <div className="space-y-2">
-      <Label htmlFor="type">Type</Label>
-      <Select value={formType} onValueChange={(v) => v && onTypeChange(v as NotifierType)} disabled={isEditing}>
-        <SelectTrigger>{schemas?.find((s) => s.type === formType)?.name ?? formType}</SelectTrigger>
-        <SelectContent>
-          {schemas?.map((schema) => (
-            <SelectItem key={schema.type} value={schema.type}>{schema.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <SelectRow
+      label="Type"
+      value={formType}
+      onChange={(value) => onTypeChange(value as NotifierType)}
+      options={options}
+      disabled={isEditing}
+    />
   )
 }
 
 function NameInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor="name">Name</Label>
-      <Input id="name" placeholder="My Notification" value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
+    <InputRow
+      stacked
+      label="Name"
+      aria-label="Name"
+      placeholder="My Notification"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   )
 }
 
 function EnabledToggle({ enabled, onChange }: { enabled: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between">
-      <Label htmlFor="enabled">Enabled</Label>
-      <Switch id="enabled" checked={enabled} onCheckedChange={onChange} />
-    </div>
+    <ControlStack>
+      <SwitchRow label="Enabled" checked={enabled} onCheckedChange={onChange} />
+    </ControlStack>
   )
 }
 

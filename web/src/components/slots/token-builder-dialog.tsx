@@ -3,16 +3,7 @@ import { useRef, useState } from 'react'
 
 import { Code2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -25,6 +16,7 @@ type TokenBuilderDialogProps = {
   onChange: (value: string) => void
   mediaType: 'episode' | 'movie'
   highlightTokens: string[]
+  nested?: boolean
 }
 
 function TokenButton({
@@ -48,10 +40,10 @@ function TokenButton({
     <button
       type="button"
       onClick={() => onInsert(token)}
-      className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 font-mono text-[10px] transition-colors ${base}`}
+      className={`min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1 font-mono text-xs transition-colors ${base}`}
       title={`${description}\nExample: ${example}`}
     >
-      <Code2 className="text-muted-foreground size-2.5" />
+      <Code2 className="text-muted-foreground size-3" />
       {token}
     </button>
   )
@@ -102,15 +94,19 @@ function PatternTextarea({
 }) {
   return (
     <div className="space-y-2 border-t pt-2">
-      <Label className="text-xs">Format Pattern</Label>
+      <Label htmlFor="slot-format-pattern" className="text-body font-medium">
+        Format Pattern
+      </Label>
       <Textarea
+        id="slot-format-pattern"
+        aria-label="Format Pattern"
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onSelect={onCursorUpdate}
         onClick={onCursorUpdate}
         onKeyUp={onCursorUpdate}
-        className="min-h-[60px] font-mono text-xs"
+        className="min-h-tap font-mono text-base"
         placeholder="Click tokens above to build your format pattern..."
       />
     </div>
@@ -164,6 +160,7 @@ export function TokenBuilderDialog({
   onChange,
   mediaType,
   highlightTokens,
+  nested,
 }: TokenBuilderDialogProps) {
   const state = useTokenBuilderState(open, value)
   const categories: TokenCategory[] =
@@ -177,34 +174,51 @@ export function TokenBuilderDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[70vh] sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Edit Pattern</DialogTitle>
-          <DialogDescription>
-            Click a token to insert it. Highlighted tokens are recommended.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className="space-y-3 py-2">
-          {categories.map((category) => (
-            <TokenCategorySection
-              key={category}
-              category={category}
-              highlightTokens={highlightTokens}
-              onInsert={state.handleInsertToken}
-            />
-          ))}
-        </DialogBody>
-        <PatternTextarea
-          textareaRef={state.textareaRef}
-          value={state.localValue}
-          onChange={state.setLocalValue}
-          onCursorUpdate={state.handleCursorUpdate}
+    <SheetPresenter
+      nested={nested}
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit Pattern"
+      description="Click a token to insert it. Highlighted tokens are recommended."
+      wideClassName="max-h-[70vh] sm:max-w-xl"
+      footer={
+        <FormActions
+          onCancel={() => onOpenChange(false)}
+          confirmLabel="Apply"
+          onConfirm={handleApply}
         />
-        <DialogFooter showCloseButton>
-          <Button onClick={handleApply}>Apply</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <BuilderBody categories={categories} highlightTokens={highlightTokens} state={state} />
+    </SheetPresenter>
+  )
+}
+
+function BuilderBody({
+  categories,
+  highlightTokens,
+  state,
+}: {
+  categories: TokenCategory[]
+  highlightTokens: string[]
+  state: ReturnType<typeof useTokenBuilderState>
+}) {
+  return (
+    <div className="space-y-3 py-2">
+      {categories.map((category) => (
+        <TokenCategorySection
+          key={category}
+          category={category}
+          highlightTokens={highlightTokens}
+          onInsert={state.handleInsertToken}
+        />
+      ))}
+      <PatternTextarea
+        textareaRef={state.textareaRef}
+        value={state.localValue}
+        onChange={state.setLocalValue}
+        onCursorUpdate={state.handleCursorUpdate}
+      />
+    </div>
   )
 }

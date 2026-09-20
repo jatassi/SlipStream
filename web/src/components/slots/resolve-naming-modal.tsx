@@ -1,15 +1,4 @@
-import { Loader2 } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import type { MissingTokenInfo } from '@/types'
 
 import { PatternEditor } from './pattern-editor'
@@ -114,41 +103,42 @@ export function ResolveNamingModal(props: ResolveNamingModalProps) {
   const state = useResolveNamingModal(props)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Resolve Naming Format Issues</DialogTitle>
-          <DialogDescription>
-            Add the missing tokens to your filename formats to differentiate files in different
-            slots.
-            <MissingTokensHint tokens={state.stillMissingTokens} />
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className="grid gap-6 py-4 md:grid-cols-2">
-          <EpisodeFormatsColumn
-            form={state.form}
-            updateField={state.updateField}
-            missingInStandard={state.missingInStandard}
-            missingInDaily={state.missingInDaily}
-            missingInAnime={state.missingInAnime}
-          />
-          <MovieFormatsColumn
-            form={state.form}
-            updateField={state.updateField}
-            missingInMovie={state.missingInMovie}
-            stillMissingTokens={state.stillMissingTokens}
-          />
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={state.handleSave} disabled={state.saving || !state.allResolved}>
-            {state.saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SheetPresenter
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Resolve Naming Format Issues"
+      description={
+        <>
+          Add the missing tokens to your filename formats to differentiate files in different slots.
+          <MissingTokensHint tokens={state.stillMissingTokens} />
+        </>
+      }
+      wideClassName="sm:max-w-4xl"
+      footer={
+        <FormActions
+          onCancel={() => onOpenChange(false)}
+          confirmLabel="Save"
+          onConfirm={state.handleSave}
+          confirmDisabled={!state.allResolved}
+          loading={state.saving}
+        />
+      }
+    >
+      <div className="grid gap-6 py-2 md:grid-cols-2">
+        <EpisodeFormatsColumn
+          form={state.form}
+          updateField={state.updateField}
+          missingInStandard={state.missingInStandard}
+          missingInDaily={state.missingInDaily}
+          missingInAnime={state.missingInAnime}
+        />
+        <MovieFormatsColumn
+          form={state.form}
+          updateField={state.updateField}
+          missingInMovie={state.missingInMovie}
+          stillMissingTokens={state.stillMissingTokens}
+        />
+      </div>
+    </SheetPresenter>
   )
 }

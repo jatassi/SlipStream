@@ -17,12 +17,13 @@ export function PathInput({
   return (
     <form onSubmit={onSubmit} className="flex gap-2">
       <input
+        aria-label="Folder path"
         value={inputPath}
         onChange={(e) => setInputPath(e.target.value)}
         placeholder={hasDrives ? 'Select a drive or enter path...' : '/path/to/folder'}
-        className="font-mono text-sm flex-1 border border-border rounded px-3 py-2 bg-background"
+        className="h-11 flex-1 rounded-lg border border-border bg-background px-3 py-2 font-mono text-base"
       />
-      <Button type="submit" variant="outline" size="sm">
+      <Button type="submit" variant="outline" className="min-h-tap">
         Go
       </Button>
     </form>
