@@ -67,7 +67,9 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
-        className="isolate z-50"
+        // A modal sheet or dialog turns off pointer events on the body; this popup
+        // portals out of it and has to switch them back on to stay tappable.
+        className="isolate z-50 pointer-events-auto"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
