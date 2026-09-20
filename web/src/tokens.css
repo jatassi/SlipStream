@@ -38,7 +38,8 @@
   --dur-press: 120ms;
   --dur-fast: 160ms;
   --dur-base: 220ms;
-  --dur-sheet: 320ms;
+  --dur-sheet: 280ms;
+  --dur-sheet-out: 200ms;
 
   --text-caption: 12px;
   --text-caption--line-height: 16px;
@@ -249,14 +250,25 @@ a,
   }
 }
 
-.enter-fade-up {
+/* Utilities rather than plain classes: a screen reaches for its entrance through
+   a variant (`[&>section]:enter-fade-up`), which Tailwind only generates for a
+   utility it knows. */
+@utility enter-fade-up {
   animation: enter-fade-up var(--dur-base) var(--ease-out-strong) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-name: enter-fade;
+  }
 }
-.enter-fade {
+@utility enter-fade {
   animation: enter-fade var(--dur-fast) var(--ease-out-strong) both;
 }
-.enter-scale {
+@utility enter-scale {
   animation: enter-scale var(--dur-base) var(--ease-out-strong) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-name: enter-fade;
+  }
 }
 
 .stagger > :nth-child(1) {
@@ -279,10 +291,6 @@ a,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .enter-fade-up,
-  .enter-scale {
-    animation-name: enter-fade;
-  }
   .press:active {
     transform: none;
   }
