@@ -1,25 +1,11 @@
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { MoreHorizontal } from 'lucide-react'
 
 import { Row } from '@/components/grouped-list'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import type { ActionItem } from '@/components/presenter'
+import { ActionPresenter } from '@/components/presenter'
 import { Switch } from '@/components/ui/switch'
 
 export type SettingsRowAction = {
@@ -63,7 +49,7 @@ export function SettingsItemRow({
       leading={leading}
       title={<RowTitle title={title} onOpen={onOpen} openLabel={openLabel} />}
       subtitle={subtitle}
-      trailing={<RowTrailing detail={detail} toggle={toggle} actions={actions} />}
+      trailing={<RowTrailing title={title} detail={detail} toggle={toggle} actions={actions} />}
       chevron={onOpen !== undefined && toggle === undefined && actions === undefined}
     />
   )
@@ -95,10 +81,12 @@ function RowTitle({
 }
 
 function RowTrailing({
+  title,
   detail,
   toggle,
   actions,
 }: {
+  title: string
   detail?: ReactNode
   toggle?: SettingsRowToggle
   actions?: SettingsRowAction[]
@@ -114,90 +102,53 @@ function RowTrailing({
           disabled={toggle.disabled}
         />
       )}
-      {actions === undefined ? null : <RowActions actions={actions} />}
+      {actions === undefined ? null : <RowActions title={title} actions={actions} />}
     </div>
   )
 }
 
-function RowActions({ actions }: { actions: SettingsRowAction[] }) {
-  const [confirming, setConfirming] = useState<SettingsRowAction | null>(null)
+function toActionItem(action: SettingsRowAction): ActionItem {
+  const onClick = () => {
+    void action.onClick()
+  }
+  if (action.confirm === undefined) {
+    return { label: action.label, destructive: action.destructive, onClick }
+  }
+  return {
+    label: action.label,
+    destructive: action.destructive,
+    confirm: {
+      title: action.confirm.title,
+      description: action.confirm.description,
+      actions: [{ label: action.label, destructive: action.destructive, onClick }],
+    },
+  }
+}
+
+function RowActions({ title, actions }: { title: string; actions: SettingsRowAction[] }) {
+  const [open, setOpen] = useState(false)
+  const anchor = useRef<HTMLButtonElement>(null)
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label="Actions"
-          className="press-dim focus-visible:ring-ring text-muted-foreground flex size-8 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]"
-        >
-          <MoreHorizontal className="size-5" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-auto min-w-40">
-          {actions.map((action) => (
-            <DropdownMenuItem
-              key={action.label}
-              variant={action.destructive === true ? 'destructive' : 'default'}
-              onClick={() => {
-                runAction(action, setConfirming)
-              }}
-            >
-              {action.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ConfirmAction action={confirming} onClose={() => setConfirming(null)} />
+      <button
+        ref={anchor}
+        type="button"
+        aria-label="Actions"
+        onClick={() => {
+          setOpen(true)
+        }}
+        className="press-dim focus-visible:ring-ring min-h-tap size-tap text-muted-foreground flex items-center justify-center rounded-md outline-none focus-visible:ring-[3px]"
+      >
+        <MoreHorizontal className="size-5" />
+      </button>
+      <ActionPresenter
+        open={open}
+        onOpenChange={setOpen}
+        title={title}
+        actions={actions.map((action) => toActionItem(action))}
+        anchor={anchor}
+      />
     </>
-  )
-}
-
-function runAction(
-  action: SettingsRowAction,
-  setConfirming: (action: SettingsRowAction | null) => void,
-): void {
-  if (action.confirm === undefined) {
-    void action.onClick()
-    return
-  }
-  setConfirming(action)
-}
-
-function ConfirmAction({
-  action,
-  onClose,
-}: {
-  action: SettingsRowAction | null
-  onClose: () => void
-}) {
-  if (action?.confirm === undefined) {
-    return null
-  }
-  return (
-    <AlertDialog
-      open
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose()
-        }
-      }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{action.confirm.title}</AlertDialogTitle>
-          <AlertDialogDescription>{action.confirm.description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant={action.destructive === true ? 'destructive' : 'default'}
-            onClick={() => {
-              void action.onClick()
-              onClose()
-            }}
-          >
-            {action.label}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   )
 }

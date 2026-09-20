@@ -36,6 +36,10 @@ inside `SettingsItemRow`; ticket 06 owns the action-sheet presenter and ticket 1
 so nothing here forks those. Version Slots keeps its master toggle card and debug panel above the
 list; Indexers keeps the Prowlarr mode toggle and hides Add in Prowlarr mode.
 
+`SettingsItemRow`'s row actions now present through the shared `ActionPresenter` (bottom sheet on
+phone, menu on wide) instead of the hand-rolled `DropdownMenu`/`AlertDialog` pair this ticket
+originally shipped, retiring the fork noted above now that ticket 06's presenter exists.
+
 Two pre-existing defects surfaced once e2e drove these flows:
 - `/notifications/events` serialises the Go struct without JSON tags, so the event catalog arrives
   PascalCase. Every consumer read `group.events` as `undefined`, which crashed the notification row
