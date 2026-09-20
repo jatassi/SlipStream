@@ -1,4 +1,4 @@
 export { ExpandableMediaGrid } from './expandable-media-grid'
 export { ExternalMediaCard } from './external-media-card'
 export { MediaSearchMonitorControls } from './media-search-monitor-controls'
-export { ExternalSearchSection, SearchResultsSection } from './search-results-section'
+export { SearchResultsSection } from './search-results-section'

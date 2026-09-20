@@ -1,4 +1,4 @@
-import { paneFromPathname } from './use-tab-nav'
+import { paneFromPathname, type PaneId } from './use-tab-nav'
 
 export type SettingsSection = {
   path: string
@@ -58,12 +58,11 @@ export function backLabelForPathname(pathname: string): string | undefined {
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
+const SCREEN_FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series', 'search', 'more'])
+
 export function isScreenFillPath(pathname: string): boolean {
   const pane = paneFromPathname(pathname)
-  if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
-    return true
-  }
-  if (pane === 'movies' || pane === 'series') {
+  if (pane !== null && SCREEN_FILL_PANES.has(pane)) {
     return true
   }
   if (pathname === '/calendar' || pathname === '/import') {
