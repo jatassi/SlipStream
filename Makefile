@@ -35,12 +35,12 @@ dev-mode: ## Run both servers with developer mode enabled at startup
 #   frontend -> $(portless get slipstream)
 dev-backend: ## Run Go backend in development mode
 	@echo "Starting backend at $$(portless get slipstream-api)..."
-	@go build -o bin/slipstream ./cmd/slipstream
+	@mkdir -p web/dist && touch web/dist/.keep && go build -o bin/slipstream ./cmd/slipstream
 	@SLIPSTREAM_DEV_BUILD=1 portless run --name slipstream-api sh -c 'SLIPSTREAM_SERVER_PORT="$$PORT" exec ./bin/slipstream'
 
 dev-backend-devmode: ## Run Go backend with developer mode enabled at startup
 	@echo "Starting backend at $$(portless get slipstream-api) (developer mode)..."
-	@go build -o bin/slipstream ./cmd/slipstream
+	@mkdir -p web/dist && touch web/dist/.keep && go build -o bin/slipstream ./cmd/slipstream
 	@SLIPSTREAM_DEV_BUILD=1 portless run --name slipstream-api sh -c 'SLIPSTREAM_SERVER_PORT="$$PORT" exec ./bin/slipstream --dev-mode'
 
 dev-frontend: ## Run Vite frontend in development mode

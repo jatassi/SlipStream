@@ -84,8 +84,10 @@ const BACKEND_ARGS = '--config configs/config.example.yaml --dev-mode --no-tray'
 // `bun run`). Under portless each server is started through the
 // proxy under a per-worktree name and receives its real port through PORT; the
 // backend is told to listen on it and Vite reads PORT itself.
+// The backend embeds web/dist, so a fresh checkout or worktree needs the
+// directory to hold at least one file before `go build` will compile it.
 function backendCommand(): string {
-  const build = `go build -o ${BACKEND_BINARY} ./cmd/slipstream`
+  const build = `mkdir -p web/dist && touch web/dist/.keep && go build -o ${BACKEND_BINARY} ./cmd/slipstream`
   if (!usePortless) {
     return `${build} && ${BACKEND_BINARY} ${BACKEND_ARGS}`
   }
