@@ -92,7 +92,7 @@ async function monitorTitle(page: Page, kind: ShellKind): Promise<string> {
     .map((movie) => movie.title)
     .filter((title) => title !== MOVIE_TITLE && !title.startsWith('Scratch Movie'))
     .toSorted()
-  const title = kind === 'phone' ? titles[0] : titles[1]
+  const title: string | undefined = titles.at(kind === 'phone' ? 0 : 1)
   if (title === undefined) {
     throw new Error('the developer library has too few movies for the monitor check')
   }
@@ -226,7 +226,7 @@ test('the trailing menu opens Edit as a sheet that can be dragged away', async (
   if (!box) {
     throw new Error('the edit sheet has no box to drag')
   }
-  await dragDown(page, box.x + box.width / 2, box.y + 14, 420)
+  await dragDown(page, { x: box.x + box.width / 2, y: box.y + 14 }, 420)
 
   await expect(sheet).toBeHidden()
 })
@@ -335,12 +335,12 @@ function slotStatus(slotId: number, slotName: string) {
 
 // vaul ignores a drag that starts within 500ms of the sheet opening, so the
 // gesture waits for the entrance to settle before pulling the sheet down.
-async function dragDown(page: Page, x: number, y: number, distance: number): Promise<void> {
+async function dragDown(page: Page, from: { x: number; y: number }, distance: number): Promise<void> {
   await page.waitForTimeout(700)
-  await page.mouse.move(x, y)
+  await page.mouse.move(from.x, from.y)
   await page.mouse.down()
   for (let step = 1; step <= 8; step += 1) {
-    await page.mouse.move(x, y + (distance / 8) * step)
+    await page.mouse.move(from.x, from.y + (distance / 8) * step)
   }
   await page.mouse.up()
 }
