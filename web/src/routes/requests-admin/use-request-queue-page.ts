@@ -22,9 +22,12 @@ function useRequestDecisions() {
   const deleteMutation = useDeleteRequest()
 
   return {
-    handleDeny: async (request: Request) => {
+    handleDeny: async (request: Request, reason: string) => {
       try {
-        await denyMutation.mutateAsync({ id: request.id })
+        await denyMutation.mutateAsync({
+          id: request.id,
+          input: reason === '' ? undefined : { reason },
+        })
         toast.success('Request denied')
       } catch {
         toast.error('Failed to deny request')
@@ -52,7 +55,7 @@ export function useRequestQueuePage() {
   const [segment, setSegment] = useState<QueueSegment>('pending')
 
   const handleAction = (request: Request, action: RequestAction) => {
-    switch (action) {
+    switch (action.kind) {
       case 'approve': {
         void approve.handleApproveOnly(request)
         break
@@ -66,7 +69,7 @@ export function useRequestQueuePage() {
         break
       }
       case 'deny': {
-        void decisions.handleDeny(request)
+        void decisions.handleDeny(request, action.reason)
         break
       }
       case 'delete': {

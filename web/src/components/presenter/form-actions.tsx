@@ -10,6 +10,8 @@ export type FormActionsProps = {
   onCancel: () => void
   cancelDisabled?: boolean
   confirmLabel: ReactNode
+  /** Variant for the confirm button; `destructive` for a confirm that denies or deletes. */
+  confirmVariant?: 'default' | 'destructive'
   onConfirm: () => void
   confirmDisabled?: boolean
   loading?: boolean
@@ -22,6 +24,7 @@ export function FormActions({
   onCancel,
   cancelDisabled = false,
   confirmLabel,
+  confirmVariant = 'default',
   onConfirm,
   confirmDisabled = false,
   loading = false,
@@ -39,6 +42,7 @@ export function FormActions({
           {cancelLabel}
         </Button>
         <LoadingButton
+          variant={confirmVariant}
           className="min-h-tap flex-1"
           loading={loading}
           disabled={confirmDisabled || loading}
