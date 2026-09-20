@@ -129,7 +129,10 @@ function escapeRegExp(value: string): string {
 async function expectTitleDetail(page: Page, title: string): Promise<void> {
   await expect(page).toHaveURL(/\/(movies|series)\/\d+/)
   await expect(
-    page.getByRole('heading', { name: title }).or(page.getByRole('img', { name: title })),
+    page
+      .getByRole('heading', { name: title })
+      .or(page.getByRole('img', { name: title }))
+      .first(),
   ).toBeVisible()
 }
 
