@@ -45,7 +45,7 @@ func main() {
 
 	// Execute the real binary, replacing this process
 	// Pass through all arguments and environment
-	if err := syscall.Exec(userBinary, os.Args, os.Environ()); err != nil {
+	if err := syscall.Exec(userBinary, os.Args, os.Environ()); err != nil { //nolint:gosec // G702: hands this launcher's own argv to the bootstrapped binary in the user's own data directory, both trusted by construction
 		fatal("Failed to execute %s: %v", userBinary, err)
 	}
 }

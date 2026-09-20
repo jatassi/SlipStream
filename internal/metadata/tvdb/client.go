@@ -88,7 +88,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 	loginURL := fmt.Sprintf("%s/login", c.config.BaseURL)
 	loginReq := LoginRequest{APIKey: c.config.APIKey}
 
-	body, err := json.Marshal(loginReq)
+	body, err := json.Marshal(loginReq) //nolint:gosec // G117: the TVDB login endpoint requires the API key in the request body
 	if err != nil {
 		return fmt.Errorf("failed to marshal login request: %w", err)
 	}

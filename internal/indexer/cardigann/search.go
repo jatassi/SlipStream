@@ -350,7 +350,9 @@ func (e *SearchEngine) setSearchHeaders(req *http.Request, tmplCtx *TemplateCont
 	}
 }
 
-// executeSearchRequest performs the HTTP request and reads response
+// executeSearchRequest performs the HTTP request and reads response.
+//
+//nolint:gosec // G704: the target host comes from the indexer definition the operator installed and configured, so an operator-chosen host is the intended behaviour rather than an SSRF
 func (e *SearchEngine) executeSearchRequest(req *http.Request) ([]byte, error) {
 	resp, err := e.httpClient.Do(req)
 	if err != nil {

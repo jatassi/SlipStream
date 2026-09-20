@@ -30,7 +30,7 @@ func serverDebugLog(msg string) {
 		logDir = "./logs"
 	}
 
-	logFile := filepath.Join(logDir, "bootstrap.log")
+	logFile := filepath.Clean(filepath.Join(logDir, "bootstrap.log"))
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return

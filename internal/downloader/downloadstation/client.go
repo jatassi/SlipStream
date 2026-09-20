@@ -283,6 +283,7 @@ func (c *Client) createMultipartBody(opts *types.AddOptions) (*bytes.Buffer, str
 	return &buf, writer.FormDataContentType(), nil
 }
 
+//nolint:gosec // G704: the target host is the Download Station instance the operator configured in settings, so reaching a private address is the intended behaviour rather than an SSRF
 func (c *Client) doRequest(req *http.Request, result interface{}) error {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

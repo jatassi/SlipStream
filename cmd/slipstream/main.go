@@ -60,9 +60,10 @@ func bootstrapLog(msg string) {
 	if logDir == "" {
 		logDir = "./logs"
 	}
+	logDir = filepath.Clean(logDir)
 
 	_ = os.MkdirAll(logDir, 0o750)
-	logFile := filepath.Join(logDir, "bootstrap.log")
+	logFile := filepath.Clean(filepath.Join(logDir, "bootstrap.log"))
 
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -94,9 +95,10 @@ func updaterLog(msg string) {
 	if logDir == "" {
 		logDir = "./logs"
 	}
+	logDir = filepath.Clean(logDir)
 
 	_ = os.MkdirAll(logDir, 0o750)
-	logFile := filepath.Join(logDir, "bootstrap.log")
+	logFile := filepath.Clean(filepath.Join(logDir, "bootstrap.log"))
 
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -376,7 +378,7 @@ func spawnNewProcess() error {
 	if err != nil {
 		return fmt.Errorf("get executable path: %w", err)
 	}
-	cmd := exec.Command(exe, os.Args[1:]...) //nolint:noctx // Fire-and-forget process spawn for restart
+	cmd := exec.Command(exe, os.Args[1:]...) //nolint:gosec,noctx // G702: re-execs this same binary with this process's own argv, both trusted by construction; fire-and-forget spawn has no context to bind to
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -384,6 +386,8 @@ func spawnNewProcess() error {
 }
 
 func completeUpdate(targetPath string, port int) {
+	targetPath = filepath.Clean(targetPath)
+
 	updaterLog("=== Update completion starting ===")
 	updaterLog(fmt.Sprintf("Target path: %s", targetPath))
 	updaterLog(fmt.Sprintf("Port to wait for: %d", port))
@@ -394,6 +398,7 @@ func completeUpdate(targetPath string, port int) {
 		return
 	}
 	currentExe, _ = filepath.EvalSymlinks(currentExe)
+	currentExe = filepath.Clean(currentExe)
 	updaterLog(fmt.Sprintf("Current executable: %s", currentExe))
 
 	// Wait for the old process to exit by polling the port
@@ -433,7 +438,7 @@ func completeAppBundleUpdate(currentExe, targetPath string) {
 		return
 	}
 
-	cmd := exec.Command("cp", "-R", currentAppBundle, targetPath) //nolint:noctx // Updater runs outside normal app lifecycle
+	cmd := exec.Command("cp", "-R", currentAppBundle, targetPath) //nolint:gosec,noctx // G702: both paths come from this app's own --complete-update invocation of itself and are passed as argv, never through a shell; the updater runs outside the normal app lifecycle
 	if err := cmd.Run(); err != nil {
 		updaterLog(fmt.Sprintf("Failed to copy app bundle: %v", err))
 		return
@@ -512,6 +517,10 @@ func reportCopyFailure(copyErr error) {
 	}
 }
 
+// G702: exePath is the freshly installed SlipStream binary whose location this
+// app passed to its own updater; it is never attacker-supplied.
+//
+//nolint:gosec // see above
 func launchUpdatedApp(exePath, workDir string) {
 	updaterLog(fmt.Sprintf("Launching updated application: %s", exePath))
 	cmd := exec.Command(exePath) //nolint:noctx // Fire-and-forget detached process, context would prevent Job Object breakaway

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -57,7 +58,7 @@ func findExecutable(name, explicitPath string, logger *zerolog.Logger) string {
 			`C:\Program Files (x86)\MediaInfo CLI\` + exe,
 		}
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-			commonPaths = append(commonPaths, localAppData+`\MediaInfo\`+exe)
+			commonPaths = append(commonPaths, filepath.Join(filepath.Clean(localAppData), "MediaInfo", exe))
 		}
 	}
 

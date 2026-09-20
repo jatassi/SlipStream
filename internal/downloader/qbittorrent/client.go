@@ -596,6 +596,7 @@ func (c *Client) setAuthHeaders(req *http.Request) {
 	}
 }
 
+//nolint:gosec // G704: the target host is the download client the operator configured in settings, so reaching a private address is the intended behaviour rather than an SSRF
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
