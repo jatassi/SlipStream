@@ -58,15 +58,12 @@ export function backLabelForPathname(pathname: string): string | undefined {
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
+const SCREEN_FILL_PATHS = new Set(['/more', '/calendar', '/import', '/missing', '/history'])
+const SCREEN_FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
+
 export function isScreenFillPath(pathname: string): boolean {
   const pane = paneFromPathname(pathname)
-  if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
-    return true
-  }
-  if (pane === 'movies' || pane === 'series') {
-    return true
-  }
-  if (pathname === '/calendar' || pathname === '/import') {
+  if (SCREEN_FILL_PATHS.has(pathname) || (pane !== null && SCREEN_FILL_PANES.has(pane))) {
     return true
   }
   return isDetailPath(pathname) || isSettingsPath(pathname) || isSystemPath(pathname)

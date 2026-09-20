@@ -1,97 +1,133 @@
+import { EmptyState } from '@/components/data/empty-state'
 import { ErrorState } from '@/components/data/error-state'
-import { PageHeader } from '@/components/layout/page-header'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Group, RowSkeleton } from '@/components/grouped-list'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { MissingMovieRows, UpgradableMovieRows } from '@/components/missing/missing-movie-rows'
+import { MissingSeriesRows, UpgradableSeriesRows } from '@/components/missing/missing-series-rows'
+import { Screen } from '@/components/screen/screen'
+import { Segmented, type SegmentedOption } from '@/components/ui/segmented'
 
-import { LoadingSkeleton } from './loading-skeleton'
-import { MediaTabs } from './media-tabs'
-import { MissingTabContent } from './missing-tab-content'
-import { SearchButton } from './search-button'
-import { UpgradableTabContent } from './upgradable-tab-content'
+import type { ViewMode } from './use-missing-page'
 import { useMissingPage } from './use-missing-page'
 
-const DESCRIPTIONS = {
-  missing: 'Media that has been released but not yet downloaded',
-  upgradable: 'Media with files below the quality cutoff',
-} as const
+const SKELETONS = ['missing-a', 'missing-b', 'missing-c', 'missing-d', 'missing-e'] as const
 
-export function MissingPage() {
-  const page = useMissingPage()
+const VIEW_OPTIONS: SegmentedOption<ViewMode>[] = [
+  { value: 'missing', label: 'Missing' },
+  { value: 'upgradable', label: 'Upgradable' },
+]
 
-  if (page.isError) {
-    return (
-      <div>
-        <PageHeader title={page.isMissingView ? 'Missing' : 'Upgradable'} />
-        <ErrorState onRetry={page.handleRefetch} />
-      </div>
-    )
+type PageState = ReturnType<typeof useMissingPage>
+
+function SearchAllAction({ state }: { state: PageState }) {
+  if (state.count === 0) {
+    return null
   }
-
-  const title = page.isMissingView ? 'Missing' : 'Upgradable'
-  const description = page.isLoading ? (
-    <Skeleton className="h-4 w-64" />
-  ) : (
-    DESCRIPTIONS[page.view]
-  )
-
   return (
-    <div>
-      <PageHeader
-        title={title}
-        description={description}
-        actions={
-          <div className="flex items-center gap-2">
-            <SearchButton
-              isLoading={page.isLoading}
-              isSearching={page.isSearching}
-              searchCount={page.searchCount}
-              searchButtonStyle={page.searchButtonStyle}
-              onSearch={page.handleSearch}
-            />
-          </div>
-        }
-      />
-
-      <MediaTabs
-        filter={page.filter}
-        onFilterChange={page.setFilter}
-        isLoading={page.isLoading}
-        isMissingView={page.isMissingView}
-        totalCount={page.totalCount}
-        movieCount={page.movieCount}
-        episodeCount={page.episodeCount}
-        upgradableTotalCount={page.upgradableTotalCount}
-        onViewChange={page.setView}
-      >
-        <TabContent page={page} />
-      </MediaTabs>
-    </div>
+    <button
+      type="button"
+      onClick={state.handleSearchAll}
+      disabled={state.isSearching}
+      className="press-dim min-h-tap text-title focus-visible:ring-ring px-2 outline-none focus-visible:ring-[3px] disabled:opacity-60"
+    >
+      {state.isSearching ? 'Searching' : 'Search All'}
+    </button>
   )
 }
 
-function TabContent({ page }: { page: ReturnType<typeof useMissingPage> }) {
-  if (page.isLoading) {
-    return <LoadingSkeleton />
+function unitLabel(moduleId: string, count: number): string {
+  if (moduleId === 'movie') {
+    return count === 1 ? 'movie' : 'movies'
+  }
+  return count === 1 ? 'episode' : 'episodes'
+}
+
+function emptyTitle(moduleId: string, view: ViewMode): string {
+  const noun = moduleId === 'movie' ? 'movies' : 'episodes'
+  return view === 'missing' ? `No missing ${noun}` : `No upgradable ${noun}`
+}
+
+function emptyDescription(view: ViewMode): string {
+  return view === 'missing'
+    ? 'Everything monitored and released has been downloaded'
+    : 'Everything monitored meets its quality cutoff'
+}
+
+function MissingRows({ state }: { state: PageState }) {
+  if (state.view === 'missing') {
+    if (state.moduleId === 'movie') {
+      return (
+        <MissingMovieRows movies={state.missingMovies} profileNames={state.qualityProfileNames} />
+      )
+    }
+    return <MissingSeriesRows series={state.missingSeries} />
+  }
+  if (state.moduleId === 'movie') {
+    return (
+      <UpgradableMovieRows movies={state.upgradableMovies} profiles={state.qualityProfileMap} />
+    )
+  }
+  return <UpgradableSeriesRows series={state.upgradableSeries} />
+}
+
+function MissingContent({ state }: { state: PageState }) {
+  if (state.isLoading) {
+    return (
+      <Group>
+        {SKELETONS.map((id) => (
+          <RowSkeleton key={id} leading="poster" trailing />
+        ))}
+      </Group>
+    )
   }
 
-  if (page.isMissingView) {
+  if (state.count === 0) {
     return (
-      <MissingTabContent
-        missingMovies={page.missingMovies}
-        missingSeries={page.missingSeries}
-        qualityProfileNames={page.qualityProfileNames}
-        missingMovieCount={page.missingMovieCount}
-        missingEpisodeCount={page.missingEpisodeCount}
+      <EmptyState
+        title={emptyTitle(state.moduleId, state.view)}
+        description={emptyDescription(state.view)}
       />
     )
   }
 
   return (
-    <UpgradableTabContent
-      upgradableMovies={page.upgradableMovies}
-      upgradableSeries={page.upgradableSeries}
-      qualityProfiles={page.qualityProfileMap}
-      upgradableMovieCount={page.upgradableMovieCount}
-      upgradableEpisodeCount={page.upgradableEpisodeCount}
-    />
+    <Group header={`${state.count} ${unitLabel(state.moduleId, state.count)}`}>
+      <MissingRows state={state} />
+    </Group>
+  )
+}
+
+export function MissingPage() {
+  const state = useMissingPage()
+  const back = usePushBack()
+
+  if (state.isError) {
+    return (
+      <Screen title="Missing" back={back}>
+        <ErrorState onRetry={state.handleRefetch} />
+      </Screen>
+    )
+  }
+
+  return (
+    <Screen title="Missing" back={back} trailing={<SearchAllAction state={state} />}>
+      <div className="px-screen space-y-3 pb-5">
+        {state.modules.length > 1 && (
+          <Segmented
+            label="Missing module"
+            value={state.moduleId}
+            onChange={state.setModuleId}
+            options={state.modules.map((mod) => ({ value: mod.id, label: mod.name }))}
+          />
+        )}
+        <Segmented
+          label="Missing view"
+          value={state.view}
+          onChange={state.setView}
+          options={VIEW_OPTIONS}
+        />
+      </div>
+      <MissingContent state={state} />
+    </Screen>
   )
 }
