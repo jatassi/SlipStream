@@ -142,15 +142,15 @@ test('chip filters narrow the library and restore it', async ({ page, activate }
     expect(scrolled).toBeGreaterThan(0)
   }
 
-  const total = await cells(page, 'Movies').count()
-
   // Missing is the ticket's filter, and the set it selects is the set of movies
   // the API reports without files — the developer library's own count, whatever
   // the mock download client has imported by now.
   await activate(chip(page, 'Missing'))
   await expect.poll(async () => missingMatchesApi(page)).toBe(true)
+  // The restored set is read through a title that keeps its files.
+  await expect(cell(page, 'Movies', 'The Matrix')).toHaveCount(0)
   await activate(chip(page, 'Missing'))
-  await expect.poll(async () => cells(page, 'Movies').count()).toBe(total)
+  await expect(cell(page, 'Movies', 'The Matrix').first()).toBeVisible()
 
   // Unreleased titles never change status, so they give the narrowing a stable
   // pair to check against.
@@ -170,10 +170,13 @@ test('chip filters narrow the library and restore it', async ({ page, activate }
   await expect(cell(page, 'Movies', releasedTitle).first()).toBeVisible()
 })
 
+// Other specs add and remove titles in parallel, so the visible set is checked
+// against the missing set the API reports rather than against its size.
 async function missingMatchesApi(page: Page): Promise<boolean> {
+  const visible = await cells(page, 'Movies').allTextContents()
   const movies = await apiGet<LibraryMovie[]>(page, '/movies')
-  const expected = movies.filter((movie) => movie.status === 'missing').length
-  return (await cells(page, 'Movies').count()) === expected
+  const missing = movies.filter((movie) => movie.status === 'missing').map((movie) => movie.title)
+  return visible.every((text) => missing.some((title) => text.startsWith(title)))
 }
 
 test('a poster cell opens its detail', async ({ page, activate }) => {

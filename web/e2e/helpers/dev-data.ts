@@ -148,6 +148,14 @@ export async function createScratchMovie(page: Page, title: string): Promise<Mov
   })
 }
 
+export async function setMoviesMonitored(
+  page: Page,
+  ids: number[],
+  monitored: boolean,
+): Promise<void> {
+  await apiJson(page, '/movies/monitor', { method: 'PUT', data: { ids, monitored } })
+}
+
 export async function deleteMovieIfPresent(page: Page, id: number): Promise<void> {
   const token = await bearerToken(page)
   await page.request.fetch(`${apiBase}/movies/${id}`, {
