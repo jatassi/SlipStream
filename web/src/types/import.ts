@@ -57,8 +57,6 @@ export type ManualImportRequest = {
   path: string
   mediaType: 'movie' | 'episode'
   mediaId: number
-  seriesId?: number
-  seasonNum?: number
   targetSlotId?: number
 }
 

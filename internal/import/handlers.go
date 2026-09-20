@@ -125,8 +125,6 @@ type ManualImportRequest struct {
 	Path         string `json:"path" validate:"required"`
 	MediaType    string `json:"mediaType" validate:"required,oneof=movie episode"`
 	MediaID      int64  `json:"mediaId" validate:"required"`
-	SeriesID     *int64 `json:"seriesId,omitempty"`
-	SeasonNum    *int   `json:"seasonNum,omitempty"`
 	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
 
@@ -172,7 +170,10 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "mediaType must be 'movie' or 'episode'")
 	}
 
-	match := h.buildManualMatch(&req)
+	match, err := h.service.matchManual(ctx, req.MediaType, req.MediaID, req.TargetSlotID)
+	if err != nil {
+		return c.JSON(http.StatusOK, h.buildManualImportResponse(req.Path, nil, err))
+	}
 
 	if err := h.service.populateRootFolder(ctx, match, req.TargetSlotID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to determine root folder: "+err.Error())
@@ -180,24 +181,6 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 
 	result, err := h.service.ProcessManualImport(ctx, req.Path, match, req.TargetSlotID)
 	return c.JSON(http.StatusOK, h.buildManualImportResponse(req.Path, result, err))
-}
-
-func (h *Handlers) buildManualMatch(req *ManualImportRequest) *LibraryMatch {
-	match := &LibraryMatch{
-		MediaType:  req.MediaType,
-		Confidence: 1.0,
-		Source:     "manual",
-	}
-
-	if req.MediaType == mediaTypeMovie {
-		match.MovieID = &req.MediaID
-	} else {
-		match.EpisodeID = &req.MediaID
-		match.SeriesID = req.SeriesID
-		match.SeasonNum = req.SeasonNum
-	}
-
-	return match
 }
 
 func (h *Handlers) buildManualImportResponse(sourcePath string, result *ImportResult, err error) ManualImportResponse {

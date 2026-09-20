@@ -46,6 +46,49 @@ func (s *Service) matchToLibraryViaModule(ctx context.Context, path string, mapp
 	return moduleEntityToLibraryMatch(entity), nil
 }
 
+// matchManual resolves a user-confirmed manual import target through the module's
+// ImportHandler so the resulting match carries the module entity needed for
+// destination computation and library updates.
+func (s *Service) matchManual(ctx context.Context, mediaType string, mediaID int64, targetSlotID *int64) (*LibraryMatch, error) {
+	cd := module.CompletedDownload{
+		EntityID:     mediaID,
+		Source:       "manual",
+		TargetSlotID: targetSlotID,
+	}
+	switch mediaType {
+	case mediaTypeMovie:
+		cd.ModuleType = module.TypeMovie
+		cd.EntityType = module.EntityMovie
+	case mediaTypeEpisode:
+		cd.ModuleType = module.TypeTV
+		cd.EntityType = module.EntityEpisode
+	default:
+		return nil, fmt.Errorf("unsupported media type %q", mediaType)
+	}
+
+	mod := s.registry.Get(cd.ModuleType)
+	if mod == nil {
+		return nil, fmt.Errorf("module %s not found in registry", cd.ModuleType)
+	}
+	importHandler, ok := mod.(module.ImportHandler)
+	if !ok {
+		return nil, fmt.Errorf("module %s does not implement ImportHandler", cd.ModuleType)
+	}
+
+	entities, err := importHandler.MatchDownload(ctx, &cd)
+	if err != nil {
+		return nil, err
+	}
+	if len(entities) == 0 {
+		return nil, ErrNoMatch
+	}
+
+	entity := &entities[0]
+	entity.Source = "manual"
+	entity.Confidence = 1.0
+	return moduleEntityToLibraryMatch(entity), nil
+}
+
 // mappingToModuleDownload converts a DownloadMapping to the module-system CompletedDownload.
 func mappingToModuleDownload(mapping *DownloadMapping) module.CompletedDownload {
 	cd := module.CompletedDownload{

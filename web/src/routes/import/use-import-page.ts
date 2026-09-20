@@ -17,8 +17,6 @@ function removeFromSet(set: Set<string>, key: string): Set<string> {
 export type MatchParams = {
   mediaType: string
   mediaId: number
-  seriesId?: number
-  seasonNum?: number
   targetSlotId?: number
 }
 
@@ -27,8 +25,6 @@ function matchToRequest(path: string, match: MatchParams): ManualImportRequest {
     path,
     mediaType: match.mediaType as 'movie' | 'episode',
     mediaId: match.mediaId,
-    seriesId: match.seriesId,
-    seasonNum: match.seasonNum,
     targetSlotId: match.targetSlotId,
   }
 }
@@ -38,8 +34,6 @@ export function suggestedToRequest(path: string, match: SuggestedMatch): ManualI
     path,
     mediaType: match.mediaType as 'movie' | 'episode',
     mediaId: match.mediaId,
-    seriesId: match.seriesId,
-    seasonNum: match.seasonNum,
   }
 }
 

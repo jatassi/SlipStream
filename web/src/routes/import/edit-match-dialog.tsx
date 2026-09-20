@@ -34,11 +34,10 @@ type FormState = {
   type: 'movie' | 'episode'
   movieId: string
   episodeId: string
-  seriesId: string
   slotId: string
 }
 
-function buildMatchParams(state: FormState, season?: number): MatchParams | null {
+function buildMatchParams(state: FormState): MatchParams | null {
   const parsedSlotId = state.slotId ? Number.parseInt(state.slotId) : undefined
 
   if (state.type === 'movie') {
@@ -53,13 +52,7 @@ function buildMatchParams(state: FormState, season?: number): MatchParams | null
     toast.error('Please select an episode')
     return null
   }
-  return {
-    mediaType: 'episode',
-    mediaId: Number.parseInt(state.episodeId),
-    seriesId: state.seriesId ? Number.parseInt(state.seriesId) : undefined,
-    seasonNum: season,
-    targetSlotId: parsedSlotId,
-  }
+  return { mediaType: 'episode', mediaId: Number.parseInt(state.episodeId), targetSlotId: parsedSlotId }
 }
 
 function useDialogFormState(file: ScannedFile) {
@@ -92,10 +85,7 @@ function EditMatchDialogContent({ file, onClose, onConfirm }: {
   const s = useDialogFormState(file)
 
   const handleConfirm = () => {
-    const params = buildMatchParams(
-      { type: s.selectedType, movieId: s.selectedMovieId, episodeId: s.selectedEpisodeId, seriesId: s.selectedSeriesId, slotId: s.selectedSlotId },
-      file.parsedInfo?.season,
-    )
+    const params = buildMatchParams({ type: s.selectedType, movieId: s.selectedMovieId, episodeId: s.selectedEpisodeId, slotId: s.selectedSlotId })
     if (params) {
       onConfirm(file, params)
     }
