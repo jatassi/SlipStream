@@ -1,4 +1,4 @@
-export type { ActionPresenterProps } from './action-presenter'
+export type { ActionPresenterProps, WideSurface } from './action-presenter'
 export { ActionPresenter } from './action-presenter'
 export type { ActionSheetProps } from './action-sheet'
 export { ActionSheet } from './action-sheet'

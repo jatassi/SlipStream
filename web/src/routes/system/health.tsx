@@ -1,16 +1,69 @@
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
-import { PageHeader } from '@/components/layout/page-header'
+import { ArrowUpCircle, Clock, Loader2, ScrollText } from 'lucide-react'
 
-import { HealthCategoryCard } from './health-category-card'
-import { ProwlarrTreeCard } from './prowlarr-tree-card'
-import { SystemNav } from './system-nav'
+import { ErrorState } from '@/components/data/error-state'
+import { Group, IconTile, Row, RowSkeleton } from '@/components/grouped-list'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
+import { useScheduledTasks } from '@/hooks'
+
+import { HealthGroup } from './health-group'
 import { useHealthPage } from './use-health-page'
 
-const PAGE_TITLE = 'System'
-const PAGE_DESCRIPTION = 'Monitor system health, tasks, logs, and updates'
+function runningTrailing(running: number) {
+  if (running === 0) {
+    return undefined
+  }
+  return (
+    <span className="text-footnote flex items-center gap-1.5 text-tv-400">
+      <Loader2 className="size-4 animate-spin" />
+      {running} running
+    </span>
+  )
+}
+
+function SystemGroup() {
+  const { data: tasks } = useScheduledTasks()
+  const running = tasks?.filter((task) => task.running).length ?? 0
+
+  return (
+    <Group>
+      <Row
+        leading={
+          <IconTile className="bg-tv-600">
+            <Clock />
+          </IconTile>
+        }
+        title="Scheduled Tasks"
+        href="/system/tasks"
+        trailing={runningTrailing(running)}
+        chevron
+      />
+      <Row
+        leading={
+          <IconTile className="bg-zinc-600">
+            <ScrollText />
+          </IconTile>
+        }
+        title="Logs"
+        href="/system/logs"
+        chevron
+      />
+      <Row
+        leading={
+          <IconTile className="bg-emerald-600">
+            <ArrowUpCircle />
+          </IconTile>
+        }
+        title="Update"
+        href="/system/update"
+        chevron
+      />
+    </Group>
+  )
+}
 
 export function SystemHealthPage() {
+  const back = usePushBack()
   const {
     isLoading,
     error,
@@ -23,43 +76,38 @@ export function SystemHealthPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-        <SystemNav />
-        <LoadingState variant="list" count={5} />
-      </div>
+      <Screen title="System" back={back}>
+        <SystemGroup />
+        <Group header="Health">
+          {[0, 1, 2, 3].map((index) => (
+            <RowSkeleton key={index} />
+          ))}
+        </Group>
+      </Screen>
     )
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-        <SystemNav />
+      <Screen title="System" back={back}>
+        <SystemGroup />
         <ErrorState title="Failed to load health status" />
-      </div>
+      </Screen>
     )
   }
 
-  const indexerSection = isProwlarrMode ? (
-    <ProwlarrTreeCard prowlarrItem={prowlarrItem} indexerItems={indexerItems} />
-  ) : (
-    <HealthCategoryCard category="indexers" items={indexerItems} />
-  )
-
   return (
-    <div className="space-y-6">
-      <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-
-      <SystemNav />
-
-      <div className="space-y-4">
-        <HealthCategoryCard category="downloadClients" items={downloadClients} />
-        {indexerSection}
-        {regularCategories.map(({ category, items }) => (
-          <HealthCategoryCard key={category} category={category} items={items} />
-        ))}
-      </div>
-    </div>
+    <Screen title="System" back={back}>
+      <SystemGroup />
+      <HealthGroup category="downloadClients" items={downloadClients} />
+      <HealthGroup
+        category="indexers"
+        items={indexerItems}
+        leadingItem={isProwlarrMode ? prowlarrItem : undefined}
+      />
+      {regularCategories.map(({ category, items }) => (
+        <HealthGroup key={category} category={category} items={items} />
+      ))}
+    </Screen>
   )
 }

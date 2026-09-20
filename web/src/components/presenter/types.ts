@@ -2,6 +2,8 @@ export type ActionItem = {
   label: string
   onClick?: () => void
   destructive?: boolean
+  disabled?: boolean
+  keepOpen?: boolean
   confirm?: ActionConfirm
 }
 

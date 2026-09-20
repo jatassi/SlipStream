@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { Bug, ChevronDown, ChevronUp } from 'lucide-react'
 import Markdown from 'markdown-to-jsx'
 
-import { PageHeader } from '@/components/layout/page-header'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -17,7 +17,6 @@ import {
 import { cn } from '@/lib/utils'
 import type { UpdateState } from '@/types/update'
 
-import { SystemNav } from './system-nav'
 import { UpdateStateDisplay } from './update-state-display'
 import { useUpdatePage } from './use-update-page'
 
@@ -48,10 +47,10 @@ function ReleaseNotes({ notes }: { notes: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="text-muted-foreground text-sm font-medium">Release Notes</div>
+      <div className="text-muted-foreground text-footnote font-medium">Release Notes</div>
       <div
         className={cn(
-          'bg-muted/50 relative rounded-lg p-4 text-sm',
+          'bg-muted/50 rounded-card relative p-4 text-sm',
           !expanded && hasMore && 'max-h-48 overflow-hidden',
         )}
       >
@@ -61,54 +60,61 @@ function ReleaseNotes({ notes }: { notes: string }) {
         >
           {displayedContent}
         </Markdown>
-        {!expanded && hasMore ? <div className="from-muted/50 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent" /> : null}
+        {!expanded && hasMore ? (
+          <div className="from-muted/50 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent" />
+        ) : null}
       </div>
-      {hasMore ? <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
+      {hasMore ? (
+        <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
           {expanded ? <ChevronUp className="mr-1 size-4" /> : <ChevronDown className="mr-1 size-4" />}
           {expanded ? 'Show Less' : 'Show More'}
-        </Button> : null}
+        </Button>
+      ) : null}
     </div>
   )
 }
 
+function UpdateCard({ children }: { children: React.ReactNode }) {
+  return <div className="bg-card rounded-card overflow-hidden p-4">{children}</div>
+}
+
 export function UpdatePage() {
+  const back = usePushBack()
   const page = useUpdatePage()
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="System"
-        description="Monitor system health, tasks, logs, and updates"
-        actions={
-          page.developerMode ? <DebugButton state={page.state} onClick={page.cycleDebugState} /> : null
-        }
-      />
-      <SystemNav />
-      <div className="max-w-lg">
-        <Card>
-          <CardContent className="py-1">
-            <UpdateStateDisplay
-              state={page.state}
-              currentVersion={page.currentVersion}
-              newVersion={page.newVersion}
-              progress={page.progress}
-              error={page.error}
-              onCheckForUpdate={page.handleCheckForUpdate}
-              onDownloadUpdate={page.handleDownloadUpdate}
-              onRetry={page.handleRetry}
-              downloadedMB={page.downloadedMB}
-              totalMB={page.totalMB}
-              isChecking={page.isChecking}
-              isInstalling={page.isInstalling}
-            />
-          </CardContent>
-        </Card>
-        {page.showReleaseNotes && page.releaseNotes ? <Card className="mt-4">
-            <CardContent className="py-1">
-              <ReleaseNotes notes={page.releaseNotes} />
-            </CardContent>
-          </Card> : null}
+    <Screen
+      title="Update"
+      back={back}
+      trailing={
+        page.developerMode ? (
+          <DebugButton state={page.state} onClick={page.cycleDebugState} />
+        ) : undefined
+      }
+    >
+      <div className="px-screen max-w-lg space-y-4">
+        <UpdateCard>
+          <UpdateStateDisplay
+            state={page.state}
+            currentVersion={page.currentVersion}
+            newVersion={page.newVersion}
+            progress={page.progress}
+            error={page.error}
+            onCheckForUpdate={page.handleCheckForUpdate}
+            onDownloadUpdate={page.handleDownloadUpdate}
+            onRetry={page.handleRetry}
+            downloadedMB={page.downloadedMB}
+            totalMB={page.totalMB}
+            isChecking={page.isChecking}
+            isInstalling={page.isInstalling}
+          />
+        </UpdateCard>
+        {page.showReleaseNotes && page.releaseNotes ? (
+          <UpdateCard>
+            <ReleaseNotes notes={page.releaseNotes} />
+          </UpdateCard>
+        ) : null}
       </div>
-    </div>
+    </Screen>
   )
 }

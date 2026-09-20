@@ -5,11 +5,13 @@ import { useNavigate } from '@tanstack/react-router'
 import { useRestart } from '@/hooks'
 import { usePortalAuthStore } from '@/stores'
 
+export type SessionActions = ReturnType<typeof useSessionActions>
+
 export function useSessionActions() {
   const navigate = useNavigate()
   const { logout } = usePortalAuthStore()
-  const [showRestartDialog, setShowRestartDialog] = useState(false)
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [restartOpen, setRestartOpen] = useState(false)
+  const [logoutOpen, setLogoutOpen] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const restartMutation = useRestart()
 
@@ -27,9 +29,9 @@ export function useSessionActions() {
 
   const handleAction = (action: string) => {
     if (action === 'restart') {
-      setShowRestartDialog(true)
+      setRestartOpen(true)
     } else if (action === 'logout') {
-      setShowLogoutDialog(true)
+      setLogoutOpen(true)
     }
   }
 
@@ -44,12 +46,12 @@ export function useSessionActions() {
   }
 
   return {
-    showRestartDialog,
-    setShowRestartDialog,
-    showLogoutDialog,
-    setShowLogoutDialog,
+    restartOpen,
+    setRestartOpen,
+    logoutOpen,
+    setLogoutOpen,
     countdown,
-    restartMutation,
+    isRestartPending: restartMutation.isPending,
     handleAction,
     handleRestart,
     handleLogout,

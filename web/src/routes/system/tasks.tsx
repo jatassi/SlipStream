@@ -1,43 +1,48 @@
 import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
-import { PageHeader } from '@/components/layout/page-header'
+import { Group, Row, RowSkeleton } from '@/components/grouped-list'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 
-import { SystemNav } from './system-nav'
-import { TaskTable } from './task-table'
+import { TaskRow } from './task-row'
 import { useTasksPage } from './use-tasks-page'
 
-const PAGE_TITLE = 'System'
-const PAGE_DESCRIPTION = 'Monitor system health, tasks, logs, and updates'
+const TITLE = 'Scheduled Tasks'
 
 export function TasksPage() {
-  const { tasks, isLoading, isError, refetch, isRunPending, handleRunTask } =
-    useTasksPage()
+  const back = usePushBack()
+  const { tasks, isLoading, isError, refetch, isRunPending, handleRunTask } = useTasksPage()
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-        <SystemNav />
-        <LoadingState variant="list" />
-      </div>
+      <Screen title={TITLE} back={back}>
+        <Group>
+          {[0, 1, 2, 3, 4].map((index) => (
+            <RowSkeleton key={index} />
+          ))}
+        </Group>
+      </Screen>
     )
   }
 
   if (isError) {
     return (
-      <div className="space-y-6">
-        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-        <SystemNav />
+      <Screen title={TITLE} back={back}>
         <ErrorState onRetry={refetch} />
-      </div>
+      </Screen>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-      <SystemNav />
-      <TaskTable tasks={tasks} isRunPending={isRunPending} onRun={handleRunTask} />
-    </div>
+    <Screen title={TITLE} back={back}>
+      <Group>
+        {tasks === undefined || tasks.length === 0 ? (
+          <Row title="No scheduled tasks" />
+        ) : (
+          tasks.map((task) => (
+            <TaskRow key={task.id} task={task} isRunPending={isRunPending} onRun={handleRunTask} />
+          ))
+        )}
+      </Group>
+    </Screen>
   )
 }

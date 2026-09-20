@@ -1,12 +1,9 @@
-import { Clock, Play } from 'lucide-react'
+import { Loader2, Play } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { TableCell, TableRow } from '@/components/ui/table'
-import { formatDate } from '@/lib/formatters'
+import { Row } from '@/components/grouped-list'
 import type { ScheduledTask } from '@/types'
 
-import { TaskStatusBadge } from './task-status-badge'
-import { cronToPlainEnglish, formatRelativeTime } from './task-utils'
+import { formatRelativeTime } from './task-utils'
 
 type TaskRowProps = {
   task: ScheduledTask
@@ -14,46 +11,43 @@ type TaskRowProps = {
   onRun: (taskId: string, taskName: string) => void
 }
 
+function TaskTrailing({ task, isRunPending, onRun }: TaskRowProps) {
+  if (task.running) {
+    return (
+      <span className="text-footnote flex items-center gap-1.5 text-tv-400" role="status" aria-label="Running">
+        <Loader2 className="size-4 animate-spin" />
+        Running
+      </span>
+    )
+  }
+  return (
+    <div className="flex items-center gap-2">
+      {task.lastError === undefined || task.lastError === '' ? null : (
+        <span className="text-footnote text-destructive">Failed</span>
+      )}
+      <button
+        type="button"
+        aria-label={`Run ${task.name}`}
+        disabled={isRunPending}
+        onClick={() => onRun(task.id, task.name)}
+        className="press flex size-tap items-center justify-center rounded-md text-tv-400 focus-visible:ring-ring outline-none focus-visible:ring-[3px] disabled:opacity-50"
+      >
+        <Play className="size-4" />
+      </button>
+    </div>
+  )
+}
+
 export function TaskRow({ task, isRunPending, onRun }: TaskRowProps) {
   return (
-    <TableRow>
-      <TableCell>
-        <div>
-          <p className="font-medium">{task.name}</p>
-          <p className="text-muted-foreground text-sm">{task.description}</p>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Clock className="text-muted-foreground size-4" />
-          <span>{cronToPlainEnglish(task.cron)}</span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <p>{formatRelativeTime(task.lastRun)}</p>
-          {task.lastRun ? <p className="text-muted-foreground text-xs">{formatDate(task.lastRun)}</p> : null}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div>
-          <p>{formatRelativeTime(task.nextRun)}</p>
-          {task.nextRun ? <p className="text-muted-foreground text-xs">{formatDate(task.nextRun)}</p> : null}
-        </div>
-      </TableCell>
-      <TableCell>
-        <TaskStatusBadge task={task} />
-      </TableCell>
-      <TableCell>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onRun(task.id, task.name)}
-          disabled={task.running || isRunPending}
-        >
-          <Play className="size-4" />
-        </Button>
-      </TableCell>
-    </TableRow>
+    <Row
+      title={task.name}
+      subtitle={
+        <span className="nums">
+          Last {formatRelativeTime(task.lastRun)} · Next {formatRelativeTime(task.nextRun)}
+        </span>
+      }
+      trailing={<TaskTrailing task={task} isRunPending={isRunPending} onRun={onRun} />}
+    />
   )
 }

@@ -31,6 +31,16 @@ export function isSettingsPath(pathname: string): boolean {
   return pathname === '/settings' || pathname.startsWith('/settings/')
 }
 
+export const SYSTEM_INDEX_PATH = '/system/health'
+
+export function isSystemPath(pathname: string): boolean {
+  return pathname === '/system' || pathname.startsWith('/system/')
+}
+
+function isSystemSubScreen(pathname: string): boolean {
+  return isSystemPath(pathname) && pathname !== SYSTEM_INDEX_PATH
+}
+
 export function settingsSectionForLeaf(pathname: string): SettingsSection | undefined {
   return SETTINGS_SECTIONS.find((section) => pathname.startsWith(`${section.path}/`))
 }
@@ -42,6 +52,9 @@ export function backLabelForPathname(pathname: string): string | undefined {
   if (isLibraryPushPath(pathname)) {
     return 'Library'
   }
+  if (isSystemSubScreen(pathname)) {
+    return 'System'
+  }
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
@@ -50,5 +63,5 @@ export function isScreenFillPath(pathname: string): boolean {
   if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
     return true
   }
-  return isDetailPath(pathname) || isSettingsPath(pathname)
+  return isDetailPath(pathname) || isSettingsPath(pathname) || isSystemPath(pathname)
 }
