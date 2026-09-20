@@ -107,8 +107,9 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 
 `ActionPresenter` (`src/components/presenter/`) takes one action list and picks the surface the shell calls for: a bottom-anchored `ActionSheet` on phones, a dropdown menu positioned against `anchor` on wide screens.
 
-- `ActionItem` is `{ label, onClick?, destructive?, confirm? }`. Destructive actions render last, in the destructive colour, in their own stack (sheet) or below a separator (menu).
+- `ActionItem` is `{ label, onClick?, destructive?, disabled?, keepOpen?, confirm? }`. Destructive actions render last, in the destructive colour, in their own stack (sheet) or below a separator (menu). `keepOpen` leaves the surface up after the action runs, for actions whose own progress is shown in it.
 - `confirm: { title, description, actions }` routes the action through a second step instead of running it — another sheet on phones, an `AlertDialog` on wide. Use it for anything that deletes.
+- `wide="dialog"` swaps the wide menu for an `AlertDialog` so the presenter *is* the confirmation on both shells (action sheet on phones, dialog on wide). `description` is the sheet's and the dialog's supporting line, and `locked` disables Cancel and refuses dismissal while an action is in flight.
 - Describe the actions once and pass them in; never branch on `useViewport()` at the call site, and never hand-roll a second sheet.
 
 ## Library grid: PosterCell and ChipRow
@@ -171,6 +172,26 @@ both shells let the `Screen` own its own back control and scrolling.
   `SettingsItemRow` (icon tile, primary line, optional subtitle, trailing detail, `Switch` and an
   overflow action menu with confirmation). Add is `AddAction` — a plus passed as the `Screen`
   `trailing` slot.
+
+## System screens and session actions
+
+`/system/*` paths are `isScreenFillPath` like settings, and each route renders a `Screen` with
+`back={usePushBack()}`. `/system/health` is the System index (title "System", back "More"): a `Group`
+of rows for Scheduled Tasks, Logs and Update, then one `HealthGroup` per health category — group
+header is the category name, its `action` is "Test All", and each item is a `Row` with a status
+`IconTile`, the message and age as subtitle, and a per-item test button. The other three paths are
+sub-screens whose back label reads "System" (`backLabelForPathname` in `push-routes.ts`).
+
+Restart and Log out live in `use-session-actions.ts` and present through `SessionActionPresenters`
+(`src/components/layout/session-action-presenters.tsx`) — one `ActionPresenter` each with
+`wide="dialog"`, so both shells show the same confirmation. The restart action is `keepOpen`, so the
+surface stays up and its label counts the restart down before the page reloads; `locked` holds it
+there. More (phone) and the sidebar (wide) both render that component; there are no bespoke session
+dialogs.
+
+Developer Tools are `DevModeControls` (`src/components/layout/dev-mode-controls.tsx`): a
+"Developer Tools" `Group` of `<label>` rows carrying the `Developer mode` and `Force Loading`
+switches, shown on More. The wide shell keeps the header hammer popover instead.
 
 ## Playwright E2E
 

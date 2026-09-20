@@ -11,7 +11,8 @@ export function useScheduledTasks() {
   return useQuery({
     queryKey: schedulerKeys.tasks(),
     queryFn: () => schedulerApi.listTasks(),
-    refetchInterval: 60_000, // Refresh every 60 seconds to update running status
+    refetchInterval: (query) =>
+      query.state.data?.some((task) => task.running) === true ? 2000 : 60_000,
   })
 }
 

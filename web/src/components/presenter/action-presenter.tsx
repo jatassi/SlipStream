@@ -23,13 +23,18 @@ import { ActionSheet } from './action-sheet'
 import type { ActionConfirm, ActionItem } from './types'
 import { destructiveActions, safeActions } from './types'
 
+export type WideSurface = 'menu' | 'dialog'
+
 export type ActionPresenterProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   subtitle?: string
+  description?: string
   actions: ActionItem[]
   anchor?: RefObject<HTMLElement | null>
+  wide?: WideSurface
+  locked?: boolean
 }
 
 function ActionMenu({
@@ -54,6 +59,7 @@ function ActionMenu({
           <DropdownMenuItem
             key={action.label}
             className="min-h-tap px-3"
+            disabled={action.disabled}
             onClick={() => {
               onSelect(action)
             }}
@@ -67,6 +73,7 @@ function ActionMenu({
             key={action.label}
             variant="destructive"
             className="min-h-tap px-3"
+            disabled={action.disabled}
             onClick={() => {
               onSelect(action)
             }}
@@ -76,6 +83,74 @@ function ActionMenu({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function DialogActions({
+  actions,
+  locked,
+  onSelect,
+}: {
+  actions: ActionItem[]
+  locked: boolean
+  onSelect: (action: ActionItem) => void
+}) {
+  return (
+    <AlertDialogFooter>
+      <AlertDialogCancel disabled={locked}>Cancel</AlertDialogCancel>
+      {actions.map((action) => (
+        <AlertDialogAction
+          key={action.label}
+          variant={action.destructive === true ? 'destructive' : 'default'}
+          disabled={action.disabled}
+          onClick={() => {
+            onSelect(action)
+          }}
+        >
+          {action.label}
+        </AlertDialogAction>
+      ))}
+    </AlertDialogFooter>
+  )
+}
+
+function ActionDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  actions,
+  locked,
+  onSelect,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description?: string
+  actions: ActionItem[]
+  locked: boolean
+  onSelect: (action: ActionItem) => void
+}) {
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (locked && !next) {
+          return
+        }
+        onOpenChange(next)
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          {description === undefined ? null : (
+            <AlertDialogDescription>{description}</AlertDialogDescription>
+          )}
+        </AlertDialogHeader>
+        <DialogActions actions={actions} locked={locked} onSelect={onSelect} />
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -92,35 +167,19 @@ function ConfirmAlert({
     return null
   }
   return (
-    <AlertDialog
+    <ActionDialog
       open
       onOpenChange={(next) => {
         if (!next) {
           onClose()
         }
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{confirm.title}</AlertDialogTitle>
-          <AlertDialogDescription>{confirm.description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          {confirm.actions.map((action) => (
-            <AlertDialogAction
-              key={action.label}
-              variant={action.destructive === true ? 'destructive' : 'default'}
-              onClick={() => {
-                onRun(action)
-              }}
-            >
-              {action.label}
-            </AlertDialogAction>
-          ))}
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      title={confirm.title}
+      description={confirm.description}
+      actions={confirm.actions}
+      locked={false}
+      onSelect={onRun}
+    />
   )
 }
 
@@ -155,7 +214,9 @@ function useActionFlow(onOpenChange: (open: boolean) => void) {
   return {
     confirm,
     select: (action: ActionItem) => {
-      onOpenChange(false)
+      if (action.keepOpen !== true) {
+        onOpenChange(false)
+      }
       if (action.confirm !== undefined) {
         setConfirm(action.confirm)
         return
@@ -172,30 +233,78 @@ function useActionFlow(onOpenChange: (open: boolean) => void) {
   }
 }
 
-export function ActionPresenter({
-  open,
-  onOpenChange,
-  title,
-  subtitle,
-  actions,
-  anchor,
-}: ActionPresenterProps) {
+type PhoneSurfaceProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  subtitle?: string
+  description?: string
+  actions: ActionItem[]
+  locked: boolean
+  confirm: ActionConfirm | null
+  onSelect: (action: ActionItem) => void
+  onRun: (action: ActionItem) => void
+  onCloseConfirm: () => void
+}
+
+function PhoneSurface(props: PhoneSurfaceProps) {
+  return (
+    <>
+      <ActionSheet
+        open={props.open}
+        onOpenChange={props.onOpenChange}
+        title={props.title}
+        subtitle={props.subtitle}
+        description={props.description}
+        actions={props.actions}
+        onSelect={props.onSelect}
+        cancelDisabled={props.locked}
+      />
+      <ConfirmSheet confirm={props.confirm} onClose={props.onCloseConfirm} onRun={props.onRun} />
+    </>
+  )
+}
+
+function guardedOpenChange(onOpenChange: (open: boolean) => void, locked: boolean) {
+  return (next: boolean) => {
+    if (locked && !next) {
+      return
+    }
+    onOpenChange(next)
+  }
+}
+
+export function ActionPresenter(props: ActionPresenterProps) {
+  const { open, onOpenChange, title, description, actions } = props
+  const locked = props.locked ?? false
   const shell = useViewport()
-  const { confirm, select, run, closeConfirm } = useActionFlow(onOpenChange)
+  const flow = useActionFlow(onOpenChange)
 
   if (shell === 'phone') {
     return (
-      <>
-        <ActionSheet
-          open={open}
-          onOpenChange={onOpenChange}
-          title={title}
-          subtitle={subtitle}
-          actions={actions}
-          onSelect={select}
-        />
-        <ConfirmSheet confirm={confirm} onClose={closeConfirm} onRun={run} />
-      </>
+      <PhoneSurface
+        {...props}
+        onOpenChange={guardedOpenChange(onOpenChange, locked)}
+        locked={locked}
+        confirm={flow.confirm}
+        onSelect={flow.select}
+        onRun={flow.run}
+        onCloseConfirm={flow.closeConfirm}
+      />
+    )
+  }
+
+  if (props.wide === 'dialog') {
+    return (
+      <ActionDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={title}
+        description={description}
+        actions={actions}
+        locked={locked}
+        onSelect={flow.select}
+      />
     )
   }
 
@@ -205,10 +314,10 @@ export function ActionPresenter({
         open={open}
         onOpenChange={onOpenChange}
         actions={actions}
-        anchor={anchor}
-        onSelect={select}
+        anchor={props.anchor}
+        onSelect={flow.select}
       />
-      <ConfirmAlert confirm={confirm} onClose={closeConfirm} onRun={run} />
+      <ConfirmAlert confirm={flow.confirm} onClose={flow.closeConfirm} onRun={flow.run} />
     </>
   )
 }

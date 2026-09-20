@@ -10,8 +10,8 @@ import { useMissingCounts } from '@/hooks'
 import { cn } from '@/lib/utils'
 
 import { DownloadsNavLink } from './downloads-nav-link'
+import { SessionActionPresenters } from './session-action-presenters'
 import { CollapsibleNavSection } from './sidebar-collapsible-nav'
-import { LogoutDialog, RestartDialog } from './sidebar-dialogs'
 import { discoverNavItems, getLibraryNavItems, settingsGroup, standaloneActions, systemNavItem } from './sidebar-nav-config'
 import { NavLink } from './sidebar-nav-link'
 import type { ActionItem, NavItem } from './sidebar-types'
@@ -211,19 +211,7 @@ export function Sidebar() {
         <CollapseToggle collapsed={sidebar.sidebarCollapsed} onToggle={sidebar.toggleSidebar} />
       </aside>
 
-      <RestartDialog
-        open={sidebar.showRestartDialog}
-        onOpenChange={sidebar.setShowRestartDialog}
-        onRestart={sidebar.handleRestart}
-        countdown={sidebar.countdown}
-        isPending={sidebar.restartMutation.isPending}
-      />
-
-      <LogoutDialog
-        open={sidebar.showLogoutDialog}
-        onOpenChange={sidebar.setShowLogoutDialog}
-        onLogout={sidebar.handleLogout}
-      />
+      <SessionActionPresenters session={sidebar} />
     </TooltipProvider>
   )
 }

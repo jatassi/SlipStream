@@ -15,18 +15,16 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { LoadingState } from '@/components/data/loading-state'
-import { PageHeader } from '@/components/layout/page-header'
-import { Button } from '@/components/ui/button'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useDownloadLogFile, useLogs } from '@/hooks/use-logs'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores'
 import { ALL_LOG_LEVELS, useLogsStore } from '@/stores/logs'
 import type { LogEntry, LogLevel } from '@/types/logs'
-
-import { SystemNav } from './system-nav'
 
 const LEVEL_COLORS: Record<string, string> = {
   debug: 'text-blue-400',
@@ -70,7 +68,7 @@ function formatFields(fields: Record<string, unknown> | undefined): string {
 function LogEntryRow({ entry }: { entry: LogEntry }) {
   const fields = formatFields(entry.fields)
   return (
-    <div className="flex gap-2 rounded px-1 hover:bg-zinc-900">
+    <div className="flex gap-2 rounded px-1">
       <span className="shrink-0 text-zinc-500">{formatTimestamp(entry.timestamp)}</span>
       <span className={cn('w-12 shrink-0 uppercase', LEVEL_COLORS[entry.level] || 'text-zinc-400')}>
         {entry.level.slice(0, 5).padEnd(5)}
@@ -78,6 +76,52 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
       {entry.component ? <span className="shrink-0 text-cyan-400">[{entry.component}]</span> : null}
       <span className="text-zinc-100">{entry.message}</span>
       {fields ? <span className="text-zinc-500">{fields}</span> : null}
+    </div>
+  )
+}
+
+function ToolbarButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="press flex size-tap shrink-0 items-center justify-center rounded-md text-muted-foreground focus-visible:ring-ring outline-none focus-visible:ring-[3px] disabled:opacity-50"
+    >
+      {children}
+    </button>
+  )
+}
+
+function LogsSearchField({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="relative min-w-40 flex-1">
+      <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+      <Input
+        placeholder="Search logs..."
+        aria-label="Search logs"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pl-8"
+      />
     </div>
   )
 }
@@ -98,20 +142,22 @@ type LogsToolbarProps = {
 }
 
 function LogsToolbar({
-  searchText, onSearchChange, filterLevels, onToggleLevel, onResetLevels,
-  autoScroll, onToggleAutoScroll, isPaused, onTogglePaused, onClear, onDownload, downloadPending,
+  searchText,
+  onSearchChange,
+  filterLevels,
+  onToggleLevel,
+  onResetLevels,
+  autoScroll,
+  onToggleAutoScroll,
+  isPaused,
+  onTogglePaused,
+  onClear,
+  onDownload,
+  downloadPending,
 }: LogsToolbarProps) {
   return (
-    <div className="mb-4 flex items-center gap-2">
-      <div className="relative max-w-xs flex-1">
-        <Search className="text-muted-foreground absolute top-2.5 left-2.5 size-4" />
-        <Input
-          placeholder="Search logs..."
-          value={searchText}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-8"
-        />
-      </div>
+    <div className="px-screen mb-3 flex flex-wrap items-center gap-2">
+      <LogsSearchField value={searchText} onChange={onSearchChange} />
       <FilterDropdown
         options={LEVEL_OPTIONS}
         selected={filterLevels}
@@ -119,19 +165,21 @@ function LogsToolbar({
         onReset={onResetLevels}
         label="Levels"
       />
-      <div className="flex-1" />
-      <Button variant="outline" size="sm" onClick={onToggleAutoScroll} title={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}>
+      <ToolbarButton
+        label={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+        onClick={onToggleAutoScroll}
+      >
         {autoScroll ? <ChevronsDown className="size-4" /> : <ChevronsUp className="size-4" />}
-      </Button>
-      <Button variant="outline" size="sm" onClick={onTogglePaused} title={isPaused ? 'Resume streaming' : 'Pause streaming'}>
+      </ToolbarButton>
+      <ToolbarButton label={isPaused ? 'Resume streaming' : 'Pause streaming'} onClick={onTogglePaused}>
         {isPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
-      </Button>
-      <Button variant="outline" size="sm" onClick={onClear} title="Clear logs">
+      </ToolbarButton>
+      <ToolbarButton label="Clear logs" onClick={onClear}>
         <Trash2 className="size-4" />
-      </Button>
-      <Button variant="outline" size="sm" onClick={onDownload} disabled={downloadPending} title="Download log file">
+      </ToolbarButton>
+      <ToolbarButton label="Download log file" disabled={downloadPending} onClick={onDownload}>
         <Download className="size-4" />
-      </Button>
+      </ToolbarButton>
     </div>
   )
 }
@@ -148,10 +196,15 @@ function useLogScroll(entries: LogEntry[]) {
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
-    if (!el) {return}
+    if (!el) {
+      return
+    }
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
-    if (atBottom && !store.autoScroll) {store.setAutoScroll(true)}
-    else if (!atBottom && store.autoScroll) {store.setAutoScroll(false)}
+    if (atBottom && !store.autoScroll) {
+      store.setAutoScroll(true)
+    } else if (!atBottom && store.autoScroll) {
+      store.setAutoScroll(false)
+    }
   }, [store])
 
   return { scrollRef, handleScroll }
@@ -166,7 +219,13 @@ type LogScrollPanelProps = {
 
 function LogScrollPanel({ entries, emptyMessage, scrollRef, onScroll }: LogScrollPanelProps) {
   return (
-    <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto rounded-md border bg-zinc-950 font-mono text-xs">
+    <div
+      ref={scrollRef}
+      onScroll={onScroll}
+      role="log"
+      aria-label="Log output"
+      className="rounded-card mx-screen h-[60vh] min-h-64 overflow-auto bg-zinc-950 font-mono text-xs"
+    >
       {entries.length === 0 ? (
         <div className="text-muted-foreground flex h-full items-center justify-center">
           {emptyMessage}
@@ -182,27 +241,27 @@ function LogScrollPanel({ entries, emptyMessage, scrollRef, onScroll }: LogScrol
   )
 }
 
-function LogsStatusBar({ entryCount, isPaused, autoScroll }: { entryCount: number; isPaused: boolean; autoScroll: boolean }) {
+function LogsStatusBar({
+  entryCount,
+  isPaused,
+  autoScroll,
+}: {
+  entryCount: number
+  isPaused: boolean
+  autoScroll: boolean
+}) {
   return (
-    <div className="text-muted-foreground mt-2 flex items-center gap-4 text-xs">
-      <span>{entryCount} entries</span>
+    <div className="text-muted-foreground px-screen text-caption mt-2 flex items-center gap-4">
+      <span className="nums">{entryCount} entries</span>
       {isPaused ? <span className="text-yellow-500">Streaming paused</span> : null}
       {autoScroll ? null : <span>Auto-scroll disabled</span>}
     </div>
   )
 }
 
-export function LogsPage() {
-  const globalLoading = useUIStore((s) => s.globalLoading)
-  const { isLoading: queryLoading } = useLogs()
-  const isLoading = queryLoading || globalLoading
-  const downloadMutation = useDownloadLogFile()
-
+function LogsControls() {
   const store = useLogsStore()
-  const filteredEntries = store.getFilteredEntries()
-  const allSelected = store.filterLevels.length === ALL_LOG_LEVELS.length
-  const { scrollRef, handleScroll } = useLogScroll(filteredEntries)
-  const emptyMessage = store.searchText || !allSelected ? 'No logs match your filters' : 'No logs yet'
+  const downloadMutation = useDownloadLogFile()
 
   const handleDownload = async () => {
     try {
@@ -213,36 +272,58 @@ export function LogsPage() {
     }
   }
 
-  if (isLoading) {
+  return (
+    <LogsToolbar
+      searchText={store.searchText}
+      onSearchChange={store.setSearchText}
+      filterLevels={store.filterLevels}
+      onToggleLevel={store.toggleFilterLevel}
+      onResetLevels={store.resetFilterLevels}
+      autoScroll={store.autoScroll}
+      onToggleAutoScroll={store.toggleAutoScroll}
+      isPaused={store.isPaused}
+      onTogglePaused={store.togglePaused}
+      onClear={store.clear}
+      onDownload={() => void handleDownload()}
+      downloadPending={downloadMutation.isPending}
+    />
+  )
+}
+
+export function LogsPage() {
+  const back = usePushBack()
+  const globalLoading = useUIStore((s) => s.globalLoading)
+  const { isLoading: queryLoading } = useLogs()
+
+  const store = useLogsStore()
+  const filteredEntries = store.getFilteredEntries()
+  const allSelected = store.filterLevels.length === ALL_LOG_LEVELS.length
+  const { scrollRef, handleScroll } = useLogScroll(filteredEntries)
+  const emptyMessage =
+    store.searchText || !allSelected ? 'No logs match your filters' : 'No logs yet'
+
+  if (queryLoading || globalLoading) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="System" description="Monitor system health, tasks, logs, and updates" />
-        <SystemNav />
-        <LoadingState variant="list" count={10} />
-      </div>
+      <Screen title="Logs" back={back}>
+        <Skeleton className="mx-screen rounded-card h-[60vh] min-h-64" />
+      </Screen>
     )
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] flex-col">
-      <PageHeader title="System" description="Monitor system health, tasks, logs, and updates" />
-      <SystemNav />
-      <LogsToolbar
-        searchText={store.searchText}
-        onSearchChange={store.setSearchText}
-        filterLevels={store.filterLevels}
-        onToggleLevel={store.toggleFilterLevel}
-        onResetLevels={store.resetFilterLevels}
-        autoScroll={store.autoScroll}
-        onToggleAutoScroll={store.toggleAutoScroll}
-        isPaused={store.isPaused}
-        onTogglePaused={store.togglePaused}
-        onClear={store.clear}
-        onDownload={handleDownload}
-        downloadPending={downloadMutation.isPending}
+    <Screen title="Logs" back={back}>
+      <LogsControls />
+      <LogScrollPanel
+        entries={filteredEntries}
+        emptyMessage={emptyMessage}
+        scrollRef={scrollRef}
+        onScroll={handleScroll}
       />
-      <LogScrollPanel entries={filteredEntries} emptyMessage={emptyMessage} scrollRef={scrollRef} onScroll={handleScroll} />
-      <LogsStatusBar entryCount={filteredEntries.length} isPaused={store.isPaused} autoScroll={store.autoScroll} />
-    </div>
+      <LogsStatusBar
+        entryCount={filteredEntries.length}
+        isPaused={store.isPaused}
+        autoScroll={store.autoScroll}
+      />
+    </Screen>
   )
 }

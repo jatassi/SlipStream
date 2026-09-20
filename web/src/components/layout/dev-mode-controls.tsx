@@ -1,6 +1,8 @@
-import { LayoutTemplate } from 'lucide-react'
+import type { ReactNode } from 'react'
 
-import { Label } from '@/components/ui/label'
+import { Hammer, LayoutTemplate } from 'lucide-react'
+
+import { Group, IconTile } from '@/components/grouped-list'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -12,6 +14,24 @@ type DevModeControlsProps = {
   onGlobalLoadingChange: (checked: boolean) => void
 }
 
+function SwitchRow({
+  leading,
+  title,
+  children,
+}: {
+  leading: ReactNode
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <label className="min-h-tap flex w-full cursor-pointer items-center gap-3 px-4 py-2.5">
+      <span className="flex shrink-0 items-center">{leading}</span>
+      <span className="text-body min-w-0 flex-1 truncate font-medium">{title}</span>
+      {children}
+    </label>
+  )
+}
+
 export function DevModeControls({
   devModeEnabled,
   devModeSwitching,
@@ -20,9 +40,15 @@ export function DevModeControls({
   onGlobalLoadingChange,
 }: DevModeControlsProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <Label className="flex min-h-tap items-center gap-3 px-1">
-        <span className="flex-1 text-body font-medium">Developer mode</span>
+    <Group header="Developer Tools">
+      <SwitchRow
+        leading={
+          <IconTile className="bg-amber-500">
+            <Hammer />
+          </IconTile>
+        }
+        title="Developer mode"
+      >
         <Switch
           checked={devModeEnabled}
           onCheckedChange={onToggle}
@@ -31,20 +57,24 @@ export function DevModeControls({
           aria-label="Developer mode"
           className={cn(devModeEnabled && 'data-checked:bg-amber-500')}
         />
-      </Label>
+      </SwitchRow>
       {devModeEnabled ? (
-        <Label className="flex min-h-tap items-center gap-3 px-1">
-          <LayoutTemplate className="text-muted-foreground size-4 shrink-0" />
-          <span className="flex-1 text-body font-medium">Force Loading</span>
+        <SwitchRow
+          leading={
+            <IconTile className="bg-zinc-600">
+              <LayoutTemplate />
+            </IconTile>
+          }
+          title="Force Loading"
+        >
           <Switch
-            id="force-loading-toggle"
             checked={globalLoading}
             onCheckedChange={onGlobalLoadingChange}
             size="sm"
             aria-label="Force Loading"
           />
-        </Label>
+        </SwitchRow>
       ) : null}
-    </div>
+    </Group>
   )
 }

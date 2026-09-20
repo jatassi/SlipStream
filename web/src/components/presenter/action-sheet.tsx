@@ -18,17 +18,19 @@ export type ActionSheetProps = {
   actions: ActionItem[]
   onSelect: (action: ActionItem) => void
   cancelLabel?: string
+  cancelDisabled?: boolean
 }
 
 function SheetButton({ action, onSelect }: { action: ActionItem; onSelect: (action: ActionItem) => void }) {
   return (
     <button
       type="button"
+      disabled={action.disabled}
       onClick={() => {
         onSelect(action)
       }}
       className={cn(
-        'press-row text-heading block h-14 w-full font-normal tracking-normal',
+        'press-row text-heading block h-14 w-full font-normal tracking-normal disabled:opacity-50',
         action.destructive === true ? 'text-destructive' : 'text-tv-400',
       )}
     >
@@ -70,6 +72,7 @@ export function ActionSheet({
   actions,
   onSelect,
   cancelLabel = 'Cancel',
+  cancelDisabled = false,
 }: ActionSheetProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -96,10 +99,11 @@ export function ActionSheet({
           <SheetStack actions={destructiveActions(actions)} onSelect={onSelect} className="mt-2" />
           <button
             type="button"
+            disabled={cancelDisabled}
             onClick={() => {
               onOpenChange(false)
             }}
-            className="press text-heading bg-card rounded-card mt-2 block h-14 w-full font-semibold tracking-normal text-tv-400"
+            className="press text-heading bg-card rounded-card mt-2 block h-14 w-full font-semibold tracking-normal text-tv-400 disabled:opacity-50"
           >
             {cancelLabel}
           </button>

@@ -14,7 +14,7 @@ import {
 
 import { Group, IconTile, Row } from '@/components/grouped-list'
 import { DevModeControls } from '@/components/layout/dev-mode-controls'
-import { LogoutDialog, RestartDialog } from '@/components/layout/sidebar-dialogs'
+import { SessionActionPresenters } from '@/components/layout/session-action-presenters'
 import { useHeader } from '@/components/layout/use-header'
 import { useSessionActions } from '@/components/layout/use-session-actions'
 import { Screen } from '@/components/screen/screen'
@@ -72,17 +72,13 @@ function DeveloperGroup() {
     return null
   }
   return (
-    <Group header="Developer Tools">
-      <div className="px-4 py-2">
-        <DevModeControls
-          devModeEnabled={header.devModeEnabled}
-          devModeSwitching={header.devModeSwitching}
-          onToggle={header.handleDevModeToggle}
-          globalLoading={header.globalLoading}
-          onGlobalLoadingChange={header.setGlobalLoading}
-        />
-      </div>
-    </Group>
+    <DevModeControls
+      devModeEnabled={header.devModeEnabled}
+      devModeSwitching={header.devModeSwitching}
+      onToggle={header.handleDevModeToggle}
+      globalLoading={header.globalLoading}
+      onGlobalLoadingChange={header.setGlobalLoading}
+    />
   )
 }
 
@@ -120,22 +116,11 @@ export function MorePage() {
       <SettingsGroup />
       <DeveloperGroup />
       <SessionGroup
-        onLogout={() => session.setShowLogoutDialog(true)}
-        onRestart={() => session.setShowRestartDialog(true)}
+        onLogout={() => session.setLogoutOpen(true)}
+        onRestart={() => session.setRestartOpen(true)}
       />
       <VersionFooter />
-      <RestartDialog
-        open={session.showRestartDialog}
-        onOpenChange={session.setShowRestartDialog}
-        onRestart={session.handleRestart}
-        countdown={session.countdown}
-        isPending={session.restartMutation.isPending}
-      />
-      <LogoutDialog
-        open={session.showLogoutDialog}
-        onOpenChange={session.setShowLogoutDialog}
-        onLogout={session.handleLogout}
-      />
+      <SessionActionPresenters session={session} />
     </Screen>
   )
 }
