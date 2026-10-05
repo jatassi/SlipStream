@@ -12,7 +12,7 @@ Detected families: anthropic
 | judgment | opus | high | Judgment, prose, plans and synthesis. pstack: judgment and prose; how explainer; why synthesizer; reflect judgment, divergent, synthesizer |
 | hardest-code | opus | high | Cross-cutting design, concurrency, subtle algorithms. pstack: hardest tasks |
 | code | sonnet | medium | Code delegates. pstack: feature, refactoring; bug-fix; perf-issue; hillclimb; swarm workers; reflect tooling |
-| explorer | sonnet | medium | Read-only search and investigation. pstack: how explorer; why investigators |
+| explorer | opus | medium | Read-only search and investigation. pstack: how explorer; why investigators |
 | verifier | opus | high | A fresh verifier and its swarm lanes: gates, live lane, regression against trunk, diff audit |
 | review-panel | opus, opus, opus | high | pstack: arena runners; arena cross-judge pool; architect runners |
 | interrogate | opus, opus, opus | high | Adversarial review of one-way doors. pstack: interrogate reviewers |
