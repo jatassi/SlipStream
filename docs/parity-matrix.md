@@ -113,13 +113,13 @@ An exception is written on its row only with the chef's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-064 | Quality profiles per Content Type with create, edit and delete | `internal/library/quality/service.go`, `/qualityprofiles`, `web/src/routes/settings/media/quality-profiles.tsx` | working | kept | - | unplanned |
+| P-064 | Quality profiles per Content Type with create, edit and delete | `internal/library/quality/service.go`, `/qualityprofiles`, `web/src/routes/settings/media/quality-profiles.tsx` | working | superseded by Rendition profiles | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-065 | Eighteen predefined qualities with cinema source opt-in | `internal/library/quality/profile.go` | working | kept | - | unplanned |
-| P-066 | Cutoff, upgrades toggle, upgrade strategy and cutoff overrides strategy | `internal/library/quality/profile.go` | working | kept | - | unplanned |
-| P-067 | Live upgrade strategy preview of allowed and blocked upgrades | `web/src/components/qualityprofiles/upgrade-strategy-preview.tsx` | working | kept | - | unplanned |
+| P-066 | Cutoff, upgrades toggle, upgrade strategy and cutoff overrides strategy | `internal/library/quality/profile.go` | working | superseded by ordered qualities with strategy presets | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
+| P-067 | Live upgrade strategy preview of allowed and blocked upgrades | `web/src/components/qualityprofiles/upgrade-strategy-preview.tsx` | working | superseded by a preview of the ordered qualities | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-068 | Allow Auto-Approve flag for portal requests on a profile | `internal/library/quality/profile.go` | working | kept | - | unplanned |
-| P-069 | Attribute rules for HDR, video codec, audio codec and channels as required, preferred, acceptable or not allowed | `internal/library/quality/attributes.go` | working | kept | - | unplanned |
-| P-070 | Default Any profile created per Content Type | `internal/library/quality/service.go (EnsureDefaults)` | working | kept | - | unplanned |
+| P-069 | Attribute rules for HDR, video codec, audio codec and channels as required, preferred, acceptable or not allowed | `internal/library/quality/attributes.go` | working | superseded by Rendition hard filters and custom format scores | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6), [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
+| P-070 | Default Any profile created per Content Type | `internal/library/quality/service.go (EnsureDefaults)` | working | kept | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-071 | Release scoring with a breakdown and fixed weights | `internal/indexer/scoring/scorer.go` | working | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-072 | Best release selection against profile, current file and upgrade rules | `internal/decisioning/selection.go` | working | kept | - | unplanned |
 | P-073 | Custom Formats naming token and notification fields, always empty | `internal/import/renamer/tokens.go`, `internal/notification/types/types.go` | half-built | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
@@ -132,7 +132,7 @@ An exception is written on its row only with the chef's explicit yes.
 | P-075 | Periodic import scan of download folders that skips already imported files | `internal/scheduler/tasks/importscan.go`, `import/pipeline.go` | working | kept | - | unplanned |
 | P-076 | Completion checks wait for stable size and archive extraction and skip stalled downloads | `internal/import/completion.go` | working | kept | - | unplanned |
 | P-077 | Hardlink placement with symlink and copy fallback, source kept for seeding | `internal/library/organizer/fileops.go (LinkOrCopy)` | working | kept | - | unplanned |
-| P-078 | Upgrade on import replaces and deletes the older file | `internal/import/service.go (evaluateUpgradeEligibility)` | working | kept | - | unplanned |
+| P-078 | Upgrade on import replaces and deletes the older file | `internal/import/service.go (evaluateUpgradeEligibility)` | working | kept | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-079 | Season pack import with per-file status, imported progressively | `internal/import/seasonpack.go` | working | kept | - | unplanned |
 | P-080 | Multi-episode files map to several episodes | `internal/import/renamer/multiepisode.go` | working | kept | - | unplanned |
 | P-081 | Import retry with backoff, failed status and health warning | `internal/import/retry.go` | working | kept | - | unplanned |
@@ -520,8 +520,8 @@ An exception is written on its row only with the chef's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-356 | Release blocklist with remove and blocklist from the queue | - | not started | kept | - | unplanned |
-| P-357 | Proper and repack handling that triggers upgrades | - | not started | kept | - | unplanned |
+| P-356 | Release blocklist with remove and blocklist from the queue | - | not started | kept | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
+| P-357 | Proper and repack handling that triggers upgrades | - | not started | kept | [The Edition and Rendition model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-358 | Custom formats engine | - | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-359 | Docker images | - | not started | kept | - | unplanned |
 | P-360 | Test-only music Content Type that proves the Content Type contract in the offline suite and never ships | - | not started | kept | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
