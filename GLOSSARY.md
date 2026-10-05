@@ -43,12 +43,36 @@ One SlipStream install running on one machine.
 _Avoid_: Instance, server, peer
 
 **Controller**:
-The one Node that owns the library database and serves the UI. A single-machine setup is a Controller holding every Role.
+The one Node that owns the library database and serves the UI. A single-machine setup is a Controller holding every Role. The Controller moves to another Node only by Handover.
 _Avoid_: Primary, master, hub
 
+**Worker**:
+Any Node other than the Controller. A Worker joins by Pairing and does the work of the Roles assigned to it.
+_Avoid_: Agent, client, slave
+
+**Pairing**:
+Joining a new Node to a SlipStream with a Join Code from the Controller, after which the two Nodes trust each other's keys.
+_Avoid_: Registration, enrollment, adoption
+
+**Join Code**:
+A short-lived, single-use code the Controller issues so one new Node can pair with it.
+_Avoid_: Invite, token, pairing key
+
+**Handover**:
+Moving the Controller to another paired Node, after which every Worker follows the new Controller.
+_Avoid_: Failover, promotion, migration
+
 **Role**:
-A job a Node is assigned, such as downloading, searching, transcoding, storage or relaying.
+A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Transcoding, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role.
 _Avoid_: Service, capability, purpose
+
+**Role Group**:
+A named bundle of Roles that the admin ticks together when assigning, such as Acquire for Searching and Downloading. A Node holds Roles, never Role Groups.
+_Avoid_: Preset, profile, tier
+
+**Serving**:
+The Role that serves the UI and portal on a Node, passing every request to the Controller. The Controller always serves too.
+_Avoid_: Hosting, web; never the Media Server's serving of the library
 
 **Media Server**:
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
