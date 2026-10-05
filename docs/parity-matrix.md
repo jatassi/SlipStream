@@ -489,38 +489,37 @@ An exception is written on its row only with the chef's explicit yes. No row car
 | P-338 | Portal library of available movies and series with requests for missing seasons | `internal/portal/library/handlers.go`, `web/src/routes/requests/library.tsx` | working | kept | - | unplanned |
 | P-339 | User-owned notification channels with approved, denied and available toggles | `internal/portal/notifications/service.go`, `notification-channels-card.tsx` | working | kept | - | unplanned |
 | P-340 | Requester and watchers notified through channels and the inbox | `internal/portal/notifications/service.go` | working | kept | - | unplanned |
-| P-341 | iOS portal companion app | `SlipStream-iOS/Packages` | half-built | out of scope | - | unplanned |
 
 ## API surface
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-342 | REST API under /api/v1 with bearer JWT | `internal/api/routes.go` | working | kept | - | unplanned |
-| P-343 | Public liveness and status endpoints | `GET /health`, `GET /api/v1/status` | working | kept | - | unplanned |
-| P-344 | Portal REST contract for auth, requests, search, library, notifications and inbox | `internal/portal/requests/handlers.go`, `internal/auth/handlers.go` | working | kept | - | unplanned |
-| P-345 | Admin request management REST for requests, users, invitations and settings | `internal/portal/admin/` | working | kept | - | unplanned |
-| P-346 | Admin WebSocket at /ws with the token in the subprotocol | `internal/websocket/hub.go` | working | kept | - | unplanned |
+| P-341 | REST API under /api/v1 with bearer JWT | `internal/api/routes.go` | working | kept | - | unplanned |
+| P-342 | Public liveness and status endpoints | `GET /health`, `GET /api/v1/status` | working | kept | - | unplanned |
+| P-343 | Portal REST contract for auth, requests, search, library, notifications and inbox | `internal/portal/requests/handlers.go`, `internal/auth/handlers.go` | working | kept | - | unplanned |
+| P-344 | Admin request management REST for requests, users, invitations and settings | `internal/portal/admin/` | working | kept | - | unplanned |
+| P-345 | Admin WebSocket at /ws with the token in the subprotocol | `internal/websocket/hub.go` | working | kept | - | unplanned |
 
 ## Not-started items
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-347 | Config backup and restore | `docs/Remaining-features.md` | not started | kept | - | unplanned |
-| P-348 | Dashboard rework | `docs/Remaining-features.md` | not started | superseded by the UI redesign | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
-| P-349 | Transcode during import tied to slots | `docs/Remaining-features.md` | not started | superseded by the A/V pipeline | [A/V pipeline design](https://github.com/jatassi/SlipStream/issues/18) | unplanned |
-| P-350 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
-| P-351 | Credential encryption at rest | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
-| P-352 | HTTPS setting for the web app | `docs/Remaining-features.md`, `server-section.tsx` | not started | superseded by the Relay Role TLS forwarding | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
-| P-353 | Static binary | `docs/Production-Readiness-Checklist.md` | not started | open | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
-| P-354 | Code signing | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
-| P-355 | Torznab and Newznab endpoint served by SlipStream | - | not started | out of scope | - | unplanned |
-| P-356 | Prowlarr Applications sync into SlipStream | `docs/Prowlarr-other-arr-integration.md` | not started | out of scope | - | unplanned |
+| P-346 | Config backup and restore | `docs/Remaining-features.md` | not started | kept | - | unplanned |
+| P-347 | Dashboard rework | `docs/Remaining-features.md` | not started | superseded by the UI redesign | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
+| P-348 | Transcode during import tied to slots | `docs/Remaining-features.md` | not started | superseded by the A/V pipeline | [A/V pipeline design](https://github.com/jatassi/SlipStream/issues/18) | unplanned |
+| P-349 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
+| P-350 | Credential encryption at rest | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
+| P-351 | HTTPS setting for the web app | `docs/Remaining-features.md`, `server-section.tsx` | not started | superseded by the Relay Role TLS forwarding | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
+| P-352 | Static binary | `docs/Production-Readiness-Checklist.md` | not started | open | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
+| P-353 | Code signing | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
+| P-354 | Torznab and Newznab endpoint served by SlipStream | - | not started | out of scope | - | unplanned |
+| P-355 | Prowlarr Applications sync into SlipStream | `docs/Prowlarr-other-arr-integration.md` | not started | out of scope | - | unplanned |
 
 ## Added in v2
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-357 | Release blocklist with remove and blocklist from the queue | - | not started | kept | - | unplanned |
-| P-358 | Proper and repack handling that triggers upgrades | - | not started | kept | - | unplanned |
-| P-359 | Custom formats engine | - | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
-| P-360 | Docker images | - | not started | kept | - | unplanned |
+| P-356 | Release blocklist with remove and blocklist from the queue | - | not started | kept | - | unplanned |
+| P-357 | Proper and repack handling that triggers upgrades | - | not started | kept | - | unplanned |
+| P-358 | Custom formats engine | - | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
+| P-359 | Docker images | - | not started | kept | - | unplanned |
