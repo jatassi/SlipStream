@@ -430,7 +430,7 @@ An exception is written on its row only with the chef's explicit yes.
 | P-288 | Content Type declared events, naming contexts, calendar items, presets and portal provisioning | `internal/modules/movie/module.go`, `internal/modules/tv/module.go` | working | superseded by the Content Type contract | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
 | P-289 | New module scaffolder | `scripts/new-module`, `make new-module` | working | superseded by the Content Type contract | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
 | P-290 | Module validation command | `slipstream validate-module` | working | superseded by the Content Type contract | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
-| P-291 | Music Content Type promised by the module docs | `internal/module/interfaces.go`, `docs/module-system-spec.md` | not started | out of scope | - | unplanned |
+| P-291 | Music Content Type promised by the module docs | `internal/module/interfaces.go`, `docs/module-system-spec.md` | not started | out of scope | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
 
 ## Requests portal admin
 
@@ -524,3 +524,4 @@ An exception is written on its row only with the chef's explicit yes.
 | P-357 | Proper and repack handling that triggers upgrades | - | not started | kept | - | unplanned |
 | P-358 | Custom formats engine | - | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-359 | Docker images | - | not started | kept | - | unplanned |
+| P-360 | Test-only music Content Type that proves the Content Type contract in the offline suite and never ships | - | not started | kept | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
