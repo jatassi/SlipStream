@@ -45,3 +45,9 @@ _Avoid_: Service, capability, purpose
 **Media Server**:
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
 _Avoid_: Plex (as a generic term)
+
+## Acquisition
+
+**Download Client**:
+A torrent client that a downloading Node sends grabs to, either the built-in one or an external one such as qBittorrent.
+_Avoid_: Downloader, torrent app

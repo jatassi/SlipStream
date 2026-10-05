@@ -182,11 +182,11 @@ An exception is written on its row only with the chef's explicit yes.
 | P-115 | Per-indexer query and grab rate limits, config file only | `internal/indexer/ratelimit/limiter.go` | working | kept | - | unplanned |
 | P-116 | Scheduled indexer health check | `internal/scheduler/tasks/indexerhealth.go` | working | kept | - | unplanned |
 | P-117 | Indexer grab history, API only | `GET /history/indexer`, `GET /search/grab/history` | working | kept | - | unplanned |
-| P-118 | Indexer mode switch between SlipStream indexers and Prowlarr | `internal/prowlarr/mode.go`, `web/src/components/indexers/indexer-mode-toggle.tsx` | working | superseded by the built-in indexer catalog | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-119 | Prowlarr connection settings with test, save and refresh | `internal/prowlarr/service.go`, `prowlarr-config-form.tsx` | working | superseded by the built-in indexer catalog | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-120 | Prowlarr indexer list with status, capabilities and last failure | `/indexers/prowlarr/indexers`, `prowlarr-indexer-list.tsx` | working | superseded by the built-in indexer catalog | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-121 | Per Prowlarr indexer priority, content type and stats reset | `/indexers/prowlarr/indexers/:id/settings`, `indexer-settings-dialog.tsx` | working | superseded by the built-in indexer catalog | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-122 | Scheduled Prowlarr health check with data refresh | `internal/scheduler/tasks/prowlarrhealth.go` | working | superseded by the built-in indexer catalog | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-118 | Indexer mode switch between SlipStream indexers and Prowlarr | `internal/prowlarr/mode.go`, `web/src/components/indexers/indexer-mode-toggle.tsx` | working | superseded by the built-in indexer catalog and the generic Torznab indexer | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-119 | Prowlarr connection settings with test, save and refresh | `internal/prowlarr/service.go`, `prowlarr-config-form.tsx` | working | superseded by the built-in indexer catalog and the generic Torznab indexer | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-120 | Prowlarr indexer list with status, capabilities and last failure | `/indexers/prowlarr/indexers`, `prowlarr-indexer-list.tsx` | working | superseded by the built-in indexer catalog and the generic Torznab indexer | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-121 | Per Prowlarr indexer priority, content type and stats reset | `/indexers/prowlarr/indexers/:id/settings`, `indexer-settings-dialog.tsx` | working | superseded by the built-in indexer catalog and the generic Torznab indexer | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-122 | Scheduled Prowlarr health check with data refresh | `internal/scheduler/tasks/prowlarrhealth.go` | working | superseded by the built-in indexer catalog and the generic Torznab indexer | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
 
 ## Search and grab
 
@@ -228,21 +228,21 @@ An exception is written on its row only with the chef's explicit yes.
 | P-146 | Downloads land in a SlipStream subfolder per Content Type | `internal/downloader/service.go (downloadSubDir)` | working | kept | - | unplanned |
 | P-147 | Import delay per client | `internal/import/pipeline.go` | working | kept | - | unplanned |
 | P-148 | Cleanup mode and seed ratio target stored but never acted on or shown | `internal/downloader/service.go` | half-built | superseded by the built-in torrent client's seeding goals | - | unplanned |
-| P-149 | qBittorrent client | `internal/downloader/qbittorrent` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-150 | Transmission client | `internal/downloader/transmission` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-151 | Deluge client | `internal/downloader/deluge` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-152 | rTorrent client | `internal/downloader/rtorrent` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-149 | qBittorrent client | `internal/downloader/qbittorrent` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-150 | Transmission client | `internal/downloader/transmission` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-151 | Deluge client | `internal/downloader/deluge` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-152 | rTorrent client | `internal/downloader/rtorrent` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
 | P-153 | Vuze client | `internal/downloader/vuze` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-154 | Flood client | `internal/downloader/flood` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-155 | Aria2 client | `internal/downloader/aria2` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-154 | Flood client | `internal/downloader/flood` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-155 | Aria2 client | `internal/downloader/aria2` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
 | P-156 | uTorrent client | `internal/downloader/utorrent` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
 | P-157 | Hadouken client | `internal/downloader/hadouken` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-158 | Synology Download Station client | `internal/downloader/downloadstation` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-159 | Freebox Download client | `internal/downloader/freeboxdownload` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-160 | rqbit client | `internal/downloader/rqbit` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-161 | Tribler client | `internal/downloader/tribler` | working | open | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-162 | SABnzbd client, not creatable and with no usenet grab path | `internal/downloader/sabnzbd`, `internal/indexer/grab/service.go (sendToClient)` | half-built | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-163 | NZBGet client, type constant only | `internal/downloader/factory.go` | half-built | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
+| P-158 | Synology Download Station client | `internal/downloader/downloadstation` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-159 | Freebox Download client | `internal/downloader/freeboxdownload` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-160 | rqbit client | `internal/downloader/rqbit` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-161 | Tribler client | `internal/downloader/tribler` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-162 | SABnzbd client, not creatable and with no usenet grab path | `internal/downloader/sabnzbd`, `internal/indexer/grab/service.go (sendToClient)` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-163 | NZBGet client, type constant only | `internal/downloader/factory.go` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
 | P-164 | Unified queue across clients with progress, speed, ETA, parsed quality and target | `internal/downloader/queue.go`, `web/src/routes/downloads/index.tsx` | working | kept | - | unplanned |
 | P-165 | Queue filter by Content Type | `web/src/routes/downloads/use-activity-page.ts` | working | kept | - | unplanned |
 | P-166 | Pause, resume, remove and remove with files | `POST /queue/:id/pause`, `DELETE /queue/:id`, `web/src/routes/downloads/use-queue-row.ts` | working | kept | - | unplanned |
@@ -525,3 +525,4 @@ An exception is written on its row only with the chef's explicit yes.
 | P-358 | Custom formats engine | - | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-359 | Docker images | - | not started | kept | - | unplanned |
 | P-360 | Test-only music Content Type that proves the Content Type contract in the offline suite and never ships | - | not started | kept | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
+| P-361 | Generic Torznab indexer that reads any Torznab feed, such as one Prowlarr or Jackett indexer | - | not started | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
