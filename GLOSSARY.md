@@ -74,6 +74,10 @@ _Avoid_: Preset, profile, tier
 The Role that serves the UI and portal on a Node, passing every request to the Controller. The Controller always serves too.
 _Avoid_: Hosting, web; never the Media Server's serving of the library
 
+**Transfer**:
+A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy.
+_Avoid_: Sync, mirror, push
+
 **Media Server**:
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
 _Avoid_: Plex (as a generic term)
