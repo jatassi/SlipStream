@@ -1,0 +1,53 @@
+{
+  "key": "C",
+  "name": "Night Line",
+  "fonts": [
+    "Barlow:wght@400;500;600;700",
+    "Barlow+Condensed:wght@500;600;700"
+  ],
+  "scripts": [
+    "c-core.js",
+    "c-map.js",
+    "c-wide.js",
+    "c-phone.js",
+    "c-portal.js",
+    "c-main.js"
+  ],
+  "icons": [
+    "activity",
+    "arrow-right",
+    "arrow-up",
+    "ban",
+    "bell",
+    "check",
+    "chevron-down",
+    "chevron-left",
+    "chevron-right",
+    "compass",
+    "download",
+    "ellipsis",
+    "external-link",
+    "eye",
+    "film",
+    "inbox",
+    "layout-grid",
+    "library-big",
+    "list",
+    "list-filter",
+    "monitor-play",
+    "pause",
+    "play",
+    "plus",
+    "refresh-cw",
+    "route",
+    "scroll-text",
+    "search",
+    "server",
+    "sliders-horizontal",
+    "train-front",
+    "trash-2",
+    "tv",
+    "users",
+    "x"
+  ]
+}
