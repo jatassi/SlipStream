@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T00:00:00Z",
+  "title": "Design System: SlipStream · House Lights (direction B)",
+  "extensions": {
+    "colorMeta": {
+      "velvet": { "role": "neutral", "displayName": "Velvet", "canonical": "#0b0a0a", "tonalRamp": ["#0b0a0a", "#121010", "#191616", "#221e1d", "#3a3330", "#6b625d", "#b3aaa2", "#f3ece4"] },
+      "house": { "role": "neutral", "displayName": "House", "canonical": "#121010", "tonalRamp": ["#0b0a0a", "#121010", "#191616", "#221e1d", "#3a3330", "#6b625d", "#b3aaa2", "#f3ece4"] },
+      "raised": { "role": "neutral", "displayName": "Raised", "canonical": "#191616", "tonalRamp": ["#0b0a0a", "#121010", "#191616", "#221e1d", "#3a3330", "#6b625d", "#b3aaa2", "#f3ece4"] },
+      "raised-2": { "role": "neutral", "displayName": "Raised Light", "canonical": "#221e1d", "tonalRamp": ["#0b0a0a", "#121010", "#191616", "#221e1d", "#3a3330", "#6b625d", "#b3aaa2", "#f3ece4"] },
+      "overlay": { "role": "neutral", "displayName": "Overlay", "canonical": "#1c1817", "tonalRamp": ["#0b0a0a", "#121010", "#1c1817", "#231e1c", "#3a3330", "#6b625d", "#b3aaa2", "#f3ece4"] },
+      "ink": { "role": "primary", "displayName": "Screen-Light Ink", "canonical": "#f3ece4", "tonalRamp": ["#0b0a0a", "#221e1d", "#3a3330", "#6b625d", "#8f8680", "#b3aaa2", "#d6cec6", "#f3ece4"] },
+      "ink-2": { "role": "primary", "displayName": "Ink 70", "canonical": "rgba(243, 236, 228, 0.7)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.07)", "rgba(243, 236, 228, 0.12)", "rgba(243, 236, 228, 0.3)", "rgba(243, 236, 228, 0.52)", "rgba(243, 236, 228, 0.7)", "rgba(243, 236, 228, 0.85)", "rgba(243, 236, 228, 1)"] },
+      "ink-3": { "role": "primary", "displayName": "Ink 52", "canonical": "rgba(243, 236, 228, 0.52)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.07)", "rgba(243, 236, 228, 0.12)", "rgba(243, 236, 228, 0.3)", "rgba(243, 236, 228, 0.52)", "rgba(243, 236, 228, 0.7)", "rgba(243, 236, 228, 0.85)", "rgba(243, 236, 228, 1)"] },
+      "ink-4": { "role": "primary", "displayName": "Ink 30", "canonical": "rgba(243, 236, 228, 0.3)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.07)", "rgba(243, 236, 228, 0.12)", "rgba(243, 236, 228, 0.3)", "rgba(243, 236, 228, 0.52)", "rgba(243, 236, 228, 0.7)", "rgba(243, 236, 228, 0.85)", "rgba(243, 236, 228, 1)"] },
+      "on-ink": { "role": "neutral", "displayName": "Projector Dark", "canonical": "#15110f", "tonalRamp": ["#0b0a0a", "#15110f", "#221e1d", "#3a3330", "#6b625d", "#b3aaa2", "#d6cec6", "#f3ece4"] },
+      "line": { "role": "neutral", "displayName": "Line", "canonical": "rgba(243, 236, 228, 0.08)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.08)", "rgba(243, 236, 228, 0.14)", "rgba(243, 236, 228, 0.3)", "rgba(243, 236, 228, 0.52)", "rgba(243, 236, 228, 0.7)", "rgba(243, 236, 228, 0.85)", "rgba(243, 236, 228, 1)"] },
+      "line-2": { "role": "neutral", "displayName": "Line Strong", "canonical": "rgba(243, 236, 228, 0.14)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.08)", "rgba(243, 236, 228, 0.14)", "rgba(243, 236, 228, 0.3)", "rgba(243, 236, 228, 0.52)", "rgba(243, 236, 228, 0.7)", "rgba(243, 236, 228, 0.85)", "rgba(243, 236, 228, 1)"] },
+      "fill": { "role": "neutral", "displayName": "Fill", "canonical": "rgba(243, 236, 228, 0.07)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.07)", "rgba(243, 236, 228, 0.12)", "rgba(243, 236, 228, 0.16)", "rgba(243, 236, 228, 0.18)", "rgba(243, 236, 228, 0.24)", "rgba(243, 236, 228, 0.35)", "rgba(243, 236, 228, 1)"] },
+      "fill-2": { "role": "neutral", "displayName": "Fill Strong", "canonical": "rgba(243, 236, 228, 0.12)", "tonalRamp": ["rgba(243, 236, 228, 0.04)", "rgba(243, 236, 228, 0.07)", "rgba(243, 236, 228, 0.12)", "rgba(243, 236, 228, 0.16)", "rgba(243, 236, 228, 0.18)", "rgba(243, 236, 228, 0.24)", "rgba(243, 236, 228, 0.35)", "rgba(243, 236, 228, 1)"] },
+      "amber": { "role": "secondary", "displayName": "Aisle Amber", "canonical": "#e9a54b", "tonalRamp": ["#3a2508", "#5c3c10", "#7f541a", "#a56d25", "#c98a35", "#e9a54b", "#f2c486", "#f9e2c2"] },
+      "exit": { "role": "tertiary", "displayName": "Exit Red", "canonical": "#e5534b", "tonalRamp": ["#3b0f0d", "#5e1916", "#842521", "#ad342e", "#d1453e", "#e5534b", "#ef8c86", "#f8c7c3"] },
+      "glow-default": { "role": "neutral", "displayName": "Glow (fallback)", "canonical": "#3a3330", "tonalRamp": ["#0b0a0a", "#191616", "#2a2422", "#3a3330", "#5a504b", "#7d726c", "#a89e97", "#d6cec6"] }
+    },
+    "typographyMeta": {
+      "logo": { "displayName": "Logo (poster face)", "purpose": "A Work's title in its own poster face, fitted per Work to a max width in one or two lines (15-92px). Gloock is the default face; Bebas Neue, Italiana, Bodoni Moda, Unbounded, Big Shoulders Display, Limelight, Archivo Black and Poiret One are assigned per Work with their own weight, tracking and case." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles. Phone large titles use weight 600." },
+      "title": { "displayName": "Title", "purpose": "Section heads. Phone section heads use weight 600." },
+      "row-title": { "displayName": "Row title", "purpose": "Activity rows, aisle items, episodes, palette results." },
+      "nav": { "displayName": "Nav", "purpose": "House-bar and portal links." },
+      "body": { "displayName": "Body", "purpose": "Default text; 16px on phone." },
+      "overview": { "displayName": "Overview", "purpose": "Work synopses on heroes, 54-62ch, clamped to 2-3 lines." },
+      "label": { "displayName": "Label", "purpose": "Sub-section heads in ink-2; never uppercase." },
+      "caption": { "displayName": "Caption", "purpose": "Tile subtitles, column heads, timestamps; tabular figures, ink-3." },
+      "mono": { "displayName": "Mono", "purpose": "Release names and file paths only." }
+    },
+    "shadows": [
+      { "name": "poster-rest", "value": "0 1px 2px rgba(0,0,0,0.5), 0 10px 26px -16px rgba(0,0,0,0.9)", "purpose": "Every poster tile at rest." },
+      { "name": "poster-lifted", "value": "0 2px 4px rgba(0,0,0,0.5), 0 26px 50px -18px rgba(0,0,0,0.95)", "purpose": "Hovered or focused poster tile." },
+      { "name": "work-poster", "value": "0 2px 6px rgba(0,0,0,0.5), 0 40px 80px -24px rgba(0,0,0,0.95)", "purpose": "The large poster on a Work page." },
+      { "name": "popover", "value": "0 0 0 1px rgba(243,236,228,0.08), 0 24px 60px -12px rgba(0,0,0,0.75), 0 4px 12px rgba(0,0,0,0.35)", "purpose": "Menus, notifications, tasks." },
+      { "name": "palette", "value": "0 0 0 1px rgba(243,236,228,0.09), 0 40px 100px -20px rgba(0,0,0,0.85)", "purpose": "Command palette panel." },
+      { "name": "toast", "value": "0 0 0 1px rgba(243,236,228,0.08), 0 18px 40px -12px rgba(0,0,0,0.7)", "purpose": "Toasts." },
+      { "name": "sheet", "value": "0 -20px 60px rgba(0,0,0,0.5)", "purpose": "Phone action sheet." },
+      { "name": "ticket", "value": "drop-shadow(0 14px 22px rgba(0,0,0,0.4))", "purpose": "Ticket stub, as a filter so the notched silhouette casts." },
+      { "name": "tile-glow", "value": "radial ellipse of the Work's glow, blur(30px), opacity 0 / 0.32 lit / 0.42 developed / 0.55 hover-focus", "purpose": "Light behind a poster tile." },
+      { "name": "spill", "value": "blurred backdrop + two Work-palette radials, filter: blur(72px) saturate(1.45), opacity 0.56 (0.36 on Library, Series, Search), masked to transparent by 96%", "purpose": "The Work's light on the top of the house." }
+    ],
+    "motion": [
+      { "name": "ease-house", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Default for transforms, tile lift, popovers, toasts, nav indicator, FLIP." },
+      { "name": "ease-drawer", "value": "cubic-bezier(0.32, 0.72, 0, 1)", "purpose": "Poster morph in the Work view transition." },
+      { "name": "press", "value": "scale(0.97) 140ms ease-house", "purpose": "Buttons, nav items, segments; 0.94 for icon buttons and tabs." },
+      { "name": "tile-lift", "value": "scale(1.03) 280ms ease-house; siblings to opacity 0.4", "purpose": "Hover or focus on a poster tile." },
+      { "name": "popover-in", "value": "scale(0.97) translateY(-4px) to none, 180ms ease-house", "purpose": "Menus and popovers." },
+      { "name": "toast-in", "value": "translateY(8px) to none, 260ms ease-house", "purpose": "Toasts (from -8px on phone and portal)." },
+      { "name": "hero-copy-in", "value": "translateY(8px) blur(4px) to none, 560ms ease-house", "purpose": "Now showing copy change." },
+      { "name": "spill-crossfade", "value": "opacity 620ms ease", "purpose": "Spill layer swap between Works." },
+      { "name": "house-lights", "value": "opacity 1200ms ease", "purpose": "House lights rising when nothing needs the admin." },
+      { "name": "develop-front", "value": "mask advance per tick; filter 600ms ease", "purpose": "Develop colour front and stalled desaturation." },
+      { "name": "vt-house-down", "value": "old: 300ms ease-house to opacity 0, brightness 0.3; new: 520ms ease-house after 180ms; poster group 560ms ease-drawer", "purpose": "Opening a Work." },
+      { "name": "vt-up", "value": "old 220ms ease-out fade; new 360ms ease-house after 60ms", "purpose": "Returning from a Work." },
+      { "name": "vt-nav", "value": "old 140ms ease-out; new 200ms ease-out", "purpose": "Switching top-level routes." },
+      { "name": "spring-push", "value": "sampled spring, response 0.36-0.5s, damping 1, as CSS linear()", "purpose": "Phone push, swipe-back and sheet." },
+      { "name": "spring-tear", "value": "sampled spring, response 0.55s, damping 0.62", "purpose": "Ticket stub tearing when a request turns available." },
+      { "name": "palette", "value": "none", "purpose": "Command palette opens instantly." }
+    ],
+    "breakpoints": [
+      { "name": "desk-narrow", "value": "container max-width 1360px (gutter 40px)" },
+      { "name": "desk", "value": "default (gutter 48px)" },
+      { "name": "desk-wide", "value": "container min-width 1700px (gutter 64px)" },
+      { "name": "portal-column", "value": "1180px max content width" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action: a lit-screen pill.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\"><path d=\"M7 4.5v15l12-7.5z\"/></svg>Play on Plex</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border: 0; border-radius: 999px; font: 500 14px/1 Jost, ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.005em; cursor: pointer; transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 180ms ease, color 180ms ease; } .ds-btn-primary { background: #f3ece4; color: #15110f; } .ds-btn-primary:hover { background: #fffaf4; } .ds-btn:active { transform: scale(0.97); } .ds-btn:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other action: a veil of ink.",
+      "html": "<button class=\"ds-btn2\">Details</button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: rgba(243, 236, 228, 0.12); color: #f3ece4; font: 500 14px/1 Jost, ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 180ms ease; } .ds-btn2:hover { background: rgba(243, 236, 228, 0.18); } .ds-btn2:active { transform: scale(0.97); } .ds-btn2:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; }"
+    },
+    {
+      "name": "House Bar Nav",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Desk primary navigation: pill links with a gliding ink underline on the current item and an amber count only for waiting requests.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-i\" aria-current=\"page\" href=\"#\">Tonight</a><a class=\"ds-nav-i\" href=\"#\">Movies</a><a class=\"ds-nav-i\" href=\"#\">Requests<span class=\"ds-count ds-count-amber\">3</span></a><a class=\"ds-nav-i\" href=\"#\">Activity<span class=\"ds-count\">5</span></a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 4px; background: #0b0a0a; padding: 12px; } .ds-nav-i { position: relative; display: inline-flex; align-items: center; height: 36px; padding: 0 11px; border-radius: 999px; font: 450 15px/1 Jost, ui-sans-serif, system-ui, sans-serif; color: rgba(243, 236, 228, 0.7); text-decoration: none; transition: color 160ms ease, background-color 160ms ease; } .ds-nav-i:hover { color: #f3ece4; background: rgba(243, 236, 228, 0.07); } .ds-nav-i[aria-current=page] { color: #f3ece4; } .ds-nav-i[aria-current=page]::after { content: ''; position: absolute; left: 11px; bottom: 0; width: 18px; height: 2px; border-radius: 2px; background: #f3ece4; } .ds-nav-i:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; } .ds-count { display: inline-grid; place-items: center; min-width: 20px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: rgba(243, 236, 228, 0.12); color: #f3ece4; font: 500 11.5px/1 Jost, sans-serif; font-variant-numeric: tabular-nums; } .ds-count-amber { background: rgba(233, 165, 75, 0.16); color: #e9a54b; }"
+    },
+    {
+      "name": "Search Trigger",
+      "kind": "input",
+      "refersTo": "search-trigger",
+      "description": "House-bar search that opens the command palette.",
+      "html": "<button class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"m20 20-4.4-4.4\"/></svg><span>Search</span><kbd class=\"ds-kbd\">⌘K</kbd></button>",
+      "css": ".ds-search { display: inline-flex; align-items: center; gap: 10px; width: 240px; height: 36px; padding: 0 8px 0 12px; border: 0; border-radius: 10px; background: rgba(243, 236, 228, 0.07); color: rgba(243, 236, 228, 0.52); font: 400 14px/1 Jost, ui-sans-serif, system-ui, sans-serif; text-align: left; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, transform 140ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-search span { flex: 1; } .ds-search:hover { background: rgba(243, 236, 228, 0.12); color: rgba(243, 236, 228, 0.7); } .ds-search:active { transform: scale(0.98); } .ds-search:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; } .ds-kbd { font: 500 11px/1 Jost, sans-serif; color: rgba(243, 236, 228, 0.52); border: 1px solid rgba(243, 236, 228, 0.14); border-radius: 5px; padding: 3px 5px; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "refersTo": "segmented",
+      "description": "Filters on Activity, Requests and Library.",
+      "html": "<div class=\"ds-seg\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">All</button><button role=\"tab\">Running</button><button role=\"tab\">Queued</button><button role=\"tab\">Needs you</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: rgba(243, 236, 228, 0.07); } .ds-seg button { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: rgba(243, 236, 228, 0.7); font: 500 13px/1 Jost, ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background-color 180ms ease, color 180ms ease, transform 140ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-seg button:hover:not([aria-selected=true]) { color: #f3ece4; background: rgba(243, 236, 228, 0.07); } .ds-seg button[aria-selected=true] { background: rgba(243, 236, 228, 0.13); color: #f3ece4; } .ds-seg button:active { transform: scale(0.97); } .ds-seg button:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Target Chips",
+      "kind": "chip",
+      "refersTo": "target-chip-met",
+      "description": "Per-Target state in Library rows: outlined when missing, filled when met, glow-ringed while downloading, red only when failed.",
+      "html": "<div class=\"ds-tchips\"><span class=\"ds-tchip\" data-c=\"met\">2160p HDR</span><span class=\"ds-tchip\" data-c=\"downloading\">1080p</span><span class=\"ds-tchip\">720p Mobile</span><span class=\"ds-tchip\" data-c=\"failed\">1080p</span></div>",
+      "css": ".ds-tchips { display: flex; gap: 6px; padding: 12px; background: #0b0a0a; --glow: #5b6fa8; } .ds-tchip { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 6px; font: 500 11.5px/1 Jost, ui-sans-serif, system-ui, sans-serif; color: rgba(243, 236, 228, 0.52); box-shadow: inset 0 0 0 1px rgba(243, 236, 228, 0.14); } .ds-tchip[data-c=met] { color: #f3ece4; background: rgba(243, 236, 228, 0.12); box-shadow: none; } .ds-tchip[data-c=downloading] { color: #f3ece4; box-shadow: inset 0 0 0 1px var(--glow); } .ds-tchip[data-c=failed] { color: #e5534b; box-shadow: inset 0 0 0 1px rgba(229, 83, 75, 0.5); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Inline fields such as a deny reason. Shown with the 2px ink ring the system uses for focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Reason, optional\">",
+      "css": ".ds-input { height: 38px; width: 280px; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; background: rgba(243, 236, 228, 0.07); color: #f3ece4; font: 400 15px/1 Jost, ui-sans-serif, system-ui, sans-serif; transition: border-color 160ms ease, background-color 160ms ease; } .ds-input::placeholder { color: rgba(243, 236, 228, 0.52); } .ds-input:hover { background: rgba(243, 236, 228, 0.12); } .ds-input:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; background: rgba(243, 236, 228, 0.12); }"
+    },
+    {
+      "name": "Poster Tile",
+      "kind": "card",
+      "refersTo": "poster-tile",
+      "description": "Signature. A 2:3 poster that lifts on hover or focus, raises the Work's glow behind it and dims its siblings.",
+      "html": "<div class=\"ds-row\"><a class=\"ds-tile\" href=\"#\"><span class=\"ds-tile-art\" style=\"background: linear-gradient(160deg, #1b2a55, #0d1430)\"></span><span class=\"ds-tile-t\">Halcyon Drift</span><span class=\"ds-tile-s\">45.1 MB/s · 20 min</span></a><a class=\"ds-tile\" href=\"#\"><span class=\"ds-tile-art\" style=\"background: linear-gradient(160deg, #3b3a3a, #121010)\"></span><span class=\"ds-tile-t\">The Velvet Hour</span><span class=\"ds-tile-s\">Stalled, no seeders</span></a></div>",
+      "css": ".ds-row { display: flex; gap: 22px; padding: 20px; background: #0b0a0a; --glow: #3a3330; } .ds-tile { position: relative; display: grid; gap: 1px; width: 140px; text-decoration: none; transition: transform 280ms cubic-bezier(0.23, 1, 0.32, 1), opacity 280ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-tile-art { display: block; aspect-ratio: 2 / 3; border-radius: 6px; margin-bottom: 9px; box-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 10px 26px -16px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.06); transition: box-shadow 280ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-tile-t { font: 500 13.5px/1.3 Jost, ui-sans-serif, system-ui, sans-serif; color: #f3ece4; } .ds-tile-s { font: 400 12.5px/1.35 Jost, sans-serif; color: rgba(243, 236, 228, 0.7); font-variant-numeric: tabular-nums; } .ds-tile:hover, .ds-tile:focus-visible { transform: scale(1.03); z-index: 1; outline: none; } .ds-tile:hover .ds-tile-art, .ds-tile:focus-visible .ds-tile-art { box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 26px 50px -18px rgba(0,0,0,0.95); } .ds-tile:focus-visible .ds-tile-art { outline: 2px solid #f3ece4; outline-offset: 3px; } .ds-row:has(.ds-tile:hover) .ds-tile:not(:hover) { opacity: 0.4; } .ds-tile:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "Ticket Stub",
+      "kind": "custom",
+      "refersTo": "ticket",
+      "description": "Signature. A Member's request as a notched ticket washed in the Work's glow, with a three-step progress and a stub that tears when ready.",
+      "html": "<div class=\"ds-ticket\"><div class=\"ds-ticket-main\"><div class=\"ds-ticket-t\">Ember Season</div><div class=\"ds-ticket-who\">You asked 2 h ago</div><div class=\"ds-segs\"><span class=\"on cur\">Requested</span><span>Approved</span><span>Developing</span></div></div><div class=\"ds-ticket-stub\"><small>Showing</small><b>Not yet</b></div></div>",
+      "css": ".ds-ticket { --glow-c: rgba(160, 82, 50, 0.16); display: grid; grid-template-columns: minmax(0, 1fr) 118px; width: 460px; filter: drop-shadow(0 14px 22px rgba(0,0,0,0.4)); font-family: Jost, ui-sans-serif, system-ui, sans-serif; color: #f3ece4; } .ds-ticket-main { display: grid; gap: 4px; padding: 16px 18px 16px 16px; border-radius: 14px 0 0 14px; background: linear-gradient(105deg, var(--glow-c), transparent 62%), #191616; -webkit-mask: radial-gradient(circle 9px at 100% 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at 100% 100%, #0000 97%, #000) bottom / 100% 51% no-repeat; mask: radial-gradient(circle 9px at 100% 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at 100% 100%, #0000 97%, #000) bottom / 100% 51% no-repeat; } .ds-ticket-t { font: 400 26px/1 Italiana, serif; letter-spacing: 0.08em; text-transform: uppercase; } .ds-ticket-who { font-size: 12.5px; color: rgba(243, 236, 228, 0.52); } .ds-segs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; } .ds-segs span { padding-top: 7px; border-top: 2px solid rgba(243, 236, 228, 0.14); font-size: 12px; color: rgba(243, 236, 228, 0.52); } .ds-segs span.on { border-top-color: #f3ece4; color: rgba(243, 236, 228, 0.7); } .ds-segs span.cur { color: #f3ece4; font-weight: 500; } .ds-ticket-stub { display: grid; place-content: center; gap: 6px; text-align: center; border-radius: 0 14px 14px 0; background-image: linear-gradient(rgba(243, 236, 228, 0.14) 50%, transparent 0), linear-gradient(255deg, var(--glow-c), transparent 70%); background-color: #191616; background-size: 1.5px 9px, 100% 100%; background-repeat: repeat-y, no-repeat; background-position: 0 4px, 0 0; -webkit-mask: radial-gradient(circle 9px at 0 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at 0 100%, #0000 97%, #000) bottom / 100% 51% no-repeat; mask: radial-gradient(circle 9px at 0 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at 0 100%, #0000 97%, #000) bottom / 100% 51% no-repeat; transform-origin: 0 100%; transition: transform 550ms cubic-bezier(0.34, 1.4, 0.64, 1); } .ds-ticket-stub small { font-size: 12px; color: rgba(243, 236, 228, 0.52); } .ds-ticket-stub b { font-weight: 500; font-size: 15px; color: rgba(243, 236, 228, 0.7); } .ds-ticket:hover .ds-ticket-stub { transform: translate(7px, 4px) rotate(4deg); }"
+    },
+    {
+      "name": "Aisle Item",
+      "kind": "custom",
+      "refersTo": "count-amber",
+      "description": "Signature. A needs-you row: one small state light, a title, a reason, a quiet action.",
+      "html": "<ul class=\"ds-aisle\"><li><i class=\"ds-dot amber\"></i><span><b>The Velvet Hour has stalled</b><small>No seeders for 41 min on ams-1</small></span><button>Find another release</button></li><li><i class=\"ds-dot exit\"></i><span><b>Coldwater Static failed to import</b><small>The release is a 48 MB sample</small></span><button>Blocklist and search</button></li></ul>",
+      "css": ".ds-aisle { list-style: none; margin: 0; padding: 12px 16px; width: 400px; background: #0b0a0a; font-family: Jost, ui-sans-serif, system-ui, sans-serif; color: #f3ece4; } .ds-aisle li { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 0 14px; align-items: center; padding: 11px 0; border-top: 1px solid rgba(243, 236, 228, 0.08); } .ds-aisle li:first-child { border-top: 0; } .ds-aisle span { display: grid; } .ds-aisle b { font: 500 14.5px/1.3 Jost, sans-serif; } .ds-aisle small { font-size: 13px; color: rgba(243, 236, 228, 0.7); } .ds-dot { width: 7px; height: 7px; border-radius: 50%; } .ds-dot.amber { background: #e9a54b; } .ds-dot.exit { background: #e5534b; } .ds-aisle button { height: 30px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: rgba(243, 236, 228, 0.7); font: 500 13px/1 Jost, sans-serif; cursor: pointer; } .ds-aisle button:hover { background: rgba(243, 236, 228, 0.07); color: #f3ece4; } .ds-aisle button:focus-visible { outline: 2px solid #f3ece4; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "House Lights",
+    "overview": "The library is the light source. Every surface sits in a warm velvet dark, every word is set in screen-light ink, and the only colour on any screen is spill from the art: a heavily blurred copy of the current Work's backdrop that lights the top of the page, a per-Work glow behind lit tiles and activity rows, and each Work's title set in its own poster face. The chrome owns no hue. Two signal colours exist, amber for \"needs you\" and red for failure, and they are spent like aisle lights: few, small, and only where the admin must act.\n\nFocus dims the house. Hovering or focusing a poster lifts it (scale 1.03), deepens its shadow, raises its glow and reveals its caption while every sibling in the same row drops to 40% opacity. Work in progress is a print developing: a grained monochrome poster brings up its colour left to right to its acquisition fraction. The house lights rise slightly on Tonight when nothing needs the admin and stay down while anything does. Requests, for Members, are ticket stubs that tear when the Work is ready.\n\nDensity is a calm desk register (15px body, 12px row padding, 64px column gaps) over full-bleed 21:9 heroes; the phone and the Member portal are the same room at a larger, softer size.",
+    "keyCharacteristics": [
+      "Warm near-black ground; text is one ink at four opacities, never a second hue.",
+      "Colour comes only from the art: spill, glow, develop, poster faces.",
+      "Amber and red are state lights, never decoration.",
+      "Hover and focus are theatrical: one thing lifts, the rest recede.",
+      "Pill-shaped actions, soft-cornered posters, hairline rules instead of boxes."
+    ],
+    "rules": [
+      { "name": "The Art Is The Palette Rule", "body": "No chrome element carries a hue of its own. Any colour beyond ink, amber and red must come from a Work's palette in scope (spill, glow, develop, poster face).", "section": "colors" },
+      { "name": "The Aisle Light Rule", "body": "Amber means \"needs you\" and red means \"failed or offline\". Neither marks selection, brand, progress or emphasis. Selection is ink; progress is the Work's own glow.", "section": "colors" },
+      { "name": "The Two Voices Rule", "body": "Jost speaks for the house; the poster face speaks for the Work. A poster face never sets UI text, and Jost never sets a Work's title on its own hero.", "section": "typography" },
+      { "name": "The Tabular Rule", "body": "Every live number (rates, percentages, counts, times) uses tabular figures so ticking values do not jitter.", "section": "typography" },
+      { "name": "The Stage And Stalls Rule", "body": "Art occupies the top of the page full-bleed and fades out by mask; content begins in that fade, not below a hard edge.", "section": "layout" },
+      { "name": "The Light Not Lift Rule", "body": "Content on the stage is never boxed or raised to separate it; use a hairline or a glow. Shadows belong to objects (posters, tickets, overlays).", "section": "elevation" },
+      { "name": "The House Dims Rule", "body": "When one thing is under the pointer or focus, its siblings in the same group drop to 40% (Coming soon rows to 50%). Hover dimming belongs behind a hover-and-fine-pointer query; focus dims on every device.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do take every hue from the Work in scope: spill behind the page top, the Work's glow behind its tile or row, its poster face for its title.",
+      "Do keep amber for needs-you and red for failed or offline, and keep them small: a 7–8px dot, a count wash, a row-edge glow.",
+      "Do separate list content with 1px hairlines at 8% ink, not boxes or cards.",
+      "Do make the single primary action an ink pill with on-ink text; everything else is a veil, fill or quiet pill.",
+      "Do lift one thing and dim its siblings to 40% on hover and focus, and show a 2px ink focus ring on every interactive element.",
+      "Do use tabular figures for every live number.",
+      "Do keep a 44px hit target on phone for every small control."
+    ],
+    "donts": [
+      "Don't introduce a brand or accent hue in the chrome; the art is the palette.",
+      "Don't use amber or red for selection, progress, emphasis or decoration.",
+      "Don't set UI text in a poster face, or a Work's hero title in Jost.",
+      "Don't box stage content in raised cards or shadows; shadows belong to posters, tickets and overlays.",
+      "Don't uppercase or letter-space UI labels; uppercase appears only where a Work's poster face is uppercase.",
+      "Don't animate the command palette; it opens instantly."
+    ]
+  }
+}
