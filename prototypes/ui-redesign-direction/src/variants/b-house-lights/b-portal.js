@@ -58,7 +58,7 @@
     function lead() {
       const el = bar.querySelector('.b-pbar__lead');
       el.innerHTML = route.name === 'home' || wide
-        ? `<a class="b-mark" href="${VB.href('home')}" data-go="home"><span class="b-mark__glyph" aria-hidden="true"></span>SlipStream</a>`
+        ? `<a class="b-mark" href="${VB.href('home')}" data-go="home">${VB.mark()}SlipStream</a>`
         : `<button class="b-pback" type="button" data-back>${icon('chevron-left', 24)}<span>${esc(backLabel())}</span></button>`;
     }
     const backLabel = () => { const p = stack[stack.length - 1]; return p ? ({ home: 'Home', search: 'Search', library: 'Library', requests: 'Requests', work: 'Back', request: 'Back' }[parse(p.view).name]) : 'Home'; };
@@ -151,8 +151,8 @@
       const req = VB.reqs().find((x) => x.work === w.id && VB.reqState(x) !== 'denied');
       const meta = w.type === 'movie' ? [String(w.year), F.runtime(w.runtime), w.cert, w.genres.join(', ')] : [w.network, F.plural(w.seasons.length, 'season'), w.cert, w.genres.join(', ')];
       let action;
-      if (req) action = VB.ticket(req, { big: true, title: false });
-      else if (w.type === 'series' || s.s === 'available' || s.s === 'upgradable') action = `<div class="b-mact"><button class="b-btn b-btn--primary b-btn--lg" type="button" data-cmd="play" data-work="${w.id}">${icon('play', 18)}Play</button><p class="b-dim">${w.type === 'series' ? `${w.counts.available} episodes to watch` : `In the library in ${esc(VB.coverage(w).filter((x) => x.c === 'met').map((x) => x.t.short).join(' and ') || '1080p')}`}</p></div>`;
+      if (req) action = VB.ticket(req, { big: true, title: false, art: false });
+      else if (w.type === 'series' || s.s === 'available' || s.s === 'upgradable') action = `<div class="b-mact"><button class="b-btn b-btn--primary b-btn--lg" type="button" data-cmd="play" data-work="${w.id}">${icon('play', 18)}Play</button><p class="b-dim">${w.type === 'series' ? `${w.counts.available} episodes to watch` : `In the library in ${esc(VB.coverage(w).filter((x) => x.c === 'met').map((x) => x.t.name).join(' and ') || '1080p')}`}</p></div>`;
       else if (s.j && s.j.state === 'running') action = `<div class="b-mact"><p class="b-mact__live" data-lv="wmember|${w.id}">${esc(VB.memberLine(s.j))}</p></div>`;
       else action = requestBlock(w);
       return `<article class="b-mwork" style="${VB.tint(w)}">
@@ -184,21 +184,26 @@
       return `<div class="b-mreq" data-mreq><button class="b-btn b-btn--primary b-btn--lg" type="button" data-mreq-send="${w.id}">${icon('ticket', 18)}Request</button><p class="b-dim">${w.status === 'unreleased' ? `Out ${w.release ? esc(F.day(w.release)) : w.year}. Ask now and it arrives on release. ` : ''}${quota}</p></div>`;
     }
 
+    // The ticket is the request's one status object; below it, what happened and when.
     function requestHTML(r) {
       const req = VB.reqs().find((x) => x.id === r.id);
       const w = D.W[req.work];
       const st = VB.reqState(req);
-      const steps = [
-        ['Requested', `${req.by === ME ? 'You' : VB.name(req.by)} asked ${F.day(req.at)} at ${F.time(req.at)}`, true],
-        ['Approved', st === 'pending' ? 'Waiting for Alex' : st === 'denied' ? 'Alex said not this time' : 'Alex approved it', st !== 'pending' && st !== 'denied'],
-        ['Developing', st === 'downloading' ? null : st === 'available' ? 'Done' : 'Starts once a copy is found', st === 'available'],
-        ['Showing', st === 'available' ? `Ready ${req.doneAt ? F.ago(req.doneAt) : ''}` : 'Not yet', st === 'available'],
-      ];
-      return `<div class="b-mcol b-mcol--top" style="${VB.tint(w)}">
-        ${VB.ticket(req, { big: true, link: false, titleW: wide ? 400 : 150 })}
-        <ol class="b-timeline">${steps.map(([k, v, done]) => `<li data-done="${done}"${k === 'Developing' && st === 'downloading' ? ' data-cur="true"' : ''}><span class="b-timeline__k">${k}</span><span class="b-timeline__v"${v === null ? ` data-lv="wmember|${w.id}"` : ''}>${esc(v === null ? VB.memberLine(VB.acq(w.id)) : v)}</span></li>`).join('')}</ol>
-        <a class="b-link" href="${VB.href('work/' + w.id)}" data-open="${w.id}">About ${esc(w.title)}${icon('chevron-right', 16)}</a>
-      </div>`;
+      const admin = VB.first(D.me);
+      const when = (d) => `${F.day(d)} at ${F.time(d)}`;
+      const events = [[`${req.by === ME ? 'You' : VB.name(req.by)} asked for it`, when(req.at)]];
+      if (st === 'denied') events.push([`${admin} said not this time`, when(VB.decidedAt(req))]);
+      else if (st !== 'pending') events.push([`${admin} approved it`, when(VB.decidedAt(req))]);
+      if (st === 'available' && req.doneAt) events.push(['It arrived, ready to watch', when(req.doneAt)]);
+      return `<article class="b-mreqpage" style="${VB.tint(w)}">
+        <div class="b-mwork__stage"><img src="${ART.backdrop(w, wide ? { w: 1680, h: 720 } : { w: 786, h: 640 })}" alt=""><div class="b-mwork__shade"></div></div>
+        <div class="b-mcol b-mreqpage__col">
+          ${VB.ticket(req, { big: true, link: false, titleW: wide ? 400 : 150 })}
+          <section class="b-msec" aria-labelledby="b-rh-h"><header class="b-sec__h"><h2 class="b-h2" id="b-rh-h">History</h2></header>
+            <ol class="b-hist">${events.map(([t, at]) => `<li><span>${esc(t)}</span><span class="b-dim">${esc(at)}</span></li>`).join('')}</ol></section>
+          <a class="b-link b-mreqpage__more" href="${VB.href('work/' + w.id)}" data-open="${w.id}">About ${esc(w.title)}${icon('chevron-right', 16)}</a>
+        </div>
+      </article>`;
     }
     function requestsHTML() {
       const mine = myReqs();
@@ -238,7 +243,7 @@
       const r = { id: 'm' + (VB.local.mine.length + 1), work: w.id, by: ME, at: SS.sim.clock, state: 'pending', seasons, note: '' };
       VB.local.mine.push(r);
       const box = viewEl.querySelector('[data-mact]');
-      box.innerHTML = VB.ticket(r, { big: true, title: false });
+      box.innerHTML = VB.ticket(r, { big: true, title: false, art: false });
       live.scan(box);
       const t = box.firstElementChild;
       if (!VB.reduced()) t.animate([{ opacity: 0, transform: 'translateY(10px) scale(0.98)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
@@ -320,7 +325,7 @@
       for (const el of viewEl.querySelectorAll(`[data-ticket="${r.id}"]`)) {
         const big = el.classList.contains('is-big');
         const link = el.querySelector('.b-ticket__main').tagName === 'A';
-        el.outerHTML = VB.ticket(r, { big, link, title: !!el.querySelector('.b-ticket__title'), titleW: big ? (wide ? 400 : 150) : tW });
+        el.outerHTML = VB.ticket(r, { big, link, title: !!el.querySelector('.b-ticket__title'), art: !!el.querySelector('.b-ticket__art'), titleW: big ? (wide ? 400 : 150) : tW });
         const fresh = viewEl.querySelector(`[data-ticket="${r.id}"]`);
         live.scan(fresh);
         VB.tear(fresh);

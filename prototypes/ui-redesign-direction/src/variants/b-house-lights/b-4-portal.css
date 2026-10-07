@@ -20,7 +20,7 @@
   .b-pbar__link:active { transform: scale(0.97); }
   @media (hover: hover) and (pointer: fine) { .b-pbar__link:hover { color: var(--ink); background: var(--fill); } }
   .b-mark { display: inline-flex; align-items: center; gap: 9px; font: 500 17px/1 var(--font); letter-spacing: 0.005em; white-space: nowrap; height: 44px; }
-  .b-mark__glyph { position: relative; width: 16px; height: 11px; border-radius: 2.5px; background: linear-gradient(180deg, var(--ink) 0%, rgba(243, 236, 228, 0.82) 55%, rgba(243, 236, 228, 0.28) 100%); }
+  .b-mark__glyph { flex: none; width: 20px; height: 16px; color: var(--ink); }
   .b-pback { display: inline-flex; align-items: center; height: 44px; padding: 0 10px 0 0; margin-left: -8px; color: var(--ink); font: 400 17px/1 var(--font); border-radius: 22px; transition: transform 120ms var(--ease); }
   .b-pback:active { transform: scale(0.96); }
 
@@ -98,14 +98,18 @@
   .b-check:active { background: var(--fill); }
   @media (hover: hover) and (pointer: fine) { .b-check:hover { background: var(--fill); } }
 
-  .b-timeline { display: grid; margin: 24px 0 20px; }
-  .b-timeline li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); font-size: 15px; }
-  .b-timeline__k { color: var(--ink-3); }
-  .b-timeline__v { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-  .b-timeline li[data-done="true"] .b-timeline__k { color: var(--ink); }
-  .b-timeline li[data-cur="true"] .b-timeline__k { color: var(--ink); font-weight: 500; }
-  .b-timeline li[data-cur="true"] .b-timeline__v { color: var(--ink); }
-  .b-timeline li[data-cur="true"] .b-timeline__k::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--glow); margin-right: 8px; transform: translateY(-2px); }
+  /* A request: the Work's art behind its ticket, and below it what happened when. */
+  .b-mreqpage { position: relative; }
+  .b-mreqpage > .b-mwork__stage { height: 320px; }
+  .b-mreqpage__col { margin-top: -164px; }
+  .b-mreqpage .b-msec { padding-top: 28px; }
+  .b-mreqpage .b-hist li { font-size: 15px; padding: 12px 0; }
+  .b-mreqpage .b-hist li .b-dim { font-size: 13.5px; color: var(--ink-2); }
+  .b-mreqpage__more { margin-top: 18px; }
+
+  /* A ticket under its own Work hero leaves the poster to the hero. */
+  .b-ticket--bare.b-ticket .b-ticket__main, .b-ticket--bare.b-ticket.is-big .b-ticket__main { grid-template-columns: minmax(0, 1fr); }
+  .b-ticket--bare .b-ticket__head { grid-column: 1 / -1; }
 
   .b-psearch { display: flex; align-items: center; gap: 10px; height: 46px; margin: 14px 0 4px; padding: 0 14px; border-radius: 14px; background: var(--fill); color: var(--ink-3); }
   .b-psearch input { flex: 1; height: 100%; border: 0; background: none; font: 400 17px/1 var(--font); color: var(--ink); -webkit-appearance: none; }
@@ -158,7 +162,11 @@
   .b-mwork__poster { width: 200px; border-radius: 8px; }
   .b-mwork__act { padding-top: 32px; }
   .b-psearch { max-width: 640px; height: 50px; }
-  .b-timeline { max-width: 760px; }
+  .b-mreqpage > .b-mwork__stage { height: clamp(420px, min(100cqw / 2.4, 100cqh - 200px), 800px); }
+  .b-mreqpage__col { margin-top: -230px; }
+  .b-mreqpage .b-msec { max-width: 760px; }
+  .b-ticket--bare.b-ticket.is-big .b-ticket__main { grid-template-columns: minmax(0, 1fr); }
+  .b-ticket--bare :is(.b-ticket__head, .b-tsegs, .b-ticket__line) { grid-column: 1 / -1; }
   .b-toasts { left: auto; right: 24px; top: auto; bottom: 24px; justify-items: end; }
   .b-toast { transform: translateY(8px); }
 }

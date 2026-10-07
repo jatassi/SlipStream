@@ -51,6 +51,7 @@
     root.innerHTML = `<div class="b-app b-desk">
       <div class="b-spillhost"></div>
       <main class="b-main" tabindex="-1"><div class="b-view"></div></main>
+      <div class="b-houselights" aria-hidden="true"></div>
       <header class="b-bar">${barHTML()}</header>
       <div class="b-layer"></div>
     </div>`;
@@ -68,7 +69,7 @@
     const now = VB.nowShowing(ctx, (h) => { if (route.name === 'home') swapHero(h); });
 
     function barHTML() {
-      return `<a class="b-mark" href="${VB.href('home')}" data-go="home"><span class="b-mark__glyph" aria-hidden="true"></span>SlipStream</a>
+      return `<a class="b-mark" href="${VB.href('home')}" data-go="home">${VB.mark()}SlipStream</a>
         <nav class="b-nav" aria-label="Primary">${NAV.map(([k, l]) => `<a class="b-nav__i" href="${VB.href(k)}" data-go="${k}" data-nav="${k}">${l}${k === 'requests' ? ' <span class="b-count b-count--amber" data-reqcount></span>' : k === 'activity' ? ' <span class="b-count" data-lv="active"></span>' : ''}</a>`).join('')}<span class="b-nav__ind" aria-hidden="true"></span></nav>
         <div class="b-bar__r">
           <button class="b-search" type="button" data-act="palette">${icon('search', 16)}<span>Search</span><kbd>⌘K</kbd></button>
@@ -97,6 +98,12 @@
       rc.textContent = n || '';
       rc.hidden = !n;
       bar.querySelector('[data-lv="active"]').textContent = VB.LV.active();
+      // House lights: Tonight comes up a little when nothing needs the admin, and stays down while something does.
+      const aisle = VB.aisle();
+      app.dataset.house = route.name === 'home' && !aisle.length ? 'up' : 'down';
+      const box = route.name === 'home' && viewEl.querySelector('[data-aisle]');
+      const key = aisle.map((a) => a.id).join();
+      if (box && box.dataset.key !== key) { box.dataset.key = key; box.innerHTML = VB.aisleList(aisle); }
     }
 
     // ---------- Navigation ----------
@@ -182,14 +189,19 @@
     const heroImg = (h) => `<img class="b-hero__img is-on" src="${ART.backdrop(h.work, { w: 1680, h: 720 })}" alt="">`;
     function homeHTML() {
       const h = now.get();
+      const aisle = VB.aisle();
       const arrivals = [];
       const seenA = new Set();
       for (const x of D.history) if ((x.kind === 'imported' || x.kind === 'upgraded') && !seenA.has(x.work)) { seenA.add(x.work); arrivals.push(x); }
+      for (const w of D.works.filter((x) => VB.status(x).s === 'available').sort((a, b) => b.added - a.added)) {
+        if (arrivals.length >= 12) break;
+        if (!seenA.has(w.id)) { seenA.add(w.id); arrivals.push({ work: w.id, at: w.added, kind: 'added' }); }
+      }
       return `<section class="b-hero" aria-label="Now showing">
           <div class="b-hero__frame">${heroImg(h)}<div class="b-hero__shade"></div></div>
           <div class="b-hero__body">
             <div class="b-hero__slot">${heroCopy(h)}</div>
-            <aside class="b-hero__aisle" aria-labelledby="b-aisle-h"><h2 class="b-h3" id="b-aisle-h">Needs you</h2><div data-aisle>${VB.aisleList(VB.aisle())}</div></aside>
+            <aside class="b-hero__aisle" aria-labelledby="b-aisle-h"><h2 class="b-h2" id="b-aisle-h">Needs you</h2><div data-aisle data-key="${aisle.map((a) => a.id).join()}">${VB.aisleList(aisle)}</div></aside>
           </div>
         </section>
         <div class="b-home__lower">
@@ -197,20 +209,23 @@
             <header class="b-sec__h"><h2 class="b-h2" id="b-dev-h">Developing</h2><p class="b-sec__aside"><span data-lv="down">${F.rate(SS.sim.totals().down)}</span> down</p><a class="b-link" href="${VB.href('activity')}" data-go="activity">Activity${icon('chevron-right', 16)}</a></header>
             <div class="b-drow b-house" data-devrow>${devRow()}</div>
           </section>
-          <section class="b-sec" aria-labelledby="b-cs-h">
-            <header class="b-sec__h"><h2 class="b-h2" id="b-cs-h">Coming soon</h2></header>
-            <div class="b-cslist b-house">${VB.comingSoon(4).map(VB.comingCard).join('')}</div>
-          </section>
+          <div class="b-home__side">
+            <section class="b-sec" aria-labelledby="b-cs-h">
+              <header class="b-sec__h"><h2 class="b-h2" id="b-cs-h">Coming soon</h2></header>
+              <div class="b-cslist b-house">${VB.comingSoon(3).map(VB.comingCard).join('')}</div>
+            </section>
+            <p class="b-nodesline">${VB.nodesLine()} <a class="b-link" href="${VB.href('nodes')}" data-go="nodes">Nodes${icon('chevron-right', 16)}</a></p>
+          </div>
         </div>
         <section class="b-sec b-sec--pad" aria-labelledby="b-arr-h">
           <header class="b-sec__h"><h2 class="b-h2" id="b-arr-h">Arrived lately</h2></header>
-          <div class="b-arow b-house">${arrivals.slice(0, 8).map((x) => arrivedTile(x)).join('')}</div>
-        </section>
-        <footer class="b-nodesline"><p>${VB.nodesLine()} <a class="b-link" href="${VB.href('nodes')}" data-go="nodes">Nodes${icon('chevron-right', 16)}</a></p></footer>`;
+          <div class="b-arow b-house">${arrivals.map(arrivedTile).join('')}</div>
+        </section>`;
     }
     const arrivedTile = (x) => {
       const w = D.W[x.work];
-      const what = x.episode ? F.ep(x.episode) : x.kind === 'upgraded' ? 'Upgraded' : D.targets.find((t) => t.id === x.target).short;
+      const what = x.episode ? F.ep(x.episode) : x.kind === 'upgraded' ? 'Upgraded' : x.target ? D.targets.find((t) => t.id === x.target).name
+        : w.type === 'series' ? F.plural(w.seasons.length, 'season') : VB.coverage(w).find((c) => c.c === 'met')?.t.name || 'Available';
       return `<a class="b-tile b-tile--lit" href="${VB.href('work/' + w.id)}" data-open="${w.id}" data-key="${w.id}" style="${VB.tint(w)}"><div class="b-tile__art">${VB.poster(w)}</div><div class="b-dtile__cap"><span class="b-tile__t">${esc(w.title)}</span><span class="b-dtile__s">${esc(what)} · <span data-lv="ago|${x.at.getTime()}">${esc(F.ago(x.at))}</span></span></div></a>`;
     };
     const devRow = () => {
@@ -280,7 +295,7 @@
         const lead = `<a class="b-trow__w" href="${VB.href('work/' + w.id)}" data-open="${w.id}"><span class="b-trow__art">${VB.art(w)}</span><span><span class="b-trow__t">${esc(w.title)}</span><span class="b-dim">${w.year}</span></span></a>`;
         const acts = `<span class="b-trow__acts"><button class="b-iconbtn b-iconbtn--sm" type="button" data-cmd="search" data-work="${w.id}" aria-label="Search for ${esc(w.title)}">${icon('search', 16)}</button><button class="b-iconbtn b-iconbtn--sm" type="button" data-cmd="delete" data-work="${w.id}" aria-label="Delete ${esc(w.title)}">${icon('trash-2', 16)}</button></span>`;
         if (type === 'movie') {
-          const cov = VB.coverage(w).filter((x) => x.c !== 'unwanted').map((x) => `<span class="b-tchip" data-c="${x.c}">${esc(x.t.short)}</span>`).join('');
+          const cov = VB.coverage(w).filter((x) => x.c !== 'unwanted').map((x) => `<span class="b-tchip" data-c="${x.c}">${esc(x.t.name)}</span>`).join('');
           const size = VB.files(w).reduce((a, f) => a + f.size, 0);
           const status = s.j ? `<span class="b-trow__live" data-lv="wline|${w.id}">${esc(VB.line(s.j))}</span>` : `<span data-s="${s.s}">${VB.statusLabel[s.s]}</span>`;
           return `<div class="b-trow" role="row">${lead}<span role="cell">${status}</span><span role="cell" class="b-tchips">${cov}</span><span role="cell">${prof}</span><span role="cell" class="b-num">${size ? F.bytes(size) : ''}</span><span role="cell" class="b-dim">${esc(F.ago(w.added))}</span>${acts}</div>`;
@@ -464,16 +479,16 @@
       { id: 'missing-eps', label: 'Search for missing episodes', hint: '3 episodes in 3 series', run: () => VB.toast(root, 'Searching 4 indexers for 3 missing episodes') },
       { id: 'missing-movies', label: 'Search for missing movies', hint: '4 movies', run: () => VB.toast(root, 'Searching 4 indexers for 4 missing movies') },
       { id: 'pause-ams', label: 'Pause ams-1', hint: '3 downloads', run: () => VB.toast(root, 'ams-1 paused. 3 downloads hold their place') },
-      { id: 'approve-all', label: 'Approve every pending request', hint: 'From Maya, Theo and Rosa', run: () => { for (const r of VB.reqs()) if (VB.reqState(r) === 'pending') VB.local.req[r.id] = 'approved'; VB.toast(root, 'Approved 3 requests. Searching now'); render(); } },
+      { id: 'approve-all', label: 'Approve every pending request', hint: 'From Maya, Theo and Rosa', run: () => { for (const r of VB.reqs()) if (VB.reqState(r) === 'pending') VB.decide(r.id, 'approved'); VB.toast(root, 'Approved 3 requests. Searching now'); render(); } },
       { id: 'refresh', label: 'Refresh all metadata', hint: '58 Works', run: () => VB.toast(root, 'Refreshing metadata for 58 Works') },
       { id: 'restart', label: 'Restart SlipStream', hint: 'All Nodes reconnect in about 20 s', run: () => VB.toast(root, 'Restart scheduled after the current imports finish') },
     ];
     function palItems(q) {
       q = q.trim().toLowerCase();
-      const works = D.works.filter((w) => !q || w.title.toLowerCase().includes(q)).slice(0, q ? 6 : 0).map((w) => ({ kind: 'work', w, label: w.title, hint: `${w.type === 'movie' ? 'Movie' : 'Series'} · ${w.year} · ${VB.statusLabel[VB.status(w).s]}`, run: (kbd) => go(`work/${w.id}`, { kbd }) }));
+      const works = D.works.filter((w) => !q || w.title.toLowerCase().includes(q)).slice(0, q ? 6 : 0).map((w) => ({ kind: 'work', w, label: w.title, hint: `${w.type === 'movie' ? 'Movie' : 'Series'} · ${w.year} · ${VB.statusText(w)}`, run: (kbd) => go(`work/${w.id}`, { kbd }) }));
       const views = NAV.filter(([, l]) => !q || l.toLowerCase().includes(q) || 'go to'.includes(q)).map(([k, l]) => ({ kind: 'view', label: `Go to ${l}`, hint: '', run: (kbd) => go(k, { kbd }) }));
       const cmds = COMMANDS.filter((c) => !q || c.label.toLowerCase().includes(q)).map((c) => ({ kind: 'cmd', label: c.label, hint: c.hint, run: c.run }));
-      const recent = q ? [] : [D.W[now.get().work], ...VB.developing().slice(0, 2).map((x) => x.w)].map((w) => ({ kind: 'work', w, label: w.title, hint: `${w.type === 'movie' ? 'Movie' : 'Series'} · ${VB.statusLabel[VB.status(w).s]}`, run: (kbd) => go(`work/${w.id}`, { kbd }) }));
+      const recent = q ? [] : [D.W[now.get().work], ...VB.developing().slice(0, 2).map((x) => x.w)].map((w) => ({ kind: 'work', w, label: w.title, hint: `${w.type === 'movie' ? 'Movie' : 'Series'} · ${VB.statusText(w)}`, run: (kbd) => go(`work/${w.id}`, { kbd }) }));
       return [['Works', [...recent, ...works]], ['Go to', views], ['Commands', cmds]].filter((g) => g[1].length);
     }
     function palRender(q) {
@@ -597,7 +612,7 @@
       if (d.aisleAct) {
         const item = VB.aisle().find((x) => x.id === d.aisleAct);
         if (!item) return;
-        if (item.cmd === 'blocklist') { VB.local.resolved.add(item.job); VB.toast(root, 'Blocklisted the sample. Searching 4 indexers again'); const box = viewEl.querySelector('[data-aisle]'); if (box) { box.innerHTML = VB.aisleList(VB.aisle()); } refreshDevRow(viewEl.querySelector('[data-devrow]') || document.createElement('div')); return; }
+        if (item.cmd === 'blocklist') { VB.local.resolved.add(item.job); VB.toast(root, 'Blocklisted the sample. Searching 4 indexers again'); updateBar(); refreshDevRow(viewEl.querySelector('[data-devrow]')); return; }
         return go(item.job ? `work/${VB.job(item.job).work}/manual` : item.go, { kbd });
       }
       const lib = route.name === 'library' ? VB.local.lib.movie : VB.local.lib.series;
@@ -617,10 +632,10 @@
       if (d.actfilter) { ACT.filter = d.actfilter; return render(); }
       if (d.reqtab) { REQ.tab = d.reqtab; return render(); }
       const row = t.closest('.b-req');
-      if (d.reqApprove) { VB.local.req[d.reqApprove] = 'approved'; settleReq(row, 'Approved. Searching now'); return; }
+      if (d.reqApprove) { VB.decide(d.reqApprove, 'approved'); settleReq(row, 'Approved. Searching now'); return; }
       if (d.reqDeny) { row.querySelector('.b-req__deny').hidden = false; row.querySelector('.b-req__act').hidden = true; row.querySelector('.b-req__deny input').focus(); return; }
       if (d.reqCancel) { row.querySelector('.b-req__deny').hidden = true; row.querySelector('.b-req__act').hidden = false; return; }
-      if (d.reqConfirm) { VB.local.req[d.reqConfirm] = 'denied'; settleReq(row, 'Denied. They will see your reason'); }
+      if (d.reqConfirm) { VB.decide(d.reqConfirm, 'denied'); settleReq(row, 'Denied. They will see your reason'); }
     });
     function settleReq(row, msg) {
       row.dataset.state = 'settling';
