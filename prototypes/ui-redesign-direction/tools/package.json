@@ -1,0 +1,1 @@
+{ "name": "ui-redesign-direction-tools", "private": true, "type": "module", "devDependencies": { "playwright-core": "1.63.0" } }
