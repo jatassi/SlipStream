@@ -21,16 +21,16 @@ The Work and the set of its Items that a release or a file holds, such as one ep
 _Avoid_: Match, scope
 
 **Edition**:
-A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition, and may want several, each held in every Rendition its Work wants. A release with no cut named holds Standard.
+A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition, and may want several, each wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
 _Avoid_: Version, cut
 
-**Rendition**:
-A library-wide, named encoding target, such as 1080p low bitrate or 2160p HDR, with its own quality rules, cutoff and upgrades. A Rendition is either downloaded or derived by transcoding another Rendition. One file fills every Rendition whose rules it meets.
-_Avoid_: Slot, version, quality version
+**Target**:
+A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, cutoff and upgrades. A Target is either downloaded or derived by transcoding another Target. One file meets every Target whose rules it passes.
+_Avoid_: Rendition, slot, version, quality version, variant
 
-**Rendition profile**:
-The set of Renditions a Work wants, each with how it is sourced: downloaded, derived from another Rendition, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override. Every Work has one, defaulting per Content Type.
-_Avoid_: Quality profile, slot
+**Profile**:
+The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override. Every Work has one, defaulting per Content Type.
+_Avoid_: Rendition profile, quality profile, slot
 
 **Blocklist**:
 Releases known to be bad, keyed by torrent info hash, that no Item ever grabs again until removed by hand.
@@ -75,8 +75,8 @@ The Role that serves the UI and portal on a Node, passing every request to the C
 _Avoid_: Hosting, web; never the Media Server's serving of the library
 
 **Transfer**:
-A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy.
-_Avoid_: Sync, mirror, push
+A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
+_Avoid_: Sync, mirror, push; target for the destination
 
 **Media Server**:
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
