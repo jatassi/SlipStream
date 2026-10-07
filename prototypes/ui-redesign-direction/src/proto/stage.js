@@ -45,6 +45,8 @@
   function frameFor(shell) {
     stageEl.innerHTML = '';
     stageEl.className = 'stage';
+    stageEl.removeAttribute('style');
+    const safe = (top, bottom) => { stageEl.style.setProperty('--safe-top', top); stageEl.style.setProperty('--safe-bottom', bottom); };
     const host = document.createElement('div');
     host.className = 'ss-root';
     host.dataset.variant = state.variant;
@@ -53,14 +55,14 @@
       stageEl.classList.add('stage--device');
       stageEl.innerHTML = `<div class="device"><div class="device__screen"></div><div class="device__island"></div><div class="device__status"><span class="device__time">21:42</span><span class="device__glyphs">${statusGlyphs()}</span></div><div class="device__home"></div></div>`;
       const screenEl = stageEl.querySelector('.device__screen');
-      host.style.setProperty('--safe-top', DEVICE.top + 'px');
-      host.style.setProperty('--safe-bottom', DEVICE.bottom + 'px');
+      safe(DEVICE.top + 'px', DEVICE.bottom + 'px');
       screenEl.appendChild(host);
       fitDevice();
       return { host, frame: 'device', width: DEVICE.w, height: DEVICE.h };
     }
     if (!isPhoneShell(shell) && narrow()) {
       stageEl.classList.add('stage--scaled');
+      safe('0px', '0px');
       const box = document.createElement('div');
       box.className = 'scaled';
       box.appendChild(host);
@@ -69,8 +71,7 @@
       return { host, frame: 'scaled', width: 1440, height: 900 };
     }
     stageEl.classList.add('stage--native');
-    host.style.setProperty('--safe-top', isPhoneShell(shell) && !(narrow() && state.bar) ? 'env(safe-area-inset-top, 0px)' : '0px');
-    host.style.setProperty('--safe-bottom', isPhoneShell(shell) ? 'env(safe-area-inset-bottom, 0px)' : '0px');
+    safe(isPhoneShell(shell) && !(narrow() && state.bar) ? 'env(safe-area-inset-top, 0px)' : '0px', isPhoneShell(shell) ? 'env(safe-area-inset-bottom, 0px)' : '0px');
     stageEl.appendChild(host);
     return { host, frame: 'native', width: innerWidth, height: innerHeight };
   }
