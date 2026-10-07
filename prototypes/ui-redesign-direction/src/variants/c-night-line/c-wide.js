@@ -189,7 +189,7 @@
         net: '',
         movies: d.works.filter((w) => w.type === 'movie').length,
         series: d.works.filter((w) => w.type === 'series').length,
-        activity: d.jobs.filter((j) => j.state !== 'done').length,
+        activity: VC.activityRows().length,
         requests: d.requests.filter((r) => r.state === 'pending').length,
         nodes: d.nodes.length,
       };
@@ -727,7 +727,7 @@
       const match = (j) => (tab === 'all' ? j.state !== 'done' || VC.lit.has(j.id) : tab === 'stalled' ? j.state === 'stalled' || j.state === 'paused' : j.state === tab) && (!only || VC.jobLine(j) === only);
       function render() {
         const list = sortJobs(VC.collapse(d.jobs.filter(match)));
-        const count = (k) => d.jobs.filter((j) => (k === 'all' ? j.state !== 'done' : k === 'stalled' ? j.state === 'stalled' || j.state === 'paused' : j.state === k)).length;
+        const count = (k) => (k === 'all' ? VC.activityRows().length : VC.collapse(d.jobs.filter((j) => (k === 'stalled' ? j.state === 'stalled' || j.state === 'paused' : j.state === k))).length);
         let lastLine = '';
         el.innerHTML = `<div class="c-page">
           <header class="c-pagehead"><h1>Activity<span class="c-count c-num">${count('all')}</span></h1>

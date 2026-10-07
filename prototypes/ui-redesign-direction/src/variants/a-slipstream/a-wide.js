@@ -486,7 +486,15 @@
 
     return {
       click(e) {
-        if (e.target.closest('[data-s="needs"]')) { tun.focusSeparations(false); if (!tun.pinSeparation()) api.go('activity'); return true; }
+        if (e.target.closest('[data-s="needs"]')) {
+          tun.focusSeparations(false);
+          if (tun.pinSeparation()) return true;
+          // A separation with no filament (an offline Node) lives only in this list, so point at it.
+          needsEl.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+          needsEl.querySelectorAll('.a-need').forEach((r) => r.classList.add('is-lit'));
+          setTimeout(() => needsEl.querySelectorAll('.is-lit').forEach((r) => r.classList.remove('is-lit')), 1600);
+          return true;
+        }
         const w = e.target.closest('[data-watch]');
         if (w) {
           const n = VA.watching().find((x) => x.id === w.dataset.watch);

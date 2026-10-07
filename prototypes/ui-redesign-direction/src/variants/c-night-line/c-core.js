@@ -117,6 +117,8 @@
   };
 
   // One row per Work or episode: a finished leg yields to the leg that took over from it.
+  // What Activity's All tab lists: unfinished work plus arrivals still lit, one row per Work-episode.
+  VC.activityRows = () => VC.collapse(SS.data.jobs.filter((j) => j.state !== 'done' || VC.lit.has(j.id)));
   VC.collapse = (list) => {
     const items = new Map();
     for (const j of list) {
