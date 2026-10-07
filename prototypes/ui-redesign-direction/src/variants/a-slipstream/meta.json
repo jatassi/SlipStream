@@ -1,0 +1,6 @@
+{
+  "key": "A",
+  "name": "Slipstream",
+  "fonts": ["Archivo:wdth,wght@62..125,100..900", "Martian+Mono:wdth,wght@75..112.5,300..500"],
+  "scripts": ["a-core.js", "a-tunnel.js", "a-parts.js", "a-wide.js", "a-phone.js", "a-portal.js", "a-main.js"]
+}

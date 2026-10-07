@@ -1,0 +1,7 @@
+{
+  "key": "B",
+  "name": "House Lights",
+  "fonts": ["Jost:ital,wght@0,100..900;1,100..900"],
+  "scripts": ["b-core.js", "b-parts.js", "b-wide.js", "b-phone.js", "b-portal.js", "b-mount.js"],
+  "icons": ["refresh-cw", "sliders-horizontal", "folder", "ban"]
+}
