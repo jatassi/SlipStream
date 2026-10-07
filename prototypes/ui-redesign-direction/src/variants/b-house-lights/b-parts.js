@@ -136,7 +136,7 @@
       if (x.c === 'met') return f ? F.bytes(f.size) : '';
       if (x.c === 'downloading' || x.c === 'deriving') return `<span data-lv="jpct|${x.j.id}">${Math.floor(x.j.progress * 100)}%</span>`;
       if (x.c === 'upgradable') return 'Below the Blu-ray cutoff';
-      if (x.c === 'waiting') return `After ${esc(D.targets.find((t) => t.id === x.t.from).name)} arrives`;
+      if (x.c === 'waiting') return x.t.from ? `After ${esc(D.targets.find((t) => t.id === x.t.from).name)} arrives` : 'After the download';
       if (x.c === 'queued') return `On ${esc(x.j.node)}`;
       if (x.c === 'failed') return 'Sample release';
       if (x.c === 'stalled') return 'No seeders';
