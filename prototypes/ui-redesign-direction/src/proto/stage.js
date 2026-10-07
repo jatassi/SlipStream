@@ -32,7 +32,7 @@
     p.set('variant', state.variant);
     p.set('shell', state.shell);
     state.view ? p.set('view', state.view) : p.delete('view');
-    history.replaceState(null, '', `${location.pathname}?${p}`);
+    try { history.replaceState(null, '', `${location.pathname}?${p}`); } catch {}
   }
 
   function enableCSS(key) {

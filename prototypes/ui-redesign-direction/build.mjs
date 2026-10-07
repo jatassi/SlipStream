@@ -79,4 +79,8 @@ ${variants.map((v) => script(v.js)).join('\n')}
 </html>
 `;
 writeFileSync(join(root, 'dist/index.html'), html);
+// The Artifact host wraps the page in its own skeleton, so its copy starts at <title>.
+const body = html.split('<body>')[1].split('</body>')[0];
+const head = html.split('<head>')[1].split('</head>')[0].replace(/<meta[^>]*>\n?/g, '');
+writeFileSync(join(root, 'dist/artifact.html'), head.replace(/^\s+/, '') + body);
 console.log(`dist/index.html ${(html.length / 1024).toFixed(0)} KB · ${variants.map((v) => v.key).join(' ') || 'no variants'} · ${Object.keys(icons).length} icons`);
