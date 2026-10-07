@@ -144,7 +144,7 @@
       c[t] = {
         available: 'met',
         upgradable: t === 'uhd' ? 'missing' : t === 'hd' ? 'upgradable' : 'met',
-        downloading: t === 'uhd' ? 'downloading' : t === 'hd' ? 'downloading' : 'waiting',
+        downloading: t === 'uhd' ? 'downloading' : 'waiting',
         missing: 'missing',
         failed: 'missing',
         unreleased: 'unreleased',
@@ -157,7 +157,8 @@
   let addedRank = 0;
   for (const m of MOVIES) {
     const [id, title, year, runtime, genres, cert, rating, status, pal, motif, font, tagline, overview, extra = {}] = m;
-    const profile = genres.includes('Family') || genres.includes('Animation') ? 'kids' : rnd() < 0.72 ? 'cinema' : 'standard';
+    let profile = genres.includes('Family') || genres.includes('Animation') ? 'kids' : rnd() < 0.72 ? 'cinema' : 'standard';
+    if (status === 'downloading') profile = 'cinema';
     const w = {
       id, type: 'movie', title, year, runtime, genres, cert, rating, status, tagline, overview,
       director: person(), cast: [person(), person(), person(), person()], studio: pick(studios), profile,
