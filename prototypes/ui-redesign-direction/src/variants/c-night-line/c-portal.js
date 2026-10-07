@@ -22,6 +22,17 @@
     if (r.state === 'approved' || r.state === 'downloading') return { key: 'approved', pos: 1.3, stop: 1, title: 'Approved', line: w.status === 'unreleased' ? `Arrives once it is released ${F.until(w.release)}` : 'Looking for a good copy' };
     return { key: 'pending', pos: 0, stop: 0, title: 'Requested', line: 'Waiting for Alex to approve' };
   };
+  // The arrivals-board time for a request on its way: the Library line brings it in.
+  const arrivesAt = (r) => {
+    const j = r.state === 'available' || r.state === 'denied' ? null : VC.journey(d.W[r.work]);
+    return j ? new Date(VC.clock().getTime() + j.eta * 1000) : null;
+  };
+  const arrival = (r) => {
+    const at = arrivesAt(r);
+    if (!at) return '';
+    const t = VC.boardTime(at);
+    return `<span class="c-arr">${VC.bullet('library')}<span class="c-arr__w">Arrives</span><time class="c-arr__t" data-arr data-at="${+at}" data-v="${t}">${t}</time></span>`;
+  };
   const reqFor = (w) => d.requests.find((r) => r.work === w.id && r.state !== 'denied' && r.state !== 'available') || d.requests.find((r) => r.work === w.id && r.by === d.member);
 
   function strip(r, big = false) {
@@ -119,8 +130,11 @@
         const v = VC.reqView(r);
         VC.set($(c, '[data-f="line"]'), v.line);
         const t = $(c, '[data-f="title"]');
-        VC.set(t, v.title);
-        t.dataset.k = v.key;
+        if (t) { VC.set(t, v.title); t.dataset.k = v.key; }
+        const arr = $(c, '[data-arr]');
+        const at = arrivesAt(r);
+        if (arr && at) VC.boardFlap(arr, at);
+        else if (arr) arr.closest('.c-arr').remove();
       }
     }
 
@@ -145,7 +159,7 @@
               <img class="c-feature__bg" src="${SS.art.backdrop(w, { w: 1200, h: 520 })}" alt="">
               <span class="c-feature__scrim"></span>
               <span class="c-feature__b">
-                <span class="c-feature__h"><b>${esc(w.title)}</b><span class="c-rqcard__k" data-k="${v.key}" data-f="title">${esc(v.title)}</span></span>
+                <span class="c-feature__h"><b>${esc(w.title)}</b>${arrival(r) || `<span class="c-rqcard__k" data-k="${v.key}" data-f="title">${esc(v.title)}</span>`}</span>
                 <span class="c-feature__s">${esc(VC.workMeta(w))} · requested by ${esc(first(r.by))}</span>
                 ${strip(r, true)}
                 <span class="c-feature__l" data-f="line">${esc(v.line)}</span>
@@ -181,7 +195,7 @@
           ${wide ? `<a href="#" class="c-link c-preq__back" data-go="requests">${I('chevron-left', 16)}Requests</a>` : ''}
           <div class="c-preq__head">${VC.poster(w, 'c-preq__p')}<div><p class="c-dim">${esc(VC.workMeta(w))}</p><h1>${esc(w.title)}</h1><p class="c-dim">Requested by ${r.by === d.member ? 'you' : esc(first(r.by))} ${esc(F.ago(r.at))}${r.seasons ? ` · Season ${r.seasons.join(', ')}` : ''}</p></div></div>
           <section class="c-preq__card">
-            <h2 class="c-preq__t" data-f="title" data-k="${v.key}">${esc(v.title)}</h2>
+            <div class="c-preq__top"><h2 class="c-preq__t" data-f="title" data-k="${v.key}">${esc(v.title)}</h2>${arrival(r)}</div>
             <p class="c-preq__l" data-f="line">${esc(v.line)}</p>
             ${strip(r, true)}
           </section>
@@ -197,6 +211,8 @@
           const t = $(el, '[data-f="title"]');
           if (t.dataset.k !== v.key) return render();
           VC.set($(el, '[data-f="line"]'), v.line);
+          const at = arrivesAt(r);
+          if (at) VC.boardFlap($(el, '[data-arr]'), at);
           const tm = $(el, '[data-t="2"]');
           if (tm && v.key === 'moving') VC.set(tm, v.line.replace('Ready in ', 'in '));
         },
@@ -214,7 +230,7 @@
         const live = r && r.state !== 'denied' && r.state !== 'available';
         const has = w.type === 'movie' ? ['available', 'upgradable'].includes(w.status) : w.counts.missing === 0;
         let cta;
-        if (live) cta = `<div class="c-pwork__req" data-card="${r.id}"><span class="c-rqcard__h"><b data-f="title" class="c-rqcard__k" data-k="${VC.reqView(r).key}">${esc(VC.reqView(r).title)}</b><a href="#" class="c-link" data-go="request/${r.id}">Follow the request ${I('arrow-right', 14)}</a></span>${strip(r)}<span class="c-rqcard__l" data-f="line">${esc(VC.reqView(r).line)}</span></div>`;
+        if (live) cta = `<div class="c-pwork__req" data-card="${r.id}"><span class="c-rqcard__h"><b data-f="title" class="c-rqcard__k" data-k="${VC.reqView(r).key}">${esc(VC.reqView(r).title)}</b>${arrival(r)}</span>${strip(r)}<span class="c-pwork__foot"><span class="c-rqcard__l" data-f="line">${esc(VC.reqView(r).line)}</span><a href="#" class="c-link" data-go="request/${r.id}">Follow the request ${I('arrow-right', 14)}</a></span></div>`;
         else if (has) cta = `<button class="c-btn c-btn--primary c-btn--l" data-pa="watch">${I('play', 17)}Watch in Plex</button><span class="c-pwork__note">In the library</span>`;
         else if (w.type === 'series' && picking) cta = `<div class="c-pick"><p class="c-pick__h">Which seasons?</p><ul>${w.seasons.map((s) => {
           const lib = inLib(s);

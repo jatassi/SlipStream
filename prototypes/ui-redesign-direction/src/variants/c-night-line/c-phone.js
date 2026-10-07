@@ -318,11 +318,12 @@
         const html = net.sentence.map((p) => (typeof p === 'string' ? `<span>${esc(p)}</span>` : `<span class="c-tone-${p.tone}">${esc(p.text)}</span>`)).join('<span class="c-status__sep">·</span>');
         const t = $(el, '[data-status]');
         if (t.innerHTML !== html) t.innerHTML = html;
+        for (const l of VC.LINES) $(el, `[data-ls="${l.id}"]`).dataset.state = net.lines[l.id].state;
       };
       const disr = () => {
         const list = VC.disruptions();
-        const html = list.map((x) => `<li class="c-pdisr" data-kind="${x.kind}"><span class="c-disr__mark"></span>${VC.bullet(x.line)}<span class="c-pdisr__b"><b>${esc(x.title)}</b><span>${esc(x.detail)}</span></span>
-          ${x.kind === 'failed' ? `<button class="c-btn c-btn--s" data-pa="blocklist" data-work="${x.work}">Blocklist</button>` : x.job ? `<button class="c-btn c-btn--s" data-pa="find" data-work="${x.work}">Retry</button>` : ''}</li>`).join('') || '<li class="c-empty">Good service on every line.</li>';
+        const html = list.map((x) => `<li class="c-pdisr" data-kind="${x.kind}"><span class="c-disr__mark"></span>${VC.bullet(x.line)}<b class="c-pdisr__t">${esc(x.title)}</b>
+          ${x.kind === 'failed' ? `<button class="c-btn c-btn--s" data-pa="blocklist" data-work="${x.work}">Blocklist</button>` : x.job ? `<button class="c-btn c-btn--s" data-pa="find" data-work="${x.work}">Retry</button>` : ''}<span class="c-pdisr__r">${esc(x.detail)}</span></li>`).join('') || '<li class="c-empty">Good service on every line.</li>';
         const host = $(el, '[data-disr]');
         if (host.dataset.v !== html) { host.dataset.v = html; host.innerHTML = html; }
         VC.set($(el, '[data-dc]'), String(list.length));
@@ -333,11 +334,11 @@
         const ids = list.map((x) => x.id).join();
         if (body.dataset.ids !== ids) {
           body.dataset.ids = ids;
-          body.innerHTML = list.map((x) => `<tr data-dep="${x.id}" data-push="work/${x.work}"><td class="c-board__t c-num" data-f="t"></td><td class="c-td-b">${VC.bullet(x.line)}</td><td class="c-board__d"><span class="c-trunc"><b>${esc(x.title)}</b></span><span class="c-trunc c-dim">${esc(x.sub)} · ${esc(x.platform)}</span></td><td class="c-board__s" data-f="s"></td></tr>`).join('');
+          body.innerHTML = list.map((x) => `<tr data-dep="${x.id}" data-push="work/${x.work}"><td class="c-board__t" data-f="t"></td><td class="c-td-b">${VC.bullet(x.line)}</td><td class="c-board__d"><span class="c-trunc"><b>${esc(x.title)}</b></span><span class="c-trunc c-dim">${esc(x.sub)} · ${esc(x.platform)}</span></td><td class="c-board__s" data-f="s"></td></tr>`).join('');
         }
         for (const x of list) {
           const tr = $(body, `[data-dep="${x.id}"]`);
-          VC.flap($(tr, '[data-f="t"]'), VC.boardTime(x.at));
+          VC.boardFlap($(tr, '[data-f="t"]'), x.at);
           const s = $(tr, '[data-f="s"]');
           VC.flap(s, x.status);
           s.dataset.tone = x.tone;
@@ -345,7 +346,7 @@
       };
       return {
         title: 'Network',
-        html: () => `<section class="c-pstatus"><div class="c-status__lines">${VC.LINES.map((l) => VC.bullet(l.id)).join('')}</div><p data-status></p></section>
+        html: () => `<section class="c-pstatus"><div class="c-status__lines">${VC.LINES.map((l) => `<span class="c-status__l" data-ls="${l.id}">${VC.bullet(l.id)}</span>`).join('')}</div><p data-status></p></section>
           <section class="c-pcard c-pcard--strip"><div class="c-pstrip"></div></section>
           <h2 class="c-ph">Disruptions<span class="c-count c-num" data-dc></span></h2>
           <ul class="c-pcard c-plist" data-disr></ul>
@@ -373,7 +374,7 @@
       const label = (w, s) => (s.key === 'available' ? String(w.year) : s.label);
       const tile = (w) => {
         const s = VC.statusOf(w);
-        return `<button class="c-tile" data-push="work/${w.id}" data-work="${w.id}"><span class="c-tile__art">${VC.poster(w)}</span><span class="c-tile__t">${esc(w.title)}</span><span class="c-tile__m"><span class="c-tile__s c-st-${s.key}" data-f="s">${esc(label(w, s))}</span></span>${s.key === 'moving' ? `<span class="c-tile__track" style="--ink:${VC.L[s.line].ink}"><span class="c-tile__fill" style="transform:scaleX(${s.p.toFixed(4)})"></span><span class="c-tile__train" style="left:${(s.p * 100).toFixed(2)}%"></span></span>` : ''}</button>`;
+        return `<button class="c-tile" data-push="work/${w.id}" data-work="${w.id}" data-line="${s.line || ''}"><span class="c-tile__art">${VC.poster(w)}</span><span class="c-tile__t">${esc(w.title)}</span><span class="c-tile__m"><span class="c-tile__s c-st-${s.key}" data-f="s">${esc(label(w, s))}</span></span>${s.key === 'moving' ? `<span class="c-tile__track" style="--ink:${VC.L[s.line].ink}"><span class="c-tile__fill" style="transform:scaleX(${s.p.toFixed(4)})"></span><span class="c-tile__train" style="left:${(s.p * 100).toFixed(2)}%"></span></span>` : ''}</button>`;
       };
       const render = () => {
         const ws = list();
@@ -400,6 +401,7 @@
           for (const t of $$(el, '[data-work]')) {
             const w = d.W[t.dataset.work];
             const s = VC.statusOf(w);
+            if (s.key === 'moving' && t.dataset.line !== s.line) { t.outerHTML = tile(w); continue; }
             VC.set($(t, '[data-f="s"]'), label(w, s));
             const fill = $(t, '.c-tile__fill');
             if (fill && s.p != null) { fill.style.transform = `scaleX(${s.p.toFixed(4)})`; $(t, '.c-tile__train').style.left = (s.p * 100).toFixed(2) + '%'; }
@@ -423,9 +425,10 @@
     function activityPage() {
       let el;
       const render = () => {
-        const groups = VC.LINES.map((l) => ({ l, jobs: d.jobs.filter((j) => VC.jobLine(j) === l.id && (j.state !== 'done' || VC.lit.has(j.id))) })).filter((g) => g.jobs.length);
+        const shown = VC.collapse(d.jobs.filter((j) => j.state !== 'done' || VC.lit.has(j.id)));
+        const groups = VC.LINES.map((l) => ({ l, jobs: shown.filter((j) => VC.jobLine(j) === l.id) })).filter((g) => g.jobs.length);
         const net = VC.net();
-        $(el, '[data-acts]').innerHTML = groups.map((g) => `<h2 class="c-ph c-ph--line">${VC.bullet(g.l.id)}${g.l.name}<span class="c-ph__s c-tone-${net.lines[g.l.id].state === 'good' ? '' : 'delays'}">${esc(net.lines[g.l.id].short)}</span></h2>
+        $(el, '[data-acts]').innerHTML = groups.map((g) => `<h2 class="c-ph c-ph--line">${VC.bullet(g.l.id)}${g.l.name}<span class="c-ph__s c-tone-${net.lines[g.l.id].tone}">${esc(net.lines[g.l.id].short)}</span></h2>
           <ul class="c-pcard c-plist">${g.jobs.sort((a, b) => STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state)).map(jobItem).join('')}</ul>`).join('') || '<p class="c-empty">Nothing is moving. Trains appear here the moment a job starts.</p>';
       };
       return {
@@ -455,9 +458,19 @@
 
     function searchPage() {
       let el, q = '';
-      const row = (w) => {
+      // A row whose train finishes while it is on screen keeps that line's bullet and says it arrived.
+      const row = (w, arrived = '') => {
         const s = VC.statusOf(w);
-        return `<li class="c-srow" data-push="work/${w.id}">${VC.poster(w, 'c-srow__p')}<span class="c-srow__b"><b class="c-trunc">${esc(w.title)}</b><span class="c-trunc c-dim">${w.type === 'movie' ? 'Movie' : 'Series'} · ${w.year} · <span class="c-st-${s.key}">${esc(s.key === 'available' ? 'In the library' : s.label)}</span></span></span>${I('chevron-right', 18)}</li>`;
+        const j = VC.workJob(w);
+        const line = j ? VC.jobLine(j) : arrived;
+        const track = s.key === 'moving' ? `<span class="c-tile__track" style="--ink:${VC.L[s.line].ink}"><span class="c-tile__fill" style="transform:scaleX(${s.p.toFixed(4)})"></span><span class="c-tile__train" style="left:${(s.p * 100).toFixed(2)}%"></span></span>` : '';
+        return `<li class="c-srow" data-push="work/${w.id}" data-work="${w.id}" data-line="${j ? line : ''}"${!j && arrived ? ` data-arrived="${arrived}"` : ''}>${VC.poster(w, 'c-srow__p')}<span class="c-srow__b"><b class="c-trunc">${esc(w.title)}</b><span class="c-srow__m">${line ? VC.bullet(line) : ''}<span class="c-trunc c-dim">${w.type === 'movie' ? 'Movie' : 'Series'} · ${w.year} · ${!j && arrived ? '<span class="c-tone-arrived">Arrived</span>' : `<span class="c-st-${s.key}" data-f="s">${esc(stateText(w, s))}</span>`}</span></span>${track}</span>${I('chevron-right', 18)}</li>`;
+      };
+      // A Work whose only train is a derive or a queued job names that job, not its shelf.
+      const stateText = (w, s) => {
+        const j = VC.workJob(w);
+        if (j && s.key === 'available') return j.state === 'running' ? `${VC.jobVerb(j)} ${F.pct(j.progress)}` : VC.jobStage(j);
+        return s.key === 'available' ? 'In the library' : s.label;
       };
       const render = () => {
         const res = VC.searchWorks(q);
@@ -465,17 +478,30 @@
         const box = $(el, '[data-res]');
         if (!q) {
           const moving = d.works.filter((w) => VC.workJob(w));
-          box.innerHTML = `<h2 class="c-ph">On the network</h2><ul class="c-pcard c-plist">${moving.map(row).join('')}</ul>
-            <h2 class="c-ph">Recently added</h2><ul class="c-pcard c-plist">${[...d.works].sort((a, b) => b.added - a.added).slice(0, 4).map(row).join('')}</ul>`;
+          box.innerHTML = `<h2 class="c-ph">On the network</h2><ul class="c-pcard c-plist">${moving.map((w) => row(w)).join('')}</ul>
+            <h2 class="c-ph">Recently added</h2><ul class="c-pcard c-plist">${[...d.works].sort((a, b) => b.added - a.added).slice(0, 4).map((w) => row(w)).join('')}</ul>`;
         } else if (!res.length && !nodes.length) {
           box.innerHTML = `<p class="c-empty">No Work or Node matches “${esc(q)}”. Search by title, genre, or a Node such as forge.</p>`;
         } else {
-          box.innerHTML = `${res.length ? `<h2 class="c-ph">Works<span class="c-count c-num">${res.length}</span></h2><ul class="c-pcard c-plist">${res.slice(0, 12).map(row).join('')}</ul>` : ''}
+          box.innerHTML = `${res.length ? `<h2 class="c-ph">Works<span class="c-count c-num">${res.length}</span></h2><ul class="c-pcard c-plist">${res.slice(0, 12).map((w) => row(w)).join('')}</ul>` : ''}
             ${nodes.length ? `<h2 class="c-ph">Nodes</h2><ul class="c-pcard c-plist">${nodes.map((n) => `<li class="c-srow" data-station="${n.id}">${VC.bullets(VC.nodeLines(n))}<span class="c-srow__b"><b>${esc(n.name)}</b><span class="c-dim">${esc(n.hardware)}</span></span></li>`).join('')}</ul>` : ''}`;
         }
       };
       return {
         title: 'Search',
+        second() {
+          for (const li of $$(el, '[data-work]')) {
+            const w = d.W[li.dataset.work];
+            const j = VC.workJob(w);
+            const now = j ? VC.jobLine(j) : '';
+            if (li.dataset.line !== now) { li.outerHTML = row(w, now ? '' : li.dataset.line); continue; }
+            if (li.dataset.arrived) continue;
+            const s = VC.statusOf(w);
+            VC.set($(li, '[data-f="s"]'), stateText(w, s));
+            const fill = $(li, '.c-tile__fill');
+            if (fill && s.p != null) { fill.style.transform = `scaleX(${s.p.toFixed(4)})`; $(li, '.c-tile__train').style.left = (s.p * 100).toFixed(2) + '%'; }
+          }
+        },
         html: () => `<label class="c-psearch">${I('search', 18)}<input type="search" placeholder="Works, Nodes, genres" enterkeyhint="search" autocomplete="off" autocapitalize="none" aria-label="Search"></label><div data-res></div>`,
         mount(pageEl) {
           el = pageEl;
@@ -492,7 +518,11 @@
       const missingEps = VC.act.missingEpisodes().length;
       const pending = d.requests.filter((r) => r.state === 'pending').length;
       const suspended = d.nodes.filter((n) => VC.nodeState(n) === 'suspended').length;
-      const row = (icon, label, value = '', act = '') => `<li><button class="c-mrow" ${act}><span class="c-mrow__i">${SS.icon(icon, { size: 20, stroke: 1.75 })}</span><span class="c-mrow__l">${label}</span><span class="c-mrow__v">${value}</span>${I('chevron-right', 17)}</button></li>`;
+      const limited = d.indexers.find((x) => x.state === 'limited');
+      const chev = I('chevron-right', 17);
+      const row = (icon, label, value = '', act = '') => `<li><button class="c-mrow" ${act} data-label="${esc(label)}"><span class="c-mrow__i">${SS.icon(icon, { size: 20, stroke: 1.75 })}</span><span class="c-mrow__l">${label}</span><span class="c-mrow__v">${value}</span>${chev}</button></li>`;
+      const lineRow = (id, what, value) => `<li><button class="c-mrow c-mrow--line" data-ma="settings" data-label="${esc(what)}"><span class="c-mrow__i">${VC.bullet(id)}</span><span class="c-mrow__l"><span class="c-mrow__n">${VC.L[id].name}</span><span class="c-mrow__sub">${what}</span></span><span class="c-mrow__v">${value}</span>${chev}</button></li>`;
+      const service = (id) => { const l = VC.net().lines[id]; return `<span class="c-tone-${l.tone}">${esc(l.short)}</span>`; };
       return {
         title: 'More',
         html: () => `
@@ -500,17 +530,23 @@
           <ul class="c-pcard c-mlist">${row('compass', 'Discover movies', '', 'data-ma="discover"')}${row('tv', 'Discover series', '', 'data-ma="discover"')}${row('inbox', 'Requests', pending ? `<b class="c-mbadge c-num">${pending}</b>` : '', 'data-ma="requests"')}</ul>
           <h2 class="c-ph">Missing</h2>
           <ul class="c-pcard c-mlist">${row('film', 'Missing movies', `<span class="c-num">${missingMovies}</span>`, 'data-ma="missing"')}${row('list', 'Missing episodes', `<span class="c-num">${missingEps}</span>`, 'data-ma="missing"')}</ul>
-          <h2 class="c-ph">Settings</h2>
-          <ul class="c-pcard c-mlist">${row('sliders-horizontal', 'Profiles and Targets', `${d.profiles.length} and ${d.targets.length}`, 'data-ma="settings"')}${row('search', 'Indexers', '<span class="c-tone-delays">Halide limited</span>', 'data-ma="settings"')}${row('download', 'Download Clients', 'Built-in', 'data-ma="settings"')}${row('monitor-play', 'Media Servers', 'Plex', 'data-ma="settings"')}${row('users', 'Accounts', String(d.accounts.length), 'data-ma="settings"')}${row('bell', 'Notifications', 'Push and email', 'data-ma="settings"')}</ul>
+          <h2 class="c-ph">Lines</h2>
+          <ul class="c-pcard c-mlist">
+            ${lineRow('acquire', 'Indexers and Download Clients', limited ? `<span class="c-tone-delays">${esc(limited.name)} limited</span>` : service('acquire'))}
+            ${lineRow('library', 'Profiles and Targets', esc(F.plural(d.profiles.length, 'Profile')))}
+            ${lineRow('process', 'Derived Targets and subtitles', service('process'))}
+            ${lineRow('deliver', 'Media Servers and relay', 'Plex')}
+            ${lineRow('notify', 'Notifications', 'Push and email')}
+          </ul>
           <h2 class="c-ph">System</h2>
-          <ul class="c-pcard c-mlist">${row('server', 'Nodes', `<span class="${suspended ? 'c-dim' : ''}">${d.nodes.length} · ${suspended} suspended</span>`, 'data-push="nodes"')}${row('refresh-cw', 'Updates', '<span class="c-tone-arrived">2.3.1 is ready</span>', 'data-ma="settings"')}${row('scroll-text', 'Logs', '', 'data-ma="settings"')}</ul>
+          <ul class="c-pcard c-mlist">${row('server', 'Nodes', `<span class="${suspended ? 'c-dim' : ''}">${d.nodes.length} · ${suspended} suspended</span>`, 'data-push="nodes"')}${row('users', 'Accounts', String(d.accounts.length), 'data-ma="settings"')}${row('refresh-cw', 'Updates', '<span class="c-tone-arrived">2.3.1 is ready</span>', 'data-ma="settings"')}${row('scroll-text', 'Logs', '', 'data-ma="settings"')}</ul>
           <p class="c-mfoot">SlipStream 2.3.0 · atlas is the Controller<br>Signed in as Alex Rowan, Admin<br>Synthetic data for the prototype</p>`,
         mount(el) {
           el.addEventListener('click', (e) => {
             const a = e.target.closest('[data-ma]');
             if (!a) return;
             if (a.dataset.ma === 'missing') { setTab('library'); return; }
-            toast($(a, '.c-mrow__l').textContent, 'Prototype: this page lives on the desk', 'muted');
+            toast(a.dataset.label, 'Prototype: this page lives on the desk', 'muted');
           });
         },
       };
