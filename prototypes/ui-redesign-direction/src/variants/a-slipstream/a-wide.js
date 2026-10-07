@@ -61,7 +61,7 @@
       </nav>
       <div class="a-main">
         <header class="a-top">
-          <div class="a-top__title"><a class="a-top__back" data-back hidden href="#library">${icon('chevron-left', { size: 16 })}<span data-back-label>Movies</span></a><h1 data-title>Flow</h1></div>
+          <div class="a-top__title"><a class="a-top__back" data-back hidden href="#library">${icon('chevron-left', { size: 16 })}<span data-back-label>Movies</span></a><p class="a-top__name" data-title>Flow</p></div>
           <button class="a-cmdk" data-cmdk type="button">${icon('search', { size: 15 })}<span>Search or run a command</span><kbd>⌘K</kbd></button>
           <div class="a-top__right">
             <a class="a-tput a-num" href="#activity" title="Live throughput across Nodes"><span>${icon('arrow-down', { size: 13 })}<b data-tput="down"></b></span><span>${icon('arrow-up', { size: 13 })}<b data-tput="up"></b></span></a>
@@ -78,6 +78,16 @@
     const q = (s) => root.querySelector(s);
     let cur = null, curName = '', curArg = '';
     const scrollMem = {};
+    const fils = VA.Filaments(root);
+    // The top bar names the page only once its display head has scrolled away.
+    const topEl = q('.a-top');
+    const headIO = new IntersectionObserver(([e]) => topEl.classList.toggle('is-headed', e.isIntersecting), { root: viewEl });
+    const watchHead = () => {
+      headIO.disconnect();
+      const h = viewEl.querySelector('[data-head]');
+      topEl.classList.toggle('is-headed', !!h);
+      if (h) headIO.observe(h);
+    };
 
     const api = {
       root, ctx, layer,
@@ -102,6 +112,7 @@
         curName = fn; curArg = arg;
         viewEl.scrollTop = restore ? scrollMem[fn] || 0 : 0;
         chrome();
+        watchHead();
         vt?.after?.();
       };
       if (vt && document.startViewTransition && !VA.reduced()) {
@@ -253,7 +264,7 @@
       const failed = d.jobs.find((j) => j.state === 'failed');
       if (failed) cmds.push({ label: `Blocklist ${d.W[failed.work].title} and search`, hint: 'Separation', ic: VA.vortex(16), run: () => { VA.act.blocklist(failed); api.toast('Blocklisted the sample. Searching Kestrel for another release.'); } });
       const stalled = d.jobs.find((j) => j.state === 'stalled');
-      if (stalled) cmds.push({ label: `Find another release for ${d.W[stalled.work].title}`, hint: 'Stalled', ic: VA.thinning(16), run: () => { VA.act.findAnother(stalled); api.toast('Looking for a release with seeders.'); } });
+      if (stalled) cmds.push({ label: `Find another release for ${d.W[stalled.work].title}`, hint: 'Stalled', ic: VA.stall(16), run: () => { VA.act.findAnother(stalled); api.toast('Looking for a release with seeders.'); } });
       cmds.push({ label: 'Search for missing episodes', hint: 'Series', ic: icon('search', { size: 16 }), run: () => { const n = VA.act.searchMissingEpisodes(); api.toast(n ? `Searching for ${fmt.plural(n, 'missing episode')}.` : 'No episodes are missing.'); } });
       const ams = d.N['ams-1'];
       cmds.push(ams.paused ? { label: 'Resume ams-1', hint: 'Node', ic: icon('play', { size: 16 }), run: () => { VA.act.pauseNode('ams-1', false); api.toast('ams-1 is downloading again.'); } } : { label: 'Pause ams-1', hint: 'Node', ic: icon('pause', { size: 16 }), run: () => { VA.act.pauseNode('ams-1', true); api.toast('ams-1 is paused. Its downloads hold where they are.'); } });
@@ -274,8 +285,9 @@
     }
 
     go(ctx.view || 'home');
-    return { unmount() { cur?.destroy?.(); } };
+    return { unmount() { cur?.destroy?.(); fils.destroy(); headIO.disconnect(); } };
   };
+  const head = (title, sub = '') => `<header class="a-dhead"><h1 class="a-dhead__t" data-head>${esc(title)}</h1>${sub ? `<p class="a-dhead__sub">${sub}</p>` : ''}</header>`;
 
   function railItem(id, label) {
     const badge = id === 'requests' ? `<span class="a-rail__badge a-num" data-badge="requests" hidden></span>` : '';
@@ -346,7 +358,7 @@
     bell() {
       const list = d.alerts.slice().sort((a, b) => b.at - a.at);
       return `<div class="a-pop__head"><b>Notifications</b><button class="a-link" data-pop-cmd="read">Mark all as read</button></div>
-        <div class="a-pop__list">${list.map((a) => `<button class="a-note ${a.read ? 'is-read' : ''}" data-pop-cmd="${a.node ? 'go:nodes/' + a.node : a.work ? 'go:work/' + a.work : a.title.startsWith('SlipStream') ? 'update' : 'go:system'}"><span class="a-note__g">${a.level === 'error' ? VA.vortex(16) : a.level === 'warning' ? VA.thinning(16) : VA.laminar(16)}</span><span class="a-note__t"><b>${esc(a.title)}</b><span>${esc(a.detail)}</span></span><span class="a-note__time a-num">${esc(fmt.ago(a.at))}</span></button>`).join('')}</div>`;
+        <div class="a-pop__list">${list.map((a) => `<button class="a-note ${a.read ? 'is-read' : ''}" data-pop-cmd="${a.node ? 'go:nodes/' + a.node : a.work ? 'go:work/' + a.work : a.title.startsWith('SlipStream') ? 'update' : 'go:system'}"><span class="a-note__g">${a.level === 'error' ? VA.vortex(16) : a.level === 'warning' ? VA.watchGlyph(a.node ? 'behind' : 'stall', 16) : VA.laminar(16)}</span><span class="a-note__t"><b>${esc(a.title)}</b><span>${esc(a.detail)}</span></span><span class="a-note__time a-num">${esc(fmt.ago(a.at))}</span></button>`).join('')}</div>`;
     },
     tasks() {
       const clock = SS.sim.clock;
@@ -382,27 +394,29 @@
     const day = fmt.day(SS.sim.clock);
     el.innerHTML = `<div class="a-home">
       <div class="a-lede">
-        <h2 class="a-sentence"><span data-s="lead"></span><span data-s="at"> at <span class="a-num" data-s="rate"></span></span>.<br><button class="a-sentence__needs" type="button" data-s="needs"></button></h2>
+        <h1 class="a-sentence"><span data-s="lead"></span><span data-s="at"> at <span class="a-num" data-s="rate"></span></span>.<br><button class="a-sentence__needs" type="button" data-s="needs"></button></h1>
         <p class="a-lede__when a-num">${esc(day)} · <span data-s="clock"></span></p>
       </div>
       <div class="a-home__tunnel" data-tunnel aria-label="The Tunnel"></div>
       <div class="a-home__grid">
         <section aria-labelledby="a-h-needs">
-          <div class="a-section-head"><h3 class="a-h2" id="a-h-needs">Needs you</h3><a class="a-link" href="#activity">Activity ${icon('chevron-right', { size: 14 })}</a></div>
+          <div class="a-section-head"><h2 class="a-h2" id="a-h-needs">Needs you</h2><a class="a-link" href="#activity">Activity ${icon('chevron-right', { size: 14 })}</a></div>
           <div class="a-list" data-list="needs"></div>
+          <div class="a-watch" data-watch-box><h3 class="a-watch__h">Watching</h3><div class="a-watch__list" data-list="watch"></div></div>
         </section>
         <section aria-labelledby="a-h-arr">
-          <div class="a-section-head"><h3 class="a-h2" id="a-h-arr">Arrived tonight <span class="a-fresh a-num" data-s="fresh"></span></h3><a class="a-link" href="#library">Movies ${icon('chevron-right', { size: 14 })}</a></div>
+          <div class="a-section-head"><h2 class="a-h2" id="a-h-arr">Arrived tonight <span class="a-fresh a-num" data-s="fresh"></span></h2><a class="a-link" href="#library">Movies ${icon('chevron-right', { size: 14 })}</a></div>
           <div class="a-list" data-list="arr"></div>
         </section>
       </div>
       <section class="a-home__nodes" aria-labelledby="a-h-nodes">
-        <div class="a-section-head"><h3 class="a-h2" id="a-h-nodes">Nodes <span class="a-count" data-s="nodes"></span></h3><a class="a-link" href="#nodes">All Nodes ${icon('chevron-right', { size: 14 })}</a></div>
+        <div class="a-section-head"><h2 class="a-h2" id="a-h-nodes">Nodes <span class="a-count" data-s="nodes"></span></h2><a class="a-link" href="#nodes">All Nodes ${icon('chevron-right', { size: 14 })}</a></div>
         <div class="a-nstrip" data-list="nodes">${d.nodes.map(VA.nodeCell).join('')}</div>
       </section>
     </div>`;
     const q = (s) => el.querySelector(s);
     const needsEl = q('[data-list="needs"]');
+    const watchEl = q('[data-list="watch"]');
     const arrEl = q('[data-list="arr"]');
     const nodesEl = q('[data-list="nodes"]');
     const needsBtn = q('[data-s="needs"]');
@@ -426,50 +440,66 @@
     let needIds = '', arrIds = '';
     const needs = (force) => {
       const list = VA.needs();
-      const ids = list.map((n) => n.id + n.title).join();
+      const watch = VA.watching();
+      const ids = list.map((n) => n.id + n.title).join() + '|' + watch.map((n) => n.id + n.title).join();
       if (force || ids !== needIds) {
         needIds = ids;
         VA.patch(needsEl, list, (n) => n.id, VA.needRow);
-        emptyState(needsEl, !list.length, 'Nothing needs you.', 'Failures, stalls and offline Nodes appear here the moment they happen.');
+        emptyState(needsEl, !list.length, 'Nothing needs you.', 'Failures and offline Nodes appear here the moment they happen.');
+        VA.patch(watchEl, watch, (n) => n.id, VA.watchItem);
+        q('[data-watch-box]').hidden = !watch.length;
       } else for (const n of list) { const t = needsEl.querySelector(`[data-key="${CSS.escape(n.id)}"] .a-need__time`); if (t && n.at) t.textContent = fmt.ago(n.at); }
     };
     const arrived = (force) => {
-      const list = VA.arrivals(12).slice(0, 5);
+      const all = VA.arrivals(12);
+      const list = all.slice(0, 3);
       const ids = list.map(VA.arrivalKey).join() + [...VA.seen].length;
+      const fresh = all.filter((h) => !VA.seen.has(VA.arrivalKey(h))).length;
+      q('[data-s="fresh"]').textContent = fresh ? `${fresh} new` : '';
       if (force || ids !== arrIds) {
         arrIds = ids;
         VA.patch(arrEl, list, VA.arrivalKey, VA.arrRow);
         emptyState(arrEl, !list.length, 'Nothing has arrived tonight.', 'Imports land here with the time they arrived, marked until you have seen them.');
-        const fresh = list.filter((h) => !VA.seen.has(VA.arrivalKey(h))).length;
-        q('[data-s="fresh"]').textContent = fresh ? `${fresh} new` : '';
       } else arrEl.querySelectorAll('.a-arr').forEach((r) => { const h = list.find((x) => VA.arrivalKey(x) === r.dataset.arr); if (h) r.querySelector('.a-arr__time').textContent = fmt.ago(h.at); });
     };
     sentence(true);
     needs(true);
     arrived(true);
+    // Only an arrival that lands while the page is open flashes its dye.
+    const arm = setTimeout(() => { arrEl.querySelectorAll('.a-enter').forEach((r) => r.classList.remove('a-enter')); arrEl.classList.add('is-live'); }, 320);
 
     let litRow = null;
     const over = (e) => {
-      const row = e.target.closest('.a-need, .a-arr.is-new');
+      const row = e.target.closest('.a-need, .a-witem, .a-arr.is-new');
       if (row?.classList.contains('a-arr')) { VA.seen.add(row.dataset.arr); row.classList.remove('is-new'); arrived(true); return; }
       if (row === litRow) return;
       litRow = row;
       tun.focus(row?.dataset.flow || null);
     };
+    const leave = () => { litRow = null; tun.focus(null); };
     el.addEventListener('pointerover', over);
     el.addEventListener('focusin', over);
-    needsEl.addEventListener('pointerleave', () => { litRow = null; tun.focus(null); });
-    needsBtn.addEventListener('pointerenter', () => { tun.focusSeparations(true); needsEl.querySelectorAll('.a-need--error').forEach((r) => r.classList.add('is-lit')); });
+    needsEl.addEventListener('pointerleave', leave);
+    watchEl.addEventListener('pointerleave', leave);
+    needsBtn.addEventListener('pointerenter', () => { tun.focusSeparations(true); needsEl.querySelectorAll('.a-need').forEach((r) => r.classList.add('is-lit')); });
     needsBtn.addEventListener('pointerleave', () => { tun.focusSeparations(false); needsEl.querySelectorAll('.is-lit').forEach((r) => r.classList.remove('is-lit')); });
 
     return {
       click(e) {
         if (e.target.closest('[data-s="needs"]')) { tun.focusSeparations(false); if (!tun.pinSeparation()) api.go('activity'); return true; }
+        const w = e.target.closest('[data-watch]');
+        if (w) {
+          const n = VA.watching().find((x) => x.id === w.dataset.watch);
+          if (!n) return true;
+          if (n.flow && tun.pin(n.flow)) return true;
+          api.go(n.node ? 'nodes/' + n.node.id : n.job ? 'activity/' + n.job.id : 'requests');
+          return true;
+        }
         return false;
       },
       live() { sentence(); needs(); arrived(); VA.liveNodes(nodesEl); },
       refresh() { sentence(); needs(true); arrived(true); },
-      destroy() { tun.destroy(); },
+      destroy() { tun.destroy(); clearTimeout(arm); },
     };
   };
 
@@ -486,6 +516,7 @@
     const st = VA.lib[type];
     const all = d.works.filter((w) => w.type === type);
     el.innerHTML = `<div class="a-page a-lib">
+      ${head(type === 'series' ? 'Series' : 'Movies')}
       <div class="a-lib__bar">
         <div data-slot="status"></div>
         <div class="a-lib__tools">
@@ -504,6 +535,8 @@
       q('[data-slot="size"]').innerHTML = [['s', 'Small posters', icon('grid-3x3', { size: 15 })], ['m', 'Medium posters', icon('grid-2x2', { size: 15 })], ['l', 'Large posters', icon('square', { size: 15 })]].map(([k, l, ic]) => `<button role="tab" aria-selected="${st.size === k}" data-size="${k}" aria-label="${l}" title="${l}" ${st.view === 'table' ? 'disabled' : ''}>${ic}</button>`).join('');
       q('[data-slot="mode"]').innerHTML = [['grid', 'Posters', icon('image', { size: 15 })], ['table', 'Table', icon('table-2', { size: 15 })]].map(([k, l, ic]) => `<button role="tab" aria-selected="${st.view === k}" data-mode="${k}" aria-label="${l}" title="${l}">${ic}</button>`).join('');
     };
+    // A table row already shows the year, so an available Movie says so instead of repeating it.
+    const stText = (w, s, tile) => (tile && w.type === 'series' && !s.tone ? `${w.seasons.length} ${w.seasons.length === 1 ? 'season' : 'seasons'} · ${s.text}` : !tile && s.available ? 'Available' : s.text);
     const items = () => all.filter((w) => st.status === 'all' || bucket(w) === st.status).sort((a, b) => SORTS[st.sort][1](a, b) * st.dir);
     const table = (list) => {
       const th = (k, label, cls = '') => `<button class="a-wtable__th ${cls}" data-th="${k}" aria-sort="${st.sort === k ? (st.dir > 0 ? 'descending' : 'ascending') : 'none'}">${label}${st.sort !== k ? '' : st.dir > 0 ? icon('chevron-down', { size: 13 }) : icon('chevron-up', { size: 13 })}</button>`;
@@ -511,7 +544,7 @@
         <div class="a-wtable__head" role="row">${th('title', 'Title')}${th('year', 'Year')}<span>Status</span><span>Profile</span><span>Targets</span>${th('size', 'Size', 'is-num')}${th('added', 'Added', 'is-num')}</div>
         ${list.map((w) => {
           const s = VA.statusOf(w);
-          return `<a class="a-wtable__row" role="row" href="#work/${w.id}" data-key="${w.id}"><span class="a-wtable__t" role="cell">${VA.posterImg(w, 'a-poster--xs')}<span>${esc(w.title)}</span></span><span class="a-num" role="cell">${w.year}</span><span role="cell" class="a-wtable__st ${s.tone ? 'is-' + s.tone : ''}" data-flip="st">${esc(s.text)}</span><span role="cell">${esc(d.profiles.find((p) => p.id === w.profile).name)}</span><span role="cell" class="a-wtable__cov">${VA.covMarks(w)}</span><span role="cell" class="is-num a-num">${sizeOf(w) ? fmt.bytes(sizeOf(w)) : ''}</span><span role="cell" class="is-num a-num">${w.added.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></a>`;
+          return `<a class="a-wtable__row" role="row" href="#work/${w.id}" data-key="${w.id}"><span class="a-wtable__t" role="cell">${VA.posterImg(w, 'a-poster--xs')}<span>${esc(w.title)}</span></span><span class="a-num" role="cell">${w.year}</span><span role="cell" class="a-wtable__st ${s.tone ? 'is-' + s.tone : ''}" data-flip="st">${esc(stText(w, s, false))}</span><span role="cell">${esc(d.profiles.find((p) => p.id === w.profile).name)}</span><span role="cell" class="a-wtable__cov">${VA.covMarks(w)}</span><span role="cell" class="is-num a-num">${sizeOf(w) ? fmt.bytes(sizeOf(w)) : ''}</span><span role="cell" class="is-num a-num">${w.added.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></a>`;
         }).join('')}
       </div>`;
     };
@@ -539,8 +572,7 @@
           const w = d.W[t.dataset.key];
           const s = VA.statusOf(w);
           const m = t.querySelector('[data-flip="st"]');
-          const text = w.type === 'series' && !s.tone && t.classList.contains('a-tile') ? `${w.seasons.length} ${w.seasons.length === 1 ? 'season' : 'seasons'} · ${s.text}` : s.text;
-          if (s.job) { const p = t.querySelector('.a-prog'); if (p) p.style.setProperty('--a-p', s.job.progress.toFixed(4)); }
+          const text = stText(w, s, t.classList.contains('a-tile'));
           if (m.textContent !== text) {
             if (m.textContent.split('·')[0] === text.split('·')[0]) m.textContent = text; else VA.flip(m, text);
             m.className = m.className.replace(/ ?is-\w+/g, '') + (s.tone ? ' is-' + s.tone : '');
@@ -565,7 +597,7 @@
         <div class="a-work__heroin">
           <img class="a-poster a-work__poster" src="${SS.art.poster(w)}" alt="${esc(w.title)} poster">
           <div class="a-work__head">
-            <h2 class="a-work__title">${esc(w.title)}</h2>
+            <h1 class="a-work__title" data-head>${esc(w.title)}</h1>
             <p class="a-work__meta">${VA.workMeta(w)}</p>
             <p class="a-work__overview">${esc(w.overview)}</p>
             <div class="a-work__status" data-wstatus></div>
@@ -611,12 +643,11 @@
       }
       const html = j.state === 'failed'
         ? `<span class="is-sep">${VA.vortex(16)}${esc(VA.jobLine(j))}: ${esc(j.message)}</span>`
-        : `<span>${j.episode ? `${esc(fmt.ep(j.episode))} · ` : ''}${esc(VA.jobLine(j))} on ${esc(j.node)}</span><span class="a-num" data-l="pct">${fmt.pct(j.progress)}</span>${VA.jobRate(j) ? `<span class="a-num" data-l="rate">${esc(VA.jobRate(j))}</span>` : ''}${j.eta ? `<span class="a-num" data-l="eta">${esc(VA.jobEta(j))} left</span>` : ''}${VA.prog(j.progress, j.state)}`;
+        : `<span>${j.episode ? `${esc(fmt.ep(j.episode))} · ` : ''}${esc(VA.jobLine(j))} on ${esc(j.node)}</span><span class="a-num" data-l="pct">${fmt.pct(j.progress)}</span>${VA.jobRate(j) ? `<span class="a-num" data-l="rate">${esc(VA.jobRate(j))}</span>` : ''}${j.eta ? `<span class="a-num" data-l="eta">${esc(VA.jobEta(j))} left</span>` : ''}${VA.fil('job:' + j.id, { y: 0.55, pad: 4 })}`;
       if (box.dataset.job !== j.id + j.state) { box.dataset.job = j.id + j.state; box.innerHTML = html; }
       else {
         const set = (k, v) => { const x = box.querySelector(`[data-l="${k}"]`); if (x) x.textContent = v; };
         set('pct', fmt.pct(j.progress)); set('rate', VA.jobRate(j)); set('eta', `${VA.jobEta(j)} left`);
-        box.querySelector('.a-prog')?.style.setProperty('--a-p', j.progress.toFixed(4));
       }
     };
     const eps = () => {
@@ -698,7 +729,6 @@
           q('[data-path]').innerHTML = VA.pathStrip(w);
           const c = el.querySelector(`[data-live="cov-${j.target}"]`);
           if (c) c.textContent = fmt.pct(j.progress);
-          el.querySelectorAll('.a-cell--live .a-prog, .a-ep .a-prog').forEach((p) => p.style.setProperty('--a-p', j.progress.toFixed(4)));
           if (j.episode) { const x = el.querySelector(`[data-live="ep-${j.episode[1]}"]`); if (x) x.textContent = fmt.pct(j.progress); }
         }
       },
@@ -717,28 +747,30 @@
     const st = VA.actState;
     let open = openArg || null;
     el.innerHTML = `<div class="a-page a-act">
+      ${head('Activity')}
       <div class="a-act__bar"><div data-slot="filter"></div><label class="a-lib__sort"><span>Node</span><select class="a-select" data-node-filter><option value="all">All Nodes</option>${d.nodes.map((n) => `<option value="${n.id}" ${st.node === n.id ? 'selected' : ''}>${n.name}</option>`).join('')}</select></label></div>
       <div class="a-job a-job--head" aria-hidden="true"><div class="a-job__main"><span></span><span>Work</span><span>Release</span><span>Node</span><span>Progress</span><span></span><span class="is-num">Rate</span><span class="is-num">Left</span></div><span class="a-job__actions"></span></div>
       <section data-group="needs"><div class="a-section-head"><h3 class="a-h2">Needs you <span class="a-count" data-n></span></h3></div><div class="a-jobs"></div></section>
+      <section data-group="watch"><div class="a-section-head"><h3 class="a-h2">Watching <span class="a-count" data-n></span></h3></div><div class="a-jobs"></div></section>
       <section data-group="running"><div class="a-section-head"><h3 class="a-h2">Moving <span class="a-count" data-n></span></h3></div><div class="a-jobs"></div></section>
       <section data-group="waiting"><div class="a-section-head"><h3 class="a-h2">Waiting <span class="a-count" data-n></span></h3></div><div class="a-jobs"></div></section>
       <section class="a-act__done"><div class="a-section-head"><h3 class="a-h2">Finished tonight</h3></div><ol class="a-hist a-hist--wide" data-hist></ol></section>
     </div>`;
     const q = (s) => el.querySelector(s);
-    const groupOf = (j) => (j.state === 'failed' || j.state === 'stalled' ? 'needs' : j.state === 'queued' ? 'waiting' : 'running');
+    const GROUPS = ['needs', 'watch', 'running', 'waiting'];
     const render = () => {
       const jobs = d.jobs.filter((j) => VA.isLive(j) && (st.node === 'all' || j.node === st.node));
-      const n = { needs: 0, running: 0, waiting: 0 };
-      jobs.forEach((j) => n[groupOf(j)]++);
-      q('[data-slot="filter"]').innerHTML = VA.seg('filter', [['all', 'All', jobs.length], ['running', 'Moving', n.running], ['waiting', 'Waiting', n.waiting], ['needs', 'Needs you', n.needs]], st.filter);
-      for (const g of ['needs', 'running', 'waiting']) {
+      const n = { needs: 0, watch: 0, running: 0, waiting: 0 };
+      jobs.forEach((j) => n[VA.jobGroup(j)]++);
+      q('[data-slot="filter"]').innerHTML = VA.seg('filter', [['all', 'All', jobs.length], ['needs', 'Needs you', n.needs], ['watch', 'Watching', n.watch], ['running', 'Moving', n.running], ['waiting', 'Waiting', n.waiting]], st.filter);
+      for (const g of GROUPS) {
         const sec = q(`[data-group="${g}"]`);
-        const list = jobs.filter((j) => groupOf(j) === g);
+        const list = jobs.filter((j) => VA.jobGroup(j) === g);
         sec.hidden = !list.length || (st.filter !== 'all' && st.filter !== g);
         sec.querySelector('[data-n]').textContent = list.length;
         VA.patch(sec.querySelector('.a-jobs'), list, (j) => j.id, (j) => VA.jobRow(j, j.id === open));
       }
-      const anyShown = ['needs', 'running', 'waiting'].some((g) => !q(`[data-group="${g}"]`).hidden);
+      const anyShown = GROUPS.some((g) => !q(`[data-group="${g}"]`).hidden);
       VA.emptyState(q('.a-act'), !anyShown, 'Nothing is moving on this Node.', 'Pick All Nodes, or start a search from a Work to set something in motion.');
       const since = +SS.sim.clock - 12 * 3600e3;
       q('[data-hist]').innerHTML = d.history.filter((h) => h.at >= since).map((h) => `<li><span class="a-hist__g">${h.kind === 'failed' ? VA.vortex(14) : VA.laminar(14)}</span><span class="a-hist__t"><b>${esc(d.W[h.work].title)}${h.episode ? ' · ' + fmt.ep(h.episode) : ''}</b> ${esc(h.text)}</span><span class="a-hist__w a-num">${esc(fmt.time(h.at))} · ${esc(h.node)}</span></li>`).join('');
@@ -762,7 +794,7 @@
   VIEWS.nodes = (el, focus, api) => {
     const meter = (k, label, v, extra = '') => `<div class="a-meter"><span class="a-meter__k">${label}</span><span class="a-meter__v a-num" data-live="${k}">${v}</span>${extra}<span class="a-meter__bar" data-meter="${k}"><i></i></span></div>`;
     el.innerHTML = `<div class="a-page a-nodes">
-      <p class="a-nodes__lede">${d.nodes.length} Nodes under one Controller. atlas holds the library and serves this page.</p>
+      ${head('Nodes', `${d.nodes.length} Nodes under one Controller. atlas holds the library and serves this page.`)}
       ${d.nodes.map((n) => `<section class="a-node a-node--${n.state} ${focus === n.id ? 'is-focus' : ''}" data-node="${n.id}" data-key="${n.id}" id="a-node-${n.id}">
         <div class="a-node__body">${VA.nodeBody(n, { w: 240, h: 74 })}</div>
         <div class="a-node__id">
@@ -777,7 +809,7 @@
         <div class="a-node__load">
           ${n.state === 'offline' ? `<p class="a-node__off">No load reported since ${fmt.time(n.lastSeen)}.</p>` : `${meter('cpu', 'CPU', fmt.pct(n.cpu))}${meter('mem', 'Memory', fmt.pct(n.mem))}${n.gpu != null ? meter('gpu', 'GPU', fmt.pct(n.gpu)) : ''}<p class="a-node__rates a-num" data-live="rates">${esc(VA.nodeRates(n))}</p>`}
         </div>
-        <div class="a-node__disks">${n.disks.map((k) => `<div class="a-meter"><span class="a-meter__k a-mono">${esc(k.path)}</span><span class="a-meter__v a-num">${fmt.bytes(k.used)} of ${fmt.bytes(k.total)}</span><span class="a-meter__bar" style="--a-p:${(k.used / k.total).toFixed(3)}"><i></i></span></div>`).join('')}
+        <div class="a-node__disks">${n.disks.map((k) => `<div class="a-meter"><span class="a-meter__k ${k.path.startsWith('/') ? 'a-mono' : ''}">${esc(k.path)}</span><span class="a-meter__v a-num">${fmt.bytes(k.used)} of ${fmt.bytes(k.total)}</span><span class="a-meter__bar" style="--a-p:${(k.used / k.total).toFixed(3)}"><i></i></span></div>`).join('')}
           <p class="a-node__sub a-num">${n.state === 'offline' ? 'Offline' : `Up ${fmt.dur(n.uptime / 1000)}`} · ${esc(n.version)}${n.temp ? ` · ${n.temp} °C` : ''}</p></div>
       </section>`).join('')}
     </div>`;
@@ -789,7 +821,7 @@
 
   VIEWS.requests = (el, _, api) => {
     const st = VA.reqState;
-    el.innerHTML = `<div class="a-page a-reqs"><div class="a-act__bar"><div data-slot="filter"></div></div><div class="a-list" data-list></div></div>`;
+    el.innerHTML = `<div class="a-page a-reqs">${head('Requests')}<div class="a-act__bar"><div data-slot="filter"></div></div><div class="a-list" data-list></div></div>`;
     const q = (s) => el.querySelector(s);
     const groups = { pending: ['pending'], approved: ['approved', 'downloading'], available: ['available'], denied: ['denied'], all: ['pending', 'approved', 'downloading', 'available', 'denied'] };
     const render = () => {
@@ -803,7 +835,7 @@
     return {
       click(e) { const b = e.target.closest('[data-seg="rfilter"] [data-v]'); if (b) { st.filter = b.dataset.v; render(); return true; } return false; },
       refresh() { render(); },
-      live() { el.querySelectorAll('.a-req').forEach((row) => { const r = d.requests.find((x) => x.id === row.dataset.key); const s = row.querySelector('.a-req__sub'); const J = VA.journey(r); if (r.state === 'downloading' || r.state === 'approved') s.textContent = J.detail; }); },
+      live() { el.querySelectorAll('.a-req [data-live="sub"]').forEach((s) => { const r = d.requests.find((x) => x.id === s.closest('.a-req').dataset.key); const t = VA.reqStatus(r); if (s.textContent !== t) s.textContent = t; }); },
     };
   };
 
@@ -811,6 +843,7 @@
     const soon = d.calendar.slice().sort((a, b) => a.at - b.at);
     const unreleased = d.works.filter((w) => w.status === 'unreleased');
     el.innerHTML = `<div class="a-page a-disc">
+      ${head('Discover')}
       <section><div class="a-section-head"><h3 class="a-h2">Coming up</h3></div>
         <ol class="a-cal">${soon.map((c) => { const w = d.W[c.work]; return `<li><a class="a-cal__row" href="#work/${w.id}"><span class="a-cal__when a-num">${esc(fmt.until(c.at))}</span>${VA.posterImg(w, 'a-poster--xs')}<span class="a-cal__t"><b>${esc(w.title)}</b><span>${c.episode ? `${fmt.ep(c.episode)} · ${esc(c.title)}` : esc(c.title)}</span></span><span class="a-cal__k">${c.kind === 'airs' ? 'Airs' : 'Releases'}</span></a></li>`; }).join('')}</ol>
       </section>
@@ -821,6 +854,7 @@
 
   VIEWS.settings = (el) => {
     el.innerHTML = `<div class="a-page a-set">
+      ${head('Settings')}
       <section><div class="a-section-head"><h3 class="a-h2">Targets</h3></div>
         <div class="a-table a-set__t" role="table"><div class="a-table__head" role="row"><span>Target</span><span>Sourced</span><span>Rules</span></div>${d.targets.map((t) => `<div class="a-table__row" role="row"><span><b>${esc(t.name)}</b></span><span>${t.kind === 'derived' ? `Derived from ${esc(VA.targetName(t.from))}` : 'Downloaded'}</span><span class="a-ink3">${esc(t.note)}</span></div>`).join('')}</div></section>
       <section><div class="a-section-head"><h3 class="a-h2">Profiles</h3></div>
@@ -833,8 +867,9 @@
 
   VIEWS.system = (el) => {
     el.innerHTML = `<div class="a-page a-sys">
+      ${head('System')}
       <section class="a-sys__update"><div><h3 class="a-h2">SlipStream 2.3.1 is ready</h3><p>atlas updates first, then each Worker in turn. Jobs pause for about a minute on each Node.</p></div>${VA.btn('Review update', { kind: 'primary', attrs: 'data-pop-cmd="msg" data-msg="Release notes open in the full build."' })}</section>
-      <section><div class="a-section-head"><h3 class="a-h2">Health</h3></div><div class="a-list">${d.alerts.map((a) => `<div class="a-need a-need--${a.level === 'error' ? 'error' : a.level === 'warning' ? 'warn' : 'ask'}"><span class="a-need__glyph">${a.level === 'error' ? VA.vortex(18) : a.level === 'warning' ? VA.thinning(18) : VA.laminar(18)}</span><span class="a-need__text"><span class="a-need__title">${esc(a.title)}</span><span class="a-need__detail">${esc(a.detail)}</span></span><span class="a-need__time a-num">${esc(fmt.ago(a.at))}</span><span></span></div>`).join('')}</div></section>
+      <section><div class="a-section-head"><h3 class="a-h2">Health</h3></div><div class="a-list">${d.alerts.map((a) => `<div class="a-need a-need--health"><span class="a-need__glyph">${a.level === 'error' ? VA.vortex(18) : a.level === 'warning' ? VA.watchGlyph(a.node ? 'behind' : 'stall', 18) : VA.laminar(18)}</span><span class="a-need__text"><span class="a-need__title">${esc(a.title)}</span><span class="a-need__detail">${esc(a.detail)}</span></span><span class="a-need__time a-num">${esc(fmt.ago(a.at))}</span><span></span></div>`).join('')}</div></section>
       <section><div class="a-section-head"><h3 class="a-h2">Indexers</h3></div><div class="a-table a-set__i" role="table"><div class="a-table__head" role="row"><span>Indexer</span><span>Kind</span><span>State</span></div>${d.indexers.map((i) => `<div class="a-table__row" role="row"><span><b>${esc(i.name)}</b></span><span class="a-ink3">${esc(i.kind)}</span><span>${i.state === 'ok' ? 'Healthy' : esc(i.note)}</span></div>`).join('')}</div></section>
       <section><div class="a-section-head"><h3 class="a-h2">Media Servers</h3></div><div class="a-table a-set__i" role="table"><div class="a-table__head" role="row"><span>Server</span><span>Node</span><span>State</span></div>${d.mediaServers.map((m) => `<div class="a-table__row" role="row"><span><b>${esc(m.name)}</b></span><span class="a-ink3">${esc(m.node)}</span><span>Online · ${m.streams} streams</span></div>`).join('')}</div></section>
       <p class="a-sys__foot a-num">SlipStream 2.3.0 · Controller atlas · up ${fmt.dur(d.N.atlas.uptime / 1000)}</p>
