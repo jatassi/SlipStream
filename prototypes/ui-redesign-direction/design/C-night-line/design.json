@@ -1,0 +1,603 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T04:52:58+00:00",
+  "title": "Design System: SlipStream · Night Line (direction C)",
+  "extensions": {
+    "colorMeta": {
+      "midnight-enamel": {
+        "role": "neutral",
+        "displayName": "Midnight Enamel",
+        "canonical": "oklch(17.2% 0.032 269)",
+        "tonalRamp": [
+          "oklch(15% 0.032 269)",
+          "oklch(26% 0.032 269)",
+          "oklch(38% 0.032 269)",
+          "oklch(50% 0.032 269)",
+          "oklch(62% 0.032 269)",
+          "oklch(74% 0.032 269)",
+          "oklch(85% 0.032 269)",
+          "oklch(95% 0.032 269)"
+        ]
+      },
+      "night-deck": {
+        "role": "neutral",
+        "displayName": "Night Deck",
+        "canonical": "oklch(19.9% 0.038 267)",
+        "tonalRamp": [
+          "oklch(15% 0.038 267)",
+          "oklch(26% 0.038 267)",
+          "oklch(38% 0.038 267)",
+          "oklch(50% 0.038 267)",
+          "oklch(62% 0.038 267)",
+          "oklch(74% 0.038 267)",
+          "oklch(85% 0.038 267)",
+          "oklch(95% 0.038 267)"
+        ]
+      },
+      "raised-deck": {
+        "role": "neutral",
+        "displayName": "Raised Deck",
+        "canonical": "oklch(23.1% 0.047 267)",
+        "tonalRamp": [
+          "oklch(15% 0.047 267)",
+          "oklch(26% 0.047 267)",
+          "oklch(38% 0.047 267)",
+          "oklch(50% 0.047 267)",
+          "oklch(62% 0.047 267)",
+          "oklch(74% 0.047 267)",
+          "oklch(85% 0.047 267)",
+          "oklch(95% 0.047 267)"
+        ]
+      },
+      "lit-deck": {
+        "role": "neutral",
+        "displayName": "Lit Deck",
+        "canonical": "oklch(27.4% 0.056 267)",
+        "tonalRamp": [
+          "oklch(15% 0.056 267)",
+          "oklch(26% 0.056 267)",
+          "oklch(38% 0.056 267)",
+          "oklch(50% 0.056 267)",
+          "oklch(62% 0.056 267)",
+          "oklch(74% 0.056 267)",
+          "oklch(85% 0.056 267)",
+          "oklch(95% 0.056 267)"
+        ]
+      },
+      "overlay-deck": {
+        "role": "neutral",
+        "displayName": "Overlay Deck",
+        "canonical": "oklch(23.6% 0.048 267)",
+        "tonalRamp": [
+          "oklch(15% 0.048 267)",
+          "oklch(26% 0.048 267)",
+          "oklch(38% 0.048 267)",
+          "oklch(50% 0.048 267)",
+          "oklch(62% 0.048 267)",
+          "oklch(74% 0.048 267)",
+          "oklch(85% 0.048 267)",
+          "oklch(95% 0.048 267)"
+        ]
+      },
+      "porcelain-ink": {
+        "role": "primary",
+        "displayName": "Porcelain Ink",
+        "canonical": "oklch(95.7% 0.009 258)",
+        "tonalRamp": [
+          "oklch(15% 0.009 258)",
+          "oklch(26% 0.009 258)",
+          "oklch(38% 0.009 258)",
+          "oklch(50% 0.009 258)",
+          "oklch(62% 0.009 258)",
+          "oklch(74% 0.009 258)",
+          "oklch(85% 0.009 258)",
+          "oklch(95% 0.009 258)"
+        ]
+      },
+      "platform-grey": {
+        "role": "neutral",
+        "displayName": "Platform Grey",
+        "canonical": "oklch(80% 0.029 263)",
+        "tonalRamp": [
+          "oklch(15% 0.029 263)",
+          "oklch(26% 0.029 263)",
+          "oklch(38% 0.029 263)",
+          "oklch(50% 0.029 263)",
+          "oklch(62% 0.029 263)",
+          "oklch(74% 0.029 263)",
+          "oklch(85% 0.029 263)",
+          "oklch(95% 0.029 263)"
+        ]
+      },
+      "timetable-grey": {
+        "role": "neutral",
+        "displayName": "Timetable Grey",
+        "canonical": "oklch(65.1% 0.039 263)",
+        "tonalRamp": [
+          "oklch(15% 0.039 263)",
+          "oklch(26% 0.039 263)",
+          "oklch(38% 0.039 263)",
+          "oklch(50% 0.039 263)",
+          "oklch(62% 0.039 263)",
+          "oklch(74% 0.039 263)",
+          "oklch(85% 0.039 263)",
+          "oklch(95% 0.039 263)"
+        ]
+      },
+      "conduit-grey": {
+        "role": "neutral",
+        "displayName": "Conduit Grey",
+        "canonical": "oklch(46.7% 0.043 265)",
+        "tonalRamp": [
+          "oklch(15% 0.043 265)",
+          "oklch(26% 0.043 265)",
+          "oklch(38% 0.043 265)",
+          "oklch(50% 0.043 265)",
+          "oklch(62% 0.043 265)",
+          "oklch(74% 0.043 265)",
+          "oklch(85% 0.043 265)",
+          "oklch(95% 0.043 265)"
+        ]
+      },
+      "acquire-red": {
+        "role": "secondary",
+        "displayName": "Acquire Line Red",
+        "canonical": "oklch(65.4% 0.195 25)",
+        "tonalRamp": [
+          "oklch(15% 0.195 25)",
+          "oklch(26% 0.195 25)",
+          "oklch(38% 0.195 25)",
+          "oklch(50% 0.195 25)",
+          "oklch(62% 0.195 25)",
+          "oklch(74% 0.195 25)",
+          "oklch(85% 0.195 25)",
+          "oklch(95% 0.195 25)"
+        ]
+      },
+      "library-blue": {
+        "role": "secondary",
+        "displayName": "Library Line Blue",
+        "canonical": "oklch(61.6% 0.207 263)",
+        "tonalRamp": [
+          "oklch(15% 0.207 263)",
+          "oklch(26% 0.207 263)",
+          "oklch(38% 0.207 263)",
+          "oklch(50% 0.207 263)",
+          "oklch(62% 0.207 263)",
+          "oklch(74% 0.207 263)",
+          "oklch(85% 0.207 263)",
+          "oklch(95% 0.207 263)"
+        ]
+      },
+      "process-amber": {
+        "role": "secondary",
+        "displayName": "Process Line Amber",
+        "canonical": "oklch(78.3% 0.156 73)",
+        "tonalRamp": [
+          "oklch(15% 0.156 73)",
+          "oklch(26% 0.156 73)",
+          "oklch(38% 0.156 73)",
+          "oklch(50% 0.156 73)",
+          "oklch(62% 0.156 73)",
+          "oklch(74% 0.156 73)",
+          "oklch(85% 0.156 73)",
+          "oklch(95% 0.156 73)"
+        ]
+      },
+      "deliver-green": {
+        "role": "secondary",
+        "displayName": "Deliver Line Green",
+        "canonical": "oklch(71.8% 0.147 164)",
+        "tonalRamp": [
+          "oklch(15% 0.147 164)",
+          "oklch(26% 0.147 164)",
+          "oklch(38% 0.147 164)",
+          "oklch(50% 0.147 164)",
+          "oklch(62% 0.147 164)",
+          "oklch(74% 0.147 164)",
+          "oklch(85% 0.147 164)",
+          "oklch(95% 0.147 164)"
+        ]
+      },
+      "notify-violet": {
+        "role": "secondary",
+        "displayName": "Notify Line Violet",
+        "canonical": "oklch(74.2% 0.142 289)",
+        "tonalRamp": [
+          "oklch(15% 0.142 289)",
+          "oklch(26% 0.142 289)",
+          "oklch(38% 0.142 289)",
+          "oklch(50% 0.142 289)",
+          "oklch(62% 0.142 289)",
+          "oklch(74% 0.142 289)",
+          "oklch(85% 0.142 289)",
+          "oklch(95% 0.142 289)"
+        ]
+      },
+      "delay-amber": {
+        "role": "tertiary",
+        "displayName": "Delay Amber",
+        "canonical": "oklch(80.6% 0.150 76)",
+        "tonalRamp": [
+          "oklch(15% 0.150 76)",
+          "oklch(26% 0.150 76)",
+          "oklch(38% 0.150 76)",
+          "oklch(50% 0.150 76)",
+          "oklch(62% 0.150 76)",
+          "oklch(74% 0.150 76)",
+          "oklch(85% 0.150 76)",
+          "oklch(95% 0.150 76)"
+        ]
+      },
+      "failure-red": {
+        "role": "tertiary",
+        "displayName": "Failure Red",
+        "canonical": "oklch(67.2% 0.216 20)",
+        "tonalRamp": [
+          "oklch(15% 0.216 20)",
+          "oklch(26% 0.216 20)",
+          "oklch(38% 0.216 20)",
+          "oklch(50% 0.216 20)",
+          "oklch(62% 0.216 20)",
+          "oklch(74% 0.216 20)",
+          "oklch(85% 0.216 20)",
+          "oklch(95% 0.216 20)"
+        ]
+      },
+      "suspended-slate": {
+        "role": "tertiary",
+        "displayName": "Suspended Slate",
+        "canonical": "oklch(55.2% 0.043 266)",
+        "tonalRamp": [
+          "oklch(15% 0.043 266)",
+          "oklch(26% 0.043 266)",
+          "oklch(38% 0.043 266)",
+          "oklch(50% 0.043 266)",
+          "oklch(62% 0.043 266)",
+          "oklch(74% 0.043 266)",
+          "oklch(85% 0.043 266)",
+          "oklch(95% 0.043 266)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "rgba(237, 241, 247, 0.075)"
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Rule Strong",
+        "canonical": "rgba(237, 241, 247, 0.13)"
+      }
+    },
+    "typographyMeta": {
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "Desk page headings in condensed caps."
+      },
+      "phone-large-title": {
+        "displayName": "Phone Large Title",
+        "purpose": "Phone page titles; collapse into the 17px bar title on scroll."
+      },
+      "work-title": {
+        "displayName": "Work Title",
+        "purpose": "A Work's own name; sentence case. 28px on phone, 46px wide portal."
+      },
+      "portal-headline": {
+        "displayName": "Portal Headline",
+        "purpose": "Member greeting and page titles; 40px on wide portal."
+      },
+      "portal-section": {
+        "displayName": "Portal Section",
+        "purpose": "Sentence-case section heads in the member portal."
+      },
+      "status-line": {
+        "displayName": "Status Line",
+        "purpose": "The one-sentence network summary on admin home."
+      },
+      "sign-label": {
+        "displayName": "Sign Label",
+        "purpose": "Panel and section headers, sidebar line names."
+      },
+      "station-label": {
+        "displayName": "Station Label",
+        "purpose": "Map station names; 17px in the phone strip."
+      },
+      "board-time": {
+        "displayName": "Board Time",
+        "purpose": "Departure times, tabular."
+      },
+      "arrival-clock": {
+        "displayName": "Arrival Clock",
+        "purpose": "Portal arrival time beside a request route."
+      },
+      "body-desk": {
+        "displayName": "Body (desk)",
+        "purpose": "Admin desk base text, rows and controls."
+      },
+      "body-touch": {
+        "displayName": "Body (touch)",
+        "purpose": "Phone and portal base text."
+      },
+      "column-label": {
+        "displayName": "Column Label",
+        "purpose": "Table column heads in condensed caps."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Timestamps, subtitles, panel meta."
+      },
+      "bullet-letter": {
+        "displayName": "Bullet Letter",
+        "purpose": "The line letter inside a line bullet."
+      }
+    },
+    "shadows": [
+      {
+        "name": "hairline",
+        "value": "inset 0 0 0 1px rgba(237, 241, 247, 0.075)",
+        "purpose": "Panels, cards and tables at rest; the 0.13 variant outlines controls and overlays."
+      },
+      {
+        "name": "poster-lift",
+        "value": "0 0 0 1px rgba(237, 241, 247, 0.06), 0 12px 26px -16px rgba(0, 0, 0, 0.9)",
+        "purpose": "Poster tiles at rest."
+      },
+      {
+        "name": "poster-lift-hover",
+        "value": "0 0 0 1px rgba(237, 241, 247, 0.16), 0 20px 32px -16px rgba(0, 0, 0, 0.95)",
+        "purpose": "Poster tile hover, with a 3px rise."
+      },
+      {
+        "name": "popover",
+        "value": "0 22px 54px -14px rgba(0, 0, 0, 0.78), inset 0 0 0 1px rgba(237, 241, 247, 0.13)",
+        "purpose": "Menus and popovers."
+      },
+      {
+        "name": "palette",
+        "value": "0 32px 90px -24px rgba(0, 0, 0, 0.85), inset 0 0 0 1px rgba(237, 241, 247, 0.13)",
+        "purpose": "Command palette."
+      },
+      {
+        "name": "toast",
+        "value": "0 16px 36px -12px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(237, 241, 247, 0.13)",
+        "purpose": "Toasts."
+      },
+      {
+        "name": "map-card",
+        "value": "0 16px 40px -10px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(237, 241, 247, 0.13)",
+        "purpose": "Network Map hover card."
+      },
+      {
+        "name": "sheet",
+        "value": "0 -12px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(237, 241, 247, 0.08)",
+        "purpose": "Phone action sheet."
+      },
+      {
+        "name": "cut-out-halo",
+        "value": "0 0 0 2px var(--c-bg-2)",
+        "purpose": "Separates bullets, trains, badges and dots from what is under them; a 1.5px state ring follows when needed."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid #EDF1F7; outline-offset: 2px",
+        "purpose": "Every focus-visible element; fields swap their hairline instead."
+      },
+      {
+        "name": "bar-material",
+        "value": "backdrop-filter: blur(22px) saturate(1.6); background: rgba(10, 15, 30, 0.8)",
+        "purpose": "Phone nav bar once scrolled under, tab bar (0.84), portal header (blur 20px, saturate 1.5, 0.86)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-house",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Default ease for presses, popovers, toasts, switches, posters."
+      },
+      {
+        "name": "ease-drawer",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "Poster view-transition (0.4s) and drawer-like movement."
+      },
+      {
+        "name": "duration-state",
+        "value": "150ms ease",
+        "purpose": "Background and colour changes on hover and selection (0.12s on rows)."
+      },
+      {
+        "name": "press",
+        "value": "transform: scale(0.97) over 160ms ease-house",
+        "purpose": "Buttons, pills, segments; 0.95 on icon buttons, 0.96 chips, 0.98 posters."
+      },
+      {
+        "name": "overlay-in",
+        "value": "opacity 0 -> 1, scale 0.97 + translateY(-4px) -> none, 160ms ease-house; out 120ms",
+        "purpose": "Popovers and menus via @starting-style; the command palette has no entrance."
+      },
+      {
+        "name": "toast-in",
+        "value": "opacity + translateY(10px), 240ms ease-house; out 200ms",
+        "purpose": "Toasts."
+      },
+      {
+        "name": "split-flap",
+        "value": "translateY(-0.5em) scaleY(0.3), opacity 0 -> none, 340ms ease-house, 22ms per-character stagger up to 8",
+        "purpose": "Changed characters in departures and live values."
+      },
+      {
+        "name": "lit-row-fade",
+        "value": "background-color 1.4s ease",
+        "purpose": "A changed row stays tinted Library blue until hovered, then fades."
+      },
+      {
+        "name": "line-focus",
+        "value": "opacity 0.3 on non-chosen lines, stations, trains; 220ms ease",
+        "purpose": "Choosing a line on the Network Map."
+      },
+      {
+        "name": "train-pulse",
+        "value": "opacity 1 -> 0.45 -> 1, 2.4s ease-in-out infinite",
+        "purpose": "The current-stop train on a Route."
+      },
+      {
+        "name": "view-fade",
+        "value": "opacity + translateY(6px), 240ms ease-house",
+        "purpose": "Portal view entrance; root view-transition 220ms."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "no flap; transitions limited to opacity, color, background-color, box-shadow",
+        "purpose": "prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "desk-compact",
+        "value": "1360px"
+      },
+      {
+        "name": "disruption-stack",
+        "value": "372px (container query on the disruptions list)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default action on raised deck with a hairline; press scales to 0.97.",
+      "html": "<div class=\"ds-wrap\"><button class=\"ds-btn\">Open forge</button></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;background:var(--c-bg);padding:16px;font-size:13px} .ds-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:0;border-radius:7px;background:var(--c-bg-3);box-shadow:inset 0 0 0 1px var(--c-rule-2);color:var(--c-ink);font:500 13px/1 inherit;font-family:inherit;cursor:pointer;transition:background-color .15s ease,transform .16s var(--c-ease)} .ds-btn:hover{background:var(--c-bg-4)} .ds-btn:active{transform:scale(.97)} .ds-btn:focus-visible{outline:2px solid var(--c-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action in a group: porcelain fill, enamel text.",
+      "html": "<div class=\"ds-wrap\"><button class=\"ds-btn-primary\">Request</button></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;background:var(--c-bg);padding:16px} .ds-btn-primary{display:inline-flex;align-items:center;height:32px;padding:0 12px;border:0;border-radius:7px;background:var(--c-ink);color:var(--c-bg);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background-color .15s ease,transform .16s var(--c-ease)} .ds-btn-primary:hover{background:#fff} .ds-btn-primary:active{transform:scale(.97)} .ds-btn-primary:focus-visible{outline:2px solid var(--c-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action: tinted failure-red wash and hairline.",
+      "html": "<div class=\"ds-wrap\"><button class=\"ds-btn-danger\">Remove</button></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;background:var(--c-bg);padding:16px} .ds-btn-danger{height:32px;padding:0 12px;border:0;border-radius:7px;background:rgba(255,74,91,.14);box-shadow:inset 0 0 0 1px rgba(255,74,91,.35);color:#FF9AA4;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background-color .15s ease,transform .16s var(--c-ease)} .ds-btn-danger:hover{background:rgba(255,74,91,.22)} .ds-btn-danger:active{transform:scale(.97)} .ds-btn-danger:focus-visible{outline:2px solid var(--c-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Line Bullets",
+      "kind": "custom",
+      "refersTo": "line-bullet",
+      "description": "A Role shown as its line: coloured disc with the line letter; state as a ring outside a halo.",
+      "html": "<div class=\"ds-wrap\"><span class=\"ds-bullet\" style=\"--ink:#F0524F\">A</span><span class=\"ds-bullet ds-fail\" style=\"--ink:#3D7BFF\">L</span><span class=\"ds-bullet ds-delay\" style=\"--ink:#F4A62A\">P</span><span class=\"ds-bullet\" style=\"--ink:#22C08A\">D</span><span class=\"ds-bullet\" style=\"--ink:#A99BFF\">N</span></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);display:flex;gap:6px;padding:16px;background:var(--c-bg-2)} .ds-bullet{display:inline-grid;place-items:center;width:18px;height:18px;padding-top:1px;border-radius:50%;background:var(--ink);color:var(--c-bg);font:700 12px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif} .ds-delay{box-shadow:0 0 0 2px var(--c-bg-2),0 0 0 3.5px var(--c-delay)} .ds-fail{box-shadow:0 0 0 2px var(--c-bg-2),0 0 0 3.5px var(--c-fail)}"
+    },
+    {
+      "name": "Disruptions Pill",
+      "kind": "chip",
+      "refersTo": "disruption-pill",
+      "description": "Header pill counting disruptions; amber by default, red when a failure leads.",
+      "html": "<div class=\"ds-wrap\"><button class=\"ds-pill\"><span class=\"ds-dot\"></span>4 disruptions</button></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;background:var(--c-bg);padding:16px} .ds-pill{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px 0 10px;border:0;border-radius:14px;background:rgba(246,177,58,.11);box-shadow:inset 0 0 0 1px rgba(246,177,58,.28);color:var(--c-delay);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:background-color .15s ease,transform .16s var(--c-ease)} .ds-pill:hover{background:rgba(246,177,58,.18)} .ds-pill:active{transform:scale(.97)} .ds-pill:focus-visible{outline:2px solid var(--c-ink);outline-offset:2px} .ds-dot{width:7px;height:7px;border-radius:50%;background:currentColor}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "refersTo": "segmented",
+      "description": "View and filter switch; selected option moves to lit deck.",
+      "html": "<div class=\"ds-wrap\"><div class=\"ds-seg\"><button aria-selected=\"true\">All <span>46</span></button><button>Missing <span>3</span></button><button>Upgradable <span>2</span></button></div></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;background:var(--c-bg);padding:16px;font-size:13px} .ds-seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--c-bg-2);box-shadow:inset 0 0 0 1px var(--c-rule)} .ds-seg button{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border:0;border-radius:6px;background:none;color:var(--c-ink-3);font:inherit;font-weight:500;cursor:pointer;transition:background-color .15s ease,color .15s ease} .ds-seg button:hover{color:var(--c-ink)} .ds-seg button span{font-size:12px;color:var(--c-ink-3)} .ds-seg button[aria-selected=true]{background:var(--c-bg-4);color:var(--c-ink);box-shadow:0 1px 2px rgba(0,0,0,.35),inset 0 0 0 1px var(--c-rule-2)} .ds-seg button:focus-visible{outline:2px solid var(--c-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field-desk",
+      "description": "Desk header search on night deck with a hairline.",
+      "html": "<div class=\"ds-wrap\"><label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input placeholder=\"Search Works, Nodes and commands\"></label></div>",
+      "css": ".ds-wrap{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;background:var(--c-bg);padding:16px;font-size:13px} .ds-search{display:flex;align-items:center;gap:9px;width:360px;height:32px;padding:0 11px;border-radius:8px;background:var(--c-bg-2);box-shadow:inset 0 0 0 1px var(--c-rule-2);color:var(--c-ink-3);transition:box-shadow .15s ease,background-color .15s ease} .ds-search:hover{background:var(--c-bg-3);box-shadow:inset 0 0 0 1px var(--c-ink-4)} .ds-search:focus-within{box-shadow:inset 0 0 0 1px var(--c-ink-3)} .ds-search input{flex:1;border:0;outline:none;background:transparent;color:var(--c-ink);font:inherit} .ds-search input::placeholder{color:var(--c-ink-3)}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Desk sidebar items with counts; current item on lit deck.",
+      "html": "<nav class=\"ds-side\"><a class=\"ds-nav\" aria-current=\"page\">Network</a><a class=\"ds-nav\">Movies<span>46</span></a><a class=\"ds-nav\">Series<span>12</span></a><div class=\"ds-h\">Lines</div><a class=\"ds-line\"><i style=\"--ink:#F4A62A\">P</i><b>Process</b><span>Delays</span></a></nav>",
+      "css": ".ds-side{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;display:grid;gap:1px;width:232px;padding:6px 10px;background:var(--c-bg-2);font-size:13px} .ds-nav{display:flex;align-items:center;height:34px;padding:0 10px;border-radius:7px;color:var(--c-ink-2);font-size:14px;font-weight:500;cursor:pointer;transition:background-color .15s ease,color .15s ease} .ds-nav span{margin-left:auto;font-size:12.5px;color:var(--c-ink-3)} .ds-nav:hover:not([aria-current]){background:rgba(237,241,247,.045);color:var(--c-ink)} .ds-nav[aria-current]{background:var(--c-bg-4);color:var(--c-ink);box-shadow:inset 0 0 0 1px var(--c-rule)} .ds-h{padding:14px 10px 8px;font:600 12.5px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--c-ink-3)} .ds-line{display:grid;grid-template-columns:18px 1fr auto;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:7px} .ds-line i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--c-bg);font:normal 700 12px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif} .ds-line b{font:600 14px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--c-ink-2)} .ds-line span{font-size:12px;color:var(--c-delay)}"
+    },
+    {
+      "name": "Panel with Departures",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Night-deck panel with a condensed sign-label header and a departures board row.",
+      "html": "<section class=\"ds-panel\"><header><h2>Departures</h2><span>Next to leave</span></header><div class=\"ds-row\"><b>22:04</b><i style=\"--ink:#F4A62A\">P</i><span>Atlas of Small Hours</span><em>forge</em><strong>Delayed</strong></div></section>",
+      "css": ".ds-panel{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;width:400px;border-radius:11px;background:var(--c-bg-2);box-shadow:inset 0 0 0 1px var(--c-rule);color:var(--c-ink);font-size:13px} .ds-panel header{display:flex;align-items:center;height:42px;padding:0 14px 0 16px} .ds-panel h2{margin:0;font:600 14px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif;letter-spacing:.1em;text-transform:uppercase} .ds-panel header span{margin-left:auto;font-size:12px;color:var(--c-ink-3)} .ds-row{display:grid;grid-template-columns:72px 24px 1fr 52px auto;align-items:center;height:31px;padding:0 16px;border-top:1px solid var(--c-rule);cursor:pointer;transition:background-color .12s ease} .ds-row:hover{background:rgba(237,241,247,.035)} .ds-row b{font:600 15px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif;letter-spacing:.02em;font-variant-numeric:tabular-nums} .ds-row i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--c-bg);font:normal 700 12px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif} .ds-row span{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-row em{font-style:normal;color:var(--c-ink-3)} .ds-row strong{font:600 13px/1 'Barlow Condensed','Barlow',ui-sans-serif,sans-serif;letter-spacing:.04em;color:var(--c-delay)}"
+    },
+    {
+      "name": "Route Stop",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "A Work's itinerary: line-ink rail, porcelain stops, pulsing car at the current stop.",
+      "html": "<ol class=\"ds-route\" style=\"--ink:#F0524F\"><li class=\"done\"><i></i><b>Searched</b><span>ams-1</span></li><li class=\"cur\"><i></i><b>Downloading</b><span>45.1 MB/s · 65%</span></li><li class=\"next\"><i></i><b>Import</b><span>vault</span></li></ol>",
+      "css": ".ds-route{--c-bg:#0A0F1E;--c-bg-2:#0E1527;--c-bg-3:#131C33;--c-bg-4:#1B2643;--c-ink:#EDF1F7;--c-ink-2:#B4BED1;--c-ink-3:#8390A8;--c-ink-4:#4E5A73;--c-rule:rgba(237,241,247,0.075);--c-rule-2:rgba(237,241,247,0.13);--c-delay:#F6B13A;--c-fail:#FF4A5B;--c-susp:#66728C;--c-ease:cubic-bezier(0.23,1,0.32,1);font-family:'Barlow',ui-sans-serif,system-ui,sans-serif;list-style:none;margin:0;padding:12px 16px;background:var(--c-bg-2);color:var(--c-ink);font-size:13px} .ds-route li{position:relative;display:grid;grid-template-columns:22px 1fr;column-gap:12px;padding-bottom:17px} .ds-route li:last-child{padding-bottom:0} .ds-route li::before{content:'';position:absolute;left:9px;top:11px;bottom:-11px;width:4px;background:var(--ink)} .ds-route li:last-child::before{display:none} .ds-route li.cur::before{opacity:.32} .ds-route i{position:relative;z-index:1;grid-row:span 2;display:grid;place-items:center;width:22px;height:22px} .ds-route i::before{content:'';width:10px;height:10px;border-radius:50%;background:var(--c-ink);box-shadow:0 0 0 2.5px var(--c-bg-2)} .ds-route .cur i::before{width:8px;height:17px;border-radius:4px;animation:ds-pulse 2.4s ease-in-out infinite} .ds-route .next i::before{background:var(--c-bg-2);box-shadow:inset 0 0 0 2px var(--ink)} .ds-route b{font-size:13.5px;font-weight:600} .ds-route .next b{color:var(--c-ink-2);font-weight:500} .ds-route span{font-size:12px;color:var(--c-ink-3)} @keyframes ds-pulse{50%{opacity:.45}} @media (prefers-reduced-motion:reduce){.ds-route .cur i::before{animation:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Line",
+    "overview": "**Creative North Star: \"The Night Line\"**\n\nSlipStream drawn as a transit system after dark. The surface is midnight enamel, the text is porcelain, and the only saturated colour on the page belongs to five lines: Acquire, Library, Process, Deliver and Notify, one per Role Group. Nodes are stations, Works are trains, and a Work's journey from search to screen is a route with stops. The admin home is a status line, a network map and a departures board, never a wall of stat cards or posters.\n\nThe world borrows the material honesty of signage rather than of a dashboard. Labels that name places (stations, lines, panels, page titles, column heads) are set in tracked, uppercase Barlow Condensed, the way a platform sign is. Everything a person reads as a sentence (the status line, Work titles, disruptions, overview copy) stays in sentence-case Barlow. Density is high on the desk (13px body, 31 to 32px rows) and relaxes to 15px body with 44 to 54px rows on touch surfaces. The member portal keeps the enamel and the route device but speaks in plain sentence-case headlines and leads with the Library line's blue.\n\nState is told through form before colour: a delay is an amber ring around a bullet or station, a failure a red double ring, a suspension a dashed slate line, a paused Node a dashed grey ring, and a train is a white rounded car riding the line. Motion is functional: departures flip in place, changed rows stay lit until noticed, the chosen line burns while the rest dims.",
+    "keyCharacteristics": [
+      "Five line inks are the only chromatic colour; every surface and text tone is a blue-tinted neutral.",
+      "Tonal layering on enamel, outlined by a 1px inset hairline, instead of drop shadows on resting surfaces.",
+      "Barlow Condensed uppercase for signage, Barlow sentence case for prose.",
+      "Line bullets (a coloured disc with the line's letter) wherever a Role appears.",
+      "State shapes: ring for delay, double ring for failure, dash for suspension, white car for a train.",
+      "Dark only in this build; light and system themes are an unresolved obligation (P-012)."
+    ],
+    "rules": [
+      {
+        "name": "The Line Ink Rule",
+        "body": "A line colour appears only on things that belong to that line. No line ink is used as decoration, as a section accent, or as a generic status colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Shape Before Colour Rule",
+        "body": "Every state carries a shape (ring, double ring, dashed stroke, car) as well as a colour, so the map and the bullets remain readable without hue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signage Rule",
+        "body": "Condensed uppercase is for names of places and furniture: stations, lines, panels, columns, page titles. Work titles, sentences and the portal's member-facing headings stay in sentence-case Barlow.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Clock Rule",
+        "body": "Every time, rate, count and percentage that updates in place uses tabular numerals so split-flap updates never shift the row.",
+        "section": "typography"
+      },
+      {
+        "name": "The Floats Only Rule",
+        "body": "Nothing at rest casts a shadow except poster art. A panel that needs separation gets a lighter deck or a hairline, not a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** give every Role a line bullet and paint line-owned marks (strokes, bars, rails) through the element's own line ink.",
+      "**Do** carry every state as a shape plus a colour: amber ring for delay, red double ring for failure, dashed slate for suspended, dashed grey for paused.",
+      "**Do** set station, line, panel, column and page-title labels in Barlow Condensed 600 uppercase with 0.06–0.12em tracking, and everything sentence-like in Barlow.",
+      "**Do** separate resting surfaces with deck steps and the 7.5% or 13% inset hairline.",
+      "**Do** use the house ease `cubic-bezier(0.23, 1, 0.32, 1)` at 150–240ms for state changes and a 0.97 press scale on buttons, chips and segments.",
+      "**Do** use tabular numerals for every value that updates in place.",
+      "**Do** keep hover treatments behind `(hover: hover) and (pointer: fine)` and give touch surfaces an `:active` wash or scale instead."
+    ],
+    "donts": [
+      "**Don't** use a line ink outside its own line, as decoration, or as a generic accent.",
+      "**Don't** compose admin home from stat cards or a poster wall; the network is the home.",
+      "**Don't** cast drop shadows from panels, cards or tables; shadows belong to floating layers and poster art.",
+      "**Don't** set Work titles, disruption sentences or portal headlines in condensed caps.",
+      "**Don't** set text in conduit grey or suspended slate; they are for marks and strokes.",
+      "**Don't** draw map lines at angles other than 0°, 45° and 90°."
+    ]
+  }
+}

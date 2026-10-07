@@ -328,7 +328,7 @@
   & .a-psearch input::-webkit-search-cancel-button { filter: invert(1) opacity(0.5); }
   & .a-tunnel--compact { height: 172px; }
   & .a-tunnel--compact .a-tunnel__labels { bottom: 9px; }
-  & .a-tunnel--compact .a-tunnel__label { padding-left: 4px; font-size: 9.5px; font-stretch: 80%; letter-spacing: 0.01em; }
+  & .a-tunnel--compact .a-tunnel__label { padding-left: 4px; font-size: 10.5px; font-stretch: 72%; letter-spacing: 0.01em; }
   & .a-tunnel--compact .a-tunnel__label b { display: none; }
 
   @media (hover: hover) and (pointer: fine) {
