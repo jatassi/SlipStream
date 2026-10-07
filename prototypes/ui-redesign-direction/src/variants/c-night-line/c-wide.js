@@ -132,7 +132,7 @@
 
     root.innerHTML = `
       <aside class="c-side" aria-label="Sidebar">
-        <div class="c-side__brand">${VC.logo(22)}<span>SlipStream</span></div>
+        <div class="c-side__brand">${VC.logo(20)}<span>SlipStream</span></div>
         <nav class="c-side__nav" aria-label="Main">
           ${[['home', 'route', 'Network', 'net'], ['library', 'film', 'Movies', 'movies'], ['series', 'tv', 'Series', 'series'], ['activity', 'activity', 'Activity', 'activity'], ['requests', 'inbox', 'Requests', 'requests'], ['nodes', 'server', 'Nodes', 'nodes']]
             .map(([go, icon, label, key]) => `<a class="c-nav" href="#" data-go="${go}" data-nav="${go}">${SS.icon(icon, { size: 17, stroke: 1.75 })}<span>${label}</span><span class="c-nav__n c-num" data-count="${key}"></span></a>`).join('')}
@@ -189,7 +189,7 @@
         net: '',
         movies: d.works.filter((w) => w.type === 'movie').length,
         series: d.works.filter((w) => w.type === 'series').length,
-        activity: d.jobs.filter((j) => j.state === 'running').length,
+        activity: d.jobs.filter((j) => j.state !== 'done').length,
         requests: d.requests.filter((r) => r.state === 'pending').length,
         nodes: d.nodes.length,
       };
@@ -263,8 +263,9 @@
           : `<button class="c-btn c-btn--s" data-act="find-release" data-work="${x.work}">Find another release</button>`;
         return `<li class="c-disr__i" data-kind="${x.kind}" data-id="${x.id}">
           <span class="c-disr__mark"></span>${VC.bullet(x.line)}
-          <span class="c-disr__b"><b>${esc(x.title)}</b><span><time class="c-num">${F.ago(x.at)}</time> · ${esc(x.detail)}</span></span>
+          <b class="c-disr__t">${esc(x.title)}</b>
           ${act}
+          <p class="c-disr__r"><time class="c-num">${F.ago(x.at)}</time> · ${esc(x.detail)}</p>
         </li>`;
       }).join('')}</ul>`;
     }
@@ -284,7 +285,7 @@
         const missingEp = VC.act.missingEpisodes().length;
         return [
           { g: 'Commands', label: `Search for missing episodes`, hint: F.plural(missingEp, 'episode'), icon: 'search', run: () => { VC.act.missingEpisodes().forEach((x) => VC.act.grab(x.w.id, [x.s, x.e.n])); toast(`Searching for ${F.plural(missingEp, 'missing episode')}`, 'Grabs ride the Acquire line from atlas'); } },
-          ams.paused ? { g: 'Commands', label: 'Resume ams-1', icon: 'play', run: () => { VC.act.resumeNode('ams-1'); toast('ams-1 resumed'); } } : { g: 'Commands', label: 'Pause ams-1', hint: 'Holds every download', icon: 'pause', run: () => { VC.act.pauseNode('ams-1'); toast('ams-1 paused', 'Downloads hold their place'); } },
+          ams.paused ? { g: 'Commands', label: 'Resume ams-1', icon: 'play', run: () => { VC.act.resumeNode('ams-1'); toast('ams-1 resumed', 'Downloads pick up where they stopped', '', 'node:ams-1'); } } : { g: 'Commands', label: 'Pause ams-1', hint: 'Holds every download', icon: 'pause', run: () => { VC.act.pauseNode('ams-1'); toast('ams-1 paused', 'Downloads hold their place', '', 'node:ams-1'); } },
           d.jobs.some((j) => j.state === 'failed') && { g: 'Commands', label: 'Blocklist Coldwater Static and search again', icon: 'ban', run: () => act('blocklist', { work: 'coldwater-static' }) },
           d.jobs.some((j) => j.state === 'stalled') && { g: 'Commands', label: 'Find another release for The Velvet Hour', icon: 'refresh-cw', run: () => act('find-release', { work: 'velvet-hour' }) },
           { g: 'Commands', label: 'Approve every pending request', hint: F.plural(d.requests.filter((r) => r.state === 'pending').length, 'request'), icon: 'check', run: () => { d.requests.filter((r) => r.state === 'pending').forEach(VC.act.approve); toast('Approved every pending request'); } },
@@ -335,7 +336,7 @@
       palette = null;
     }
 
-    const toast = (t, s, tone) => VC.toast(root, t, { sub: s, tone });
+    const toast = (t, s, tone, key) => VC.toast(root, t, { sub: s, tone, key });
 
     function act(name, ds, btn) {
       if (name === 'palette') return openPalette();
@@ -347,8 +348,8 @@
         const w = d.W[ds.work];
         VC.act.findRelease(w.id);
         toast(`New release for ${w.title}`, 'Kestrel · 64 seeders');
-      } else if (name === 'pause-node') { VC.act.pauseNode(ds.node); toast(`${ds.node} paused`, 'Downloads hold their place'); }
-      else if (name === 'resume-node') { VC.act.resumeNode(ds.node); toast(`${ds.node} resumed`); }
+      } else if (name === 'pause-node') { VC.act.pauseNode(ds.node); toast(`${ds.node} paused`, 'Downloads hold their place', '', 'node:' + ds.node); }
+      else if (name === 'resume-node') { VC.act.resumeNode(ds.node); toast(`${ds.node} resumed`, 'Downloads pick up where they stopped', '', 'node:' + ds.node); }
       else return view?.act?.(name, ds, btn);
       refreshAll();
     }
@@ -431,7 +432,7 @@
             </section>
             <section class="c-panel c-panel--dep">
               <header class="c-panel__h"><h2>Departures</h2><span class="c-panel__meta">Next to leave</span></header>
-              <table class="c-board"><tbody data-dep></tbody></table>
+              <table class="c-board"><colgroup><col class="c-board__ct"><col class="c-board__cb"><col><col class="c-board__cp"><col class="c-board__cs"></colgroup><tbody data-dep></tbody></table>
             </section>
           </div>
         </div>
@@ -458,29 +459,38 @@
         if (host.dataset.v !== html) { host.dataset.v = html; host.innerHTML = html; }
         VC.set($(el, '[data-dcount]'), String(VC.disruptions().length));
       };
+      // The map sets the row's height; the board takes whatever the Disruptions panel leaves.
+      const boardRows = () => {
+        const panel = $(el, '.c-panel--map');
+        const want = Math.round(Math.max(380, panel.clientWidth * 0.6));
+        const wrap = $(el, '.c-mapwrap');
+        if (wrap.style.minHeight !== want + 'px') wrap.style.minHeight = want + 'px';
+        const room = want + $(el, '.c-legend').offsetHeight - $(el, '.c-panel--disr').offsetHeight - 16 - 46;
+        return Math.max(5, Math.min(10, Math.floor(room / 32)));
+      };
       const dep = () => {
         const body = $(el, '[data-dep]');
-        const list = VC.departures(6);
+        const list = VC.departures(boardRows());
         const ids = list.map((x) => x.id).join();
         if (body.dataset.ids !== ids) {
           body.dataset.ids = ids;
           body.innerHTML = list.map((x) => `<tr data-go="work/${x.work}" data-dep="${x.id}">
-            <td class="c-board__t c-num" data-f="t"></td><td class="c-td-b">${VC.bullet(x.line)}</td>
+            <td class="c-board__t" data-f="t"></td><td class="c-td-b">${VC.bullet(x.line)}</td>
             <td class="c-board__d"><span class="c-trunc"><b>${esc(x.title)}</b> <span class="c-dim">${esc(x.sub)}</span></span></td>
             <td class="c-board__p">${esc(x.platform)}</td><td class="c-board__s" data-f="s"></td></tr>`).join('');
         }
         for (const x of list) {
           const tr = $(body, `[data-dep="${x.id}"]`);
-          VC.flap($(tr, '[data-f="t"]'), VC.boardTime(x.at));
+          VC.boardFlap($(tr, '[data-f="t"]'), x.at);
           const s = $(tr, '[data-f="s"]');
           VC.flap(s, x.status);
           s.dataset.tone = x.tone;
         }
       };
       const jobs = () => {
-        const list = sortJobs(d.jobs.filter((j) => j.state !== 'queued' && (j.state !== 'done' || VC.lit.has(j.id))));
+        const list = sortJobs(VC.collapse(d.jobs.filter((j) => j.state !== 'queued' && (j.state !== 'done' || VC.lit.has(j.id)))));
         $(el, '[data-jobs]').innerHTML = list.length ? list.map((j) => jobRow(j)).join('') : `<tr><td colspan="8" class="c-empty">Nothing is moving. Approve a request or search for a missing Work and its train appears here.</td></tr>`;
-        VC.set($(el, '[data-acount]'), String(d.jobs.filter((j) => j.state === 'running').length));
+        VC.set($(el, '[data-acount]'), `${d.jobs.filter((j) => j.state === 'running').length} running`);
         rows = liveRows($(el, '[data-jobs]'));
         map.sync();
       };
@@ -513,7 +523,7 @@
       }
       function tile(w) {
         const s = VC.statusOf(w);
-        return `<a class="c-tile" href="#" data-go="work/${w.id}" data-work="${w.id}">
+        return `<a class="c-tile" href="#" data-go="work/${w.id}" data-work="${w.id}" data-line="${s.line || ''}">
           <span class="c-tile__art">${VC.poster(w)}</span>
           <span class="c-tile__t">${esc(w.title)}</span>
           <span class="c-tile__m"><span class="c-num">${w.year}</span><span class="c-tile__s c-st-${s.key}" data-f="s">${esc(tileLabel(w, s))}</span></span>
@@ -561,7 +571,7 @@
           VC.set($(t, '[data-f="s"]'), t.classList.contains('c-tile') ? tileLabel(w, s) : s.label);
           const fill = $(t, '.c-tile__fill');
           if (fill && s.p != null) { fill.style.transform = `scaleX(${s.p.toFixed(4)})`; $(t, '.c-tile__train').style.left = (s.p * 100).toFixed(2) + '%'; }
-          if (!fill && s.key === 'moving' && t.classList.contains('c-tile')) t.outerHTML = tile(w);
+          if (s.key === 'moving' && t.classList.contains('c-tile') && (!fill || t.dataset.line !== s.line)) t.outerHTML = tile(w);
         }
       };
       return {
@@ -716,7 +726,7 @@
       const TABS = [['all', 'All'], ['running', 'Running'], ['queued', 'Queued'], ['stalled', 'Stalled'], ['failed', 'Failed']];
       const match = (j) => (tab === 'all' ? j.state !== 'done' || VC.lit.has(j.id) : tab === 'stalled' ? j.state === 'stalled' || j.state === 'paused' : j.state === tab) && (!only || VC.jobLine(j) === only);
       function render() {
-        const list = sortJobs(d.jobs.filter(match));
+        const list = sortJobs(VC.collapse(d.jobs.filter(match)));
         const count = (k) => d.jobs.filter((j) => (k === 'all' ? j.state !== 'done' : k === 'stalled' ? j.state === 'stalled' || j.state === 'paused' : j.state === k)).length;
         let lastLine = '';
         el.innerHTML = `<div class="c-page">

@@ -65,10 +65,25 @@
   }
 
   VC.nodeState = (n) => (n.paused ? 'paused' : n.state === 'offline' ? 'suspended' : n.state === 'degraded' ? 'delays' : 'good');
+
+  // A line's service, worst first. Nodes and jobs both disrupt a line, so both feed it.
+  const SERVICE = [
+    { state: 'failed', tone: 'failed', has: (l) => l.failed.length, short: (l) => `${l.failed.length} failed` },
+    { state: 'suspended', tone: 'suspended', has: (l) => l.nodes.length && l.suspended.length === l.nodes.length, short: () => 'Suspended' },
+    { state: 'delays', tone: 'delays', has: (l) => l.delays.length, short: () => 'Delays' },
+    { state: 'stalled', tone: 'delays', has: (l) => l.stalled.length, short: (l) => `${l.stalled.length} stalled` },
+    { state: 'part', tone: 'suspended', has: (l) => l.suspended.length, short: () => 'Part suspended' },
+    { state: 'paused', tone: 'paused', has: (l) => l.paused.length, short: () => 'Paused' },
+    { state: 'good', tone: '', has: () => true, short: () => 'Good service' },
+  ];
   VC.net = () => {
     const lines = {};
-    for (const l of VC.LINES) lines[l.id] = { ...l, running: 0, delays: [], suspended: [], paused: [], nodes: [] };
-    for (const j of d.jobs) if (j.state === 'running') lines[VC.jobLine(j)].running++;
+    for (const l of VC.LINES) lines[l.id] = { ...l, running: 0, nodes: [], delays: [], suspended: [], paused: [], failed: [], stalled: [] };
+    for (const j of d.jobs) {
+      const l = lines[VC.jobLine(j)];
+      if (j.state === 'running') l.running++;
+      if (j.state === 'failed' || j.state === 'stalled') l[j.state].push(j);
+    }
     for (const n of d.nodes) {
       const st = VC.nodeState(n);
       for (const id of VC.nodeLines(n)) {
@@ -77,24 +92,42 @@
       }
     }
     for (const l of Object.values(lines)) {
-      const parts = [];
-      if (l.delays.length) parts.push('Delays');
-      if (l.suspended.length) parts.push(l.suspended.length === l.nodes.length ? 'Suspended' : parts.length ? 'part suspended' : 'Part suspended');
-      if (l.paused.length) parts.push(parts.length ? 'paused at ' + l.paused.join(', ') : 'Paused at ' + l.paused.join(', '));
-      l.state = l.suspended.length === l.nodes.length && l.nodes.length ? 'suspended' : l.delays.length ? 'delays' : l.suspended.length ? 'part' : l.paused.length ? 'paused' : 'good';
-      l.label = parts.length ? parts.join(', ') : 'Good service';
-      l.short = { good: 'Good service', delays: 'Delays', part: 'Part suspended', suspended: 'Suspended', paused: 'Paused' }[l.state];
+      const s = SERVICE.find((x) => x.has(l));
+      l.state = s.state;
+      l.tone = s.tone;
+      l.short = s.short(l);
+      l.label = SERVICE.filter((x) => x.state !== 'good' && x.has(l)).map((x) => x.short(l)).join(', ') || 'Good service';
     }
+    const sentence = [];
     const fully = Object.values(lines).filter((l) => l.state === 'suspended');
-    const sentence = [fully.length ? `${F.plural(fully.length, 'line')} suspended` : 'All lines running'];
+    if (fully.length) sentence.push({ tone: 'suspended', text: `${F.plural(fully.length, 'line')} suspended` });
     for (const n of d.nodes) {
       const st = VC.nodeState(n);
       const names = VC.nodeLines(n).map((id) => VC.L[id].name);
-      if (st === 'delays') sentence.push({ tone: 'delay', text: `Delays on the ${F.list(names)} line at ${n.name}` });
+      if (st === 'delays') sentence.push({ tone: 'delay', text: `Delays on ${F.list(names)} at ${n.name}` });
       if (st === 'paused') sentence.push({ tone: 'paused', text: `${n.name} paused` });
       if (st === 'suspended') sentence.push({ tone: 'suspended', text: `${n.name} suspended` });
     }
+    for (const l of Object.values(lines)) {
+      if (l.failed.length) sentence.push({ tone: 'failed', text: `${F.plural(l.failed.length, 'failure')} on ${l.name}` });
+      if (l.stalled.length) sentence.push({ tone: 'delay', text: `${F.plural(l.stalled.length, 'stall')} on ${l.name}` });
+    }
+    if (!sentence.length) sentence.push('All lines running');
     return { lines, sentence };
+  };
+
+  // One row per Work or episode: a finished leg yields to the leg that took over from it.
+  VC.collapse = (list) => {
+    const items = new Map();
+    for (const j of list) {
+      const k = j.work + (j.episode ? ' ' + j.episode.join('x') : '');
+      if (!items.has(k)) items.set(k, []);
+      items.get(k).push(j);
+    }
+    return [...items.values()].flatMap((g) => {
+      const live = g.filter((j) => j.state !== 'done');
+      return live.length ? live : [g.sort((a, b) => KIND_RANK[b.kind] - KIND_RANK[a.kind])[0]];
+    });
   };
 
   VC.disruptions = () => d.alerts.filter((a) => a.level !== 'info').map((a) => {
@@ -105,6 +138,12 @@
     return { ...a, line, kind, job, nodeRef: node };
   }).sort((x, y) => (x.level === y.level ? y.at - x.at : x.level === 'error' ? -1 : 1));
 
+  // A departure keeps the time it was first given; the sim runs work faster than its clock, so a live estimate would slide by the second.
+  const SCHEDULE = new Map();
+  const scheduled = (id, at) => {
+    if (!SCHEDULE.has(id)) SCHEDULE.set(id, at);
+    return SCHEDULE.get(id);
+  };
   VC.departures = (limit = 6) => {
     const now = VC.clock();
     const out = [];
@@ -115,7 +154,7 @@
       let t = now.getTime() + (running.length ? Math.min(...running.map((j) => j.eta || 0)) : 0) * 1000;
       for (const j of queued) {
         const w = d.W[j.work];
-        out.push({ id: j.id, at: new Date(t), line: VC.jobLine(j), title: w.title, sub: j.kind === 'subtitles' ? 'Subtitles · ' + (j.step || 'English') : `${VC.targetName(j.target)} from ${VC.targetName(j.from)}`, platform: n.name, status: VC.nodeState(n) === 'delays' ? 'Delayed' : VC.nodeState(n) === 'suspended' ? 'Cancelled' : 'On time', tone: VC.nodeState(n) === 'delays' ? 'delay' : '', work: w.id });
+        out.push({ id: j.id, at: scheduled(j.id, new Date(t)), line: VC.jobLine(j), title: w.title, sub: j.kind === 'subtitles' ? 'Subtitles · ' + (j.step || 'English') : `${VC.targetName(j.target)} from ${VC.targetName(j.from)}`, platform: n.name, status: VC.nodeState(n) === 'delays' ? 'Delayed' : VC.nodeState(n) === 'suspended' ? 'Cancelled' : 'On time', tone: VC.nodeState(n) === 'delays' ? 'delay' : '', work: w.id });
         t += (j.kind === 'subtitles' ? 240 : legSeconds('derive', 0, w)) * 1000;
       }
     }
@@ -132,6 +171,14 @@
     const now = VC.clock();
     const same = date.toDateString() === now.toDateString();
     return same ? F.time(date) : `${date.toLocaleDateString('en-GB', { weekday: 'short' })} ${F.time(date)}`;
+  };
+  // An arrival estimate jitters with download rates; the time only turns over when it moves by a minute or more.
+  VC.boardFlap = (el, at) => {
+    if (!el) return;
+    const prev = +el.dataset.at;
+    if (prev && Math.abs(at - prev) < 60e3) return;
+    el.dataset.at = +at;
+    VC.flap(el, VC.boardTime(at));
   };
 
   const STOP_FOR = { download: 'downloaded', transfer: 'transferred', import: 'imported', transcode: 'derived', subtitles: 'derived' };
@@ -353,17 +400,23 @@
     return { easing: `linear(${pts.join(', ')})`, duration: Math.round(T * 1000) };
   };
 
-  VC.toast = (root, text, { tone = '', sub = '' } = {}) => {
+  // A toast with a key replaces the live toast that shares it, so "resumed" takes the place of "paused".
+  VC.toast = (root, text, { tone = '', sub = '', key = '' } = {}) => {
     let host = root.querySelector(':scope > .c-toasts');
     if (!host) { host = document.createElement('div'); host.className = 'c-toasts'; host.setAttribute('role', 'status'); root.appendChild(host); }
-    const t = document.createElement('div');
+    let t = key ? [...host.children].find((x) => x.dataset.key === key && !x.classList.contains('is-out')) : null;
+    if (!t) {
+      t = document.createElement('div');
+      if (key) t.dataset.key = key;
+      host.appendChild(t);
+    }
+    clearTimeout(t._out);
     t.className = `c-toast ${tone ? 'c-toast--' + tone : ''}`;
     t.innerHTML = `<span class="c-toast__mark"></span><span><span class="c-toast__t">${esc(text)}</span>${sub ? `<span class="c-toast__s">${esc(sub)}</span>` : ''}</span>`;
-    host.appendChild(t);
-    setTimeout(() => {
+    t._out = setTimeout(() => {
       t.classList.add('is-out');
       setTimeout(() => t.remove(), 260);
-    }, 3800);
+    }, 3600);
   };
 
   VC.poster = (w, cls = '', vt = '') => `<img class="c-poster ${cls}" src="${SS.art.poster(w)}" alt="" decoding="async" loading="lazy"${vt ? ` style="view-transition-name:${vt}"` : ''}>`;
@@ -408,5 +461,5 @@
       .map((x) => x.w);
   };
 
-  VC.logo = (size = 22) => `<svg class="c-logo" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h8.2a2 2 0 0 1 1.42.59l3.76 3.82a2 2 0 0 0 1.42.59H21" fill="none" stroke="var(--c-l)" stroke-width="2.6" stroke-linecap="round"/><path d="M3 12.5h3.6a2 2 0 0 1 1.42.59l3.76 3.82a2 2 0 0 0 1.42.59H21" fill="none" stroke="var(--c-ink)" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+  VC.logo = (size = 20) => `<svg class="c-logo" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 17.5L17.5 6.5" stroke="var(--c-ink)" stroke-width="3.8"/><circle cx="6.5" cy="17.5" r="6" fill="var(--c-a)"/><circle cx="17.5" cy="6.5" r="6" fill="var(--c-l)"/></svg>`;
 })();

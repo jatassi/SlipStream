@@ -8,24 +8,37 @@
 
   // Stations sit on waypoints, so a route is a slice of its line and trains follow the drawn path exactly.
   const STATIONS = {
-    atlas: { x: 3, y: 5, node: 'atlas', side: 'left' },
-    'ams-1': { x: 6.75, y: 2, node: 'ams-1', side: 'top' },
+    atlas: { x: 2, y: 5, node: 'atlas', side: 'left' },
+    'ams-1': { x: 6, y: 2, node: 'ams-1', side: 'top' },
     vault: { x: 10, y: 5, node: 'vault', side: 'topright' },
-    plex: { x: 13.5, y: 5, media: 'plex', side: 'bottom' },
-    relay: { x: 17.5, y: 3, node: 'relay', side: 'top', terminus: true },
-    forge: { x: 11.5, y: 8, node: 'forge', side: 'bottom' },
-    den: { x: 8.5, y: 8, node: 'den', side: 'bottom' },
-    accounts: { x: 3, y: 7.5, side: 'right', terminus: true },
+    plex: { x: 13, y: 5, media: 'plex', side: 'bottom' },
+    relay: { x: 17, y: 2, node: 'relay', side: 'top', terminus: true },
+    forge: { x: 12.5, y: 8, node: 'forge', side: 'bottom' },
+    den: { x: 15.5, y: 8, node: 'den', side: 'bottom', terminus: true },
+    inboxes: { x: 2, y: 7.5, side: 'right', terminus: true },
   };
+  const OFF = 4.75;
   const LINE_PTS = {
-    library: { off: 4, pts: ['atlas', 'vault'] },
-    deliver: { off: -4, pts: ['atlas', 'vault', 'plex', [14.75, 5], [16.75, 3], 'relay'] },
-    acquire: { off: 0, pts: ['atlas', [3, 4], [5, 2], 'ams-1', [8.5, 2], [10, 3.5], 'vault'] },
-    process: { off: 0, pts: ['vault', [13, 8], 'forge', 'den', [7, 8], 'vault'] },
-    notify: { off: 0, pts: ['atlas', 'accounts'] },
+    library: { off: OFF, pts: ['atlas', 'vault'] },
+    deliver: { off: -OFF, pts: ['atlas', 'vault', 'plex', [14, 5], [14, 4], [16, 2], 'relay'] },
+    acquire: { off: 0, pts: ['atlas', [2, 4], [4, 2], 'ams-1', [8, 2], [10, 4], 'vault'] },
+    process: { off: 0, pts: ['vault', [10, 7], [11, 8], 'forge', 'den'] },
+    notify: { off: 0, pts: ['atlas', 'inboxes'] },
   };
-  const BOUNDS = { x0: 1.15, x1: 18.45, y0: 1.1, y1: 9.1 };
-  const RADIUS = 14;
+  // Diagonals live only in rigid bands; the straight runs between them stretch, so 45° stays 45° at any panel shape.
+  const BANDS = {
+    x: { at: [2, 4, 8, 11, 14, 16, 17], elastic: [false, true, false, true, false, true] },
+    y: { at: [2, 4, 7, 8], elastic: [false, true, false] },
+  };
+  const span = (b, el) => b.elastic.reduce((s, e, i) => s + (e === el ? b.at[i + 1] - b.at[i] : 0), 0);
+  const along = (b, v, u, k) => {
+    let p = Math.min(0, v - b.at[0]) * u;
+    for (let i = 0; i < b.elastic.length; i++) p += Math.max(0, Math.min(v, b.at[i + 1]) - b.at[i]) * u * (b.elastic[i] ? k : 1);
+    return p + Math.max(0, v - b.at[b.at.length - 1]) * u;
+  };
+  const PAD = 18;
+  const STRETCH = 3.2;
+  const RADIUS = 16;
   const NS = 'http://www.w3.org/2000/svg';
 
   const unit = (a, b) => {
@@ -66,6 +79,11 @@
   const SUB = {
     atlas: () => 'Controller',
     plex: () => 'Media Server',
+    inboxes: () => 'Email · Admins and Members',
+  };
+  const stationName = (name) => {
+    const st = STATIONS[name];
+    return st.node ? d.N[st.node].name : st.media ? 'Plex' : 'Inboxes';
   };
   const stateWord = { delays: 'Delays', suspended: 'Suspended', paused: 'Paused' };
   function stationSub(name) {
@@ -96,9 +114,9 @@
         <div class="c-card__note">${d.playing.map((p) => `${esc(d.A[p.who].name.split(' ')[0])} on ${esc(p.device)}`).join(' · ')}</div>`;
     }
     if (!st.node) {
-      return `<div class="c-card__h"><b>Accounts</b><span>Notify terminus</span></div>
+      return `<div class="c-card__h"><b>Inboxes</b><span>Email</span></div>
         <div class="c-card__roles">${VC.bullet('notify')}<span>Notifying on atlas</span></div>
-        <div class="c-card__note">Arrivals and failures reach ${F.plural(d.accounts.length, 'Account')} by push and email.</div>`;
+        <div class="c-card__note">Arrivals and failures reach the inboxes of ${F.plural(d.accounts.length, 'Account')}, Admins and Members.</div>`;
     }
     const n = d.N[st.node];
     const s = VC.nodeState(n);
@@ -134,15 +152,41 @@
     const svg = host.querySelector('svg');
     const card = host.querySelector('.c-map__card');
     let W = 0, H = 0, geo = null, focus = null, sticky = null, cardFor = null;
+    let margin = { l: 96, r: 40, t: 44, b: 48 };
     const trains = new Map();
 
+    // Fit the diagram, labels included, to the panel: measure how far the labels overhang the lines, refit, repeat until stable.
     function layout() {
       W = host.clientWidth; H = host.clientHeight;
       if (!W || !H) return;
-      const u = Math.min((W - 28) / (BOUNDS.x1 - BOUNDS.x0), (H - 12) / (BOUNDS.y1 - BOUNDS.y0), 46);
-      const ox = (W - (BOUNDS.x1 - BOUNDS.x0) * u) / 2 - BOUNDS.x0 * u;
-      const oy = (H - (BOUNDS.y1 - BOUNDS.y0) * u) / 2 - BOUNDS.y0 * u;
-      const P = (x, y) => [ox + x * u, oy + y * u];
+      for (let pass = 0; pass < 4; pass++) {
+        fit(margin);
+        draw();
+        const next = overhang();
+        const settled = Object.keys(next).every((k) => Math.abs(next[k] - margin[k]) < 1);
+        margin = next;
+        if (settled) break;
+      }
+    }
+
+    function overhang() {
+      let x0 = geo.ox, y0 = geo.oy, x1 = geo.ox + geo.gw, y1 = geo.oy + geo.gh;
+      for (const t of svg.querySelectorAll('.c-st__label')) {
+        const b = t.getBBox();
+        x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+      }
+      return { l: geo.ox - x0 + 6, r: x1 - geo.ox - geo.gw + 6, t: geo.oy - y0 + 6, b: y1 - geo.oy - geo.gh + 6 };
+    }
+
+    function fit(m) {
+      const rx = span(BANDS.x, false), ex = span(BANDS.x, true), ry = span(BANDS.y, false), ey = span(BANDS.y, true);
+      const aw = W - 2 * PAD - m.l - m.r, ah = H - 2 * PAD - m.t - m.b;
+      const u = Math.max(8, Math.min(aw / (rx + ex), ah / (ry + ey)));
+      const kx = Math.max(1, Math.min(STRETCH, (aw / u - rx) / ex));
+      const ky = Math.max(1, Math.min(STRETCH, (ah / u - ry) / ey));
+      const gw = along(BANDS.x, BANDS.x.at[BANDS.x.at.length - 1], u, kx), gh = along(BANDS.y, BANDS.y.at[BANDS.y.at.length - 1], u, ky);
+      const ox = PAD + m.l + (aw - gw) / 2, oy = PAD + m.t + (ah - gh) / 2;
+      const P = (x, y) => [ox + along(BANDS.x, x, u, kx), oy + along(BANDS.y, y, u, ky)];
       const lines = {};
       for (const [id, def] of Object.entries(LINE_PTS)) {
         const raw = def.pts.map((p) => (typeof p === 'string' ? P(STATIONS[p].x, STATIONS[p].y) : P(p[0], p[1])));
@@ -159,8 +203,7 @@
         }
         lines[id] = { id, pts, idx, runs };
       }
-      geo = { u, P, lines };
-      draw();
+      geo = { u, P, lines, ox, oy, gw, gh };
     }
 
     function stationPoint(name) {
@@ -199,31 +242,37 @@
       const a = first.pts[Math.max(0, i - 1)], b = first.pts[Math.min(first.pts.length - 1, i + 1)];
       const dir = i === 0 ? unit(first.pts[0], first.pts[1]) : unit(a, b);
       let mark = '';
+      let reach = 3;
       if (ids.length > 1) {
-        mark = `<rect class="c-st__ring" x="${(sp.x0 - 7).toFixed(1)}" y="${(sp.y0 - 7).toFixed(1)}" width="${(sp.x1 - sp.x0 + 14).toFixed(1)}" height="${(sp.y1 - sp.y0 + 14).toFixed(1)}" rx="7"/>`;
+        reach = Math.max(sp.x1 - sp.x0, sp.y1 - sp.y0) / 2 + 7.5;
+        mark = `<circle class="c-st__ring" cx="${sp.cx.toFixed(1)}" cy="${sp.cy.toFixed(1)}" r="${reach.toFixed(1)}"/>`;
       } else if (state === 'suspended') {
-        mark = `<circle class="c-st__hollow" cx="${sp.cx}" cy="${sp.cy}" r="5.5"/>`;
+        reach = 7;
+        mark = `<circle class="c-st__hollow" cx="${sp.cx}" cy="${sp.cy}" r="7"/>`;
       } else if (st.terminus) {
         const n = [-dir[1], dir[0]];
-        mark = `<line class="c-st__tick" style="--ink:${VC.L[ids[0]].ink}" x1="${sp.cx + n[0] * 8}" y1="${sp.cy + n[1] * 8}" x2="${sp.cx - n[0] * 8}" y2="${sp.cy - n[1] * 8}"/>`;
+        reach = 11;
+        mark = `<line class="c-st__tick" style="--ink:${VC.L[ids[0]].ink}" x1="${sp.cx + n[0] * 11}" y1="${sp.cy + n[1] * 11}" x2="${sp.cx - n[0] * 11}" y2="${sp.cy - n[1] * 11}"/>`;
       } else {
         const out = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] }[st.side] || [0, -1];
-        mark = `<line class="c-st__tick" style="--ink:${VC.L[ids[0]].ink}" x1="${sp.cx}" y1="${sp.cy}" x2="${sp.cx + out[0] * 9}" y2="${sp.cy + out[1] * 9}"/>`;
+        reach = 10;
+        mark = `<line class="c-st__tick" style="--ink:${VC.L[ids[0]].ink}" x1="${sp.cx}" y1="${sp.cy}" x2="${sp.cx + out[0] * 10}" y2="${sp.cy + out[1] * 10}"/>`;
       }
-      if (state === 'delays') mark += `<circle class="c-st__delay" cx="${sp.cx}" cy="${sp.cy}" r="11"/>`;
-      if (state === 'paused') mark += `<circle class="c-st__paused" cx="${sp.cx}" cy="${sp.cy}" r="11"/>`;
-      const label = st.node ? d.N[st.node].name : st.media ? 'Plex' : 'Accounts';
+      if (state === 'delays' || state === 'paused') {
+        reach = Math.max(reach, 15);
+        mark += `<circle class="c-st__${state === 'delays' ? 'delay' : 'paused'}" cx="${sp.cx}" cy="${sp.cy}" r="15"/>`;
+      }
+      const label = stationName(name);
       const sub = stationSub(name);
-      const lines = [label, sub && sub.text].filter(Boolean);
+      const two = !!sub;
       let tx, ty, anchor;
-      const halfW = (sp.x1 - sp.x0) / 2 + 7, halfH = (sp.y1 - sp.y0) / 2 + 7;
-      if (st.side === 'left') { anchor = 'end'; tx = sp.cx - halfW - 9; ty = sp.cy + (lines.length > 1 ? -2 : 4.5); }
-      else if (st.side === 'right') { anchor = 'start'; tx = sp.cx + halfW + 9; ty = sp.cy + (lines.length > 1 ? -2 : 4.5); }
-      else if (st.side === 'top') { anchor = 'middle'; tx = sp.cx; ty = sp.cy - 17 - (lines.length - 1) * 14; }
-      else if (st.side === 'topright') { anchor = 'start'; tx = sp.cx + halfW + 6; ty = sp.cy - halfH - 2; }
-      else { anchor = 'middle'; tx = sp.cx; ty = sp.cy + 28; }
-      const text = `<text class="c-st__label" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="${anchor}">${esc(label)}${sub ? `<tspan class="c-st__sub c-tone-${sub.tone}" x="${tx.toFixed(1)}" dy="14">${esc(sub.text)}</tspan>` : ''}</text>`;
-      const hit = `<rect class="c-st__hit" x="${(sp.x0 - 16).toFixed(1)}" y="${(sp.y0 - 16).toFixed(1)}" width="${(sp.x1 - sp.x0 + 32).toFixed(1)}" height="${(sp.y1 - sp.y0 + 32).toFixed(1)}"/>`;
+      if (st.side === 'left') { anchor = 'end'; tx = sp.cx - reach - 10; ty = sp.cy + (two ? -3 : 5); }
+      else if (st.side === 'right') { anchor = 'start'; tx = sp.cx + reach + 10; ty = sp.cy + (two ? -3 : 5); }
+      else if (st.side === 'top') { anchor = 'middle'; tx = sp.cx; ty = sp.cy - reach - 9 - (two ? 15 : 0); }
+      else if (st.side === 'topright') { anchor = 'start'; tx = sp.cx + reach + 6; ty = sp.cy - reach - 6 - (two ? 15 : 0); }
+      else { anchor = 'middle'; tx = sp.cx; ty = sp.cy + reach + 20; }
+      const text = `<text class="c-st__label" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="${anchor}">${esc(label)}${sub ? `<tspan class="c-st__sub c-tone-${sub.tone}" x="${tx.toFixed(1)}" dy="16">${esc(sub.text)}</tspan>` : ''}</text>`;
+      const hit = `<rect class="c-st__hit" x="${(sp.cx - reach - 10).toFixed(1)}" y="${(sp.cy - reach - 10).toFixed(1)}" width="${(2 * reach + 20).toFixed(1)}" height="${(2 * reach + 20).toFixed(1)}"/>`;
       return `<g class="c-st" data-st="${name}" data-lines="${ids.join(' ')}" data-state="${state}" tabindex="${st.node ? 0 : -1}" role="button" aria-label="${esc(label)}">${mark}${text}${hit}</g>`;
     }
 
@@ -260,7 +309,7 @@
           g.setAttribute('class', 'c-train');
           g.dataset.id = id;
           g.dataset.line = spec.line;
-          g.innerHTML = '<circle class="c-train__ring" r="9.5"/><rect class="c-train__car" x="-7.5" y="-3.25" width="15" height="6.5" rx="3.25"/><rect class="c-train__hit" x="-13" y="-11" width="26" height="22"/>';
+          g.innerHTML = '<circle class="c-train__ring" r="12"/><rect class="c-train__car" x="-10" y="-4.5" width="20" height="9" rx="4.5"/><rect class="c-train__hit" x="-15" y="-13" width="30" height="26"/>';
           layer.appendChild(g);
           t = { g, j, key, route: routePath(spec), last: '' };
           trains.set(id, t);
@@ -276,7 +325,7 @@
       for (const t of trains.values()) {
         if (t.leaving) { place(t, t.route.len); continue; }
         const j = t.j;
-        const edge = Math.min(16, t.route.len * 0.12);
+        const edge = Math.min(26, t.route.len * 0.16);
         const at = j.state === 'failed' ? Math.min(26, t.route.len * 0.2) : edge + Math.max(0, Math.min(1, j.progress || 0)) * (t.route.len - 2 * edge);
         place(t, at);
       }
@@ -350,6 +399,7 @@
     });
     ro.observe(host);
     layout();
+    document.fonts?.ready.then(() => { if (host.isConnected) layout(); });
 
     return {
       tick,
@@ -370,52 +420,54 @@
   };
 
   const ROWS = ['atlas', 'ams-1', 'vault', 'forge', 'den', 'plex', 'relay'];
-  const COLS = ['acquire', 'library', 'process', 'deliver', 'notify'];
-  const SPANS = { acquire: [0, 2], library: [0, 2], process: [2, 4], deliver: [0, 6] };
-  const STRIP_ROUTE = { download: ['acquire', 0, 1], transfer: ['acquire', 1, 2], import: ['library', 2, 0], transcode: ['process', 2, 3], subtitles: ['process', 2, 3] };
+  // One vertical trunk per line, side by side at a fixed pitch; a trunk runs from its first stop to its last.
+  // Process takes the outside column so no other trunk passes forge and den.
+  const TRUNKS = [
+    { line: 'process', stops: ['vault', 'forge', 'den'] },
+    { line: 'acquire', stops: ['atlas', 'ams-1', 'vault'] },
+    { line: 'library', stops: ['atlas', 'vault'] },
+    { line: 'deliver', stops: ['atlas', 'vault', 'plex', 'relay'] },
+  ];
+  const STRIP_ROUTE = { download: ['acquire', 'atlas', 'ams-1'], transfer: ['acquire', 'ams-1', 'vault'], import: ['library', 'vault', 'atlas'], transcode: ['process', 'vault', 'forge'], subtitles: ['process', 'vault', 'forge'], local: ['deliver', 'vault', 'plex'], remote: ['deliver', 'plex', 'relay'] };
+  const CLEAR = 19;
 
-  VC.stripMap = (host, ctx, { onStation, rowH = 58 } = {}) => {
-    const top = 26, gap = 10, x0 = 22;
-    const cx = (line) => x0 + COLS.indexOf(line) * gap;
-    const ry = (i) => top + i * rowH;
+  VC.stripMap = (host, ctx, { onStation, rowH = 64 } = {}) => {
+    const top = 30, pitch = 13, x0 = 22;
+    const col = (line) => x0 + TRUNKS.findIndex((t) => t.line === line) * pitch;
+    const ry = (name) => top + ROWS.indexOf(name) * rowH;
     const H = top * 2 + (ROWS.length - 1) * rowH;
-    const stops = (name) => COLS.filter((l) => stationLines(name).includes(l)).filter((l) => {
-      const span = SPANS[l];
-      const i = ROWS.indexOf(name);
-      return l === 'notify' || (span && i >= span[0] && i <= span[1]);
-    });
+    const rowLines = (name) => VC.LINES.map((l) => l.id).filter((id) => LINE_PTS[id].pts.includes(name));
+    const stopping = (name) => TRUNKS.filter((t) => t.stops.includes(name));
     host.classList.add('c-strip');
     host.style.height = H + 'px';
 
     function svgLines() {
       let s = '';
-      for (const l of VC.LINES) {
-        const span = SPANS[l.id];
-        if (!span) continue;
-        for (let i = span[0]; i < span[1]; i++) {
-          const off = stationState(ROWS[i]) === 'suspended' || stationState(ROWS[i + 1]) === 'suspended';
-          s += `<line class="c-sl${off ? ' is-suspended' : ''}" data-line="${l.id}" style="--ink:${l.ink}" x1="${cx(l.id)}" y1="${ry(i)}" x2="${cx(l.id)}" y2="${ry(i + 1)}"/>`;
+      for (const t of TRUNKS) {
+        const x = col(t.line);
+        for (let i = 0; i < t.stops.length - 1; i++) {
+          const a = t.stops[i], b = t.stops[i + 1];
+          const off = stationState(a) === 'suspended' || stationState(b) === 'suspended';
+          s += `<line class="c-sl${off ? ' is-suspended' : ''}" data-line="${t.line}" style="--ink:${VC.L[t.line].ink}" x1="${x}" y1="${ry(a)}" x2="${x}" y2="${ry(b)}"/>`;
         }
       }
-      const nx = cx('notify');
-      s += `<line class="c-sl" data-line="notify" style="--ink:${VC.L.notify.ink}" x1="${nx}" y1="${ry(0)}" x2="${nx}" y2="${ry(0) + 26}"/><line class="c-st__tick" style="--ink:${VC.L.notify.ink}" x1="${nx - 7}" y1="${ry(0) + 26}" x2="${nx + 7}" y2="${ry(0) + 26}"/>`;
-      ROWS.forEach((name, i) => {
-        const on = stops(name);
+      for (const name of ROWS) {
+        const on = stopping(name);
         const state = stationState(name);
-        const y = ry(i);
+        const y = ry(name);
+        const xs = on.map((t) => col(t.line));
+        const x = xs[0];
         if (on.length > 1) {
-          const xs = on.map(cx);
-          s += `<rect class="c-st__ring" x="${Math.min(...xs) - 7}" y="${y - 7}" width="${Math.max(...xs) - Math.min(...xs) + 14}" height="14" rx="7"/>`;
+          s += `<rect class="c-st__ring" x="${Math.min(...xs) - 9}" y="${y - 9}" width="${Math.max(...xs) - Math.min(...xs) + 18}" height="18" rx="9"/>`;
         } else if (state === 'suspended') {
-          s += `<circle class="c-st__hollow" cx="${cx(on[0])}" cy="${y}" r="5.5"/>`;
-        } else if (i === ROWS.length - 1) {
-          s += `<line class="c-st__tick" style="--ink:${VC.L[on[0]].ink}" x1="${cx(on[0]) - 8}" y1="${y}" x2="${cx(on[0]) + 8}" y2="${y}"/>`;
+          s += `<circle class="c-st__hollow" cx="${x}" cy="${y}" r="6.5"/>`;
         } else {
-          s += `<line class="c-st__tick" style="--ink:${VC.L[on[0]].ink}" x1="${cx(on[0])}" y1="${y}" x2="${cx(on[0]) - 9}" y2="${y}"/>`;
+          const half = on[0].stops[on[0].stops.length - 1] === name ? 9 : 7;
+          s += `<line class="c-st__tick" style="--ink:${VC.L[on[0].line].ink}" x1="${x - half}" y1="${y}" x2="${x + half}" y2="${y}"/>`;
         }
-        if (state === 'delays') s += `<circle class="c-st__delay" cx="${cx(on[0])}" cy="${y}" r="11"/>`;
-        if (state === 'paused') s += `<circle class="c-st__paused" cx="${cx(on[0])}" cy="${y}" r="11"/>`;
-      });
+        if (state === 'delays') s += `<circle class="c-st__delay" cx="${x}" cy="${y}" r="12"/>`;
+        if (state === 'paused') s += `<circle class="c-st__paused" cx="${x}" cy="${y}" r="12"/>`;
+      }
       return s;
     }
 
@@ -438,15 +490,16 @@
     }
 
     function render() {
-      host.innerHTML = `<svg class="c-strip__svg" width="${x0 + gap * 4 + 16}" height="${H}" aria-hidden="true"><g>${svgLines()}</g><g class="c-strip__trains"></g></svg>
-        <ol class="c-strip__rows">${ROWS.map((name, i) => {
+      host.innerHTML = `<svg class="c-strip__svg" width="${x0 + pitch * (TRUNKS.length - 1) + 16}" height="${H}" aria-hidden="true"><g>${svgLines()}</g><g class="c-strip__trains"></g></svg>
+        <ol class="c-strip__rows">${ROWS.map((name) => {
           const info = rowInfo(name);
-          return `<li><button class="c-strip__row" data-st="${name}" style="top:${ry(i) - rowH / 2}px;height:${rowH}px">
+          return `<li><button class="c-strip__row" data-st="${name}" style="top:${ry(name) - rowH / 2}px;height:${rowH}px">
             <span class="c-strip__name">${esc(info.title)}</span>
             <span class="c-strip__sub c-tone-${info.tone}" data-sub>${info.sub}</span>
-            ${VC.bullets(stops(name))}
+            ${VC.bullets(rowLines(name))}
           </button></li>`;
         }).join('')}</ol>`;
+      trainEls.clear();
       sync();
     }
     const trainEls = new Map();
@@ -462,7 +515,7 @@
         if (!el) {
           el = document.createElementNS(NS, 'g');
           el.setAttribute('class', 'c-train');
-          el.innerHTML = '<circle class="c-train__ring" r="9"/><rect class="c-train__car" x="-3.25" y="-7.5" width="6.5" height="15" rx="3.25"/>';
+          el.innerHTML = '<rect class="c-train__car" x="-3.5" y="-7" width="7" height="14" rx="3.5"/>';
           layer.appendChild(el);
           trainEls.set(id, el);
         }
@@ -471,13 +524,16 @@
       }
       tick();
     }
+    // Trains ride between stations: the stretch within CLEAR of a station belongs to the station.
     function tick() {
       for (const el of trainEls.values()) {
         const j = el._j;
-        const [line, a, b] = j.kind === 'remote' ? ['deliver', 5, 6] : j.kind === 'local' ? ['deliver', 2, 5] : STRIP_ROUTE[j.kind];
-        const p = Math.max(0, Math.min(1, j.progress || 0));
-        const y = j.state === 'failed' ? ry(a) + Math.sign(ry(b) - ry(a)) * 15 : ry(a) + (ry(b) - ry(a)) * (0.2 + 0.6 * p);
-        const tf = `translate(${cx(line)} ${y.toFixed(2)})`;
+        const [line, a, b] = STRIP_ROUTE[j.kind];
+        const ya = ry(a), yb = ry(b), dir = Math.sign(yb - ya);
+        const run = Math.abs(yb - ya) - 2 * CLEAR;
+        const p = j.state === 'failed' ? 0 : Math.max(0, Math.min(1, j.progress || 0));
+        const y = ya + dir * (CLEAR + run * p);
+        const tf = `translate(${col(line)} ${y.toFixed(2)})`;
         if (el._tf !== tf) { el.setAttribute('transform', tf); el._tf = tf; }
       }
     }

@@ -173,25 +173,25 @@ html[data-variant="C"]::view-transition-new(root) { animation-duration: 0.22s; }
   .c-map { position: relative; }
   .c-map__svg { position: absolute; inset: 0; display: block; overflow: visible; }
   .c-ln { transition: opacity 0.22s ease; }
-  .c-ln__run { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.92; transition: opacity 0.22s ease; }
-  .c-ln__run.is-suspended { stroke: var(--c-susp); stroke-dasharray: 7 6; stroke-linecap: butt; opacity: 1; }
-  .c-ln__hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: pointer; }
+  .c-ln__run { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: butt; stroke-linejoin: round; transition: opacity 0.22s ease; }
+  .c-ln__run.is-suspended { stroke: var(--c-susp); stroke-width: 5; stroke-dasharray: 9 7; }
+  .c-ln__hit { fill: none; stroke: transparent; stroke-width: 22; pointer-events: stroke; cursor: pointer; }
   .c-st { cursor: pointer; transition: opacity 0.22s ease; }
-  .c-st__ring { fill: var(--c-bg); stroke: var(--c-ink); stroke-width: 2.5; }
-  .c-st__tick { stroke: var(--ink); stroke-width: 4; stroke-linecap: butt; }
-  .c-st__hollow { fill: var(--c-bg); stroke: var(--c-susp); stroke-width: 2.5; }
-  .c-st__delay { fill: none; stroke: var(--c-delay); stroke-width: 2; }
-  .c-st__paused { fill: none; stroke: var(--c-ink-2); stroke-width: 1.5; stroke-dasharray: 3 3; }
-  .c-st__label { fill: var(--c-ink); font: 600 13px/1 var(--c-font); letter-spacing: 0.012em; }
-  .c-st__sub { font: 500 11.5px/1 var(--c-font); fill: var(--c-ink-3); letter-spacing: 0.01em; }
+  .c-st__ring { fill: var(--c-bg); stroke: var(--c-ink); stroke-width: 3.5; }
+  .c-st__tick { stroke: var(--ink); stroke-width: 6; stroke-linecap: butt; }
+  .c-st__hollow { fill: var(--c-bg); stroke: var(--c-susp); stroke-width: 3; }
+  .c-st__delay { fill: none; stroke: var(--c-delay); stroke-width: 2.5; }
+  .c-st__paused { fill: none; stroke: var(--c-ink-2); stroke-width: 2; stroke-dasharray: 4 3; }
+  .c-st__label { fill: var(--c-ink); font: 600 14px/1 var(--c-cond); letter-spacing: 0.09em; text-transform: uppercase; }
+  .c-st__sub { font: 500 11.5px/1 var(--c-font); fill: var(--c-ink-3); letter-spacing: 0.01em; text-transform: none; }
   .c-st__sub.c-tone-delays { fill: var(--c-delay); }
   .c-st__sub.c-tone-paused { fill: var(--c-ink-2); }
   .c-st__hit { fill: transparent; }
   .c-st:focus-visible { outline: none; }
   .c-st:focus-visible .c-st__label { text-decoration: underline; text-underline-offset: 3px; }
   .c-train { transition: opacity 0.22s ease; }
-  .c-train__car { fill: var(--c-ink); stroke: var(--c-bg); stroke-width: 1.5; paint-order: stroke; }
-  .c-train__ring { fill: none; stroke: none; stroke-width: 2; }
+  .c-train__car { fill: var(--c-ink); stroke: var(--c-bg); stroke-width: 2; paint-order: stroke; }
+  .c-train__ring { fill: none; stroke: none; stroke-width: 2.5; }
   .c-train__hit { fill: transparent; }
   .c-train[data-state="failed"] .c-train__ring { stroke: var(--c-fail); }
   .c-train[data-state="stalled"] .c-train__ring { stroke: var(--c-delay); }
@@ -202,12 +202,16 @@ html[data-variant="C"]::view-transition-new(root) { animation-duration: 0.22s; }
 
   .c-strip { position: relative; }
   .c-strip__svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 1; }
-  .c-sl { stroke: var(--ink); stroke-width: 4; stroke-linecap: butt; }
-  .c-sl.is-suspended { stroke: var(--c-susp); stroke-dasharray: 6 5; }
+  .c-sl { stroke: var(--ink); stroke-width: 5; stroke-linecap: butt; }
+  .c-sl.is-suspended { stroke: var(--c-susp); stroke-width: 4; stroke-dasharray: 7 5; }
+  .c-strip .c-st__tick { stroke-width: 5; }
+  .c-strip .c-st__ring { stroke-width: 3; }
+  .c-strip .c-train[data-state="stalled"] .c-train__car { fill: var(--c-delay); }
+  .c-strip .c-train[data-state="failed"] .c-train__car { fill: var(--c-fail); }
   .c-strip__rows { position: absolute; inset: 0; }
-  .c-strip__row { position: absolute; left: 0; right: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-content: center; column-gap: 10px; padding: 0 16px 0 92px; border-radius: 10px; text-align: left; transition: background-color 0.15s ease; }
+  .c-strip__row { position: absolute; left: 0; right: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-content: center; column-gap: 10px; row-gap: 2px; padding: 0 16px 0 94px; border-radius: 10px; text-align: left; transition: background-color 0.15s ease; }
   .c-strip__row:active { background: rgba(237, 241, 247, 0.05); }
-  .c-strip__name { font-size: 16px; font-weight: 600; line-height: 1.2; }
+  .c-strip__name { font: 600 17px/1.1 var(--c-cond); letter-spacing: 0.08em; text-transform: uppercase; }
   .c-strip__sub { grid-row: 2; font-size: 13px; color: var(--c-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .c-strip__sub.c-tone-delays { color: var(--c-delay); }
   .c-strip__row .c-bullets { grid-row: 1 / 3; grid-column: 2; align-self: center; }
