@@ -25,7 +25,7 @@ A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every It
 _Avoid_: Version, cut
 
 **Target**:
-A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, cutoff and upgrades. A Target is either downloaded or derived by transcoding another Target. One file meets every Target whose rules it passes.
+A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Target is either downloaded or derived by transcoding another Target. One file meets every Target whose rules it passes.
 _Avoid_: Rendition, slot, version, quality version, variant
 
 **Profile**:
@@ -87,6 +87,14 @@ _Avoid_: Plex (as a generic term)
 **Download Client**:
 A torrent client that a downloading Node sends grabs to, either the built-in one or an external one such as qBittorrent.
 _Avoid_: Downloader, torrent app
+
+**Custom Format**:
+A named set of conditions on what a release says about itself, such as its title, release group or source, that each Target scores. A release's score for a Target is the sum of the scores of the Custom Formats it matches.
+_Avoid_: Preferred word, release profile, tag
+
+**TRaSH Guides**:
+The community guide whose Custom Formats, scores, quality sizes and naming SlipStream imports and keeps tracking.
+_Avoid_: TRaSH profile (for a Target), Recyclarr
 
 ## Identity
 
