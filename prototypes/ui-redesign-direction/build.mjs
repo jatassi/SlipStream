@@ -1,6 +1,6 @@
 // PROTOTYPE build: inline the stage, the shared core and every variant into one
 // double-clickable file. Usage: node build.mjs
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -8,6 +8,7 @@ import vm from 'node:vm';
 const root = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
+mkdirSync(join(root, 'dist'), { recursive: true });
 const LUCIDE = 'tools/lucide-1.52.0.min.js';
 if (!existsSync(join(root, LUCIDE))) {
   const res = await fetch('https://cdn.jsdelivr.net/npm/lucide@1.52.0/dist/umd/lucide.min.js');
