@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const opt = { out: join(here, '..', 'media', 'shots'), wait: 1400, hidpi: false, still: false, width: 1440, height: 900 };
+const opt = { out: join(here, '..', 'media', 'shots'), wait: 1400, hidpi: false, still: false, offline: false, width: 1440, height: 900 };
 const specs = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -16,6 +16,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--wait') opt.wait = +args[++i];
   else if (a === '--hidpi') opt.hidpi = true;
   else if (a === '--still') opt.still = true;
+  else if (a === '--offline') opt.offline = true;
   else if (a === '--size') [opt.width, opt.height] = args[++i].split('x').map(Number);
   else specs.push(a);
 }
@@ -24,6 +25,9 @@ mkdirSync(opt.out, { recursive: true });
 
 const browser = await chromium.launch({ channel: 'chrome' });
 const page = await browser.newPage({ viewport: { width: opt.width, height: opt.height }, deviceScaleFactor: opt.hidpi ? 2 : 1 });
+if (opt.offline) await page.route('**/*', (r) => (r.request().url().startsWith('file:') || r.request().url().startsWith('data:') ? r.continue() : r.abort()));
+let blocked = 0;
+page.on('requestfailed', () => blocked++);
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}\n${e.stack || ''}`));
 const url = pathToFileURL(join(here, '..', 'dist', 'index.html')).href + `?bar=0${opt.still ? '&still=1' : ''}`;
@@ -41,4 +45,5 @@ for (const spec of specs) {
   else await page.screenshot({ path: file });
   console.log(file);
 }
+if (opt.offline) console.log(`offline: ${blocked} network requests blocked`);
 await browser.close();

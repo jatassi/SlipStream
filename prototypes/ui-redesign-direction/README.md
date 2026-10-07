@@ -2,7 +2,7 @@
 
 **Throwaway.** This never merges. It answers one question for [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25): what does SlipStream v2 look and feel like? It renders three design directions across the four shells that later per-surface prototypes build on.
 
-Open `dist/index.html` by double-clicking it. It is one self-contained file. Fonts load from Google Fonts, so it needs a network connection. Everything else is inline, and all state lives in memory.
+Open `dist/index.html` by double-clicking it. It is one self-contained file that works offline. Every font, icon and image is inline, and all state lives in memory.
 
 ## The directions
 
@@ -24,7 +24,7 @@ Every screen opens from a URL, for example `dist/index.html?variant=B&shell=phon
 - **Admin Phone.** `home`, `library`, `work/<id>`, `work/<id>/actions`, `activity`, `search`, `more`.
 - **Portal.** `home`, `search`, `library`, `work/<id>`, `request/<id>`, `requests`.
 
-A Work's id is its title in kebab case, such as `halcyon-drift` or `brightwater`. Request ids run from `r1` to `r8`; `r3` is June's Halcyon Drift.
+A Work's id is its title in kebab case, such as `halcyon-drift` or `brightwater`. Request ids run from `r1` to `r8`, and `r3` is June's Halcyon Drift.
 
 ## What is real and what is invented
 
@@ -45,7 +45,7 @@ cd tools && npm install && cd ..
 node build.mjs
 ```
 
-`build.mjs` writes `dist/index.html` and `dist/artifact.html`, the copy published as a private link. It bundles only the Lucide icons the sources name.
+`build.mjs` writes `dist/index.html` and `dist/artifact.html`, the copy published as a private link. It bundles only the Lucide icons the sources name, and inlines the latin subset of every Google Fonts face. The first build downloads them into `tools/font-cache`, and later builds run offline.
 
 ```bash
 node tools/shoot.mjs --out media/shots A:wide:home B:phone:work/brightwater C:portal:home
@@ -53,4 +53,4 @@ tools/matrix.sh media/review A B C
 node tools/record.mjs A B C
 ```
 
-`shoot.mjs` captures screens and prints console errors. `matrix.sh` captures the 23 review views of each direction. `record.mjs` records one screencast per direction from the tours in `tools/tours.mjs`.
+`shoot.mjs` captures screens and prints console errors. Add `--offline` to block every network request. `matrix.sh` captures the 23 review views of each direction. `record.mjs` records one screencast per direction from the tours in `tools/tours.mjs`.
