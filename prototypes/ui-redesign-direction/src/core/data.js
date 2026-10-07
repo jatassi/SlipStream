@@ -43,7 +43,7 @@
   };
 
   const targets = [
-    { id: 'uhd', name: '2160p HDR', short: '4K HDR', kind: 'downloaded', note: 'Dolby Vision or HDR10, remux or high-bitrate web' },
+    { id: 'uhd', name: '2160p HDR', short: '2160p HDR', kind: 'downloaded', note: 'Dolby Vision or HDR10, remux or high-bitrate web' },
     { id: 'hd', name: '1080p', short: '1080p', kind: 'downloaded', note: 'Blu-ray or web, cutoff at Blu-ray' },
     { id: 'mobile', name: '720p Mobile', short: 'Mobile', kind: 'derived', from: 'hd', note: 'Derived by transcode from 1080p, 4 Mb/s' },
   ];
