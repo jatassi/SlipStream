@@ -87,3 +87,29 @@ _Avoid_: Plex (as a generic term)
 **Download Client**:
 A torrent client that a downloading Node sends grabs to, either the built-in one or an external one such as qBittorrent.
 _Avoid_: Downloader, torrent app
+
+## Identity
+
+**Account**:
+One person's identity in SlipStream, signed in by its email with a PIN or a passkey. Admins and Members are both Accounts.
+_Avoid_: User, portal user, login
+
+**Admin**:
+An Account holding the admin permission. At least one Admin always exists.
+_Avoid_: Administrator, owner, superuser
+
+**Member**:
+An Account without the admin permission.
+_Avoid_: Portal user, user, guest
+
+**Setup code**:
+A one-time code a fresh install prints to its console and log, which creates the first Admin.
+_Avoid_: Bootstrap token, install key
+
+**Signup link**:
+A single-use link an Admin issues so one person can create their Account.
+_Avoid_: Invite, invitation, Join Code
+
+**Reset link**:
+A single-use link an Admin issues so a person who lost their credentials can set a new PIN and passkey.
+_Avoid_: Recovery email, password reset
