@@ -1,9 +1,11 @@
 // PROTOTYPE tool: record one screencast per direction from dist/index.html.
 // node tools/record.mjs [--out dir] [A B C]
-// Each tour is a list of steps: go to a route, move or click, wait. Videos land as <key>.webm,
-// then convert with ffmpeg to mp4 for the PR (see README).
+// Each tour is a list of steps: go to a route, move or click, wait. Frames come from Chrome's
+// screencast as high-quality JPEGs, timed by their own timestamps, and ffmpeg encodes them to
+// <key>.mp4 (H.264, 30 fps). Playwright's built-in video is too lossy for the smoke in A.
 import { chromium } from 'playwright-core';
-import { mkdirSync, renameSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { TOURS } from './tours.mjs';
@@ -18,18 +20,39 @@ mkdirSync(out, { recursive: true });
 const size = { width: 1440, height: 900 };
 const browser = await chromium.launch({ channel: 'chrome' });
 for (const key of keys.length ? keys : Object.keys(TOURS)) {
-  const context = await browser.newContext({ viewport: size, deviceScaleFactor: 1, recordVideo: { dir: out, size } });
+  const context = await browser.newContext({ viewport: size, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  const frames = join(out, `${key}-frames`);
+  rmSync(frames, { recursive: true, force: true });
+  mkdirSync(frames, { recursive: true });
+  const shots = [];
+  let recording = false;
+  const cdp = await context.newCDPSession(page);
+  cdp.on('Page.screencastFrame', async ({ data, metadata, sessionId }) => {
+    if (recording) {
+      const file = join(frames, `${String(shots.length).padStart(5, '0')}.jpg`);
+      writeFileSync(file, Buffer.from(data, 'base64'));
+      shots.push({ file, t: metadata.timestamp });
+    }
+    await cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
+  });
   page.on('pageerror', (e) => console.log(`[${key} pageerror] ${e.message}`));
   await page.goto(pathToFileURL(join(here, '..', 'dist', 'index.html')).href + `?bar=0&variant=${key}`);
   await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 30000 });
   await page.waitForTimeout(400);
+  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: size.width, maxHeight: size.height, everyNthFrame: 1 });
+  recording = true;
   for (const step of TOURS[key]) await run(page, step, key);
-  const video = page.video();
+  recording = false;
+  await cdp.send('Page.stopScreencast');
   await context.close();
-  const file = join(out, `${key}.webm`);
-  renameSync(await video.path(), file);
-  console.log(file);
+  // The screencast only sends a frame when the page paints, so each frame lasts until the next.
+  const list = shots.map((f, i) => `file '${f.file}'\nduration ${Math.max(0.001, ((shots[i + 1]?.t ?? f.t + 0.5) - f.t)).toFixed(4)}`).join('\n') + `\nfile '${shots.at(-1).file}'\n`;
+  writeFileSync(join(frames, 'list.txt'), list);
+  const file = join(out, `${key}.mp4`);
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', join(frames, 'list.txt'), '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-movflags', '+faststart', file]);
+  rmSync(frames, { recursive: true, force: true });
+  console.log(`${file} · ${shots.length} frames`);
 }
 await browser.close();
 

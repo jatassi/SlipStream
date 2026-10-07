@@ -53,4 +53,4 @@ tools/matrix.sh media/review A B C
 node tools/record.mjs A B C
 ```
 
-`shoot.mjs` captures screens and prints console errors. Add `--offline` to block every network request. `matrix.sh` captures the 23 review views of each direction. `record.mjs` records one screencast per direction from the tours in `tools/tours.mjs`.
+`shoot.mjs` captures screens and prints console errors. Add `--offline` to block every network request. `matrix.sh` captures the 23 review views of each direction. `record.mjs` records one screencast per direction from the tours in `tools/tours.mjs`, from Chrome's own screencast frames encoded to H.264 by ffmpeg.
