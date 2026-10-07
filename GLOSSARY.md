@@ -25,12 +25,20 @@ A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every It
 _Avoid_: Version, cut
 
 **Target**:
-A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Target is either downloaded or derived by transcoding another Target. One file meets every Target whose rules it passes.
+A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Target is either downloaded or derived from another Target by a Conversion. One file meets every Target whose rules it passes.
 _Avoid_: Rendition, slot, version, quality version, variant
 
 **Profile**:
 The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override. Every Work has one, defaulting per Content Type.
 _Avoid_: Rendition profile, quality profile, slot
+
+**Conversion**:
+One run that turns one source file into one file for one Target, following that Target's Conversion settings, whether or not the video is re-encoded. Making a 1080p file from a 2160p one is a Conversion, and so is dropping extra audio from a download and adding a stereo track.
+_Avoid_: Transcode, transcode job, pipeline job, encode, task; never a Media Server's live transcoding
+
+**Conversion settings**:
+What a Target's file should come out as when SlipStream makes or adjusts it: video, dynamic range, audio tracks and container. They belong to the Target, and every Profile that derives the Target uses them.
+_Avoid_: Recipe, encode settings, preset, transcode profile
 
 **Blocklist**:
 Releases known to be bad, keyed by torrent info hash, that no Item ever grabs again until removed by hand.
@@ -63,7 +71,7 @@ Moving the Controller to another paired Node, after which every Worker follows t
 _Avoid_: Failover, promotion, migration
 
 **Role**:
-A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Transcoding, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role.
+A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role.
 _Avoid_: Service, capability, purpose
 
 **Role Group**:

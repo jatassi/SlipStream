@@ -507,7 +507,7 @@ An exception is written on its row only with the chef's explicit yes.
 |---|---|---|---|---|---|---|
 | P-346 | Config backup and restore | `docs/Remaining-features.md` | not started | kept | - | unplanned |
 | P-347 | Dashboard rework | `docs/Remaining-features.md` | not started | superseded by the UI redesign | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
-| P-348 | Transcode during import tied to slots | `docs/Remaining-features.md` | not started | superseded by the A/V pipeline | [A/V pipeline design](https://github.com/jatassi/SlipStream/issues/18) | unplanned |
+| P-348 | Transcode during import tied to slots | `docs/Remaining-features.md` | not started | superseded by Conversion | [A/V pipeline design](https://github.com/jatassi/SlipStream/issues/18) | unplanned |
 | P-349 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-350 | Credential encryption at rest | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
 | P-351 | HTTPS setting for the web app | `docs/Remaining-features.md`, `server-section.tsx` | not started | superseded by the Relay Role TLS forwarding | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
