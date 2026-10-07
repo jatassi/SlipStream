@@ -14,6 +14,7 @@
     const { root } = ctx;
     root.innerHTML = `<div class="b-app b-ph">
       ${TABS.map(([k]) => `<div class="b-tabstack" data-tab="${k}" hidden></div>`).join('')}
+      <div class="b-houselights" aria-hidden="true"></div>
       <nav class="b-tabs" aria-label="Sections">${TABS.map(([k, l]) => `<button class="b-tab" type="button" data-tab-go="${k}" aria-label="${l}">${TAB_ICON[k]}<span>${l}</span>${k === 'activity' ? `<i class="b-tab__badge" data-lv="active">${VB.LV.active()}</i>` : ''}${k === 'more' ? '<i class="b-tab__dot" data-moredot hidden></i>' : ''}</button>`).join('')}</nav>
       <div class="b-layer"></div>
     </div>`;
@@ -130,7 +131,7 @@
       const meta = w.type === 'movie' ? [String(w.year), F.runtime(w.runtime), w.cert] : [w.network, F.plural(w.seasons.length, 'season'), w.cert];
       const stateLine = w.type === 'movie'
         ? (j ? `<div class="b-pstate" data-st="${j.state}"><div class="b-pstate__art">${VB.dev(w)}</div><div><p class="b-pstate__k">${j.state === 'failed' ? 'Import failed' : j.state === 'stalled' ? 'Stalled' : j.kind === 'download' ? `Downloading on ${esc(j.node)}` : j.kind === 'transfer' ? 'Transferring to vault' : 'Importing'}</p><p class="b-pstate__v" data-lv="wline|${w.id}">${esc(VB.line(j))}</p>${j.state === 'failed' ? `<p class="b-pstate__v">${esc(j.message)}</p>` : ''}</div></div>` : '')
-        : (j ? `<div class="b-pstate"><div><p class="b-pstate__k">${F.ep(j.episode)} downloading</p><p class="b-pstate__v" data-lv="wline|${w.id}|${VB.epKey(j.episode)}">${esc(VB.line(j))}</p></div></div>` : '');
+        : (j ? `<div class="b-pstate"><div><p class="b-pstate__k">${F.ep(j.episode)} ${{ download: 'downloading', transfer: 'transferring to vault', import: 'importing' }[j.kind]}</p><p class="b-pstate__v" data-lv="wline|${w.id}|${VB.epKey(j.episode)}">${esc(VB.line(j))}</p></div></div>` : '');
       const cur = VB.local.season?.[w.id] || (w.seasons?.length || 1);
       return {
         kind: 'push', title: w.title, back: '', light: w,
@@ -168,7 +169,7 @@
       const hits = D.works.filter((w) => w.title.toLowerCase().includes(q));
       return hits.length ? `<ul class="b-results" role="list">${hits.map(resultRow).join('')}</ul>` : `<p class="b-empty">No Work in the library matches “${esc(q)}”. Adding new Works from search is coming to the phone.</p>`;
     }
-    const resultRow = (w) => `<li><button class="b-result" type="button" data-push="work/${w.id}" style="${VB.tint(w)}"><span class="b-result__art">${VB.art(w)}</span><span class="b-result__t">${esc(w.title)}<span class="b-dim">${w.year} · ${w.type === 'movie' ? 'Movie' : 'Series'}</span></span><span class="b-result__s">${VB.statusLabel[VB.status(w).s]}</span></button></li>`;
+    const resultRow = (w) => `<li><button class="b-result" type="button" data-push="work/${w.id}" style="${VB.tint(w)}"><span class="b-result__art">${VB.art(w)}</span><span class="b-result__t">${esc(w.title)}<span class="b-dim">${w.year} · ${w.type === 'movie' ? 'Movie' : 'Series'}</span></span><span class="b-result__s">${VB.statusText(w)}</span></button></li>`;
     function searchPage() {
       return {
         kind: 'root', title: 'Search',
@@ -337,7 +338,7 @@
         <div class="b-scrim" data-sheetclose></div>
         <div class="b-sheet" role="dialog" aria-modal="true" aria-label="Actions for ${esc(w.title)}" style="${VB.tint(w)}">
           <div class="b-sheet__grab" aria-hidden="true"></div>
-          <div class="b-sheet__head"><span class="b-sheet__art">${VB.art(w)}</span><div><p class="b-sheet__t">${esc(w.title)}</p><p class="b-dim">${w.year} · ${VB.statusLabel[VB.status(w).s]}</p></div></div>
+          <div class="b-sheet__head"><span class="b-sheet__art">${VB.art(w)}</span><div><p class="b-sheet__t">${esc(w.title)}</p><p class="b-dim">${w.year} · ${VB.statusText(w)}</p></div></div>
           <div class="b-sheet__g">
             <button class="b-srow" type="button" data-scmd="search">${icon('search', 20)}${w.type === 'series' ? 'Search for missing episodes' : 'Search for a better release'}</button>
             <button class="b-srow" type="button" data-scmd="manual">${icon('list', 20)}Manual search</button>
@@ -460,10 +461,10 @@
         return push(item.job ? `work/${VB.job(item.job).work}` : item.go, kbd);
       }
       const row = t.closest('.b-req');
-      if (d.reqApprove) { VB.local.req[d.reqApprove] = 'approved'; VB.toast(root, 'Approved. Searching now'); return rebuild(top()); }
+      if (d.reqApprove) { VB.decide(d.reqApprove, 'approved'); VB.toast(root, 'Approved. Searching now'); return rebuild(top()); }
       if (d.reqDeny) { row.querySelector('.b-req__deny').hidden = false; row.querySelector('.b-req__act').hidden = true; return; }
       if (d.reqCancel) { row.querySelector('.b-req__deny').hidden = true; row.querySelector('.b-req__act').hidden = false; return; }
-      if (d.reqConfirm) { VB.local.req[d.reqConfirm] = 'denied'; VB.toast(root, 'Denied'); return rebuild(top()); }
+      if (d.reqConfirm) { VB.decide(d.reqConfirm, 'denied'); VB.toast(root, 'Denied'); return rebuild(top()); }
     });
     ctx.listen(root, 'input', (e) => {
       if (!e.target.matches('[data-psearch]')) return;
@@ -478,12 +479,19 @@
       if (!e.target.closest('input') && stacks[tab].length > 1) pop(true);
     });
     const moreDot = () => { root.querySelector('[data-moredot]').hidden = !VB.reqs().some((r) => VB.reqState(r) === 'pending'); };
-    ctx.on('second', () => { root.querySelector('.b-tab__badge').textContent = VB.LV.active(); });
+    const app = root.querySelector('.b-app');
+    ctx.on('second', () => {
+      root.querySelector('.b-tab__badge').textContent = VB.LV.active();
+      app.dataset.house = tab === 'home' && top()?.view === 'home' && !VB.aisle().length ? 'up' : 'down';
+    });
     ctx.on('job:done', (j) => {
       if (j.kind !== 'import') return;
       setTimeout(() => { const t = top(); if (t && (t.view === 'home' || t.view === 'activity')) rebuild(t); }, 4200);
     });
     ctx.on('job:new', () => { const t = top(); if (t && t.view === 'activity') rebuild(t); });
+    const refreshWork = (j) => { const t = top(); if (t && t.view === `work/${j.work}`) rebuild(t); };
+    ctx.on('job:new', refreshWork);
+    ctx.on('job:done', refreshWork);
 
     // ---------- Deep link ----------
     const v = ctx.view || 'home';

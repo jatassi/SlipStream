@@ -70,7 +70,7 @@
     const w = D.W[c.work];
     const label = c.episode ? `${F.ep(c.episode)} · ${c.title}` : c.title;
     return `<a class="b-cs" href="${VB.href('work/' + w.id)}" data-open="${w.id}" style="${VB.tint(w)}">
-      <div class="b-cs__art"><img alt="" data-still="${w.id}|${c.episode ? c.episode[1] % 5 + 1 : 2}" src=""></div>
+      <div class="b-cs__art"><img alt="" data-still="${w.id}|${c.episode ? c.episode[1] % 5 + 1 : 2}"></div>
       <div class="b-cs__cap"><span class="b-cs__t">${esc(w.title)}</span><span class="b-cs__s">${esc(label)}</span><span class="b-cs__w">${esc(cap(F.until(c.at)))}</span></div>
     </a>`;
   };
@@ -99,7 +99,7 @@
     const off = D.nodes.filter((n) => n.state === 'offline');
     const parts = [`<span>${esc(F.list(ok))} are running well.</span>`];
     for (const n of deg) parts.push(`<span><i class="b-dot b-dot--ink" aria-hidden="true"></i>${esc(n.name)} is 2 h behind on transcodes.</span>`);
-    for (const n of off) parts.push(`<span><i class="b-dot b-dot--exit" aria-hidden="true"></i>${esc(n.name)} has been offline since ${F.time(n.lastSeen)}.</span>`);
+    for (const n of off) parts.push(`<span><i class="b-dot b-dot--exit" aria-hidden="true"></i>${esc(n.name)} is offline.</span>`);
     return parts.join(' ');
   };
 
@@ -130,7 +130,7 @@
     const cov = VB.coverage(w);
     const files = VB.files(w);
     const eds = w.editions;
-    const head = cov.map(({ t }) => `<div class="b-cov__th" role="columnheader"><span>${esc(t.name)}</span><small>${t.kind === 'derived' ? `Derived from ${esc(D.targets.find((x) => x.id === t.from).name)}` : 'Downloaded'}</small></div>`).join('');
+    const head = cov.map(({ t }) => `<div class="b-cov__th" role="columnheader"><span>${esc(t.name)}</span><small>${t.kind === 'derived' ? `Derived from ${esc(D.targets.find((x) => x.id === t.from).name)}` : 'Sourced by download'}</small></div>`).join('');
     const detail = (x) => {
       const f = files.find((ff) => ff.target === x.t.id);
       if (x.c === 'met') return f ? F.bytes(f.size) : '';
@@ -158,7 +158,7 @@
     const files = VB.files(w);
     if (!files.length) return `<p class="b-empty">No files yet. When a release meets one of this Work's Targets it is imported here, and the Targets above turn to Met.</p>`;
     return `<ul class="b-files" role="list">${files.map((f) => `<li class="b-file">
-      <span class="b-chip">${esc(D.targets.find((t) => t.id === f.target).short)}</span>
+      <span class="b-chip">${esc(D.targets.find((t) => t.id === f.target).name)}</span>
       <div class="b-file__main"><span class="b-file__n">${esc(f.name)}</span><span class="b-file__m">${esc(f.video)} · ${esc(f.audio)} · ${esc(f.resolution)}${f.derived ? ' · derived on forge' : ''}</span></div>
       <span class="b-file__s">${F.bytes(f.size)}</span><span class="b-file__node">${esc(f.node)}</span>
     </li>`).join('')}</ul>`;
@@ -174,7 +174,7 @@
     const s = w.seasons[sn - 1];
     return `<ol class="b-eps" role="list">${s.episodes.map((e) => {
       const { st, j } = VB.epStatus(w, s, e);
-      const art = j ? VB.dev(w, { ep: [s.n, e.n], still: (e.n % 5) + 1 }) : `<img alt="" src="" data-still="${w.id}|${(e.n % 5) + 1}">`;
+      const art = j ? VB.dev(w, { ep: [s.n, e.n], still: (e.n % 5) + 1 }) : `<img alt="" data-still="${w.id}|${(e.n % 5) + 1}">`;
       const when = e.air > SS.sim.clock ? `Airs ${F.until(e.air)}` : `Aired ${e.air.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
       const right = {
         available: `${icon('circle-check', 16)}<span>Available</span>`,
@@ -198,7 +198,8 @@
     const w = D.W[j.work];
     const tname = D.targets.find((t) => t.id === j.target)?.name || '';
     const where = j.kind === 'transfer' ? `${j.from} → ${j.to}` : j.node;
-    const sub = j.release || (j.kind === 'transcode' ? `${D.targets.find((t) => t.id === j.from).name} to ${tname} · ${j.encoder || 'NVENC HEVC'}` : j.step || '');
+    const sub = j.release ? `<span class="b-job__r b-job__r--rel">${esc(j.release)}</span>`
+      : `<span class="b-job__r">${esc(j.kind === 'transcode' ? `${D.targets.find((t) => t.id === j.from).name} to ${tname} · ${j.encoder || 'NVENC HEVC'}` : j.step || '')}</span>`;
     const reason = j.state === 'failed' || j.state === 'stalled' ? `<span class="b-job__why">${esc(j.message)}</span>` : '';
     const act = j.state === 'failed' ? `<button class="b-btn b-btn--sm" type="button" data-cmd="blocklist" data-job="${j.id}">Blocklist and search</button>`
       : j.state === 'stalled' ? `<button class="b-btn b-btn--sm" type="button" data-cmd="another" data-job="${j.id}">Find another release</button>`
@@ -207,8 +208,8 @@
       <a class="b-job__art" href="${VB.href('work/' + w.id)}" data-open="${w.id}" aria-label="${esc(w.title)}">${VB.dev(w, { job: j })}</a>
       <div class="b-job__main" role="cell">
         <span class="b-job__t">${esc(j.label)}</span>
-        <span class="b-job__k">${KIND[j.kind]}${tname ? ' · ' + esc(tname) : ''}${reason ? '' : ''}</span>
-        ${reason || `<span class="b-job__r">${esc(sub)}</span>`}
+        <span class="b-job__k">${KIND[j.kind]}${tname ? ' · ' + esc(tname) : ''}</span>
+        ${reason || sub}
       </div>
       <span class="b-job__node" role="cell">${esc(where)}</span>
       <span class="b-job__n" role="cell" data-lv="jpct|${j.id}">${j.state === 'queued' ? '0%' : Math.floor(j.progress * 100) + '%'}</span>
@@ -245,7 +246,7 @@
 
   // ---------- Ticket stub: a Member's request ----------
   const STEP = { pending: 1, approved: 2, downloading: 3, available: 4, denied: 0 };
-  VB.ticket = (r, { big = false, link = true, title = true, titleW } = {}) => {
+  VB.ticket = (r, { big = false, link = true, title = true, titleW, art: withArt = true } = {}) => {
     const w = D.W[r.work];
     const st = VB.reqState(r);
     const step = STEP[st];
@@ -266,9 +267,9 @@
     }).join('');
     const art = st === 'downloading' ? VB.dev(w) : st === 'available' ? VB.poster(w) : `<div class="b-dev" data-st="queued"><img class="b-dev__m" src="${ART.poster(w)}" alt=""></div>`;
     const Tag = link ? 'a' : 'div';
-    return `<article class="b-ticket${big ? ' is-big' : ''}" data-state="${st}" data-ticket="${r.id}" style="${VB.tint(w)}">
+    return `<article class="b-ticket${big ? ' is-big' : ''}${withArt ? '' : ' b-ticket--bare'}" data-state="${st}" data-ticket="${r.id}" style="${VB.tint(w)}">
       <${Tag} class="b-ticket__main"${link ? ` href="${VB.href('request/' + r.id)}" data-go="request/${r.id}"` : ''}>
-        <div class="b-ticket__art">${art}</div>
+        ${withArt ? `<div class="b-ticket__art">${art}</div>` : ''}
         <div class="b-ticket__head">
           ${title ? VB.logo(w, { tag: 'h3', maxW: titleW || (big ? 400 : 200), max: big ? 46 : 26, min: big ? 20 : 15, cls: 'b-ticket__title' }) : ''}
           <p class="b-ticket__who">${esc(who)}${r.seasons ? ` · ${VB.seasonsLabel(w, r.seasons).toLowerCase()}` : ''}</p>
@@ -292,17 +293,27 @@
 
   // ---------- Nodes ----------
   const STATE = { online: 'Online', degraded: 'Behind', offline: 'Offline' };
+  const VERB = { download: 'Downloading', transfer: 'Receiving', import: 'Importing', transcode: 'Deriving', subtitles: 'Subtitles for' };
+  const reelLine = (js) => {
+    const j = js.find((x) => x.state === 'running') || js[0];
+    const lead = j.state === 'running' ? `${VERB[j.kind]} ${j.label}` : j.state === 'stalled' ? `${j.label} has stalled` : j.state === 'failed' ? `${j.label} failed` : `${j.label} is queued`;
+    return js.length > 1 ? `${lead} and ${js.length - 1} more` : lead;
+  };
   VB.nodeRow = (n) => {
+    const jobs = n.state === 'offline' ? [] : D.jobs.filter((j) => j.node === n.id && j.state !== 'done' && !VB.local.resolved.has(j.id));
+    const lit = jobs.find((j) => j.state === 'running');
+    const reel = jobs.length ? `<div class="b-reel">${jobs.map((j) => `<a class="b-reel__i" href="${VB.href('work/' + j.work)}" data-open="${j.work}" aria-label="${esc(j.label)}">${VB.dev(D.W[j.work], { job: j })}</a>`).join('')}<span class="b-reel__l">${esc(reelLine(jobs))}</span></div>` : '';
     const groups = D.roleGroups.map((g) => ({ g, rs: g.roles.filter((r) => n.roles.includes(r)) })).filter((x) => x.rs.length);
     const meter = (k, label, v) => `<div class="b-meter"><span class="b-meter__l">${label}</span><span class="b-meter__t"><i data-lm="${k}|${n.id}" style="transform:scaleX(${v.toFixed(3)})"></i></span><span class="b-meter__v" data-lv="${k}|${n.id}">${Math.floor(v * 100)}%</span></div>`;
     const disks = n.disks.map((d) => `<div class="b-meter"><span class="b-meter__l">${esc(d.path)}</span><span class="b-meter__t"><i style="transform:scaleX(${(d.used / d.total).toFixed(3)})"></i></span><span class="b-meter__v">${F.bytes(d.total - d.used)} free</span></div>`).join('');
     const tone = n.state === 'offline' ? 'exit' : n.state === 'degraded' ? 'amber' : 'ok';
-    return `<article class="b-node" data-state="${n.state}" data-node="${n.id}">
+    return `<article class="b-node${lit ? ' is-lit' : ''}" data-state="${n.state}" data-node="${n.id}" style="${lit ? VB.tint(D.W[lit.work]) + ';' : ''}--load:${Math.max(n.cpu, n.gpu || 0).toFixed(2)}">
       <header class="b-node__h">
         <h3 class="b-node__n">${esc(n.name)}${n.controller ? '<span class="b-tag">Controller</span>' : ''}</h3>
         <span class="b-node__st"><i class="b-dot b-dot--${tone}" aria-hidden="true"></i>${STATE[n.state]}</span>
         <p class="b-node__hw">${esc(n.hardware)} · ${esc(n.place)} · <span class="b-nowrap">${esc(n.address)}</span></p>
         ${n.stateNote ? `<p class="b-node__note">${esc(n.stateNote)}</p>` : ''}
+        ${reel}
       </header>
       <div class="b-node__load">
         ${n.state === 'offline' ? '<p class="b-dim">No reports since it went offline.</p>' : meter('ncpu', 'CPU', n.cpu) + meter('nmem', 'Memory', n.mem) + (n.gpu != null ? meter('ngpu', 'GPU', n.gpu) : '') + (n.state !== 'offline' ? `<div class="b-node__net"><span>${icon('arrow-down', 14)}<b data-lv="ndown|${n.id}">${F.rate(n.down)}</b></span><span>${icon('arrow-up', 14)}<b data-lv="nup|${n.id}">${F.rate(n.up)}</b></span>${n.temp ? `<span>${n.temp} °C</span>` : ''}</div>` : '')}

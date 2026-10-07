@@ -6,6 +6,12 @@
   const esc = F.esc;
 
   VB.icon = (name, size = 18) => SS.icon(name, { size, stroke: 1.5 });
+  // The mark: the screen seen from the dark of the house, its light falling away over the seats.
+  let markN = 0;
+  VB.mark = () => {
+    const id = `b-mark-${++markN}`;
+    return `<svg class="b-mark__glyph" viewBox="0 0 20 16" width="20" height="16" aria-hidden="true" focusable="false"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0.62"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path fill="currentColor" d="M1 1.6Q10 3.6 19 1.6V6.4Q10 4.6 1 6.4Z"/><path fill="url(#${id})" d="M2.2 8Q10 6.6 17.8 8L20 15.6Q10 13.6 0 15.6Z"/></svg>`;
+  };
   VB.reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   VB.href = (view) => {
     const p = new URLSearchParams(location.search);
@@ -100,6 +106,10 @@
     return { s: w.status, j: null };
   };
   VB.statusLabel = { available: 'Available', upgradable: 'Upgradable', downloading: 'Downloading', missing: 'Missing', failed: 'Failed', unreleased: 'Unreleased' };
+  VB.statusText = (w) => {
+    const { s, j } = VB.status(w);
+    return j && j.state === 'stalled' ? 'Stalled' : VB.statusLabel[s];
+  };
 
   // One cell per Target: the stored coverage, corrected by whatever job is touching it now.
   VB.coverage = (w) => {
@@ -119,9 +129,12 @@
   };
 
   // ---------- Local state: what the admin and the Member do in this session ----------
-  VB.local = VB.local || { req: {}, mine: [], resolved: new Set(), monitored: {}, seen: new Set() };
+  VB.local = VB.local || { req: {}, decidedAt: {}, mine: [], resolved: new Set(), monitored: {}, seen: new Set() };
   VB.reqs = () => D.requests.concat(VB.local.mine);
   VB.reqState = (r) => (r.state === 'available' || r.state === 'downloading' ? r.state : VB.local.req[r.id] || r.state);
+  VB.decide = (id, state) => { VB.local.req[id] = state; VB.local.decidedAt[id] = new Date(SS.sim.clock); };
+  // The seed data has no decision times; Alex answers a request about 18 minutes after it arrives.
+  VB.decidedAt = (r) => VB.local.decidedAt[r.id] || new Date(r.at.getTime() + 18 * 6e4);
 
   VB.aisle = () => {
     const out = [];
@@ -220,7 +233,7 @@
           const st = j && !VB.local.resolved.has(j.id) ? j.state : 'done';
           const f = st === 'done' ? 1 : VB.frac(j);
           if (st !== d.st) { d.el.dataset.st = st; d.st = st; }
-          if (!(Math.abs(f - d.f) < 0.0004)) { d.c.style.clipPath = `inset(0 ${(100 - f * 100).toFixed(2)}% 0 0)`; d.f = f; }
+          if (!(Math.abs(f - d.f) < 0.0004)) { d.c.style.setProperty('--f', f.toFixed(4)); d.f = f; }
         }
       },
       second() {
@@ -237,9 +250,9 @@
     return api;
   };
 
-  // ---------- Develop: monochrome poster revealing colour to its progress ----------
+  // ---------- Develop: monochrome poster coming up into colour to its progress ----------
   const devMarkup = (src, attrs, st, f, extra) =>
-    `<div class="b-dev" data-dev ${attrs} data-st="${st}"${extra}><img class="b-dev__m" src="${src}" alt="" draggable="false" decoding="async"><img class="b-dev__c" src="${src}" alt="" draggable="false" decoding="async" style="clip-path:inset(0 ${(100 - f * 100).toFixed(2)}% 0 0)"></div>`;
+    `<div class="b-dev" data-dev ${attrs} data-st="${st}"${extra}><img class="b-dev__m" src="${src}" alt="" draggable="false" decoding="async"><img class="b-dev__c" src="${src}" alt="" draggable="false" decoding="async" style="--f:${f.toFixed(4)}"></div>`;
   VB.dev = (w, { job, ep, vt, still } = {}) => {
     const j = job || VB.acq(w.id, ep);
     const st = j ? j.state : 'done';
