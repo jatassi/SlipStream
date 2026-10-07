@@ -12,6 +12,8 @@
   VA.stageOf = (j) => STAGE_OF[j.kind] ?? 2;
   const LIVE = new Set(['running', 'queued', 'stalled', 'failed', 'paused']);
   VA.isLive = (j) => LIVE.has(j.state);
+  const GROUP = { failed: 'needs', stalled: 'watch', queued: 'waiting', running: 'running', paused: 'running' };
+  VA.jobGroup = (j) => GROUP[j.state];
 
   const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
   VA.word = (n) => WORDS[n] || String(n);
@@ -50,6 +52,13 @@
     return fmt.rate(j.rate);
   };
   VA.jobEta = (j) => (j.state === 'running' && j.eta ? fmt.dur(j.eta) : '');
+  // What a job without a release is doing, in words; only releases, paths and addresses are set in mono.
+  VA.jobNote = (j) => {
+    if (j.kind === 'transfer') return `${j.from} → ${j.to} · ${j.streams} streams`;
+    if (j.kind === 'transcode') return `${j.encoder || 'Transcode'} · ${VA.targetName(j.from)} → ${VA.targetName(j.target)}`;
+    if (j.kind === 'search') return `${j.indexer} and 3 more indexers`;
+    return j.step || '';
+  };
 
   // What the Tunnel draws: one flow per live job, and a wisp per wanted Item at the first rake.
   VA.jobFlows = () => {
@@ -86,28 +95,31 @@
     return c;
   };
 
-  // Separations need the Admin; everything else recedes.
+  // Separations need the Admin. Stalls, slow Nodes and asks are watched, and recede.
   VA.needs = () => {
     const out = [];
     for (const j of d.jobs) {
-      if (j.state === 'failed') out.push({ id: 'job:' + j.id, level: 'error', title: `${VA.jobTitle(j)} ${j.kind === 'import' ? 'failed to import' : 'failed'}`, detail: j.message, job: j, flow: VA.flowKey(j), action: 'Blocklist and search', at: alertAt(j.work) });
+      if (j.state === 'failed') out.push({ id: 'job:' + j.id, kind: 'failed', title: `${VA.jobTitle(j)} ${j.kind === 'import' ? 'failed to import' : 'failed'}`, detail: j.message, job: j, flow: VA.flowKey(j), action: 'Blocklist and search', at: alertAt(j.work) });
     }
-    for (const n of d.nodes) if (n.state === 'offline') out.push({ id: 'node:' + n.id, level: 'error', title: `${n.name} is offline`, detail: d.alerts.find((a) => a.node === n.id)?.detail || n.stateNote, node: n, action: `Open ${n.name}`, at: n.lastSeen });
+    for (const n of d.nodes) if (n.state === 'offline') out.push({ id: 'node:' + n.id, kind: 'offline', title: `${n.name} is offline`, detail: d.alerts.find((a) => a.node === n.id)?.detail || n.stateNote, node: n, action: `Open ${n.name}`, at: n.lastSeen });
+    return out;
+  };
+  VA.watching = () => {
+    const out = [];
     for (const j of d.jobs) {
-      if (j.state === 'stalled') out.push({ id: 'job:' + j.id, level: 'warn', title: `${VA.jobTitle(j)} has stalled`, detail: `${j.message} on ${j.node}.`, job: j, flow: VA.flowKey(j), action: 'Find another release', at: alertAt(j.work) });
+      if (j.state === 'stalled') out.push({ id: 'job:' + j.id, kind: 'stall', title: `${VA.jobTitle(j)} has stalled`, detail: `${j.message} on ${j.node}.`, job: j, flow: VA.flowKey(j), action: 'Find another release', at: alertAt(j.work) });
     }
-    for (const n of d.nodes) if (n.state === 'degraded') out.push({ id: 'node:' + n.id, level: 'warn', title: `${n.name} is behind`, detail: `${n.stateNote}.`, node: n, action: `Open ${n.name}`, at: d.alerts.find((a) => a.node === n.id)?.at });
+    for (const n of d.nodes) if (n.state === 'degraded') out.push({ id: 'node:' + n.id, kind: 'behind', title: `${n.name} is behind`, detail: `${n.stateNote}.`, node: n, action: `Open ${n.name}`, at: d.alerts.find((a) => a.node === n.id)?.at });
     const pend = d.requests.filter((r) => r.state === 'pending');
-    if (pend.length) out.push({ id: 'requests', level: 'ask', title: `${VA.word(pend.length)} ${pend.length === 1 ? 'request is' : 'requests are'} waiting`, detail: fmt.list(pend.map((r) => d.W[r.work].title)), action: 'Review', at: pend.reduce((a, r) => (r.at > a ? r.at : a), pend[0].at) });
+    if (pend.length) out.push({ id: 'requests', kind: 'ask', title: `${VA.word(pend.length)} ${pend.length === 1 ? 'request is' : 'requests are'} waiting`, detail: fmt.list(pend.map((r) => d.W[r.work].title)), action: 'Review', at: pend.reduce((a, r) => (r.at > a ? r.at : a), pend[0].at) });
     return out;
   };
   const alertAt = (work) => d.alerts.find((a) => a.work === work)?.at || SS.sim.clock;
-  VA.separations = () => VA.needs().filter((n) => n.level === 'error');
 
   VA.sentence = () => {
     const run = d.jobs.filter((j) => j.state === 'running' && j.kind !== 'search');
     const rate = SS.sim.totals().down;
-    const sep = VA.separations().length;
+    const sep = VA.needs().length;
     return {
       count: run.length,
       lead: run.length ? `${VA.word(run.length)} ${run.length === 1 ? 'job is' : 'jobs are'} moving` : 'Nothing is moving',
@@ -129,6 +141,13 @@
 
   // Requests read as a journey for Members, never as machinery.
   VA.JOURNEY = ['Requested', 'Approved', 'On its way', 'Ready to watch'];
+  // Requests carry no approval time, so one approved before this session reads as an hour after it was asked.
+  VA.approvedAt = (r) => r.approvedAt || new Date(Math.min(+SS.sim.clock, +r.at + 3600e3));
+  VA.requestScope = (r) => {
+    const w = d.W[r.work];
+    const scope = w.type === 'movie' ? 'Movie' : r.seasons ? `${r.seasons.length === 1 ? 'Season' : 'Seasons'} ${fmt.list(r.seasons.map(String))}` : 'All seasons';
+    return `${scope} · ${d.profiles.find((p) => p.id === w.profile).name} Profile`;
+  };
   VA.requestFlow = (r) => d.jobs.filter((j) => VA.isLive(j) && j.work === r.work);
   VA.journey = (r) => {
     if (r.state === 'denied') return { step: 0, denied: true, label: 'Not added', detail: r.reason || '' };
@@ -151,7 +170,7 @@
   VA.requestEta = (r) => {
     const j = VA.requestFlow(r)[0];
     if (!j) return null;
-    const size = j.size || 0;
+    const size = j.then?.size || j.size || 0;
     const after = { search: size / 30e6 + size / 96e6 + size / 700e6, download: size / 96e6 + size / 700e6, transfer: size / 700e6, import: 0 }[j.kind] ?? 0;
     return (j.eta || 0) + after;
   };
@@ -228,6 +247,7 @@
     },
     approve(r) {
       r.state = 'approved';
+      r.approvedAt = new Date(SS.sim.clock);
       SS.sim.emit('request:update', r);
       const w = d.W[r.work];
       if (w.type === 'movie' && w.status === 'missing') VA.act.search(w, { requestedBy: r.by });
@@ -283,7 +303,7 @@
   };
 
   VA.patch = (box, items, key, render) => {
-    const have = new Map([...box.children].filter((c) => c.dataset.key).map((c) => [c.dataset.key, c]));
+    const have = new Map([...box.children].filter((c) => c.dataset.key && !c.classList.contains('a-leave')).map((c) => [c.dataset.key, c]));
     let prev = null;
     for (const it of items) {
       const k = key(it);
@@ -317,13 +337,20 @@
       if (want !== el) box.insertBefore(el, want);
       prev = el;
     }
-    for (const el of have.values()) {
-      if (el.classList.contains('a-leave')) continue;
-      el.classList.add('a-leave');
-      el.style.height = el.offsetHeight + 'px';
-      requestAnimationFrame(() => { el.style.height = '0px'; });
-      setTimeout(() => el.remove(), 260);
-    }
+    // A row that leaves fades where it is; then the rows below close the gap with a transform, never a height.
+    const gone = [...have.values()];
+    if (!gone.length) return;
+    gone.forEach((el) => el.classList.add('a-leave'));
+    setTimeout(() => {
+      const stay = [...box.children].filter((c) => !gone.includes(c));
+      const was = stay.map((c) => [c.offsetLeft, c.offsetTop]);
+      gone.forEach((el) => el.remove());
+      if (VA.reduced()) return;
+      stay.forEach((c, i) => {
+        const dx = was[i][0] - c.offsetLeft, dy = was[i][1] - c.offsetTop;
+        if (dx || dy) c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+      });
+    }, 150);
   };
 
   VA.toast = (root, text) => {
@@ -347,7 +374,10 @@
     return `M1.5 11.2C3.4 10.6 4.6 10.4 ${pts[0]}L${pts.slice(1).join('L')}`;
   })();
   VA.vortex = (size = 18) => `<svg class="a-glyph a-glyph--sep" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${spiral}"/></svg>`;
-  VA.thinning = (size = 18) => `<svg class="a-glyph a-glyph--thin" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 12.5c2.5-1.2 4.5-1.2 7 0"/><path d="M12 12.5h1.5" opacity=".7"/><path d="M17 12.5h.5" opacity=".45"/><path d="M21 12.5h.01" opacity=".3"/></svg>`;
+  // A stall: the streamline breaks up and stops short of a rake. Behind: a body whose wake has gone rough.
+  VA.stall = (size = 18) => `<svg class="a-glyph a-glyph--watch" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 12h7.5"/><path d="M12.5 12h3"/><path d="M18.5 12h.5"/><path d="M22 6.5v11"/></svg>`;
+  VA.wake = (size = 18) => `<svg class="a-glyph a-glyph--watch" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12c0-1.9 1.9-3.2 4.3-3.2 2.1 0 3.8 1.3 5.2 3.2-1.4 1.9-3.1 3.2-5.2 3.2-2.4 0-4.3-1.3-4.3-3.2z"/><path d="M14.5 12c1.2-2.2 2.3-2.2 3.4 0s2.3 2.2 3.6 0"/></svg>`;
+  VA.watchGlyph = (kind, size = 18) => (kind === 'behind' ? VA.wake(size) : kind === 'stall' ? VA.stall(size) : `<span class="a-glyph a-glyph--watch">${SS.icon('inbox', { size: size - 1, stroke: 1.5 })}</span>`);
   VA.laminar = (size = 18) => `<svg class="a-glyph" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 8.5c6-1.4 13-1.4 20 0" opacity=".5"/><path d="M2 12.5h20"/><path d="M2 16.5c6 1.4 13 1.4 20 0" opacity=".5"/></svg>`;
 
   // A Node is a body in the flow: the lines bend around it and its wake roughens with load.
@@ -396,7 +426,7 @@
   VA.statusOf = (w) => {
     if (w.type === 'series') {
       const c = w.counts;
-      if (c.downloading) return { tone: 'live', text: `Downloading ${c.downloading === 1 ? '1 episode' : c.downloading + ' episodes'}` };
+      if (c.downloading) return { tone: 'live', text: `Downloading ${c.downloading === 1 ? '1 episode' : c.downloading + ' episodes'}`, job: d.jobs.find((x) => x.work === w.id && (x.state === 'running' || x.state === 'paused')) };
       if (c.missing) return { tone: 'muted', text: `${c.missing} missing` };
       return { tone: '', text: `${c.available} of ${c.total} episodes` };
     }
@@ -409,6 +439,12 @@
     if (w.status === 'missing') return { tone: 'muted', text: 'Missing' };
     if (w.status === 'upgradable') return { tone: '', text: 'Upgradable' };
     if (w.status === 'failed') return { tone: 'sep', text: 'Failed' };
-    return { tone: '', text: `${w.year} · ${fmt.runtime(w.runtime)}` };
+    return { tone: '', text: `${w.year} · ${fmt.runtime(w.runtime)}`, available: true };
+  };
+  VA.nodeLoad = (n) => {
+    if (n.state === 'offline') return `Offline since ${fmt.time(n.lastSeen)}`;
+    if (n.paused) return 'Paused';
+    if (n.state === 'degraded') return `Behind · ${fmt.pct(n.gpu ?? n.cpu)} GPU`;
+    return `${fmt.pct(n.cpu)} CPU`;
   };
 })();

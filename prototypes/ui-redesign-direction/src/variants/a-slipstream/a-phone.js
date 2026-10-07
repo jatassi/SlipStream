@@ -49,7 +49,8 @@
     const sheetLayer = root.querySelector('[data-sheetlayer]');
     let tab = 'home';
     const stack = [];
-    const api = { root, ctx, toast: (t) => VA.toast(root, t), go: (v) => go(v) };
+    const api = { root, ctx, toast: (t) => VA.toast(root, t), go: (v) => go(v), push: (v) => push(v) };
+    const fils = VA.Filaments(root);
 
     const scale = () => root.getBoundingClientRect().width / root.offsetWidth || 1;
     const top = () => stack[stack.length - 1];
@@ -284,10 +285,8 @@
       if (top()?.click?.(e) === true) return;
       if ((el = t.closest('[data-need]'))) {
         const n = VA.needs().find((x) => x.id === el.dataset.need);
-        if (n?.job?.state === 'failed') { el.classList.add('is-loading'); VA.act.blocklist(n.job); api.toast('Blocklisted. Searching again.'); }
-        else if (n?.job?.state === 'stalled') { VA.act.findAnother(n.job); api.toast('Looking for a release with seeders.'); }
+        if (n?.job) { el.classList.add('is-loading'); VA.act.blocklist(n.job); api.toast('Blocklisted. Searching again.'); }
         else if (n?.node) push('nodes');
-        else if (n) push('requests');
         return;
       }
       if ((el = t.closest('[data-approve]'))) { const r = d.requests.find((x) => x.id === el.dataset.approve); VA.act.approve(r); api.toast(`Approved ${d.W[r.work].title}.`); return; }
@@ -317,7 +316,7 @@
 
     go(ctx.view || 'home', true);
     counts();
-    return { unmount() { stack.forEach((s) => s.destroy?.()); } };
+    return { unmount() { stack.forEach((s) => s.destroy?.()); fils.destroy(); } };
   };
 
   const titleOf = (view) => {
@@ -333,7 +332,8 @@
     return `<a class="a-pjob" href="#work/${w.id}" data-key="${j.id}" data-state="${st}">
       <span class="a-pjob__art">${VA.posterImg(w, 'a-poster--sm')}</span>
       <span class="a-pjob__t"><b>${esc(VA.jobTitle(j))}</b><span class="${st === 'failed' ? 'is-sep' : ''}" data-flip="line">${esc(VA.jobLine(j))} · ${esc(j.node)}</span>
-        ${st === 'failed' ? `<span class="a-pjob__msg">${esc(j.message)}</span>` : `<span class="a-pjob__p">${VA.prog(j.progress, st)}<i class="a-num" data-live="pct">${fmt.pct(j.progress)}</i></span>`}
+        <span class="a-pjob__p">${VA.fil('job:' + j.id, { pad: 2 })}<i class="a-num" data-live="pct">${st === 'failed' ? '' : fmt.pct(j.progress)}</i></span>
+        ${st === 'failed' ? `<span class="a-pjob__msg">${esc(j.message)}</span>` : ''}
         <span class="a-pjob__r a-num"><i data-live="rate">${esc(VA.jobRate(j))}</i><i data-live="eta">${esc(eta)}</i></span>
       </span>
     </a>`;
@@ -342,10 +342,9 @@
     const j = d.jobs.find((x) => x.id === row.dataset.key);
     if (!j) return;
     const set = (k, v) => { const x = row.querySelector(`[data-live="${k}"]`); if (x && x.textContent !== v) x.textContent = v; };
-    set('pct', fmt.pct(j.progress));
+    if (j.state !== 'failed') set('pct', fmt.pct(j.progress));
     set('rate', VA.jobRate(j));
     set('eta', VA.jobEta(j) ? VA.jobEta(j) + ' left' : j.state === 'queued' ? 'Waiting' : j.state === 'stalled' ? 'No seeders' : '');
-    row.querySelector('.a-prog')?.style.setProperty('--a-p', j.progress.toFixed(4));
   });
   const phNode = (n) => `<a class="a-pnode" href="#nodes" data-node="${n.id}"><span class="a-pnode__b">${VA.nodeBody(n, { w: 120, h: 44 })}</span><span class="a-pnode__t"><b>${esc(n.name)}${n.controller ? '<span class="a-tag">Controller</span>' : ''}</b><span data-live="state" class="${n.state === 'offline' ? 'is-off' : ''}">${esc(VA.nodeState(n))}</span></span><span class="a-pnode__r a-num" data-live="rates">${esc(VA.nodeRates(n))}</span></a>`;
 
@@ -356,6 +355,7 @@
       <p class="a-psent"><span class="a-psent__l1"><span data-s="lead"></span><span data-s="at"> at <span class="a-num" data-s="rate"></span></span>.</span><button class="a-sentence__needs" data-s="needs" type="button"></button></p>
       <div class="a-pband" data-tunnel></div>
       <section class="a-psec"><h2 class="a-psec__h">Needs you</h2><div class="a-plist" data-list="needs"></div></section>
+      <section class="a-psec" data-watch-box><h2 class="a-psec__h">Watching</h2><div class="a-plist" data-list="watch"></div></section>
       <section class="a-psec"><h2 class="a-psec__h">Arrived tonight</h2><div class="a-plist" data-list="arr"></div></section>
       <section class="a-psec"><h2 class="a-psec__h">Nodes</h2><div class="a-plist a-plist--inset" data-list="nodes">${d.nodes.map(phNode).join('')}</div></section>` });
     const q = (s) => el.querySelector(s);
@@ -372,19 +372,33 @@
     let ids = '';
     const lists = (force) => {
       const n = VA.needs();
+      const wt = VA.watching();
       const a = VA.arrivals(12).slice(0, 4);
-      const k = n.map((x) => x.id + x.title).join() + a.map(VA.arrivalKey).join();
+      const k = n.map((x) => x.id + x.title).join() + wt.map((x) => x.id + x.title).join() + a.map(VA.arrivalKey).join();
       if (!force && k === ids) return;
       ids = k;
       VA.patch(q('[data-list="needs"]'), n, (x) => x.id, VA.needRow);
-      VA.emptyState(q('[data-list="needs"]'), !n.length, 'Nothing needs you.', 'Failures and stalls appear here the moment they happen.');
+      VA.emptyState(q('[data-list="needs"]'), !n.length, 'Nothing needs you.', 'Failures and offline Nodes appear here the moment they happen.');
+      VA.patch(q('[data-list="watch"]'), wt, (x) => x.id, VA.watchRow);
+      q('[data-watch-box]').hidden = !wt.length;
       VA.patch(q('[data-list="arr"]'), a, VA.arrivalKey, VA.arrRow);
     };
     sentence(true);
     lists(true);
     return {
       el,
-      click(e) { if (e.target.closest('[data-s="needs"]')) { tun.pinSeparation(); return true; } return false; },
+      click(e) {
+        if (e.target.closest('[data-s="needs"]')) { tun.pinSeparation(); return true; }
+        const w = e.target.closest('[data-watch]');
+        if (w) {
+          const n = VA.watching().find((x) => x.id === w.dataset.watch);
+          if (n?.flow && tun.pin(n.flow)) q('[data-tunnel]').scrollIntoView({ block: 'center', behavior: VA.reduced() ? 'auto' : 'smooth' });
+          else if (n?.job) api.go('activity');
+          else if (n) api.push(n.node ? 'nodes' : 'requests');
+          return true;
+        }
+        return false;
+      },
       live() { sentence(); lists(); VA.liveNodes(q('[data-list="nodes"]')); },
       refresh() { sentence(); lists(true); },
       destroy() { tun.destroy(); },
@@ -417,7 +431,6 @@
         el.querySelectorAll('.a-tile').forEach((t) => {
           const w = d.W[t.dataset.key];
           const s = VA.statusOf(w);
-          if (s.job) t.querySelector('.a-prog')?.style.setProperty('--a-p', s.job.progress.toFixed(4));
           const m = t.querySelector('[data-flip="st"]');
           if (s.tone === 'live' && m.textContent !== s.text) m.textContent = s.text;
         });
@@ -471,9 +484,13 @@
     const status = () => {
       const j = d.jobs.find((x) => x.work === w.id && VA.isLive(x));
       const box = q('[data-wstatus]');
+      const sig = j ? j.id + j.state + VA.jobLine(j) : 'none';
+      const nums = j ? `${fmt.pct(j.progress)}${j.eta ? ` · ${VA.jobEta(j)} left` : ''}` : '';
+      if (box.dataset.sig === sig) { const x = box.querySelector('[data-l="nums"]'); if (x && x.textContent !== nums) x.textContent = nums; return; }
+      box.dataset.sig = sig;
       if (!j) { box.innerHTML = `<span>${esc(w.type === 'series' ? `${w.counts.available} of ${w.counts.total} episodes${w.nextAir ? ` · next ${fmt.until(w.nextAir)}` : ''}` : VA.statusOf(w).text)}</span>`; return; }
       if (j.state === 'failed') { box.innerHTML = `<span class="is-sep">${VA.vortex(16)}${esc(j.message)}</span>`; return; }
-      box.innerHTML = `<span>${esc(VA.jobLine(j))}</span><span class="a-num">${fmt.pct(j.progress)}${j.eta ? ` · ${esc(VA.jobEta(j))} left` : ''}</span>${VA.prog(j.progress, j.state)}`;
+      box.innerHTML = `<span>${esc(VA.jobLine(j))}</span><span class="a-num" data-l="nums">${esc(nums)}</span>${VA.fil('job:' + j.id, { pad: 2, y: 0.5 })}`;
     };
     cov(); files(); eps(); status();
     return {
@@ -490,13 +507,12 @@
   };
 
   SCREENS.activity = () => {
-    const el = screen({ title: 'Activity', body: `<section class="a-psec" data-g="needs"><h2 class="a-psec__h">Needs you</h2><div class="a-plist"></div></section><section class="a-psec" data-g="running"><h2 class="a-psec__h">Moving</h2><div class="a-plist"></div></section><section class="a-psec" data-g="waiting"><h2 class="a-psec__h">Waiting</h2><div class="a-plist"></div></section>` });
-    const groupOf = (j) => (j.state === 'failed' || j.state === 'stalled' ? 'needs' : j.state === 'queued' ? 'waiting' : 'running');
+    const el = screen({ title: 'Activity', body: `<section class="a-psec" data-g="needs"><h2 class="a-psec__h">Needs you</h2><div class="a-plist"></div></section><section class="a-psec" data-g="watch"><h2 class="a-psec__h">Watching</h2><div class="a-plist"></div></section><section class="a-psec" data-g="running"><h2 class="a-psec__h">Moving</h2><div class="a-plist"></div></section><section class="a-psec" data-g="waiting"><h2 class="a-psec__h">Waiting</h2><div class="a-plist"></div></section>` });
     const render = () => {
       const jobs = d.jobs.filter(VA.isLive);
-      for (const g of ['needs', 'running', 'waiting']) {
+      for (const g of ['needs', 'watch', 'running', 'waiting']) {
         const sec = el.querySelector(`[data-g="${g}"]`);
-        const list = jobs.filter((j) => groupOf(j) === g);
+        const list = jobs.filter((j) => VA.jobGroup(j) === g);
         sec.hidden = !list.length;
         VA.patch(sec.querySelector('.a-plist'), list, (j) => j.id, phJob);
       }
@@ -552,7 +568,8 @@
       VA.patch(el.querySelector('[data-list]'), list, (r) => r.id, (r) => {
         const w = d.W[r.work];
         const J = VA.journey(r);
-        return `<div class="a-preq" data-state="${r.state}">${VA.posterImg(w, 'a-poster--sm')}<span class="a-prow__t"><b>${esc(w.title)}</b><small>${esc(d.A[r.by].name)} · ${esc(fmt.ago(r.at))}</small><span class="a-preq__st" data-flip="st">${esc(r.state === 'pending' ? 'Waiting for you' : r.state === 'denied' ? 'Denied' : J.label)}</span>${r.state === 'pending' ? `<span class="a-preq__acts"><button class="a-btn a-btn--sm a-btn--primary" data-approve="${r.id}">Approve</button><button class="a-btn a-btn--sm" data-deny="${r.id}">Deny</button></span>` : ''}</span></div>`;
+        const pending = r.state === 'pending';
+        return `<div class="a-preq" data-state="${r.state}">${VA.posterImg(w, 'a-poster--sm')}<span class="a-prow__t"><b>${esc(w.title)}</b><small>${esc(d.A[r.by].name)} · ${esc(fmt.ago(r.at))}</small><span class="a-preq__scope">${esc(VA.requestScope(r))}</span>${pending && r.note ? `<span class="a-preq__note">“${esc(r.note)}”</span>` : ''}${pending ? `<span class="a-preq__wait">${VA.fil('req:' + r.id, { y: 0.5, pad: 2, s: 0.62, track: false })}<span class="a-preq__st">Waiting for you</span></span>` : `<span class="a-preq__st" data-flip="st">${esc(r.state === 'denied' ? 'Denied' : J.label)}</span>`}${pending ? `<span class="a-preq__acts"><button class="a-btn a-btn--sm a-btn--primary" data-approve="${r.id}">Approve</button><button class="a-btn a-btn--sm" data-deny="${r.id}">Deny</button></span>` : ''}</span></div>`;
       });
     };
     render();
@@ -567,7 +584,7 @@
     return { el };
   };
   SCREENS.system = (_, __, back) => {
-    const el = screen({ title: 'System', back: back || 'More', body: `<section class="a-psec"><h2 class="a-psec__h">Health</h2><div class="a-plist a-plist--inset">${d.alerts.map((a) => `<div class="a-prow"><span class="a-prow__ic">${a.level === 'error' ? VA.vortex(18) : a.level === 'warning' ? VA.thinning(18) : VA.laminar(18)}</span><span class="a-prow__t"><b>${esc(a.title)}</b><small>${esc(a.detail)}</small></span></div>`).join('')}</div></section><p class="a-pfoot">SlipStream 2.3.1 is ready. atlas updates first, then each Worker in turn.</p>` });
+    const el = screen({ title: 'System', back: back || 'More', body: `<section class="a-psec"><h2 class="a-psec__h">Health</h2><div class="a-plist a-plist--inset">${d.alerts.map((a) => `<div class="a-prow"><span class="a-prow__ic">${a.level === 'error' ? VA.vortex(18) : a.level === 'warning' ? VA.watchGlyph(a.node ? 'behind' : 'stall', 18) : VA.laminar(18)}</span><span class="a-prow__t"><b>${esc(a.title)}</b><small>${esc(a.detail)}</small></span></div>`).join('')}</div></section><p class="a-pfoot">SlipStream 2.3.1 is ready. atlas updates first, then each Worker in turn.</p>` });
     return { el };
   };
 })();

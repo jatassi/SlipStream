@@ -12,17 +12,19 @@
   VA.iconBtn = (ic, label, attrs = '') => `<button class="a-ibtn" aria-label="${esc(label)}" title="${esc(label)}" ${attrs}>${ic}</button>`;
   VA.seg = (name, opts, value) => `<div class="a-seg" role="tablist" data-seg="${name}">${opts.map(([v, label, n]) => `<button role="tab" aria-selected="${v === value}" data-v="${esc(v)}">${label}${n != null ? `<span class="a-seg__n a-num">${n}</span>` : ''}</button>`).join('')}</div>`;
   VA.prog = (p, state = 'running') => `<span class="a-prog a-prog--${state}" style="--a-p:${p.toFixed(4)}"><span class="a-prog__fill"></span><span class="a-prog__head"></span></span>`;
+  // A job's progress is its filament, drawn by VA.Filaments wherever the shell runs one.
+  VA.fil = (key, { cls = '', y, pad, s, track = true } = {}) => `<canvas class="a-fil ${cls}" data-fil="${esc(key)}"${y != null ? ` data-fil-y="${y}"` : ''}${pad != null ? ` data-fil-pad="${pad}"` : ''}${s != null ? ` data-fil-s="${s}"` : ''}${track ? '' : ' data-fil-track="off"'} aria-hidden="true"></canvas>`;
   VA.avatar = (id, size = 24) => {
     const a = d.A[id];
     return `<span class="a-avatar" style="--a-hue:${a.hue};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px" aria-hidden="true">${esc(fmt.initials(a.name))}</span>`;
   };
   VA.firstName = (id) => d.A[id].name.split(' ')[0];
 
-  VA.tile = (w) => {
+  VA.tile = (w, { quiet = false } = {}) => {
     const st = VA.statusOf(w);
     const meta = w.type === 'series' && !st.tone ? `${w.seasons.length} ${w.seasons.length === 1 ? 'season' : 'seasons'} · ${st.text}` : st.text;
     return `<a class="a-tile" href="#work/${w.id}" data-work="${w.id}" data-key="${w.id}">
-      <span class="a-tile__art">${VA.posterImg(w, '', w.id)}${st.job ? `<span class="a-tile__prog">${VA.prog(st.job.progress)}</span>` : ''}</span>
+      <span class="a-tile__art">${VA.posterImg(w, '', w.id)}${st.job && !quiet ? `<span class="a-tile__prog">${VA.fil('work:' + w.id, { y: 0.7, pad: 0, track: false })}</span>` : ''}</span>
       <span class="a-tile__title">${esc(w.title)}</span>
       <span class="a-tile__meta ${st.tone ? 'is-' + st.tone : ''}" data-flip="st">${esc(meta)}</span>
     </a>`;
@@ -35,17 +37,15 @@
 
   VA.jobRow = (j, open = false) => {
     const w = d.W[j.work];
-    const mono = j.release || (j.kind === 'transfer' ? `${j.from} → ${j.to} · ${j.streams} streams` : j.kind === 'transcode' ? `${j.encoder || 'Transcode'} · ${VA.targetName(j.from)} → ${VA.targetName(j.target)}` : j.kind === 'search' ? `${j.indexer} and 3 more indexers` : j.step || '');
     const st = j.state;
-    const prog = st === 'failed' ? `<span class="a-job__sep">${VA.vortex(16)}</span>` : VA.prog(j.progress, st);
     const canToggle = st === 'running' || st === 'paused';
     return `<div class="a-job ${open ? 'is-open' : ''}" data-state="${st}" data-key="${j.id}">
       <button class="a-job__main" data-job="${j.id}" aria-expanded="${open}">
         <span class="a-job__art">${VA.posterImg(w, 'a-poster--xs')}</span>
         <span class="a-job__text"><span class="a-job__title">${esc(VA.jobTitle(j))}</span><span class="a-job__line ${st === 'failed' ? 'is-sep' : ''}" data-flip="line">${esc(VA.jobLine(j))}</span></span>
-        <span class="a-job__mono a-mono">${esc(mono)}</span>
+        ${j.release ? `<span class="a-job__rel a-mono">${esc(j.release)}</span>` : `<span class="a-job__rel a-job__note">${esc(VA.jobNote(j))}</span>`}
         <span class="a-job__node">${esc(j.node)}</span>
-        <span class="a-job__prog">${prog}</span>
+        <span class="a-job__prog">${VA.fil('job:' + j.id)}</span>
         <span class="a-job__pct a-num" data-live="pct">${st === 'failed' ? '' : fmt.pct(j.progress)}</span>
         <span class="a-job__rate a-num" data-live="rate">${esc(VA.jobRate(j))}</span>
         <span class="a-job__eta a-num" data-live="eta">${esc(VA.jobEta(j) || (st === 'queued' ? 'Waiting' : st === 'stalled' ? 'No seeders' : ''))}</span>
@@ -80,20 +80,22 @@
       if (j.state !== 'failed') set('pct', fmt.pct(j.progress));
       set('rate', VA.jobRate(j));
       set('eta', VA.jobEta(j) || (j.state === 'queued' ? 'Waiting' : j.state === 'stalled' ? 'No seeders' : ''));
-      const p = row.querySelector('.a-prog');
-      if (p) p.style.setProperty('--a-p', j.progress.toFixed(4));
     });
   };
 
-  VA.needRow = (n) => {
-    const glyph = n.level === 'error' ? VA.vortex(18) : n.level === 'warn' ? VA.thinning(18) : icon('inbox', { size: 17 });
-    return `<div class="a-need a-need--${n.level}" data-key="${esc(n.id)}" data-flow="${esc(n.flow || '')}">
-      <span class="a-need__glyph">${glyph}</span>
+  VA.needRow = (n) => `<div class="a-need" data-key="${esc(n.id)}" data-flow="${esc(n.flow || '')}">
+      <span class="a-need__glyph">${VA.vortex(18)}</span>
       <span class="a-need__text"><span class="a-need__title">${esc(n.title)}</span><span class="a-need__detail">${esc(n.detail || '')}</span></span>
       <span class="a-need__time a-num">${n.at ? esc(fmt.ago(n.at)) : ''}</span>
-      ${btn(n.action, { sm: true, kind: n.level === 'error' && n.job ? 'primary' : '', attrs: `data-need="${esc(n.id)}"` })}
+      ${btn(n.action, { sm: true, kind: n.job ? 'primary' : '', attrs: `data-need="${esc(n.id)}"` })}
     </div>`;
-  };
+  // Watched items are quieter: no dye, no buttons; each opens where it can be dealt with.
+  VA.watchItem = (n) => `<button class="a-witem" type="button" data-key="${esc(n.id)}" data-watch="${esc(n.id)}" data-flow="${esc(n.flow || '')}">${VA.watchGlyph(n.kind, 16)}<span>${esc(n.title)}</span></button>`;
+  VA.watchRow = (n) => `<button class="a-wrow" type="button" data-key="${esc(n.id)}" data-watch="${esc(n.id)}">
+      <span class="a-wrow__glyph">${VA.watchGlyph(n.kind, 18)}</span>
+      <span class="a-wrow__text"><span class="a-wrow__title">${esc(n.title)}</span><span class="a-wrow__detail">${esc(n.detail || '')}</span></span>
+      ${icon('chevron-right', { size: 16 })}
+    </button>`;
 
   VA.arrRow = (h) => {
     const w = d.W[h.work];
@@ -108,10 +110,9 @@
     </a>`;
   };
 
-  VA.nodeCell = (n) => `<a class="a-ncell a-ncell--${n.state}" href="#nodes" data-node="${n.id}" data-key="${n.id}">
-      <span class="a-ncell__body">${VA.nodeBody(n, { w: 220, h: 58 })}</span>
-      <span class="a-ncell__name">${esc(n.name)}${n.controller ? '<span class="a-tag">Controller</span>' : ''}</span>
-      <span class="a-ncell__state" data-live="state">${esc(VA.nodeState(n))}</span>
+  VA.nodeCell = (n) => `<a class="a-ncell a-ncell--${n.state}" href="#nodes/${n.id}" data-node="${n.id}" data-key="${n.id}">
+      <span class="a-ncell__body">${VA.nodeBody(n, { w: 220, h: 44 })}</span>
+      <span class="a-ncell__line"><span class="a-ncell__name">${esc(n.name)}</span><span class="a-ncell__load a-num" data-live="load">${esc(VA.nodeLoad(n))}</span></span>
       <span class="a-ncell__rates a-num" data-live="rates">${esc(VA.nodeRates(n))}</span>
     </a>`;
   VA.liveNodes = (box) => {
@@ -119,6 +120,7 @@
       const n = d.N[el.dataset.node];
       const set = (k, v) => { const x = el.querySelector(`[data-live="${k}"]`); if (x && x.textContent !== v) x.textContent = v; };
       set('state', VA.nodeState(n));
+      set('load', VA.nodeLoad(n));
       set('rates', VA.nodeRates(n));
       set('cpu', fmt.pct(n.cpu));
       if (n.gpu != null) set('gpu', fmt.pct(n.gpu));
@@ -187,7 +189,7 @@
   };
   VA.journeyStrip = (r) => {
     const J = VA.journey(r);
-    const notes = [stamp(r.at), J.step >= 1 ? (J.step === 1 ? 'Just now' : '') : '', J.step === 2 ? J.detail.replace('Ready in about ', 'About ') : '', J.step === 3 ? stamp(r.doneAt) : ''];
+    const notes = [stamp(r.at), J.step >= 1 ? stamp(VA.approvedAt(r)) : '', J.step === 2 ? J.detail.replace('Ready in about ', 'About ') : '', J.step === 3 ? stamp(r.doneAt) : ''];
     return VA.strip({ stops: VA.JOURNEY, at: J.step, p: J.step === 2 ? J.progress || 0 : 0.15, state: J.step === 3 ? 'done' : J.step === 2 ? 'live' : 'idle', notes });
   };
 
@@ -199,7 +201,7 @@
       let c = w.coverage[t.id];
       if (ei > 0 && c !== 'unwanted') c = 'missing';
       const j = ei === 0 && live.find((x) => x.target === t.id);
-      if (j && j.state !== 'failed') return `<span class="a-cell a-cell--live"><span class="a-cell__label" data-flip="cov-${t.id}">${esc(VA.jobVerb(j))} <span class="a-num" data-live="cov-${t.id}">${fmt.pct(j.progress)}</span></span>${VA.prog(j.progress, j.state)}</span>`;
+      if (j && j.state !== 'failed') return `<span class="a-cell a-cell--live"><span class="a-cell__label" data-flip="cov-${t.id}">${esc(VA.jobVerb(j))} <span class="a-num" data-live="cov-${t.id}">${fmt.pct(j.progress)}</span></span>${VA.fil('job:' + j.id, { y: 0.55, pad: 2 })}</span>`;
       if (j && j.state === 'failed') return `<span class="a-cell a-cell--sep"><span class="a-cell__label">${VA.vortex(14)}Import failed</span></span>`;
       const file = w.files?.find((f) => f.target === t.id);
       return `<span class="a-cell a-cell--${c}"><span class="a-cov a-cov--${c}"></span><span class="a-cell__label">${esc(fmt.coverageLabel[c])}</span>${file && ei === 0 ? `<span class="a-cell__sub a-num">${fmt.bytes(file.size)}</span>` : ''}</span>`;
@@ -229,7 +231,7 @@
     return `<div class="a-eps">${s.episodes.map((e) => {
       const j = d.jobs.find((x) => x.work === w.id && x.episode && x.episode[0] === s.n && x.episode[1] === e.n && VA.isLive(x));
       let st;
-      if (j) st = `<span class="a-ep__st is-live"><span data-flip="ep">${esc(VA.jobVerb(j))}</span> <span class="a-num" data-live="ep-${e.n}">${fmt.pct(j.progress)}</span>${VA.prog(j.progress, j.state)}</span>`;
+      if (j) st = `<span class="a-ep__st is-live"><span data-flip="ep">${esc(VA.jobVerb(j))}</span> <span class="a-num" data-live="ep-${e.n}">${fmt.pct(j.progress)}</span>${VA.fil('job:' + j.id, { y: 0.55, pad: 2 })}</span>`;
       else if (e.status === 'failed') st = `<span class="a-ep__st is-sep">${VA.vortex(14)}Failed</span>`;
       else if (e.status === 'missing') st = `<span class="a-ep__st is-muted">Missing</span>`;
       else if (e.status === 'unreleased') st = `<span class="a-ep__st is-muted">Airs ${esc(fmt.until(e.air))}</span>`;
@@ -239,23 +241,32 @@
     }).join('')}</div>`;
   };
 
+  // A pending ask waits at the Wanted rake as a wisp; once approved it flows like any job.
+  VA.reqStatus = (r) => {
+    if (r.state === 'denied') return `Denied · ${r.reason || 'No reason given'}`;
+    if (r.state === 'available') return `Available · ${fmt.ago(r.doneAt)}`;
+    const J = VA.journey(r);
+    return J.step === 2 ? `On its way · ${J.detail}` : `Approved · ${J.detail}`;
+  };
   VA.reqRow = (r) => {
     const w = d.W[r.work];
     const who = d.A[r.by];
-    const label = { pending: 'Pending', approved: 'Approved', downloading: 'On its way', available: 'Available', denied: 'Denied' }[r.state];
-    const J = VA.journey(r);
-    const acts = r.state === 'pending'
+    const pending = r.state === 'pending';
+    const flows = pending || VA.requestFlow(r).length;
+    const acts = pending
       ? btn('Approve', { kind: 'primary', sm: true, attrs: `data-approve="${r.id}"` }) + btn('Deny', { sm: true, attrs: `data-deny="${r.id}"` })
       : btn('Open', { sm: true, attrs: `data-open-work="${w.id}"` });
-    const sub = r.state === 'denied' ? r.reason : r.state === 'available' ? `Available ${fmt.ago(r.doneAt)}` : r.state === 'pending' ? '' : J.detail;
     return `<div class="a-req" data-key="${r.id}" data-state="${r.state}">
+      <span class="a-req__lead">${flows ? VA.fil('req:' + r.id, { y: 0.5, pad: 2, s: 0.62, track: false }) : ''}</span>
       <span class="a-req__art">${VA.posterImg(w, 'a-poster--sm')}</span>
       <span class="a-req__text">
         <span class="a-req__title">${esc(w.title)} <span class="a-req__year">${w.year}</span></span>
-        <span class="a-req__by">${VA.avatar(r.by, 18)}${esc(who.name)} · ${esc(fmt.ago(r.at))}${r.seasons ? ` · Season ${r.seasons.join(', ')}` : w.type === 'series' ? ' · All seasons' : ''}</span>
-        ${r.note ? `<span class="a-req__note">${esc(r.note)}</span>` : ''}
+        <span class="a-req__by">${VA.avatar(r.by, 18)}${esc(who.name)} · ${esc(fmt.ago(r.at))}</span>
       </span>
-      <span class="a-req__state"><span class="a-req__label is-${r.state}" data-flip="state">${label}</span><span class="a-req__sub">${esc(sub || '')}</span></span>
+      <span class="a-req__ask">
+        <span class="a-req__scope">${esc(VA.requestScope(r))}</span>
+        ${pending ? (r.note ? `<span class="a-req__note">“${esc(r.note)}”</span>` : '') : `<span class="a-req__sub is-${r.state}" data-live="sub">${esc(VA.reqStatus(r))}</span>`}
+      </span>
       <span class="a-req__acts">${acts}</span>
       <form class="a-req__deny" data-deny-form="${r.id}" hidden><input class="a-input" name="reason" placeholder="Reason, shown to ${esc(who.name.split(' ')[0])}" aria-label="Reason for denying"><button class="a-btn a-btn--sm a-btn--primary" type="submit">Deny request</button><button class="a-btn a-btn--sm a-btn--ghost" type="button" data-deny-cancel>Cancel</button></form>
     </div>`;

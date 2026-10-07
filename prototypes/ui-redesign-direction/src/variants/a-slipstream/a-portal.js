@@ -29,8 +29,9 @@
       <span class="a-preqc__body">
         <span class="a-preqc__t"><b>${esc(w.title)}</b><span>${by ? `Requested by ${esc(VA.firstName(r.by))}` : `${w.type === 'series' ? (r.seasons ? `Season ${r.seasons.join(', ')}` : 'Series') : w.year}`}</span></span>
         <span class="a-preqc__state" data-flip="state">${esc(J.denied ? 'Not added' : journeyLabel(r))}</span>
-        ${J.denied ? `<span class="a-preqc__note">${esc(J.detail)}</span>` : `<span class="a-preqc__strip" data-strip>${VA.journeyStrip(r)}</span>`}
+        ${J.denied ? `<span class="a-preqc__note">${esc(J.detail)}</span>` : ''}
       </span>
+      ${J.denied ? '' : `<span class="a-preqc__strip" data-strip>${VA.journeyStrip(r)}</span>`}
     </a>`;
   };
 
@@ -112,7 +113,7 @@
       <div class="a-pt__lede"><h1 class="a-pt__hello">${greet}, ${esc(me.name.split(' ')[0])}.</h1><p class="a-pt__sum" data-sum></p></div>
       <section class="a-pt__sec"><div class="a-section-head"><h2 class="a-h2">Your requests</h2><a class="a-link" href="#requests">All requests ${icon('chevron-right', { size: 14 })}</a></div><div class="a-pt__cards" data-mine></div></section>
       <section class="a-pt__sec" data-other-sec><div class="a-section-head"><h2 class="a-h2">Also on its way</h2></div><div class="a-pt__cards" data-other></div></section>
-      <section class="a-pt__sec"><div class="a-section-head"><h2 class="a-h2">New in the library</h2><a class="a-link" href="#library">Library ${icon('chevron-right', { size: 14 })}</a></div><div class="a-pt__row">${newIn.map(VA.tile).join('')}</div></section>
+      <section class="a-pt__sec"><div class="a-section-head"><h2 class="a-h2">New in the library</h2><a class="a-link" href="#library">Library ${icon('chevron-right', { size: 14 })}</a></div><div class="a-pt__row">${newIn.map((w) => VA.tile(w, { quiet: true })).join('')}</div></section>
       <section class="a-pt__sec"><div class="a-section-head"><h2 class="a-h2">Coming soon</h2></div><ol class="a-pt__soon">${soon.map((c) => { const w = d.W[c.work]; return `<li><a href="#work/${w.id}">${VA.posterImg(w, 'a-poster--sm')}<span><b>${esc(w.title)}</b><span>${c.episode ? `${fmt.ep(c.episode)} · ${esc(c.title)}` : 'New release'}</span></span><span class="a-num">${esc(fmt.until(c.at))}</span></a></li>`; }).join('')}</ol></section>
     </div>`;
     const q = (s) => el.querySelector(s);
@@ -158,11 +159,11 @@
       <div class="a-pt__page a-pt__req">
         <a class="a-pt__poster" href="#work/${w.id}">${VA.posterImg(w)}</a>
         <div class="a-pt__reqbody">
-          <h1 class="a-pt__title">${esc(w.title)}</h1>
+          <h1 class="a-pt__say" data-say></h1>
           <p class="a-pt__sub">${r.by === ME() ? 'You asked' : `${esc(VA.firstName(r.by))} asked`} for it ${esc(fmt.ago(r.at))}${r.seasons ? ` · Season ${r.seasons.join(', ')}` : ''}</p>
-          <p class="a-pt__say" data-say></p>
           <div class="a-pt__journey" data-strip></div>
           <p class="a-pt__fine" data-fine></p>
+          <p class="a-pt__ov">${esc(w.overview)}</p>
         </div>
       </div>
     </div>`;
@@ -245,11 +246,12 @@
     el.innerHTML = `<div class="a-pt__page"><label class="a-psearch a-pt__psearch">${icon('search', { size: 17 })}<input type="search" placeholder="Search movies and series" aria-label="Search movies and series" enterkeyhint="search" autocomplete="off" data-q value="${esc(arg ? decodeURIComponent(arg) : '')}"></label><div data-results></div></div>`;
     const input = el.querySelector('[data-q]');
     const out = el.querySelector('[data-results]');
+    // One chip form for every state: the journey stop it has reached, or the ask itself.
     const badge = (w) => {
       const r = requestFor(w);
       if (inLibrary(w) && (!r || r.state === 'available')) return '<span class="a-pt__badge is-ready">In the library</span>';
-      if (r) return `<span class="a-pt__badge">${esc(VA.journey(r).label)}</span>`;
-      return '<span class="a-pt__badge is-ask">Request</span>';
+      if (r) return `<span class="a-pt__badge">${esc(VA.JOURNEY[VA.journey(r).step])}</span>`;
+      return `<span class="a-pt__badge is-ask">${icon('plus', { size: 13 })}Request</span>`;
     };
     const render = (qv = input.value) => {
       const qs = qv.trim().toLowerCase();
