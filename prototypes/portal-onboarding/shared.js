@@ -361,7 +361,7 @@ export function Portal(el, root, s, o = {}) {
     const st = stateOf(s, work);
     const act = st === 'none'
       ? `<button class="btn pri block" data-act="request" data-id="${w.id}">${I('plus')}<span>Request</span></button>`
-      : `<div class="wk-state">${ribbon(st)}<span>${st === 'ready' ? 'In the library. Watch it on Plex.' : st === 'coming' ? 'On its way to the library.' : mineLine(s, s.mine.find((m) => m.work === work))}</span></div>`;
+      : `<div class="wk-state">${ribbon(st)}<span>${st === 'ready' ? (o.readyLine ? o.readyLine() : 'In the library. Watch it on Plex.') : st === 'coming' ? 'On its way to the library.' : mineLine(s, s.mine.find((m) => m.work === work))}</span></div>`;
     return `<article class="wk">
       <nav class="wk-nav"><button class="back" data-act="back">${I('chevron-left')}Back</button></nav>
       <div class="wk-bd" aria-hidden="true"><img src="${w.art.backdrop}" alt="" onerror="this.remove()"></div>

@@ -66,3 +66,20 @@ export const availability = {
 export const trending = ['the-matrix', 'the-dark-knight', 'hotd', 'eeaao', 'the-boys', 'got', 'black-panther', 'oppenheimer'];
 export const newInLibrary = ['interstellar', 'dune-2', 'top-gun-maverick', 'bcs', 'the-prestige', 'narcos'];
 export const wall = ['dune-2', 'interstellar', 'severance', 'the-batman', 'oppenheimer', 'tlou', 'the-matrix', 'hotd', 'top-gun-maverick', 'bcs', 'the-dark-knight', 'got', 'eeaao', 'narcos', 'the-prestige', 'black-panther', 'the-boys', 'tlou'];
+
+// ───────────── round 2: Media Servers. All invented, like everything above.
+
+// The Admin's Media Servers. ?server= picks which one is switched on for Members; 'none' switches both off.
+export const mediaServers = {
+  plex: { id: 'plex', kind: 'Plex', name: 'Atassi Plex', plexName: 'Atassi house' },
+  jellyfin: { id: 'jellyfin', kind: 'Jellyfin', name: 'Den Jellyfin', publicUrl: 'https://jellyfin.atassi.example' },
+};
+
+// The Plex account Rosa already has, or makes on the fake plex.tv.
+export const plexAccount = { username: 'rosa.alvarez', email: 'rosa@example.com' };
+
+// Other Members on the Admin's Media Server access list.
+export const accessMembers = [
+  { name: 'Dev Patel', initials: 'DP', email: 'dev@example.com', plex: { username: 'devp_watches', email: 'dev.patel@example.net' }, jfUser: 'dev', joined: 'Mon 5 Oct' },
+  { name: 'Mina Cho', initials: 'MC', email: 'mina@example.com', plex: { username: 'minacho', email: 'mina@example.com' }, jfUser: 'mina', joined: 'Thu 1 Oct', grantedAt: 'Thu 1 Oct, 20:14' },
+];

@@ -3,7 +3,10 @@
   PROTOTYPE, throwaway. Portal onboarding: what a Member invited to the portal sees from the emailed Signup link to their first request.
   Three structurally different flows behind ?variant=A|B|C, on the settled Lit console direction (prototype/ui-direction, variant C).
   Controls: ?state=new|existing|signedin  ?link=live|unknown|withdrawn|expired|used|held|closed|unreached  ?https=0  ?view=flow|email|admin
-            ?device=phone|wide  ?email=original|reissued (email view)  ?mail=sent|failed|off (admin view)
+            ?device=phone|wide  ?email=original|reissued|plex-admin|plex-member (email view)  ?mail=sent|failed|off (admin view)
+  Round 2, variant B only: ?ms=1|2|3 picks how the Member gets onto the Admin's Media Server (1 tell us your Plex, 2 sign in with Plex,
+            3 later, in the portal); ?server=plex|jellyfin|none picks which Media Server the Admin switched on for Members.
+            ?plexpass=0 (admin view) shows the warning for an Admin whose Plex account has no Plex Pass.
   ASSUMPTION: a Signup link may carry the Member settings the Admin chose when issuing it (request quota, auto-approve).
   That is what an existing Account gains by signing in through it; when it would gain nothing, the card answers `held` and the link stays unused.
   Everything is in memory. People, server name, addresses, tokens and numbers are invented.
@@ -16,6 +19,7 @@
 <title>Portal onboarding · prototype</title>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="media.css">
 <style>
   html, body { margin: 0; background: #08090a; min-height: 100%; }
   body.device-phone { display: grid; place-items: center; min-height: 100vh; padding: 28px 0 130px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% 0%, #17181b, #08090a); }
@@ -68,13 +72,17 @@ const cfg = {
   link: pick(params.get('link'), LINKS, 'live'),
   https: params.get('https') !== '0',
   device: pick(params.get('device'), ['phone', 'wide'], 'phone'),
-  email: pick(params.get('email'), ['original', 'reissued'], 'original'),
+  email: pick(params.get('email'), ['original', 'reissued', 'plex-admin', 'plex-member'], 'original'),
   mail: pick(params.get('mail'), ['sent', 'failed', 'off'], 'sent'),
+  ms: pick(params.get('ms'), ['1', '2', '3'], '1'),
+  server: pick(params.get('server'), ['plex', 'jellyfin', 'none'], 'plex'),
+  plexpass: params.get('plexpass') !== '0',
 };
+const MS = { 1: 'Tell us your Plex', 2: 'Sign in with Plex', 3: 'Later, in the portal' };
 document.body.classList.add(`device-${cfg.device}`, `view-${cfg.view}`);
 
 function navigate(patch) {
-  const next = { ...cfg, ...patch, https: (patch.https ?? cfg.https) ? '1' : '0' };
+  const next = { ...cfg, ...patch, https: (patch.https ?? cfg.https) ? '1' : '0', plexpass: (patch.plexpass ?? cfg.plexpass) ? '1' : '0' };
   location.search = new URLSearchParams(next).toString();
 }
 
@@ -97,6 +105,15 @@ row1.append(
   btn('Wide', () => navigate({ device: 'wide' }), cfg.device === 'wide'),
 );
 const row2 = el('div', { className: 'row' });
+const msControls = () => {
+  const srv = el('select', { ariaLabel: 'Media Server' });
+  [['plex', 'Server: Plex'], ['jellyfin', 'Server: Jellyfin'], ['none', 'Server: none shown']].forEach(([v, t]) => srv.append(el('option', { value: v, textContent: t, selected: v === cfg.server })));
+  srv.onchange = () => navigate({ server: srv.value });
+  return [k('Media Server step'), ...['1', '2', '3'].map((n) => { const b = btn(`${n} ${MS[n]}`, () => navigate({ ms: n }), cfg.ms === n); return b; }), srv, sep()];
+};
+const showMs = cfg.variant === 'B' || cfg.view !== 'flow';
+const row3 = el('div', { className: 'row' });
+if (showMs) row3.append(...msControls().slice(0, -1));
 if (cfg.view === 'flow') {
   const sel = el('select', { ariaLabel: 'Link' });
   LINKS.forEach((l) => sel.append(el('option', { value: l, textContent: l === 'live' ? 'Link: live' : `Dead: ${l}`, selected: l === cfg.link })));
@@ -111,11 +128,13 @@ if (cfg.view === 'flow') {
     btn('Restart', () => location.reload()),
   );
 } else if (cfg.view === 'email') {
-  row2.append(k('Email'), btn('Original', () => navigate({ email: 'original' }), cfg.email === 'original'), btn('Re-issued', () => navigate({ email: 'reissued' }), cfg.email === 'reissued'));
+  row2.append(k('Email'), btn('Signup link', () => navigate({ email: 'original' }), cfg.email === 'original'), btn('Re-issued', () => navigate({ email: 'reissued' }), cfg.email === 'reissued'),
+    btn('Plex account to add', () => navigate({ email: 'plex-admin' }), cfg.email === 'plex-admin'), btn("You're in on Plex", () => navigate({ email: 'plex-member' }), cfg.email === 'plex-member'));
 } else {
-  row2.append(k('Email outcome'), btn('Sent', () => navigate({ mail: 'sent' }), cfg.mail === 'sent'), btn('Failed', () => navigate({ mail: 'failed' }), cfg.mail === 'failed'), btn('Not set up', () => navigate({ mail: 'off' }), cfg.mail === 'off'));
+  row2.append(k('Email outcome'), btn('Sent', () => navigate({ mail: 'sent' }), cfg.mail === 'sent'), btn('Failed', () => navigate({ mail: 'failed' }), cfg.mail === 'failed'), btn('Not set up', () => navigate({ mail: 'off' }), cfg.mail === 'off'), sep(),
+    btn(cfg.plexpass ? 'Admin has Plex Pass' : 'No Plex Pass', () => navigate({ plexpass: !cfg.plexpass }), cfg.plexpass));
 }
-bar.append(row1, row2);
+bar.append(row1, ...(row3.childNodes.length ? [row3] : []), row2);
 addEventListener('keydown', (e) => {
   const t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
   if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) cycle(-1);
