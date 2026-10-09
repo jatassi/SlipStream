@@ -54,7 +54,7 @@ export function plexWindow(root, mode, { email = D.invitee.email } = {}) {
       allow: () => `<p class="px-brand">Plex</p><h2>Allow access?</h2>
         <p class="px-sub">${esc(D.server.name)} wants to use your Plex account.</p>
         <div class="px-acct"><span class="px-av">${esc(D.plexAccount.username[0].toUpperCase())}</span><div><b>${esc(D.plexAccount.username)}</b><span>${esc(D.plexAccount.email)}${made ? ' · new account' : ''}</span></div></div>
-        <p class="px-fine">It sees your Plex username and email, so ${D.admin.name} can share his Plex with you.</p>
+        <p class="px-fine">It sees your Plex username and email, so ${D.admin.name} can share the library with you.</p>
         <button class="px-go" data-px-act="allow">Allow</button><button class="px-no" data-px-act="close">Cancel</button>`,
     };
     const show = (k) => {

@@ -152,7 +152,7 @@ export function mount({ root, cfg }) {
         <div class="b-foot"><button class="btn pri block" data-act="plex-open-tab">${I('external-link')}<span>Open plex.tv</span></button><button class="btn ghost block" data-act="plex-have">I already made one</button></div></div>`,
       enter: () => `<form class="b-step" data-form="plex" novalidate>${tag()}
         <h1>What's your Plex username or email?</h1>
-        <p class="lede">${D.admin.name} adds this account to his Plex. In Plex, it's under Account.</p>
+        <p class="lede">${D.admin.name} adds this account on Plex. In Plex, it's under Account.</p>
         <label class="sr" for="b-plex">Plex username or email</label>
         <input class="big-in" id="b-plex" placeholder="Username or email" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" value="${esc(plexTyped)}">
         <p class="err" data-plex-err hidden>${I('circle-alert')}Enter your Plex username or email.</p>
@@ -165,7 +165,7 @@ export function mount({ root, cfg }) {
     2: {
       ask: () => `<div class="b-step">${tag()}
         <h1>Watch on Plex</h1>
-        <p class="lede">${D.admin.name}'s movies and series play in Plex. Sign in to Plex, and ${D.admin.name} can share his library with you.</p>
+        <p class="lede">${D.admin.name}'s movies and series play in Plex. Sign in to Plex, and ${D.admin.name} can share the library with you.</p>
         <div class="b-fill"></div>
         <div class="b-link" aria-hidden="true"><span class="b-link-a">${I('user-round')}</span><span class="b-link-l"></span>${msIcon('Plex')}<span class="b-link-l"></span><span class="b-link-a">${I('house')}</span></div>
         <div class="b-fill"></div>
@@ -173,7 +173,7 @@ export function mount({ root, cfg }) {
           <p class="a-fine">New to Plex? You can make a free account on the Plex page. <span class="fc">Inferred, not yet tested</span></p></div></div>`,
       sent: () => `<div class="b-step">${tag()}
         <h1>Plex is connected</h1>
-        <p class="lede">${D.admin.name} shares his Plex with this account. We will email you when you're in. You can ask for things now.</p>
+        <p class="lede">${D.admin.name} shares the library with this account. We will email you when you're in. You can ask for things now.</p>
         <div style="margin-top:24px">${connected(s.media.account)}</div>
         <button class="btn ghost sm" style="align-self:flex-start;margin-top:8px" data-act="plex-auth">Use another Plex account</button>
         <div class="b-fill"></div><div class="b-foot"><button class="btn pri block" data-act="next"><span>Continue</span></button></div></div>`,
