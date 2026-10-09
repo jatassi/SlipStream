@@ -45,7 +45,8 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 - Identity: one Account system. Admin is a permission on an Account. Sign-in is an email plus a 4-digit PIN or a passkey; only Admins issue Signup and Reset links; a fresh install prints a Setup code. Scripts use an API key. Email goes over generic SMTP.
 - v1 data comes forward through a one-shot importer.
 - Architecture is locked in [docs/adr/](docs/adr/).
-- Undecided: the stack; the visual direction ([UI redesign direction](https://github.com/jatassi/SlipStream/issues/25), pick pending on the [prototype PR](https://github.com/jatassi/SlipStream/pull/54)); Role Group names other than Acquire.
+- Undecided: the stack; Role Group names other than Acquire.
+- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25). Its reference spec is variant C on the `prototype/ui-direction` branch, and DESIGN.md records it once the build ships.
 
 ## Brand Commitments
 
@@ -55,7 +56,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 
 ## Evidence on Hand
 
-- No real library content, artwork, users, testimonials or usage numbers are in the repository. Everything in the UI prototype (titles, posters, people, Nodes, numbers) is invented.
+- No real library content, artwork, users, testimonials or usage numbers are in the repository. The UI prototype's library state, people, Nodes and numbers are invented. Its posters come from v1's local metadata cache, copied at run time and never committed.
 - Future work must not present fabricated Works, people or benchmarks as real. Third-party artwork comes from metadata sources at runtime.
 
 ## Product Principles
