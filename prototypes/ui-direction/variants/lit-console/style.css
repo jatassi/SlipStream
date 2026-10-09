@@ -591,3 +591,13 @@ body.device-phone.surface-admin { background: radial-gradient(120% 80% at 50% 0%
   .lc .wk-grid { grid-template-columns: minmax(0, 1fr) 300px; }
   .lc .rates { display: none; }
 }
+
+/* Portal: B's layout and controls, but C's Geist voice instead of B's condensed marquee face. */
+.lc-portal .mq-search-copy h1 { font: 700 60px/1.02 'Geist', sans-serif; letter-spacing: -0.035em; text-transform: none; }
+.lc-portal .mq-phone .mq-ph-h1 { font: 700 34px/1.05 'Geist', sans-serif; letter-spacing: -0.03em; text-transform: none; }
+.lc-portal .mq-shelf-h h2, .lc-portal .mq-plain h2, .lc-portal .mq-matrix-h h2 { font: 600 24px/1.1 'Geist', sans-serif; letter-spacing: -0.02em; text-transform: none; }
+.lc-portal .mq-files h2 { font: 600 20px/1.1 'Geist', sans-serif; letter-spacing: -0.02em; text-transform: none; }
+.lc-portal .mq-logo-type { font: 700 56px/1 'Geist', sans-serif; letter-spacing: -0.035em; text-transform: none; }
+.lc-portal .mq-fallback { font: 600 18px/1.15 'Geist', sans-serif; letter-spacing: -0.01em; text-transform: none; }
+.lc-portal .mq-ribbon { letter-spacing: 0; text-transform: none; font-weight: 600; font-size: 13px; }
+.lc-portal .mq-wordmark { font: 700 20px/1 'Geist', sans-serif; letter-spacing: -0.02em; }

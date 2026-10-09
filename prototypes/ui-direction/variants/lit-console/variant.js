@@ -725,6 +725,7 @@ function wireAmbient(home) {
 const AMBIENT = '<div class="amb" aria-hidden="true"><div class="amb-i"></div><div class="amb-i"></div><div class="amb-tint"></div></div>';
 
 function renderPortal(ctx) {
+  root.classList.add('lc-portal');
   root.style.visibility = 'hidden';
   const link = document.createElement('link');
   link.rel = 'stylesheet';
