@@ -29,7 +29,7 @@ A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, wit
 _Avoid_: Rendition, slot, version, quality version, variant
 
 **Profile**:
-The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override. Every Work has one, defaulting per Content Type.
+The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
 _Avoid_: Rendition profile, quality profile, slot
 
 **Conversion**:
@@ -103,6 +103,28 @@ _Avoid_: Preferred word, release profile, tag
 **TRaSH Guides**:
 The community guide whose Custom Formats, scores, quality sizes and naming SlipStream imports and keeps tracking.
 _Avoid_: TRaSH profile (for a Target), Recyclarr
+
+## Subtitles
+
+**Subtitle Provider**:
+An external service SlipStream searches and downloads subtitles from, such as SubDL.
+_Avoid_: Subtitle source, subtitle indexer
+
+**Wanted Language**:
+One entry in a Profile's subtitle list: a language, whether full or forced only, a hearing-impaired preference, and whether it is wanted always or only when no audio track is in that language.
+_Avoid_: Language profile, subtitle profile
+
+**Sidecar**:
+A subtitle file stored beside one library file. A Sidecar belongs to that file, not to its Edition.
+_Avoid_: External subtitle, subtitle file
+
+**Speech Map**:
+Where speech falls in one library file's audio, built when the file is imported and used for Timing sync.
+_Avoid_: VAD map, audio fingerprint
+
+**Timing sync**:
+Shifting and stretching a subtitle's cue times to match a library file's Speech Map. It never changes the cue text.
+_Avoid_: Alignment, resync
 
 ## Identity
 
