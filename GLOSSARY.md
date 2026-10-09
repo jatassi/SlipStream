@@ -87,8 +87,16 @@ A one-way copy of files from one Node to another for a job, such as a completed 
 _Avoid_: Sync, mirror, push; target for the destination
 
 **Media Server**:
-An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
-_Avoid_: Plex (as a generic term)
+An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby. The admin adds each one SlipStream keeps up to date, and one Node holding the Media Server link Role reaches it. The Media Server, never SlipStream, picks which file a player gets.
+_Avoid_: Plex (as a generic term), link, connection
+
+**Path mapping**:
+How one Media Server sees a library root, such as `/mnt/media` on the storage Node being `/data/media` to Plex.
+_Avoid_: Path substitution, remote path mapping
+
+**Playback report**:
+What SlipStream shows about recent plays on each Media Server: which players transcoded, why, and which Target would have played without transcoding.
+_Avoid_: Stats, analytics, player profile
 
 ## Acquisition
 
