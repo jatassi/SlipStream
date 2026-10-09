@@ -1,0 +1,133 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway. Portal onboarding: what a Member invited to the portal sees from the emailed Signup link to their first request.
+  Three structurally different flows behind ?variant=A|B|C, on the settled Lit console direction (prototype/ui-direction, variant C).
+  Controls: ?state=new|existing|signedin  ?link=live|unknown|withdrawn|expired|used|held|closed|unreached  ?https=0  ?view=flow|email|admin
+            ?device=phone|wide  ?email=original|reissued (email view)  ?mail=sent|failed|off (admin view)
+  ASSUMPTION: a Signup link may carry the Member settings the Admin chose when issuing it (request quota, auto-approve).
+  That is what an existing Account gains by signing in through it; when it would gain nothing, the card answers `held` and the link stays unused.
+  Everything is in memory. People, server name, addresses, tokens and numbers are invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Portal onboarding · prototype</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { margin: 0; background: #08090a; min-height: 100%; }
+  body.device-phone { display: grid; place-items: center; min-height: 100vh; padding: 28px 0 130px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% 0%, #17181b, #08090a); }
+  #frame { position: relative; }
+  body.device-wide #frame, body.view-email #frame { min-height: 100vh; }
+  body.device-wide #app { min-height: 100vh; }
+  body.device-phone:not(.view-email) #frame {
+    width: 390px; height: 844px; border-radius: 48px; overflow: hidden;
+    box-shadow: 0 0 0 10px #1c1d20, 0 0 0 11px #2c2d31, 0 40px 80px rgba(0,0,0,.6);
+    transform: translateZ(0); /* pins position:fixed chrome to the frame */
+  }
+  body.device-phone:not(.view-email) #app { height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  body.view-email { display: block; place-items: normal; padding: 0; }
+  @media (max-width: 500px) {
+    body.device-phone { display: block; padding: 0; background: none; }
+    body.device-phone:not(.view-email) #frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+  }
+
+  #proto-bar {
+    position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 14px; z-index: 2147483647;
+    display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 22px;
+    background: #fde047; color: #111; font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); user-select: none; white-space: nowrap; max-width: calc(100vw - 16px);
+  }
+  #proto-bar[hidden] { display: none; }
+  #proto-bar .row { display: flex; align-items: center; gap: 4px; justify-content: center; flex-wrap: wrap; }
+  #proto-bar button, #proto-bar select { all: unset; cursor: pointer; padding: 7px 10px; border-radius: 999px; }
+  #proto-bar select { background: rgba(0,0,0,.08); padding-right: 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23111' stroke-width='2.5' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
+  #proto-bar button:hover { background: rgba(0,0,0,.1); }
+  #proto-bar button[aria-pressed="true"] { background: #111; color: #fde047; }
+  #proto-bar :focus-visible { outline: 2px solid #111; outline-offset: 1px; }
+  #proto-bar .label { padding: 0 6px; min-width: 150px; text-align: center; }
+  #proto-bar .k { opacity: .55; padding: 0 2px 0 6px; font-weight: 500; }
+  #proto-bar .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 2px; }
+  @media (max-width: 500px) { #proto-bar { bottom: auto; top: 6px; font-size: 11px; } #proto-bar .label { min-width: 0; } }
+</style>
+</head>
+<body>
+<div id="frame"><div id="app"></div></div>
+<nav id="proto-bar" aria-label="Prototype switcher"></nav>
+<script type="module">
+const VARIANTS = { A: { file: './a.js', name: 'One card' }, B: { file: './b.js', name: 'Guided steps' }, C: { file: './c.js', name: 'Request first' } };
+const LINKS = ['live', 'unknown', 'withdrawn', 'expired', 'used', 'held', 'closed', 'unreached'];
+const pick = (v, list, d) => (list.includes(v) ? v : d);
+const params = new URLSearchParams(location.search);
+const cfg = {
+  variant: pick(params.get('variant'), Object.keys(VARIANTS), 'A'),
+  view: pick(params.get('view'), ['flow', 'email', 'admin'], 'flow'),
+  state: pick(params.get('state'), ['new', 'existing', 'signedin'], 'new'),
+  link: pick(params.get('link'), LINKS, 'live'),
+  https: params.get('https') !== '0',
+  device: pick(params.get('device'), ['phone', 'wide'], 'phone'),
+  email: pick(params.get('email'), ['original', 'reissued'], 'original'),
+  mail: pick(params.get('mail'), ['sent', 'failed', 'off'], 'sent'),
+};
+document.body.classList.add(`device-${cfg.device}`, `view-${cfg.view}`);
+
+function navigate(patch) {
+  const next = { ...cfg, ...patch, https: (patch.https ?? cfg.https) ? '1' : '0' };
+  location.search = new URLSearchParams(next).toString();
+}
+
+const bar = document.getElementById('proto-bar');
+const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
+const btn = (label, on, pressed) => { const b = el('button', { textContent: label, onclick: on }); if (pressed !== undefined) b.setAttribute('aria-pressed', pressed); return b; };
+const sep = () => el('span', { className: 'sep' });
+const k = (t) => el('span', { className: 'k', textContent: t });
+const keys = Object.keys(VARIANTS);
+const cycle = (d) => navigate({ variant: keys[(keys.indexOf(cfg.variant) + d + keys.length) % keys.length] });
+const row1 = el('div', { className: 'row' });
+row1.append(
+  btn('←', () => cycle(-1)),
+  el('span', { className: 'label', textContent: `${cfg.variant} · ${VARIANTS[cfg.variant].name}` }),
+  btn('→', () => cycle(1)), sep(),
+  btn('Flow', () => navigate({ view: 'flow' }), cfg.view === 'flow'),
+  btn('Email', () => navigate({ view: 'email' }), cfg.view === 'email'),
+  btn('Admin', () => navigate({ view: 'admin' }), cfg.view === 'admin'), sep(),
+  btn('Phone', () => navigate({ device: 'phone' }), cfg.device === 'phone'),
+  btn('Wide', () => navigate({ device: 'wide' }), cfg.device === 'wide'),
+);
+const row2 = el('div', { className: 'row' });
+if (cfg.view === 'flow') {
+  const sel = el('select', { ariaLabel: 'Link' });
+  LINKS.forEach((l) => sel.append(el('option', { value: l, textContent: l === 'live' ? 'Link: live' : `Dead: ${l}`, selected: l === cfg.link })));
+  sel.onchange = () => navigate({ link: sel.value });
+  row2.append(
+    k('State'),
+    btn('New', () => navigate({ state: 'new' }), cfg.state === 'new'),
+    btn('Existing', () => navigate({ state: 'existing' }), cfg.state === 'existing'),
+    btn('Signed in', () => navigate({ state: 'signedin' }), cfg.state === 'signedin'), sep(),
+    sel, sep(),
+    btn(cfg.https ? 'HTTPS' : 'Plain HTTP', () => navigate({ https: !cfg.https }), cfg.https),
+    btn('Restart', () => location.reload()),
+  );
+} else if (cfg.view === 'email') {
+  row2.append(k('Email'), btn('Original', () => navigate({ email: 'original' }), cfg.email === 'original'), btn('Re-issued', () => navigate({ email: 'reissued' }), cfg.email === 'reissued'));
+} else {
+  row2.append(k('Email outcome'), btn('Sent', () => navigate({ mail: 'sent' }), cfg.mail === 'sent'), btn('Failed', () => navigate({ mail: 'failed' }), cfg.mail === 'failed'), btn('Not set up', () => navigate({ mail: 'off' }), cfg.mail === 'off'));
+}
+bar.append(row1, row2);
+addEventListener('keydown', (e) => {
+  const t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) cycle(-1);
+  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) cycle(1);
+  if (e.key === '\\') bar.hidden = !bar.hidden;
+});
+
+const root = document.getElementById('app');
+const file = cfg.view === 'email' ? './email.js' : cfg.view === 'admin' ? './admin.js' : VARIANTS[cfg.variant].file;
+const mod = await import(file);
+mod.mount({ root, cfg, navigate });
+window.lucide && window.lucide.createIcons();
+</script>
+</body>
+</html>
