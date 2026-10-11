@@ -199,7 +199,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-127 | Grab a release with an optional client choice, plus bulk grab | `internal/indexer/grab/service.go`, `POST /search/grab`, `POST /search/grab/bulk` | working | kept | - | unplanned |
 | P-128 | Results deduplicated, filtered, quality enriched and scored | `internal/indexer/search/aggregator.go`, `router.go` | working | kept | - | unplanned |
 | P-129 | Title matching rejects wrong-title releases | `internal/indexer/search/title_match.go` | working | kept | - | unplanned |
-| P-130 | Release parser for resolution, source, codecs, HDR, audio, group, revision, edition, language and packs | `internal/library/scanner/parser.go`, `internal/module/parseutil/` | working | kept | - | unplanned |
+| P-130 | Release parser for resolution, source, codecs, HDR, audio, group, revision, edition, language and packs | `internal/library/scanner/parser.go`, `internal/module/parseutil/` | working | kept | [Where Editions are wanted: Work, level or Item](https://github.com/jatassi/SlipStream/issues/89) | unplanned |
 | P-131 | Torrents fetched through the indexer for private trackers with URL fallback | `internal/indexer/grab/service.go (sendViaIndexer)` | working | kept | - | unplanned |
 
 ## Auto search and RSS
