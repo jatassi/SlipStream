@@ -266,7 +266,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-179 | Series added and series deleted events | `internal/library/tv/service.go` | working | kept | - | unplanned |
 | P-180 | Health Issue and Health Restored events with opt-in for warnings | `internal/health/service.go` | working | kept | - | unplanned |
 | P-181 | New portal request announced to admin connections | `internal/portal/notifications/service.go (DispatchGenericMessage)` | working | kept | - | unplanned |
-| P-182 | On App Update event declared but never dispatched | `internal/notification/types/types.go`, `internal/update` | half-built | kept | - | unplanned |
+| P-182 | On App Update event declared but never dispatched | `internal/notification/types/types.go`, `internal/update` | half-built | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 | P-183 | Discord provider with rich embeds and posters | `internal/notification/discord` | working | kept | - | unplanned |
 | P-184 | Telegram provider with topic, silent and links | `internal/notification/telegram` | working | kept | - | unplanned |
 | P-185 | Webhook provider with method, basic auth and custom headers | `internal/notification/webhook` | working | kept | - | unplanned |
@@ -395,30 +395,30 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-266 | Update page with check, install, cancel, progress, release notes and failure retry | `internal/update/service.go`, `web/src/routes/system/update.tsx` | working | kept | - | unplanned |
-| P-267 | Update check daily and on start against GitHub Releases with per-platform assets | `internal/scheduler/tasks/update.go`, `internal/update/service.go` | working | kept | - | unplanned |
-| P-268 | Self-replace install that relaunches the app | `internal/update/`, `cmd/slipstream/main.go (--complete-update)` | working | kept | - | unplanned |
-| P-269 | Auto-install setting with no UI | `GET/PUT /update/settings` | half-built | kept | - | unplanned |
-| P-270 | Pre-update database backup that only logs | `internal/update/service.go (backupDatabase)` | half-built | kept | - | unplanned |
-| P-271 | Linux stub launcher so packaged installs update without sudo | `cmd/stub/main.go` | working | kept | - | unplanned |
+| P-266 | Update page with check, install, cancel, progress, release notes and failure retry | `internal/update/service.go`, `web/src/routes/system/update.tsx` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-267 | Update check daily and on start against GitHub Releases with per-platform assets | `internal/scheduler/tasks/update.go`, `internal/update/service.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-268 | Self-replace install that relaunches the app | `internal/update/`, `cmd/slipstream/main.go (--complete-update)` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-269 | Auto-install setting with no UI | `GET/PUT /update/settings` | half-built | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-270 | Pre-update database backup that only logs | `internal/update/service.go (backupDatabase)` | half-built | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-271 | Linux stub launcher so packaged installs update without sudo | `cmd/stub/main.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 
 ## Packaging
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-272 | Windows tray icon with Open and Quit | `internal/platform/app_windows.go` | working | kept | - | unplanned |
-| P-273 | Windows MSI installer with Start Menu, Desktop and Startup shortcuts | `scripts/windows/installer.wxs` | working | kept | - | unplanned |
-| P-274 | Windows portable ZIP | `.github/workflows/release.yml` | working | kept | - | unplanned |
-| P-275 | macOS menu bar item with start at login | `internal/platform/app_darwin.go`, `scripts/macos/com.slipstream.slipstream.plist` | working | kept | - | unplanned |
-| P-276 | macOS DMG for arm64 and amd64 | `scripts/macos/create-dmg.sh` | working | kept | - | unplanned |
-| P-277 | Linux deb and rpm packages | `scripts/linux/postinstall.sh`, `.github/workflows/release.yml` | working | kept | - | unplanned |
-| P-278 | Linux AppImage | `scripts/linux/create-appimage.sh` | working | kept | - | unplanned |
-| P-279 | Linux portable tarballs for amd64 and arm64 | `.github/workflows/release.yml` | working | kept | - | unplanned |
-| P-280 | Linux systemd user unit shipped as a doc, startup helpers never called | `scripts/linux/slipstream.service`, `internal/platform/app_linux.go` | half-built | kept | - | unplanned |
-| P-281 | Console mode flag on any OS | `cmd/slipstream/main.go (--no-tray)` | working | kept | - | unplanned |
-| P-282 | First run opens the browser | `internal/platform/util.go`, `cmd/slipstream/main.go` | working | kept | - | unplanned |
-| P-283 | OS-standard data and log paths | `internal/config/config.go` | working | kept | - | unplanned |
-| P-284 | Release CI uploads every package to GitHub Releases | `.github/workflows/release.yml` | working | kept | - | unplanned |
+| P-272 | Windows tray icon with Open and Quit | `internal/platform/app_windows.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-273 | Windows MSI installer with Start Menu, Desktop and Startup shortcuts | `scripts/windows/installer.wxs` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-274 | Windows portable ZIP | `.github/workflows/release.yml` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-275 | macOS menu bar item with start at login | `internal/platform/app_darwin.go`, `scripts/macos/com.slipstream.slipstream.plist` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-276 | macOS DMG for arm64 and amd64 | `scripts/macos/create-dmg.sh` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-277 | Linux deb and rpm packages | `scripts/linux/postinstall.sh`, `.github/workflows/release.yml` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-278 | Linux AppImage | `scripts/linux/create-appimage.sh` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-279 | Linux portable tarballs for amd64 and arm64 | `.github/workflows/release.yml` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-280 | Linux systemd user unit shipped as a doc, startup helpers never called | `scripts/linux/slipstream.service`, `internal/platform/app_linux.go` | half-built | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-281 | Console mode flag on any OS | `cmd/slipstream/main.go (--no-tray)` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-282 | First run opens the browser | `internal/platform/util.go`, `cmd/slipstream/main.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-283 | OS-standard data and log paths | `internal/config/config.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-284 | Release CI uploads every package to GitHub Releases | `.github/workflows/release.yml` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 
 ## Module system
 
@@ -511,7 +511,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-349 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-350 | Credential encryption at rest | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
 | P-351 | HTTPS setting for the web app | `docs/Remaining-features.md`, `server-section.tsx` | not started | superseded by the Relay Role TLS forwarding | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
-| P-352 | Static binary | `docs/Production-Readiness-Checklist.md` | not started | kept | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
+| P-352 | Static binary | `docs/Production-Readiness-Checklist.md` | not started | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 | P-353 | Code signing | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
 | P-354 | Torznab and Newznab endpoint served by SlipStream | - | not started | out of scope | - | unplanned |
 | P-355 | Prowlarr Applications sync into SlipStream | `docs/Prowlarr-other-arr-integration.md` | not started | out of scope | - | unplanned |
@@ -523,6 +523,6 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-356 | Release blocklist with remove and blocklist from the queue | - | not started | kept | [The Edition and Target model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-357 | Proper and repack handling that triggers upgrades | - | not started | kept | [The Edition and Target model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
 | P-358 | Custom formats engine | - | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
-| P-359 | Docker images | - | not started | kept | - | unplanned |
+| P-359 | Docker images | - | not started | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 | P-360 | Test-only music Content Type that proves the Content Type contract in the offline suite and never ships | - | not started | kept | [The Content Type contract](https://github.com/jatassi/SlipStream/issues/5) | unplanned |
 | P-361 | Generic Torznab indexer that reads any Torznab feed, such as one Prowlarr or Jackett indexer | - | not started | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
