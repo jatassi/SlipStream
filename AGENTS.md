@@ -1,1 +1,9 @@
-Start every non-trivial task with the `make-it-so` skill. Kitchen config: `docs/agents/AGENTS.md`.
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `jatassi/SlipStream`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
