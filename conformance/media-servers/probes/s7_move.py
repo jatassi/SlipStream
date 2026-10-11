@@ -66,9 +66,12 @@ def plex_setup():
     log("plex prefs", plex.call("PUT", "/:/prefs", FSEventLibraryUpdatesEnabled=0, FSEventLibraryPartialScanEnabled=0,
                                 ScheduledLibraryUpdatesEnabled=0, ButlerTaskRefreshLocalMedia=0, ButlerTaskRefreshPeriodicMetadata=0)[:2])
     q = "name=Moves%20A&type=movie&agent=tv.plex.agents.movie&scanner=Plex%20Movie&language=en-US&location=/media/plex-a&location=/media/plex-b"
-    log("create Moves A", plex.call("POST", "/library/sections?" + q)[0])
-    log("create Moves C", plex.call("POST", "/library/sections", name="Moves C", type="movie", agent="tv.plex.agents.movie",
-                                    scanner="Plex Movie", language="en-US", location="/media/plex-c")[0])
+    create = [("Moves A", lambda: plex.call("POST", "/library/sections?" + q)[0]),
+              ("Moves C", lambda: plex.call("POST", "/library/sections", name="Moves C", type="movie", agent="tv.plex.agents.movie",
+                                            scanner="Plex Movie", language="en-US", location="/media/plex-c")[0])]
+    for name, make in create:
+        code, _ = poll(lambda: make() in (200, 201), 300, 5)
+        log("create", name, code)
     for n, d in plex.sections().items():
         log("plex section", n, d["key"], [l["path"] for l in d["Location"]])
     a, _ = plex_sections()
@@ -122,12 +125,27 @@ def plex_settle(path=None, sid=None, full=False):
     plex.wait_idle()
 
 
+def plex_arrive(path, sid, scan, title):
+    plex_settle(path, sid, scan == "full")
+    here = lambda: any(path in f for i in plex_items(title) for f in i["files"])
+    ok, took = poll(here, 30, 2)
+    log("   destination file on an item:", bool(ok), "after", took, "s")
+    if not ok and scan == "partial":
+        log("   partial scan did not pick it up; full scan of section", sid)
+        plex_settle(None, sid, True)
+        ok, took = poll(here, 60, 2)
+        log("   destination file on an item after full scan:", bool(ok), took)
+
+
 def plex_seed(cid, title):
     [it] = plex_items(title)
     rk = it["ratingKey"]
     mid = plex.mc("/identity")["machineIdentifier"]
-    log("   scrobble", plex.call("GET", "/:/scrobble", identifier=LIB, key=rk)[0],
-        "progress", plex.call("GET", "/:/progress", identifier=LIB, key=rk, time=20000, state="stopped")[0],
+    tl = dict(ratingKey=rk, key=f"/library/metadata/{rk}", duration=60000)
+    log("   play to the end", plex.call("GET", "/:/timeline", state="playing", time=1000, **tl)[0],
+        plex.call("GET", "/:/timeline", state="stopped", time=59000, **tl)[0],
+        "partial rewatch", plex.call("GET", "/:/timeline", state="playing", time=15000, **tl)[0],
+        plex.call("GET", "/:/timeline", state="stopped", time=20000, **tl)[0],
         "rate", plex.call("PUT", "/:/rate", identifier=LIB, key=rk, rating=8)[0],
         "collection", plex.call("POST", "/library/collections", type=1, title=f"Case {cid}", smart=0, sectionId=it["section"],
                                 uri=f"server://{mid}/{LIB}/library/metadata/{rk}")[0])
@@ -149,19 +167,23 @@ def plex_case(cid, title, year, trash, scan, source, dest):
     if source == "gone":
         shutil.move(src, dst)
         log("   mv", src, "->", dst)
-        plex_settle(cd, dsid, scan == "full")
+        plex_arrive(cd, dsid, scan, title)
         mid = {"items": plex_items(title)}
         plex_settle(cs, a, scan == "full") if (scan == "partial" or dest == "other") else None
     else:
         shutil.copytree(src, dst)
         log("   cp", src, "->", dst)
-        plex_settle(cd, dsid, scan == "full")
+        plex_arrive(cd, dsid, scan, title)
         mid = {"items": plex_items(title)}
         shutil.rmtree(src)
         log("   rm", src)
         plex_settle(cs, a, scan == "full")
     log("   after destination scan", json.dumps(mid))
     after = {"items": plex_items(title), "history": plex_history(title), "collection": plex_collection(f"Case {cid}")}
+    rk = before["items"][0]["ratingKey"]
+    old = plex.meta(rk) or {}
+    after["oldRatingKey"] = {"ratingKey": rk, "exists": bool(old), "deletedAt": old.get("deletedAt"), "viewCount": old.get("viewCount"),
+                             "files": [p["file"] for md in old.get("Media", []) for p in md.get("Part", [])]}
     log("   after", json.dumps(after))
     save(cid, {"setup": dict(title=name, autoEmptyTrash=trash, scan=scan, source=source, dest=dest),
                "before": before, "afterDestinationScan": mid, "after": after})
@@ -171,18 +193,20 @@ def plex_purge(cid, title, year):
     name = f"{title} ({year})"
     a, _ = plex_sections()
     log(f"== {cid} {name}: purge, then re-add under the same GUID at a new path")
-    log("   pref", plex.call("PUT", "/:/prefs", autoEmptyTrash=0)[0])
+    log("   pref", plex.call("PUT", "/:/prefs", autoEmptyTrash=1)[0])
     before = plex_seed(cid, title)
     src = h(f"plex-a/{name}")
     keep = os.path.join(MEDIA, "..", "parked-" + name)
     shutil.move(src, keep)
-    plex_settle("/media/plex-a/" + name, a)
+    plex_settle(None, a, True)
     log("   emptyTrash", plex.call("PUT", f"/library/sections/{a}/emptyTrash")[0])
-    plex.wait_idle(); time.sleep(4)
+    plex.wait_idle()
+    _, took = poll(lambda: not plex_items(title), 60, 2)
+    log("   item gone after", took, "s")
     purged = {"items": plex_items(title), "history": plex_history(title), "collection": plex_collection(f"Case {cid}")}
     log("   purged", json.dumps(purged))
     shutil.move(keep, h(f"plex-b/{name}"))
-    plex_settle("/media/plex-b/" + name, a)
+    plex_arrive("/media/plex-b/" + name, a, "partial", title)
     poll(lambda: any((i["guid"] or "").startswith("plex://") for i in plex_items(title)), 60, 2)
     after = {"items": plex_items(title), "history": plex_history(title), "collection": plex_collection(f"Case {cid}")}
     log("   after", json.dumps(after))
@@ -211,11 +235,19 @@ def mb_setup(kind):
     c, cfg, _ = m.call("GET", "/System/Configuration")
     cfg["LibraryMonitorDelaySeconds" if kind == "emby" else "LibraryMonitorDelay"] = 5
     log(kind, "delay 5", m.call("POST", "/System/Configuration", cfg)[0])
-    log(kind, "create Moves", m.call("POST", "/Library/VirtualFolders", {"LibraryOptions": lib_options(kind, "/media/mb-a", "movies")},
-                                     name="Moves", collectionType="movies", refreshLibrary="false", paths="/media/mb-a")[:2])
-    log(kind, "add path", m.call("POST", "/Library/VirtualFolders/Paths", {"Name": "Moves", "PathInfo": {"Path": "/media/mb-b"}}, refreshLibrary="false")[:2])
+    lo = lib_options(kind, "/media/mb-a", "movies")
+    lo["PathInfos"] = [{"Path": "/media/mb-a"}, {"Path": "/media/mb-b"}]
+    log(kind, "create Moves", m.call("POST", "/Library/VirtualFolders?name=Moves&collectionType=movies&refreshLibrary=false&paths=/media/mb-a&paths=/media/mb-b",
+                                     {"LibraryOptions": lo})[:2])
     v = mb_lib(m)
+    if "/media/mb-b" not in v.get("Locations", []):
+        for body in ({"Name": "Moves", "PathInfo": {"Path": "/media/mb-b"}}, {"Name": "Moves", "Path": "/media/mb-b"}):
+            log(kind, "add path", json.dumps(body), m.call("POST", "/Library/VirtualFolders/Paths", body, refreshLibrary="false")[:2])
+            if "/media/mb-b" in mb_lib(m).get("Locations", []):
+                break
+        v = mb_lib(m)
     log(kind, "Moves", v.get("Locations"), "realtime", v.get("LibraryOptions", {}).get("EnableRealtimeMonitor"))
+    assert sorted(v.get("Locations", [])) == ["/media/mb-a", "/media/mb-b"], v.get("Locations")
     c, tasks, _ = m.call("GET", "/ScheduledTasks")
     for t in tasks:
         if t.get("Key") == "RefreshLibrary" or t.get("Name", "").lower() == "scan media library":
@@ -240,6 +272,11 @@ def mb_state(m, title, year, coll):
 
 
 def mb_userdata(m, iid):
+    for new, old in ((f"/UserPlayedItems/{iid}", f"/Users/{m.uid}/PlayedItems/{iid}"), (f"/UserFavoriteItems/{iid}", f"/Users/{m.uid}/FavoriteItems/{iid}")):
+        c = m.call("POST", new, userId=m.uid, datePlayed="2026-10-01T12:00:00Z")[0]
+        if c not in (200, 204):
+            c = m.call("POST", old, DatePlayed="20261001120000")[0]
+        log("   ", m.kind, "POST", new, "or", old, c)
     body = {"Played": True, "PlayCount": 2, "PlaybackPositionTicks": 200000000, "IsFavorite": True, "LastPlayedDate": "2026-10-01T12:00:00.0000000Z"}
     for path, q in ((f"/UserItems/{iid}/UserData", {"userId": m.uid}), (f"/Users/{m.uid}/Items/{iid}/UserData", {})):
         c = m.call("POST", path, body, **q)[0]
