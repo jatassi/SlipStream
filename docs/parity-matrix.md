@@ -1,6 +1,6 @@
 # SlipStream v2 parity matrix
 
-This matrix lists every user-observable SlipStream v1 feature and the v2 call on each. It is built from the v1 backend and UI inventories and the charting answers in [Chart SlipStream v2](https://github.com/jatassi/SlipStream/issues/2). The parity rule counts every feature a v1 user can see or use, working or half-built, plus every item v1's docs list as not started. A row leaves parity only as an exception, and an exception needs the chef's explicit yes recorded on its row. A spec PR sets the Covered by cell of each row it owns to that spec, and sets the Status cell when the feature ships.
+This matrix lists every user-observable SlipStream v1 feature and the v2 call on each. It is built from the v1 backend and UI inventories and the charting answers in [Chart SlipStream v2](https://github.com/jatassi/SlipStream/issues/2). The parity rule counts every feature a v1 user can see or use, working or half-built, plus every item v1's docs list as not started. A row leaves parity only as an exception, and an exception needs the maintainer's explicit yes recorded on its row. A spec PR sets the Covered by cell of each row it owns to that spec, and sets the Status cell when the feature ships.
 
 ## Legend
 
@@ -20,9 +20,9 @@ This matrix lists every user-observable SlipStream v1 feature and the v2 call on
 - `superseded by <v2 feature>` means a charting answer already names the v2 feature that replaces it.
 - `open` means a map ticket still decides it. The Covered by cell names that ticket, or links the map when the deciding item is still under Not yet specified.
 - `out of scope` means the charting rules already exclude it.
-- `excepted` means the chef explicitly agreed v2 drops it. The cell links the record of that yes.
+- `excepted` means the maintainer explicitly agreed v2 drops it. The cell links the record of that yes.
 
-An exception is written on its row only with the chef's explicit yes.
+An exception is written on its row only with the maintainer's explicit yes.
 
 **Covered by.** The map ticket that settles or owns the row, or later the spec that builds it. A `-` means the row waits for the spec list.
 
@@ -106,7 +106,7 @@ An exception is written on its row only with the chef's explicit yes.
 | P-059 | Artwork download and serving for poster, backdrop, logo and studio logo | `internal/metadata/artwork.go`, `/metadata/artwork/:type/:id/:artworkType` | working | kept | - | unplanned |
 | P-060 | Metadata response cache with clear on demand | `internal/metadata/cache.go`, `DELETE /metadata/cache` | working | kept | - | unplanned |
 | P-061 | Metadata provider status and connection tests | `GET /metadata/status` | working | kept | - | unplanned |
-| P-062 | TMDB search ordering toggle, API only | `POST /metadata/tmdb/search-ordering` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-062 | TMDB search ordering toggle, API only | `POST /metadata/tmdb/search-ordering` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
 | P-063 | Metadata API keys bundled at build with config override | `internal/config`, `Makefile` | working | kept | - | unplanned |
 
 ## Quality
@@ -144,7 +144,7 @@ An exception is written on its row only with the chef's explicit yes.
 | P-087 | Import settings for minimum file size and allowed video extensions | `internal/import/settings.go`, `extension-manager.tsx` | working | kept | - | unplanned |
 | P-088 | Validation level setting that the pipeline never reads | `internal/import/settings.go`, `naming-validation-tab.tsx` | half-built | superseded by one fixed check with the probe before import | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-089 | Match conflict behavior setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | superseded by grab-then-parse matching that holds a conflict for review | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
-| P-090 | Unknown media Auto Add setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/42#issuecomment-6104383476), replaced by Add Work and import in pending imports | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-090 | Unknown media Auto Add setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/42#issuecomment-6104383476), replaced by Add Work and import in pending imports | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-091 | Rename toggle per Content Type | `internal/import/module_naming.go`, `/settings/:moduleId/naming` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-092 | Movie folder and file name templates | `internal/modules/movie/path_naming.go`, `naming-movie-tab.tsx` | working | kept | - | unplanned |
 | P-093 | Series, season and specials folder templates and standard, daily and anime episode templates | `internal/modules/tv/path_naming.go`, `naming-tv-tab.tsx` | working | kept | - | unplanned |
@@ -232,17 +232,17 @@ An exception is written on its row only with the chef's explicit yes.
 | P-150 | Transmission client | `internal/downloader/transmission` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
 | P-151 | Deluge client | `internal/downloader/deluge` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
 | P-152 | rTorrent client | `internal/downloader/rtorrent` | working | kept | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
-| P-153 | Vuze client | `internal/downloader/vuze` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-154 | Flood client | `internal/downloader/flood` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-155 | Aria2 client | `internal/downloader/aria2` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-156 | uTorrent client | `internal/downloader/utorrent` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-157 | Hadouken client | `internal/downloader/hadouken` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-158 | Synology Download Station client | `internal/downloader/downloadstation` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-159 | Freebox Download client | `internal/downloader/freeboxdownload` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-160 | rqbit client | `internal/downloader/rqbit` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-161 | Tribler client | `internal/downloader/tribler` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-162 | SABnzbd client, not creatable and with no usenet grab path | `internal/downloader/sabnzbd`, `internal/indexer/grab/service.go (sendToClient)` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
-| P-163 | NZBGet client, type constant only | `internal/downloader/factory.go` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-153 | Vuze client | `internal/downloader/vuze` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-154 | Flood client | `internal/downloader/flood` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-155 | Aria2 client | `internal/downloader/aria2` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-156 | uTorrent client | `internal/downloader/utorrent` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-157 | Hadouken client | `internal/downloader/hadouken` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-158 | Synology Download Station client | `internal/downloader/downloadstation` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-159 | Freebox Download client | `internal/downloader/freeboxdownload` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-160 | rqbit client | `internal/downloader/rqbit` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-161 | Tribler client | `internal/downloader/tribler` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-162 | SABnzbd client, not creatable and with no usenet grab path | `internal/downloader/sabnzbd`, `internal/indexer/grab/service.go (sendToClient)` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
+| P-163 | NZBGet client, type constant only | `internal/downloader/factory.go` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | unplanned |
 | P-164 | Unified queue across clients with progress, speed, ETA, parsed quality and target slot | `internal/downloader/queue.go`, `web/src/routes/downloads/index.tsx` | working | kept | - | unplanned |
 | P-165 | Queue filter by Content Type | `web/src/routes/downloads/use-activity-page.ts` | working | kept | - | unplanned |
 | P-166 | Pause, resume, remove and remove with files | `POST /queue/:id/pause`, `DELETE /queue/:id`, `web/src/routes/downloads/use-queue-row.ts` | working | kept | - | unplanned |
@@ -277,12 +277,12 @@ An exception is written on its row only with the chef's explicit yes.
 | P-190 | Gotify provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | kept | - | unplanned |
 | P-191 | ntfy provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | kept | - | unplanned |
 | P-192 | Pushbullet provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | kept | - | unplanned |
-| P-193 | Join provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-193 | Join provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
 | P-194 | Apprise provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | kept | - | unplanned |
 | P-195 | Custom Script provider, selectable but unsupported | `internal/notification/schema.go`, `internal/notification/factory.go` | half-built | kept | - | unplanned |
-| P-196 | Prowl provider, type constant only | `internal/notification/types/types.go` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-197 | Simplepush provider, type constant only | `internal/notification/types/types.go` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-198 | Signal provider, type constant only | `internal/notification/types/types.go` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-196 | Prowl provider, type constant only | `internal/notification/types/types.go` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-197 | Simplepush provider, type constant only | `internal/notification/types/types.go` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-198 | Signal provider, type constant only | `internal/notification/types/types.go` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
 
 ## Multiple versions
 
@@ -388,7 +388,7 @@ An exception is written on its row only with the chef's explicit yes.
 | P-261 | Force Loading switch that shows every loading skeleton | `web/src/components/layout/dev-mode-controls.tsx` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
 | P-262 | Release parse and profile match debug tools | `internal/library/slots/debug.go`, `slot-debug-panel.tsx` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
 | P-263 | Update state debug switcher | `web/src/routes/system/use-update-page.ts (DEBUG_STATE_CONFIG)` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-264 | Controls showcase page | `web/src/routes/dev/` | working | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
+| P-264 | Controls showcase page | `web/src/routes/dev/` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
 | P-265 | Mock fixture tooling that pulls real TMDB, TVDB and indexer data | `cmd/fetchmockdata`, `cmd/convertmockdata` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
 
 ## Updates
