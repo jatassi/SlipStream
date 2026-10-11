@@ -312,7 +312,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-215 | Scheduled storage check with free space warning and error thresholds | `internal/scheduler/tasks/storagehealth.go` | working | kept as a 5-minute sample per Node with absolute or percentage thresholds per volume, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-216 | Health check intervals and thresholds, config file only | `internal/config/config.go` | working | kept with every interval and threshold settable in the UI, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-217 | Health warnings on settings hub rows and the dashboard | `web/src/routes/settings/use-health-warnings.ts`, `web/src/components/dashboard/health-group.tsx` | working | kept | - | unplanned |
-| P-218 | Port and firewall status check across Windows, macOS and Linux firewalls | `internal/firewall/`, `GET /system/firewall`, `firewall-status-panel.tsx` | working | kept | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
+| P-218 | Port and firewall status check across Windows, macOS and Linux firewalls | `internal/firewall/`, `GET /system/firewall`, `firewall-status-panel.tsx` | working | kept | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16); [IPv6 reachability verdicts](https://github.com/jatassi/SlipStream/issues/115) | unplanned |
 
 ## Calendar, history and activity
 
@@ -364,7 +364,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
 | P-244 | Server port setting with restart notice | `internal/api/handlers_system.go`, `server-section.tsx` | working | kept | - | unplanned |
-| P-245 | External access toggle between localhost and LAN with a warning | `server-section.tsx`, `GET/PUT /settings` | working | kept | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
+| P-245 | External access toggle between localhost and LAN with a warning | `server-section.tsx`, `GET/PUT /settings` | working | kept | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16); [IPv6 reachability verdicts](https://github.com/jatassi/SlipStream/issues/115) | unplanned |
 | P-246 | Port fallback across 10 ports with the actual port shown | `internal/config (FindAvailablePort)`, `server-section.tsx` | working | kept | - | unplanned |
 | P-247 | Log level setting and copy log path | `internal/logger/`, `server-section.tsx` | working | kept | - | unplanned |
 | P-248 | Log rotation settings for size, backups, age and compression | `internal/logger/`, `server-section.tsx` | working | kept | - | unplanned |

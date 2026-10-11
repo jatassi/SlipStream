@@ -126,8 +126,12 @@ _Avoid_: Hosting, web; never the Media Server's serving of the library
 The Role that accepts connections from the internet on a Node, usually a rented VPS, and forwards each one to the Node and port it maps to, for a home network that can't accept them itself. At most one Node relays, and that Node is the Relay Node.
 _Avoid_: Tunnel, proxy, gateway
 
+**Exposure**:
+One thing the admin makes reachable from the internet: the UI and portal, one Media Server, or one named port. The Reachability diagnostic gives each Exposure one verdict, and Remote access draws it as one route.
+_Avoid_: Service, endpoint, forward
+
 **Reachability diagnostic**:
-The check that tells the admin whether the UI, portal, each Media Server and each named port can be reached from the internet, and what to do if not: open or map a port, or turn on Relaying.
+The check that tells the admin whether each Exposure can be reached from the internet, over IPv4 and over any IPv6 address DNS or the Media Server offers, and what to do if not: open or map a port, stop offering an address that doesn't work, or turn on Relaying.
 _Avoid_: Port check, firewall check, connectivity test
 
 **Transfer**:
