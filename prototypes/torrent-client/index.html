@@ -1,0 +1,103 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. The built-in torrent client's screens on Direction C. ?layout= (node|state|tracker) for the Torrents screen, ?screen= (torrents|torrent|clients|goals), ?device= (wide|phone), ?t= torrent id for the detail. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>SlipStream v2 · torrent client prototype</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="../ui-direction/variants/lit-console/style.css">
+<link rel="stylesheet" href="torrents.css">
+<link rel="stylesheet" href="settings.css">
+<style>
+  html, body { margin: 0; background: #08090a; min-height: 100%; }
+  body.device-phone { display: grid; place-items: center; min-height: 100vh; padding: 32px 0 96px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% 0%, #17181b, #08090a); }
+  #frame { position: relative; }
+  body.device-wide #frame { min-height: 100vh; }
+  body.device-phone #frame {
+    width: 390px; height: 844px; border-radius: 48px; overflow: hidden;
+    box-shadow: 0 0 0 10px #1c1d20, 0 0 0 11px #2c2d31, 0 40px 80px rgba(0,0,0,.6);
+    transform: translateZ(0);
+  }
+  body.device-phone #app { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  @media (max-width: 500px) {
+    body.device-phone { display: block; padding: 0; background: none; }
+    body.device-phone #frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+  }
+  #proto-bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483647;
+    display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
+    background: #fde047; color: #111; font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); user-select: none; white-space: nowrap;
+  }
+  #proto-bar[hidden] { display: none; }
+  #proto-bar button { all: unset; cursor: pointer; padding: 7px 10px; border-radius: 999px; }
+  #proto-bar button:hover { background: rgba(0,0,0,.1); }
+  #proto-bar button[aria-pressed="true"] { background: #111; color: #fde047; }
+  #proto-bar button:focus-visible { outline: 2px solid #111; outline-offset: 1px; }
+  #proto-bar .label { padding: 0 6px; min-width: 120px; text-align: center; }
+  #proto-bar .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 2px; }
+  @media (max-width: 500px) { #proto-bar { bottom: auto; top: 8px; font-size: 11px; } #proto-bar .label { min-width: 0; } }
+</style>
+</head>
+<body>
+<div id="frame"><div id="app"></div></div>
+<nav id="proto-bar" aria-label="Prototype switcher"></nav>
+<script type="module">
+import * as data from './data.js';
+import { startLive, onTick, format } from '../ui-direction/live.js';
+
+const LAYOUTS = { A: { id: 'node', name: 'By Node' }, B: { id: 'state', name: 'By state' }, C: { id: 'tracker', name: 'By tracker' } };
+const SCREENS = { torrents: 'Torrents', torrent: 'Torrent', clients: 'Clients', goals: 'Goals' };
+const keys = Object.keys(LAYOUTS);
+const params = new URLSearchParams(location.search);
+const state = {
+  layout: LAYOUTS[params.get('layout')] ? params.get('layout') : 'A',
+  screen: SCREENS[params.get('screen')] ? params.get('screen') : 'torrents',
+  device: params.get('device') === 'phone' ? 'phone' : 'wide',
+  t: params.get('t') || 't-hotd-s2',
+};
+document.body.classList.add(`device-${state.device}`, 'surface-admin');
+
+function navigate(patch) {
+  const next = { ...state, ...patch };
+  if (next.screen === 'home' || next.screen === 'work') {
+    location.href = `../ui-direction/index.html?variant=C&surface=admin&device=${next.device}&screen=${next.screen}`;
+    return;
+  }
+  location.search = new URLSearchParams(next).toString();
+}
+
+const bar = document.getElementById('proto-bar');
+const btn = (label, on, pressed) => { const b = document.createElement('button'); b.textContent = label; b.onclick = on; if (pressed !== undefined) b.setAttribute('aria-pressed', pressed); return b; };
+const sep = () => Object.assign(document.createElement('span'), { className: 'sep' });
+const cycle = (d) => navigate({ layout: keys[(keys.indexOf(state.layout) + d + keys.length) % keys.length], screen: 'torrents' });
+bar.append(
+  btn('←', () => cycle(-1)),
+  Object.assign(document.createElement('span'), { className: 'label', textContent: `${state.layout} · ${LAYOUTS[state.layout].name}` }),
+  btn('→', () => cycle(1)), sep(),
+  ...Object.entries(SCREENS).map(([id, l]) => btn(l, () => navigate({ screen: id }), state.screen === id)), sep(),
+  btn('Wide', () => navigate({ device: 'wide' }), state.device === 'wide'),
+  btn('Phone', () => navigate({ device: 'phone' }), state.device === 'phone'),
+);
+addEventListener('keydown', (e) => {
+  const t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) cycle(-1);
+  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) cycle(1);
+  if (e.key === '\\') bar.hidden = !bar.hidden;
+});
+
+const root = document.getElementById('app');
+const mod = await import(state.screen === 'clients' || state.screen === 'goals' ? './settings.js' : './torrents.js');
+mod.render({
+  root, data, format, onTick,
+  device: state.device, screen: state.screen, layout: LAYOUTS[state.layout].id, torrent: state.t,
+  go: (screen, extra = {}) => navigate({ screen, ...extra }),
+  icons: () => window.lucide && window.lucide.createIcons(),
+});
+window.lucide && window.lucide.createIcons();
+startLive(root);
+</script>
+</body>
+</html>
