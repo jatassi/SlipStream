@@ -171,3 +171,17 @@ _Avoid_: Invite, invitation, Join Code
 **Reset link**:
 A single-use link an Admin issues so a person who lost their credentials can set a new PIN and passkey.
 _Avoid_: Recovery email, password reset
+
+## Development
+
+**Offline mode**:
+Running SlipStream against the Fake world instead of the real services it talks to, for developers, agents and CI.
+_Avoid_: Dev mode, developer mode, mock mode
+
+**Fake world**:
+The set of fakes standing in for every external boundary SlipStream crosses, such as metadata providers, trackers and Media Servers, together with the Nodes started against them.
+_Avoid_: Mocks, sandbox, simulation
+
+**Scenario**:
+One declared state and script for the Fake world: the Works, releases, swarms, servers and providers it holds, and the faults it plays on cue.
+_Avoid_: Fixture, seed data, test case
