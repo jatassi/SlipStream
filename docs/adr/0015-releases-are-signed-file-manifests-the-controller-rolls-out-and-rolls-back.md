@@ -20,4 +20,5 @@ An update runs as stored, resumable phases: stage the files, check free disk, dr
 - CI parses each new manifest with the oldest supported parser, and an end-to-end suite updates the first release and the previous one to the current build on loopback. `buf breaking` alone checks only the proto schema.
 - Breaking the frozen path by mistake strands every older Worker, which must then be reinstalled and re-paired.
 - Rollback depends on the migration-time Backup, so a Backup failure blocks the update instead of risking the database.
+- The update run keeps its phase state in a file in the data dir, written atomically, not in the library database. A rollback restores a Backup over that database, so a checkpoint kept there would vanish at that step ([ADR 0021](0021-slipstream-builds-its-durable-core-and-clients-and-adopts-libraries-for-standards.md)).
 - The fake release source is a loopback server behind the `Endpoints` entry, signed with the harness's extra key, serving real builds of the current commit with a bumped version.
