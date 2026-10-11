@@ -216,6 +216,32 @@ _Avoid_: Invite, invitation, Join Code
 A single-use link an Admin issues so a person who lost their credentials can set a new PIN and passkey.
 _Avoid_: Recovery email, password reset
 
+## Requests
+
+**Request**:
+A Member's ask for a Work, or some of its levels or Items, to be added and monitored, which an Admin approves or auto-approval admits. A Request is Available once every requested Item is Playable.
+_Avoid_: Order, ticket, portal request
+
+**Watcher**:
+A Member following another Member's Request, who gets its notices without spending a Request and inherits it if the requester cancels.
+_Avoid_: Subscriber, follower
+
+**Request limit**:
+How many of a Member's Requests per week, per Content Type, are approved automatically. A Request over the limit waits for an Admin.
+_Avoid_: Quota, allowance
+
+**Playable**:
+An Item with any library file a Media Server can play, including a file kept after its Edition stopped being wanted.
+_Avoid_: Downloaded, complete, available (for an Item)
+
+**Delayed**:
+A flag on a Request whose released Items have stayed unplayable too long or whose requested cell failed. Search keeps running underneath it.
+_Avoid_: Failed, stuck
+
+**Subtitle report**:
+A Member's report that one language's subtitles on an Item are wrong, which SlipStream acts on with Mark bad.
+_Avoid_: Complaint, issue, flag
+
 ## Development
 
 **Offline mode**:
