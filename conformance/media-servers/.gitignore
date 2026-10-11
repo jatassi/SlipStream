@@ -1,0 +1,7 @@
+seed/
+media/
+config/
+transcode/
+evidence/
+creds.txt
+__pycache__/

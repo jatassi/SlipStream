@@ -1,0 +1,16 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    ports: ["8096:8096"]
+    volumes: ["./config/jellyfin:/config", "./media:/media:ro"]
+  emby:
+    image: emby/embyserver:latest
+    ports: ["8097:8096"]
+    volumes: ["./config/emby:/config", "./media:/media:ro"]
+  plex:
+    image: plexinc/pms-docker:latest
+    ports: ["32400:32400"]
+    environment:
+      - PLEX_CLAIM=${PLEX_CLAIM:-}
+      - ALLOWED_NETWORKS=0.0.0.0/0
+    volumes: ["./config/plex:/config", "./transcode:/transcode", "./media:/media:ro"]
