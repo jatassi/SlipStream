@@ -62,7 +62,7 @@ const RELAY_SCENARIOS = { plex: 'Plex URL', cgnat: 'CGNAT, no relay', tls: 'DNS 
 const RELAY_LAYOUTS = { path: 'Path', verdict: 'Verdict', matrix: 'Matrix' };
 if (state.screen === 'relay') {
   state.scenario = RELAY_SCENARIOS[params.get('scenario')] ? params.get('scenario') : 'plex';
-  state.layout = RELAY_LAYOUTS[params.get('layout')] ? params.get('layout') : 'verdict';
+  state.layout = RELAY_LAYOUTS[params.get('layout')] ? params.get('layout') : 'path';
 }
 const v = VARIANTS[state.variant];
 document.body.classList.add(`device-${state.device}`, `surface-${state.surface}`);

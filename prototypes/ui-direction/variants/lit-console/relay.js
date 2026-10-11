@@ -6,7 +6,7 @@ let h, D, R, I, esc;
 const params = new URLSearchParams(location.search);
 export const scenarioId = scenarios[params.get('scenario')] ? params.get('scenario') : 'plex';
 export const LAYOUTS = { path: 'Path', verdict: 'Verdict', matrix: 'Matrix' };
-export const layoutId = LAYOUTS[params.get('layout')] ? params.get('layout') : 'verdict';
+export const layoutId = LAYOUTS[params.get('layout')] ? params.get('layout') : 'path';
 
 const HOP = Object.fromEntries(HOPS.map((x) => [x.id, x]));
 const GLYPH = { pass: 'check', warn: 'triangle-alert', fail: 'x', skip: 'circle-dashed', off: 'minus' };
