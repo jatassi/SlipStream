@@ -98,6 +98,10 @@ _Avoid_: Port check, firewall check, connectivity test
 A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
 _Avoid_: Sync, mirror, push; target for the destination
 
+**Move**:
+An admin-started job that relocates one Work's files to another library root, or one torrent to another Download Client, then deletes the source. Files that cross Nodes go as Transfers, and the whole Work or torrent switches over at once before the source is deleted.
+_Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover
+
 **Media Server**:
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby. The admin adds each one SlipStream keeps up to date, and one Node holding the Media Server link Role reaches it. The Media Server, never SlipStream, picks which file a player gets.
 _Avoid_: Plex (as a generic term), link, connection
