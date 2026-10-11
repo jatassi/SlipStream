@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SlipStream">
+  <path d="M40 14H25a9 9 0 0 0 0 18h14a9 9 0 0 1 0 18H24" fill="none" stroke="#1d1d1f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="52" cy="14" r="5.5" fill="#1464cc"/>
+  <circle cx="12" cy="50" r="5.5" fill="#1464cc"/>
+</svg>
