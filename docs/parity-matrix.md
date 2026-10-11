@@ -399,7 +399,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-267 | Update check daily and on start against GitHub Releases with per-platform assets | `internal/scheduler/tasks/update.go`, `internal/update/service.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 | P-268 | Self-replace install that relaunches the app | `internal/update/`, `cmd/slipstream/main.go (--complete-update)` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 | P-269 | Auto-install setting with no UI | `GET/PUT /update/settings` | half-built | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
-| P-270 | Pre-update database backup that only logs | `internal/update/service.go (backupDatabase)` | half-built | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
+| P-270 | Pre-update database backup that only logs | `internal/update/service.go (backupDatabase)` | half-built | kept, as a Backup before every migration | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93), [Config backup and restore](https://github.com/jatassi/SlipStream/issues/91) | unplanned |
 | P-271 | Linux stub launcher so packaged installs update without sudo | `cmd/stub/main.go` | working | kept | [Packaging, the updater and the update dashboard](https://github.com/jatassi/SlipStream/issues/93) | unplanned |
 
 ## Packaging
@@ -505,7 +505,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-346 | Config backup and restore | `docs/Remaining-features.md` | not started | kept | - | unplanned |
+| P-346 | Config backup and restore | `docs/Remaining-features.md` | not started | kept, as Backups of the whole Controller database | [Config backup and restore](https://github.com/jatassi/SlipStream/issues/91) | unplanned |
 | P-347 | Dashboard rework | `docs/Remaining-features.md` | not started | superseded by the UI redesign | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
 | P-348 | Transcode during import tied to slots | `docs/Remaining-features.md` | not started | superseded by Conversion | [A/V pipeline design](https://github.com/jatassi/SlipStream/issues/18) | unplanned |
 | P-349 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
