@@ -6,7 +6,13 @@
     A Roster   Node-first. Node cards, Node detail as a pushed page, Roles edited in a sheet of Role Group switches with a review step.
     B Matrix   Grid-first. Nodes by Roles, cells ticked in place, guardrails in the cells, pending changes in a bottom bar.
     C By Role  Role-first. Role Groups and Roles, each listing its holder Nodes; adding a holder shows that Node's probe verdict.
-  Params:   ?variant=A|B|C  ?device=wide|phone  ?state=normal|single|offline|skew|drain
+    D Topology Desktop canvas. An architecture diagram of Nodes in their networks, Node links, relays and the services each Role
+               reaches. Drag a Role chip between Nodes to move it (hold Option to add); guardrails show on every box while dragging.
+    E Flow     Desktop canvas. The pipeline from Search to Notify, a station wherever a Node holds that stage's Role, live jobs
+               moving between stations. Node lanes or Stage lanes.
+    F Topology + traffic  D's diagram with every running job drawn on the links its bytes cross.
+    D, E and F fall back to A on phones and windows narrower than 1000px.
+  Params:   ?variant=A|B|C|D|E|F  ?device=wide|phone  ?state=normal|single|offline|skew|drain
             ?view=nodes|pair|handover|worker-join|worker-status  ?node=<id> opens Node detail.  \ hides the bar. ← → cycle variants.
   Sim buttons on the bar drive Pairing: a Worker joins, the code expires, the code is used. On ?view=worker-join they drive the new Node's page.
   Serve prototypes/ (./run.sh does) so ../ui-direction/ resolves. Styles: the Lit console stylesheet, linked, plus nodes.css.
@@ -27,6 +33,7 @@
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <link rel="stylesheet" href="../ui-direction/variants/lit-console/style.css">
 <link rel="stylesheet" href="nodes.css">
+<link rel="stylesheet" href="canvas.css">
 <style>
   html, body { margin: 0; background: #08090a; min-height: 100%; }
   body.device-phone { display: grid; place-items: center; min-height: 100vh; padding: 28px 0 130px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% 0%, #17181b, #08090a); }

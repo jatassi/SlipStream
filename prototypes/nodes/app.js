@@ -9,8 +9,11 @@ import { pairing, startPairing, pairActions, pairSim, tickCountdown, handover, s
 import * as A from './a.js';
 import * as B from './b.js';
 import * as C from './c.js';
+import * as D from './d.js';
+import * as E from './flow.js';
+import * as F from './f.js';
 
-export const VARIANTS = { A, B, C };
+export const VARIANTS = { A, B, C, D, E, F };
 
 let app;
 
@@ -101,6 +104,7 @@ function refresh() {
   setAmbient(root, out.ambient || null);
   keep.forEach(([s, t]) => { const el = root.querySelector(s); if (el) el.scrollTop = t; });
   if (fid) { const el = root.querySelector(`[data-fid="${CSS.escape(fid)}"]`); if (el) el.focus({ preventScroll: true }); }
+  out.mounted?.();
 }
 
 function go(patch) {
@@ -110,7 +114,7 @@ function go(patch) {
   window.dispatchEvent(new CustomEvent('proto-url', { detail: { view: app.cfg.view } }));
   app.modal = null;
   closePop();
-  const inPlace = app.cfg.variant === 'C' || (app.cfg.variant === 'B' && !app.phone);
+  const inPlace = app.cfg.variant === 'C' || (app.cfg.variant !== 'A' && !app.phone);
   if (pageChange && !inPlace) scrollEl().scrollTop = 0;
   refresh();
 }

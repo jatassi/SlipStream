@@ -41,6 +41,7 @@ const TRIALS = {
   forge: { engine: 'NVENC · RTX 4070', runs: [['HEVC', '10-bit', 'HDR10 to SDR', true, '212 fps'], ['HEVC', '10-bit', 'Dolby Vision P8 to SDR', true, '148 fps'], ['AV1', '10-bit', 'HDR10', true, '190 fps'], ['H.264', '8-bit', 'SDR', true, '340 fps']] },
   'seedbox-ams': { engine: 'Software · 2 vCPU', runs: [['H.264', '8-bit', 'SDR', false, 'no GPU, 2 vCPU, 4 fps']] },
   'relay-fra': { engine: 'Software · 1 vCPU', runs: [['H.264', '8-bit', 'SDR', false, 'no GPU, 1 vCPU, 2 fps']] },
+  cabin: { engine: 'Quick Sync · Core i5-1340P', runs: [['HEVC', '10-bit', 'HDR10 to SDR', true, '58 fps'], ['H.264', '8-bit', 'SDR', true, '190 fps'], ['HEVC', '10-bit', 'Dolby Vision P5 to SDR', false, 'no libplacebo on this build']] },
   cellar: { engine: 'Software · Ryzen R1600', runs: [['H.264', '8-bit', 'SDR', true, '31 fps'], ['HEVC', '10-bit', 'HDR10 to SDR', false, 'no OpenCL device for tone mapping']] },
 };
 export const trialsFor = (id) => TRIALS[id] || null;
@@ -51,6 +52,7 @@ const PROBES = {
   forge: { Relaying: ['blocked', 'No inbound port. forge is behind CGNAT.'], Downloading: ['weak', 'Home upload is 40 Mbit/s'] },
   'seedbox-ams': { Converting: ['blocked', 'Trial run failed: no GPU, 2 vCPU'], Storage: ['weak', '1.1 TB free, 940 GB of it seeding'] },
   'relay-fra': { Converting: ['blocked', 'Trial run failed: 1 vCPU, no GPU'], Downloading: ['weak', '18 GB free'], Storage: ['blocked', '18 GB free'] },
+  cabin: { Relaying: ['blocked', 'No inbound port. cabin is behind Starlink CGNAT.'], Downloading: ['weak', 'Starlink upload is 12 Mbit/s'], Storage: ['weak', '1.8 TB free'], Converting: ['weak', 'Dolby Vision P5 failed. HDR10 and SDR passed.'] },
   cellar: { Relaying: ['blocked', 'No inbound port. cellar is behind CGNAT.'], Converting: ['weak', 'Proved H.264 SDR only. HDR tone mapping failed.'] },
 };
 const OK_NOTE = {
@@ -67,10 +69,11 @@ export function probe(nodeId, role) {
 const REACH = {
   'seedbox-ams': { 'Media Server link': [false, 'No route to 192.168.1.20. Plex is on the home LAN.'] },
   'relay-fra': { 'Media Server link': [false, 'No route to 192.168.1.20. Plex is on the home LAN.'] },
+  cabin: { 'Media Server link': [false, 'No route to 192.168.1.20. Plex is on the home LAN.'] },
 };
 export function reachTest(nodeId, role) {
   const r = (REACH[nodeId] || {})[role];
-  const ms = { atlas: 2, forge: 3, cellar: 4, 'seedbox-ams': 31, 'relay-fra': 22 }[nodeId] || 9;
+  const ms = { atlas: 2, forge: 3, cellar: 4, 'seedbox-ams': 31, 'relay-fra': 22, cabin: 58 }[nodeId] || 9;
   return r ? { ok: false, note: r[1] } : { ok: true, note: `${ROLES[role].reach} answered in ${role === 'Notifying' ? ms + 18 : ms} ms` };
 }
 
@@ -102,6 +105,12 @@ function normalNodes() {
       version: CONTROLLER_VERSION, state: 'degraded', cpu: 3, disk: '18 GB free', addr: '91.198.22.140:7878',
       roles: roles('Relaying', 'Serving'), warn: 'Plex remote access unconfirmed', warnBody: 'Plex has not confirmed an inbound connection since 19:20. Remote players may fall back to Plex Relay.',
       link: { dial: 'controller', heartbeat: 3, latency: 22, fingerprint: 'SHA256 E6A1 0C8D 39F2 B4E7 1D05 7AC3 F928 64B0' },
+    },
+    {
+      id: 'cabin', name: 'cabin', kind: 'Worker', where: 'Cabin · Starlink', hw: 'NUC 13 · Core i5', os: 'Ubuntu 24.04', arch: 'x86_64', install: 'native',
+      version: CONTROLLER_VERSION, state: 'online', cpu: 46, disk: '1.8 TB free', addr: '100.64.18.7:7878',
+      roles: roles('Converting'),
+      link: { dial: 'relay', relay: 'relay-fra', heartbeat: 6, latency: 58, fingerprint: 'SHA256 2D8F 6B03 C9E1 47A5 F02C 8E6D 1B94 A7C0' },
     },
   ];
 }
@@ -168,6 +177,9 @@ const keys = {
   'j-eeaao-search': { edition: 'Standard' },
 };
 for (const [id, k] of Object.entries(keys)) J[id].itemKey = k;
+if (!J['j-bcs-conv']) {
+  jobs.push({ id: 'j-bcs-conv', work: 'bcs', itemKey: { season: 6, episode: 13, name: 'Saul Gone' }, target: '1080p SDR', stage: 'Conversion', node: 'cabin', status: 'running', progress: 0.44, rate: 57, unit: 'fps', etaMin: 9, size: '≈ 3.4 GB', release: 'from 2160p HDR · Quick Sync HEVC · tone map HDR10 to SDR' });
+}
 if (!J['j-tgm-conv']) {
   jobs.push({ id: 'j-tgm-conv', work: 'top-gun-maverick', itemKey: { edition: 'IMAX' }, target: '1080p SDR', stage: 'Conversion', node: 'forge', status: 'running', progress: 0.18, rate: 131, unit: 'fps', etaMin: 14, size: '≈ 8.1 GB', release: 'from 2160p HDR · NVENC HEVC · tone map HDR10 to SDR' });
 }
