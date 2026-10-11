@@ -86,6 +86,14 @@ _Avoid_: Preset, profile, tier
 The Role that serves the UI and portal on a Node, passing every request to the Controller. The Controller always serves too.
 _Avoid_: Hosting, web; never the Media Server's serving of the library
 
+**Relaying**:
+The Role that accepts connections from the internet on a Node, usually a rented VPS, and forwards each one to the Node and port it maps to, for a home network that can't accept them itself.
+_Avoid_: Tunnel, proxy, gateway
+
+**Reachability diagnostic**:
+The check that tells the admin whether the UI, portal, each Media Server and each named port can be reached from the internet, and what to do if not: open or map a port, or turn on Relaying.
+_Avoid_: Port check, firewall check, connectivity test
+
 **Transfer**:
 A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
 _Avoid_: Sync, mirror, push; target for the destination
