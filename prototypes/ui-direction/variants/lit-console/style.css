@@ -250,7 +250,8 @@ body.device-phone.surface-admin { background: radial-gradient(120% 80% at 50% 0%
 .lc .sentence .s-live .dot { width: 8px; height: 8px; }
 .lc .s-fail { color: #ff857c; }
 .lc .s-warn { color: var(--warn); }
-.lc .pulse-r { margin-left: auto; font-size: 12.5px; }
+.lc .pulse-r { margin-left: auto; font-size: 12.5px; color: var(--t2); }
+.lc .pulse-r .s-sep { color: var(--t2); }
 .lc .pulse-r b { color: var(--t1); font-weight: 500; }
 
 /* ── failure: solid red card, amber strip; neither takes the Work's tint */

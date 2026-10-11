@@ -142,13 +142,17 @@ function failureBlock() {
   </div>`;
 }
 
+// Home option "most important": the job closest to Available leads, a Member's request breaking ties, so the top row and the colour agree.
+const STAGE_RANK = (j) => D.stages.indexOf(j.stage) + (j.requestedBy ? 0.5 : 0);
+const pipelineOrder = () => (C.home && C.home.startsWith('important') ? [...running()].sort((a, b) => STAGE_RANK(b) - STAGE_RANK(a)) : running());
+
 function nodeSeg() {
   const opts = [['', 'All', running().length], ...['seedbox-ams', 'atlas', 'forge'].map((n) => [n, n, running().filter((j) => j.node.includes(n)).length])];
   return `<div class="seg-c" role="radiogroup" aria-label="Show jobs on">${opts.map(([v, l, n], i) => `<button role="radio" class="seg-o" data-seg="${v}" aria-checked="${i === 0}"><span>${esc(l)}</span><span class="seg-n num">${n}</span></button>`).join('')}</div>`;
 }
 
 function pipeline() {
-  const rows = running().map((j) => {
+  const rows = pipelineOrder().map((j) => {
     const w = W(j.work);
     return `<div class="jrow" role="row" data-row-go data-work="${w.id}" data-nodes="${esc(j.node)}" title="${esc(j.release || '')}">
       <div class="c-work" role="cell">${art(w)}<button class="lnk" data-go="work"><b>${esc(w.title)}</b></button><span class="t3 ell">${esc(j.item)}</span></div>
@@ -385,7 +389,7 @@ function adminHomePhone() {
   <header class="ph-head"><h1>Home</h1><span class="grow"></span><button class="ib tap" data-open="palette" aria-label="Search">${I('search')}</button><span class="avatar">${D.admin.initials}</span></header>
   <p class="ph-sentence">${sentence()}</p>
   ${phoneFail()}
-  ${phoneSection('Live pipeline', `${nodeSeg()}<ul class="pjs">${running().map(phoneJob).join('')}</ul>`, `<span class="t3 num">${running().length} running</span>`)}
+  ${phoneSection('Live pipeline', `${nodeSeg()}<ul class="pjs">${pipelineOrder().map(phoneJob).join('')}</ul>`, `<span class="t3 num">${running().length} running</span>`)}
   ${phoneSection('Nodes', `<ul class="glist">${D.nodes.map((n) => { const busy = D.jobs.some((j) => j.status === 'running' && j.node.includes(n.name)); const k = n.status === 'degraded' ? 'warn' : busy ? 'draft' : 'idle'; return `<li class="gl">${dot(k)}<span class="ltxt"><b>${esc(n.name)}</b><span class="t3 ell">${n.roles.join(', ')}</span></span><span class="${n.status === 'degraded' ? 'warn-t' : 't3'} gl-r num">${n.status === 'degraded' ? 'Degraded' : `CPU ${n.cpu}%`}</span></li>`; }).join('')}</ul>`, `<span class="t3">${degraded().length} degraded</span>`)}
   ${phoneSection('Requests', `<ul class="glist">${D.requests.filter((r) => r.state === 'pending').map((r) => { const w = W(r.work), m = member(r.by); return `<li class="gl" data-req-row="${r.id}"><span class="avatar sm">${m.initials}</span><span class="ltxt"><b class="ell">${esc(w.title)}${r.note ? ` <span class="t2">${esc(r.note)}</span>` : ''}</b><span class="t3">${esc(m.name)} · ${ago(r.at)}</span></span><button class="btn sm tapx" data-approve="${r.id}">Approve</button></li>`; }).join('')}</ul>`, `<span class="t3">2 waiting</span>`)}
   ${phoneSection('Up next', `<ul class="glist">${D.upNext.map((u) => { const w = W(u.work); return `<li class="gl" data-row-go>${art(w)}<span class="ltxt"><button class="lnk" data-go="work"><b>${esc(w.title)}</b></button><span class="t3 ell">${esc(u.item)}</span></span><span class="t2 gl-r num">${u.label} ${hm(u.at)}</span></li>`; }).join('')}</ul>`)}
@@ -699,11 +703,10 @@ function setAmbient(id) {
   root.querySelectorAll(`[data-work="${id}"]`).forEach((el) => el.classList.add('focus'));
 }
 
-const STAGE_RANK = (j) => D.stages.indexOf(j.stage) + (j.requestedBy ? 0.5 : 0);
-const homeLead = (mode) => (mode === 'important' || mode === 'important-band' ? [...running()].sort((a, b) => STAGE_RANK(b) - STAGE_RANK(a))[0] : running()[0]).work;
+const homeLead = () => pipelineOrder()[0].work;
 
 function wireAmbient(home) {
-  const lead = home ? homeLead(C.home) : (C.workPage ? C.workPage.workId : 'dune-2');
+  const lead = home ? homeLead() : (C.workPage ? C.workPage.workId : 'dune-2');
   setAmbient(lead);
   if (!home) return;
   if (isPhone) {
