@@ -38,7 +38,7 @@ export const jobs = [
   { id: 'j-av-ext-dl', stage: 'Downloading', node: 'seedbox-ams', status: 'running', progress: 0.44, rate: 31.2, unit: 'MB/s', etaMin: 12 },
   { id: 'j-av-thr-conv', stage: 'Conversion', node: 'forge', status: 'running', progress: 0.27, rate: 212, unit: 'fps', etaMin: 9 },
   { id: 'j-tl-s1e8-conv', stage: 'Conversion', node: 'forge', status: 'running', progress: 0.81, rate: 236, unit: 'fps', etaMin: 2 },
-  { id: 'j-tl-s2e3-1080', stage: 'Downloading', node: 'seedbox-ams', status: 'running', progress: 0.58, rate: 18.4, unit: 'MB/s', etaMin: 3 },
+  { id: 'j-tl-s2e3-uhd', stage: 'Downloading', node: 'seedbox-ams', status: 'running', progress: 0.58, rate: 18.4, unit: 'MB/s', etaMin: 3 },
 ];
 
 export const avatar = {
@@ -108,7 +108,7 @@ function s2Cells(e) {
     extended: later(), directors: none('not-found', 'No Director\'s cut announced · last searched 2 h ago'),
   };
   if (e === 3) return {
-    standard: { '2160p-hdr': { state: 'downloading', job: 'j-tlou-xfer', release: rel(2, 3, '2160p.MAX.WEB-DL.DV.HDR10.DDP5.1.Atmos-FLUX'), size: '8.6 GB', score: 1870 }, '1080p-sdr': { state: 'downloading', job: 'j-tl-s2e3-1080', release: rel(2, 3, '1080p.MAX.WEB-DL.DDP5.1.Atmos.H.264-FLUX'), size: '5.2 GB', score: 1610 }, '720p-mobile': { state: 'missing', why: 'waiting', detail: 'Waits for the 1080p SDR file' } },
+    standard: { '2160p-hdr': { state: 'downloading', job: 'j-tl-s2e3-uhd', release: rel(2, 3, '2160p.MAX.WEB-DL.DV.HDR10.DDP5.1.Atmos-FLUX'), size: '8.6 GB', score: 1870 }, '1080p-sdr': { state: 'downloading', job: 'j-tlou-xfer', release: rel(2, 3, '1080p.MAX.WEB-DL.DDP5.1.Atmos.H.264-FLUX'), size: '5.2 GB', score: 1610 }, '720p-mobile': { state: 'missing', why: 'waiting', detail: 'Waits for the 1080p SDR file' } },
     extended: later(), directors: none('not-found', 'No Director\'s cut announced · last searched 2 h ago'),
   };
   return null;

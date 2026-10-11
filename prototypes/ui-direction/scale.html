@@ -58,7 +58,7 @@ const state = {
   work: pick('work', Object.keys(works), 'avatar'),
   device: pick('device', ['wide', 'phone'], 'wide'),
   screen: pick('screen', ['work', 'home'], 'work'),
-  home: pick('home', Object.keys(HOME), 'first'),
+  home: pick('home', Object.keys(HOME), 'important'),
 };
 document.body.classList.add(`device-${state.device}`, 'surface-admin');
 const navigate = (patch) => { location.search = new URLSearchParams({ ...state, ...patch }).toString(); };

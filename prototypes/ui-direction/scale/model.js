@@ -73,3 +73,6 @@ export function summaryLine(c) {
 }
 
 export const levelNodes = (work) => work.tree.filter((n) => n.kind === 'level');
+
+// A cell only a person can move: it failed, a better release waits, or nothing exists to grab. Waiting and queued cells resolve on their own.
+export const needsYou = (cell) => cell.state === 'failed' || cell.state === 'upgrade' || (cell.state === 'missing' && cell.why === 'not-found');
