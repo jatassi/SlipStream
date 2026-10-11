@@ -1,6 +1,7 @@
 // PROTOTYPE · Direction C · Lit console. A's layout, B's controls and portal, the Work's colour over everything. Throwaway.
 
 import { render as renderMarquee } from '../marquee/variant.js';
+import * as Relay from './relay.js';
 
 let D, C, root;
 let isPhone;
@@ -137,7 +138,7 @@ function failureBlock() {
       <span class="chip-warn">${I('triangle-alert')}${esc(warn.stage)} degraded</span>
       <p><b>${esc(warn.title)}.</b> <span class="warn-dim">${esc(warn.body)}</span></p>
       <span class="warn-dim num">since ${hm(warn.at)}</span>
-      <button class="btn warn sm" data-toast="Testing a Node's connection is not in this prototype">Test connection</button>
+      <button class="btn warn sm" data-go="relay">Test connection</button>
     </div>
   </div>`;
 }
@@ -176,7 +177,7 @@ function pipeline() {
 
 function nodesPanel() {
   return `<section class="pnl pnl-nodes" id="nodes" aria-labelledby="nodes-h">
-    <div class="pnl-h"><h2 id="nodes-h">Nodes</h2><span class="t3 num">${D.nodes.length} paired · ${degraded().length} degraded</span><span class="grow"></span><button class="btn ghost sm" data-toast="Pairing a Node is not in this prototype">${I('plus')}Pair a Node</button></div>
+    <div class="pnl-h"><h2 id="nodes-h">Nodes</h2><span class="t3 num">${D.nodes.length} paired · ${degraded().length} degraded</span><span class="grow"></span><button class="btn ghost sm" data-go="relay">${I('radio-tower')}Remote access</button><button class="btn ghost sm" data-toast="Pairing a Node is not in this prototype">${I('plus')}Pair a Node</button></div>
     <div class="nlist">${D.nodes.map((n) => {
       const busy = D.jobs.some((j) => j.status === 'running' && j.node.includes(n.name));
       const k = n.status === 'degraded' ? 'warn' : busy ? 'draft' : 'idle';
@@ -185,7 +186,7 @@ function nodesPanel() {
         <div class="nname"><b>${esc(n.name)}</b><span class="t3">${n.kind} · ${esc(n.where)}</span></div>
         <div class="nroles">${n.roles.map((r) => `<span class="chip">${esc(r)}</span>`).join('')}</div>
         <div class="ncpu num"><span class="t3">CPU</span> ${n.cpu}%</div>
-        <div class="ndet ${n.status === 'degraded' ? 'warn-t' : 't2'}">${esc(n.detail)}${n.gpu ? `<span class="t3 mono">${esc(n.gpu)}</span>` : ''}</div>
+        <div class="ndet ${n.status === 'degraded' ? 'warn-t' : 't2'}">${n.status === 'degraded' ? `<button class="lnk" data-go="relay"><b>${esc(n.detail)}</b></button>` : esc(n.detail)}${n.gpu ? `<span class="t3 mono">${esc(n.gpu)}</span>` : ''}</div>
       </div>`;
     }).join('')}</div>
   </section>`;
@@ -362,7 +363,7 @@ function phoneFail() {
     <p class="mono rel">${esc(j.release)}</p>
     <div class="pfail-act"><button class="btn fail" data-toast="Manual search is not in this prototype">${I('search')}Manual search</button><button class="btn" data-menu="fail" aria-haspopup="dialog">More</button></div>
   </section>
-  <section class="pwarn" aria-label="Warning"><span class="chip-warn">${I('triangle-alert')}${esc(warn.stage)} degraded</span><p><b>${esc(warn.title)}.</b> <span class="warn-dim">${esc(warn.body)}</span></p><button class="btn warn" data-toast="Testing a Node's connection is not in this prototype">Test connection</button></section>`;
+  <section class="pwarn" aria-label="Warning"><span class="chip-warn">${I('triangle-alert')}${esc(warn.stage)} degraded</span><p><b>${esc(warn.title)}.</b> <span class="warn-dim">${esc(warn.body)}</span></p><button class="btn warn" data-go="relay">Test connection</button></section>`;
 }
 
 const TABS_ADMIN = [
@@ -386,7 +387,7 @@ function adminHomePhone() {
   <p class="ph-sentence">${sentence()}</p>
   ${phoneFail()}
   ${phoneSection('Live pipeline', `${nodeSeg()}<ul class="pjs">${running().map(phoneJob).join('')}</ul>`, `<span class="t3 num">${running().length} running</span>`)}
-  ${phoneSection('Nodes', `<ul class="glist">${D.nodes.map((n) => { const busy = D.jobs.some((j) => j.status === 'running' && j.node.includes(n.name)); const k = n.status === 'degraded' ? 'warn' : busy ? 'draft' : 'idle'; return `<li class="gl">${dot(k)}<span class="ltxt"><b>${esc(n.name)}</b><span class="t3 ell">${n.roles.join(', ')}</span></span><span class="${n.status === 'degraded' ? 'warn-t' : 't3'} gl-r num">${n.status === 'degraded' ? 'Degraded' : `CPU ${n.cpu}%`}</span></li>`; }).join('')}</ul>`, `<span class="t3">${degraded().length} degraded</span>`)}
+  ${phoneSection('Nodes', `<ul class="glist">${D.nodes.map((n) => { const busy = D.jobs.some((j) => j.status === 'running' && j.node.includes(n.name)); const k = n.status === 'degraded' ? 'warn' : busy ? 'draft' : 'idle'; return `<li class="gl"${n.status === 'degraded' ? ' data-go="relay"' : ''}>${dot(k)}<span class="ltxt"><b>${esc(n.name)}</b><span class="t3 ell">${n.roles.join(', ')}</span></span><span class="${n.status === 'degraded' ? 'warn-t' : 't3'} gl-r num">${n.status === 'degraded' ? 'Degraded' : `CPU ${n.cpu}%`}</span></li>`; }).join('')}</ul>`, `<span class="t3">${degraded().length} degraded</span>`)}
   ${phoneSection('Requests', `<ul class="glist">${D.requests.filter((r) => r.state === 'pending').map((r) => { const w = W(r.work), m = member(r.by); return `<li class="gl" data-req-row="${r.id}"><span class="avatar sm">${m.initials}</span><span class="ltxt"><b class="ell">${esc(w.title)}${r.note ? ` <span class="t2">${esc(r.note)}</span>` : ''}</b><span class="t3">${esc(m.name)} · ${ago(r.at)}</span></span><button class="btn sm tapx" data-approve="${r.id}">Approve</button></li>`; }).join('')}</ul>`, `<span class="t3">2 waiting</span>`)}
   ${phoneSection('Up next', `<ul class="glist">${D.upNext.map((u) => { const w = W(u.work); return `<li class="gl" data-row-go>${art(w)}<span class="ltxt"><button class="lnk" data-go="work"><b>${esc(w.title)}</b></button><span class="t3 ell">${esc(u.item)}</span></span><span class="t2 gl-r num">${u.label} ${hm(u.at)}</span></li>`; }).join('')}</ul>`)}
   ${phoneSection('Recently added', `<div class="strip">${D.recentlyAdded.map((id) => { const w = W(id); return `<button class="strip-i" data-go="work">${art(w, 'poster-sm')}<span class="ell">${esc(w.title)}</span></button>`; }).join('')}</div>`)}
@@ -562,7 +563,7 @@ function wire() {
     const q = (s) => t.closest(s);
     let el;
     if ((el = q('[data-close]'))) return closeAll();
-    if ((el = q('.mi'))) { if (el.dataset.mi === 'go') return C.go('work'); closeAll(); return toast(`${el.dataset.label} is not in this prototype`); }
+    if ((el = q('.mi'))) { if (el.dataset.mi === 'go') return C.go('work'); if (el.dataset.label === 'Nodes') return C.go('relay'); closeAll(); return toast(`${el.dataset.label} is not in this prototype`); }
     if ((el = q('.pal-o'))) return activate(el);
     if ((el = q('[data-open="palette"]'))) return openPalette();
     if ((el = q('[data-menu]'))) { e.stopPropagation(); return openMenu(el); }
@@ -590,6 +591,7 @@ function wire() {
     if ((el = q('[data-go]'))) return C.go(el.dataset.go);
     if ((el = q('[data-nav]'))) {
       if (el.dataset.nav === 'home') return C.go('home');
+      if (el.dataset.nav === 'nodes') return C.go('relay');
       return toast(`${el.dataset.label} is not in this prototype`);
     }
     if ((el = q('[data-tab]'))) {
@@ -742,12 +744,21 @@ export function render(ctx) {
 
   root.classList.add('lc', `lc-${ctx.device}`, `lc-${ctx.screen}`);
   document.documentElement.classList.add('lc-doc');
-  document.title = `${ctx.screen === 'work' ? 'Dune: Part Two' : 'Home'} · SlipStream`;
+  document.title = `${ctx.screen === 'work' ? 'Dune: Part Two' : ctx.screen === 'relay' ? 'Remote access' : 'Home'} · SlipStream`;
   try { if (!isPhone && localStorage.getItem('lc-collapsed')) root.classList.add('collapsed'); } catch { /* storage unavailable */ }
 
   const work = ctx.screen === 'work';
+  const relay = ctx.screen === 'relay';
+  const helpers = { D, C, root, isPhone, I, esc, dot, toast, closeAll, tabs, TABS_ADMIN, icons: () => C.icons(), setLastFocus: (el) => { lastFocus = el; } };
   let body;
-  if (!isPhone) {
+  if (relay) {
+    root.style.visibility = 'hidden';
+    const css = Object.assign(document.createElement('link'), { rel: 'stylesheet', href: new URL('./relay.css', import.meta.url).href });
+    css.onload = css.onerror = () => { root.style.visibility = ''; };
+    document.head.append(css);
+    if (!isPhone) body = `<div class="shell">${sidebar('nodes')}<div class="mainc">${topbar(`<button class="crumb" data-nav="nodes" data-label="Nodes">Nodes</button>${I('chevron-right', 'crumb-sep')}<span class="crumb cur">Remote access</span>`)}<main class="content rl">${Relay.wide(helpers)}</main></div></div>`;
+    else body = `<div class="rl">${Relay.phone(helpers)}</div>`;
+  } else if (!isPhone) {
     const crumbs = work ? `<button class="crumb" data-nav="library" data-label="Library">Library</button>${I('chevron-right', 'crumb-sep')}<button class="crumb" data-nav="movies" data-label="Movies">Movies</button>${I('chevron-right', 'crumb-sep')}<span class="crumb cur">Dune: Part Two</span>` : '<span class="crumb cur">Home</span>';
     body = `<div class="shell">${sidebar(work ? 'movies' : 'home')}<div class="mainc">${topbar(crumbs)}<main class="content">${work ? adminWorkWide() : adminHomeWide()}</main></div></div>`;
   } else body = work ? adminWorkPhone() : adminHomePhone();
@@ -756,5 +767,6 @@ export function render(ctx) {
   if (root.classList.contains('collapsed')) { const b = root.querySelector('[data-collapse]'); if (b) { b.innerHTML = I('panel-left-open'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', 'Expand sidebar'); } }
   ctx.icons();
   wire();
-  wireAmbient(!work);
+  if (relay) Relay.wire(helpers);
+  else wireAmbient(!work);
 }

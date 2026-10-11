@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- PROTOTYPE, throwaway. Two design directions for SlipStream v2 behind ?variant=, across ?surface= (admin|portal), ?device= (wide|phone), ?screen= (home|work). -->
+<!-- PROTOTYPE, throwaway. Two design directions for SlipStream v2 behind ?variant=, across ?surface= (admin|portal), ?device= (wide|phone), ?screen= (home|work|relay); relay adds ?scenario= and ?layout=. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -23,25 +23,28 @@
     body.device-phone #frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
   }
 
-  #proto-bar {
+  #proto-bar, #proto-bar2 {
     position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483647;
     display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
     background: #fde047; color: #111; font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
     box-shadow: 0 8px 24px rgba(0,0,0,.45); user-select: none; white-space: nowrap;
   }
-  #proto-bar[hidden] { display: none; }
-  #proto-bar button { all: unset; cursor: pointer; padding: 7px 10px; border-radius: 999px; }
-  #proto-bar button:hover { background: rgba(0,0,0,.1); }
-  #proto-bar button[aria-pressed="true"] { background: #111; color: #fde047; }
-  #proto-bar button:focus-visible { outline: 2px solid #111; outline-offset: 1px; }
+  #proto-bar2 { bottom: 60px; background: #fef08a; }
+  #proto-bar2 .tag { padding: 0 4px 0 8px; opacity: .65; font-weight: 700; text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; }
+  #proto-bar[hidden], #proto-bar2[hidden] { display: none; }
+  #proto-bar button, #proto-bar2 button { all: unset; cursor: pointer; padding: 7px 10px; border-radius: 999px; }
+  #proto-bar button:hover, #proto-bar2 button:hover { background: rgba(0,0,0,.1); }
+  #proto-bar button[aria-pressed="true"], #proto-bar2 button[aria-pressed="true"] { background: #111; color: #fde047; }
+  #proto-bar button:focus-visible, #proto-bar2 button:focus-visible { outline: 2px solid #111; outline-offset: 1px; }
   #proto-bar .label { padding: 0 6px; min-width: 150px; text-align: center; }
-  #proto-bar .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 2px; }
-  @media (max-width: 500px) { #proto-bar { bottom: auto; top: 8px; font-size: 11px; } #proto-bar .label { min-width: 0; } }
+  #proto-bar .sep, #proto-bar2 .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 2px; }
+  @media (max-width: 500px) { #proto-bar, #proto-bar2 { bottom: auto; top: 8px; font-size: 11px; } #proto-bar2 { top: auto; bottom: 96px; max-width: calc(100vw - 16px); overflow-x: auto; } #proto-bar .label { min-width: 0; } }
 </style>
 </head>
 <body>
 <div id="frame"><div id="app"></div></div>
 <nav id="proto-bar" aria-label="Prototype switcher"></nav>
+<nav id="proto-bar2" class="proto-bar" aria-label="Remote access scenario and layout"></nav>
 <script type="module">
 import * as data from './data.js';
 import { startLive, onTick, format } from './live.js';
@@ -53,8 +56,14 @@ const state = {
   variant: VARIANTS[params.get('variant')] ? params.get('variant') : 'A',
   surface: params.get('surface') === 'portal' ? 'portal' : 'admin',
   device: params.get('device') === 'phone' ? 'phone' : 'wide',
-  screen: params.get('screen') === 'work' ? 'work' : 'home',
+  screen: ['work', 'relay'].includes(params.get('screen')) ? params.get('screen') : 'home',
 };
+const RELAY_SCENARIOS = { plex: 'Plex URL', cgnat: 'CGNAT, no relay', tls: 'DNS and TLS', healthy: 'Healthy' };
+const RELAY_LAYOUTS = { path: 'Path', verdict: 'Verdict', matrix: 'Matrix' };
+if (state.screen === 'relay') {
+  state.scenario = RELAY_SCENARIOS[params.get('scenario')] ? params.get('scenario') : 'plex';
+  state.layout = RELAY_LAYOUTS[params.get('layout')] ? params.get('layout') : 'verdict';
+}
 const v = VARIANTS[state.variant];
 document.body.classList.add(`device-${state.device}`, `surface-${state.surface}`);
 
@@ -77,12 +86,21 @@ bar.append(
   btn('Phone', () => navigate({ device: 'phone' }), state.device === 'phone'), sep(),
   btn('Home', () => navigate({ screen: 'home' }), state.screen === 'home'),
   btn('Work', () => navigate({ screen: 'work' }), state.screen === 'work'),
+  btn('Relay', () => navigate({ screen: 'relay' }), state.screen === 'relay'),
 );
+const bar2 = document.getElementById('proto-bar2');
+if (state.screen === 'relay') {
+  const tag = (t) => Object.assign(document.createElement('span'), { className: 'tag', textContent: t });
+  bar2.append(
+    tag('Scenario'), ...Object.entries(RELAY_SCENARIOS).map(([k, l]) => btn(l, () => navigate({ scenario: k }), state.scenario === k)), sep(),
+    tag('Layout'), ...Object.entries(RELAY_LAYOUTS).map(([k, l]) => btn(l, () => navigate({ layout: k }), state.layout === k)),
+  );
+} else bar2.hidden = true;
 addEventListener('keydown', (e) => {
   const t = e.target; if (t.closest && t.closest('input, textarea, [contenteditable]')) return;
   if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) cycle(-1);
   if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) cycle(1);
-  if (e.key === '\\') bar.hidden = !bar.hidden;
+  if (e.key === '\\') { bar.hidden = !bar.hidden; if (state.screen === 'relay') bar2.hidden = bar.hidden; }
 });
 
 const link = document.createElement('link');
