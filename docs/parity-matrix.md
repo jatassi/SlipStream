@@ -24,7 +24,7 @@ This matrix lists every user-observable SlipStream v1 feature and the v2 call on
 
 An exception is written on its row only with the maintainer's explicit yes.
 
-**Covered by.** For a `kept` or `superseded` row, the one spec issue under [Specs: SlipStream v2](https://github.com/jatassi/SlipStream/issues/125) that builds it. For an `excepted` or `out of scope` row, the record of that call, or `-` when the charting rules alone exclude it. Run `scripts/check-parity-owners.sh` after editing this file.
+**Covered by.** For a `kept` or `superseded` row, the one spec issue under [Specs: SlipStream v2](https://github.com/jatassi/SlipStream/issues/125) that builds it. For an `excepted` or `out of scope` row, the record of that call, or `-` when the charting rules alone exclude it. Run `go run ./cmd/release lint -rule parity-owners` after editing this file.
 
 **Status.**
 
