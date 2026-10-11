@@ -1,0 +1,38 @@
+{
+  "linux": [],
+  "windows": [
+    {"name": "kernel32.dll", "reason": "Go runtime, UCRT startup, winpthreads, every C library"},
+    {"name": "advapi32.dll", "reason": "OpenSSL registry and event log access"},
+    {"name": "bcrypt.dll", "reason": "OpenSSL RAND seeding through BCryptGenRandom"},
+    {"name": "crypt32.dll", "reason": "OpenSSL and libtorrent reading the Windows certificate store"},
+    {"name": "dbghelp.dll", "reason": "libtorrent stack traces"},
+    {"name": "iphlpapi.dll", "reason": "libtorrent network interface and route enumeration"},
+    {"name": "mswsock.dll", "reason": "Boost.Asio AcceptEx and ConnectEx"},
+    {"name": "user32.dll", "reason": "OpenSSL service detection"},
+    {"name": "ws2_32.dll", "reason": "Boost.Asio, libtorrent and OpenSSL sockets"},
+    {"name": "wsock32.dll", "reason": "libtorrent legacy socket calls"},
+    {"name": "api-ms-win-crt-conio-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-convert-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-environment-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-filesystem-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-heap-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-locale-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-math-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-multibyte-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-private-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-process-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-runtime-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-stdio-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-string-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-time-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"},
+    {"name": "api-ms-win-crt-utility-l1-1-0.dll", "reason": "llvm-mingw UCRT, part of Windows 10"}
+  ],
+  "darwin": [
+    {"name": "/usr/lib/libSystem.B.dylib", "reason": "Go runtime and every C library"},
+    {"name": "/usr/lib/libc++.1.dylib", "reason": "libtorrent and Boost; Apple ships no supported static libc++"},
+    {"name": "/usr/lib/libresolv.9.dylib", "reason": "Go net DNS resolution"},
+    {"name": "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation", "reason": "Go crypto/x509 and libtorrent"},
+    {"name": "/System/Library/Frameworks/Security.framework/Versions/A/Security", "reason": "Go crypto/x509 root verification"},
+    {"name": "/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration", "reason": "libtorrent proxy and interface discovery"}
+  ]
+}
