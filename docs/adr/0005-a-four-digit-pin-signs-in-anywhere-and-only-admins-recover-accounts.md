@@ -19,3 +19,4 @@ The PIN is the everyday credential, quick to type on a TV, and the maintainer ch
 - A person who loses both credentials depends on an Admin, and the last Admin depends on shell access to the host.
 - A person who uses several addresses holds several passkeys, and the Account's passkey list shows which address each belongs to.
 - Admin actions still need a re-confirm by PIN or passkey within 15 minutes, and that re-confirm counts toward lockout.
+- WebAuthn needs a domain as the relying party ID, so no IP address can hold a passkey, over HTTPS or not. SlipStream never offers a passkey at an IP address, and Signup and Reset links always use the Controller's configured name. Decided in [verify-slipstream skill design](https://github.com/jatassi/SlipStream/issues/27), Q37.
