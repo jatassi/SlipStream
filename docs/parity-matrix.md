@@ -46,7 +46,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-009 | Header bell for in-app admin notifications, held client side with no history | `web/src/components/layout/header-notifications.tsx` | half-built | kept | - | unplanned |
 | P-010 | Restart action with confirm, server re-exec and countdown reload | `web/src/components/layout/use-session-actions.ts`, `POST /system/restart` | working | kept | - | unplanned |
 | P-011 | Log out action with confirm | `web/src/components/layout/use-session-actions.ts` | working | kept | - | unplanned |
-| P-012 | Light, dark and system theme with no picker in the UI | `web/src/stores/ui.ts` | half-built | kept | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
+| P-012 | Light, dark and system theme with no picker in the UI | `web/src/stores/ui.ts` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/94#issuecomment-6113143975) | - | unplanned |
 | P-013 | Toasts placed per shell | `web/src/components/layout/shell-layout.tsx` | working | kept | - | unplanned |
 | P-014 | Document title tracks the route | `web/src/hooks/use-document-title.ts` | working | kept | - | unplanned |
 | P-015 | Error boundary per route | `web/src/components/error-boundary.tsx` | working | kept | - | unplanned |

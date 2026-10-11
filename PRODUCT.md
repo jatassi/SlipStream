@@ -41,17 +41,17 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 ## Capabilities and Constraints
 
 - Content Types are pluggable. v2 releases with movies and TV; a test-only third type proves extensibility.
-- Every row of [docs/parity-matrix.md](docs/parity-matrix.md) is kept unless the maintainer explicitly agreed to drop it on that row. This includes the wide desk shell and the phone shell (bottom tabs, push navigation, safe areas, 44 px targets, action sheets), global search, the dashboard, and light, dark and system themes (P-012).
+- Every row of [docs/parity-matrix.md](docs/parity-matrix.md) is kept unless the maintainer explicitly agreed to drop it on that row. This includes the wide desk shell and the phone shell (bottom tabs, push navigation, safe areas, 44 px targets, action sheets), global search and the dashboard. Light and system themes are excepted (P-012), so v2 ships one dark theme.
 - Identity: one Account system. Admin is a permission on an Account. Sign-in is an email plus a 4-digit PIN or a passkey; only Admins issue Signup and Reset links; a fresh install prints a Setup code. Scripts use an API key. Email goes over generic SMTP.
 - v1 data comes forward through a one-shot importer.
 - Architecture is locked in [docs/adr/](docs/adr/).
-- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25). Its reference spec is variant C on the `prototype/ui-direction` branch, and DESIGN.md records it once the build ships.
+- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25), and [DESIGN.md](DESIGN.md) records the design system distilled from it and the per-surface prototypes ([Design system and DESIGN.md](https://github.com/jatassi/SlipStream/issues/94)). It is re-extracted once the walking skeleton ships.
 
 ## Brand Commitments
 
 - The name is SlipStream, written with a capital second S.
 - UI copy uses [GLOSSARY.md](GLOSSARY.md) terms and avoids each term's _Avoid_ list: Work, not title or show; Target, not quality version; Conversion, not transcode; Node, not instance; Member, not user.
-- A logo and colour palette were in progress in v1 (P-017) and are not settled.
+- The colour palette is settled in [DESIGN.md](DESIGN.md). The logo (P-017) is not.
 
 ## Evidence on Hand
 
