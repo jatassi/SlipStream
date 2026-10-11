@@ -96,19 +96,20 @@ let menuItems = [];
 export function openMenu(anchor, title, items, sub = '') {
   closeMenus();
   lastFocus = anchor;
-  menuItems = items;
-  const html = items.map((x, i) => (x.sep ? '<div class="mi-sep" role="separator"></div>'
+  menuItems = typeof items === 'string' ? [] : items;
+  const html = typeof items === 'string' ? items : items.map((x, i) => (x.sep ? '<div class="mi-sep" role="separator"></div>'
     : x.head ? `<p class="mi-h">${esc(x.head)}</p>`
       : `<button class="mi${x.danger ? ' danger' : ''}" role="menuitem" data-mi="${i}" ${x.disabled ? 'disabled' : ''}>${x.icon ? I(x.icon) : ''}<span class="mi-l"><span>${esc(x.label)}</span>${x.sub ? `<span class="mi-s">${esc(x.sub)}</span>` : ''}</span>${x.right ? `<span class="mi-r t3">${x.right}</span>` : ''}</button>`)).join('');
   if (isPhone) {
     const s = root.querySelector('.sheet-wrap');
-    s.querySelector('.sheet').innerHTML = `<span class="grab" aria-hidden="true"></span><p class="sheet-t"><b>${esc(title)}</b>${sub ? `<span class="t3 sheet-sub">${esc(sub)}</span>` : ''}</p><div class="sheet-grp" role="menu" aria-label="${esc(title)}">${html}</div><button class="sheet-x" data-close-menu>Cancel</button>`;
+    s.querySelector('.sheet').innerHTML = `<span class="grab" aria-hidden="true"></span><p class="sheet-t"><b>${esc(title)}</b>${sub ? `<span class="t3 sheet-sub">${esc(sub)}</span>` : ''}</p><div class="sheet-grp" ${typeof items === 'string' ? '' : 'role="menu"'} aria-label="${esc(title)}">${html}</div><button class="sheet-x" data-close-menu>${typeof items === 'string' ? 'Done' : 'Cancel'}</button>`;
     s.hidden = false;
     const f = s.querySelector('.mi:not([disabled])');
     if (f) f.focus({ preventScroll: true });
     return;
   }
   const m = root.querySelector('.menu');
+  m.classList.toggle('menu-pop', typeof items === 'string');
   m.innerHTML = (title ? `<p class="mi-t">${esc(title)}${sub ? `<span class="t3">${esc(sub)}</span>` : ''}</p>` : '') + html;
   m.hidden = false;
   const r = anchor.getBoundingClientRect();

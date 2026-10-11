@@ -6,12 +6,12 @@ import { evaluate, normScope, SORTS } from './model.js';
 import { wireCommon } from './common.js';
 import { workDesk, workPhone } from './work.js';
 
-const VARIANTS = { A: { file: './a.js', name: 'Verdict strip' }, B: { file: './b.js', name: 'Target columns' }, C: { file: './c.js', name: 'Cell first' } };
+const VARIANTS = { A: { file: './a.js', name: 'Verdict strip' }, B: { file: './b.js', name: 'Target columns' }, C: { file: './c.js', name: 'Cell first' }, D: { file: './d.js', name: 'The plan' }, E: { file: './e.js', name: 'Shelves by outcome' }, F: { file: './f.js', name: 'Needs, then choices' } };
 const SCOPES = ['work', 'level', 'item', 'cell'];
 const keys = Object.keys(VARIANTS);
 const params = new URLSearchParams(location.search);
 const P = {
-  variant: VARIANTS[params.get('variant')] ? params.get('variant') : 'A',
+  variant: VARIANTS[params.get('variant')] ? params.get('variant') : 'D',
   fixture: fixtures[params.get('fixture')] ? params.get('fixture') : 'movie',
   device: params.get('device') === 'phone' ? 'phone' : 'wide',
   scope: SCOPES.includes(params.get('scope')) ? params.get('scope') : 'work',

@@ -195,7 +195,7 @@ export const cellVerdict = (fx, row, key) => {
   return v;
 };
 
-const rankCmp = (a, b) => b.fillTargets.length - a.fillTargets.length || a.best - b.best || b.top - a.top || qualityRank(a.r) - qualityRank(b.r) || b.r.seeders - a.r.seeders;
+export const rankCmp = (a, b) => b.fillTargets.length - a.fillTargets.length || a.best - b.best || b.top - a.top || qualityRank(a.r) - qualityRank(b.r) || b.r.seeders - a.r.seeders;
 
 export const SORTS = {
   best: { label: 'Best first', cmp: rankCmp },
@@ -228,4 +228,234 @@ export function cellStateLine(fx, c) {
   if (c.state === 'upgrade') return `Met at ${fmt.score(c.score)}, upgrading to ${fmt.score(t.upgradeUntil)}`;
   if (c.state === 'failed') return 'Failed';
   return 'Missing';
+}
+
+// ───────────────────────────── round 2: plain words, needs and the plan (D, E, F). Same verdicts as above, said as outcomes.
+
+const NEW = new Set(['missing', 'failed']);
+const p2 = (n) => String(n).padStart(2, '0');
+const and = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+const plural = (n, one, many) => (n === 1 ? one : many);
+
+export const openCells = (fx) => Object.keys(fx.cells).filter((k) => fx.cells[k].state !== 'met');
+export const needKeys = (fx, sc) => scopeCells(fx, sc).filter((c) => c.state !== 'met').map((c) => c.key);
+export const metKeys = (fx, sc) => scopeCells(fx, sc).filter((c) => c.state === 'met').map((c) => c.key);
+
+// "720p low bitrate", or "2160p HDR (Extended)" when the Work has more than one Edition.
+export const targetNoun = (fx, tid, ed) => `${targetById(fx, tid).name}${fx.editions.length > 1 ? ` (${ed})` : ''}`;
+
+// "E05, E06, E08–E10", "all 10 episodes", "all of Season 2", "S02E07–E10"
+export function itemsPhrase(fx, ids, sc) {
+  const set = new Set(ids);
+  if (fx.work.kind === 'movie') return '';
+  const lvl = fx.levels.find((l) => { const its = fx.items.filter((i) => i.level === l.id); return its.length === set.size && its.every((i) => set.has(i.id)); });
+  if (lvl) return sc.kind === 'level' ? `all ${set.size} episodes` : `all of ${lvl.label}`;
+  const its = [...set].map((id) => itemById(fx, id)).sort((a, b) => a.season - b.season || a.ep - b.ep);
+  const pre = sc.kind === 'work' || new Set(its.map((i) => i.season)).size > 1;
+  const runs = [];
+  for (const it of its) { const l = runs[runs.length - 1]; if (l && l.season === it.season && l.to + 1 === it.ep) l.to = it.ep; else runs.push({ season: it.season, from: it.ep, to: it.ep }); }
+  const e = (r, n, first) => `${pre && first ? `S${p2(r.season)}` : ''}E${p2(n)}`;
+  return runs.map((r) => (r.from === r.to ? e(r, r.from, true) : r.to === r.from + 1 ? `${e(r, r.from, true)}, ${e(r, r.to, true)}` : `${e(r, r.from, true)}–${e(r, r.to, false)}`)).join(', ');
+}
+
+function byTarget(fx, keys) {
+  const m = new Map();
+  for (const k of keys) {
+    const c = parseCell(k);
+    const id = `${c.target}|${c.edition}`;
+    if (!m.has(id)) m.set(id, { tid: c.target, ed: c.edition, keys: [] });
+    m.get(id).keys.push(k);
+  }
+  const tix = (g) => fx.targets.findIndex((t) => t.id === g.tid) * 10 + fx.editions.indexOf(g.ed);
+  return [...m.values()].sort((a, b) => tix(a) - tix(b));
+}
+
+// "720p low bitrate for all 10 episodes", "1080p for E08", "2160p HDR (Standard)"
+export function keysPhrase(fx, keys, sc, mix = false) {
+  return and(byTarget(fx, keys).map((g) => {
+    const its = itemsPhrase(fx, g.keys.map((k) => parseCell(k).item), sc);
+    const n = g.keys.filter((k) => NEW.has(fx.cells[k].state)).length;
+    const m = mix && n && n < g.keys.length ? ` (${n} new, ${g.keys.length - n} ${plural(g.keys.length - n, 'upgrade', 'upgrades')})` : '';
+    return `${targetNoun(fx, g.tid, g.ed)}${its ? ` for ${its}` : ''}${m}`;
+  }));
+}
+
+// The open cells a Release would fill, cleanly (a Hold counts, since a manual grab skips it) or only past a soft rejection.
+export function gainsOf(fx, row, keys) {
+  const clean = [], soft = [];
+  for (const key of keys) {
+    const cv = cellVerdict(fx, row, key);
+    if (fills(cv)) clean.push(key);
+    else if (cv.kind === 'soft' && cv.fillItems.includes(parseCell(key).item)) soft.push(key);
+  }
+  return { clean, soft };
+}
+
+function gainSentence(fx, keys, sc) {
+  const groups = byTarget(fx, keys);
+  const fresh = groups.filter((g) => g.keys.some((k) => NEW.has(fx.cells[k].state))).flatMap((g) => g.keys);
+  const better = groups.filter((g) => !g.keys.some((k) => NEW.has(fx.cells[k].state))).flatMap((g) => g.keys);
+  if (fresh.length) return `Gets you ${keysPhrase(fx, fresh, sc, true)}${better.length ? ` and a better ${keysPhrase(fx, better, sc)}` : ''}`;
+  return `A better ${keysPhrase(fx, better, sc)}${fx.work.kind === 'movie' ? ' than the one you have' : ''}`;
+}
+
+function cantWhy(fx, r) {
+  if (r.lang !== 'English') return { code: 'lang', why: `${r.lang} audio`, lang: r.lang };
+  if (CAMS.includes(r.source)) return { code: 'cam', why: 'camera recording' };
+  if (!fx.editions.includes(r.edition)) return { code: 'edition', why: `labelled ${r.edition}, which you don’t collect` };
+  if (!fx.targets.some((t) => t.res === r.res)) return { code: 'res', why: `you don’t keep ${r.res}` };
+  return { code: 'hdr', why: r.hdr ? `${r.res} with HDR, which you keep without` : `${r.res} without HDR` };
+}
+
+function softWhy(fx, r, v) {
+  const w = v.reasons[0][0];
+  const n = r.coverage.length;
+  const per = `${fmt.size(r.size / n)}${n > 1 ? ' an episode' : ''}`;
+  if (w === 'Too big') return { code: 'big', why: `it’s larger than you allow (${per})` };
+  if (w === 'Too small') return { code: 'small', why: `it’s smaller than you allow (${per})` };
+  if (w === 'Low score') return { code: 'score', why: 'it’s below the quality you set' };
+  return { code: 'title', why: `its name doesn’t match ${fx.work.title} well` };
+}
+
+// One sentence of what grabbing a Release gets you, judged against the open cells in `focus`.
+// kind: new | better (SlipStream would grab) · soft | blocked | cant | have | elsewhere (it wouldn't).
+export function outcome(fx, row, focus, sc) {
+  const { r, v } = row;
+  const g = gainsOf(fx, row, openCells(fx));
+  const inF = new Set(focus);
+  const clean = g.clean.filter((k) => inF.has(k));
+  const also = g.clean.filter((k) => !inF.has(k));
+  const alsoText = also.length ? `Also gets you ${keysPhrase(fx, also, sc)}` : '';
+  if (clean.length) {
+    const held = fx.targets.map((t) => v[t.id]).find((x) => x.hold != null && fills(x));
+    return { kind: clean.some((k) => NEW.has(fx.cells[k].state)) ? 'new' : 'better', text: gainSentence(fx, clean, sc), also: alsoText, note: held ? `SlipStream would wait ${held.hold} more min for a better one. Grabbing now skips the wait.` : '', keys: clean, alsoKeys: also };
+  }
+  const base = { keys: [], alsoKeys: also, also: '', note: '' };
+  if (r.blocklisted && !row.allHard) return { ...base, kind: 'blocked', code: 'blocked', text: `Blocked on ${r.blocklisted.on}: ${r.blocklisted.plain}` };
+  if (row.allHard) { const c = cantWhy(fx, r); return { ...base, kind: 'cant', ...c, text: `Can’t use: ${c.why}` }; }
+  const soft = g.soft.filter((k) => inF.has(k));
+  if (soft.length) {
+    const t = fx.targets.find((x) => soft.some((k) => parseCell(k).target === x.id));
+    const c = softWhy(fx, r, v[t.id]);
+    return { ...base, kind: 'soft', ...c, keys: soft, text: `Gets you ${keysPhrase(fx, soft, sc)}, but ${c.why}` };
+  }
+  if (also.length) return { ...base, kind: 'elsewhere', code: 'elsewhere', text: `Gets you ${keysPhrase(fx, also, sc)} instead` };
+  return { ...base, kind: 'have', code: 'have', text: r.current ? 'This is the copy you already have' : 'Nothing you don’t already have' };
+}
+export const wouldGrab = (o) => o.kind === 'new' || o.kind === 'better';
+
+// What SlipStream wouldn't grab, grouped by reason, each group said as a sentence.
+const BUCKET = { res: 'off', hdr: 'off', edition: 'off', big: 'limits', small: 'limits', score: 'limits', title: 'limits' };
+const HIDDEN = {
+  have: (n) => `${n} ${plural(n, 'is', 'are')} no better than what you have`,
+  off: (n) => `${n} ${plural(n, 'isn’t', 'aren’t')} a version you keep`,
+  lang: (n, rows) => (new Set(rows.map((x) => x.row.r.lang)).size === 1 ? `${n} ${plural(n, 'has', 'have')} ${rows[0].row.r.lang} audio` : `${n} ${plural(n, 'is', 'are')} in another language`),
+  cam: (n) => `${n} ${plural(n, 'is a camera recording', 'are camera recordings')}`,
+  limits: (n) => `${n} ${plural(n, 'is', 'are')} outside the limits you set`,
+  blocked: (n) => `${n} ${plural(n, 'is', 'are')} blocked`,
+  elsewhere: (n) => `${n} ${plural(n, 'gets', 'get')} you something else`,
+};
+export function hiddenGroups(fx, items) {
+  const m = new Map();
+  for (const x of items) { const b = BUCKET[x.out.code] || x.out.code; if (!m.has(b)) m.set(b, []); m.get(b).push(x); }
+  return [...m.entries()].map(([code, rows]) => ({ code, rows, sentence: HIDDEN[code](rows.length, rows, fx) })).sort((a, b) => b.rows.length - a.rows.length);
+}
+
+// A Release as people talk about it: "Season 2 pack · 720p web", "4K Remux · Dolby Vision · Atmos".
+const RES_W = { '2160p': '4K', '1080p': '1080p', '720p': '720p' };
+const SRC_W = { Remux: 'Remux', BluRay: 'Blu-ray', 'WEB-DL': 'web', WEBRip: 'web rip', HDTV: 'TV recording' };
+const HDR_W = { 'DV HDR10': 'Dolby Vision', HDR10: 'HDR', 'HDR10+': 'HDR10+' };
+export function describe(fx, r) {
+  const parts = [];
+  if (fx.work.kind !== 'movie') {
+    const lv = fx.levels.filter((l) => fx.items.filter((i) => i.level === l.id).every((i) => r.coverage.includes(i.id)));
+    const its = r.coverage.map((id) => itemById(fx, id)).sort((a, b) => a.season - b.season || a.ep - b.ep);
+    if (lv.length === 1 && its.length === fx.items.filter((i) => i.level === lv[0].id).length) parts.push(`${lv[0].label} pack`);
+    else if (lv.length > 1) parts.push(`Seasons ${lv[0].label.replace('Season ', '')}–${lv[lv.length - 1].label.replace('Season ', '')} pack`);
+    else if (its.length === 1) parts.push(`Episode ${its[0].ep}`);
+    else parts.push(`Episodes ${its[0].ep}–${its[its.length - 1].ep}`);
+  }
+  if (r.edition !== 'Standard') parts.push(r.edition);
+  parts.push(CAMS.includes(r.source) ? 'Camera recording' : `${RES_W[r.res]} ${SRC_W[r.source]}`);
+  if (r.hdr) parts.push(HDR_W[r.hdr]);
+  else if (r.res === '2160p') parts.push('no HDR');
+  if (/Atmos/.test(r.audio)) parts.push('Atmos');
+  if (r.lang !== 'English') parts.push(`${r.lang} audio`);
+  const health = r.seeders === 0 ? { word: 'No seeders', low: true } : r.seeders < 10 ? { word: `Few seeders (${r.seeders})`, low: true } : { word: `${r.seeders} seeders`, low: false };
+  return { parts, lead: parts.join(' · '), size: r.size >= 10 ? `${Math.round(r.size)} GB` : fmt.size(r.size), health };
+}
+
+// "1080p web", from a file name, for "you have a 1080p web copy".
+export function describeFile(name) {
+  const res = (name.match(/2160p|1080p|720p/) || [''])[0];
+  const src = /REMUX/i.test(name) ? 'Remux' : /BluRay/i.test(name) ? 'Blu-ray' : /WEBRip/i.test(name) ? 'web rip' : /WEB/i.test(name) ? 'web' : '';
+  return `${RES_W[res] || res} ${src}`.trim();
+}
+
+// Needs: the open cells in a scope, merged by state and Target into ranges, worst first.
+export const NEED_WORD = { failed: 'Failed', missing: 'Missing', upgrade: 'Could be better', met: 'Already fine' };
+const NEED_ORDER = ['failed', 'missing', 'upgrade', 'met'];
+export function needGroups(fx, keys, sc) {
+  const m = new Map();
+  for (const k of keys) {
+    const c = parseCell(k);
+    const st = fx.cells[k].state;
+    const id = `${st}|${c.target}|${c.edition}`;
+    if (!m.has(id)) m.set(id, { id, state: st, tid: c.target, ed: c.edition, keys: [] });
+    m.get(id).keys.push(k);
+  }
+  const tix = (g) => fx.targets.findIndex((t) => t.id === g.tid) * 10 + fx.editions.indexOf(g.ed);
+  return [...m.values()].sort((a, b) => NEED_ORDER.indexOf(a.state) - NEED_ORDER.indexOf(b.state) || tix(a) - tix(b)).map((g) => ({ ...g, word: NEED_WORD[g.state], label: keysPhrase(fx, g.keys, sc) }));
+}
+
+// The plan (D): greedy. Take the release covering the most unfilled needs; on a tie, the one that fills more open cells
+// anywhere (so a pack wins when it fills at least as much), then the better-ranked. Forced picks go first, excluded ones never.
+export function buildPlan(fx, sc, rows, forced = [], excluded = new Set()) {
+  const need = needKeys(fx, sc);
+  const all = openCells(fx);
+  const info = [...rows].sort(rankCmp).map((row, pos) => {
+    const g = gainsOf(fx, row, all);
+    return { row, pos, focus: g.clean.filter((k) => need.includes(k)), total: g.clean.length };
+  }).filter((x) => x.focus.length);
+  const left = new Set(need);
+  const steps = [];
+  const take = (x) => {
+    const covers = x.focus.filter((k) => left.has(k));
+    if (!covers.length) return;
+    covers.forEach((k) => left.delete(k));
+    steps.push({ row: x.row, covers });
+  };
+  for (const id of forced) { const x = info.find((y) => y.row.r.id === id); if (x) take(x); }
+  for (;;) {
+    let best = null, bn = 0;
+    for (const x of info) {
+      if (excluded.has(x.row.r.id) || steps.some((s) => s.row === x.row)) continue;
+      const n = x.focus.filter((k) => left.has(k)).length;
+      if (n && (!best || n > bn || (n === bn && (x.total > best.total || (x.total === best.total && x.pos < best.pos))))) { best = x; bn = n; }
+    }
+    if (!best) break;
+    take(best);
+  }
+  const picked = new Set(steps.map((s) => s.row.r.id));
+  for (const s of steps) {
+    const ov = (x) => x.focus.filter((k) => s.covers.includes(k)).length;
+    s.alts = info.filter((x) => !picked.has(x.row.r.id) && ov(x)).sort((a, b) => ov(b) - ov(a) || a.pos - b.pos).map((x) => x.row);
+  }
+  return { steps, missing: [...left], need };
+}
+
+export function planHeadline(fx, plan, sc) {
+  const n = plan.steps.length;
+  if (!plan.need.length) return 'Nothing here is missing';
+  if (!n) return 'Nothing found yet that SlipStream would grab';
+  const grabs = `${n} grab${n > 1 ? 's get' : ' gets'} you`;
+  if (!plan.missing.length) return `${grabs} everything`;
+  const gs = byTarget(fx, plan.missing);
+  return `${grabs} everything except ${gs.length > 2 ? `${gs.length} things` : keysPhrase(fx, plan.missing, sc)}`;
+}
+
+// Equal coverage reads best in episode order; the same episode falls back to rank.
+export function choiceCmp(fx, rank) {
+  const first = (r) => Math.min(...r.coverage.map((id) => { const it = itemById(fx, id); return it.season ? it.season * 100 + it.ep : 0; }));
+  return (a, b) => b.out.keys.length - a.out.keys.length || (fx.work.kind === 'movie' ? 0 : first(a.row.r) - first(b.row.r)) || rank.get(a.row.r.id) - rank.get(b.row.r.id);
 }
