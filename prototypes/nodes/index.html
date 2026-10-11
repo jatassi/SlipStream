@@ -1,0 +1,126 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway. Issue #62: what do the Nodes screens look like? Node list and Node detail, assigning Roles and Role Groups
+  with their guardrails, Pairing a new Node with a Join Code, and Handover of the Controller. Mounted inside the Lit console admin shell
+  (prototype/ui-direction, variant C). Three variants differ in the assignment model:
+    A Roster   Node-first. Node cards, Node detail as a pushed page, Roles edited in a sheet of Role Group switches with a review step.
+    B Matrix   Grid-first. Nodes by Roles, cells ticked in place, guardrails in the cells, pending changes in a bottom bar.
+    C By Role  Role-first. Role Groups and Roles, each listing its holder Nodes; adding a holder shows that Node's probe verdict.
+  Params:   ?variant=A|B|C  ?device=wide|phone  ?state=normal|single|offline|skew|drain
+            ?view=nodes|pair|handover|worker-join|worker-status  ?node=<id> opens Node detail.  \ hides the bar. ← → cycle variants.
+  Sim buttons on the bar drive Pairing: a Worker joins, the code expires, the code is used. On ?view=worker-join they drive the new Node's page.
+  Serve prototypes/ (./run.sh does) so ../ui-direction/ resolves. Styles: the Lit console stylesheet, linked, plus nodes.css.
+  ASSUMPTIONS, where the topology resolution (issue #12) leaves room:
+    - When a Node goes offline and no other Node holds Searching, its searches wait. The UI offers to add Searching elsewhere.
+    - In ?view=worker-status, seedbox-ams also holds Serving, so the status page has jobs and torrents to show.
+    - The Join Code is SLP1 plus twelve groups of five base32 characters, wide enough for three addresses and a fingerprint.
+    - A Handover moves only Controller-only work. Every Role stays on its Node; the receiver starts Serving because the Controller always serves.
+    - Removing a Node drains its Roles first; an always-held Role it was the last holder of goes back to the Controller.
+  Everything is in memory. Names, addresses, keys, versions and numbers are invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Nodes · prototype</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="../ui-direction/variants/lit-console/style.css">
+<link rel="stylesheet" href="nodes.css">
+<style>
+  html, body { margin: 0; background: #08090a; min-height: 100%; }
+  body.device-phone { display: grid; place-items: center; min-height: 100vh; padding: 28px 0 130px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% 0%, #17181b, #08090a); }
+  #frame { position: relative; }
+  body.device-wide #frame { min-height: 100vh; }
+  body.device-phone #frame {
+    width: 390px; height: 844px; border-radius: 48px; overflow: hidden;
+    box-shadow: 0 0 0 10px #1c1d20, 0 0 0 11px #2c2d31, 0 40px 80px rgba(0,0,0,.6);
+    transform: translateZ(0); /* pins position:fixed chrome to the frame */
+  }
+  body.device-phone #app { height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  @media (max-width: 500px) {
+    body.device-phone { display: block; padding: 0; background: none; }
+    body.device-phone #frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+  }
+
+  #proto-bar {
+    position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 14px; z-index: 2147483647;
+    display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 22px;
+    background: #fde047; color: #111; font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); user-select: none; white-space: nowrap; max-width: calc(100vw - 16px);
+  }
+  #proto-bar[hidden] { display: none; }
+  #proto-bar .row { display: flex; align-items: center; gap: 4px; justify-content: center; flex-wrap: wrap; }
+  #proto-bar button, #proto-bar select { all: unset; cursor: pointer; padding: 7px 10px; border-radius: 999px; }
+  #proto-bar select { background: rgba(0,0,0,.08); padding-right: 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23111' stroke-width='2.5' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
+  #proto-bar button:hover { background: rgba(0,0,0,.1); }
+  #proto-bar button[aria-pressed="true"] { background: #111; color: #fde047; }
+  #proto-bar :focus-visible { outline: 2px solid #111; outline-offset: 1px; }
+  #proto-bar .label { padding: 0 6px; min-width: 120px; text-align: center; }
+  #proto-bar .k { opacity: .55; padding: 0 2px 0 6px; font-weight: 500; }
+  #proto-bar .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 2px; }
+  @media (max-width: 500px) { #proto-bar { bottom: auto; top: 6px; font-size: 11px; } #proto-bar .label { min-width: 0; } }
+</style>
+</head>
+<body>
+<div id="frame"><div id="app"></div></div>
+<nav id="proto-bar" aria-label="Prototype switcher"></nav>
+<script type="module">
+import { mount, VARIANTS } from './app.js';
+
+const STATES = ['normal', 'single', 'offline', 'skew', 'drain'];
+const VIEWS = [['nodes', 'Nodes'], ['pair', 'Pairing'], ['handover', 'Handover'], ['worker-join', 'New Node page'], ['worker-status', 'Worker status page']];
+const pick = (v, list, d) => (list.includes(v) ? v : d);
+const params = new URLSearchParams(location.search);
+const cfg = {
+  variant: pick(params.get('variant'), Object.keys(VARIANTS), 'A'),
+  device: pick(params.get('device'), ['wide', 'phone'], 'wide'),
+  state: pick(params.get('state'), STATES, 'normal'),
+  view: pick(params.get('view'), VIEWS.map((v) => v[0]), 'nodes'),
+  node: params.get('node') || '',
+};
+document.body.classList.add(`device-${cfg.device}`, 'has-bar');
+
+// Reads the live URL so in-app navigation (Node detail, flows) survives a variant or device switch.
+function navigate(patch) {
+  const cur = new URLSearchParams(location.search);
+  const next = { variant: cfg.variant, device: cfg.device, state: cfg.state, view: cur.get('view') || cfg.view, node: cur.get('node') || '', ...patch };
+  if (!next.node) delete next.node;
+  location.search = new URLSearchParams(next).toString();
+}
+
+const bar = document.getElementById('proto-bar');
+const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
+const btn = (label, on, pressed) => { const b = el('button', { textContent: label, onclick: on }); if (pressed !== undefined) b.setAttribute('aria-pressed', pressed); return b; };
+const sep = () => el('span', { className: 'sep' });
+const k = (t) => el('span', { className: 'k', textContent: t });
+const keys = Object.keys(VARIANTS);
+const cycle = (d) => navigate({ variant: keys[(keys.indexOf(cfg.variant) + d + keys.length) % keys.length] });
+const select = (label, opts, cur, on) => { const s = el('select', { ariaLabel: label }); opts.forEach(([v, t]) => s.append(el('option', { value: v, textContent: t, selected: v === cur }))); s.onchange = () => on(s.value); return s; };
+const sim = (what) => () => window.dispatchEvent(new CustomEvent('proto-sim', { detail: what }));
+
+const row1 = el('div', { className: 'row' });
+row1.append(
+  btn('←', () => cycle(-1)),
+  el('span', { className: 'label', textContent: `${cfg.variant} · ${VARIANTS[cfg.variant].name}` }),
+  btn('→', () => cycle(1)), sep(),
+  btn('Wide', () => navigate({ device: 'wide' }), cfg.device === 'wide'),
+  btn('Phone', () => navigate({ device: 'phone' }), cfg.device === 'phone'), sep(),
+  k('State'), select('State', STATES.map((s) => [s, s]), cfg.state, (v) => navigate({ state: v, node: '' })),
+  k('View'), select('View', VIEWS, cfg.view, (v) => navigate({ view: v, node: '' })),
+);
+addEventListener('proto-url', (e) => { row1.querySelector('select[aria-label="View"]').value = e.detail.view; });
+const row2 = el('div', { className: 'row' });
+row2.append(k('Sim'), btn('Worker joins', sim('join')), btn('Code expires', sim('expire')), btn('Code used', sim('used')));
+bar.append(row1, row2);
+addEventListener('keydown', (e) => {
+  const t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) cycle(-1);
+  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) cycle(1);
+  if (e.key === '\\') { bar.hidden = !bar.hidden; document.body.classList.toggle('has-bar', !bar.hidden); }
+});
+
+mount({ root: document.getElementById('app'), cfg });
+</script>
+</body>
+</html>
