@@ -14,7 +14,7 @@ Open. A map ticket decides it with research and prototypes ([Chart SlipStream v2
 
 Two audiences carry equal weight.
 
-- **Admins** run SlipStream on their own hardware. The first is the chef; v2 is then packaged and documented for strangers who self-host. An Admin adds and monitors Works, tunes Profiles, Targets and Custom Formats, assigns Roles to Nodes, and needs to know at a glance whether everything is moving and what broke. They work at a desk and from a phone.
+- **Admins** run SlipStream on their own hardware. The first is the maintainer; v2 is then packaged and documented for strangers who self-host. An Admin adds and monitors Works, tunes Profiles, Targets and Custom Formats, assigns Roles to Nodes, and needs to know at a glance whether everything is moving and what broke. They work at a desk and from a phone.
 - **Members** are people an Admin invites with a Signup link. They request Works through the portal and learn when those Works are ready to watch. They never see the machinery: Nodes, Roles, Conversions, indexers or Download Clients.
 
 ## Product Purpose
@@ -41,7 +41,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 ## Capabilities and Constraints
 
 - Content Types are pluggable. v2 releases with movies and TV; a test-only third type proves extensibility.
-- Every row of [docs/parity-matrix.md](docs/parity-matrix.md) is kept unless the chef explicitly agreed to drop it on that row. This includes the wide desk shell and the phone shell (bottom tabs, push navigation, safe areas, 44 px targets, action sheets), global search, the dashboard, and light, dark and system themes (P-012).
+- Every row of [docs/parity-matrix.md](docs/parity-matrix.md) is kept unless the maintainer explicitly agreed to drop it on that row. This includes the wide desk shell and the phone shell (bottom tabs, push navigation, safe areas, 44 px targets, action sheets), global search, the dashboard, and light, dark and system themes (P-012).
 - Identity: one Account system. Admin is a permission on an Account. Sign-in is an email plus a 4-digit PIN or a passkey; only Admins issue Signup and Reset links; a fresh install prints a Setup code. Scripts use an API key. Email goes over generic SMTP.
 - v1 data comes forward through a one-shot importer.
 - Architecture is locked in [docs/adr/](docs/adr/).
@@ -63,7 +63,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 
 1. **Members never see machinery.** The portal speaks in outcomes: requested, coming, ready.
 2. **Answer "is it moving, and what broke" first.** Admin surfaces lead with live state and name the stage and cause of any failure.
-3. **Parity is a floor.** Nothing a v1 user relied on disappears without the chef's recorded yes.
+3. **Parity is a floor.** Nothing a v1 user relied on disappears without the maintainer's recorded yes.
 4. **One vocabulary everywhere.** The glossary is the UI's language, so docs, logs and screens agree.
 5. **Distributed, not complicated.** A single-machine install should feel complete; more Nodes add capacity without adding ceremony.
 

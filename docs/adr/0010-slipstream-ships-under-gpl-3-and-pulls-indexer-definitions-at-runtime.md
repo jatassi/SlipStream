@@ -6,7 +6,7 @@ SlipStream v2 is free, self-hosted software with no commercial plans, licensed G
 
 - **MIT or Apache-2.0.** Rejected. With no commercial plans, a permissive license buys nothing. It would also forbid porting Prowlarr code and allow closed forks.
 - **AGPL-3.0.** Rejected. Its extra clause covers running SlipStream as a hosted service, which no one plans to do.
-- **Bundle a snapshot of the YAML definitions.** Rejected by the chef after first choosing it. The files carry no license grant, and shipping them in a release redistributes them.
+- **Bundle a snapshot of the YAML definitions.** Rejected by the maintainer after first choosing it. The files carry no license grant, and shipping them in a release redistributes them.
 
 ## Consequences
 
