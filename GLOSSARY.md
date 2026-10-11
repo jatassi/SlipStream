@@ -120,6 +120,38 @@ _Avoid_: Stats, analytics, player profile
 A torrent client that a downloading Node sends grabs to, either the built-in one or an external one such as qBittorrent.
 _Avoid_: Downloader, torrent app
 
+**Tracker**:
+A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
+_Avoid_: Site, indexer (for the seeding side)
+
+**Indexer**:
+One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed. Each Indexer searches from one home Node.
+_Avoid_: Tracker (for the search side), provider, source
+
+**Tracker routing**:
+Which Download Client a Tracker's Grabs go to.
+_Avoid_: Client mapping, routing rule
+
+**Release**:
+What an Indexer lists for download: a title with the facts it states about itself and one info hash.
+_Avoid_: Result, torrent (for the listing), NZB
+
+**Want**:
+One Edition at one Target of a monitored, available Item that no file fills, or whose filling file is below the Target's cutoff. Every search and RSS sync tries to satisfy Wants.
+_Avoid_: Missing item, wanted cell, slot
+
+**Grab**:
+The decision to download one Release for a Work and Edition, recorded with the Targets it is meant to fill and sent to one Download Client.
+_Avoid_: Snatch, download (for the decision)
+
+**Hold**:
+How long a Target waits after a Release is published before grabbing it automatically, so a better one can arrive first.
+_Avoid_: Delay, delay profile
+
+**Backlog search**:
+The scheduled search that works through Wants nothing has found yet, spacing each Want's searches further apart while it stays unfound.
+_Avoid_: Sweep, scheduled search, auto search
+
 **Custom Format**:
 A named set of conditions on what a release says about itself, such as its title, release group or source, that each Target scores. A release's score for a Target is the sum of the scores of the Custom Formats it matches.
 _Avoid_: Preferred word, release profile, tag
