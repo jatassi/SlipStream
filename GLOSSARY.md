@@ -63,7 +63,7 @@ Any Node other than the Controller. A Worker joins by Pairing and does the work 
 _Avoid_: Agent, client, slave
 
 **Pairing**:
-Joining a new Node to a SlipStream with a Join Code from the Controller, after which the two Nodes trust each other's keys.
+Joining a new Node to a SlipStream with a Join Code from the Controller, after which the two Nodes trust each other's keys. A Node the Controller already knows by its key keeps its Roles when it pairs again.
 _Avoid_: Registration, enrollment, adoption
 
 **Join Code**:
@@ -71,8 +71,16 @@ A short-lived, single-use code the Controller issues so one new Node can pair wi
 _Avoid_: Invite, token, pairing key
 
 **Handover**:
-Moving the Controller to another paired Node, after which every Worker follows the new Controller.
+Moving the Controller to another paired Node by shipping it a Backup, after which every Worker follows the new Controller.
 _Avoid_: Failover, promotion, migration
+
+**Backup**:
+An encrypted copy of the Controller's library database, from which a Node can be restored as Controller. It never holds the Controller's key.
+_Avoid_: Config backup, snapshot, dump, export
+
+**Backup destination**:
+A folder on a Node that receives a copy of every Backup.
+_Avoid_: Backup target, backup location, remote
 
 **Role**:
 A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes.
