@@ -75,7 +75,7 @@ Moving the Controller to another paired Node, after which every Worker follows t
 _Avoid_: Failover, promotion, migration
 
 **Role**:
-A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role.
+A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes.
 _Avoid_: Service, capability, purpose
 
 **Role Group**:
@@ -87,7 +87,7 @@ The Role that serves the UI and portal on a Node, passing every request to the C
 _Avoid_: Hosting, web; never the Media Server's serving of the library
 
 **Relaying**:
-The Role that accepts connections from the internet on a Node, usually a rented VPS, and forwards each one to the Node and port it maps to, for a home network that can't accept them itself.
+The Role that accepts connections from the internet on a Node, usually a rented VPS, and forwards each one to the Node and port it maps to, for a home network that can't accept them itself. At most one Node relays, and that Node is the Relay Node.
 _Avoid_: Tunnel, proxy, gateway
 
 **Reachability diagnostic**:
