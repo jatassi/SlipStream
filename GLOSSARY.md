@@ -21,7 +21,7 @@ The Work and the set of its Items that a release or a file holds, such as one ep
 _Avoid_: Match, scope
 
 **Edition**:
-A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition, and may want several, each wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
+A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition. When its Work's list names Standard or any cut, an Item always wants that, and wants each other Edition on the list only once a release or file of it has been seen for the Item. A list naming neither wants its Editions outright. Each wanted Edition is wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
 _Avoid_: Version, cut
 
 **Target**:
@@ -33,7 +33,7 @@ A file fills a Target for an Edition when it is the one file that Target holds f
 _Avoid_: Holds, occupies, assigned to
 
 **Profile**:
-The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
+The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
 _Avoid_: Rendition profile, quality profile, slot
 
 **Conversion**:
