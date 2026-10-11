@@ -179,7 +179,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-112 | Generic RSS indexer for RSS-only feeds | `internal/indexer/genericrss/` | working | kept | - | unplanned |
 | P-113 | Content Type applicability derived from Newznab and Torznab categories | `internal/indexer/categories.go` | working | kept | - | unplanned |
 | P-114 | Per-indexer status with failure backoff and health classes | `internal/indexer/status/service.go`, `GET /indexers/status` | working | kept | - | unplanned |
-| P-115 | Per-indexer query and grab rate limits, config file only | `internal/indexer/ratelimit/limiter.go` | working | kept | - | unplanned |
+| P-115 | Per-indexer query and grab rate limits, config file only | `internal/indexer/ratelimit/limiter.go` | working | kept, as per-Indexer settings in the UI | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
 | P-116 | Scheduled indexer health check | `internal/scheduler/tasks/indexerhealth.go` | working | kept | - | unplanned |
 | P-117 | Indexer grab history, API only | `GET /history/indexer`, `GET /search/grab/history` | working | kept | - | unplanned |
 | P-118 | Indexer mode switch between SlipStream indexers and Prowlarr | `internal/prowlarr/mode.go`, `web/src/components/indexers/indexer-mode-toggle.tsx` | working | superseded by the built-in indexer catalog and the generic Torznab indexer | [Which v1 integrations stay beside the built-ins](https://github.com/jatassi/SlipStream/issues/4) | unplanned |
@@ -196,11 +196,11 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-124 | Editable query bar with re-search | `web/src/components/search/search-input-bar.tsx` | working | kept | - | unplanned |
 | P-125 | Sortable results with score, quality, indexer, size, age, peers and a freeleech badge | `web/src/components/search/search-results-table.tsx` | working | kept | - | unplanned |
 | P-126 | Results footer with totals and per-indexer errors | `web/src/components/search/search-footer.tsx` | working | kept | - | unplanned |
-| P-127 | Grab a release with an optional client choice, plus bulk grab | `internal/indexer/grab/service.go`, `POST /search/grab`, `POST /search/grab/bulk` | working | kept | - | unplanned |
+| P-127 | Grab a release with an optional client choice, plus bulk grab | `internal/indexer/grab/service.go`, `POST /search/grab`, `POST /search/grab/bulk` | working | kept, with client choice and bulk grab in the UI | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
 | P-128 | Results deduplicated, filtered, quality enriched and scored | `internal/indexer/search/aggregator.go`, `router.go` | working | kept | - | unplanned |
 | P-129 | Title matching rejects wrong-title releases | `internal/indexer/search/title_match.go` | working | kept | - | unplanned |
 | P-130 | Release parser for resolution, source, codecs, HDR, audio, group, revision, edition, language and packs | `internal/library/scanner/parser.go`, `internal/module/parseutil/` | working | kept | [Where Editions are wanted: Work, level or Item](https://github.com/jatassi/SlipStream/issues/89) | unplanned |
-| P-131 | Torrents fetched through the indexer for private trackers with URL fallback | `internal/indexer/grab/service.go (sendViaIndexer)` | working | kept | - | unplanned |
+| P-131 | Torrents fetched through the indexer for private trackers with URL fallback | `internal/indexer/grab/service.go (sendViaIndexer)` | working | kept without the URL fallback, excepted by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/87#issuecomment-6110599137) | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
 
 ## Auto search and RSS
 
@@ -208,9 +208,9 @@ An exception is written on its row only with the maintainer's explicit yes.
 |---|---|---|---|---|---|---|
 | P-132 | Search now for one movie, episode, season or series | `POST /autosearch/movie/:id`, `/autosearch/season/:seriesId/:seasonNumber`, `/autosearch/series/:id` | working | kept | - | unplanned |
 | P-133 | Auto search status per item | `GET /autosearch/status/:mediaType/:id` | working | kept | - | unplanned |
-| P-134 | Retry a failed movie or episode | `POST /autosearch/retry/movie/:id` | working | kept | - | unplanned |
+| P-134 | Retry a failed movie or episode | `POST /autosearch/retry/movie/:id` | working | kept, and Retry also searches | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
 | P-135 | Search All missing or upgradable with result toasts | `POST /autosearch/missing/*`, `web/src/routes/missing/use-missing-page.ts` | working | kept | - | unplanned |
-| P-136 | Scheduled automatic search with interval and backoff threshold settings | `internal/autosearch/settings.go`, `auto-search-section.tsx` | working | kept | - | unplanned |
+| P-136 | Scheduled automatic search with interval and backoff threshold settings | `internal/autosearch/settings.go`, `auto-search-section.tsx` | working | superseded by Backlog search, whose longest gap replaces the threshold | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
 | P-137 | Scheduled run refreshes metadata, orders by release date and groups season packs | `internal/autosearch/scheduled.go`, `internal/decisioning/collection.go` | working | kept | - | unplanned |
 | P-138 | Search on add from the add flow | `internal/library/librarymanager/add.go` | working | kept | - | unplanned |
 | P-139 | RSS sync with enable, interval, Run Now and last run status | `internal/rsssync/service.go`, `rss-sync-section.tsx` | working | kept | - | unplanned |
