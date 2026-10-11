@@ -1,0 +1,13 @@
+/* PROTOTYPE: styles for the shared Profile editor backdrop. Variants own everything else in variants/<x>.css. */
+.cq .pe { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
+.cq .pe-h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.cq .pe-card { background: var(--glass); box-shadow: inset 0 0 0 1px var(--hair); border-radius: var(--r-lg, 14px); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.cq .pe-sub { font-size: 12px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .06em; }
+.cq .pe-list { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; }
+.cq .pe-t { display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid var(--hair); flex-wrap: wrap; padding: 6px 0; }
+.cq .pe-t:first-child { border-top: 0; }
+.cq .pe-t .ic { width: 13px; height: 13px; vertical-align: -2px; margin-right: 4px; }
+.cq .pe-set { margin-left: auto; }
+.cq .pe-new b { color: #fff; }
+.cq .pe-ph { padding: 8px 16px 24px; max-width: none; }
+.cq .pe-save { display: flex; justify-content: flex-end; }
