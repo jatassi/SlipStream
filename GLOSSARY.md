@@ -154,6 +154,14 @@ _Avoid_: Path substitution, remote path mapping
 What SlipStream shows about recent plays on each Media Server: which players transcoded, why, and which Target would have played without transcoding.
 _Avoid_: Stats, analytics, player profile
 
+**Scheduled task**:
+A library-wide job the Controller starts on a cadence, which the Tasks page lists with its last run, result and next run. A due time on one object, a job an event queues, and watching a Node keeps up continuously are not Scheduled tasks.
+_Avoid_: Job, cron job, background task, timer
+
+**Maintenance window**:
+The daily stretch of the Controller's local time when updates install and the nightly Scheduled tasks, such as Backup and Library scan, start.
+_Avoid_: Update window, quiet hours
+
 ## Acquisition
 
 **Download Client**:
@@ -241,6 +249,10 @@ _Avoid_: Alignment, resync
 **Mark bad**:
 Removing a Sidecar as wrong, which blocks that candidate for that file and searches again. An Admin marks one bad from a file's subtitles, and a Subtitle report does it at once.
 _Avoid_: Reject, Blocklist (for a subtitle)
+
+**Subtitle search**:
+The scheduled search for wanted subtitles that no Sidecar meets yet, spacing each one's searches further apart while nothing passes Timing sync.
+_Avoid_: Subtitle sweep, subtitle auto search
 
 ## Identity
 

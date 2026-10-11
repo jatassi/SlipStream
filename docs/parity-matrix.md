@@ -41,8 +41,8 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-004 | Phone tab bar with Dashboard, Library, Activity badge, Search and More | `web/src/components/layout/tab-bar.tsx` | working | kept | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
 | P-005 | Phone More page with Discover links, missing counts, settings, system and version footer | `web/src/routes/more/index.tsx` | working | kept | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
 | P-006 | Header search box opens global search results | `web/src/components/search/search-bar.tsx` | working | kept | - | unplanned |
-| P-007 | Header running-tasks pill lists running scheduled tasks | `web/src/components/layout/header-running-tasks.tsx` | working | kept | - | unplanned |
-| P-008 | Header activity indicator shows live progress of long jobs, each dismissible | `web/src/components/layout/header-activity-indicator.tsx`, `internal/progress/progress.go` | working | kept | - | unplanned |
+| P-007 | Header running-tasks pill lists running scheduled tasks | `web/src/components/layout/header-running-tasks.tsx` | working | kept and merged with P-008 into one header control listing runs that last over 5 s, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
+| P-008 | Header activity indicator shows live progress of long jobs, each dismissible | `web/src/components/layout/header-activity-indicator.tsx`, `internal/progress/progress.go` | working | kept and merged with P-007 into one header control, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-009 | Header bell for in-app admin notifications, held client side with no history | `web/src/components/layout/header-notifications.tsx` | half-built | kept | - | unplanned |
 | P-010 | Restart action with confirm, server re-exec and countdown reload | `web/src/components/layout/use-session-actions.ts`, `POST /system/restart` | working | kept | - | unplanned |
 | P-011 | Log out action with confirm | `web/src/components/layout/use-session-actions.ts` | working | kept | - | unplanned |
@@ -70,7 +70,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-028 | Storage usage per volume holding root folders | `internal/filesystem/storage_service.go`, `/filesystem/storage` | working | kept | - | unplanned |
 | P-029 | MediaInfo probe fills codec, HDR and channels when the mediainfo binary exists, with status shown | `internal/mediainfo/`, `media-info-status.tsx` | working | kept | - | unplanned |
 | P-030 | Six-state item status (unreleased, missing, downloading, failed, upgradable, available) with message | `internal/library/status/status.go` | working | kept, as one status vocabulary rolled up as unreleased, held, missing (Not found or waiting on source), downloading, converting, failed, upgradable, met | - | unplanned |
-| P-031 | Unreleased items turn missing hourly from release and air dates | `internal/availability/service.go` | working | kept | - | unplanned |
+| P-031 | Unreleased items turn missing hourly from release and air dates | `internal/availability/service.go` | working | kept with a timer at the release or air date instead of hourly, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-032 | Added By shows the portal user who requested an item | `internal/library/movies/movie.go` | working | kept | - | unplanned |
 | P-033 | Library list grid or table view with poster sizes and a column chooser | `web/src/components/media/library-options.tsx` | working | kept | [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25) | unplanned |
 | P-034 | Library sort options with list sections grouped by the sort field | `web/src/routes/movies/use-movie-list.ts`, `web/src/lib/grouping.ts` | working | kept | - | unplanned |
@@ -129,7 +129,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
 | P-074 | Automatic import of completed downloads mapped back to the grabbed item | `internal/import/pipeline.go (ProcessCompletedDownload)` | working | kept | - | unplanned |
-| P-075 | Periodic import scan of download folders that skips already imported files | `internal/scheduler/tasks/importscan.go`, `import/pipeline.go` | working | kept | - | unplanned |
+| P-075 | Periodic import scan of download folders that skips already imported files | `internal/scheduler/tasks/importscan.go`, `import/pipeline.go` | working | kept as completion events and client polling instead of a periodic scan, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-076 | Completion checks wait for stable size and archive extraction and skip stalled downloads | `internal/import/completion.go` | working | kept | - | unplanned |
 | P-077 | Hardlink placement with symlink and copy fallback, source kept for seeding | `internal/library/organizer/fileops.go (LinkOrCopy)` | working | kept, as hard link, then reflink, then copy | [File sync design](https://github.com/jatassi/SlipStream/issues/14) | unplanned |
 | P-078 | Upgrade on import replaces and deletes the older file | `internal/import/service.go (evaluateUpgradeEligibility)` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
@@ -211,7 +211,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-134 | Retry a failed movie or episode | `POST /autosearch/retry/movie/:id` | working | kept, and Retry also searches | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
 | P-135 | Search All missing or upgradable with result toasts | `POST /autosearch/missing/*`, `web/src/routes/missing/use-missing-page.ts` | working | kept | - | unplanned |
 | P-136 | Scheduled automatic search with interval and backoff threshold settings | `internal/autosearch/settings.go`, `auto-search-section.tsx` | working | superseded by Backlog search, whose longest gap replaces the threshold | [Search, RSS sync and grab across Nodes](https://github.com/jatassi/SlipStream/issues/87) | unplanned |
-| P-137 | Scheduled run refreshes metadata, orders by release date and groups season packs | `internal/autosearch/scheduled.go`, `internal/decisioning/collection.go` | working | kept | - | unplanned |
+| P-137 | Scheduled run refreshes metadata, orders by release date and groups season packs | `internal/autosearch/scheduled.go`, `internal/decisioning/collection.go` | working | kept with the metadata refresh moved into the Metadata refresh task, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-138 | Search on add from the add flow | `internal/library/librarymanager/add.go` | working | kept | - | unplanned |
 | P-139 | RSS sync with enable, interval, Run Now and last run status | `internal/rsssync/service.go`, `rss-sync-section.tsx` | working | kept | - | unplanned |
 | P-140 | RSS sync matches new releases to wanted items and grabs the best | `internal/rsssync/matcher.go`, `cache.go` | working | kept | - | unplanned |
@@ -224,7 +224,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-142 | Download clients with host, port, SSL, URL base, credentials, category, priority and enable | `internal/downloader/service.go`, `web/src/routes/settings/download-pipeline/clients.tsx` | working | kept without priority, excepted by the [maintainer's yes](https://github.com/jatassi/SlipStream/pull/112) | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-143 | Client credentials redacted in API responses | `internal/api/handlers_downloads.go` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-144 | Test a saved or unsaved client | `POST /downloadclients/:id/test`, `POST /downloadclients/test` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
-| P-145 | Scheduled download client health check | `internal/scheduler/tasks/downloadclienthealth.go` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
+| P-145 | Scheduled download client health check | `internal/scheduler/tasks/downloadclienthealth.go` | working | kept with health read from the client poll instead of a Scheduled task, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64), [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-146 | Downloads land in a SlipStream subfolder per Content Type | `internal/downloader/service.go (downloadSubDir)` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-147 | Import delay per client | `internal/import/pipeline.go` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-148 | Cleanup mode and seed ratio target stored but never acted on or shown | `internal/downloader/service.go` | half-built | superseded by the built-in torrent client's seeding goals | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
@@ -309,8 +309,8 @@ An exception is written on its row only with the maintainer's explicit yes.
 |---|---|---|---|---|---|---|
 | P-213 | Health page grouped by category with status, message and since time | `internal/health/service.go`, `web/src/routes/system/health.tsx` | working | kept | - | unplanned |
 | P-214 | Test one health item or a whole category | `POST /system/health/:category/test`, `POST /system/health/:category/:id/test` | working | kept | - | unplanned |
-| P-215 | Scheduled storage check with free space warning and error thresholds | `internal/scheduler/tasks/storagehealth.go` | working | kept | - | unplanned |
-| P-216 | Health check intervals and thresholds, config file only | `internal/config/config.go` | working | kept | - | unplanned |
+| P-215 | Scheduled storage check with free space warning and error thresholds | `internal/scheduler/tasks/storagehealth.go` | working | kept as a 5-minute sample per Node with absolute or percentage thresholds per volume, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
+| P-216 | Health check intervals and thresholds, config file only | `internal/config/config.go` | working | kept with every interval and threshold settable in the UI, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 | P-217 | Health warnings on settings hub rows and the dashboard | `web/src/routes/settings/use-health-warnings.ts`, `web/src/components/dashboard/health-group.tsx` | working | kept | - | unplanned |
 | P-218 | Port and firewall status check across Windows, macOS and Linux firewalls | `internal/firewall/`, `GET /system/firewall`, `firewall-status-panel.tsx` | working | kept | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
 
@@ -326,16 +326,16 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-224 | History filters by Content Type, event type and date preset | `web/src/routes/history/history-filters.tsx`, `GET /history` | working | kept | - | unplanned |
 | P-225 | Grabbed, deleted and failed history events not offered as filters | `web/src/types/history.ts` | half-built | kept | - | unplanned |
 | P-226 | Clear all history | `DELETE /history` | working | kept | - | unplanned |
-| P-227 | History retention setting with nightly cleanup | `internal/history/settings.go`, `use-history-retention.ts` | working | kept | - | unplanned |
+| P-227 | History retention setting with nightly cleanup | `internal/history/settings.go`, `use-history-retention.ts` | working | kept with cleanup run by Housekeeping, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 
 ## Scheduled tasks
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-228 | Scheduled tasks page with last run, next run, running state and Run Now | `internal/scheduler/scheduler.go`, `web/src/routes/system/tasks.tsx` | working | kept | - | unplanned |
-| P-229 | Task schedules fixed apart from auto search and RSS intervals | `internal/scheduler/tasks/` | working | kept | - | unplanned |
-| P-230 | Daily library scan of all root folders | `internal/scheduler/tasks/ (library-scan)` | working | kept | - | unplanned |
-| P-231 | Daily refresh of unreleased metadata | `internal/scheduler/tasks/ (unreleased-refresh)` | working | kept | - | unplanned |
+| P-228 | Scheduled tasks page with last run, next run, running state and Run Now | `internal/scheduler/scheduler.go`, `web/src/routes/system/tasks.tsx` | working | kept with last result, run history and Nodes, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
+| P-229 | Task schedules fixed apart from auto search and RSS intervals | `internal/scheduler/tasks/` | working | superseded by every cadence being settable, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
+| P-230 | Daily library scan of all root folders | `internal/scheduler/tasks/ (library-scan)` | working | kept | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
+| P-231 | Daily refresh of unreleased metadata | `internal/scheduler/tasks/ (unreleased-refresh)` | working | kept and widened to every Work on a tiered schedule, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Scheduled tasks and their cadence](https://github.com/jatassi/SlipStream/issues/116) | unplanned |
 
 ## Auth and API
 
