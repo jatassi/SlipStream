@@ -355,7 +355,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-241 | Admin WebSocket with reconnect that drives queue, progress, tasks, health and library refresh | `internal/websocket/hub.go`, `web/src/stores/websocket.ts` | working | kept | - | unplanned |
+| P-241 | Admin WebSocket with reconnect that drives queue, progress, tasks, health and library refresh | `internal/websocket/hub.go`, `web/src/stores/websocket.ts` | working | superseded by a Server-Sent Events stream with reconnect | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
 | P-242 | Library entity added, updated and deleted events | `internal/websocket/hub.go` | working | kept | - | unplanned |
 | P-243 | Live events for search, grab, auto search, RSS, import, rename, history, health, indexers, artwork, tasks, updates, logs and requests | `internal/websocket/hub.go`, `web/src/stores/ws-message-handlers.ts` | working | kept | - | unplanned |
 
@@ -499,7 +499,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-342 | Public liveness and status endpoints | `GET /health`, `GET /api/v1/status` | working | kept | - | unplanned |
 | P-343 | Portal REST contract for auth, requests, search, library, notifications and inbox | `internal/portal/requests/handlers.go`, `internal/auth/handlers.go` | working | kept | - | unplanned |
 | P-344 | Admin request management REST for requests, users, invitations and settings | `internal/portal/admin/` | working | kept | - | unplanned |
-| P-345 | Admin WebSocket at /ws with the token in the subprotocol | `internal/websocket/hub.go` | working | kept | - | unplanned |
+| P-345 | Admin WebSocket at /ws with the token in the subprotocol | `internal/websocket/hub.go` | working | superseded by a Server-Sent Events stream on the session cookie | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
 
 ## Not-started items
 
@@ -511,7 +511,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-349 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [Custom formats engine and TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/7) | unplanned |
 | P-350 | Credential encryption at rest | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
 | P-351 | HTTPS setting for the web app | `docs/Remaining-features.md`, `server-section.tsx` | not started | superseded by the Relay Role TLS forwarding | [Relay Role and reachability diagnostic](https://github.com/jatassi/SlipStream/issues/16) | unplanned |
-| P-352 | Static binary | `docs/Production-Readiness-Checklist.md` | not started | open | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
+| P-352 | Static binary | `docs/Production-Readiness-Checklist.md` | not started | kept | [Choose the stack](https://github.com/jatassi/SlipStream/issues/11) | unplanned |
 | P-353 | Code signing | `docs/Production-Readiness-Checklist.md` | not started | kept | - | unplanned |
 | P-354 | Torznab and Newznab endpoint served by SlipStream | - | not started | out of scope | - | unplanned |
 | P-355 | Prowlarr Applications sync into SlipStream | `docs/Prowlarr-other-arr-integration.md` | not started | out of scope | - | unplanned |
