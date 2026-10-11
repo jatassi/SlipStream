@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. Tracker detail page (issue #106) on Direction C. ?variant= (A|B|C), ?tracker= (aurora|beacon|cinder|public), ?device= (wide|phone), ?tab= for variant B. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>SlipStream v2 · tracker detail prototype</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="../ui-direction/variants/lit-console/style.css">
+<link rel="stylesheet" href="../torrent-client/torrents.css">
+<link rel="stylesheet" href="../torrent-client/settings.css">
+<link rel="stylesheet" href="tracker.css">
+<style>
+  html, body { margin: 0; background: #08090a; min-height: 100%; }
+  body.device-phone { display: grid; place-items: center; min-height: 100vh; padding: 32px 0 96px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% 0%, #17181b, #08090a); }
+  #frame { position: relative; }
+  body.device-wide #frame { min-height: 100vh; }
+  body.device-phone #frame {
+    width: 390px; height: 844px; border-radius: 48px; overflow: hidden;
+    box-shadow: 0 0 0 10px #1c1d20, 0 0 0 11px #2c2d31, 0 40px 80px rgba(0,0,0,.6);
+    transform: translateZ(0);
+  }
+  body.device-phone #app { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  @media (max-width: 500px) {
+    body.device-phone { display: block; padding: 0; background: none; }
+    body.device-phone #frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+  }
+  #proto-bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483647;
+    display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
+    background: #fde047; color: #111; font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); user-select: none; white-space: nowrap;
+  }
+  #proto-bar[hidden] { display: none; }
+  #proto-bar button { all: unset; cursor: pointer; padding: 7px 10px; border-radius: 999px; }
+  #proto-bar button:hover { background: rgba(0,0,0,.1); }
+  #proto-bar button[aria-pressed="true"] { background: #111; color: #fde047; }
+  #proto-bar button:focus-visible { outline: 2px solid #111; outline-offset: 1px; }
+  #proto-bar .label { padding: 0 6px; min-width: 150px; text-align: center; }
+  #proto-bar .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 2px; }
+  @media (max-width: 500px) { #proto-bar { bottom: auto; top: 8px; font-size: 11px; } #proto-bar .label { min-width: 0; } }
+</style>
+</head>
+<body>
+<div id="frame"><div id="app"></div></div>
+<nav id="proto-bar" aria-label="Prototype switcher"></nav>
+<script type="module">
+import * as data from './data.js';
+import { startLive, onTick, format } from '../ui-direction/live.js';
+
+const VARIANTS = { A: 'Dossier', B: 'Tabs', C: 'Obligations ledger' };
+const TRACKERS = { aurora: 'Aurora', beacon: 'Beacon', cinder: 'Cinder', public: 'Public' };
+const keys = Object.keys(VARIANTS);
+const params = new URLSearchParams(location.search);
+const state = {
+  variant: VARIANTS[params.get('variant')] ? params.get('variant') : 'A',
+  tracker: TRACKERS[params.get('tracker')] ? params.get('tracker') : 'beacon',
+  device: params.get('device') === 'phone' ? 'phone' : 'wide',
+};
+const tab = params.get('tab') || '';
+document.body.classList.add(`device-${state.device}`, 'surface-admin');
+
+function navigate(patch) { location.search = new URLSearchParams({ ...state, ...patch }).toString(); }
+function go(screen, extra = {}) {
+  if (screen === 'home' || screen === 'work') { location.href = `../ui-direction/index.html?variant=C&surface=admin&device=${state.device}&screen=${screen}`; return; }
+  location.href = `../torrent-client/index.html?${new URLSearchParams({ layout: 'C', screen, device: state.device, ...extra })}`;
+}
+
+const bar = document.getElementById('proto-bar');
+const btn = (label, on, pressed) => { const b = document.createElement('button'); b.textContent = label; b.onclick = on; if (pressed !== undefined) b.setAttribute('aria-pressed', pressed); return b; };
+const sep = () => Object.assign(document.createElement('span'), { className: 'sep' });
+const cycle = (d) => navigate({ variant: keys[(keys.indexOf(state.variant) + d + keys.length) % keys.length] });
+bar.append(
+  btn('←', () => cycle(-1)),
+  Object.assign(document.createElement('span'), { className: 'label', textContent: `${state.variant} · ${VARIANTS[state.variant]}` }),
+  btn('→', () => cycle(1)), sep(),
+  ...Object.entries(TRACKERS).map(([id, l]) => btn(l, () => navigate({ tracker: id }), state.tracker === id)), sep(),
+  btn('Wide', () => navigate({ device: 'wide' }), state.device === 'wide'),
+  btn('Phone', () => navigate({ device: 'phone' }), state.device === 'phone'),
+);
+addEventListener('keydown', (e) => {
+  const t = e.target; if (t.closest && t.closest('input, textarea, select, [contenteditable], [role="radiogroup"]')) return;
+  if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) cycle(-1);
+  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) cycle(1);
+  if (e.key === '\\') bar.hidden = !bar.hidden;
+});
+
+const root = document.getElementById('app');
+const mod = await import('./tracker.js');
+mod.render({
+  root, data, format, onTick, go,
+  device: state.device, variant: state.variant, tracker: state.tracker, tab,
+  icons: () => window.lucide && window.lucide.createIcons(),
+});
+window.lucide && window.lucide.createIcons();
+startLive(root);
+</script>
+</body>
+</html>
