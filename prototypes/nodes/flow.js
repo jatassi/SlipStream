@@ -10,19 +10,18 @@ import { format, onTick } from '../ui-direction/live.js';
 import * as A from './a.js';
 import * as B from './b.js';
 import { canvasHtml, mounted, wire, curve, isNarrow, reduceMotion } from './canvas.js';
-import { SERVICES } from './topology.js';
 
 export const name = 'Flow';
 const ID = 'E';
 
 export const STAGES = [
-  { id: 'search', label: 'Search', role: 'Searching', svc: 'indexers', verb: 'searching' },
-  { id: 'download', label: 'Download', role: 'Downloading', svc: 'swarm', verb: 'downloading' },
-  { id: 'import', label: 'Import', role: 'Storage', svc: null, verb: 'importing' },
-  { id: 'convert', label: 'Convert', role: 'Converting', svc: null, verb: 'converting' },
-  { id: 'subs', label: 'Subtitles', role: 'Subtitles', svc: 'subs', verb: 'subtitling' },
-  { id: 'msl', label: 'Media Server', role: 'Media Server link', svc: 'plex', verb: 'notifying Plex' },
-  { id: 'notify', label: 'Notify', role: 'Notifying', svc: 'smtp', verb: 'notifying' },
+  { id: 'search', label: 'Search', role: 'Searching', svc: ['search', 'Indexers'], verb: 'searching' },
+  { id: 'download', label: 'Download', role: 'Downloading', svc: ['share-2', 'Trackers and peers'], verb: 'downloading' },
+  { id: 'import', label: 'Import', role: 'Storage', svc: ['hard-drive', 'library roots'], verb: 'importing' },
+  { id: 'convert', label: 'Convert', role: 'Converting', svc: ['cpu', 'proven by trial run'], verb: 'converting' },
+  { id: 'subs', label: 'Subtitles', role: 'Subtitles', svc: ['captions', 'OpenSubtitles'], verb: 'subtitling' },
+  { id: 'msl', label: 'Media Server', role: 'Media Server link', svc: ['tv', 'Plex'], verb: 'notifying Plex' },
+  { id: 'notify', label: 'Notify', role: 'Notifying', svc: ['mail', 'Fastmail · push'], verb: 'notifying' },
 ];
 const STAGE_OF_JOB = { Searching: 'search', Downloading: 'download', Transfer: 'download', Import: 'import', Conversion: 'convert' };
 const IDX = Object.fromEntries(STAGES.map((s, i) => [s.id, i]));
@@ -150,13 +149,12 @@ function laneHead(app, n, y) {
 }
 
 function colHead(s, i, nodes, height) {
-  const svc = SERVICES.find((x) => x.id === s.svc);
   const none = !holdersOf(nodes, s.role).length;
   return `<div class="fx-col" data-col="${s.id}" style="left:${X0 + i * COLW - 20}px;width:${SW + 40}px;height:${height}px" data-bound></div>
   <div class="fx-ch" data-hl="${s.id}" style="left:${X0 + i * COLW}px;width:${SW}px">
     <span class="fx-ch-i num t3">${i + 1}</span><b>${esc(s.label)}</b>
     <span class="t3">${esc(s.role)}${ROLES[s.role].always ? ` ${I('anchor')}` : ''}</span>
-    <span class="fx-ch-s t3">${svc ? `${I(svc.icon)}${esc(svc.label)}` : s.id === 'import' ? `${I('hard-drive')}library roots` : `${I('cpu')}proven by trial run`}</span>
+    <span class="fx-ch-s t3">${I(s.svc[0])}${esc(s.svc[1])}</span>
     ${none ? '<span class="fx-ch-none t3">No holder. Skipped.</span>' : ''}
   </div>`;
 }

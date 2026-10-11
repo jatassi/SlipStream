@@ -85,14 +85,16 @@ const cfg = {
   state: pick(params.get('state'), STATES, 'normal'),
   view: pick(params.get('view'), VIEWS.map((v) => v[0]), 'nodes'),
   node: params.get('node') || '',
+  layout: pick(params.get('layout'), ['roster'], ''),
 };
 document.body.classList.add(`device-${cfg.device}`, 'has-bar');
 
 // Reads the live URL so in-app navigation (Node detail, flows) survives a variant or device switch.
 function navigate(patch) {
   const cur = new URLSearchParams(location.search);
-  const next = { variant: cfg.variant, device: cfg.device, state: cfg.state, view: cur.get('view') || cfg.view, node: cur.get('node') || '', ...patch };
+  const next = { variant: cfg.variant, device: cfg.device, state: cfg.state, view: cur.get('view') || cfg.view, node: cur.get('node') || '', layout: cur.get('layout') || '', ...patch };
   if (!next.node) delete next.node;
+  if (!next.layout) delete next.layout;
   location.search = new URLSearchParams(next).toString();
 }
 

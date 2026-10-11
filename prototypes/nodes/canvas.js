@@ -56,6 +56,7 @@ function zoomAt(cv, factor, cx, cy) {
 export function bounds(cv) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   cv.querySelectorAll('.cv-world [data-bound]').forEach((el) => {
+    if (el.hidden) return;
     x0 = Math.min(x0, el.offsetLeft); y0 = Math.min(y0, el.offsetTop);
     x1 = Math.max(x1, el.offsetLeft + el.offsetWidth); y1 = Math.max(y1, el.offsetTop + el.offsetHeight);
   });

@@ -73,6 +73,7 @@ function actionFor(name) {
 function params() {
   const p = { variant: app.cfg.variant, device: app.cfg.device, state: app.cfg.state, view: app.cfg.view };
   if (app.cfg.node) p.node = app.cfg.node;
+  if (app.cfg.layout) p.layout = app.cfg.layout;
   return new URLSearchParams(p).toString();
 }
 
@@ -108,13 +109,13 @@ function refresh() {
 }
 
 function go(patch) {
-  const pageChange = ('node' in patch && patch.node !== app.cfg.node) || ('view' in patch && patch.view !== app.cfg.view);
+  const pageChange = ['node', 'view', 'layout'].some((k) => k in patch && patch[k] !== app.cfg[k]);
   Object.assign(app.cfg, patch);
   history.replaceState(null, '', `?${params()}`);
   window.dispatchEvent(new CustomEvent('proto-url', { detail: { view: app.cfg.view } }));
   app.modal = null;
   closePop();
-  const inPlace = app.cfg.variant === 'C' || (app.cfg.variant !== 'A' && !app.phone);
+  const inPlace = app.cfg.variant === 'C' || (app.cfg.variant !== 'A' && !app.phone && app.cfg.layout !== 'roster');
   if (pageChange && !inPlace) scrollEl().scrollTop = 0;
   refresh();
 }

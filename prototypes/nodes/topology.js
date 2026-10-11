@@ -1,6 +1,4 @@
 // PROTOTYPE · Topology canvas, shared by variant D (structure) and F (structure with live traffic on the links).
-// An architecture diagram: Nodes as boxes inside the network they sit on, Node links with who dials whom, relayed links
-// through relay-fra, and the outside services each Role reaches. Roles are edited by dragging chips between boxes.
 
 import { GROUPS, ROLES, CONTROLLER_ONLY, CONTROLLER_VERSION, jobs, works } from './data.js';
 import { esc, I, dot, plural, wideShell, crumbs, nodeState, loadLine, heartbeatText, hm } from './shell.js';
@@ -10,18 +8,16 @@ import { pairingHtml, handoverHtml } from './flows.js';
 import { onTick, format } from '../ui-direction/live.js';
 import * as A from './a.js';
 import * as B from './b.js';
-import { canvasHtml, mounted, register, wire, rect, center, port, ports, facing, curve, posOf, isNarrow, reduceMotion, suppressClick } from './canvas.js';
+import { canvasHtml, mounted, register, wire, rect, ports, curve, posOf, isNarrow, reduceMotion, suppressClick } from './canvas.js';
 
-export const SERVICES = [
-  { id: 'indexers', label: 'Indexers', sub: '14 configured', icon: 'search', role: 'Searching', zone: 'left', row: 1 },
-  { id: 'swarm', label: 'Trackers and peers', sub: 'BitTorrent swarm', icon: 'share-2', role: 'Downloading', zone: 'left', row: 1 },
-  { id: 'tmdb', label: 'TMDB · TVDB', sub: 'metadata and artwork', icon: 'database', role: 'Metadata', zone: 'left', row: 2 },
-  { id: 'subs', label: 'OpenSubtitles', sub: 'subtitles API', icon: 'captions', role: 'Subtitles', zone: 'left', row: 2 },
-  { id: 'smtp', label: 'Fastmail · push', sub: 'smtp.fastmail.com:465', icon: 'mail', role: 'Notifying', zone: 'left', row: 2 },
-  { id: 'plex', label: 'Plex', sub: '192.168.1.20:32400', icon: 'tv', role: 'Media Server link', zone: 'lan' },
-  { id: 'home', label: 'Home browsers and apps', sub: 'UI and portal on the LAN', icon: 'monitor-smartphone', role: 'Serving', zone: 'lan', match: (n) => zoneOf(n) === 'lan' },
-  { id: 'remote', label: 'Remote members', sub: 'portal over the internet', icon: 'users', role: 'Serving', zone: 'right', row: 1, match: (n) => zoneOf(n) !== 'lan' },
-];
+const OUTSIDE_SERVICE = { 'Media Server link': 'Plex', Notifying: 'Fastmail' };
+const targetOf = (n, r) => (r === 'Serving' ? (zoneOf(n) === 'lan' ? 'LAN' : 'internet') : OUTSIDE_SERVICE[r] || '');
+function targetTip(n, r) {
+  if (r === 'Serving') return zoneOf(n) === 'lan' ? 'Entry point for browsers and apps on the home LAN' : 'Entry point for members over the internet';
+  return ROLES[r].reach ? `Reaches ${ROLES[r].reach}` : '';
+}
+
+const VISITORS = { 'relay-fra': '2 members on the portal', atlas: '1 browser on the LAN' };
 
 const ZONES = {
   internet: { label: 'Internet', sub: 'public addresses', icon: 'globe' },
@@ -34,8 +30,8 @@ export function zoneOf(n) {
   return 'internet';
 }
 
-const W = 276;
-const COL = { a: 330, b: 330 + W + 130, c: 330 + 2 * W + 130 + 120 };
+const W = 316;
+const COL = { a: 0, b: W + 120, c: 2 * W + 240 };
 const SLOT = { atlas: ['lan', 'a'], forge: ['lan', 'b'], cellar: ['lan', 'b'], 'seedbox-ams': ['internet', 'a'], 'relay-fra': ['internet', 'c'], cabin: ['cabin', 'c'] };
 
 function chipState(app, n, r, p) {
@@ -46,15 +42,18 @@ function chipState(app, n, r, p) {
   if (ch?.kind === 'drain') return { cls: 'p-drain', icon: 'log-out', tail: ch.left ? 'drains' : 'leaves', tip: ch.left ? `Drains: ${ch.left}` : 'Leaves. Nothing in flight.' };
   if (t?.status === 'running') return { cls: 'p-add testing', spin: true, tail: 'testing', tip: t.note };
   if (t?.status === 'fail') return { cls: 'p-add t-fail', icon: 'x', tail: 'unreachable', tip: t.note };
-  if (ch?.kind === 'add') return { cls: `p-add${c.warn ? ' weak' : ''}`, icon: 'plus', tail: c.warn ? 'weak' : '', tip: c.warn || 'Adding' };
+  if (t?.status === 'ok') return { cls: 'p-add', icon: 'check', tail: 'reached', tip: t.note };
+  if (ch?.kind === 'add') return { cls: `p-add${c.warn ? ' weak' : ''}`, icon: 'plus', tail: c.warn ? 'weak' : '', tip: c.warn || 'Adding', to: true };
   if (c.draining) return { cls: 'draining', icon: 'log-out', tail: 'draining', tip: `Draining: ${c.draining}` };
   if (!c.now) return null;
-  return { cls: `${c.handedBack ? 'handed' : ''}${c.warn ? ' weak' : ''}`, tip: c.handedBack ? 'Handed back. No other Node holds it.' : c.warn || ROLES[r].blurb, drag: true };
+  const about = [ROLES[r].blurb, targetTip(n, r)].filter(Boolean).join('. ');
+  return { cls: `${c.handedBack ? 'handed' : ''}${c.warn ? ' weak' : ''}`, tip: c.handedBack ? 'Handed back. No other Node holds it.' : c.warn || about, drag: true, to: true };
 }
 
 function chip(n, r, s) {
   const attrs = s.drag ? `data-chip="${esc(r)}" data-node="${n.id}" tabindex="0" aria-roledescription="draggable Role"` : `data-role-on="${esc(r)}"`;
-  return `<span class="cv-chip ${s.cls}" ${attrs} data-port="${esc(r)}" title="${esc(s.tip)}">${s.spin ? '<span class="spin" aria-hidden="true"></span>' : s.icon ? I(s.icon) : ''}${esc(r)}${s.tail ? `<span class="cv-tail">${esc(s.tail)}</span>` : ''}${s.cls.includes('weak') && !s.tail ? dot('warn') : ''}</span>`;
+  const to = s.to && targetOf(n, r);
+  return `<span class="cv-chip ${s.cls}" ${attrs} title="${esc(s.tip)}">${s.spin ? '<span class="spin" aria-hidden="true"></span>' : s.icon ? I(s.icon) : ''}${esc(r)}${to ? `<span class="cv-to">${esc(to)}</span>` : ''}${s.tail ? `<span class="cv-tail">${esc(s.tail)}</span>` : ''}${s.cls.includes('weak') && !s.tail ? dot('warn') : ''}</span>`;
 }
 
 function alertStrip(app, n) {
@@ -74,7 +73,23 @@ function metaLine(app, n) {
   return `${I('heart-pulse')}<span class="num">${n.link.heartbeat} s</span><span class="s-sep">·</span><span class="num">${n.link.latency} ms</span>${n.link.relay ? `<span class="s-sep">·</span>via ${esc(n.link.relay)}` : ''}`;
 }
 
-function box(app, n, p, pos) {
+function inbound(app, n, p) {
+  if (n.state === 'offline') return '';
+  const rows = [];
+  const swarm = trafficOf(app.S.nodes).filter((f) => f.svc === 'swarm' && f.node === n);
+  if (swarm.length) {
+    const one = swarm.length === 1 ? swarm[0] : null;
+    const k = `in:${n.id}`;
+    aggs.set(k, swarm);
+    const rate = one ? `<span class="num" data-live-rate="${one.j.id}">${format.rate(one.j)}</span>` : `<span class="num" data-agg="${k}">${aggRate(swarm)}</span>`;
+    rows.push(`<div class="cv-in" title="${esc(swarm.map((f) => f.w.title).join('\n'))}">${I('cloud-download')}<span class="ell">From the swarm · ${one ? esc(one.w.title) : plural(swarm.length, 'download')}</span>${rate}</div>`);
+  }
+  const serving = chipState(app, n, 'Serving', p);
+  if (VISITORS[n.id] && serving?.drag) rows.push(`<div class="cv-in">${I('users')}<span class="ell">${VISITORS[n.id]}</span></div>`);
+  return rows.join('');
+}
+
+function box(app, n, p, pos, traffic) {
   const st = nodeState(n);
   const groups = GROUPS.map((g) => {
     const chips = g.roles.map((r) => { const s = chipState(app, n, r, p); return s ? chip(n, r, s) : ''; }).join('');
@@ -87,13 +102,10 @@ function box(app, n, p, pos) {
     <div class="cv-bm t3">${metaLine(app, n)}</div>
     ${alertStrip(app, n)}
     <div class="cv-roles">${groups || '<p class="t3 cv-none">No Roles. Drag one here.</p>'}</div>
+    ${traffic ? inbound(app, n, p) : ''}
     ${n.kind === 'Controller' ? `<div class="cv-ctl">${I('lock')}<span><b>Controller only</b> ${CONTROLLER_ONLY}</span></div>` : ''}
     <div class="cv-bf num t3">${loadLine(n)}</div>
   </div>`;
-}
-
-function serviceBox(s, held) {
-  return `<div class="cv-svc${held ? '' : ' idle'}" data-svc="${s.id}" data-bound style="left:0;top:0">${I(s.icon)}<span><b>${esc(s.label)}</b><span class="t3">${held ? esc(s.sub) : `No Node holds ${esc(s.role)}`}</span></span></div>`;
 }
 
 function place(cv, app, id) {
@@ -104,7 +116,7 @@ function place(cv, app, id) {
   const pos = {};
   const row1 = nodes.filter((n) => slotOf(n)[0] === 'internet');
   const r1h = Math.max(0, ...row1.map((n) => sz(el(`[data-box="${n.id}"]`)).h));
-  const y1 = 40, y2 = row1.length ? y1 + r1h + 150 : y1;
+  const y1 = 40, y2 = row1.length ? y1 + r1h + 130 : y1;
   const stack = {};
   for (const n of nodes) {
     const [zone, col] = slotOf(n);
@@ -113,24 +125,11 @@ function place(cv, app, id) {
     pos[n.id] = { x: COL[col], y };
     stack[k] = y + sz(el(`[data-box="${n.id}"]`)).h + 28;
   }
-  const lanBottom = Math.max(y2, ...nodes.filter((n) => zoneOf(n) === 'lan').map((n) => stack[`lan|${slotOf(n)[1]}`] - 28));
-  const svcPos = {};
-  const ctl = controllerOf(nodes);
-  const left = { 1: y1, 2: y2 };
-  for (const s of SERVICES) {
-    const row = row1.length ? s.row : 1;
-    if (s.zone === 'left') { svcPos[s.id] = { x: 0, y: left[row] }; left[row] += 72; }
-    if (s.zone === 'right') svcPos[s.id] = { x: COL.c + W + 110, y: y1 + 8 };
-  }
-  svcPos.plex = { x: COL.a, y: lanBottom + 44 };
-  svcPos.home = { x: COL.b, y: lanBottom + 44 };
-  if (nodes.length === 1) { svcPos.plex = { x: pos[ctl.id].x - 10, y: lanBottom + 44 }; svcPos.home = { x: pos[ctl.id].x + W + 110, y: y2 + 40 }; svcPos.remote = { x: pos[ctl.id].x + W + 110, y: y2 + 120 }; }
   for (const n of nodes) { const p = posOf(id, n.id, pos[n.id]); const e = el(`[data-box="${n.id}"]`); e.style.left = `${p.x}px`; e.style.top = `${p.y}px`; }
-  for (const s of SERVICES) { const p = posOf(id, `svc-${s.id}`, svcPos[s.id]); const e = el(`[data-svc="${s.id}"]`); if (e && p) { e.style.left = `${p.x}px`; e.style.top = `${p.y}px`; } }
-  for (const [z, def] of Object.entries(ZONES)) {
-    const members = [...nodes.filter((n) => zoneOf(n) === z).map((n) => el(`[data-box="${n.id}"]`)), ...SERVICES.filter((s) => s.zone === z).map((s) => el(`[data-svc="${s.id}"]`))].filter(Boolean);
+  for (const z of Object.keys(ZONES)) {
+    const members = nodes.filter((n) => zoneOf(n) === z).map((n) => el(`[data-box="${n.id}"]`));
     const ze = el(`[data-zone="${z}"]`);
-    if (!members.length || (z === 'lan' && !nodes.some((n) => zoneOf(n) === 'lan'))) { ze.hidden = true; continue; }
+    if (!members.length) { ze.hidden = true; continue; }
     const rs = members.map(rect);
     const x0 = Math.min(...rs.map((r) => r.x)) - 26, y0 = Math.min(...rs.map((r) => r.y)) - 46;
     const x1 = Math.max(...rs.map((r) => r.x + r.w)) + 26, yb = Math.max(...rs.map((r) => r.y + r.h)) + 24;
@@ -145,22 +144,13 @@ function linkState(n) {
   return 'ok';
 }
 
-function chipPort(cv, boxEl, role, side) {
-  const r = rect(boxEl);
-  const c = boxEl.querySelector(`[data-port="${CSS.escape(role)}"]`);
-  if (!c || side === 't' || side === 'b') return port(r, side);
-  let y = 0;
-  for (let e = c; e && e !== boxEl; e = e.offsetParent) y += e.offsetTop;
-  return { x: side === 'l' ? r.x : r.x + r.w, y: r.y + y + c.offsetHeight / 2, side };
-}
-
 function linkLabel(n, ctl) {
   if (n.state === 'offline') return `no heartbeat since ${hm(n.lastSeen)}`;
   if (n.link.dial === 'relay') return `relayed · ${n.link.latency} ms`;
   return `${n.link.latency} ms`;
 }
 
-function edges(cv, app, p) {
+function edges(cv, app) {
   const nodes = app.S.nodes;
   const ctl = controllerOf(nodes);
   const B = (id) => cv.querySelector(`[data-box="${id}"]`);
@@ -182,21 +172,6 @@ function edges(cv, app, p) {
     const fromCtl = n.link.dial !== 'worker';
     const [a, b] = fromCtl ? seg(B(ctl.id), B(n.id)) : seg(B(n.id), B(ctl.id));
     out.push({ kind: 'link', key: `${ctl.id}>${n.id}`, a, b, st, arrow: 'end', label: linkLabel(n, ctl), node: n.id, ends: [ctl.id, n.id] });
-  }
-  for (const s of SERVICES) {
-    const se = cv.querySelector(`[data-svc="${s.id}"]`);
-    for (const n of nodes) {
-      if (s.match && !s.match(n)) continue;
-      const cs = chipState(app, n, s.role, p);
-      if (!cs) continue;
-      const be = B(n.id);
-      const rs = rect(se), rb = rect(be);
-      const overlap = Math.min(rs.x + rs.w, rb.x + rb.w) - Math.max(rs.x, rb.x);
-      const [sa, sb] = overlap > 30 ? facing(rs, rb) : center(rb).x > center(rs).x ? ['r', 'l'] : ['l', 'r'];
-      const a = port(rs, sa), b = chipPort(cv, be, s.role, sb);
-      const st = cs.cls.includes('p-drain') || cs.cls.includes('draining') ? 'drain' : cs.cls.includes('p-add') || cs.cls.includes('p-handback') ? 'pending' : n.state === 'offline' ? 'fail' : 'svc';
-      out.push({ kind: 'svc', key: `${s.id}>${n.id}`, a, b, st, svc: s.id, node: n.id, role: s.role });
-    }
   }
   return out;
 }
@@ -233,19 +208,12 @@ export function trafficOf(nodes) {
   return flows;
 }
 
-function trafficSvg(cv, app, list) {
+function trafficSvg(cv, app) {
   const nodes = app.S.nodes;
   const B = (id) => cv.querySelector(`[data-box="${id}"]`);
   const segs = new Map();
   for (const f of trafficOf(nodes)) {
-    if (f.svc) {
-      const e = list.find((x) => x.kind === 'svc' && x.svc === f.svc && x.node === f.node.id);
-      if (!e) continue;
-      const k = `svc:${e.key}`;
-      if (!segs.has(k)) segs.set(k, { a: e.a, b: e.b, jobs: [] });
-      segs.get(k).jobs.push(f);
-      continue;
-    }
+    if (f.svc) continue;
     for (const [from, to] of f.hops) {
       if (!from || !to || from.state === 'offline' || to.state === 'offline') continue;
       const k = `${from.id}>${to.id}`;
@@ -261,7 +229,7 @@ function trafficSvg(cv, app, list) {
   const named = new Set();
   const busy = new Set();
   for (const [k, s] of segs) {
-    busy.add(k.replace(/^svc:/, '').split('>').sort().join('|'));
+    busy.add(k.split('>').sort().join('|'));
     const c = curve(s.a, s.b);
     const m = c.at(0.5);
     svg += `<path class="cv-flow${reduceMotion() ? ' still' : ''}" d="${c.d}" marker-end="url(#cv-arrow-flow)"/>`;
@@ -284,17 +252,15 @@ function aggRate(fs) {
 
 function draw(cv, app, id, traffic) {
   place(cv, app, id);
-  const p = plan(app.S.nodes, app.draft);
-  const list = edges(cv, app, p);
+  const list = edges(cv, app);
   let svg = `<defs>${['ok', 'warn', 'fail', 'flow'].map((k) => `<marker id="cv-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9 z" class="cv-ah-${k}"/></marker>`).join('')}</defs>`;
   let labels = '';
   const focus = app.cfg.node;
-  const t = traffic && cv.dataset.traffic === 'on' ? trafficSvg(cv, app, list) : null;
+  const t = traffic && cv.dataset.traffic === 'on' ? trafficSvg(cv, app) : null;
   for (const e of list) {
     const c = curve(e.a, e.b);
     const dim = focus && e.node !== focus ? ' dim' : '';
     svg += `<path class="cv-e cv-e-${e.kind} cv-s-${e.st}${dim}" d="${c.d}" ${e.arrow ? `marker-end="url(#cv-arrow-${e.st === 'fail' ? 'fail' : e.st === 'warn' ? 'warn' : 'ok'})"` : ''}/>`;
-    if (e.kind === 'svc') svg += `<circle class="cv-end cv-s-${e.st}${dim}" cx="${e.b.x}" cy="${e.b.y}" r="3"/>`;
     const quiet = t && e.ends && t.busy.has([...e.ends].sort().join('|'));
     if (e.label && !quiet) { const m = c.at(0.5); labels += `<div class="cv-el cv-s-${e.st}${dim}" style="left:${m.x}px;top:${m.y}px">${e.kind === 'relay' ? I('git-fork') : I('arrow-right')}${esc(e.label)}</div>`; }
   }
@@ -451,9 +417,16 @@ function legend(traffic, relayed) {
   return `<div class="cv-legend cv-ui t3">
     <span><svg width="28" height="8"><path class="cv-e cv-e-link cv-s-ok" d="M1,4 H22" marker-end="url(#cv-arrow-ok)"/></svg>Node link, arrow from the Node that dials</span>
     ${relayed ? `<span><svg width="28" height="8"><path class="cv-e cv-e-relay cv-s-ok" d="M1,4 H22"/></svg>Relayed through ${esc(relayed)}</span>` : ''}
-    <span><svg width="28" height="8"><path class="cv-e cv-e-svc cv-s-svc" d="M1,4 H26"/></svg>Role reaching a service</span>
     ${traffic ? '<span><svg width="28" height="8"><path class="cv-flow still" d="M1,4 H22"/></svg>Live traffic</span>' : ''}
   </div>`;
+}
+
+function layoutTabs(app) {
+  const tab = (layout, label, icon) => {
+    const on = (app.cfg.layout || '') === layout;
+    return `<button role="tab" aria-selected="${on}" class="${on ? 'on' : ''}" data-go='${JSON.stringify({ layout, node: '' })}'>${I(icon)}${label}</button>`;
+  };
+  return `<div class="cv-seg nd-tabs" role="tablist" aria-label="Layout">${tab('', 'Diagram', 'waypoints')}${tab('roster', 'Roster', 'list')}</div>`;
 }
 
 export function topology({ id, name, traffic }) {
@@ -465,26 +438,24 @@ export function topology({ id, name, traffic }) {
     const p = plan(S.nodes, app.draft);
     const ctl = controllerOf(S.nodes);
     const solo = S.nodes.length === 1;
-    const held = (s) => S.nodes.some((n) => (!s.match || s.match(n)) && chipState(app, n, s.role, p));
-    const world = `${Object.entries(ZONES).map(([z, d]) => `<div class="cv-zone z-${z}" data-zone="${z}" hidden><span class="cv-zl">${I(d.icon)}<b>${d.label}</b><span class="t3">${d.sub}</span></span></div>`).join('')}
+    const world = `${Object.entries(ZONES).map(([z, d]) => `<div class="cv-zone z-${z}" data-zone="${z}" data-bound hidden><span class="cv-zl">${I(d.icon)}<b>${d.label}</b><span class="t3">${d.sub}</span></span></div>`).join('')}
       <svg class="cv-svg" aria-hidden="true"></svg>
-      ${SERVICES.filter((s) => !solo || s.id !== 'remote' || held(s)).map((s) => serviceBox(s, held(s))).join('')}
-      ${S.nodes.map((n) => box(app, n, p, { x: 0, y: 0 })).join('')}
+      ${S.nodes.map((n) => box(app, n, p, { x: 0, y: 0 }, traffic && trafficOn)).join('')}
       <div class="cv-labels"></div>`;
     const off = S.nodes.filter((n) => n.state === 'offline').length;
     const warn = S.nodes.filter((n) => ['updating', 'behind', 'degraded'].includes(n.state)).length;
-    const title = `<div class="cv-title cv-ui"><h1>Nodes</h1><p class="t2">${plural(S.nodes.length, 'Node')}${solo ? ' · one Controller' : ` · Controller ${esc(ctl.name)}`}${off ? ` · <span class="fail-t">${off} offline</span>` : ''}${warn ? ` · <span class="warn-t">${warn} need attention</span>` : ''}</p></div>`;
+    const title = `<div class="cv-title cv-ui"><div class="nd-h1"><h1>Nodes</h1>${layoutTabs(app)}</div><p class="t2">${plural(S.nodes.length, 'Node')}${solo ? ' · one Controller' : ` · Controller ${esc(ctl.name)}`}${off ? ` · <span class="fail-t">${off} offline</span>` : ''}${warn ? ` · <span class="warn-t">${warn} need attention</span>` : ''}</p></div>`;
     const acts = `<div class="cv-acts cv-ui">${traffic ? `<button class="btn ${trafficOn ? 'tog-on' : ''}" data-act="cv-traffic" aria-pressed="${trafficOn}">${I('activity')}Traffic</button>` : ''}${solo ? '' : `<button class="btn" data-act="handover">${I('crown')}Hand over</button>`}<button class="btn pri" data-act="pair">${I('plus')}Pair a Node</button></div>`;
     const hint = `<div class="cv-hint cv-ui t3">${solo ? 'One Node runs every Role in process. Pair a Node to spread Roles across machines.' : 'Drag a Role chip to another Node to move it · hold ⌥ to add · drag empty canvas to pan'}</div>`;
     const trash = '<div class="cv-trash cv-ui"></div>';
-    return canvasHtml(id, world, title + acts + hint + legend(traffic, S.nodes.find((n) => n.link?.relay)?.link.relay) + trash);
+    return canvasHtml(id, world, title + acts + hint + (solo ? '' : legend(traffic, S.nodes.find((n) => n.link?.relay)?.link.relay)) + trash);
   }
 
   function render(app) {
-    if (isNarrow(app)) {
-      const out = A.render(app);
-      return { ...out, html: out.html.replace('</header>', `</header><p class="cv-fallback">${I('monitor')}<span>The ${esc(name)} canvas is desktop only. This is A, Roster.</span></p>`) };
-    }
+    const narrow = isNarrow(app);
+    app.root.classList.toggle('nd-roster', narrow || app.cfg.layout === 'roster');
+    if (narrow) return A.render(app);
+    if (app.cfg.layout === 'roster') return A.render(app, layoutTabs(app));
     wire(app.root);
     if (!wiredDrag) { wireDrag(app); wiredDrag = true; }
     register(id, { draw: (cv) => draw(cv, app, id, traffic) });
@@ -497,7 +468,7 @@ export function topology({ id, name, traffic }) {
       const close = `<button class="ib" data-go='${JSON.stringify({ node: '' })}' aria-label="Close inspector">${I('x')}</button>`;
       aside = `<aside class="insp cv-insp" aria-label="${esc(n.name)}"><div class="insp-in"><div class="insp-top"><span class="t3">Node</span><span class="grow"></span>${close}</div>${header(app, n, defaultActions(app, n, ''))}${detailBody(app, n, '<span class="t3">Drag chips on the canvas</span>')}</div></aside>`;
     }
-    const html = wideShell(S.nodes, crumbs({ label: 'Nodes' }), canvas(app)).replace('class="cv"', `class="cv"${aside ? ' data-insp="1"' : ''} data-traffic="${trafficOn ? 'on' : 'off'}"`) + aside + pendingBar(app);
+    const html = wideShell(S.nodes, crumbs({ label: 'Nodes' }), canvas(app)).replace('class="cv"', `class="cv" data-padt="112" data-padb="124"${aside ? ' data-insp="1"' : ''} data-traffic="${trafficOn ? 'on' : 'off'}"`) + aside + pendingBar(app);
     const out = { html, mounted: mounted(id), ambient: n ? jobsOn(n).find((j) => j.status === 'running')?.work : null };
     if (cfg.view === 'handover') Object.assign(out, { sheet: handoverHtml(app), sheetSize: 'md', sheetClose: { view: 'nodes' } });
     return out;

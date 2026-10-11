@@ -42,7 +42,7 @@ function singleExplainer() {
   return `<section class="solo"><span class="solo-ic">${I('network')}</span><div><h2>One Node does everything</h2><p class="t2">atlas is the Controller and runs every Role in process. There is no Pairing and nothing listens except the UI. Pair a Node to move Roles to other machines, such as Downloading on a seedbox or Converting on a GPU.</p></div><button class="btn pri" data-act="pair">${I('plus')}Pair a Node</button></section>`;
 }
 
-function listPage(app) {
+function listPage(app, switcher) {
   const { nodes } = app.S;
   const solo = nodes.length === 1;
   const acts = solo ? '' : `<button class="btn" data-act="handover">${I('crown')}Hand over Controller</button><button class="btn pri" data-act="pair">${I('plus')}Pair a Node</button>`;
@@ -50,7 +50,7 @@ function listPage(app) {
   if (app.phone) {
     return `${phoneTop('Nodes')}<p class="ph-sentence">${sentence(nodes)}</p>${solo ? singleExplainer() : ''}<div class="ph-acts">${acts}</div><div class="ph-pad">${roster}</div>${tabs()}`;
   }
-  return wideShell(nodes, crumbs({ label: 'Nodes' }), `<div class="pg-h"><div><h1>Nodes</h1><p class="sentence sm-sentence">${sentence(nodes)}</p></div><span class="grow"></span>${acts}</div>${solo ? singleExplainer() : ''}${roster}`);
+  return wideShell(nodes, crumbs({ label: 'Nodes' }), `<div class="pg-h"><div>${switcher ? `<div class="nd-h1"><h1>Nodes</h1>${switcher}</div>` : '<h1>Nodes</h1>'}<p class="sentence sm-sentence">${sentence(nodes)}</p></div><span class="grow"></span>${acts}</div>${solo ? singleExplainer() : ''}${roster}`);
 }
 
 function detailPage(app, n) {
@@ -65,14 +65,14 @@ function flowPage(app, title, html) {
   return wideShell(app.S.nodes, crumbs({ label: 'Nodes', go: { view: 'nodes' } }, { label: title }), `<div class="fl-page">${html}</div>`);
 }
 
-export function render(app) {
+export function render(app, switcher = '') {
   const { cfg, S } = app;
   app.flowClose = '';
   if (cfg.view === 'pair') return { html: flowPage(app, 'Pair a Node', pairingHtml(app)) };
   if (cfg.view === 'handover') return { html: flowPage(app, 'Hand over the Controller', handoverHtml(app)) };
   const n = S.nodes.find((m) => m.id === cfg.node);
   if (n) return { html: detailPage(app, n), ambient: jobsOn(n).find((j) => j.status === 'running')?.work };
-  return { html: listPage(app) };
+  return { html: listPage(app, switcher) };
 }
 
 // ── Edit Roles sheet
