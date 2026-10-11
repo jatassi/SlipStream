@@ -379,17 +379,17 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-255 | Runtime developer mode toggle on dev builds that swaps to a separate dev database | `internal/api/devmode.go`, `header-dev-mode.tsx` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-256 | Mock metadata, indexer, download client and notifier in developer mode | `internal/metadata/mock`, `internal/indexer/mock`, `internal/downloader/mock`, `internal/notification/mock` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-257 | Fast forward a mock download and add a mock download for testing | `POST /queue/:id/fastforward`, `download-client-dialog.tsx` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-258 | Virtual filesystem with sample multi-version and partial TV content | `internal/filesystem/mock/virtualfs.go` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-259 | Sample library, test slots and profiles seeded in developer mode | `internal/api/devmode.go (populateMockMedia, setupDevModeSlots)` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-260 | Prowlarr mode overridden in developer mode | `internal/prowlarr/mode.go` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-261 | Force Loading switch that shows every loading skeleton | `web/src/components/layout/dev-mode-controls.tsx` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-262 | Release parse and profile match debug tools | `internal/library/slots/debug.go`, `slot-debug-panel.tsx` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
-| P-263 | Update state debug switcher | `web/src/routes/system/use-update-page.ts (DEBUG_STATE_CONFIG)` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-255 | Runtime developer mode toggle on dev builds that swaps to a separate dev database | `internal/api/devmode.go`, `header-dev-mode.tsx` | working | superseded by the Fake world | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-256 | Mock metadata, indexer, download client and notifier in developer mode | `internal/metadata/mock`, `internal/indexer/mock`, `internal/downloader/mock`, `internal/notification/mock` | working | superseded by the Fake world | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-257 | Fast forward a mock download and add a mock download for testing | `POST /queue/:id/fastforward`, `download-client-dialog.tsx` | working | superseded by the Fake world | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-258 | Virtual filesystem with sample multi-version and partial TV content | `internal/filesystem/mock/virtualfs.go` | working | superseded by the Fake world | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-259 | Sample library, test slots and profiles seeded in developer mode | `internal/api/devmode.go (populateMockMedia, setupDevModeSlots)` | working | superseded by the Fake world | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-260 | Prowlarr mode overridden in developer mode | `internal/prowlarr/mode.go` | working | out of scope | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-261 | Force Loading switch that shows every loading skeleton | `web/src/components/layout/dev-mode-controls.tsx` | working | superseded by generated MSW mocks | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-262 | Release parse and profile match debug tools | `internal/library/slots/debug.go`, `slot-debug-panel.tsx` | working | kept | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-263 | Update state debug switcher | `web/src/routes/system/use-update-page.ts (DEBUG_STATE_CONFIG)` | working | superseded by the Fake world | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
 | P-264 | Controls showcase page | `web/src/routes/dev/` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | unplanned |
-| P-265 | Mock fixture tooling that pulls real TMDB, TVDB and indexer data | `cmd/fetchmockdata`, `cmd/convertmockdata` | working | open | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
+| P-265 | Mock fixture tooling that pulls real TMDB, TVDB and indexer data | `cmd/fetchmockdata`, `cmd/convertmockdata` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/26#issuecomment-6110255462) | [Offline mode boundary](https://github.com/jatassi/SlipStream/issues/26) | unplanned |
 
 ## Updates
 
