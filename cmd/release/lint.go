@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 	_ "github.com/jatassi/slipstream/cmd/release/internal/lint/rules"
@@ -36,9 +34,9 @@ func runLint(args []string) error {
 		}
 		rules = []lint.Rule{r}
 	}
-	top, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	root, err := repoRoot()
 	if err != nil {
-		return fmt.Errorf("git rev-parse: %w", err)
+		return err
 	}
-	return lint.Run(os.Stdout, lint.Open(strings.TrimSpace(string(top))), rules)
+	return lint.Run(os.Stdout, lint.Open(root), rules)
 }
