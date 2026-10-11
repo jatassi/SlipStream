@@ -51,7 +51,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 
 - The name is SlipStream, written with a capital second S.
 - UI copy uses [GLOSSARY.md](GLOSSARY.md) terms and avoids each term's _Avoid_ list: Work, not title or show; Target, not quality version; Conversion, not transcode; Node, not instance; Member, not user.
-- The colour palette is settled in [DESIGN.md](DESIGN.md). The logo (P-017) is not.
+- The colour palette and the logo (P-017) are settled in [DESIGN.md](DESIGN.md). The logo masters live in `brand/`.
 
 ## Evidence on Hand
 

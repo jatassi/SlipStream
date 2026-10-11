@@ -611,6 +611,18 @@ Portal sign-in and onboarding take a 4-digit PIN on a keypad of 80px circular ke
 
 Emails are the one light surface, because mail clients force it. They are table layouts with no images and `color-scheme: light only`, set in Helvetica and Arial at hex and px. The page is `#f4f2ee`, the card is white with a `#e3e0da` border, and the button is a bulletproof `#1d1d1f` capsule with a VML fallback for Outlook. A callout is `#fff4dc` with `#5c3d00` text and a `#e0a020` left rule. Each email has a plain-text part built from the same blocks.
 
+### Logo
+
+The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of Node, the Controller and the Relay. It is drawn on a 64-unit grid. The S is one stroke, `M40 14H25a9 9 0 0 0 0 18h14a9 9 0 0 1 0 18H24`, 8 units wide with round caps and joins. The dots are 5.5-unit circles at (52, 14) and (12, 50). The masters live in `brand/`.
+
+- **In the app.** The mark is inline SVG. The S takes `ink-1` and the dots take `glow`, so the dots follow the Work in focus like every other light on the page.
+- **Outside the app.** The favicon, the tray icon, the installer and anything else SlipStream cannot tint use the neutral resolution in `brand/mark.svg` (`#f2f4f7` and `#74affb`). `brand/app-icon.svg` puts that mark at 70% on a `page` tile with a 14-unit radius.
+- **On light ground.** Emails and the light Windows taskbar take `brand/mark-light.svg`, with the S in `#1d1d1f`, the email button's ink, and the dots in `#1464cc`.
+- **Wordmark.** The mark sits left of "SlipStream" in Geist, "Slip" at 600 and "Stream" at 400, with -0.03em tracking. The mark's 64-unit box is twice the cap height, and the gap between them is a third of that box.
+- **Size and space.** The smallest size is 16px, where the stroke lands on 2px. Keep clear space of one dot's width on every side.
+
+**The Two Dots Rule.** The dots are always the Work's glow or the neutral blue. They never take a signal colour, and the mark never stands in for a status.
+
 ### Motion
 
 - **Easing.** The standard ease is `cubic-bezier(.16, 1, .3, 1)`, and the spring is `cubic-bezier(.32, .72, 0, 1)`.

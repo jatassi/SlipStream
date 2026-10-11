@@ -885,6 +885,14 @@
       "description": "Floating glass, anchored to its trigger. The only kind of thing besides bars and overlays that blurs.",
       "html": "<div class=\"ds-menu\" role=\"menu\"><button role=\"menuitem\">Open Work</button><button role=\"menuitem\">Move up</button><button role=\"menuitem\" class=\"x\">Remove</button></div>",
       "css": ".ds-menu { display: grid; min-width: 220px; padding: 4px; border-radius: 14px; background: hsl(214 7.7% 12% / .84); backdrop-filter: blur(30px) saturate(1.7); -webkit-backdrop-filter: blur(30px) saturate(1.7); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px hsl(214 40% 88% / .11), 0 18px 40px rgba(0,0,0,.55); } .ds-menu button { height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: hsl(214 25% 96%); font: 400 13px/1 Geist, sans-serif; text-align: left; cursor: pointer; } .ds-menu button:hover, .ds-menu button:focus-visible { background: hsl(214 40% 92% / .12); outline: none; } .ds-menu .x { color: #ffb0a9; }"
+    },
+    {
+      "name": "Logo",
+      "kind": "custom",
+      "refersTo": "logo",
+      "description": "Two Nodes: a stream S in ink-1 whose two dots take the Work glow. Shown at 64px, 16px and in the wordmark.",
+      "html": "<div class=\"ds-logo\"><svg viewBox=\"0 0 64 64\" width=\"64\" height=\"64\" aria-hidden=\"true\"><path d=\"M40 14H25a9 9 0 0 0 0 18h14a9 9 0 0 1 0 18H24\" fill=\"none\" stroke=\"hsl(214 25% 96%)\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"52\" cy=\"14\" r=\"5.5\" fill=\"hsl(214 95% 72%)\"/><circle cx=\"12\" cy=\"50\" r=\"5.5\" fill=\"hsl(214 95% 72%)\"/></svg><svg viewBox=\"0 0 64 64\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M40 14H25a9 9 0 0 0 0 18h14a9 9 0 0 1 0 18H24\" fill=\"none\" stroke=\"hsl(214 25% 96%)\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"52\" cy=\"14\" r=\"5.5\" fill=\"hsl(214 95% 72%)\"/><circle cx=\"12\" cy=\"50\" r=\"5.5\" fill=\"hsl(214 95% 72%)\"/></svg><span class=\"ds-word\"><svg viewBox=\"0 0 64 64\" width=\"28\" height=\"28\" aria-hidden=\"true\"><path d=\"M40 14H25a9 9 0 0 0 0 18h14a9 9 0 0 1 0 18H24\" fill=\"none\" stroke=\"hsl(214 25% 96%)\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"52\" cy=\"14\" r=\"5.5\" fill=\"hsl(214 95% 72%)\"/><circle cx=\"12\" cy=\"50\" r=\"5.5\" fill=\"hsl(214 95% 72%)\"/></svg><b>Slip<i>Stream</i></b></span></div>",
+      "css": ".ds-logo { display: flex; align-items: center; gap: 24px; padding: 20px; background: hsl(214 7% 5%); } .ds-word { display: inline-flex; align-items: center; gap: 9px; } .ds-word b { font: 600 19px/1 Geist, 'Helvetica Neue', sans-serif; letter-spacing: -0.03em; color: hsl(214 25% 96%); } .ds-word i { font-style: normal; font-weight: 400; }"
     }
   ],
   "narrative": {
