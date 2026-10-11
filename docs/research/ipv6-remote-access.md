@@ -13,7 +13,7 @@ Forum posts by users, not staff, are marked *user report*. They are pointers, no
 ## Answer in brief
 
 1. **Media Servers.**
-   - **Plex** gained real IPv6 support only in PMS 1.43.3 (beta 2026-06-22, public 2026-08-18). The release notes call it "TEMPORARILY" a Plex Pass feature, so free servers don't get it. The server publishes its IPv6 address to plex.tv as a connection, with the server's own port. Plex's published connect-back workers include two IPv6 addresses, so the check can test IPv6, though nothing primary describes how. Staff say dual-stack "should" work. User reports say a CGNAT server shows reachable only with "IPv6 only" selected. Staff call the indicator "flaky".
+   - **Plex** gained real IPv6 support only in PMS 1.43.3 (beta 2026-06-22, public 2026-07-14 as 1.43.3.10828). The release notes call it "TEMPORARILY" a Plex Pass feature, so free servers don't get it. The server publishes its IPv6 address to plex.tv as a connection, with the server's own port. Plex's published connect-back workers include two IPv6 addresses, so the check can test IPv6, though nothing primary describes how. Staff say dual-stack "should" work. User reports say a CGNAT server shows reachable only with "IPv6 only" selected. Staff call the indicator "flaky".
    - **Jellyfin** 12.2 and 10.11 default `EnableIPv6` to false. When IPv6 is on alongside IPv4, Jellyfin binds dual-stack `[::]`. It has no cloud service, so it advertises nothing off the LAN.
    - **Emby** 4.10 listens on IPv6 out of the box. It detects its WAN address over IPv4 unless a hidden setting says otherwise, and Emby Connect hands clients that WAN address.
 2. **Clients.**
@@ -60,7 +60,7 @@ Versions at the time of writing:
 
 - **IPv6 is new and gated.**
   - PMS 1.43.3.10768 beta notes, posted 2026-06-22 by PlexReleaser (Plex Employee): "(Network) IPv6 support has TEMPORARILY been made a plex pass feature (PM-5140)" and "Support for ipv6 only networks (PM-5140)". [Release notes](https://forums.plex.tv/t/plex-media-server/30447/708). **[S]**, verified by fetching the post and its author.
-  - That build went public on 2026-08-18 ([post 714](https://forums.plex.tv/t/plex-media-server/30447/714)). **[S]**
+  - 1.43.3.10828 went public on 2026-07-14 ([post 711](https://forums.plex.tv/t/plex-media-server/30447/711)). A later 1.43.3.10896 beta on 2026-08-17 repeats the note ([post 714](https://forums.plex.tv/t/plex-media-server/30447/714)). **[S]**, verified by fetching both posts.
   - Plex's Lifetime Plex Pass post listed "IPv6 Support" as a commitment ([2026-05-18](https://forums.plex.tv/t/new-lifetime-plex-pass-pricing/938910/1)). **[S]**
   - **Why the gate:** Atomatth (Plex Employee) said local IPv6 addresses were being misclassified as remote, which would trip the paid Remote Watch gate for free users ([2026-06-22](https://forums.plex.tv/t/ipv6-support-in-plex-server/939875/14)). **[S]**
 - **The setting changed form.**
