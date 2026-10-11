@@ -36,7 +36,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 - Setups range from a single machine (a Controller holding every Role) to several Nodes on a LAN or remote, reached through the Relaying and Serving Roles with TLS and a domain.
 - Admins live in long-running state: live download progress, scheduled tasks, health alerts and events pushed over a live connection.
 - Members mostly arrive on a phone, from a Signup link or a notification that something is ready.
-- Developers, agents and CI run an offline mode with network egress blocked.
+- Developers, agents and CI run an offline mode against faked boundaries.
 
 ## Capabilities and Constraints
 
