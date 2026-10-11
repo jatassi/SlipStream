@@ -194,6 +194,24 @@ So Plex matches a Sidecar to one version only when the folder holds more than on
 12. **Jellyfin 12 websocket auth.** The `api_key` query param is refused with 403, and the `Authorization` header works. Emby still accepts `?api_key=`. Jellyfin sends `ForceKeepAlive` (60 s) and needs `KeepAlive` replies. The `Sessions` push payload is the full `GET /Sessions` object array on both.
 13. **Jellyfin token revocation.** A new `AuthenticateByName` with the same `DeviceId` revokes the earlier token (401 on the old one). SlipStream must use one stable DeviceId per Media Server connection and never log in twice concurrently with it.
 
+## Edition layouts (issue #85)
+
+Run 2026-10-11 against Jellyfin 12.2.0, Emby 4.10.1.0 and Plex 1.43.4.10903 on Docker in a Linux cloud container. Every layout started from wiped server configs. Each had Standard `- 1080p` and `- 4K HDR` plus a Director's Cut at both, every video with its own `.en.srt`. Plex ran online through `network_mode: host` and the proxy CA, because offline it matches nothing and splits every file (`guid=local://N`). L1, L2, L5 and the `.` separator were repeated on fresh configs and matched.
+
+| Layout | Jellyfin | Emby | Plex, no Plex Pass | Plex Pass |
+|---|---|---|---|---|
+| L1 `Heat (1995) {edition-Director's Cut} - 4K HDR` | 4 movies | 4 movies | 1 movie, 4 versions | Director's Cut item with 2 versions |
+| L2 `Heat (1995) - {edition-Director's Cut} 4K HDR` | 1 movie, labels `1080p`, `4K HDR`, `{edition-Director's Cut} 1080p`, `{edition-Director's Cut} 4K HDR` | grouped, same labels | 1 movie, 4 versions | Director's Cut item with 2 versions |
+| L3 `Heat (1995) - 4K HDR {edition-Director's Cut}` | 1 movie, labels `4K HDR {edition-Director's Cut}` and so on | grouped | 1 movie, 4 versions | Director's Cut item with 2 versions |
+| L4 `Heat (1995) - Director's Cut 4K HDR` | 1 movie, labels `Director's Cut 4K HDR` and so on | grouped | 1 movie, 4 versions | not run |
+| L5 sibling folder `Heat (1995) {edition-Director's Cut}/` | 2 movies, each grouped. The cut's movie is named with the raw folder text | 2 movies, each grouped, both `Heat` | 1 movie, both folders merged | not run |
+| L6 cut subfolder inside `Heat (1995)/` | 2 movies, not extras | 2 movies | 1 movie | not run |
+
+- **Separator.** What follows the folder name must be nothing, ` - `, `_`, `.` or a `[…]` block on Jellyfin, and the same minus `.` on Emby. A space or `{` fails, and one failing file ungroups the whole folder. `_` and `.` mangle every label (`(1995) - 1080p`), so ` - ` is the only clean separator. Jellyfin's check is `IsEligibleForMultiVersion` in `Emby.Naming/Video/VideoListResolver.cs` (tag v12.2).
+- **Sidecars.** Jellyfin and Emby bind each Sidecar to the version whose file name it starts with in every layout. Plex without Plex Pass puts every Sidecar on every version after an item refresh in every layout, including across L5's two folders. Right after the first scan some were briefly per version, before matching merged the files. Under Plex Pass, L1, L2 and L3 kept each Sidecar on its own version through an item refresh.
+
+Rerun with `probes/edition_layouts.sh L0 L1 … L6 Sspace Sdot Sunder Sbracket Sbrace Sedit_dash` for all three servers on `compose.edition.yml`. For Plex Pass, take a token from https://plex.tv/claim and run `PLEX_CLAIM=claim-… probes/plex_pass.sh L1 L2 L3` within four minutes. It claims a fresh Plex through `POST /myplex/claim`, runs each layout, and unclaims the server at the end.
+
 ## Not observed
 
 - Plex behavior with `autoEmptyTrash=false` (left at default `true`).

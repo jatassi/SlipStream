@@ -1,0 +1,18 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    ports: ["8096:8096"]
+    volumes: ["./config/jellyfin:/config", "./media:/media:ro"]
+  emby:
+    image: emby/embyserver:4.10.1.0
+    ports: ["8097:8096"]
+    volumes: ["./config/emby:/config", "./media:/media:ro"]
+  plex:
+    image: plexinc/pms-docker:latest
+    network_mode: host
+    environment:
+      - ALLOWED_NETWORKS=0.0.0.0/0
+      - https_proxy=${HTTPS_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - no_proxy=localhost,127.0.0.1
+    volumes: ["./config/plex:/config", "./transcode:/transcode", "./media:/media:ro", "${PLEX_CA:-/root/.ccr/ca-bundle.crt}:/usr/lib/plexmediaserver/Resources/cacert.pem:ro"]
