@@ -620,6 +620,7 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 - **On light ground.** Emails and the light Windows taskbar take `brand/mark-light.svg`, with the S in `#1d1d1f`, the email button's ink, and the dots in `#1464cc`.
 - **Wordmark.** The mark sits left of "SlipStream" in Geist, "Slip" at 600 and "Stream" at 400, with -0.03em tracking. The mark's 64-unit box is twice the cap height, and the gap between them is a third of that box.
 - **Size and space.** The smallest size is 16px, where the stroke lands on 2px. Keep clear space of one dot's width on every side.
+- **Startup sequence.** The app opens on a 4.4s sequence built from the mark. The two dots come online over the Nodes canvas dot grid, and the Controller sends a Transfer that draws the S behind it. The Relay answers, the neutral ambient blooms, and the mark slides left as the wordmark wipes out from behind it. It uses the neutral blue, because no Work is in focus yet. Under reduced motion it shows the finished lockup. The master is `brand/startup/startup.html`, and `brand/startup/render.mjs` renders `startup.mp4` from it frame by frame.
 
 **The Two Dots Rule.** The dots are always the Work's glow or the neutral blue. They never take a signal colour, and the mark never stands in for a status.
 
