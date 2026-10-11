@@ -1,0 +1,15 @@
+total announces: 751 (rejected 451)
+distinct infohashes: 50
+peak announces in 1s: 100
+per listener: {'127.0.0.1:7613': 217, '127.0.0.1:7612': 157, '127.0.0.1:7611': 220, '127.0.0.1:7610': 157}
+per event: {'started': 100, '(none)': 591, 'stopped': 60}
+violations: {'duplicate_event_30s': 251, 'min_interval_violation': 200}
+no-event gap overall (s): {'n': 150, 'min': 111.64312481880188, 'median': 120.0005714893341, 'max': 157.01399517059326}
+no-event gap per infohash (50 with >=2 announces; 5 smallest min):
+  ac978ef2221e n=3 min=111.64 median=120.00 max=157.01
+  27049c00b6d6 n=3 min=111.71 median=114.32 max=137.48
+  bfbc6295c0ea n=3 min=113.78 median=120.00 max=120.00
+  1bf3a7fe0d38 n=3 min=116.08 median=120.00 max=120.00
+  8ba6c4c375d2 n=3 min=116.35 median=120.00 max=120.00
+peer_id prefixes: {'-RN0.0.0': 751}
+user agents: {'Rain/0.0.0': 751}

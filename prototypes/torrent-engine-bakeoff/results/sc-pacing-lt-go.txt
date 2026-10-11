@@ -1,0 +1,10 @@
+total announces: 3000 (rejected 0)
+distinct infohashes: 1000
+peak announces in 1s: 1000
+per listener: {'127.0.0.1:7620': 3000}
+per event: {'started': 1000, '(none)': 1000, 'stopped': 1000}
+violations: {}
+no-event gap overall (s): None
+no-event gap per infohash (0 with >=2 announces; 5 smallest min):
+peer_id prefixes: {'-LT20A0-': 3000}
+user agents: {'libtorrent/2.0.10.0': 3000}

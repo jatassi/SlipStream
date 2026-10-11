@@ -1,0 +1,10 @@
+total announces: 220 (rejected 220)
+distinct infohashes: 20
+peak announces in 1s: 20
+per listener: {'127.0.0.1:7600': 220}
+per event: {'started': 220}
+violations: {}
+no-event gap overall (s): None
+no-event gap per infohash (0 with >=2 announces; 5 smallest min):
+peer_id prefixes: {'-GT0003-': 220}
+user agents: {'anacrolix-torrent/v1.61.0': 220}

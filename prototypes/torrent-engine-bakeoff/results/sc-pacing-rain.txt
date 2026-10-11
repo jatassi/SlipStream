@@ -1,0 +1,15 @@
+total announces: 6000 (rejected 0)
+distinct infohashes: 1000
+peak announces in 1s: 1000
+per listener: {'127.0.0.1:7610': 6000}
+per event: {'started': 1000, '(none)': 4000, 'stopped': 1000}
+violations: {}
+no-event gap overall (s): {'n': 3000, 'min': 119.99614572525024, 'median': 120.00047981739044, 'max': 120.0038366317749}
+no-event gap per infohash (1000 with >=2 announces; 5 smallest min):
+  845ee2886d63 n=3 min=120.00 median=120.00 max=120.00
+  58456b2b2bdf n=3 min=120.00 median=120.00 max=120.00
+  8425e17cf08c n=3 min=120.00 median=120.00 max=120.00
+  84c6c4e5248b n=3 min=120.00 median=120.00 max=120.00
+  859b37624e96 n=3 min=120.00 median=120.00 max=120.00
+peer_id prefixes: {'-RN0.0.0': 6000}
+user agents: {'Rain/0.0.0': 6000}

@@ -1,0 +1,15 @@
+total announces: 1798 (rejected 1506)
+distinct infohashes: 50
+peak announces in 1s: 200
+per listener: {'127.0.0.1:7602': 458, '127.0.0.1:7601': 433, '127.0.0.1:7600': 472, '127.0.0.1:7603': 435}
+per event: {'started': 1550, '(none)': 206, 'stopped': 42}
+violations: {'duplicate_event_30s': 1051, 'min_interval_violation': 455}
+no-event gap overall (s): {'n': 150, 'min': 120.00075697898865, 'median': 120.00142788887024, 'max': 120.00311851501465}
+no-event gap per infohash (50 with >=2 announces; 5 smallest min):
+  1cfa36de8746 n=3 min=120.00 median=120.00 max=120.00
+  a72f254068a0 n=3 min=120.00 median=120.00 max=120.00
+  af29c27752ff n=3 min=120.00 median=120.00 max=120.00
+  66ae7c55b9c6 n=3 min=120.00 median=120.00 max=120.00
+  44a285a178e2 n=3 min=120.00 median=120.00 max=120.00
+peer_id prefixes: {'-GT0003-': 1798}
+user agents: {'anacrolix-torrent/v1.61.0': 1798}

@@ -1,0 +1,15 @@
+total announces: 6000 (rejected 0)
+distinct infohashes: 1000
+peak announces in 1s: 1000
+per listener: {'127.0.0.1:7600': 6000}
+per event: {'started': 1000, '(none)': 4000, 'stopped': 1000}
+violations: {}
+no-event gap overall (s): {'n': 3000, 'min': 120.00048160552979, 'median': 120.00154399871826, 'max': 120.0821430683136}
+no-event gap per infohash (1000 with >=2 announces; 5 smallest min):
+  4008b8944df8 n=3 min=120.00 median=120.00 max=120.04
+  3d2831583d92 n=3 min=120.00 median=120.00 max=120.04
+  254913437bc2 n=3 min=120.00 median=120.00 max=120.00
+  b8848d101e3f n=3 min=120.00 median=120.00 max=120.00
+  67a55d9447cf n=3 min=120.00 median=120.00 max=120.00
+peer_id prefixes: {'-GT0003-': 6000}
+user agents: {'anacrolix-torrent/v1.61.0': 6000}
