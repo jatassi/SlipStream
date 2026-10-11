@@ -20,7 +20,7 @@ export const GROUPS = [
 // portable: a dead Node's jobs requeue to another holder after the grace period; otherwise the work is tied to the Node.
 export const ROLES = {
   Searching: { always: true, portable: true, gated: false, blurb: 'Queries indexers for releases' },
-  Downloading: { always: true, portable: false, gated: true, blurb: 'Runs torrents and Usenet, seeds to goals' },
+  Downloading: { always: true, portable: false, gated: true, blurb: 'Runs torrents and seeds them to their goals' },
   Storage: { always: true, portable: false, gated: true, blurb: 'Holds library roots and imports into them' },
   Converting: { always: false, portable: true, gated: true, blurb: 'Runs Conversions it has proven by trial run' },
   Subtitles: { always: false, portable: true, gated: false, blurb: 'Finds and syncs subtitles' },
