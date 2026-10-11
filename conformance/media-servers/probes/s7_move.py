@@ -1,8 +1,3 @@
-"""Issue #101: what each Media Server keeps when a library file moves to a new path.
-
-`setup` builds libraries over media/plex-{a,b,c} and media/mb-{a,b}; `plex` and `mb` run the cases.
-Every case seeds watch state, a rating or favorite, play history and a one-item collection, moves the file, then records what survived.
-"""
 import json, os, shutil, sys, time
 from lib import MEDIA, SEED, EVID, copy, poll, Log
 import plex
@@ -13,7 +8,6 @@ LIB = "com.plexapp.plugins.library"
 RESULTS = os.path.join(EVID, "s7.json")
 
 PLEX_CASES = [
-    # id, title, year, autoEmptyTrash, scan, source at destination scan, destination
     ("P1", "Heat", 1995, 1, "partial", "gone", "same"),
     ("P2", "Collateral", 2004, 0, "partial", "gone", "same"),
     ("P3", "Thief", 1981, 1, "partial", "present", "same"),
@@ -30,7 +24,6 @@ PLEX_CASES = [
 PLEX_PURGE = ("P13", "Prisoners", 2013)
 
 MB_CASES = [
-    # id, title, year, tmdb id or None, order, realtime
     ("M1", "Drive", 2011, 64690, "remove-first", False),
     ("M2", "Zodiac", 2007, None, "remove-first", False),
     ("M3", "Arrival", 2016, 329865, "add-first", False),
@@ -49,8 +42,6 @@ def save(key, value):
     d[key] = value
     json.dump(d, open(RESULTS, "w"), indent=1)
 
-
-# ---------------------------------------------------------------- Plex
 
 def plex_sections():
     s = plex.sections()
@@ -212,8 +203,6 @@ def plex_purge(cid, title, year):
     log("   after", json.dumps(after))
     save(cid, {"setup": dict(title=name, purge=True), "before": before, "purged": purged, "after": after})
 
-
-# ------------------------------------------------- Jellyfin and Emby
 
 def mb_folder(title, year, tmdb):
     return f"{title} ({year})" + (f" [tmdbid-{tmdb}]" if tmdb else "")

@@ -1,5 +1,4 @@
 #!/bin/bash
-# Issue #101 path change scenario on wiped servers. COMPOSE=compose.edition.yml for a Linux host behind the agent proxy.
 set -e
 cd "$(dirname "$0")"
 D=..; F="$D/${COMPOSE:-compose.yml}"

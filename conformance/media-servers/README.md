@@ -212,9 +212,60 @@ Run 2026-10-11 against Jellyfin 12.2.0, Emby 4.10.1.0 and Plex 1.43.4.10903 on D
 
 Rerun with `probes/edition_layouts.sh L0 L1 … L6 Sspace Sdot Sunder Sbracket Sbrace Sedit_dash` for all three servers on `compose.edition.yml`. For Plex Pass, take a token from https://plex.tv/claim and run `PLEX_CLAIM=claim-… probes/plex_pass.sh L1 L2 L3` within four minutes. It claims a fresh Plex through `POST /myplex/claim`, runs each layout, and unclaims the server at the end.
 
+## Path change (issue #101)
+
+Run 2026-10-11 on Colima on a Mac against Plex 1.43.4.10903 (unclaimed, online matching), Jellyfin 12.2.0 and Emby 4.10.1.0, every run from wiped configs. `probes/move.sh` runs it (`SKIP_PLEX=1` for Jellyfin and Emby only). Each case seeds one movie with watch state, a rating or favourite, play history and a one-item collection, moves its folder to another root, then reads everything back. Plex ran twice and Jellyfin/Emby three times; the tables give the final runs. P1 to P8 matched across both Plex runs. P9 to P13 come from run 2, after fixing how the probe found items in section C.
+
+### Plex
+
+Section A has two roots, `/media/plex-a` and `/media/plex-b`. Section C has `/media/plex-c`. "Present" copies the folder, scans the destination, then deletes the source and scans it. "Gone" moves the folder, then scans. A partial scan is `GET /library/sections/{id}/refresh?path=<folder>`. Seeding is two `/:/timeline` plays (one to 59 of 60 s, one stopped at 20 s), `PUT /:/rate` and `POST /library/collections`.
+
+| Case | autoEmptyTrash | Scan | Source at destination scan | Destination | Result |
+|---|---|---|---|---|---|
+| P1 | on | partial | gone | same section | **Item deleted.** After the destination scan the item had both files; the partial scan of the vacated folder then deleted the whole item. The history row survives with `ratingKey` null and the collection is empty. |
+| P2 | off | partial | gone | same | kept: same ratingKey, viewCount, lastViewedAt, rating, collection, history |
+| P3 | on | partial | present | same | kept |
+| P4 | off | partial | present | same | kept |
+| P5 | on | full | gone | same | kept |
+| P6 | off | full | gone | same | kept |
+| P7 | on | full | present | same | kept |
+| P8 | off | full | present | same | kept |
+| P9 | on | partial | gone | section C | new ratingKey with the **same guid**; viewCount, lastViewedAt and rating come back; collection membership lost; history row orphaned (`ratingKey` null); old item deleted |
+| P10 | off | partial | gone | section C | same as P9, old item deleted even with trash off |
+| P11 | on | partial | present | section C | same as P9 |
+| P12 | off | partial | present | section C | same as P9 |
+| P13 | on | full + `emptyTrash` | folder moved out of the library | then back into plex-b | not purged: the item kept its vanished plex-a file for 60 s after a full scan and `PUT /library/sections/{id}/emptyTrash`, and the re-added file joined the same item. P9 to P12 answer the purge question instead: a new item under the same guid gets watch state and rating back. |
+
+- Within one section, Plex attaches the new file to the existing item at the destination scan (two Parts on one Media list), and the source scan drops the old Part. Order, trash and scan type do not matter, except P1.
+- In P9, the first partial scan into section C (never scanned, empty) was ignored for 30 s; a full scan of the section picked the file up at once. P10 to P12 into the same section, then non-empty, worked by partial scan.
+- `viewOffset` stayed null in every case, so whether resume position survives was not observed.
+
+### Jellyfin and Emby
+
+Library `Moves` has roots `/media/mb-a` and `/media/mb-b`, internet providers off, scan debounce 5 s. Every move is reported with `POST /Library/Media/Updated`. Remove-first moves the folder, reports `Deleted` for the old path, waits for it to go, then reports `Created` for the new one. Add-first copies, reports `Created`, waits, deletes the source and reports `Deleted`. "TMDb id" means the folder is `Drive (2011) [tmdbid-64690]`; both servers then show `ProviderIds.Tmdb`.
+
+| Case | Order | Provider id | Jellyfin | Emby |
+|---|---|---|---|---|
+| M1 | remove-first | TMDb | new Id; Played, PlayCount 2, LastPlayedDate, position and favourite **kept**; collection lost | new Id; Played, position and favourite kept; collection lost |
+| M2 | remove-first | none | new Id; nothing kept | new Id; nothing kept |
+| M3 | add-first | TMDb | new Id; **nothing kept** | new Id; Played, position and favourite kept; collection lost |
+| M4 | add-first | none | new Id; nothing kept | new Id; nothing kept |
+| M5, M6 | plain `mv`, realtime monitoring on, no report | TMDb / none | still at the old path after 150 s | still at the old path after 150 s |
+
+- **Jellyfin ignores `Created` under a root it has never scanned content in.** In runs 1 and 2 `/media/mb-b` started empty and the moved file never appeared within 60 s, in either order, while `Deleted` removed the old item after 5.3 s. In run 3 one movie sat in mb-b from the first scan, and the same reports showed the new path after 5.3 s. Emby picked up the empty root in run 2.
+- Emby's PlayCount and LastPlayedDate could not be seeded: `POST /Users/{uid}/Items/{id}/UserData` and `POST /Users/{uid}/PlayedItems/{id}` both answered 2xx but left PlayCount 0 and LastPlayedDate null, so whether they survive was not observed. Jellyfin 12 takes the new `/UserItems/{id}/UserData?userId=` route; Emby answers 404 there.
+- Emby removes the old item on `Deleted` at once; Jellyfin waits for its debounce.
+- M5 and M6 say nothing about the servers: Colima's virtiofs did not deliver file change events into the containers.
+
+### What this means for the "moved" change (ADR 0016)
+
+- Plex add-first is right, and it must reach Plex before the source scan. A move whose source is already gone, followed by a partial scan of the vacated folder with `autoEmptyTrash` on (the default), deletes the item. Scanning the destination before deleting the source avoids it in every combination run.
+- Plex keys watch state and rating by guid, across sections. A move into another section keeps them but loses collection membership and orphans play history, so cross-section moves need collections restored.
+- Jellyfin and Emby make a new item on every move. Their own carry-over needs a provider id, and on Jellyfin also remove-first. Collections are lost every time. Snapshot and restore stays necessary, and it must include collection membership.
+- Before reporting into a root that has never had content, SlipStream must make Jellyfin scan it (a library scan or a path refresh), or the report is dropped.
+
 ## Not observed
 
-- Plex behavior with `autoEmptyTrash=false` (left at default `true`).
 - Hardware transcodes (no GPU in the containers). The `transcodeHwRequested` / `HardwareAccelerationType` / `VideoEncoderIsHardware` fields were observed as false/none only.
 - Realtime monitoring on virtiofs (it was turned off by design, so whether inotify reaches the containers was not tested).
 - Plex webhooks (need Pass; not used by the contract).
