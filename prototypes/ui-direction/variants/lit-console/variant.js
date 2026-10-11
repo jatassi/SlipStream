@@ -699,8 +699,11 @@ function setAmbient(id) {
   root.querySelectorAll(`[data-work="${id}"]`).forEach((el) => el.classList.add('focus'));
 }
 
+const STAGE_RANK = (j) => D.stages.indexOf(j.stage) + (j.requestedBy ? 0.5 : 0);
+const homeLead = (mode) => (mode === 'important' || mode === 'important-band' ? [...running()].sort((a, b) => STAGE_RANK(b) - STAGE_RANK(a))[0] : running()[0]).work;
+
 function wireAmbient(home) {
-  const lead = home ? running()[0].work : 'dune-2';
+  const lead = home ? homeLead(C.home) : (C.workPage ? C.workPage.workId : 'dune-2');
   setAmbient(lead);
   if (!home) return;
   if (isPhone) {
@@ -746,8 +749,13 @@ export function render(ctx) {
   try { if (!isPhone && localStorage.getItem('lc-collapsed')) root.classList.add('collapsed'); } catch { /* storage unavailable */ }
 
   const work = ctx.screen === 'work';
+  if (!work && ctx.home && ctx.home.endsWith('band')) root.classList.add('home-band');
+  const page = work && ctx.workPage;
+  if (page) document.title = `${page.title} · SlipStream`;
   let body;
-  if (!isPhone) {
+  if (page) {
+    body = isPhone ? page.phone() : `<div class="shell">${sidebar(page.nav)}<div class="mainc">${topbar(page.crumbs)}<main class="content">${page.wide()}</main></div></div>`;
+  } else if (!isPhone) {
     const crumbs = work ? `<button class="crumb" data-nav="library" data-label="Library">Library</button>${I('chevron-right', 'crumb-sep')}<button class="crumb" data-nav="movies" data-label="Movies">Movies</button>${I('chevron-right', 'crumb-sep')}<span class="crumb cur">Dune: Part Two</span>` : '<span class="crumb cur">Home</span>';
     body = `<div class="shell">${sidebar(work ? 'movies' : 'home')}<div class="mainc">${topbar(crumbs)}<main class="content">${work ? adminWorkWide() : adminHomeWide()}</main></div></div>`;
   } else body = work ? adminWorkPhone() : adminHomePhone();
@@ -757,4 +765,7 @@ export function render(ctx) {
   ctx.icons();
   wire();
   wireAmbient(!work);
+  if (page && page.wire) page.wire(root);
 }
+
+export { esc, I, art, dot, toast, kindLabel, md, hm, ago, initials };

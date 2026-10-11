@@ -1,0 +1,32 @@
+/* PROTOTYPE · Work page at scale. One state vocabulary every matrix variant shares, on C's tokens.
+   Red stays the only signal hue; live is white with the Work's glow; met is the solid white of C's Met badge. */
+
+/* state chip: label + icon */
+.lc .st { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px 0 6px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.lc .st .ic { width: 13px; height: 13px; stroke-width: 2.2; }
+.lc .st-met { background: var(--solid); color: #111; }
+.lc .st-upgrade { color: var(--t1); box-shadow: inset 0 0 0 1.5px var(--solid); }
+.lc .st-missing { color: var(--t2); box-shadow: inset 0 0 0 1px hsl(var(--h) 30% 88% / .42); background: repeating-linear-gradient(135deg, hsl(var(--h) 30% 90% / .06) 0 4px, transparent 4px 8px); }
+.lc .st-downloading, .lc .st-converting { background: hsl(var(--h) 50% 26% / .7); color: #fff; box-shadow: inset 0 0 0 1px hsl(var(--h) 80% 70% / .4); }
+.lc .st-failed { background: var(--fail); color: var(--fail-deep); font-weight: 700; }
+.lc .st-unaired { color: var(--t3); box-shadow: inset 0 0 0 1px var(--hair); }
+
+/* state square: the same states at glyph size, for dense grids. --p fills live squares. */
+.lc .sq { position: relative; display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; overflow: hidden; }
+.lc .sq-met { background: var(--solid); }
+.lc .sq-upgrade { box-shadow: inset 0 0 0 1.5px var(--solid); }
+.lc .sq-upgrade::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: var(--solid); }
+.lc .sq-missing { box-shadow: inset 0 0 0 1px hsl(var(--h) 30% 88% / .5); background: repeating-linear-gradient(135deg, hsl(var(--h) 30% 90% / .18) 0 2px, transparent 2px 4px); }
+.lc .sq-downloading, .lc .sq-converting { background: hsl(var(--h) 60% 80% / .16); box-shadow: inset 0 0 0 1px hsl(var(--h) 80% 85% / .5), 0 0 8px hsl(var(--h) 95% 70% / .55); }
+.lc .sq-downloading::after, .lc .sq-converting::after { content: ''; position: absolute; inset: auto 0 0 0; height: calc(var(--p, .5) * 100%); background: linear-gradient(0deg, #fff, hsl(var(--h) 75% 80%)); }
+.lc .sq-failed { background: var(--fail); }
+.lc .sq-unaired { box-shadow: inset 0 0 0 1px var(--hair); }
+
+/* legend */
+.lc .sx-legend { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; color: var(--t3); font-size: 12px; }
+.lc .sx-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* shared head extras */
+.lc .wk-state-rest { font-weight: 500; font-size: 12.5px; }
+.lc .wk-state .chip-fail { height: 28px; border-radius: 999px; padding: 0 12px 0 9px; }
+.lc .ph-pad { padding: 0 20px; }

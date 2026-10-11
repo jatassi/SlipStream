@@ -601,3 +601,16 @@ body.device-phone.surface-admin { background: radial-gradient(120% 80% at 50% 0%
 .lc-portal .mq-fallback { font: 600 18px/1.15 'Geist', sans-serif; letter-spacing: -0.01em; text-transform: none; }
 .lc-portal .mq-ribbon { letter-spacing: 0; text-transform: none; font-weight: 600; font-size: 13px; }
 .lc-portal .mq-wordmark { font: 700 20px/1 'Geist', sans-serif; letter-spacing: -0.02em; }
+
+/* ── Home resting colour, option "band" (Work page at scale prototype): a brighter ambient with a darkened band holding the status line */
+.lc.home-band { --glass: hsl(var(--h) calc(var(--s) * .55) 8% / .7); }
+.lc.home-band .amb-i { filter: blur(56px) saturate(1.9) brightness(.95); }
+.lc.home-band .amb-tint {
+  background:
+    radial-gradient(80% 70% at 72% 0%, hsl(var(--h) calc(var(--s) * 1.4) 40% / .5), transparent 70%),
+    radial-gradient(70% 60% at 0% 100%, hsl(var(--h) calc(var(--s) * 1.4) 32% / .4), transparent 70%),
+    linear-gradient(180deg, hsl(var(--h) calc(var(--s) * .6) 8% / .05), hsl(var(--h) calc(var(--s) * .6) 5% / .4));
+}
+.lc.home-band .pulse { margin: -22px -28px 0; padding: 20px 28px 18px; background: hsl(var(--h) calc(var(--s) * .5) 4% / .8); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 -1px 0 var(--hair); }
+.lc.home-band .sec-h h2 { text-shadow: 0 1px 12px rgba(0, 0, 0, .6); }
+.lc.home-band .ph-sentence { margin: 0 0 4px; padding: 14px 20px 16px; background: hsl(var(--h) calc(var(--s) * .5) 4% / .8); box-shadow: inset 0 -1px 0 var(--hair); }
