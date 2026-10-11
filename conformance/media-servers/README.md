@@ -10,7 +10,7 @@ Run 2026-10-10 against containers on Colima (virtiofs), library mounted read-onl
 
 ## Rerunning
 
-Rerun on each server release. From this directory: `./make_seed.sh`, `docker compose up -d`, then `probes/run.sh`. The runner generates a throwaway admin password into `creds.txt`, finishes each wizard, resets the library and runs every scenario. Logs and websocket captures land in `evidence/`, which is not committed. Plex is left unclaimed with `ALLOWED_NETWORKS=0.0.0.0/0`, so its API answers without a token. Set `PLEX_CLAIM` to claim it with an account instead.
+Rerun on each server release. From this directory: `./make_seed.sh`, `docker compose up -d`, then `probes/run.sh`. The runner generates a throwaway admin password into `creds.txt`, finishes each wizard, resets the library and runs every scenario. Logs and websocket captures land in `evidence/`, which is not committed. Plex is left unclaimed with `ALLOWED_NETWORKS=0.0.0.0/0`, so its API answers without a token. To check editions, claim it with a Plex Pass account: `PLEX_CLAIM=claim-… docker compose up -d plex`, then put the server's `PlexOnlineToken` from `Preferences.xml` into `plex-token.txt` as `PLEX_TOKEN=…`. A claimed server answers 401 without it.
 
 Two full runs from a reset library gave the same results. The figures below are from the first run. The second measured 60.3 s and 60.2 s on Jellyfin and 90.3 s twice on Emby for scenario 1, 5.6 s for every Jellyfin and Emby removal, and again bound a 1080p Sidecar to every Heat version on Plex.
 
@@ -158,14 +158,29 @@ TranscodingInfo {"IsVideoDirect":false,"VideoEncoder":"x264","VideoEncoderIsHard
  "TranscodingInfo":{"IsVideoDirect":false,"TranscodeReasons":[],"Width":640,"Height":360}}]}
 ```
 
+## Plex editions under Plex Pass
+
+Rerun on a fresh Plex config claimed by a Plex Pass account (`myPlexSubscription="1"`). Everything else in this file comes from the unclaimed server.
+
+| Check | Result |
+|---|---|
+| Heat with the ADR 0011 names | **Two items.** `Heat` (ratingKey 3) with the 1080p and 4K HDR Media, and `Heat` with `editionTitle: "Director's Cut"` (its own ratingKey), both with the same `guid` `plex://movie/5d77…`. |
+| A second Director's Cut file (`Heat (1995) {edition-Director's Cut} - 1080p.mkv`) | Joins the Director's Cut item as a second Media. **Editions have their own versions.** |
+| Sidecars while the folder holds two items | **Bound per version** by file name prefix. `Heat (1995) - 1080p.en.srt` only on the 1080p part, `Heat (1995) - 4K HDR.fr.srt` only on the 4K part, `Heat (1995) {edition-Director's Cut} - 1080p.en.srt` only on that edition's 1080p part. Held through repeated item refreshes and for new Sidecars. |
+| The same folder with the edition files moved aside | **Every Sidecar on every version again**, after a scan and an item refresh. Collateral (one item, no edition) also bound `- 1080p.en.srt` to both parts on the claimed server. |
+| Edition files moved back | New Sidecars bind per version again on item refresh. |
+| Folder scan as the only route for a new Sidecar | Picked up in one try within 15 s. Another try showed nothing after 8 s, and the next item refresh picked it up. Not repeated enough to call it unreliable. |
+
+So Plex matches a Sidecar to one version only when the folder holds more than one item. With one item, every Sidecar goes on every version. This is inferred from the two folder states above, not from Plex documentation or source.
+
 ## Contract deltas
 
 1. **Plex Sidecar pickup works both ways.** Item refresh `PUT /library/metadata/{rk}/refresh` (≈1 s) and a section scan with `path` set to the folder (≈0.1 s) both add the subtitle stream. The contract's item-refresh plus folder-scan fallback holds.
-2. **Plex binds every Sidecar to every version in the folder.** `Heat (1995) - 1080p.en.srt` appears on the 1080p, 4K and Director's Cut parts. Version-specific Sidecars cannot be expressed on Plex. The Import pipeline's Sidecar-naming constraint (Jellyfin's full-file-name prefix) still holds for Jellyfin and Emby, but on Plex a 1080p-synced subtitle will be offered on the 4K file too. This matters if Targets differ in cut or timing.
+2. **Plex binds every Sidecar to every version of a one-item folder.** `Heat (1995) - 1080p.en.srt` appears on the 1080p, 4K and (unclaimed, merged) Director's Cut parts. Under Plex Pass with an edition in the folder, Plex binds Sidecars per version by file name prefix instead (see Plex editions under Plex Pass). Without that, version-specific Sidecars cannot be expressed on Plex. The Import pipeline's Sidecar-naming constraint (Jellyfin's full-file-name prefix) still holds for Jellyfin and Emby, but on Plex a 1080p-synced subtitle will be offered on the 4K file too. This matters if Targets differ in cut or timing.
 3. **Emby Sidecar handling (previously unverified) matches Jellyfin.** Reporting either the video path (`Modified`) or the Sidecar's own path (`Created`) works. Binding is per version by full-file-name prefix. Jellyfin also accepts the Sidecar's own path, so "report the video's path" is sufficient but not required on either.
 4. **`/Library/Media/Updated` is debounced.** Jellyfin waits `LibraryMonitorDelay` (60 s default) and Emby `LibraryMonitorDelaySeconds` (90 s default) before anything appears. "Fire and confirm acceptance" is right (204 in under 20 ms). But any refresh SLA or fake latency should model a 60/90 s delay, not seconds. The setting is server-wide and admin-tunable. A report refreshes the whole containing folder.
 5. **`{edition-…}` in a file name breaks Jellyfin version grouping for the whole folder.** With the ADR 0011 layout, Jellyfin showed three separate Heat movies. It grouped as soon as the edition file was gone. Emby also did not group on a fresh scan, and later grouped the non-edition files only. This refines "Jellyfin groups movie versions only when every file starts with the folder name": the remainder after the folder name must also start with a separator such as ` - `, and `{` doesn't count (inferred from the observation plus the rule; the exact Jellyfin source check was not re-read). Issue #42 / ADR 0011 needs to know this.
-6. **Plex editions not observed.** With no Plex Pass (`myPlexSubscription=false`), the `{edition-Director's Cut}` file became a third Media of the same Heat item, with no `editionTitle`. Whether Pass splits it was not observable without signing in to plex.tv.
+6. **Plex editions need Plex Pass and then behave as the contract says.** Unclaimed, the `{edition-Director's Cut}` file became a third Media of the same Heat item with no `editionTitle`. Claimed by a Plex Pass account, it became a separate item with `editionTitle: "Director's Cut"` and its own versions.
 7. **Plex exposes no version label.** `Media` has no `title` for `1080p` / `4K HDR`. Versions are told apart only by `videoResolution`/`width`/`height`/`bitrate` and `Part.file`. Jellyfin and Emby expose the label as `MediaSource.Name`.
 8. **Emby models versions as separate items.** Each file has its own item id, grouped by `PresentationUniqueKey`. Only item detail and PlaybackInfo return the merged `MediaSources`, while listings return one source per item. "Open in Emby" lookups by path find the file's own item, which is fine. A fake must reproduce the split between listing and detail.
 9. **Jellyfin alternate versions are absent from `/Items` listings.** A lookup by path must also scan sibling items' `MediaSources`.
@@ -181,7 +196,6 @@ TranscodingInfo {"IsVideoDirect":false,"VideoEncoder":"x264","VideoEncoderIsHard
 
 ## Not observed
 
-- Plex edition split under Plex Pass (server is unclaimed; signing in to plex.tv was out of scope).
 - Plex behavior with `autoEmptyTrash=false` (left at default `true`).
 - Hardware transcodes (no GPU in the containers). The `transcodeHwRequested` / `HardwareAccelerationType` / `VideoEncoderIsHardware` fields were observed as false/none only.
 - Realtime monitoring on virtiofs (it was turned off by design, so whether inotify reaches the containers was not tested).

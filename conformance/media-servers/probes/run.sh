@@ -2,6 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 [ -f ../creds.txt ] || printf "user=conformance\npassword=%s\n" "$(openssl rand -hex 12)" > ../creds.txt
+[ -f ../plex-token.txt ] && { set -a; . ../plex-token.txt; set +a; }
 [ -f ../seed/1080.mkv ] || ../make_seed.sh
 python3 mb.py jellyfin >/dev/null; python3 mb.py emby >/dev/null
 python3 setup_mb.py jellyfin; python3 setup_mb.py emby

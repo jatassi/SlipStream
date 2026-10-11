@@ -1,8 +1,10 @@
-import json, sys, time, urllib.parse
+import json, os, sys, time, urllib.parse
 from lib import req
 BASE = "http://localhost:32400"
 HDR = {"X-Plex-Client-Identifier": "conformance-probe", "X-Plex-Product": "conformance", "X-Plex-Version": "1.0",
        "X-Plex-Platform": "Chrome", "X-Plex-Device": "probe", "X-Plex-Device-Name": "probe"}
+if os.environ.get("PLEX_TOKEN"):
+    HDR["X-Plex-Token"] = os.environ["PLEX_TOKEN"]
 
 def call(method, _p, raw=False, headers=None, **q):
     url = BASE + _p

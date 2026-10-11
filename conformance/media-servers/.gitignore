@@ -5,3 +5,4 @@ transcode/
 evidence/
 creds.txt
 __pycache__/
+plex-token.txt
