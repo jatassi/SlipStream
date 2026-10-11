@@ -232,6 +232,7 @@ def mb_setup(kind):
         f = mb_folder(title, year, tmdb)
         if not os.path.exists(h(f"mb-a/{f}")):
             copy(os.path.join(SEED, "1080.mkv"), h(f"mb-a/{f}/{title} ({year}).mkv"))
+    copy(os.path.join(SEED, "1080.mkv"), h("mb-b/Heat (1995)/Heat (1995).mkv"))
     c, cfg, _ = m.call("GET", "/System/Configuration")
     cfg["LibraryMonitorDelaySeconds" if kind == "emby" else "LibraryMonitorDelay"] = 5
     log(kind, "delay 5", m.call("POST", "/System/Configuration", cfg)[0])
@@ -344,6 +345,15 @@ def mb_case(cid, title, year, tmdb, order, realtime):
         log("   mv only, no route")
         for m in ms:
             _, timing[m.kind + " new visible"] = poll(lambda: mb_present(m, new) and not mb_present(m, old), 150, 1)
+    if not realtime:
+        for m in ms:
+            if mb_present(m, new):
+                continue
+            log("   ", m.kind, "new path missing; Created for the folder", m.media_updated(os.path.dirname(new), "Created")[0])
+            ok, timing[m.kind + " new visible after folder report"] = poll(lambda: mb_present(m, new), 30, 0.5)
+            if not ok:
+                log("   ", m.kind, "still missing; library scan", m.call("POST", "/Library/Refresh")[0])
+                _, timing[m.kind + " new visible after library scan"] = poll(lambda: mb_present(m, new), 120, 1)
     time.sleep(3)
     after = {m.kind: mb_state(m, title, year, m.coll) for m in ms}
     log("   timing", timing)

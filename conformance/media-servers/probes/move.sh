@@ -16,6 +16,6 @@ done
 sleep 5
 python3 mb.py jellyfin; python3 mb.py emby
 python3 s7_move.py setup
-python3 s7_move.py plex
+[ -n "$SKIP_PLEX" ] || python3 s7_move.py plex
 python3 s7_move.py mb
 echo "evidence in $D/evidence/s7.log and s7.json"
