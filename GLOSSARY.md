@@ -28,6 +28,10 @@ _Avoid_: Version, cut
 A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Target is either downloaded or derived from another Target by a Conversion. One file meets every Target whose rules it passes.
 _Avoid_: Rendition, slot, version, quality version, variant
 
+**Fills**:
+A file fills a Target for an Edition when it is the one file that Target holds for that Edition. A file can meet a Target without filling it, when another file ranks higher there.
+_Avoid_: Holds, occupies, assigned to
+
 **Profile**:
 The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default Editions wanted, which a Work can override, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
 _Avoid_: Rendition profile, quality profile, slot
