@@ -16,6 +16,7 @@ A home network behind CGNAT or double NAT can't accept inbound connections. In t
 - The relay holds no keys for the UI and portal, and it sees only SNI and ciphertext for them.
 - The relay's fake in offline mode is a loopback Relay Node over the faked Node link, beside a fake gateway, a fake STUN server, Pebble as the ACME CA, a fake DNS server and an outside dialer that plays the Scenario's NAT (ADR 0014).
 - Media Servers see relayed viewers as coming from the home network.
+- For the UI and portal, the relay passes each client's original address to the Serving Node, so ADR 0005's per-IP rate limiting and the logs see real clients rather than the relay. Media Server traffic stays unchanged. Decided in the [library research](../research/oss-libraries.md).
 - A dead relay turns every exposure through it Fixable, not Needs a relay, and the admin is notified after a grace period.
 - Renewing the certificate over TLS-ALPN-01 fails until DNS points at a new relay, but the current certificate keeps serving until it expires.
 - A planned move lets the old relay drain while the Controller hands every Worker the new relay's address and key. A draining relay doesn't count toward the one-relay limit. A Worker that reaches the Controller only through a relay that dies unplanned has to re-pair, which loses nothing.

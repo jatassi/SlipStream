@@ -29,3 +29,5 @@ The stack:
 - Go has no multi-Node network simulator. Simulation tests run yamux over `net.Pipe` behind a fault wrapper, so they exercise the real Node link code, and `testing/synctest` fakes time.
 - yamux is MPL-2.0, which is compatible with GPL-3.0 (ADR 0010). It goes in the notices file.
 - TanStack DB and Vite+ were left out until they mature. The walking skeleton checks that React's `<ViewTransition>` works with TanStack Router's navigation.
+- hashicorp/yamux's fixed 256 KiB stream window caps one stream at about 21 Mbit/s at 100 ms round trip (computed, not measured), which relayed playback and Transfers would hit. The Node link keeps yamux behind an interface, and the Node link spec measures one stream under added latency. libp2p/go-yamux speaks the same protocol and tunes its window to the round trip, so it replaces hashicorp's if the measurement shows the cap. Decided in the [library research](../research/oss-libraries.md).
+- Which libraries sit beside this stack, and what SlipStream builds itself, is [ADR 0021](0021-slipstream-builds-its-durable-core-and-clients-and-adopts-libraries-for-standards.md).
