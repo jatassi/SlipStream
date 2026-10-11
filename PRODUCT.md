@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Open. A map ticket decides it with research and prototypes ([Chart SlipStream v2](https://github.com/jatassi/SlipStream/issues/2), Q4). v2 ships v1's package set plus Docker images.
+One Go binary with an embedded React app and libtorrent through cgo ([ADR 0013](docs/adr/0013-slipstream-is-go-with-an-embedded-react-app-and-libtorrent-through-cgo.md)). v2 ships v1's package set plus Docker images.
 
 ## Users
 
@@ -25,9 +25,9 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 
 ## Positioning
 
-- **One app replaces the *arr stack.** A built-in indexer catalog, a private-tracker-grade torrent client, subtitles with timing sync, Conversions and a requests portal replace Sonarr, Radarr, Prowlarr, Bazarr, Overseerr and Tdarr. Usenet stays external.
+- **One app replaces the *arr stack.** A built-in indexer catalog, a private-tracker-grade torrent client, subtitles with timing sync, Conversions and a requests portal replace Sonarr, Radarr, Prowlarr, Bazarr, Overseerr and Tdarr. No usenet.
 - **Multi-machine by design.** One Controller owns the library database and the UI. Workers join by Pairing and do the Roles assigned to them, such as a seedbox that downloads and keeps seeding while a storage Node imports, or a GPU box that converts. Transfers move files between Nodes, and Handover moves the Controller.
-- **Edition × Target.** Every Item can want several cuts, each at every Target in its Profile. A Target is downloaded or derived from another Target by a Conversion, and one file meets every Target whose rules it passes.
+- **Edition × Target.** Every Item wants any cut or a list of named cuts at every Target in its Profile, and a named cut beside Standard counts only once it is seen. A Profile sources each Target by download, by Conversion from another Target, or both, and one file meets every Target whose rules it passes.
 - **TRaSH Guides native.** Custom Formats, scores, quality sizes and naming import from TRaSH Guides, run verbatim and stay tracked.
 
 ## Operating Context
@@ -45,7 +45,6 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 - Identity: one Account system. Admin is a permission on an Account. Sign-in is an email plus a 4-digit PIN or a passkey; only Admins issue Signup and Reset links; a fresh install prints a Setup code. Scripts use an API key. Email goes over generic SMTP.
 - v1 data comes forward through a one-shot importer.
 - Architecture is locked in [docs/adr/](docs/adr/).
-- Undecided: the stack; Role Group names other than Acquire.
 - The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25). Its reference spec is variant C on the `prototype/ui-direction` branch, and DESIGN.md records it once the build ships.
 
 ## Brand Commitments
@@ -61,7 +60,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 
 ## Product Principles
 
-1. **Members never see machinery.** The portal speaks in outcomes: requested, coming, ready.
+1. **Members never see machinery.** The portal speaks in a Request's stages: Pending, Approved, Searching, Downloading, Processing, Available and Denied, plus the Delayed flag.
 2. **Answer "is it moving, and what broke" first.** Admin surfaces lead with live state and name the stage and cause of any failure.
 3. **Parity is a floor.** Nothing a v1 user relied on disappears without the maintainer's recorded yes.
 4. **One vocabulary everywhere.** The glossary is the UI's language, so docs, logs and screens agree.

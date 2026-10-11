@@ -13,5 +13,5 @@ The Node that imports a library file builds that file's Speech Map during import
 
 - Import takes a little longer for files whose Profile wants subtitles. A Profile that gains a language makes the storage Node build the missing Speech Maps.
 - A subtitle that fails the sync quality gate is dropped, never kept untimed. A language can stay missing even when providers have candidates.
-- The largest subtitle catalog is missing at launch. A task ticket asks OpenSubtitles for an ad-free arrangement.
+- The largest subtitle catalog is missing at launch. No outreach is planned. [OpenSubtitles.com without ads](https://github.com/jatassi/SlipStream/issues/68) closed as not planned, and reopens if OpenSubtitles publishes an ad-free tier for free apps.
 - The offline suite needs test media with known speech timings, plus subtitles shifted by known offsets and framerate ratios.

@@ -21,16 +21,32 @@ The Work and the set of its Items that a release or a file holds, such as one ep
 _Avoid_: Match, scope
 
 **Edition**:
-A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition. When its Work's list names Standard or any cut, an Item always wants that, and wants each other Edition on the list only once a release or file of it has been seen for the Item. A list naming neither wants its Editions outright. Each wanted Edition is wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
-_Avoid_: Version, cut
+A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition. A Work's list is either any cut or named cuts, never both. Under any cut, an Item wants one file at each Target, of whatever Edition, and the file's own Edition sets only its name. A list naming Standard always wants it, and wants each other Edition on the list only once a release or file of it has been seen for the Item. A list without Standard wants its Editions outright. Each wanted Edition is wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
+_Avoid_: Version
 
 **Target**:
-A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Target is either downloaded or derived from another Target by a Conversion. One file meets every Target whose rules it passes.
+A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Profile sources each of its Targets by download, by Conversion from another Target, or both. One file meets every Target whose rules it passes.
 _Avoid_: Rendition, slot, version, quality version, variant
 
 **Fills**:
-A file fills a Target for an Edition when it is the one file that Target holds for that Edition. A file can meet a Target without filling it, when another file ranks higher there.
+A file fills a Target for an Edition when it is the one file that Target holds for that Edition. Under any cut, a Target holds one file of any Edition. A file can meet a Target without filling it, when another file ranks higher there.
 _Avoid_: Holds, occupies, assigned to
+
+**Kept file**:
+A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a rescan found. It is named with the label of the first Target it meets plus ` (extra N)`, a counter, so two Kept files never clash.
+_Avoid_: Extra, extras
+
+**Cell**:
+One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is unreleased, held, missing, downloading, converting, failed, upgradable or met, and a missing cell is either Not found or waiting on its source Target.
+_Avoid_: Slot, square
+
+**Item status**:
+An Item's state, rolled up from its cells in this order: unreleased, held, missing, downloading, converting, failed, upgradable, met. Cells of a listed cut not yet seen for the Item stay out of it.
+_Avoid_: Available (for an Item or cell), complete
+
+**Needs you**:
+The list of what only a person can resolve, such as failed cells, upgrades available, Not found cells, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery.
+_Avoid_: Alerts, attention, inbox
 
 **Profile**:
 The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
@@ -62,6 +78,14 @@ _Avoid_: Primary, master, hub
 Any Node other than the Controller. A Worker joins by Pairing and does the work of the Roles assigned to it.
 _Avoid_: Agent, client, slave
 
+**Unclaimed**:
+A fresh install that is neither a Controller nor a Worker yet. From its first-run page, gated by the Setup code, it starts a new SlipStream, joins one with a Join Code, or restores a Backup.
+_Avoid_: Unpaired, uninitialized
+
+**Node link**:
+The one connection between two paired Nodes, authenticated by each Node's pinned key, which carries calls both ways whichever side dialed. On a single machine it is an in-process link.
+_Avoid_: Channel, tunnel
+
 **Pairing**:
 Joining a new Node to a SlipStream with a Join Code from the Controller, after which the two Nodes trust each other's keys. A Node the Controller already knows by its key keeps its Roles when it pairs again.
 _Avoid_: Registration, enrollment, adoption
@@ -71,7 +95,7 @@ A short-lived, single-use code the Controller issues so one new Node can pair wi
 _Avoid_: Invite, token, pairing key
 
 **Handover**:
-Moving the Controller to another paired Node by shipping it a Backup, after which every Worker follows the new Controller.
+Moving the Controller to another paired Node, both running, by shipping it a Backup over the Node link. Workers follow a notice signed with the old Controller's key, without a Join Code, and nothing in flight is cancelled. The old Controller becomes a Worker that keeps its Roles, library roots and torrents and redirects Workers that reconnect late.
 _Avoid_: Failover, promotion, migration
 
 **Backup**:
@@ -82,12 +106,16 @@ _Avoid_: Config backup, snapshot, dump, export
 A folder on a Node that receives a copy of every Backup.
 _Avoid_: Backup target, backup location, remote
 
+**Reconciling**:
+The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold. It cancels in-flight jobs from the Backup, adopts torrents it doesn't know and sends unmatched files to pending imports, and nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
+_Avoid_: Resync, recovery mode
+
 **Role**:
-A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes.
+A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes. Searching, Downloading, Storage, Metadata and Notifying always have a holder, falling back to the Controller.
 _Avoid_: Service, capability, purpose
 
 **Role Group**:
-A named bundle of Roles that the admin ticks together when assigning, such as Acquire for Searching and Downloading. A Node holds Roles, never Role Groups.
+A named bundle of Roles that the admin ticks together when assigning: Acquire (Searching, Downloading), Store (Storage), Process (Converting, Subtitles), Connect (Metadata, Media Server link, Notifying) and Reach (Relaying, Serving). A Node holds Roles, never Role Groups.
 _Avoid_: Preset, profile, tier
 
 **Serving**:
@@ -105,6 +133,10 @@ _Avoid_: Port check, firewall check, connectivity test
 **Transfer**:
 A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
 _Avoid_: Sync, mirror, push; target for the destination
+
+**Library root**:
+A folder on one Storage Node that holds Works of one Content Type, recorded on the Controller. A Work's folder is stored relative to its root, so editing the root's Node and path re-homes every Work in it.
+_Avoid_: Root folder, library folder
 
 **Move**:
 An admin-started job that relocates one Work's files to another library root, or one torrent to another Download Client, then deletes the source. Files that cross Nodes go as Transfers, and the whole Work or torrent switches over at once before the source is deleted.
@@ -132,9 +164,25 @@ _Avoid_: Downloader, torrent app
 A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
 _Avoid_: Site, indexer (for the seeding side)
 
+**Seeding goal**:
+What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met. A default goal applies unless a Tracker has its own, and the Tracker's seeding rule is a floor under both. External clients keep their own rules.
+_Avoid_: Seed ratio target, cleanup mode, seeding rule (for the admin's goal)
+
+**Hit and run**:
+Stopping or removing a torrent before its Tracker's seeding rule is met. Each seeding torrent counts down to when removing it no longer counts as one.
+_Avoid_: H&R, HnR
+
 **Indexer**:
 One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed. Each Indexer searches from one home Node.
 _Avoid_: Tracker (for the search side), provider, source
+
+**Home Node**:
+The one Searching Node an Indexer runs every query, login, RSS fetch, Test and .torrent fetch from. It defaults to the Controller when the Controller holds Searching, and otherwise to the first Searching Node. The Controller still decides every Grab and keeps the Indexer's cookies, limits and health.
+_Avoid_: Search node, proxy
+
+**Challenge solver**:
+A service speaking FlareSolverr's API, such as Byparr, that clears a site's browser challenge for a Searching Node. Each Searching Node has its own, and none is bundled.
+_Avoid_: FlareSolverr (as a generic term), captcha solver
 
 **Tracker routing**:
 Which Download Client a Tracker's Grabs go to.
@@ -145,7 +193,7 @@ What an Indexer lists for download: a title with the facts it states about itsel
 _Avoid_: Result, torrent (for the listing), NZB
 
 **Want**:
-One Edition at one Target of a monitored, available Item that no file fills, or whose filling file is below the Target's cutoff. Every search and RSS sync tries to satisfy Wants.
+One Edition at one Target of a monitored, released Item that no file fills, or whose filling file is below the Target's cutoff. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
 _Avoid_: Missing item, wanted cell, slot
 
 **Grab**:
@@ -157,7 +205,7 @@ How long a Target waits after a Release is published before grabbing it automati
 _Avoid_: Delay, delay profile
 
 **Backlog search**:
-The scheduled search that works through Wants nothing has found yet, spacing each Want's searches further apart while it stays unfound.
+The scheduled search that works through Wants nothing has found yet, spacing each Want's searches further apart while it stays unfound. At its longest gap, it also looks for listed cuts not yet seen for an Item.
 _Avoid_: Sweep, scheduled search, auto search
 
 **Custom Format**:
@@ -190,6 +238,10 @@ _Avoid_: VAD map, audio fingerprint
 Shifting and stretching a subtitle's cue times to match a library file's Speech Map. It never changes the cue text.
 _Avoid_: Alignment, resync
 
+**Mark bad**:
+Removing a Sidecar as wrong, which blocks that candidate for that file and searches again. An Admin marks one bad from a file's subtitles, and a Subtitle report does it at once.
+_Avoid_: Reject, Blocklist (for a subtitle)
+
 ## Identity
 
 **Account**:
@@ -205,7 +257,7 @@ An Account without the admin permission.
 _Avoid_: Portal user, user, guest
 
 **Setup code**:
-A one-time code a fresh install prints to its console and log, which creates the first Admin.
+A one-time code a fresh install prints to its console and log, which unlocks its first-run page to create the first Admin, join a SlipStream or restore a Backup.
 _Avoid_: Bootstrap token, install key
 
 **Signup link**:
@@ -219,11 +271,11 @@ _Avoid_: Recovery email, password reset
 ## Requests
 
 **Request**:
-A Member's ask for a Work, or some of its levels or Items, to be added and monitored, which an Admin approves or auto-approval admits. A Request is Available once every requested Item is Playable.
-_Avoid_: Order, ticket, portal request
+An Account's ask for a Work, or some of its levels or Items, to be added and monitored, which an Admin approves or auto-approval admits. Its stage is Pending, Approved, Searching, Downloading, Processing, Available or Denied, and Delayed flags it. A Request is Available once every requested Item is Playable.
+_Avoid_: Order, ticket, portal request; Requested, Coming, Ready (for a stage)
 
 **Watcher**:
-A Member following another Member's Request, who gets its notices without spending a Request and inherits it if the requester cancels.
+An Account following another Account's Request, who gets its notices without spending a Request and inherits it if the requester cancels.
 _Avoid_: Subscriber, follower
 
 **Request limit**:
@@ -231,11 +283,11 @@ How many of a Member's Requests per week, per Content Type, are approved automat
 _Avoid_: Quota, allowance
 
 **Playable**:
-An Item with any library file a Media Server can play, including a file kept after its Edition stopped being wanted.
+An Item with any library file a Media Server can play, Kept files included.
 _Avoid_: Downloaded, complete, available (for an Item)
 
 **Delayed**:
-A flag on a Request whose released Items have stayed unplayable too long or whose requested cell failed. Search keeps running underneath it.
+A flag on a Request whose released Items have stayed unplayable too long or hold a failed cell. Search keeps running underneath it.
 _Avoid_: Failed, stuck
 
 **Subtitle report**:
