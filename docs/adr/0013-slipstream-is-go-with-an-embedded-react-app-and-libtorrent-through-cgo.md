@@ -24,8 +24,8 @@ The stack:
 ## Consequences
 
 - cgo is on, so Go loses its pure cross-compile. Each OS and architecture builds in its own native CI job with libtorrent, boost and OpenSSL. Packaging, the updater and the update dashboard owns that matrix.
-- Porting the C# indexers is about 99 files and 1.15 MB of C# to rewrite in Go, measured on 2026-10-11. The port takes the 53 active indexers that [Prowlarr catalog: vendor or reimplement](https://github.com/jatassi/SlipStream/issues/9) counted. Decided in the [coherence pass](COHERENCE_PR), Q22.
-- The built-in client passes any allow-list tracker that carries Gazelle's generic `-LT` row. A new SlipStream prefix would fail every allow-list tracker until its staff added it. Decided in the [coherence pass](COHERENCE_PR), Q1.
+- Porting the C# indexers is about 99 files and 1.15 MB of C# to rewrite in Go, measured on 2026-10-11. The port takes the 53 active indexers that [Prowlarr catalog: vendor or reimplement](https://github.com/jatassi/SlipStream/issues/9) counted. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q22.
+- The built-in client passes any allow-list tracker that carries Gazelle's generic `-LT` row. A new SlipStream prefix would fail every allow-list tracker until its staff added it. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q1.
 - Go has no multi-Node network simulator. Simulation tests run yamux over `net.Pipe` behind a fault wrapper, so they exercise the real Node link code, and `testing/synctest` fakes time.
 - yamux is MPL-2.0, which is compatible with GPL-3.0 (ADR 0010). It goes in the notices file.
 - TanStack DB and Vite+ were left out until they mature. The walking skeleton checks that React's `<ViewTransition>` works with TanStack Router's navigation.

@@ -12,4 +12,4 @@ v1 had a module interface too, yet grep found 149 places outside its modules tha
 
 ## Consequences
 
-- The music type has the same shape as movies and TV, so a track's file fills a Target exactly as a movie's or an episode's does (ADR 0011). Decided in the [coherence pass](COHERENCE_PR), Q3.
+- The music type has the same shape as movies and TV, so a track's file fills a Target exactly as a movie's or an episode's does (ADR 0011). Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q3.

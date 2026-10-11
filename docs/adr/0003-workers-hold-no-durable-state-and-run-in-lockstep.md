@@ -16,4 +16,4 @@ Nodes trust each other by public keys pinned at Pairing, not by certificates. Ei
 - A Worker can be rebuilt from scratch. Backup and restore covers only the Controller.
 - Changing the handshake or update path breaks every older Worker in the field, so those two stay fixed across releases.
 - The offline suite fakes the Node link twice. An in-memory link with fault injection drives simulation tests, and real Node processes on loopback behind a fault proxy drive the end-to-end suite.
-- A mismatched Relay Node or Serving Worker keeps forwarding and proxying during an update, because forwarding isn't a job. Decided in the [coherence pass](COHERENCE_PR), Q14.
+- A mismatched Relay Node or Serving Worker keeps forwarding and proxying during an update, because forwarding isn't a job. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q14.

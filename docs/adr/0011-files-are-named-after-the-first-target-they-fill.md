@@ -18,4 +18,4 @@ All of a Work's files share one folder, because Plex, Jellyfin and Emby group ve
 - Renaming a Target or reordering a Profile can rename thousands of files. Those renames wait for the admin to confirm them in the mass rename preview.
 - Jellyfin and Emby show the tag in the version label, as `{edition-Director's Cut} 4K HDR`. An admin who wants clean labels and no Plex edition uses `{Edition}` instead of `{Edition Tag}`.
 - Plex offers every Sidecar on every version of one Plex item, by Plex's design. Under Plex Pass each Edition is its own item, and Sidecars stay on their own version. Measured in the Media Server conformance suite, https://github.com/jatassi/SlipStream/pull/83 (README, Edition layouts).
-- A Kept file is named with the label of the first Target it meets plus ` (extra N)`, where N is a counter, so two Kept files never clash. Decided in the [coherence pass](COHERENCE_PR), Q18.
+- A Kept file is named with the label of the first Target it meets plus ` (extra N)`, where N is a counter, so two Kept files never clash. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q18.

@@ -11,7 +11,7 @@ An Indexer is one way to search, and a Tracker is the site a torrent seeds to. T
 
 ## Consequences
 
-- A Worker wipe loses no session, limit or health state. The Controller already holds every Indexer's cookies and limits, so a handback to it loses nothing. Decided in the [coherence pass](COHERENCE_PR), Q17.
+- A Worker wipe loses no session, limit or health state. The Controller already holds every Indexer's cookies and limits, so a handback to it loses nothing. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q17.
 - A home Node's public IP is part of an Indexer's identity. Moving it to another Node may force a new login or challenge.
 - A Challenge solver is configured per Searching Node, not per Indexer.
 - A new Tracker routes by default to the built-in client on its Indexer's home Node when that Node downloads.

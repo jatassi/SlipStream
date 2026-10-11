@@ -13,4 +13,4 @@ v1 went the other way. Its up to three slots had to carry mutually exclusive qua
 
 - Import and upgrade work on the set of Targets a file meets, and deletion on the set it fills, never on one slot.
 - Naming must keep files that meet different Target sets apart. The import pipeline decides how.
-- Under "any cut", each Target holds one Want that a file of any Edition fills, and the file's own Edition sets only its name. So an upgrade crosses Editions like any other, by quality, then score. "Any cut" never mixes with named cuts. Decided in the [coherence pass](COHERENCE_PR), Q2.
+- Under "any cut", each Target holds one Want that a file of any Edition fills, and the file's own Edition sets only its name. So an upgrade crosses Editions like any other, by quality, then score. "Any cut" never mixes with named cuts. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q2.

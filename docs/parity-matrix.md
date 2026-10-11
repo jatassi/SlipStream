@@ -221,7 +221,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-142 | Download clients with host, port, SSL, URL base, credentials, category, priority and enable | `internal/downloader/service.go`, `web/src/routes/settings/download-pipeline/clients.tsx` | working | kept without priority, excepted by the [maintainer's yes](COHERENCE_PR) | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
+| P-142 | Download clients with host, port, SSL, URL base, credentials, category, priority and enable | `internal/downloader/service.go`, `web/src/routes/settings/download-pipeline/clients.tsx` | working | kept without priority, excepted by the [maintainer's yes](https://github.com/jatassi/SlipStream/pull/112) | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-143 | Client credentials redacted in API responses | `internal/api/handlers_downloads.go` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-144 | Test a saved or unsaved client | `POST /downloadclients/:id/test`, `POST /downloadclients/test` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
 | P-145 | Scheduled download client health check | `internal/scheduler/tasks/downloadclienthealth.go` | working | kept | [Built-in torrent client screens](https://github.com/jatassi/SlipStream/issues/64) | unplanned |
@@ -460,7 +460,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
 | P-310 | Invite signup page that validates the token and sets a PIN | `web/src/routes/requests/auth/signup.tsx`, `internal/auth/handlers.go` | working | kept | [Portal onboarding flow and emails](https://github.com/jatassi/SlipStream/issues/24) | unplanned |
-| P-311 | Self-service invitation resend endpoint with no UI | `POST /requests/auth/resend` | half-built | excepted, [maintainer's yes](COHERENCE_PR) | [Portal onboarding flow and emails](https://github.com/jatassi/SlipStream/issues/24) | unplanned |
+| P-311 | Self-service invitation resend endpoint with no UI | `POST /requests/auth/resend` | half-built | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/pull/112) | [Portal onboarding flow and emails](https://github.com/jatassi/SlipStream/issues/24) | unplanned |
 | P-312 | Portal disabled screen on login, signup and inside the app | `web/src/components/portal/portal-auth-guard.tsx` | working | kept | [Requests portal under Editions and Targets](https://github.com/jatassi/SlipStream/issues/88) | unplanned |
 | P-313 | Sign in with passkey with PIN fallback | `web/src/components/portal/`, `internal/auth/passkey_handlers.go` | working | kept | [Identity, PIN and passkey, admin permission, API key](https://github.com/jatassi/SlipStream/issues/23) | unplanned |
 | P-314 | Prompt to set up a passkey after login with don't show again | `web/src/components/portal/passkey-prompt-modal.tsx` | working | kept | [Identity, PIN and passkey, admin permission, API key](https://github.com/jatassi/SlipStream/issues/23) | unplanned |

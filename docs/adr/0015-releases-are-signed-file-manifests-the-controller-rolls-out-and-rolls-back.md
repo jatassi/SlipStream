@@ -16,7 +16,7 @@ An update runs as stored, resumable phases: stage the files, check free disk, dr
 
 ## Consequences
 
-- A compromised signing key has no in-band recovery. Keys rotate by shipping the next key in an earlier release. Every retired public key stays embedded for verification, so a Worker offline across a rotation can still update, and a key is dropped only after a compromise. Admins reinstall by hand after a compromise. Decided in the [coherence pass](COHERENCE_PR), Q19.
+- A compromised signing key has no in-band recovery. Keys rotate by shipping the next key in an earlier release. Every retired public key stays embedded for verification, so a Worker offline across a rotation can still update, and a key is dropped only after a compromise. Admins reinstall by hand after a compromise. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q19.
 - CI parses each new manifest with the oldest supported parser, and an end-to-end suite updates the first release and the previous one to the current build on loopback. `buf breaking` alone checks only the proto schema.
 - Breaking the frozen path by mistake strands every older Worker, which must then be reinstalled and re-paired.
 - Rollback depends on the migration-time Backup, so a Backup failure blocks the update instead of risking the database.
