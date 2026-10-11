@@ -132,28 +132,28 @@ An exception is written on its row only with the chef's explicit yes.
 | P-075 | Periodic import scan of download folders that skips already imported files | `internal/scheduler/tasks/importscan.go`, `import/pipeline.go` | working | kept | - | unplanned |
 | P-076 | Completion checks wait for stable size and archive extraction and skip stalled downloads | `internal/import/completion.go` | working | kept | - | unplanned |
 | P-077 | Hardlink placement with symlink and copy fallback, source kept for seeding | `internal/library/organizer/fileops.go (LinkOrCopy)` | working | kept | - | unplanned |
-| P-078 | Upgrade on import replaces and deletes the older file | `internal/import/service.go (evaluateUpgradeEligibility)` | working | kept | [The Edition and Target model](https://github.com/jatassi/SlipStream/issues/6) | unplanned |
+| P-078 | Upgrade on import replaces and deletes the older file | `internal/import/service.go (evaluateUpgradeEligibility)` | working | kept | [The Edition and Target model](https://github.com/jatassi/SlipStream/issues/6), [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-079 | Season pack import with per-file status, imported progressively | `internal/import/seasonpack.go` | working | kept | - | unplanned |
 | P-080 | Multi-episode files map to several episodes | `internal/import/renamer/multiepisode.go` | working | kept | - | unplanned |
 | P-081 | Import retry with backoff, failed status and health warning | `internal/import/retry.go` | working | kept | - | unplanned |
 | P-082 | Import success writes history, notifies, marks requests available and pushes a live event | `internal/import/service.go (handleSuccessfulImport)` | working | kept | - | unplanned |
 | P-083 | Pending imports list with per-file error and tap to retry | `GET /import/pending`, `POST /import/:id/retry`, `web/src/routes/import/pending-imports-group.tsx` | working | kept | - | unplanned |
-| P-084 | Manual import page browses server folders and parses and matches each video file | `web/src/routes/import/index.tsx`, `POST /import/scan` | working | kept | - | unplanned |
-| P-085 | One-tap import and Import All for matched files | `web/src/routes/import/use-import-actions.ts`, `POST /import/manual` | working | kept | - | unplanned |
-| P-086 | Edit match dialog with parsed info and a movie or episode picker | `web/src/routes/import/edit-match-dialog.tsx`, `POST /import/manual/preview` | working | kept | - | unplanned |
+| P-084 | Manual import page browses server folders and parses and matches each video file | `web/src/routes/import/index.tsx`, `POST /import/scan` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-085 | One-tap import and Import All for matched files | `web/src/routes/import/use-import-actions.ts`, `POST /import/manual` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-086 | Edit match dialog with parsed info and a movie or episode picker | `web/src/routes/import/edit-match-dialog.tsx`, `POST /import/manual/preview` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-087 | Import settings for minimum file size and allowed video extensions | `internal/import/settings.go`, `extension-manager.tsx` | working | kept | - | unplanned |
-| P-088 | Validation level setting that the pipeline never reads | `internal/import/settings.go`, `naming-validation-tab.tsx` | half-built | open | [Map, Not yet specified, the import pipeline](https://github.com/jatassi/SlipStream/issues/1) | unplanned |
-| P-089 | Match conflict behavior setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | open | [Map, Not yet specified, the import pipeline](https://github.com/jatassi/SlipStream/issues/1) | unplanned |
-| P-090 | Unknown media Auto Add setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | open | [Map, Not yet specified, the import pipeline](https://github.com/jatassi/SlipStream/issues/1) | unplanned |
-| P-091 | Rename toggle per Content Type | `internal/import/module_naming.go`, `/settings/:moduleId/naming` | working | kept | - | unplanned |
+| P-088 | Validation level setting that the pipeline never reads | `internal/import/settings.go`, `naming-validation-tab.tsx` | half-built | superseded by one fixed check with the probe before import | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-089 | Match conflict behavior setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | superseded by grab-then-parse matching that holds a conflict for review | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-090 | Unknown media Auto Add setting that the pipeline never reads | `internal/import/settings.go`, `naming-matching-tab.tsx` | half-built | excepted, [chef yes](https://github.com/jatassi/SlipStream/issues/42#issuecomment-6104383476), replaced by Add Work and import in pending imports | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-091 | Rename toggle per Content Type | `internal/import/module_naming.go`, `/settings/:moduleId/naming` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-092 | Movie folder and file name templates | `internal/modules/movie/path_naming.go`, `naming-movie-tab.tsx` | working | kept | - | unplanned |
 | P-093 | Series, season and specials folder templates and standard, daily and anime episode templates | `internal/modules/tv/path_naming.go`, `naming-tv-tab.tsx` | working | kept | - | unplanned |
 | P-094 | Colon replacement modes including smart and custom | `internal/import/module_naming.go`, `naming-tv-tab.tsx` | working | kept | - | unplanned |
 | P-095 | Multi-episode styles (extend, duplicate, repeat, scene, range, prefixed range) | `internal/modules/tv/path_naming.go` | working | kept | - | unplanned |
-| P-096 | Naming token catalog with padding, truncation, case and language modifiers | `internal/import/renamer/tokens.go`, `modifiers.go` | working | kept | - | unplanned |
+| P-096 | Naming token catalog with padding, truncation, case and language modifiers | `internal/import/renamer/tokens.go`, `modifiers.go` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 | P-097 | Token reference tab and click-to-insert token builder | `naming-token-reference-tab.tsx`, `token-builder-dialog.tsx` | working | kept | - | unplanned |
-| P-098 | Live naming preview, pattern validation and filename parse tester | `POST /settings/import/naming/preview`, `filename-tester.tsx` | working | kept | - | unplanned |
-| P-099 | Mass rename of library files with a preview, API only in v1, given a real UI in v2 | `internal/import/rename.go`, `/import/rename/preview`, `/import/rename/execute` | working | kept | - | unplanned |
+| P-098 | Live naming preview, pattern validation and filename parse tester | `POST /settings/import/naming/preview`, `filename-tester.tsx` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
+| P-099 | Mass rename of library files with a preview, API only in v1, given a real UI in v2 | `internal/import/rename.go`, `/import/rename/preview`, `/import/rename/execute` | working | kept | [Import pipeline under Editions and Targets](https://github.com/jatassi/SlipStream/issues/42) | unplanned |
 
 ## Arr migration
 
