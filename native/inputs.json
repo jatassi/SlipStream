@@ -1,0 +1,82 @@
+{
+	"targets": [
+		{
+			"name": "linux-amd64",
+			"goos": "linux",
+			"goarch": "amd64",
+			"runner": "ubuntu-24.04",
+			"toolchain": "host-gcc",
+			"min_os": "linux 3.2",
+			"gate": "pr",
+			"openssl_target": "linux-x86_64",
+			"system_libs": ["-lstdc++", "-lm", "-ldl", "-lpthread"]
+		},
+		{
+			"name": "linux-arm64",
+			"goos": "linux",
+			"goarch": "arm64",
+			"runner": "ubuntu-24.04-arm",
+			"toolchain": "host-gcc",
+			"min_os": "linux 3.2",
+			"gate": "native",
+			"openssl_target": "linux-aarch64",
+			"system_libs": ["-lstdc++", "-lm", "-ldl", "-lpthread"]
+		},
+		{
+			"name": "windows-amd64",
+			"goos": "windows",
+			"goarch": "amd64",
+			"runner": "windows-2025",
+			"toolchain": "llvm-mingw-ucrt",
+			"min_os": "windows 10",
+			"gate": "native",
+			"openssl_target": "mingw64",
+			"system_libs": ["-lc++", "-lws2_32", "-lmswsock", "-liphlpapi", "-lcrypt32", "-lbcrypt", "-ldbghelp", "-ladvapi32", "-luser32"]
+		},
+		{
+			"name": "darwin-arm64",
+			"goos": "darwin",
+			"goarch": "arm64",
+			"runner": "macos-15",
+			"toolchain": "xcode",
+			"min_os": "macos 13.0",
+			"gate": "native",
+			"openssl_target": "darwin64-arm64-cc",
+			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
+		},
+		{
+			"name": "darwin-amd64",
+			"goos": "darwin",
+			"goarch": "amd64",
+			"runner": "macos-15",
+			"toolchain": "xcode",
+			"min_os": "macos 13.0",
+			"gate": "native",
+			"openssl_target": "darwin64-x86_64-cc",
+			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
+		}
+	],
+	"components": [
+		{
+			"name": "libtorrent-rasterbar",
+			"version": "2.0.15",
+			"url": "https://github.com/arvidn/libtorrent/releases/download/v2.0.15/libtorrent-rasterbar-2.0.15.tar.gz",
+			"sha256": "5e2e79129823b7ea48721164c32b5aaf83d3fd733b5502100f6705b29f27bb02",
+			"license": "BSD-3-Clause"
+		},
+		{
+			"name": "openssl",
+			"version": "3.5.9",
+			"url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+			"sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+			"license": "Apache-2.0"
+		},
+		{
+			"name": "boost",
+			"version": "1.92.0",
+			"url": "https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-b2-nodocs.tar.gz",
+			"sha256": "e2a814b3a158ab482c7a3d330f8bf5a7a8423d258a4e2fb396996e00fcee2111",
+			"license": "BSL-1.0"
+		}
+	]
+}
