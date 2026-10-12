@@ -103,6 +103,14 @@ jobs:
             ~/AppData/Local/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - run: scripts/native-deps fetch
+      - name: first build timing (temporary)
+        if: matrix.target == 'darwin-amd64'
+        continue-on-error: true
+        run: |
+          eval "$(scripts/native-deps env)"
+          go build -x -trimpath -o "$RUNNER_TEMP/first" ./cmd/slipstream 2>&1 | while IFS= read -r l; do printf '%s %s\n' "$(date +%s)" "${l:0:240}"; done > "$RUNNER_TEMP/first.txt"
+          awk 'NR>1 && $1-prev>=4 {print "GAP " $1-prev "s at: " prevline} {prev=$1; prevline=substr($0,1,240)}' "$RUNNER_TEMP/first.txt"
+          echo "TOTAL $(( $(tail -1 "$RUNNER_TEMP/first.txt" | cut -d' ' -f1) - $(head -1 "$RUNNER_TEMP/first.txt" | cut -d' ' -f1) ))s"
       - run: go run ./cmd/release build
       - name: imports and link trace (temporary)
         if: runner.os != 'Linux'
@@ -154,16 +162,11 @@ jobs:
           bin=$(ls "$GITHUB_WORKSPACE"/dist/slipstream*)
           (cd "$RUNNER_TEMP" && go run imports.go "$bin")
           if [ "$RUNNER_OS" = Windows ]; then trace=-Wl,--verbose; else trace=-Wl,-t; fi
-          if [ "$RUNNER_OS" = macOS ] && [ "$GOARCH" = amd64 ]; then
-            env -u GOARCH go build -o "$RUNNER_TEMP/release-native" ./cmd/release
-            file "$RUNNER_TEMP/release-native"
-            start=$(date +%s); go run ./cmd/release build >/dev/null 2>&1; echo "TIMING go run (translated tool): $(( $(date +%s) - start ))s"
-            start=$(date +%s); "$RUNNER_TEMP/release-native" build >/dev/null 2>&1; echo "TIMING native tool: $(( $(date +%s) - start ))s"
-          fi
           eval "$(scripts/native-deps env)"
           go build -x -tags release -o "$RUNNER_TEMP/trace-bin" -ldflags="-extldflags=$trace" ./cmd/slipstream > "$RUNNER_TEMP/trace.txt" 2>&1 || echo "BUILD FAILED"
           grep -oiE '[^ /\\"]+\.(a|tbd|dylib|o|obj)\b' "$RUNNER_TEMP/trace.txt" | sort | uniq -c | sort -rn | head -80
-          grep -iE 'winpthread|unwind|libc\+\+|clang_rt|builtins|error' "$RUNNER_TEMP/trace.txt" | grep -v '^TERM\|^packagefile\|^modinfo\|-o \$WORK' | head -60
+          grep -o 'Reading [^ ]*' "$RUNNER_TEMP/trace.txt" | sed 's#.*[/\\]##' | sort | uniq -c
+          grep -ci winpthread "$RUNNER_TEMP/trace.txt" || true
       - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
 
   native-gate:
