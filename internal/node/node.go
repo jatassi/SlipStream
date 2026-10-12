@@ -83,7 +83,7 @@ type Node struct {
 func Start(ctx context.Context, env Env) (*Node, error) {
 	n := &Node{
 		env:      env,
-		deadline: DefaultTimings().StopDeadline,
+		deadline: Defaults().Timings.Node.StopDeadline,
 		stopping: make(chan struct{}),
 		drained:  make(chan struct{}),
 		released: make(chan struct{}),

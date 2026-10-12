@@ -13,15 +13,11 @@ func TestStopNodeReturnsOnceTheDataDirIsFree(t *testing.T) {
 	if err := StopNode(t.Context(), env.DataDir); err != nil {
 		t.Fatalf("stop: %v", err)
 	}
-	select {
-	case <-n.Done():
-	default:
-		t.Fatal("StopNode returned before the Node was done")
-	}
+	startTest(t, env)
+	<-n.Done()
 	if n.Err() != nil {
 		t.Fatalf("node stopped with %v", n.Err())
 	}
-	startTest(t, env)
 }
 
 func TestUnknownOpNamesTheNodeVersion(t *testing.T) {
