@@ -1,0 +1,39 @@
+package node
+
+import (
+	"errors"
+	"fmt"
+	"path/filepath"
+)
+
+// maxSocketPath is the smallest sun_path limit across the targets, macOS's,
+// so a data dir valid on Linux is valid everywhere.
+const maxSocketPath = 103
+
+// DataDir is a Node's home: absolute and clean, made only by ParseDataDir.
+type DataDir struct{ path string }
+
+func ParseDataDir(s string) (DataDir, error) {
+	if s == "" {
+		return DataDir{}, errors.New("data dir is empty")
+	}
+	abs, err := filepath.Abs(s)
+	if err != nil {
+		return DataDir{}, fmt.Errorf("data dir %s: %w", s, err)
+	}
+	d := DataDir{abs}
+	if n := len(d.ControlSocket()); n > maxSocketPath {
+		return DataDir{}, fmt.Errorf("data dir %s: control socket path %s is %d bytes, over the %d-byte limit", abs, d.ControlSocket(), n, maxSocketPath)
+	}
+	return d, nil
+}
+
+func (d DataDir) Path() string { return d.path }
+
+func (d DataDir) String() string { return d.path }
+
+func (d DataDir) RunDir() string { return filepath.Join(d.path, "run") }
+
+func (d DataDir) ControlSocket() string { return filepath.Join(d.RunDir(), "control.sock") }
+
+func (d DataDir) LogsDir() string { return filepath.Join(d.path, "logs") }

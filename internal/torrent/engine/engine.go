@@ -24,6 +24,15 @@ type Config struct {
 	Discovery       Discovery
 }
 
+// Settings is the torrent section of a Node's configuration.
+type Settings struct {
+	Listen netip.AddrPort `yaml:"listen"`
+}
+
+func DefaultSettings() Settings {
+	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881")}
+}
+
 // Discovery selects the peer discovery services. Its zero value turns
 // all four off.
 type Discovery struct {

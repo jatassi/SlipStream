@@ -1,3 +1,11 @@
 module github.com/jatassi/slipstream
 
 go 1.27.2
+
+require (
+	github.com/gofrs/flock v0.13.1
+	go.yaml.in/yaml/v3 v3.0.5
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+)
+
+require golang.org/x/sys v0.47.0 // indirect
