@@ -3,8 +3,11 @@ package identity
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -12,13 +15,21 @@ import (
 )
 
 func TestSetupCodesReadAsTyped(t *testing.T) {
-	for _, typed := range []string{"7k2m q9xd 4hbt", "7K2M-Q9XD-4HBT", "7K2MQ9XD4HBT"} {
-		if got := normalizeSetupCode(typed); got != "7K2MQ9XD4HBT" {
-			t.Errorf("normalize(%q) = %q, want 7K2MQ9XD4HBT", typed, got)
-		}
+	src, err := os.ReadFile(filepath.Join("testdata", "setup_code_vectors.json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := normalizeSetupCode("OIL0"); got != "0110" {
-		t.Errorf("normalize(OIL0) = %q, want 0110", got)
+	var vectors []struct{ Input, Normalized string }
+	if err := json.Unmarshal(src, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	if len(vectors) == 0 {
+		t.Fatal("no vectors")
+	}
+	for _, v := range vectors {
+		if got := normalizeSetupCode(v.Input); got != v.Normalized {
+			t.Errorf("normalize(%q) = %q, want %q", v.Input, got, v.Normalized)
+		}
 	}
 }
 
