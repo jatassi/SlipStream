@@ -11,7 +11,7 @@ import (
 
 func run(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
@@ -32,7 +32,7 @@ func write(t *testing.T, dir, name, content string) {
 
 func fingerprint(t *testing.T, dir string) string {
 	t.Helper()
-	f, err := worktree.Fingerprint(dir)
+	f, err := worktree.Fingerprint(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,11 @@ func TestFingerprintTracksEveryChangeAndReturnsToCleanAfterCommit(t *testing.T) 
 	step("edit", func() { write(t, dir, "README.md", "edited\n") })
 	step("second edit of the same file", func() { write(t, dir, "README.md", "edited again\n") })
 	step("add untracked", func() { write(t, dir, "src/new/util.go", "package new\n") })
-	step("delete tracked", func() { os.Remove(filepath.Join(dir, "src", "main.go")) })
+	step("delete tracked", func() {
+		if err := os.Remove(filepath.Join(dir, "src", "main.go")); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	before := fingerprint(t, dir)
 	write(t, dir, "out/app.bin", "ignored\n")
@@ -108,7 +112,7 @@ func TestStampDescribesHeadAndTag(t *testing.T) {
 	write(t, dir, "README.md", "edited\n")
 	run(t, dir, "commit", "-q", "-am", "after tag")
 
-	s, err := worktree.Stamp(dir)
+	s, err := worktree.Stamp(t.Context(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,7 +28,7 @@ func build(t *testing.T, goos string, ldflags ...string) string {
 		out += ".exe"
 	}
 	args := append([]string{"build", "-trimpath", "-o", out}, ldflags...)
-	cmd := exec.Command("go", append(args, "./testdata/stamped")...)
+	cmd := exec.CommandContext(t.Context(), "go", append(args, "./testdata/stamped")...)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+runtime.GOARCH)
 	if msg, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build: %v\n%s", err, msg)
@@ -79,7 +79,7 @@ func TestCurrentMatchesLinkedStamp(t *testing.T) {
 		t.Skip("runs a built binary")
 	}
 	host := build(t, runtime.GOOS, stampFlag(t, want))
-	out, err := exec.Command(host).Output()
+	out, err := exec.CommandContext(t.Context(), host).Output()
 	if err != nil {
 		t.Fatal(err)
 	}

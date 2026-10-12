@@ -1,19 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"sort"
 )
 
 type command struct {
 	summary string
-	run     func(args []string) error
+	run     func(ctx context.Context, args []string) error
 }
 
 var commands = map[string]command{}
 
-func register(name, summary string, run func(args []string) error) {
+func register(name, summary string, run func(ctx context.Context, args []string) error) {
 	if _, dup := commands[name]; dup {
 		panic("release: duplicate command " + name)
 	}
@@ -31,7 +33,10 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
-	if err := cmd.run(os.Args[2:]); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	err := cmd.run(ctx, os.Args[2:])
+	stop()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "release %s: %v\n", os.Args[1], err)
 		os.Exit(1)
 	}

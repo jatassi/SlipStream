@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -13,32 +14,32 @@ func init() {
 	register("check", "run lint, test and build, as CI does", runCheck)
 }
 
-func runWeb(args []string) error {
+func runWeb(ctx context.Context, args []string) error {
 	if err := flag.NewFlagSet("web", flag.ContinueOnError).Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
-	root, err := repoRoot()
+	root, err := repoRoot(ctx)
 	if err != nil {
 		return err
 	}
-	return buildWeb(root)
+	return buildWeb(ctx, root)
 }
 
 // runTest passes its arguments to go test, so `release test -run Foo
 // ./internal/media` narrows the run.
-func runTest(args []string) error {
-	root, err := repoRoot()
+func runTest(ctx context.Context, args []string) error {
+	root, err := repoRoot(ctx)
 	if err != nil {
 		return err
 	}
-	_, _, bundle, err := goTargetBundle()
+	_, _, bundle, err := goTargetBundle(ctx)
 	if err != nil {
 		return err
 	}
 	if len(args) == 0 {
 		args = []string{"./..."}
 	}
-	gotest := exec.Command("go", append([]string{"test", "-race", "-shuffle=on"}, args...)...)
+	gotest := exec.CommandContext(ctx, "go", append([]string{"test", "-race", "-shuffle=on"}, args...)...)
 	gotest.Dir = root
 	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr
 	gotest.Env = bundleEnv(bundle)
@@ -48,15 +49,15 @@ func runTest(args []string) error {
 	return nil
 }
 
-func runCheck(args []string) error {
+func runCheck(ctx context.Context, args []string) error {
 	if err := flag.NewFlagSet("check", flag.ContinueOnError).Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
 	for _, step := range []struct {
 		name string
-		run  func([]string) error
+		run  func(context.Context, []string) error
 	}{{"lint", runLint}, {"test", runTest}, {"build", runBuild}} {
-		if err := step.run(nil); err != nil {
+		if err := step.run(ctx, nil); err != nil {
 			return fmt.Errorf("%s: %w", step.name, err)
 		}
 	}

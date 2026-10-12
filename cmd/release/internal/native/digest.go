@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"path"
 )
@@ -68,7 +69,7 @@ func LibsDigest(in Inputs, t Target, recipe fs.FS) (string, error) {
 func recipeFiles(recipe fs.FS, dir string) ([]recipeFile, error) {
 	sub, err := fs.Sub(recipe, dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("recipe %s: %w", dir, err)
 	}
 	var files []recipeFile
 	err = fs.WalkDir(sub, ".", func(name string, d fs.DirEntry, err error) error {
@@ -77,19 +78,22 @@ func recipeFiles(recipe fs.FS, dir string) ([]recipeFile, error) {
 		}
 		data, err := fs.ReadFile(sub, name)
 		if err != nil {
-			return err
+			return fmt.Errorf("read %s: %w", name, err)
 		}
 		sum := sha256.Sum256(data)
 		files = append(files, recipeFile{name, hex.EncodeToString(sum[:])})
 		return nil
 	})
-	return files, err
+	if err != nil {
+		return nil, fmt.Errorf("hash recipe %s: %w", dir, err)
+	}
+	return files, nil
 }
 
 func hashDoc(doc any) (string, error) {
 	data, err := json.Marshal(doc)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("encode the digest document: %w", err)
 	}
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:]), nil

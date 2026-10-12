@@ -45,7 +45,7 @@ func TestCheckPassesPureGoBinaries(t *testing.T) {
 	} {
 		t.Run(target.goos+"-"+target.goarch, func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "hello")
-			cmd := exec.Command("go", "build", "-trimpath", "-o", out, "./testdata/hello")
+			cmd := exec.CommandContext(t.Context(), "go", "build", "-trimpath", "-o", out, "./testdata/hello")
 			cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.goos, "GOARCH="+target.goarch)
 			if msg, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("go build: %v\n%s", err, msg)

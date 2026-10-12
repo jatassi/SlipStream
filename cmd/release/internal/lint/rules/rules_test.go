@@ -23,13 +23,13 @@ func fixtureRepo(t *testing.T, name string) *lint.Repo {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"init", "-q"}, {"add", "-A"}} {
-		cmd := exec.Command("git", args...)
+		cmd := exec.CommandContext(t.Context(), "git", args...)
 		cmd.Dir = root
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
-	return lint.Open(root)
+	return lint.Open(t.Context(), root)
 }
 
 func check(t *testing.T, rule string, repo *lint.Repo) []string {

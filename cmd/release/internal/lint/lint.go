@@ -68,7 +68,9 @@ func Run(w io.Writer, repo *Repo, rules []Rule) error {
 		)
 	})
 	for _, f := range findings {
-		fmt.Fprintln(w, f)
+		if _, err := fmt.Fprintln(w, f); err != nil {
+			return fmt.Errorf("print findings: %w", err)
+		}
 	}
 	if len(findings) > 0 {
 		return fmt.Errorf("%d findings", len(findings))

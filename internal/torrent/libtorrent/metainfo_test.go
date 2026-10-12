@@ -2,7 +2,7 @@ package libtorrent_test
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
 	"fmt"
 	"sort"
 )
@@ -11,7 +11,7 @@ import (
 func singleFileTorrent(name string, data []byte, pieceLen int) []byte {
 	var pieces []byte
 	for off := 0; off < len(data); off += pieceLen {
-		sum := sha1.Sum(data[off:min(off+pieceLen, len(data))])
+		sum := sha1.Sum(data[off:min(off+pieceLen, len(data))]) //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
 		pieces = append(pieces, sum[:]...)
 	}
 	var b bytes.Buffer

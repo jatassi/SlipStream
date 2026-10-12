@@ -1,4 +1,4 @@
-.PHONY: help deps web build test lint notices check clean
+.PHONY: help deps web build test lint fmt notices check clean
 
 RELEASE := go run ./cmd/release
 
@@ -7,7 +7,8 @@ help:
 	@echo "make web      install and build the web app"
 	@echo "make build    build the release binary into dist/"
 	@echo "make test     run go test -race -shuffle=on against the native layers"
-	@echo "make lint     run the architecture lint, lock and notices checks"
+	@echo "make lint     run the Go and web linters, format, architecture and notices checks"
+	@echo "make fmt      format the Go code and the web app"
 	@echo "make notices  regenerate internal/notices/NOTICES.txt"
 	@echo "make check    lint, test and build, as CI does"
 	@echo "make clean    remove dist/ and web/dist/"
@@ -26,6 +27,9 @@ test:
 
 lint:
 	$(RELEASE) lint
+
+fmt:
+	$(RELEASE) fmt
 
 notices:
 	$(RELEASE) notices generate

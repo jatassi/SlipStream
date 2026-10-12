@@ -18,11 +18,11 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the web app and the release binary")
 	}
-	root, err := repoRoot()
+	root, err := repoRoot(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := worktree.Stamp(root)
+	want, err := worktree.Stamp(t.Context(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		}
 	}
 
-	if err := runBuild(nil); err != nil {
+	if err := runBuild(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +54,7 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		t.Errorf("stamp in %s = %+v, want %+v", bin, got, want)
 	}
 
-	printed, err := exec.Command(bin, "version").Output()
+	printed, err := exec.CommandContext(t.Context(), bin, "version").Output()
 	if err != nil {
 		t.Fatal(err)
 	}

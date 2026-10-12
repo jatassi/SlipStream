@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -18,36 +19,43 @@ func init() {
 	register("touches-native", "print whether the changes from base to head touch native code", runTouchesNative)
 }
 
-func runTouchesNative(args []string) error {
+func runTouchesNative(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("touches-native", flag.ContinueOnError)
 	explain := fs.Bool("explain", false, "print which clause matched which file")
 	base := fs.String("base", "origin/main", "revision the change merges into")
 	head := fs.String("head", "HEAD", "revision of the change")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
-	changes, err := gitChanges(".", *base, *head)
+	changes, err := gitChanges(ctx, ".", *base, *head)
 	if err != nil {
 		return err
 	}
 	matches := nativetouch.Matches(changes)
 	if *explain {
-		explainMatches(os.Stdout, matches)
+		if err := explainMatches(os.Stdout, matches); err != nil {
+			return err
+		}
 	}
 	touches := strconv.FormatBool(len(matches) > 0)
 	fmt.Println(touches)
 	return githubOutput("native", touches)
 }
 
-func explainMatches(w io.Writer, matches []nativetouch.Match) {
+func explainMatches(w io.Writer, matches []nativetouch.Match) error {
 	names := make([]string, len(nativetouch.Clauses))
 	for i, c := range nativetouch.Clauses {
 		names[i] = c.Name
 	}
-	fmt.Fprintf(w, "clauses: %s\n", strings.Join(names, ", "))
+	var b strings.Builder
+	fmt.Fprintf(&b, "clauses: %s\n", strings.Join(names, ", "))
 	for _, m := range matches {
-		fmt.Fprintf(w, "%s: %s\n", m.Clause, m.Path)
+		fmt.Fprintf(&b, "%s: %s\n", m.Clause, m.Path)
 	}
+	if _, err := io.WriteString(w, b.String()); err != nil {
+		return fmt.Errorf("print the matches: %w", err)
+	}
+	return nil
 }
 
 // githubOutput appends key=value to the step outputs file when the command
@@ -59,24 +67,27 @@ func githubOutput(key, value string) error {
 	}
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("open the step outputs file: %w", err)
 	}
-	if _, err := fmt.Fprintf(f, "%s=%s\n", key, value); err != nil {
-		f.Close()
-		return err
+	_, err = fmt.Fprintf(f, "%s=%s\n", key, value)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
 	}
-	return f.Close()
+	if err != nil {
+		return fmt.Errorf("write the step output %s: %w", key, err)
+	}
+	return nil
 }
 
 // gitChanges lists the files changed between the merge base of base and head
 // and head, with each side's content read at its own revision.
-func gitChanges(dir, base, head string) ([]nativetouch.Change, error) {
-	mergeBase, err := gitOutput(dir, nil, "merge-base", base, head)
+func gitChanges(ctx context.Context, dir, base, head string) ([]nativetouch.Change, error) {
+	mergeBase, err := gitOutput(ctx, dir, nil, "merge-base", base, head)
 	if err != nil {
 		return nil, err
 	}
 	oldRev := strings.TrimSpace(string(mergeBase))
-	diff, err := gitOutput(dir, nil, "diff", "--name-status", "-z", "-M", oldRev, head)
+	diff, err := gitOutput(ctx, dir, nil, "diff", "--name-status", "-z", "-M", oldRev, head)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +107,7 @@ func gitChanges(dir, base, head string) ([]nativetouch.Change, error) {
 		addSide(oldRev, &changes[i].Old)
 		addSide(head, &changes[i].New)
 	}
-	contents, err := catFiles(dir, specs)
+	contents, err := catFiles(ctx, dir, specs)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +147,8 @@ func parseNameStatus(out []byte) ([]nativetouch.Change, error) {
 	return changes, nil
 }
 
-func catFiles(dir string, specs []string) ([][]byte, error) {
-	out, err := gitOutput(dir, strings.NewReader(strings.Join(specs, "\n")+"\n"), "cat-file", "--batch")
+func catFiles(ctx context.Context, dir string, specs []string) ([][]byte, error) {
+	out, err := gitOutput(ctx, dir, strings.NewReader(strings.Join(specs, "\n")+"\n"), "cat-file", "--batch")
 	if err != nil {
 		return nil, err
 	}
@@ -167,8 +178,8 @@ func catFiles(dir string, specs []string) ([][]byte, error) {
 	return contents, nil
 }
 
-func gitOutput(dir string, stdin io.Reader, args ...string) ([]byte, error) {
-	cmd := exec.Command("git", args...)
+func gitOutput(ctx context.Context, dir string, stdin io.Reader, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Stdin = stdin
 	var stderr bytes.Buffer

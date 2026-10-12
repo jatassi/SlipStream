@@ -53,7 +53,7 @@ func TestExportLinesEvalInShell(t *testing.T) {
 	if got, want := ExportLines(vars), "export A='-O2 '\\''-I/x y'\\'''\nexport B='it'\\''s \"quoted\"'\n"; got != want {
 		t.Fatalf("ExportLines =\n%s\nwant\n%s", got, want)
 	}
-	out, err := exec.Command("sh", "-c", ExportLines(vars)+`printf '%s|%s' "$A" "$B"`).Output()
+	out, err := exec.CommandContext(t.Context(), "sh", "-c", ExportLines(vars)+`printf '%s|%s' "$A" "$B"`).Output()
 	if err != nil {
 		t.Fatal(err)
 	}

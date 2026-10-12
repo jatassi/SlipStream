@@ -2,6 +2,7 @@ package lint
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -38,14 +39,16 @@ type Repo struct {
 	Root string
 	Fset *token.FileSet
 
+	ctx context.Context
+
 	files  []string
 	goSrc  []GoFile
 	parsed bool
 	deps   map[string][]Package
 }
 
-func Open(root string) *Repo {
-	return &Repo{Root: root, Fset: token.NewFileSet(), deps: map[string][]Package{}}
+func Open(ctx context.Context, root string) *Repo {
+	return &Repo{Root: root, Fset: token.NewFileSet(), ctx: ctx, deps: map[string][]Package{}}
 }
 
 func (r *Repo) Files() ([]string, error) {
@@ -61,7 +64,11 @@ func (r *Repo) Files() ([]string, error) {
 }
 
 func (r *Repo) Read(rel string) ([]byte, error) {
-	return os.ReadFile(filepath.Join(r.Root, filepath.FromSlash(rel)))
+	data, err := os.ReadFile(filepath.Join(r.Root, filepath.FromSlash(rel)))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", rel, err)
+	}
+	return data, nil
 }
 
 func (r *Repo) GoSyntax() ([]GoFile, error) {
@@ -82,7 +89,7 @@ func (r *Repo) GoSyntax() ([]GoFile, error) {
 		}
 		syntax, err := parser.ParseFile(r.Fset, f, src, parser.ParseComments)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse Go: %w", err)
 		}
 		r.goSrc = append(r.goSrc, GoFile{f, syntax})
 	}
@@ -117,7 +124,7 @@ func (r *Repo) Deps(pkg string, t Target) ([]Package, error) {
 	for dec.More() {
 		var p Package
 		if err := dec.Decode(&p); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("go list %s for %s: %w", pkg, t, err)
 		}
 		pkgs = append(pkgs, p)
 	}
@@ -126,7 +133,7 @@ func (r *Repo) Deps(pkg string, t Target) ([]Package, error) {
 }
 
 func (r *Repo) command(name string, args ...string) *exec.Cmd {
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(r.ctx, name, args...)
 	cmd.Dir = r.Root
 	return cmd
 }

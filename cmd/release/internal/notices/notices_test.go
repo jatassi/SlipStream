@@ -19,7 +19,7 @@ func fixtureRepo(t *testing.T) string {
 	return root
 }
 
-func edit(t *testing.T, root, rel, old, new string) {
+func edit(t *testing.T, root, rel, old, replacement string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
 	data, err := os.ReadFile(path)
@@ -29,7 +29,7 @@ func edit(t *testing.T, root, rel, old, new string) {
 	if !strings.Contains(string(data), old) {
 		t.Fatalf("%s does not contain %q", rel, old)
 	}
-	if err := os.WriteFile(path, []byte(strings.Replace(string(data), old, new, 1)), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(strings.Replace(string(data), old, replacement, 1)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -48,17 +48,17 @@ var update = flag.Bool("update", false, "regenerate testdata/repo/internal/notic
 
 func TestCheckPassesOnCommittedNotices(t *testing.T) {
 	if *update {
-		if err := notices.Write(filepath.Join("testdata", "repo")); err != nil {
+		if err := notices.Write(t.Context(), filepath.Join("testdata", "repo")); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := notices.Check(fixtureRepo(t)); err != nil {
+	if err := notices.Check(t.Context(), fixtureRepo(t)); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestGenerateListsEveryShippedDependency(t *testing.T) {
-	got, err := notices.Generate(fixtureRepo(t))
+	got, err := notices.Generate(t.Context(), fixtureRepo(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,22 +88,21 @@ func TestGenerateListsEveryShippedDependency(t *testing.T) {
 func TestCheckFailsOnDrift(t *testing.T) {
 	root := fixtureRepo(t)
 	edit(t, root, "native/licenses/zlib.txt", "zlib License", "zlib license, amended")
-	assertError(t, notices.Check(root), "internal/notices/NOTICES.txt is stale; run go run ./cmd/release notices generate")
+	assertError(t, notices.Check(t.Context(), root), "internal/notices/NOTICES.txt is stale; run go run ./cmd/release notices generate")
 }
 
 func TestOverrideDoesNotCoverTheNextVersion(t *testing.T) {
 	root := fixtureRepo(t)
 	edit(t, root, "go.mod", "example.com/odd v1.0.0", "example.com/odd v1.0.1")
-	assertError(t, notices.Check(root), strings.Join([]string{
-		"override example.com/odd v1.0.0 in licenses.json matches no shipped dependency",
-		"Go module example.com/odd v1.0.1: license NOASSERTION is not on the allow-list in licenses.json",
-	}, "\n"))
+	assertError(t, notices.Check(t.Context(), root),
+		"override example.com/odd v1.0.0 in licenses.json matches no shipped dependency\n"+
+			"Go module example.com/odd v1.0.1: license NOASSERTION is not on the allow-list in licenses.json")
 }
 
 func TestDeniedLicenseFailsWithItsReason(t *testing.T) {
 	root := fixtureRepo(t)
 	edit(t, root, "web/node_modules/tick/package.json", `"0BSD"`, `"GPL-2.0-only"`)
-	assertError(t, notices.Check(root),
+	assertError(t, notices.Check(t.Context(), root),
 		"npm package tick 1.0.0: license GPL-2.0-only is denied: GPL-2.0-only cannot combine with GPL-3.0 (ADR 0010, ADR 0021)")
 }
 
@@ -112,7 +111,7 @@ func TestModuleWithoutLicenseIsDenied(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "third_party", "bsd", "LICENSE")); err != nil {
 		t.Fatal(err)
 	}
-	assertError(t, notices.Check(root),
+	assertError(t, notices.Check(t.Context(), root),
 		"Go module example.com/bsd v1.0.0: license NONE is denied: code with no license grants no right to redistribute it (ADR 0010, ADR 0021)")
 }
 
@@ -120,7 +119,7 @@ func TestStaleNodeModulesNamesTheFix(t *testing.T) {
 	root := fixtureRepo(t)
 	edit(t, root, "web/bun.lock", `"tick@1.0.0"`, `"tick@1.0.1"`)
 	dir := filepath.Join(root, "web", "node_modules", "tick")
-	assertError(t, notices.Check(root),
+	assertError(t, notices.Check(t.Context(), root),
 		dir+" holds tick@1.0.0 but web/bun.lock pins tick@1.0.1; run bun install --frozen-lockfile in web")
 }
 

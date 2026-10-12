@@ -3,7 +3,9 @@ package worktree
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -20,16 +22,16 @@ import (
 const CleanFingerprint = "clean"
 
 // Stamp returns the version, commit and fingerprint of the worktree at dir.
-func Stamp(dir string) (buildinfo.Stamp, error) {
-	version, err := git(dir, "describe", "--tags", "--always", "--match", "v[0-9]*")
+func Stamp(ctx context.Context, dir string) (buildinfo.Stamp, error) {
+	version, err := git(ctx, dir, "describe", "--tags", "--always", "--match", "v[0-9]*")
 	if err != nil {
 		return buildinfo.Stamp{}, err
 	}
-	commit, err := git(dir, "rev-parse", "HEAD")
+	commit, err := git(ctx, dir, "rev-parse", "HEAD")
 	if err != nil {
 		return buildinfo.Stamp{}, err
 	}
-	fingerprint, err := Fingerprint(dir)
+	fingerprint, err := Fingerprint(ctx, dir)
 	if err != nil {
 		return buildinfo.Stamp{}, err
 	}
@@ -42,8 +44,8 @@ func Stamp(dir string) (buildinfo.Stamp, error) {
 
 // Fingerprint hashes the path and content of every file git reports as changed
 // or untracked, with deleted files hashed as deleted.
-func Fingerprint(dir string) (string, error) {
-	status, err := git(dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+func Fingerprint(ctx context.Context, dir string) (string, error) {
+	status, err := git(ctx, dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if err != nil {
 		return "", err
 	}
@@ -56,14 +58,14 @@ func Fingerprint(dir string) (string, error) {
 		content, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(p)))
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
-			fmt.Fprintf(h, "%s\x00deleted\n", p)
+			h.Write(fmt.Appendf(nil, "%s\x00deleted\n", p))
 		case err != nil:
-			return "", err
+			return "", fmt.Errorf("fingerprint the worktree: %w", err)
 		default:
-			fmt.Fprintf(h, "%s\x00%x\n", p, sha256.Sum256(content))
+			h.Write(fmt.Appendf(nil, "%s\x00%x\n", p, sha256.Sum256(content)))
 		}
 	}
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func changedPaths(status []byte) []string {
@@ -82,9 +84,9 @@ func changedPaths(status []byte) []string {
 	return slices.Compact(paths)
 }
 
-func git(dir string, args ...string) ([]byte, error) {
+func git(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	var stderr bytes.Buffer
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {

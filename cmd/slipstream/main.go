@@ -13,6 +13,7 @@ import (
 func main() {
 	if len(os.Args) != 2 {
 		usage()
+		os.Exit(2)
 	}
 	switch os.Args[1] {
 	case "version":
@@ -21,6 +22,7 @@ func main() {
 		fmt.Print(notices.Text)
 	default:
 		usage()
+		os.Exit(2)
 	}
 }
 
@@ -40,5 +42,4 @@ func printVersion() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage: slipstream version | notices")
-	os.Exit(2)
 }

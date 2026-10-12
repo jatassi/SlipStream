@@ -22,7 +22,11 @@ func open(t *testing.T, addr string) engine.Engine {
 	if err != nil {
 		t.Fatalf("open %s: %v", addr, err)
 	}
-	t.Cleanup(func() { e.Close() })
+	t.Cleanup(func() {
+		if err := e.Close(); err != nil && !errors.Is(err, engine.ErrClosed) {
+			t.Errorf("close %s: %v", addr, err)
+		}
+	})
 	return e
 }
 
@@ -44,7 +48,7 @@ func waitFor[E engine.Event](t *testing.T, events <-chan engine.Event, match fun
 
 func TestEngineRoundTrip(t *testing.T) {
 	payload := make([]byte, payloadSize)
-	rand.NewChaCha8([32]byte{'s', 'l', 'i', 'p'}).Read(payload)
+	_, _ = rand.NewChaCha8([32]byte{'s', 'l', 'i', 'p'}).Read(payload)
 	meta := singleFileTorrent("payload.bin", payload, 256<<10)
 
 	seedDir, leechDir := t.TempDir(), t.TempDir()

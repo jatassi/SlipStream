@@ -89,7 +89,7 @@ type Inputs struct {
 func LoadInputs(path string) (Inputs, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Inputs{}, err
+		return Inputs{}, fmt.Errorf("read the native inputs: %w", err)
 	}
 	return ParseInputs(data)
 }
@@ -126,12 +126,19 @@ func ParseInputs(data []byte) (Inputs, error) {
 			}
 		}
 	}
-	for _, s := range sources {
-		if b, err := hex.DecodeString(s.SHA256); err != nil || len(b) != 32 {
-			return Inputs{}, fmt.Errorf("native inputs: source %s: sha256 %q is not 64 hex digits", s.Name, s.SHA256)
-		}
+	if err := checkDigests(sources); err != nil {
+		return Inputs{}, err
 	}
 	return in, nil
+}
+
+func checkDigests(sources []Source) error {
+	for _, s := range sources {
+		if b, err := hex.DecodeString(s.SHA256); err != nil || len(b) != 32 {
+			return fmt.Errorf("native inputs: source %s: sha256 %q is not 64 hex digits", s.Name, s.SHA256)
+		}
+	}
+	return nil
 }
 
 func (in Inputs) Target(name string) (Target, error) {

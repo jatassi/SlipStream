@@ -32,7 +32,7 @@ type Policy struct {
 func loadPolicy(path string) (Policy, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Policy{}, err
+		return Policy{}, fmt.Errorf("read the license policy: %w", err)
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()

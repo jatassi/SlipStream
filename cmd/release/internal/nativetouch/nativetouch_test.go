@@ -9,8 +9,8 @@ import (
 
 func file(path, content string) Side { return Side{path, []byte(content)} }
 
-func modified(path, old, new string) Change {
-	return Change{file(path, old), file(path, new)}
+func modified(path, before, after string) Change {
+	return Change{file(path, before), file(path, after)}
 }
 
 const goMod = "module github.com/jatassi/slipstream\n\ngo 1.27.2\n"
@@ -120,7 +120,7 @@ func TestMatches(t *testing.T) {
 }
 
 func TestKnownPortsCoverDistList(t *testing.T) {
-	out, err := exec.Command("go", "tool", "dist", "list").Output()
+	out, err := exec.CommandContext(t.Context(), "go", "tool", "dist", "list").Output()
 	if err != nil {
 		t.Fatal(err)
 	}

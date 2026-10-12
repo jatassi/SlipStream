@@ -23,21 +23,21 @@ func Fetch(ctx context.Context, cacheRoot string, l Layer) (string, error) {
 	if _, err := os.Stat(dir); err == nil {
 		return dir, nil
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return "", err
+		return "", fmt.Errorf("check the native cache: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
-		return "", err
+		return "", fmt.Errorf("create the native cache: %w", err)
 	}
 	tmp, err := os.MkdirTemp(filepath.Dir(dir), ".fetching-")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("create the native cache: %w", err)
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 
 	archive := filepath.Join(tmp, l.Asset)
 	f, err := os.Create(archive)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("create the layer archive: %w", err)
 	}
 	sum, err := download(ctx, l.URL, f)
 	if closeErr := f.Close(); err == nil {
@@ -58,7 +58,7 @@ func Fetch(ctx context.Context, cacheRoot string, l Layer) (string, error) {
 		if _, statErr := os.Stat(dir); statErr == nil {
 			return dir, nil
 		}
-		return "", err
+		return "", fmt.Errorf("move the layer into the native cache: %w", err)
 	}
 	return dir, nil
 }
@@ -84,15 +84,15 @@ var noRedirects = &http.Client{
 }
 
 func Published(ctx context.Context, base string, id LayerID) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, id.URL(base), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, id.URL(base), http.NoBody)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("HEAD %s: %w", id.URL(base), err)
 	}
 	resp, err := noRedirects.Do(req)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("HEAD %s: %w", req.URL, err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusFound:
 		return true, nil
@@ -103,15 +103,15 @@ func Published(ctx context.Context, base string, id LayerID) (bool, error) {
 }
 
 func download(ctx context.Context, url string, w io.Writer) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("GET %s: %w", url, err)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("GET %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotFound:

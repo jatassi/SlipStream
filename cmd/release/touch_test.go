@@ -14,7 +14,7 @@ func TestGitChangesReadsBothSidesFromTheMergeBase(t *testing.T) {
 	dir := t.TempDir()
 	git := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", append([]string{"-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"}, args...)...)
+		cmd := exec.CommandContext(t.Context(), "git", append([]string{"-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"}, args...)...)
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
@@ -50,7 +50,7 @@ func TestGitChangesReadsBothSidesFromTheMergeBase(t *testing.T) {
 	git("add", ".")
 	git("commit", "-q", "-m", "main moves on")
 
-	got, err := gitChanges(dir, "main", "change")
+	got, err := gitChanges(t.Context(), dir, "main", "change")
 	if err != nil {
 		t.Fatal(err)
 	}

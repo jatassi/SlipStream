@@ -24,7 +24,8 @@ type Config struct {
 	Discovery       Discovery
 }
 
-// Discovery's zero value turns all four off.
+// Discovery selects the peer discovery services. Its zero value turns
+// all four off.
 type Discovery struct {
 	DHT, LSD, UPnP, NATPMP bool
 }

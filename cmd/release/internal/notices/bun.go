@@ -40,7 +40,7 @@ type packageJSON struct {
 func npmPackages(web string, targets []string) ([]Dependency, error) {
 	data, err := os.ReadFile(filepath.Join(web, "bun.lock"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read the web lockfile: %w", err)
 	}
 	var lock bunLock
 	if err := json.Unmarshal(stripTrailingCommas(data), &lock); err != nil {
@@ -63,20 +63,14 @@ func npmPackages(web string, targets []string) ([]Dependency, error) {
 			return fmt.Errorf("web/bun.lock: package %s: %w", key, err)
 		}
 		version := ident[strings.LastIndex(ident, "@")+1:]
-		dir := web
-		for _, n := range splitKey(key) {
-			dir = filepath.Join(dir, "node_modules", filepath.FromSlash(n))
-		}
-		dep, err := npmPackage(dir, name, version, targets)
+		dep, err := npmPackage(installDir(web, key), name, version, targets)
 		if err != nil {
 			return err
 		}
 		deps = append(deps, dep)
-		var meta bunDeps
-		if len(entry) > 2 {
-			if err := json.Unmarshal(entry[2], &meta); err != nil {
-				return fmt.Errorf("web/bun.lock: package %s: %w", key, err)
-			}
+		meta, err := entryDeps(key, entry)
+		if err != nil {
+			return err
 		}
 		for _, child := range meta.names() {
 			if err := visit(key, child); err != nil {
@@ -93,11 +87,29 @@ func npmPackages(web string, targets []string) ([]Dependency, error) {
 	return deps, nil
 }
 
+func installDir(web, key string) string {
+	dir := web
+	for _, n := range splitKey(key) {
+		dir = filepath.Join(dir, "node_modules", filepath.FromSlash(n))
+	}
+	return dir
+}
+
+func entryDeps(key string, entry []json.RawMessage) (bunDeps, error) {
+	var meta bunDeps
+	if len(entry) > 2 {
+		if err := json.Unmarshal(entry[2], &meta); err != nil {
+			return bunDeps{}, fmt.Errorf("web/bun.lock: package %s: %w", key, err)
+		}
+	}
+	return meta, nil
+}
+
 // resolve finds the package a dependency of parent installs as, searching
 // from parent's own nested node_modules up to the top level, as Node does.
-func (l bunLock) resolve(parent, name string) (string, []json.RawMessage, error) {
+func (l bunLock) resolve(parent, name string) (key string, entry []json.RawMessage, err error) {
 	for scope := parent; ; scope = parentKey(scope) {
-		key := name
+		key = name
 		if scope != "" {
 			key = scope + "/" + name
 		}
