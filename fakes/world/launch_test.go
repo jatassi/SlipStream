@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -205,6 +206,34 @@ func assertStopped(t *testing.T, m world.Manifest) {
 	if _, err := os.Stat(filepath.Join(m.RunDir, "manifest.stopped.json")); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestANodeThatExitsMidRunIsReported(t *testing.T) {
+	t.Parallel()
+	runDir := filepath.Join(t.TempDir(), "run")
+	run, err := world.Launch(worldtest.Context(t), world.Options{Binary: stub{}.build(t), Scenario: stubScenario(), RunDir: runDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, err := os.FindProcess(run.Manifest().Nodes[0].PID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := home.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	worldtest.Until(t, "world.log records home's exit", func() (bool, error) {
+		data, err := os.ReadFile(filepath.Join(runDir, "world.log"))
+		return strings.Contains(string(data), `"msg":"node exited"`), err
+	})
+	report, err := run.Stop()
+	if len(report.Nodes) != 1 || !report.Nodes[0].ExitedUnasked || report.Nodes[0].ExitCode == 0 {
+		t.Fatalf("Stop = %+v, want home exited unasked and non-zero", report)
+	}
+	if want := fmt.Sprintf("node home exited with code %d before it was asked to stop", report.Nodes[0].ExitCode); err == nil || err.Error() != want {
+		t.Fatalf("Stop = %v, want %s", err, want)
+	}
+	assertStopped(t, run.Manifest())
 }
 
 func TestLaunchRefuses(t *testing.T) {
