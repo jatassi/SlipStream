@@ -71,8 +71,9 @@ func sqlcDrift(ctx context.Context, root, dir string, configs []string, w io.Wri
 		if err == nil {
 			continue
 		}
-		// sqlc exits 1 both for a diff and for a broken config or query.
-		if _, ok := errors.AsType[*exec.ExitError](err); !ok || !bytes.HasPrefix(out, []byte("--- a/")) {
+		// sqlc exits 1 both for a diff and for a broken config or query. Its
+		// diff header uses the host separator: "--- a/" or "--- a\".
+		if _, ok := errors.AsType[*exec.ExitError](err); !ok || !bytes.HasPrefix(out, []byte("--- a")) {
 			return fmt.Errorf("sqlc diff -f %s: %w\n%s", c, err, out)
 		}
 		owner := path.Dir(c)
