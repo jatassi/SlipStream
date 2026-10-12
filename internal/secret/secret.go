@@ -126,5 +126,8 @@ func createKey(path string) (*Keys, error) {
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("create %s: %w", KeyFile, err), os.Remove(tmp.Name()))
 	}
+	if err := syncDir(filepath.Dir(path)); err != nil {
+		return nil, fmt.Errorf("create %s: %w", KeyFile, err)
+	}
 	return &k, nil
 }
