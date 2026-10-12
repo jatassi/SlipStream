@@ -72,7 +72,7 @@ func (n *Node) startHTTP(ctx context.Context, cfg Config, l *Listeners, s surfac
 	srv := api.NewServer(r.Handler(), cfg.Timings.HTTP, log)
 	n.stack.Go("http", func(context.Context) error {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
-			return err
+			return fmt.Errorf("serve HTTP: %w", err)
 		}
 		return nil
 	})

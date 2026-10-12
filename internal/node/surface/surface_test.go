@@ -23,7 +23,7 @@ func TestDocument(t *testing.T) {
 		t.Fatal("Document() rendered different bytes on a second call")
 	}
 	if *update {
-		if err := os.WriteFile(committed, got, 0o644); err != nil { //nolint:gosec // the committed document is world-readable
+		if err := os.WriteFile(committed, got, 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return

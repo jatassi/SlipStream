@@ -130,7 +130,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	if report.DataDir != dir || report.Seed != "fixed" || report.Listeners.HTTP != ready.Listeners.HTTP.String() {
 		t.Fatalf("getSystem = %s, want dataDir %s, seed fixed and listeners.http %s", sys.body, dir, ready.Listeners.HTTP)
 	}
-	if len(report.Build) != 1 || report.Build["stamped"] != false {
+	if stamped, ok := report.Build["stamped"].(bool); len(report.Build) != 1 || !ok || stamped {
 		t.Fatalf("the unstamped test binary reports build %v, want only stamped false", report.Build)
 	}
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/system", "", nil), 401, `{"status":401,"code":"signed_out","title":"Sign in to continue"}`+"\n")

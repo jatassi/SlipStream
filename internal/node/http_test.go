@@ -71,11 +71,11 @@ func inMemory() (machine, *apitest.Listener) {
 		},
 		openLog: func(dir string, stderr io.Writer) (*logs.Log, error) {
 			if err := os.MkdirAll(dir, 0o700); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("create logs dir: %w", err)
 			}
 			f, err := os.OpenFile(filepath.Join(dir, logs.File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("open log file: %w", err)
 			}
 			return logs.New(stderr, f), nil
 		},
@@ -159,7 +159,7 @@ func (c client) stream(session, lastEventID string) *apitest.Stream {
 	if lastEventID != "" {
 		k.headers = map[string]string{"Last-Event-ID": lastEventID}
 	}
-	res := c.send(k)
+	res := c.send(k) //nolint:bodyclose // the Stream closes it
 	if res.StatusCode != http.StatusOK {
 		c.t.Fatalf("GET /api/v1/events = %d", res.StatusCode)
 	}
@@ -208,8 +208,18 @@ func next(t *testing.T, s *apitest.Stream) string {
 	return msg
 }
 
+// claimedNode is what the steps of the stream proof share.
+type claimedNode struct {
+	c       client
+	account string
+	apiKey  string
+	// signedIn is createSession's body for the Admin.
+	signedIn string
+}
+
 // TestTheEventStreamThroughAStartedNode is the F4 stream proof: a whole Node
-// started in a synctest bubble, called over its HTTP listener.
+// started in a synctest bubble, called over its HTTP listener, through the
+// spec's eleven steps in order.
 func TestTheEventStreamThroughAStartedNode(t *testing.T) {
 	env, _ := testEnv(t)
 	synctest.Test(t, func(t *testing.T) {
@@ -225,153 +235,171 @@ func TestTheEventStreamThroughAStartedNode(t *testing.T) {
 				t.Errorf("the Node stopped with %v", n.Err())
 			}
 		})
-		c := client{t: t, c: ln.Client(), base: "http://slipstream"}
-		code := n.Ready().SetupCode
-
-		// 1 and 2: the Setup gate.
-		expect(t, c.claim("0000-0000-0000", "1234"), 403, problem(403, "setup_code_wrong", "The Setup code is wrong"))
-		expect(t, c.claim(code, "12a4"), 422,
-			`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.pin","message":"expected string to match pattern ^[0-9]{4}$"}]}`+"\n")
-		typed := strings.ToLower(strings.ReplaceAll(code, "-", " "))
-		body, held := io.Pipe()
-		first := make(chan reply)
-		go func() {
-			first <- c.do(call{method: http.MethodPost, path: "/api/v1/setup/controller", body: body, headers: map[string]string{"X-Setup-Code": typed}})
-		}()
-		synctest.Wait()
-		expect(t, c.claim(code, "1234"), 409, problem(409, "setup_busy", "Another setup is running"))
-		if _, err := io.WriteString(held, claimBody("1234")); err != nil {
-			t.Fatal(err)
-		}
-		_ = held.Close()
-		claimed := <-first
-		var res struct {
-			Account struct {
-				ID    string `json:"id"`
-				Admin bool   `json:"admin"`
-			} `json:"account"`
-			APIKey string `json:"apiKey"`
-		}
-		if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated || !res.Account.Admin {
-			t.Fatalf("claimController with the typed code = %d %s, want 201 with an Admin", claimed.status, claimed.body)
-		}
-		expect(t, c.claim(code, "1234"), 409, problem(409, "already_claimed", "This Node is already set up"))
-
-		// 3: sign-in.
-		wrong := c.signIn("admin@example.com", "1235")
-		expect(t, wrong, 401, pinWrong)
-		unknown := c.signIn("nobody@example.com", "1234")
-		expect(t, unknown, 401, pinWrong)
-		signedIn := c.signIn(" Admin@Example.COM ", "1234")
-		expect(t, signedIn, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true}}`+"\n")
-		a := sessionOf(t, signedIn)
-
-		// 4: a stream opens with a resync at the head.
-		streamA := c.stream(a, "")
-		first4 := next(t, streamA)
-		h, ok := strings.CutPrefix(first4, "id: ")
-		h, _, _ = strings.Cut(h, "\n")
-		head, err := strconv.ParseInt(h, 10, 64)
-		if !ok || err != nil || first4 != fmt.Sprintf("id: %d\nretry: 3000\nevent: live.resync\ndata: {}\n", head) {
-			t.Fatalf("first message = %q, want id, retry 3000 and live.resync", first4)
-		}
-		changed := func(id int64, retry string) string {
-			return fmt.Sprintf("id: %d\n%sevent: identity.sessions-changed\ndata: {\"account\":%q}\n", id, retry, res.Account.ID)
-		}
-
-		// 5: a dropped stream resumes at the next sequence id.
-		expect(t, c.signIn("admin@example.com", "1234"), 200, signedIn.body)
-		if got := next(t, streamA); got != changed(head+1, "") {
-			t.Fatalf("after a second sign-in stream A read %q, want %q", got, changed(head+1, ""))
-		}
-		_ = streamA.Close()
-		expect(t, c.signIn("admin@example.com", "1234"), 200, signedIn.body)
-		streamA = c.stream(a, strconv.FormatInt(head+1, 10))
-		if got := next(t, streamA); got != changed(head+2, "retry: 3000\n") {
-			t.Fatalf("the reconnected stream read %q, want %q", got, changed(head+2, "retry: 3000\n"))
-		}
-
-		// 6: an id the ring cannot serve resyncs at the head.
-		for _, last := range []string{"5", "abc"} {
-			s := c.stream(a, last)
-			if got, want := next(t, s), fmt.Sprintf("id: %d\nretry: 3000\nevent: live.resync\ndata: {}\n", head+2); got != want {
-				t.Fatalf("Last-Event-ID %s: first message %q, want %q", last, got, want)
-			}
-			_ = s.Close()
-		}
-
-		// 7: a quiet stream sends a keepalive.
-		quiet := time.Now()
-		if got := next(t, streamA); got != ": keepalive\n" || time.Since(quiet) != 25*time.Second {
-			t.Fatalf("after %v of quiet stream A read %q, want a keepalive after 25s", time.Since(quiet), got)
-		}
-
-		// 8: the API key has no Account.
-		expect(t, c.do(call{method: http.MethodGet, path: "/api/v1/events", headers: map[string]string{"X-Api-Key": res.APIKey}}), 403,
-			problem(403, "needs_account", "Only a signed-in person can do this"))
-
-		// 9: signing out ends the session's streams.
-		out := c.do(call{method: http.MethodDelete, path: "/api/v1/session", session: a})
-		expect(t, out, 204, "")
-		if got, want := next(t, streamA), "event: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
-			t.Fatalf("after sign-out stream A read %q, want %q", got, want)
-		}
-		if msg, err := streamA.Next(); !errors.Is(err, io.EOF) {
-			t.Fatalf("stream A read %q, %v after session-ended; want it closed", msg, err)
-		}
-		gone := c.getSession(a)
-		expect(t, gone, 401, signedOut)
-		if got := gone.header.Get("Set-Cookie"); got != clearingCookie {
-			t.Fatalf("Set-Cookie = %q, want %q", got, clearingCookie)
-		}
-
-		// 10: sessions expire after 30 idle days and slide with use.
-		b := sessionOf(t, c.signIn("admin@example.com", "1234"))
-		idle := sessionOf(t, c.signIn("admin@example.com", "1234"))
-		used := func(at string, wantCookie bool) {
-			t.Helper()
-			r := c.getSession(b)
-			if r.status != http.StatusOK || (r.header.Get("Set-Cookie") != "") != wantCookie {
-				t.Fatalf("%s: getSession = %d with Set-Cookie %q, want 200 and a cookie: %v", at, r.status, r.header.Get("Set-Cookie"), wantCookie)
-			}
-		}
-		time.Sleep(time.Hour)
-		used("at the slide step", false)
-		time.Sleep(time.Second)
-		used("past the slide step", true)
-		time.Sleep(29*24*time.Hour - time.Hour - time.Second)
-		used("on day 29", true)
-		time.Sleep(24*time.Hour + time.Second)
-		expect(t, c.getSession(idle), 401, signedOut)
-		time.Sleep(28*24*time.Hour - time.Second)
-		used("on day 58", true)
-
-		// 11: cross-site requests, body limits, CORS and headers.
-		crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
-		signIn := `{"email":"admin@example.com","pin":"1235"}`
-		expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 403,
-			problem(403, "cross_origin", "Another site cannot do this"))
-		crossSite["X-Api-Key"] = res.APIKey
-		expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 401, pinWrong)
-		padding := `{"email":"admin@example.com","pin":"1234","x":"`
-		oversized := padding + strings.Repeat("a", 2<<20+1-len(padding)-2) + `"}`
-		expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(oversized)}), 413,
-			problem(413, "too_large", "The request body is too large"))
-		preflight := c.do(call{method: http.MethodOptions, path: "/api/v1/session", headers: map[string]string{
-			"Origin": "https://evil.example", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-api-key",
-		}})
-		if got := preflight.header.Get("Access-Control-Allow-Origin"); got != "" {
-			t.Fatalf("OPTIONS answered Access-Control-Allow-Origin %q", got)
-		}
-		for path, cache := range map[string]string{"/": "no-cache", "/api/v1/health": "no-store"} {
-			r := c.do(call{method: http.MethodGet, path: path})
-			for name, value := range securityHeaders(cache) {
-				if got := r.header.Get(name); got != value {
-					t.Errorf("GET %s %s = %q, want %q", path, name, got, value)
-				}
-			}
-		}
+		cn := claimThroughTheGate(t, client{t: t, c: ln.Client(), base: "http://slipstream"}, n.Ready().SetupCode)
+		a := signInAsTheAdmin(t, cn)
+		streamAndSignOut(t, cn, a)
+		expireAndSlide(t, cn)
+		refuseCrossSiteAndOversized(t, cn)
 	})
+}
+
+// claimThroughTheGate is steps 1 and 2.
+func claimThroughTheGate(t *testing.T, c client, code string) claimedNode {
+	expect(t, c.claim("0000-0000-0000", "1234"), 403, problem(403, "setup_code_wrong", "The Setup code is wrong"))
+	expect(t, c.claim(code, "12a4"), 422,
+		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.pin","message":"expected string to match pattern ^[0-9]{4}$"}]}`+"\n")
+	typed := strings.ToLower(strings.ReplaceAll(code, "-", " "))
+	body, held := io.Pipe()
+	first := make(chan reply)
+	go func() {
+		first <- c.do(call{method: http.MethodPost, path: "/api/v1/setup/controller", body: body, headers: map[string]string{"X-Setup-Code": typed}})
+	}()
+	synctest.Wait()
+	expect(t, c.claim(code, "1234"), 409, problem(409, "setup_busy", "Another setup is running"))
+	if _, err := io.WriteString(held, claimBody("1234")); err != nil {
+		t.Fatal(err)
+	}
+	_ = held.Close()
+	claimed := <-first
+	var res struct {
+		Account struct {
+			ID    string `json:"id"`
+			Admin bool   `json:"admin"`
+		} `json:"account"`
+		APIKey string `json:"apiKey"`
+	}
+	if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated || !res.Account.Admin {
+		t.Fatalf("claimController with the typed code = %d %s, want 201 with an Admin", claimed.status, claimed.body)
+	}
+	expect(t, c.claim(code, "1234"), 409, problem(409, "already_claimed", "This Node is already set up"))
+	return claimedNode{
+		c:        c,
+		account:  res.Account.ID,
+		apiKey:   res.APIKey,
+		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true}}` + "\n",
+	}
+}
+
+// signInAsTheAdmin is step 3. It returns session A.
+func signInAsTheAdmin(t *testing.T, cn claimedNode) string {
+	expect(t, cn.c.signIn("admin@example.com", "1235"), 401, pinWrong)
+	expect(t, cn.c.signIn("nobody@example.com", "1234"), 401, pinWrong)
+	r := cn.c.signIn(" Admin@Example.COM ", "1234")
+	expect(t, r, 200, cn.signedIn)
+	return sessionOf(t, r)
+}
+
+// streamAndSignOut is steps 4 to 9 on session A's streams.
+func streamAndSignOut(t *testing.T, cn claimedNode, a string) {
+	c := cn.c
+	streamA := c.stream(a, "")
+	first := next(t, streamA)
+	h, _, _ := strings.Cut(strings.TrimPrefix(first, "id: "), "\n")
+	head, err := strconv.ParseInt(h, 10, 64)
+	if err != nil || first != resync(head) {
+		t.Fatalf("first message = %q, want id, retry 3000 and live.resync", first)
+	}
+	changed := func(id int64, retry string) string {
+		return fmt.Sprintf("id: %d\n%sevent: identity.sessions-changed\ndata: {\"account\":%q}\n", id, retry, cn.account)
+	}
+
+	expect(t, c.signIn("admin@example.com", "1234"), 200, cn.signedIn)
+	if got := next(t, streamA); got != changed(head+1, "") {
+		t.Fatalf("after a second sign-in stream A read %q, want %q", got, changed(head+1, ""))
+	}
+	_ = streamA.Close()
+	expect(t, c.signIn("admin@example.com", "1234"), 200, cn.signedIn)
+	streamA = c.stream(a, strconv.FormatInt(head+1, 10))
+	if got := next(t, streamA); got != changed(head+2, "retry: 3000\n") {
+		t.Fatalf("the reconnected stream read %q, want %q", got, changed(head+2, "retry: 3000\n"))
+	}
+
+	for _, last := range []string{"5", "abc"} {
+		s := c.stream(a, last)
+		if got := next(t, s); got != resync(head+2) {
+			t.Fatalf("Last-Event-ID %s: first message %q, want %q", last, got, resync(head+2))
+		}
+		_ = s.Close()
+	}
+
+	quiet := time.Now()
+	if got := next(t, streamA); got != ": keepalive\n" || time.Since(quiet) != 25*time.Second {
+		t.Fatalf("after %v of quiet stream A read %q, want a keepalive after 25s", time.Since(quiet), got)
+	}
+
+	expect(t, c.do(call{method: http.MethodGet, path: "/api/v1/events", headers: map[string]string{"X-Api-Key": cn.apiKey}}), 403,
+		problem(403, "needs_account", "Only a signed-in person can do this"))
+
+	expect(t, c.do(call{method: http.MethodDelete, path: "/api/v1/session", session: a}), 204, "")
+	if got, want := next(t, streamA), "event: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
+		t.Fatalf("after sign-out stream A read %q, want %q", got, want)
+	}
+	if msg, err := streamA.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("stream A read %q, %v after session-ended; want it closed", msg, err)
+	}
+	gone := c.getSession(a)
+	expect(t, gone, 401, signedOut)
+	if got := gone.header.Get("Set-Cookie"); got != clearingCookie {
+		t.Fatalf("Set-Cookie = %q, want %q", got, clearingCookie)
+	}
+}
+
+func resync(head int64) string {
+	return fmt.Sprintf("id: %d\nretry: 3000\nevent: live.resync\ndata: {}\n", head)
+}
+
+// expireAndSlide is step 10: a session expires after 30 idle days, slides
+// past lifetime/720 of use, and re-sends its cookie only when it slides.
+func expireAndSlide(t *testing.T, cn claimedNode) {
+	c := cn.c
+	b := sessionOf(t, c.signIn("admin@example.com", "1234"))
+	idle := sessionOf(t, c.signIn("admin@example.com", "1234"))
+	used := func(at string, wantCookie bool) {
+		t.Helper()
+		r := c.getSession(b)
+		if r.status != http.StatusOK || (r.header.Get("Set-Cookie") != "") != wantCookie {
+			t.Fatalf("%s: getSession = %d with Set-Cookie %q, want 200 and a cookie: %v", at, r.status, r.header.Get("Set-Cookie"), wantCookie)
+		}
+	}
+	time.Sleep(time.Hour)
+	used("at the slide step", false)
+	time.Sleep(time.Second)
+	used("past the slide step", true)
+	time.Sleep(29*24*time.Hour - time.Hour - time.Second)
+	used("on day 29", true)
+	time.Sleep(24*time.Hour + time.Second)
+	expect(t, c.getSession(idle), 401, signedOut)
+	time.Sleep(28*24*time.Hour - time.Second)
+	used("on day 58", true)
+}
+
+// refuseCrossSiteAndOversized is step 11.
+func refuseCrossSiteAndOversized(t *testing.T, cn claimedNode) {
+	c := cn.c
+	crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
+	signIn := `{"email":"admin@example.com","pin":"1235"}`
+	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 403,
+		problem(403, "cross_origin", "Another site cannot do this"))
+	crossSite["X-Api-Key"] = cn.apiKey
+	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 401, pinWrong)
+	padding := `{"email":"admin@example.com","pin":"1234","x":"`
+	oversized := padding + strings.Repeat("a", 2<<20+1-len(padding)-2) + `"}`
+	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(oversized)}), 413,
+		problem(413, "too_large", "The request body is too large"))
+	preflight := c.do(call{method: http.MethodOptions, path: "/api/v1/session", headers: map[string]string{
+		"Origin": "https://evil.example", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-api-key",
+	}})
+	if got := preflight.header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("OPTIONS answered Access-Control-Allow-Origin %q", got)
+	}
+	for path, cache := range map[string]string{"/": "no-cache", "/api/v1/health": "no-store"} {
+		r := c.do(call{method: http.MethodGet, path: path})
+		for name, value := range securityHeaders(cache) {
+			if got := r.header.Get(name); got != value {
+				t.Errorf("GET %s %s = %q, want %q", path, name, got, value)
+			}
+		}
+	}
 }
 
 func securityHeaders(cache string) map[string]string {

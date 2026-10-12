@@ -3,6 +3,7 @@ package apitest
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -50,7 +51,7 @@ func (l *Listener) Dial(ctx context.Context, _, _ string) (net.Conn, error) {
 	case <-l.closed:
 		return nil, net.ErrClosed
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("dial the in-memory listener: %w", ctx.Err())
 	}
 }
 
@@ -96,7 +97,12 @@ func (s *Stream) Next() (string, error) {
 }
 
 // Close drops the connection, as a closed browser tab does.
-func (s *Stream) Close() error { return s.body.Close() }
+func (s *Stream) Close() error {
+	if err := s.body.Close(); err != nil {
+		return fmt.Errorf("close the stream: %w", err)
+	}
+	return nil
+}
 
 func readMessage(r *bufio.Reader) (string, error) {
 	var msg strings.Builder

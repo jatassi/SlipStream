@@ -84,9 +84,16 @@ func (n *node) get(path, session string) *http.Response {
 	return res
 }
 
+func (n *node) status(path, session string) int {
+	n.t.Helper()
+	res := n.get(path, session)
+	_ = res.Body.Close()
+	return res.StatusCode
+}
+
 func (n *node) stream(session string) *apitest.Stream {
 	n.t.Helper()
-	res := n.get("/api/v1/events", session)
+	res := n.get("/api/v1/events", session) //nolint:bodyclose // the Stream closes it
 	if res.StatusCode != http.StatusOK {
 		n.t.Fatalf("GET /api/v1/events = %d", res.StatusCode)
 	}
@@ -117,8 +124,8 @@ func TestAQuietStreamSendsKeepalivesAndCountsAsUse(t *testing.T) {
 			t.Fatalf("after %v read %q, want a keepalive after 2h0m0s", time.Since(opened), got)
 		}
 		time.Sleep(31 * 24 * time.Hour)
-		if res := n.get("/api/v1/session", session); res.StatusCode != http.StatusOK {
-			t.Fatalf("after 31 days with a stream open, getSession = %d, want 200", res.StatusCode)
+		if status := n.status("/api/v1/session", session); status != http.StatusOK {
+			t.Fatalf("after 31 days with a stream open, getSession = %d, want 200", status)
 		}
 	})
 }
@@ -135,8 +142,8 @@ func TestAStreamWhoseSessionExpiresEndsWithExpired(t *testing.T) {
 		if msg, err := s.Next(); !errors.Is(err, io.EOF) {
 			t.Fatalf("read %q, %v; want the stream to end", msg, err)
 		}
-		if res := n.get("/api/v1/session", session); res.StatusCode != http.StatusUnauthorized {
-			t.Fatalf("getSession after expiry = %d, want 401", res.StatusCode)
+		if status := n.status("/api/v1/session", session); status != http.StatusUnauthorized {
+			t.Fatalf("getSession after expiry = %d, want 401", status)
 		}
 	})
 }
