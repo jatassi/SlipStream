@@ -75,8 +75,8 @@ jobs:
             ${{ runner.temp }}/go-build
             ${{ runner.temp }}/go-mod
             ${{ runner.temp }}/golangci-lint
-          key: go-${{ matrix.target }}-${{ hashFiles('go.mod') }}-${{ github.sha }}
-          restore-keys: go-${{ matrix.target }}-${{ hashFiles('go.mod') }}-
+          key: go-${{ matrix.target }}-${{ hashFiles('go.mod', 'tools/go.mod') }}-${{ github.sha }}
+          restore-keys: go-${{ matrix.target }}-${{ hashFiles('go.mod', 'tools/go.mod') }}-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json

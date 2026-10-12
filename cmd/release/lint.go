@@ -59,9 +59,9 @@ func runLint(ctx context.Context, args []string) error {
 		run  func() error
 	}{
 		{"architecture lint", func() error { return lint.Run(os.Stdout, lint.Open(ctx, root), lint.Rules()) }},
-		{"gofmt", func() error { return run(ctx, root, nil, "go", "tool", "golangci-lint", "fmt", "--diff") }},
+		{"gofmt", func() error { return golangciLint(ctx, root, nil, "fmt", "--diff") }},
 		{"go vet", func() error { return run(ctx, root, goEnv, "go", "vet", "./...") }},
-		{"golangci-lint", func() error { return run(ctx, root, goEnv, "go", "tool", "golangci-lint", "run", "./...") }},
+		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "./...") }},
 		{"oxlint", func() error { return run(ctx, web, nil, "bun", "run", "lint") }},
 		{"oxfmt", func() error { return run(ctx, web, nil, "bun", "run", "fmt:check") }},
 		{"notices", func() error { return notices.Check(ctx, root) }},
@@ -87,11 +87,17 @@ func runFmt(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := run(ctx, root, nil, "go", "tool", "golangci-lint", "fmt"); err != nil {
+	if err := golangciLint(ctx, root, nil, "fmt"); err != nil {
 		return err
 	}
 	if err := installWeb(ctx, root); err != nil {
 		return err
 	}
 	return run(ctx, filepath.Join(root, "web"), nil, "bun", "run", "fmt")
+}
+
+// golangciLint runs the golangci-lint that tools/go.mod pins, so the
+// linter's dependencies never enter the product's module graph.
+func golangciLint(ctx context.Context, root string, env []string, args ...string) error {
+	return run(ctx, root, env, "go", append([]string{"tool", "-modfile=tools/go.mod", "golangci-lint"}, args...)...)
 }
