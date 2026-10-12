@@ -39,6 +39,7 @@ var nativeRoots = []string{
 	"internal/node/internal/control/",
 	"native/",
 	"cmd/release/",
+	".github/",
 }
 
 var cFamilyExts = []string{".c", ".cc", ".cpp", ".h", ".hpp", ".m", ".mm"}

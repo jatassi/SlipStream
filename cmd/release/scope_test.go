@@ -5,8 +5,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/changescope"
 	"github.com/jatassi/slipstream/cmd/release/internal/nativetouch"
 )
 
@@ -65,5 +67,21 @@ func TestGitChangesReadsBothSidesFromTheMergeBase(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("gitChanges =\n%v\nwant\n%v", got, want)
+	}
+}
+
+func TestExplainScope(t *testing.T) {
+	changes := []nativetouch.Change{
+		{New: nativetouch.Side{Path: "docs/release.md"}},
+		{New: nativetouch.Side{Path: "web/app.ts"}},
+	}
+	var b strings.Builder
+	if err := explainScope(&b, changes, changescope.Of(changes)); err != nil {
+		t.Fatal(err)
+	}
+	want := "clauses: native-root, c-family, go-os-arch-suffix, go-os-arch-constraint, go-directive\n" +
+		"not inert: web/app.ts\n"
+	if b.String() != want {
+		t.Errorf("explainScope =\n%s\nwant\n%s", b.String(), want)
 	}
 }
