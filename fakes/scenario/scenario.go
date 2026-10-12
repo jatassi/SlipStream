@@ -13,20 +13,24 @@ import (
 	"fmt"
 	"io/fs"
 	"regexp"
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/jatassi/slipstream/fakes/internal/yamltree"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
 type Scenario struct {
-	Name        string            `json:"-"            yaml:"-"`
-	Description string            `yaml:"description"`
-	Seed        string            `yaml:"seed"`
-	Admin       *Admin            `yaml:"admin,omitempty"`
-	Nodes       []Node            `jsonschema:"required,minItems=1,maxItems=31" yaml:"nodes"`
-	Timings     node.TimingsBlock `yaml:"timings"`
+	Name        string `yaml:"-"`
+	Description string `yaml:"description"`
+	Seed        string `yaml:"seed"`
+	Admin       *Admin `yaml:"admin,omitempty"`
+	Nodes       []Node `jsonschema:"required,minItems=1,maxItems=31" yaml:"nodes"`
+	// Timings holds the durations the Scenario shortens. A zero duration is
+	// unset, so the Node keeps its production value.
+	Timings node.TimingsBlock `yaml:"timings"`
 }
 
 // Admin is the first Admin a controller Node is set up with.
@@ -72,11 +76,10 @@ func names() []string {
 	return out
 }
 
-// parse decodes data over the production timings, so an unset timings key
-// keeps its production value. Unknown and duplicate keys fail with their
+// parse decodes data strictly: unknown and duplicate keys fail with their
 // line.
 func parse(name string, data []byte) (Scenario, error) {
-	s := Scenario{Name: name, Timings: node.Defaults().Timings}
+	s := Scenario{Name: name}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(&s); err != nil {
@@ -140,7 +143,11 @@ func (s Scenario) Validate() error {
 // built in code hashes like the same one read from a file. The name is not
 // part of it.
 func (s Scenario) Hash() string {
-	data, err := json.Marshal(s)
+	var doc any
+	if err := s.document().Decode(&doc); err != nil {
+		panic("scenario: " + err.Error())
+	}
+	data, err := json.Marshal(doc)
 	if err != nil {
 		panic("scenario: " + err.Error())
 	}
@@ -148,14 +155,45 @@ func (s Scenario) Hash() string {
 	return hex.EncodeToString(sum[:])
 }
 
-// YAML is the Scenario as the strict decoder reads it back, with every
-// timings key written out.
+// YAML is the Scenario as the strict decoder reads it back.
 func (s Scenario) YAML() []byte {
 	var b bytes.Buffer
 	enc := yaml.NewEncoder(&b)
 	enc.SetIndent(2)
-	if err := enc.Encode(s); err != nil {
+	if err := enc.Encode(s.document()); err != nil {
 		panic("scenario: " + err.Error())
 	}
 	return b.Bytes()
+}
+
+// SetTimings is the timings block holding only the keys t sets, or nil when
+// it sets none.
+func SetTimings(t node.TimingsBlock) *yaml.Node {
+	n, err := yamltree.Diff(t, node.TimingsBlock{})
+	if err != nil {
+		panic("scenario: " + err.Error())
+	}
+	return n
+}
+
+// document is the Scenario's canonical form: its fields in order, with
+// only the timings it sets.
+func (s Scenario) document() *yaml.Node {
+	type plain Scenario
+	var doc yaml.Node
+	if err := doc.Encode(plain(s)); err != nil {
+		panic("scenario: " + err.Error())
+	}
+	for i := 0; i < len(doc.Content); i += 2 {
+		if doc.Content[i].Value != "timings" {
+			continue
+		}
+		if t := SetTimings(s.Timings); t != nil {
+			doc.Content[i+1] = t
+		} else {
+			doc.Content = slices.Delete(doc.Content, i, i+2)
+		}
+		break
+	}
+	return &doc
 }

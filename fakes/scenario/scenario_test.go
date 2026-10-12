@@ -3,13 +3,12 @@ package scenario
 import (
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node"
-	"github.com/jatassi/slipstream/internal/storage"
 )
 
 func singleMachine() Scenario {
@@ -19,16 +18,11 @@ func singleMachine() Scenario {
 		Seed:        "single-machine",
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
 		Nodes:       []Node{{Name: "home", Setup: SetupController}},
-		Timings: node.TimingsBlock{
-			Node:    node.Timings{StopDeadline: 5 * time.Second},
-			Storage: storage.Timings{BusyTimeout: 5 * time.Second},
-			HTTP:    api.Timings{ReadHeader: 10 * time.Second, Idle: 2 * time.Minute},
-			Live:    live.Timings{Heartbeat: 25 * time.Second, Retry: 3 * time.Second},
-		},
+		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
 	}
 }
 
-func TestLoadKeepsProductionTimingsForUnsetKeys(t *testing.T) {
+func TestLoadLeavesUnsetTimingsZero(t *testing.T) {
 	got, err := Load("single-machine")
 	if err != nil {
 		t.Fatal(err)
@@ -179,14 +173,6 @@ nodes:
 timings:
   node:
     stop_deadline: 5s
-  storage:
-    busy_timeout: 5s
-  http:
-    read_header: 10s
-    idle: 2m0s
-  live:
-    heartbeat: 25s
-    retry: 3s
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)
@@ -197,5 +183,35 @@ timings:
 	}
 	if !reflect.DeepEqual(back, s) {
 		t.Fatalf("read back %+v, want %+v", back, s)
+	}
+}
+
+func TestAScenarioWithoutTimingsHashesLikeTheFileWithout(t *testing.T) {
+	built := Scenario{Name: "bare", Seed: "bare", Nodes: []Node{{Name: "home"}}}
+	read, err := parse("bare", []byte("seed: bare\nnodes: [{name: home, setup: none}]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(read, built) || read.Hash() != built.Hash() {
+		t.Fatalf("read %+v hash %s, built %+v hash %s", read, read.Hash(), built, built.Hash())
+	}
+	if want := "description: \"\"\nseed: bare\nnodes:\n  - name: home\n    setup: none\n"; string(built.YAML()) != want {
+		t.Fatalf("YAML() = %q, want %q", built.YAML(), want)
+	}
+}
+
+func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
+	s := singleMachine()
+	s.Timings.Live = live.Timings{Retry: 2 * time.Second}
+	back, err := parse(s.Name, s.YAML())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(back, s) {
+		t.Fatalf("read back %+v, want %+v", back, s)
+	}
+	want := "timings:\n  node:\n    stop_deadline: 5s\n  live:\n    retry: 2s\n"
+	if got := string(s.YAML()); !strings.HasSuffix(got, want) {
+		t.Fatalf("YAML() =\n%s\nwant it to end\n%s", got, want)
 	}
 }
