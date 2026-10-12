@@ -60,7 +60,7 @@ func sqlcConfigs(ctx context.Context, root string) ([]string, error) {
 func hostSqlc(ctx context.Context, root string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "go", append([]string{"tool", "-modfile=tools/go.mod", "sqlc"}, args...)...)
 	cmd.Dir = root
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	return cmd
 }
 
