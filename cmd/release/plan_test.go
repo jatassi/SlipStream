@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/changescope"
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
 
@@ -25,29 +26,33 @@ func TestPlan(t *testing.T) {
 		{"darwin-arm64", "macos-15", "darwin", "arm64", "16.4"},
 	}
 	tests := []struct {
-		event         string
-		touchesNative bool
-		want          []MatrixEntry
+		event string
+		scope changescope.Scope
+		want  []MatrixEntry
 	}{
-		{"pr", false, prOnly},
-		{"pr", true, all},
-		{"push", false, all},
-		{"schedule", false, all},
-		{"release", false, all},
+		{"pr", changescope.Docs, []MatrixEntry{}},
+		{"pr", changescope.PR, prOnly},
+		{"pr", changescope.Native, all},
+		{"push", changescope.Docs, all},
+		{"push", changescope.PR, all},
+		{"schedule", changescope.Docs, all},
+		{"schedule", changescope.PR, all},
+		{"release", changescope.Docs, all},
+		{"release", changescope.PR, all},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, tt.event, tt.touchesNative)
+		got, err := plan(planInputs, tt.event, tt.scope)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(got.Include, tt.want) {
-			t.Errorf("plan(%s, native=%v) = %v, want %v", tt.event, tt.touchesNative, got.Include, tt.want)
+			t.Errorf("plan(%s, %s) = %v, want %v", tt.event, tt.scope, got.Include, tt.want)
 		}
 	}
 }
 
 func TestPlanJSON(t *testing.T) {
-	m, err := plan(planInputs, "push", false)
+	m, err := plan(planInputs, "push", changescope.PR)
 	if err != nil {
 		t.Fatal(err)
 	}

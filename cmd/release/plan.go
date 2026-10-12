@@ -7,18 +7,26 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/changescope"
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
 
-// eventRunsNativeTargets says which CI events build the native-gated targets
-// regardless of the native-touch rule. push means a push to main.
-var eventRunsNativeTargets = map[string]bool{
+// eventRunsEveryTarget says which CI events build every target regardless of
+// the change scope. push means a push to main.
+var eventRunsEveryTarget = map[string]bool{
 	"pr":       false,
 	"push":     true,
 	"schedule": true,
 	"release":  true,
+}
+
+var scopeGates = map[changescope.Scope][]native.Gate{
+	changescope.Docs:   nil,
+	changescope.PR:     {native.GatePR},
+	changescope.Native: {native.GatePR, native.GateNative},
 }
 
 type MatrixEntry struct {
@@ -39,25 +47,26 @@ func init() {
 }
 
 func runPlan(_ context.Context, args []string) error {
-	events := make([]string, 0, len(eventRunsNativeTargets))
-	for e := range eventRunsNativeTargets {
+	events := make([]string, 0, len(eventRunsEveryTarget))
+	for e := range eventRunsEveryTarget {
 		events = append(events, e)
 	}
 	sort.Strings(events)
 	fs := flag.NewFlagSet("plan", flag.ContinueOnError)
 	event := fs.String("event", "", "CI event: "+strings.Join(events, ", "))
-	touchesNative := fs.Bool("native", false, "the change touches native code (from touches-native)")
+	scope := changescope.PR
+	fs.TextVar(&scope, "scope", scope, "change scope from the scope command: docs, pr, native")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
-	if _, ok := eventRunsNativeTargets[*event]; !ok {
+	if _, ok := eventRunsEveryTarget[*event]; !ok {
 		return fmt.Errorf("-event %q is not one of %s", *event, strings.Join(events, ", "))
 	}
 	in, err := native.LoadInputs(native.InputsPath)
 	if err != nil {
 		return err
 	}
-	m, err := plan(in, *event, *touchesNative)
+	m, err := plan(in, *event, scope)
 	if err != nil {
 		return err
 	}
@@ -66,14 +75,17 @@ func runPlan(_ context.Context, args []string) error {
 		return fmt.Errorf("encode the matrix: %w", err)
 	}
 	fmt.Println(string(matrix))
-	return githubOutput("matrix", string(matrix))
+	if err := githubOutput("matrix", string(matrix)); err != nil {
+		return err
+	}
+	return githubOutput("build", strconv.FormatBool(len(m.Include) > 0))
 }
 
-func plan(in native.Inputs, event string, touchesNative bool) (Matrix, error) {
-	gates := []native.Gate{native.GatePR}
-	if eventRunsNativeTargets[event] || touchesNative {
-		gates = append(gates, native.GateNative)
+func plan(in native.Inputs, event string, scope changescope.Scope) (Matrix, error) {
+	if eventRunsEveryTarget[event] {
+		scope = changescope.Native
 	}
+	gates := scopeGates[scope]
 	m := Matrix{Include: []MatrixEntry{}}
 	for _, t := range in.Targets {
 		if !slices.Contains(gates, t.Gate) {

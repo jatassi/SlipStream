@@ -12,16 +12,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/changescope"
 	"github.com/jatassi/slipstream/cmd/release/internal/nativetouch"
 )
 
 func init() {
-	register("touches-native", "print whether the changes from base to head touch native code", runTouchesNative)
+	register("scope", "print how much CI runs for the changes from base to head: docs, pr or native", runScope)
 }
 
-func runTouchesNative(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("touches-native", flag.ContinueOnError)
-	explain := fs.Bool("explain", false, "print which clause matched which file")
+func runScope(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("scope", flag.ContinueOnError)
+	explain := fs.Bool("explain", false, "print which native clause matched which file, and for scope pr which files are not inert")
 	base := fs.String("base", "origin/main", "revision the change merges into")
 	head := fs.String("head", "HEAD", "revision of the change")
 	if err := fs.Parse(args); err != nil {
@@ -31,29 +32,33 @@ func runTouchesNative(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	matches := nativetouch.Matches(changes)
+	scope := changescope.Of(changes)
 	if *explain {
-		if err := explainMatches(os.Stdout, matches); err != nil {
+		if err := explainScope(os.Stdout, changes, scope); err != nil {
 			return err
 		}
 	}
-	touches := strconv.FormatBool(len(matches) > 0)
-	fmt.Println(touches)
-	return githubOutput("native", touches)
+	fmt.Println(scope)
+	return githubOutput("scope", scope.String())
 }
 
-func explainMatches(w io.Writer, matches []nativetouch.Match) error {
+func explainScope(w io.Writer, changes []nativetouch.Change, scope changescope.Scope) error {
 	names := make([]string, len(nativetouch.Clauses))
 	for i, c := range nativetouch.Clauses {
 		names[i] = c.Name
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "clauses: %s\n", strings.Join(names, ", "))
-	for _, m := range matches {
+	for _, m := range nativetouch.Matches(changes) {
 		fmt.Fprintf(&b, "%s: %s\n", m.Clause, m.Path)
 	}
+	if scope == changescope.PR {
+		for _, p := range changescope.NotInert(changes) {
+			fmt.Fprintf(&b, "not inert: %s\n", p)
+		}
+	}
 	if _, err := io.WriteString(w, b.String()); err != nil {
-		return fmt.Errorf("print the matches: %w", err)
+		return fmt.Errorf("print the explanation: %w", err)
 	}
 	return nil
 }
