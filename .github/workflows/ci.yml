@@ -104,6 +104,57 @@ jobs:
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - run: scripts/native-deps fetch
       - run: go run ./cmd/release build
+      - name: imports and link trace (temporary)
+        if: runner.os != 'Linux'
+        run: |
+          cat > "$RUNNER_TEMP/imports.go" <<'GO'
+            package main
+
+            import (
+            	"debug/macho"
+            	"debug/pe"
+            	"fmt"
+            	"os"
+            	"sort"
+            	"strings"
+            )
+
+            func main() {
+            	path := os.Args[1]
+            	if f, err := pe.Open(path); err == nil {
+            		syms, _ := f.ImportedSymbols()
+            		seen := map[string]bool{}
+            		for _, s := range syms {
+            			seen[strings.ToLower(s[strings.LastIndex(s, ":")+1:])] = true
+            		}
+            		var dlls []string
+            		for d := range seen {
+            			dlls = append(dlls, d)
+            		}
+            		sort.Strings(dlls)
+            		fmt.Println("IMPORTS", strings.Join(dlls, " "))
+            		return
+            	}
+            	f, err := macho.Open(path)
+            	if err != nil {
+            		panic(err)
+            	}
+            	libs, _ := f.ImportedLibraries()
+            	fmt.Println("IMPORTS", strings.Join(libs, " "))
+            	for _, l := range f.Loads {
+            		raw := l.Raw()
+            		if cmd := f.ByteOrder.Uint32(raw); cmd == 0x32 {
+            			v := f.ByteOrder.Uint32(raw[12:])
+            			fmt.Printf("MINOS %d.%d\n", v>>16, (v>>8)&0xff)
+            		}
+            	}
+            }
+          GO
+          bin=$(ls "$GITHUB_WORKSPACE"/dist/slipstream*)
+          (cd "$RUNNER_TEMP" && go run imports.go "$bin")
+          if [ "$RUNNER_OS" = Windows ]; then trace=-Wl,--trace; else trace=-Wl,-t; fi
+          eval "$(scripts/native-deps env)"
+          go build -tags release -o "$RUNNER_TEMP/trace-bin" -ldflags="-extldflags=$trace" ./cmd/slipstream 2>&1 | grep -oE '[^ /\\]+\.(a|tbd|dylib)\b' | sort | uniq -c
       - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
 
   native-gate:
