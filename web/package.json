@@ -5,6 +5,7 @@
   "scripts": {
     "gen": "orval && tsr generate",
     "build": "orval && vite build && tsc --noEmit",
+    "test": "vitest run",
     "lint": "oxlint",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
