@@ -43,7 +43,7 @@ func Launch(t *testing.T, name string) *world.Run {
 func LaunchScenario(t *testing.T, s scenario.Scenario) *world.Run {
 	t.Helper()
 	binary := testbin.Slipstream(t)
-	runDir := newRunDir(t)
+	runDir := RunDir(t)
 	addBudget(t, stopBudget(s))
 	var run *world.Run
 	t.Cleanup(func() {
@@ -61,9 +61,9 @@ func LaunchScenario(t *testing.T, s scenario.Scenario) *world.Run {
 	return run
 }
 
-// newRunDir is a path under TEST_FAKEWORLD_RUNS, removed when the test
-// passes, or else under the test's temp dir.
-func newRunDir(t *testing.T) string {
+// RunDir is a run dir that does not exist yet: under TEST_FAKEWORLD_RUNS,
+// removed when the test passes, or else under the test's temp dir.
+func RunDir(t *testing.T) string {
 	t.Helper()
 	runs, ok := os.LookupEnv("TEST_FAKEWORLD_RUNS")
 	if !ok {

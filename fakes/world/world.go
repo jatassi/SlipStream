@@ -215,7 +215,7 @@ func (r *Run) copyBinary(source string) error {
 		return fmt.Errorf("binary: %w", err)
 	}
 	dst := filepath.Join(r.runDir, "bin", "slipstream"+filepath.Ext(src))
-	sum, err := copyExecutable(src, dst)
+	sum, err := CopyExecutable(src, dst)
 	if err != nil {
 		return err
 	}
@@ -224,11 +224,11 @@ func (r *Run) copyBinary(source string) error {
 	return nil
 }
 
-// copyExecutable copies src to dst and returns its hex SHA-256. It holds
+// CopyExecutable copies src to dst and returns its hex SHA-256. It holds
 // syscall.ForkLock while dst is open for writing: a child forked in that
 // window would inherit the descriptor and make exec of dst fail with "text
 // file busy" until it execs.
-func copyExecutable(src, dst string) (string, error) {
+func CopyExecutable(src, dst string) (string, error) {
 	in, err := os.Open(src)
 	if err != nil {
 		return "", fmt.Errorf("binary: %w", err)
