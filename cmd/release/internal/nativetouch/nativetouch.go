@@ -35,6 +35,8 @@ type Clause struct {
 
 var nativeRoots = []string{
 	"internal/torrent/libtorrent/",
+	"internal/node/internal/lock/",
+	"internal/node/internal/control/",
 	"native/",
 	"cmd/release/",
 }
