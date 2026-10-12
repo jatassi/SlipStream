@@ -163,6 +163,9 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 			_ = r.logFile.Close()
 		}
 	}()
+	if err := os.WriteFile(filepath.Join(runDir, "scenario.yaml"), opts.Scenario.YAML(), 0o644); err != nil {
+		return nil, fmt.Errorf("write scenario.yaml: %w", err)
+	}
 	if err := os.MkdirAll(scratchRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("scratch dir: %w", err)
 	}

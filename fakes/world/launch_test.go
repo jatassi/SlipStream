@@ -87,6 +87,40 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := run.Manifest()
+	checkLaunched(t, m, runDir, bin)
+	if got := getFake(ctx, t, m); got != "echo\n" {
+		t.Fatalf("GET the echo fake = %q", got)
+	}
+
+	report, err := world.StopRun(ctx, runDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := world.StopReport{Nodes: []world.NodeStop{{Name: "home", ExitCode: 0}}}
+	if !reflect.DeepEqual(report, want) {
+		t.Fatalf("StopRun = %+v, want %+v", report, want)
+	}
+	<-run.Done()
+	if again, err := run.Stop(); err != nil || !reflect.DeepEqual(again, want) {
+		t.Fatalf("Stop after StopRun = %+v, %v; want %+v", again, err, want)
+	}
+	if again, err := world.StopRun(ctx, runDir); err != nil || !reflect.DeepEqual(again, want) {
+		t.Fatalf("StopRun on a stopped run = %+v, %v; want %+v", again, err, want)
+	}
+	stopped, err := os.ReadFile(filepath.Join(runDir, "stopped.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{\n  \"nodes\": [\n    {\n      \"name\": \"home\",\n      \"exitCode\": 0,\n      \"exitedUnasked\": false\n    }\n  ]\n}\n"; string(stopped) != want {
+		t.Fatalf("stopped.json =\n%s\nwant\n%s", stopped, want)
+	}
+	assertStopped(t, m)
+}
+
+// checkLaunched checks the manifest and evidence of the stub's one Node
+// launched by TestLaunchAndStopOnTheStub.
+func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
+	t.Helper()
 	written, err := world.ReadManifest(runDir)
 	if err != nil {
 		t.Fatal(err)
@@ -115,6 +149,9 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	if m.ScratchDir != scratch || m.Binary.Version != "stub" || m.Binary.Path != filepath.Join(runDir, "bin", "slipstream"+filepath.Ext(bin)) || m.Admin != nil || m.APIKey != "" {
 		t.Fatalf("manifest = %+v", m)
 	}
+	if written, err := os.ReadFile(filepath.Join(runDir, "scenario.yaml")); err != nil || string(written) != "description: \"\"\nseed: stub\nnodes:\n  - name: home\n    setup: none\ntimings:\n  node:\n    stop_deadline: 5s\n" {
+		t.Fatalf("scenario.yaml = %q, %v", written, err)
+	}
 	wl, err := world.ReadWorldLog(runDir)
 	if err != nil {
 		t.Fatal(err)
@@ -122,33 +159,6 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	if want := []world.Spawn{{Node: "home", PID: home.PID, DataDir: home.DataDir}}; !reflect.DeepEqual(wl.Spawns, want) || wl.Supervisor != m.Supervisor {
 		t.Fatalf("world.log records %+v, want spawns %+v and supervisor %+v", wl, want, m.Supervisor)
 	}
-	if got := getFake(ctx, t, m); got != "echo\n" {
-		t.Fatalf("GET the echo fake = %q", got)
-	}
-
-	report, err := world.StopRun(ctx, runDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := world.StopReport{Nodes: []world.NodeStop{{Name: "home", ExitCode: 0}}}
-	if !reflect.DeepEqual(report, want) {
-		t.Fatalf("StopRun = %+v, want %+v", report, want)
-	}
-	<-run.Done()
-	if again, err := run.Stop(); err != nil || !reflect.DeepEqual(again, want) {
-		t.Fatalf("Stop after StopRun = %+v, %v; want %+v", again, err, want)
-	}
-	if again, err := world.StopRun(ctx, runDir); err != nil || !reflect.DeepEqual(again, want) {
-		t.Fatalf("StopRun on a stopped run = %+v, %v; want %+v", again, err, want)
-	}
-	stopped, err := os.ReadFile(filepath.Join(runDir, "stopped.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "{\n  \"nodes\": [\n    {\n      \"name\": \"home\",\n      \"exitCode\": 0,\n      \"exitedUnasked\": false\n    }\n  ]\n}\n"; string(stopped) != want {
-		t.Fatalf("stopped.json =\n%s\nwant\n%s", stopped, want)
-	}
-	assertStopped(t, m)
 }
 
 func getFake(ctx context.Context, t *testing.T, m world.Manifest) string {
