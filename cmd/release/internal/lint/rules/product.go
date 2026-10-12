@@ -10,7 +10,7 @@ import (
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 )
 
-var nonProductTrees = []string{"fakes/", "cmd/release/"}
+var nonProductTrees = []string{"fakes/", "cmd/release/", "cmd/fakeworld/"}
 
 func productFiles(repo *lint.Repo) ([]lint.GoFile, error) {
 	files, err := repo.GoSyntax()

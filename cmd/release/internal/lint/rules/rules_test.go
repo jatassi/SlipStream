@@ -277,3 +277,40 @@ func TestSurfaceWiredWithoutSurface(t *testing.T) {
 		"internal/nodes/nodesapi/routes.go:3: [surface-wired] nodesapi.Routes is never mounted in internal/node/surface",
 	})
 }
+
+func TestFakesWired(t *testing.T) {
+	assertFindings(t, check(t, "fakes-wired", fixtureRepo(t, "fakes-wired")), []string{
+		"fakes/tmdb/doc.go:3: [fakes-wired] fakes/tmdb declares no var Fake fake.Spec",
+		"fakes/torznab/torznab.go:7: [fakes-wired] fakes/torznab.Fake is not listed in fakes/world",
+		"fakes/tracker/tracker_windows.go:5: [fakes-wired] fakes/tracker declares var Fake fake.Spec more than once",
+	})
+}
+
+func TestDeadlineWaits(t *testing.T) {
+	const (
+		until    = " in the end-to-end tier; wait on a condition with worldtest.Until"
+		context  = " in the end-to-end tier; take the context from worldtest.Context"
+		unlinked = " without an issue link; a flaky test gets an issue first"
+	)
+	assertFindings(t, check(t, "deadline-waits", fixtureRepo(t, "deadline-waits")), []string{
+		"e2e/first_run_test.go:10: [deadline-waits] time.Sleep" + until,
+		"e2e/first_run_test.go:11: [deadline-waits] time.After" + until,
+		"e2e/first_run_test.go:12: [deadline-waits] context.Background" + context,
+		"e2e/first_run_test.go:13: [deadline-waits] context.TODO" + context,
+		"e2e/first_run_test.go:14: [deadline-waits] (*testing.T).Context" + context,
+		"e2e/first_run_test.go:16: [deadline-waits] t.Skip" + unlinked,
+		"e2e/first_run_test.go:17: [deadline-waits] t.Skipf" + unlinked,
+		"e2e/first_run_test.go:20: [deadline-waits] t.Skip" + unlinked,
+		"e2e/first_run_test.go:21: [deadline-waits] t.SkipNow" + unlinked,
+		"e2e/first_run_test.go:22: [deadline-waits] (*testing.T).Context" + context,
+		"e2e/first_run_test.go:26: [deadline-waits] (*testing.B).Context" + context,
+		"e2e/first_run_test.go:31: [deadline-waits] tb.Skip" + unlinked,
+		"e2e/helpers.go:10: [deadline-waits] time.NewTicker" + until,
+		"e2e/helpers.go:13: [deadline-waits] (*testing.T).Context" + context,
+		"e2e/helpers.go:14: [deadline-waits] time.Tick" + until,
+		"fakes/world/world.go:9: [deadline-waits] time.NewTimer" + until,
+		"fakes/world/world.go:10: [deadline-waits] time.AfterFunc" + until,
+		"fakes/world/world.go:12: [deadline-waits] context.Background" + context,
+		"fakes/world/worldtest/launch.go:5: [deadline-waits] time.Sleep" + until,
+	})
+}
