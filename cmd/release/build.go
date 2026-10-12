@@ -48,7 +48,7 @@ func runBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	bundle, err := native.FetchedLibs(root, cacheRoot, in, target)
+	bundle, err := native.FetchedBundle(root, cacheRoot, in, target)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runBuild(args []string) error {
 		return err
 	}
 	stamp.Target = target.Name
-	stamp.NativeBundle = bundle.Layer.Digest
+	stamp.NativeBundle = bundle.Libs.Digest
 	stamp.Libtorrent = libtorrent.Version
 	ldflag, err := buildinfo.Encode(stamp)
 	if err != nil {
@@ -82,12 +82,13 @@ func runBuild(args []string) error {
 	}
 	tmp.Close()
 	defer os.Remove(tmp.Name())
-	gobuild := exec.Command("go", "build", "-trimpath", "-tags", "release",
+	tags := strings.Join(append([]string{"release"}, target.GoTags...), ",")
+	gobuild := exec.Command("go", "build", "-trimpath", "-tags", tags,
 		"-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+ldflag,
 		"-o", tmp.Name(), "./cmd/slipstream")
 	gobuild.Dir = root
 	gobuild.Stdout, gobuild.Stderr = os.Stderr, os.Stderr
-	gobuild.Env = append(withoutCgoEnv(os.Environ()), "CGO_ENABLED=1")
+	gobuild.Env = withoutBuildEnv(os.Environ())
 	for _, v := range bundle.Env {
 		gobuild.Env = append(gobuild.Env, v.Name+"="+v.Value)
 	}
@@ -127,11 +128,11 @@ func repoRoot() (string, error) {
 	return strings.TrimSpace(string(top)), nil
 }
 
-// withoutCgoEnv drops the C toolchain and cgo flags from env, so the build's
-// cgo environment comes only from the native bundle.
-func withoutCgoEnv(env []string) []string {
+// withoutBuildEnv drops the C toolchain, cgo flags and GOFLAGS from env, so
+// the build's environment comes only from the native bundle.
+func withoutBuildEnv(env []string) []string {
 	return slices.DeleteFunc(env, func(kv string) bool {
 		name, _, _ := strings.Cut(kv, "=")
-		return name == "CC" || name == "CXX" || strings.HasPrefix(name, "CGO_")
+		return name == "CC" || name == "CXX" || name == "GOFLAGS" || strings.HasPrefix(name, "CGO_")
 	})
 }

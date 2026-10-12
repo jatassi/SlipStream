@@ -3,9 +3,7 @@
 package notices
 
 import (
-	"bytes"
 	"cmp"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,7 +18,6 @@ const (
 	noticesPath     = "internal/notices/NOTICES.txt"
 	generateCommand = "go run ./cmd/release notices generate"
 	inputsPath      = "native/inputs.json"
-	runtimesPath    = "native/runtimes.json"
 	licensesDir     = "native/licenses"
 )
 
@@ -46,14 +43,6 @@ type Dependency struct {
 
 func (d Dependency) String() string {
 	return fmt.Sprintf("%s %s %s", d.Source, d.Name, d.Version)
-}
-
-// Runtime is a toolchain library linked statically into the binary on Targets.
-type Runtime struct {
-	Name    string   `json:"name"`
-	Version string   `json:"version"`
-	License string   `json:"license"`
-	Targets []string `json:"targets"`
 }
 
 // Generate collects every dependency the release binary ships for the
@@ -111,24 +100,20 @@ func Write(root string) error {
 }
 
 func nativeLibraries(root string, in native.Inputs) ([]Dependency, error) {
-	data, err := os.ReadFile(filepath.Join(root, runtimesPath))
-	if err != nil {
-		return nil, err
-	}
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	var file struct {
-		Runtimes []Runtime `json:"runtimes"`
-	}
-	if err := dec.Decode(&file); err != nil {
-		return nil, fmt.Errorf("%s: %w", runtimesPath, err)
-	}
 	var deps []Dependency
 	for _, c := range in.Components {
 		deps = append(deps, Dependency{SourceNative, c.Name, c.Version, c.License, targetNames(in.Targets), ""})
 	}
-	for _, r := range file.Runtimes {
-		deps = append(deps, Dependency{SourceRuntime, r.Name, r.Version, r.License, r.Targets, ""})
+	for _, tc := range in.Toolchains {
+		var targets []native.Target
+		for _, t := range in.Targets {
+			if t.Toolchain == tc.Name {
+				targets = append(targets, t)
+			}
+		}
+		for _, r := range tc.Runtimes {
+			deps = append(deps, Dependency{SourceRuntime, r.Name, tc.Source(r.Source).Version, r.License, targetNames(targets), ""})
+		}
 	}
 	for i := range deps {
 		text, err := readText(filepath.Join(root, licensesDir, deps[i].Name+".txt"))

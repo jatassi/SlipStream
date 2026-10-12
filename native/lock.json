@@ -1,12 +1,36 @@
 {
 	"layers": [
 		{
+			"kind": "toolchain",
+			"target": "linux-amd64",
+			"digest": "e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50",
+			"asset": "toolchain-linux-amd64-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50/toolchain-linux-amd64-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50.tar.gz",
+			"sha256": "29077f36a45b54a049cab4678ec619a7f6135f98456bbe80d2785ef121044a66"
+		},
+		{
 			"kind": "libs",
 			"target": "linux-amd64",
-			"digest": "41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c",
-			"asset": "libs-linux-amd64-41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c.tar.gz",
-			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c/libs-linux-amd64-41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c.tar.gz",
-			"sha256": "bc33ed3010981f5e8661177640cf1c7fc829452413f287f70cc20e3476b32254"
+			"digest": "524ee17461e6b19cdda209543758302fdf8338c6e6cbffaac091183697d5571a",
+			"asset": "libs-linux-amd64-524ee17461e6b19cdda209543758302fdf8338c6e6cbffaac091183697d5571a.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-524ee17461e6b19cdda209543758302fdf8338c6e6cbffaac091183697d5571a/libs-linux-amd64-524ee17461e6b19cdda209543758302fdf8338c6e6cbffaac091183697d5571a.tar.gz",
+			"sha256": "935ee738c88f55856e84a7736a3f685fb303d2bdeb45bdcf310bf1b8be3b7b1a"
+		},
+		{
+			"kind": "toolchain",
+			"target": "linux-arm64",
+			"digest": "c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da",
+			"asset": "toolchain-linux-arm64-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da/toolchain-linux-arm64-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da.tar.gz",
+			"sha256": "e937f4d586ba96f90840b90d9da8e3d5a05541cc4adaf6a8e37d20b5f576341d"
+		},
+		{
+			"kind": "libs",
+			"target": "linux-arm64",
+			"digest": "d5360c734afa84995c116460f6421f74cf4d4278713aed611fa9450147ec996b",
+			"asset": "libs-linux-arm64-d5360c734afa84995c116460f6421f74cf4d4278713aed611fa9450147ec996b.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-d5360c734afa84995c116460f6421f74cf4d4278713aed611fa9450147ec996b/libs-linux-arm64-d5360c734afa84995c116460f6421f74cf4d4278713aed611fa9450147ec996b.tar.gz",
+			"sha256": "e320c4a2723ede6f589919265fea03ddb1508ea2122b8d4de3fd43dca408f014"
 		}
 	]
 }

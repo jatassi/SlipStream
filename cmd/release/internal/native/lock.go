@@ -24,13 +24,18 @@ const PublishHint = "dispatch the bundle workflow at this branch " +
 	"or https://github.com/jatassi/slipstream-native/actions/workflows/layers.yml), " +
 	"then run scripts/native-deps pin"
 
-// Kind names what a layer holds. A target row lists the kinds it ships.
+// Kind names what a layer holds. A target row lists the kinds it ships, and
+// each kind's recipe is the directory of that name under RecipeDir.
 type Kind string
 
-const KindLibs Kind = "libs"
+const (
+	KindToolchain Kind = "toolchain"
+	KindLibs      Kind = "libs"
+)
 
 var layerDigests = map[Kind]func(Inputs, Target, fs.FS) (string, error){
-	KindLibs: LibsDigest,
+	KindToolchain: ToolchainDigest,
+	KindLibs:      LibsDigest,
 }
 
 // LayerID names a layer by what builds it.

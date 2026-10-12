@@ -6,6 +6,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/notices"
+	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 	_ "github.com/jatassi/slipstream/web"
 )
 
@@ -32,7 +33,7 @@ func printVersion() {
 	fmt.Printf("slipstream %s\n", s.Version)
 	fmt.Printf("commit         %s\n", s.Commit)
 	fmt.Printf("target         %s\n", s.Target)
-	fmt.Printf("libtorrent     %s\n", s.Libtorrent)
+	fmt.Printf("libtorrent     %s\n", libtorrent.Version())
 	fmt.Printf("fingerprint    %s\n", s.Fingerprint)
 	fmt.Printf("native bundle  %s\n", s.NativeBundle)
 }

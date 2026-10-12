@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 )
 
 // Gate says which CI runs build a target: every PR, or only main, nightly,
@@ -22,31 +23,59 @@ const (
 )
 
 type Target struct {
-	Name      string `json:"name"`
-	GOOS      string `json:"goos"`
-	GOARCH    string `json:"goarch"`
-	Runner    string `json:"runner"`
+	Name   string `json:"name"`
+	GOOS   string `json:"goos"`
+	GOARCH string `json:"goarch"`
+	Runner string `json:"runner"`
+	// Toolchain names the entry of Inputs.Toolchains that builds the
+	// target's toolchain layer.
 	Toolchain string `json:"toolchain"`
-	MinOS     string `json:"min_os"`
-	Gate      Gate   `json:"gate"`
+	// Triple is the GNU target triple the toolchain compiles for.
+	Triple string `json:"triple,omitempty"`
+	MinOS  string `json:"min_os"`
+	Gate   Gate   `json:"gate"`
 	// Layers are the bundle layers published and pinned for the target.
 	Layers []Kind `json:"layers"`
+	// GoTags are build tags every build against the target's bundle needs.
+	GoTags []string `json:"go_tags,omitempty"`
 	// OpenSSLTarget is the target name OpenSSL's Configure takes.
 	OpenSSLTarget string `json:"openssl_target"`
 	// SystemLibs are linker arguments after the static libraries.
 	SystemLibs []string `json:"system_libs"`
 }
 
-type Component struct {
+// Source is a pinned source archive a recipe builds from.
+type Source struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 	URL     string `json:"url"`
 	SHA256  string `json:"sha256"`
+}
+
+// Component is a source the libs layer builds and the binary links.
+type Component struct {
+	Source
 	License string `json:"license"`
+}
+
+// Runtime is a library the toolchain builds from one of its sources and
+// links statically into every binary of the targets that use it.
+type Runtime struct {
+	Name    string `json:"name"`
+	Source  string `json:"source"`
+	License string `json:"license"`
+}
+
+// Toolchain is a C and C++ compiler the bundle builds from its sources.
+type Toolchain struct {
+	Name     string    `json:"name"`
+	Sources  []Source  `json:"sources"`
+	Runtimes []Runtime `json:"runtimes"`
 }
 
 type Inputs struct {
 	Targets    []Target    `json:"targets"`
+	Toolchains []Toolchain `json:"toolchains"`
 	Components []Component `json:"components"`
 }
 
@@ -74,10 +103,30 @@ func ParseInputs(data []byte) (Inputs, error) {
 				return Inputs{}, fmt.Errorf("native inputs: target %s: unknown layer kind %q", t.Name, k)
 			}
 		}
+		if slices.Contains(t.Layers, KindLibs) && !slices.Contains(t.Layers, KindToolchain) {
+			return Inputs{}, fmt.Errorf("native inputs: target %s: the %s layer is built with the %s layer, which it does not list", t.Name, KindLibs, KindToolchain)
+		}
+		if slices.Contains(t.Layers, KindToolchain) {
+			if _, err := in.Toolchain(t); err != nil {
+				return Inputs{}, fmt.Errorf("native inputs: %w", err)
+			}
+		}
 	}
+	var sources []Source
 	for _, c := range in.Components {
-		if b, err := hex.DecodeString(c.SHA256); err != nil || len(b) != 32 {
-			return Inputs{}, fmt.Errorf("native inputs: component %s: sha256 %q is not 64 hex digits", c.Name, c.SHA256)
+		sources = append(sources, c.Source)
+	}
+	for _, tc := range in.Toolchains {
+		sources = append(sources, tc.Sources...)
+		for _, r := range tc.Runtimes {
+			if !slices.ContainsFunc(tc.Sources, func(s Source) bool { return s.Name == r.Source }) {
+				return Inputs{}, fmt.Errorf("native inputs: toolchain %s: runtime %s names no source %q", tc.Name, r.Name, r.Source)
+			}
+		}
+	}
+	for _, s := range sources {
+		if b, err := hex.DecodeString(s.SHA256); err != nil || len(b) != 32 {
+			return Inputs{}, fmt.Errorf("native inputs: source %s: sha256 %q is not 64 hex digits", s.Name, s.SHA256)
 		}
 	}
 	return in, nil
@@ -103,22 +152,16 @@ func (in Inputs) Component(name string) (Component, error) {
 
 func HostTargetName() string { return runtime.GOOS + "-" + runtime.GOARCH }
 
-// Toolchain is the C and C++ compiler a layer is built with and that cgo
-// uses against it.
-type Toolchain struct {
-	CC, CXX string
-}
-
-// toolchains maps a target's toolchain name to its compilers. host-gcc is
-// the host's glibc gcc, used until the musl toolchain layer exists.
-var toolchains = map[string]Toolchain{
-	"host-gcc": {CC: "gcc", CXX: "g++"},
-}
-
-func (t Target) Compilers() (Toolchain, error) {
-	tc, ok := toolchains[t.Toolchain]
-	if !ok {
-		return Toolchain{}, fmt.Errorf("target %s: toolchain %q is not available yet", t.Name, t.Toolchain)
+func (in Inputs) Toolchain(t Target) (Toolchain, error) {
+	for _, tc := range in.Toolchains {
+		if tc.Name == t.Toolchain {
+			return tc, nil
+		}
 	}
-	return tc, nil
+	return Toolchain{}, fmt.Errorf("target %s: toolchain %q is not listed", t.Name, t.Toolchain)
+}
+
+func (tc Toolchain) Source(name string) Source {
+	i := slices.IndexFunc(tc.Sources, func(s Source) bool { return s.Name == name })
+	return tc.Sources[i]
 }

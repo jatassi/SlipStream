@@ -27,10 +27,12 @@ func TestCgoEnvFromMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := CgoEnv(layer, md, Toolchain{CC: "gcc", CXX: "g++"})
+	got := CgoEnv(layer, md, Compilers{CC: "gcc", CXX: "g++"}, []string{"netgo", "osusergo"})
 
 	cflags := "-O2 -g '-I" + filepath.Join(layer, "include") + "' -DSLIPSTREAM_NATIVE_BUNDLE -DTORRENT_NO_DEPRECATE"
 	want := []EnvVar{
+		{"CGO_ENABLED", "1"},
+		{"GOFLAGS", "-tags=netgo,osusergo"},
 		{"CC", "gcc"},
 		{"CXX", "g++"},
 		{"CGO_CFLAGS", cflags},

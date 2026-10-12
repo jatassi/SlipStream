@@ -1,7 +1,23 @@
 {
 	"targets": [
-		{"name": "linux-amd64", "goos": "linux", "goarch": "amd64", "gate": "pr"},
+		{"name": "linux-amd64", "goos": "linux", "goarch": "amd64", "toolchain": "musl-cross", "gate": "pr"},
 		{"name": "windows-amd64", "goos": "windows", "goarch": "amd64", "gate": "native"}
+	],
+	"toolchains": [
+		{
+			"name": "musl-cross",
+			"sources": [
+				{
+					"name": "musl",
+					"version": "1.2.5",
+					"url": "https://example.com/musl-1.2.5.tar.gz",
+					"sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+				}
+			],
+			"runtimes": [
+				{"name": "musl", "source": "musl", "license": "MIT"}
+			]
+		}
 	],
 	"components": [
 		{
