@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "feature/**", "claude/**"]
+    branches: [main, "feature/**"]
   schedule:
     - cron: "23 4 * * *"
   release:
