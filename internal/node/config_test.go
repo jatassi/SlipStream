@@ -83,8 +83,8 @@ func TestHTTPConfigReadsListenAndTrustedOrigins(t *testing.T) {
 	if got := Defaults().HTTP.Listen.String(); got != "[::]:8484" {
 		t.Fatalf("default http.listen = %s, want [::]:8484", got)
 	}
-	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com/app"})
-	if err == nil || err.Error() != `env: SLIPSTREAM_HTTP_TRUSTED_ORIGINS: item 1: "https://media.example.com/app": not scheme://host[:port]` {
+	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com,https://Media.Example.com:443/"})
+	if err == nil || err.Error() != `env: SLIPSTREAM_HTTP_TRUSTED_ORIGINS: item 2: "https://Media.Example.com:443/": not a canonical origin; write https://media.example.com` {
 		t.Fatalf("err = %v, want the bad origin named", err)
 	}
 }

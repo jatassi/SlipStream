@@ -2,10 +2,13 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -37,12 +40,27 @@ type Origin struct {
 	origin string
 }
 
+var defaultPorts = map[string]string{"http": "80", "https": "443"}
+
+// UnmarshalText accepts only the form a browser sends in Origin: lower-case
+// scheme and host, no default port and no path. CrossOriginProtection
+// compares origins byte for byte, so any other spelling would never match.
 func (o *Origin) UnmarshalText(text []byte) error {
 	s := string(text)
 	u, err := url.Parse(s)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
-		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.ForceQuery {
+	if err != nil || defaultPorts[u.Scheme] == "" || u.Hostname() == "" || u.User != nil ||
+		u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.ForceQuery {
 		return errors.New("not scheme://host[:port]")
+	}
+	host := strings.ToLower(u.Hostname())
+	if port := u.Port(); port != "" && port != defaultPorts[u.Scheme] {
+		host = net.JoinHostPort(host, port)
+	} else if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	canonical := u.Scheme + "://" + host
+	if s != canonical {
+		return fmt.Errorf("not a canonical origin; write %s", canonical)
 	}
 	o.origin = s
 	return nil

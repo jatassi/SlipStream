@@ -252,29 +252,39 @@ func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
 	}
 }
 
-func TestOriginAcceptsOnlySchemeHostAndPort(t *testing.T) {
-	for text, ok := range map[string]bool{
-		"https://media.example.com":      true,
-		"http://192.0.2.1:8484":          true,
-		"https://media.example.com/":     false,
-		"https://media.example.com/path": false,
-		"media.example.com":              false,
-		"ftp://media.example.com":        false,
-		"https://user@media.example.com": false,
-		"https://media.example.com?x=1":  false,
-		"https://media.example.com#frag": false,
-		"https://":                       false,
+func TestOriginAcceptsOnlyTheCanonicalSchemeHostAndPort(t *testing.T) {
+	const shape = "not scheme://host[:port]"
+	for text, want := range map[string]string{
+		"https://media.example.com":       "",
+		"http://192.0.2.1:8484":           "",
+		"http://[2001:db8::1]:8484":       "",
+		"https://[2001:db8::1]":           "",
+		"https://media.example.com/":      "not a canonical origin; write https://media.example.com",
+		"https://media.example.com/path":  "not a canonical origin; write https://media.example.com",
+		"HTTPS://Media.Example.com":       "not a canonical origin; write https://media.example.com",
+		"https://media.example.com:443":   "not a canonical origin; write https://media.example.com",
+		"http://192.0.2.1:80":             "not a canonical origin; write http://192.0.2.1",
+		"http://192.0.2.1:":               "not a canonical origin; write http://192.0.2.1",
+		"https://[2001:DB8::1]:443":       "not a canonical origin; write https://[2001:db8::1]",
+		"https://media.example.com:8443/": "not a canonical origin; write https://media.example.com:8443",
+		"media.example.com":               shape,
+		"ftp://media.example.com":         shape,
+		"https://user@media.example.com":  shape,
+		"https://media.example.com?x=1":   shape,
+		"https://media.example.com#frag":  shape,
+		"https://":                        shape,
 	} {
 		var o Origin
 		err := o.UnmarshalText([]byte(text))
-		if (err == nil) != ok {
-			t.Errorf("UnmarshalText(%q) = %v, want ok %v", text, err, ok)
+		var got string
+		if err != nil {
+			got = err.Error()
 		}
-		if ok && o.String() != text {
+		if got != want {
+			t.Errorf("UnmarshalText(%q) = %q, want %q", text, got, want)
+		}
+		if want == "" && o.String() != text {
 			t.Errorf("Origin(%q).String() = %q", text, o)
-		}
-		if !ok && err != nil && err.Error() != "not scheme://host[:port]" {
-			t.Errorf("UnmarshalText(%q) error = %q", text, err)
 		}
 	}
 }
