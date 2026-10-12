@@ -42,23 +42,6 @@ jobs:
           EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'release' && 'release' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
           NATIVE: ${{ steps.touch.outputs.native }}
 
-  lint:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.mod
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: web/package.json
-      - uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: go run ./cmd/release lint
-
   build:
     needs: plan
     name: build (${{ matrix.target }})
@@ -85,11 +68,13 @@ jobs:
           echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
           echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
           echo "SLIPSTREAM_NATIVE_CACHE=$RUNNER_TEMP/slipstream-native" >> "$GITHUB_ENV"
+          echo "GOLANGCI_LINT_CACHE=$RUNNER_TEMP/golangci-lint" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: |
             ${{ runner.temp }}/go-build
             ${{ runner.temp }}/go-mod
+            ${{ runner.temp }}/golangci-lint
           key: go-${{ matrix.target }}-${{ hashFiles('go.mod') }}-${{ github.sha }}
           restore-keys: go-${{ matrix.target }}-${{ hashFiles('go.mod') }}-
       - uses: oven-sh/setup-bun@v2
@@ -105,17 +90,20 @@ jobs:
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - run: go run ./cmd/release build
       - run: go run ./cmd/release test
+      # Lint runs on every target so gofmt, line endings and the cgo type
+      # check are proven on each OS, and runs even when a test fails.
+      - if: ${{ !cancelled() }}
+        run: go run ./cmd/release lint
 
   native-gate:
     if: always()
-    needs: [plan, lint, build]
+    needs: [plan, build]
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          for result in "$PLAN" "$LINT" "$BUILD"; do
+          for result in "$PLAN" "$BUILD"; do
             test "$result" = success
           done
         env:
           PLAN: ${{ needs.plan.result }}
-          LINT: ${{ needs.lint.result }}
           BUILD: ${{ needs.build.result }}
