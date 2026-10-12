@@ -24,7 +24,6 @@ import (
 
 var timings = storage.Timings{BusyTimeout: 5 * time.Second}
 
-// logBuffer collects a logger's JSON records without their time.
 type logBuffer struct {
 	mu  sync.Mutex
 	buf bytes.Buffer
@@ -53,7 +52,6 @@ func newLog() (*slog.Logger, *logBuffer) {
 	}})), b
 }
 
-// hookCalls counts the pre-migration hook's calls and records each plan.
 type hookCalls struct {
 	plans []storage.Plan
 	err   error
@@ -78,7 +76,6 @@ func openLibrary(t *testing.T, path string, schemas []storage.Schema[storage.Lib
 	return db
 }
 
-// migrated opens path with schemas and closes it, leaving it migrated.
 func migrated(t *testing.T, path string, schemas ...storage.Schema[storage.Library]) {
 	t.Helper()
 	db, err := storage.OpenLibrary(t.Context(), path, schemas, nil, timings, slog.New(slog.DiscardHandler))
@@ -331,8 +328,6 @@ func TestRowsLeftWithoutTheirParentFailTheOpen(t *testing.T) {
 	}
 }
 
-// A table rebuild drops the old table. Migrations run with foreign keys
-// off, so the drop does not cascade into another set's rows.
 func TestTableRebuildKeepsChildRowsOfLaterSets(t *testing.T) {
 	parent := storage.NewSchema[storage.Library]("box", fstest.MapFS{
 		"schema/00001_box.sql":     {Data: []byte("-- +goose Up\nCREATE TABLE box (id INTEGER PRIMARY KEY, label TEXT NOT NULL) STRICT;\nINSERT INTO box (id, label) VALUES (1, 'a');\n")},

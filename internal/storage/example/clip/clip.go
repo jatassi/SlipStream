@@ -1,7 +1,3 @@
-// Package clip is the test-only Content Type and the owner to copy. To add
-// tables: copy this folder, rename the package and the set, change the file
-// alias if the tables are Role-local, then edit schema/, queries/ and the
-// functions below, and run `go run ./cmd/release sqlc`.
 package clip
 
 import (
@@ -13,15 +9,11 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
 )
 
-// file is the one line that picks this owner's database. Role-local state
-// (an outbox, resume data) says storage.Local instead.
 type file = storage.Library
 
 //go:embed schema/*.sql
 var schemaFiles embed.FS
 
-// Schema is this owner's line in the composition root's list. A Content
-// Type carries it on its Content Type value instead.
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("clip", schemaFiles) }
 
 type (
@@ -29,15 +21,13 @@ type (
 	PublicID = db.ClipPublicID
 )
 
-// Clip mirrors the generated row field for field, so Clip(row) converts it
-// and a schema change that reshapes the row fails to compile here.
 type Clip struct {
 	ID        ID
 	ShelfID   shelf.ID
 	PublicID  PublicID
 	Title     string
 	CreatedAt storage.Time
-	WatchedAt storage.Time // zero until watched
+	WatchedAt storage.Time
 }
 
 func Add(ctx context.Context, tx *storage.Tx[file], on shelf.ID, title string) (Clip, error) {

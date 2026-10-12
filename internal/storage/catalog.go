@@ -7,15 +7,11 @@ import (
 	"fmt"
 )
 
-// Catalog is a file's schema as data: its version vector and every object
-// in sqlite_schema. storagetest's audit reads it between sets and applies
-// its rules as pure functions, so no SQL leaves this package.
 type Catalog struct {
 	Versions Versions
 	Objects  []Object // ordered by Type, then Name; sqlite_* objects excluded
 }
 
-// Object is one sqlite_schema row with the detail the audit checks.
 type Object struct {
 	Type  string // table, index, trigger or view
 	Name  string
@@ -37,7 +33,7 @@ type Column struct {
 
 type ForeignKey struct {
 	Column string
-	Table  string // parent table
+	Table  string
 	To     string // parent column; the parent's primary key when the SQL names none
 }
 
@@ -120,8 +116,6 @@ func readTable(ctx context.Context, conn *sql.DB, o *Object) error {
 	return nil
 }
 
-// resolveImplicitKeys names the parent's primary key column on each foreign
-// key whose SQL names none (REFERENCES shelf).
 func resolveImplicitKeys(objects []Object) {
 	pk := map[string]string{}
 	for _, o := range objects {

@@ -58,8 +58,7 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 // Node is one running SlipStream process's worth of state. Several can run in
 // one Go process; they share nothing.
 type Node struct {
-	env Env
-	// base is the log without attributes, so each subsystem adds only its own.
+	env      Env
 	base     *slog.Logger
 	log      *slog.Logger
 	stack    *Stack
@@ -91,8 +90,6 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 		released: make(chan struct{}),
 		done:     make(chan struct{}),
 	}
-	// startCtx ends only once stopping has closed, so a step it cancels
-	// finds ErrStopped at its checkpoint.
 	startCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	go func() {
 		select {

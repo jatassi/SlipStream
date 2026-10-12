@@ -20,10 +20,8 @@ type UUID struct {
 	u uuid.UUID
 }
 
-// NewUUID draws a UUIDv7.
 func NewUUID() UUID { return UUID{u: uuid.NewV7()} }
 
-// ParseUUID reads the canonical text form, as it appears in a URL.
 func ParseUUID(s string) (UUID, error) {
 	u, err := uuid.Parse(s)
 	if err != nil {
@@ -38,7 +36,6 @@ func (u UUID) IsZero() bool { return u.u == uuid.Nil() }
 
 func (u UUID) Compare(v UUID) int { return u.u.Compare(v.u) }
 
-// Value is NULL for the zero UUID, else the 16 bytes.
 func (u UUID) Value() (driver.Value, error) {
 	if u.IsZero() {
 		return nil, nil

@@ -20,7 +20,6 @@ sql:
           - column: clip.public_id
             go_type:
               type: ClipPublicID
-          # A foreign key into another owner maps to that owner's exported id.
           - column: clip.shelf_id
             go_type:
               import: github.com/jatassi/slipstream/internal/storage/example/shelf

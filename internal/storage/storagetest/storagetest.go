@@ -1,6 +1,3 @@
-// Package storagetest opens files for owners' tests and audits schema
-// lists. internal/node's test runs the audit over the composition root's
-// real lists, so a new owner's set is audited by adding its line there.
 package storagetest
 
 import (
@@ -13,13 +10,10 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// timings is a literal: config-sections lets only internal/node/config.go
-// call storage.DefaultTimings.
 var timings = storage.Timings{BusyTimeout: 5 * time.Second}
 
 // Library opens a fresh library.db in t.TempDir() with schemas migrated and
-// closes it when t ends. An owner's test writes and reads through it with
-// the owner's own exported functions.
+// closes it when t ends.
 func Library(t testing.TB, schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 	t.Helper()
 	return opened(t, func(ctx context.Context, dir string) (*storage.DB[storage.Library], error) {
@@ -27,7 +21,6 @@ func Library(t testing.TB, schemas ...storage.Schema[storage.Library]) *storage.
 	})
 }
 
-// Local is Library for local.db.
 func Local(t testing.TB, schemas ...storage.Schema[storage.Local]) *storage.DB[storage.Local] {
 	t.Helper()
 	return opened(t, func(ctx context.Context, dir string) (*storage.DB[storage.Local], error) {

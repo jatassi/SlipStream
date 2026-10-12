@@ -1,6 +1,3 @@
-// Package wrongfile must not compile: it passes a library.db transaction to
-// a local.db owner's functions. storage's TestWrongFileDoesNotCompile builds
-// it and asserts both errors.
 package wrongfile
 
 import (

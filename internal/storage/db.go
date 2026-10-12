@@ -7,27 +7,17 @@ import (
 	"fmt"
 )
 
-// DB is one open file: a writer pool of exactly one connection and a
-// query_only reader pool of GOMAXPROCS connections. The composition root
-// opens it and hands it to the subsystems that own tables in it.
 type DB[F File] struct {
 	write *sql.DB
 	read  *sql.DB
 }
 
-// Tx is the transaction a Write callback runs in. Only Write makes one.
 type Tx[F File] struct {
 	tx *sql.Tx
 }
 
-// Reader is anything F can be read through: the *DB outside a Write, or the
-// *Tx inside one. Owners' read functions take it, so one function serves
-// both callers. The unexported method seals it to this package and binds it
-// to F, so a *Tx[Library] is not a Reader[Local].
-//
 // The four exported methods exist for sqlc's generated DBTX and nothing
-// else; release lint's sql-confined rule flags any call to them outside
-// this package and files with sqlc's generated header.
+// else.
 type Reader[F File] interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
@@ -41,8 +31,7 @@ var (
 	_ Reader[Library] = (*Tx[Library])(nil)
 )
 
-// ErrNoRows is what a generated :one query returns when no row matches, so
-// owners and their callers test for it without importing database/sql.
+// ErrNoRows is what a generated :one query returns when no row matches.
 var ErrNoRows = sql.ErrNoRows
 
 // Write runs fn in one transaction on the file's writer connection. It
@@ -170,15 +159,10 @@ func (t *Tx[F]) file() F {
 	return f
 }
 
-// holdingKey's value is a holding: for each file rank, the name of the file
-// whose writer this call chain holds, or "". One key for both files keeps
-// the nesting order check in one place.
 type holdingKey struct{}
 
 type holding [files]string
 
-// enter marks ctx as holding F's writer, panicking first when that would
-// nest F in itself or in a file of higher rank.
 func enter[F File](ctx context.Context) context.Context {
 	p := policyOf[F]()
 	h, _ := ctx.Value(holdingKey{}).(holding)
@@ -194,9 +178,6 @@ func enter[F File](ctx context.Context) context.Context {
 	return context.WithValue(ctx, holdingKey{}, h)
 }
 
-// mustNotHold panics when ctx holds F's writer. The check is per file, not
-// per DB: in-process Nodes never share a ctx, so a second DB[F] in the same
-// call chain is a bug too.
 func mustNotHold[F File](ctx context.Context) {
 	if h, _ := ctx.Value(holdingKey{}).(holding); h[policyOf[F]().rank] != "" {
 		panic("storage: read through the Tx inside Write")

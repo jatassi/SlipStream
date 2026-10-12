@@ -15,12 +15,9 @@ import (
 
 // PreMigrationHook runs before the first pending migration on a library.db
 // that already holds at least one applied migration. An error fails the
-// open with nothing migrated (ADR 0015). S03's composition root passes one
-// that does nothing; Backups and restore fills its body.
+// open with nothing migrated (ADR 0015).
 type PreMigrationHook func(ctx context.Context, db *Unmigrated, plan Plan) error
 
-// Unmigrated is library.db as it stands before any pending migration: the
-// hook's view of the file. Backups and restore adds the copy it takes.
 type Unmigrated struct {
 	conn *sql.DB
 }
@@ -29,11 +26,6 @@ func (u *Unmigrated) Versions(ctx context.Context) (Versions, error) {
 	return readVersions(ctx, u.conn)
 }
 
-// migrate brings the file at path to its schemas' latest versions on its
-// own connection, then closes it. Running it twice is safe: the second run
-// reads the versions the first wrote and plans nothing. A crash between two
-// migration files leaves the set at the last whole file, because goose runs
-// each file in its own transaction and records its version in it.
 func migrate[F File](ctx context.Context, path string, schemas []Schema[F], hook PreMigrationHook, t Timings, log *slog.Logger) (err error) {
 	p := policyOf[F]()
 	conn, err := sql.Open("sqlite", dsn(path, p, t, roleMigrate))
@@ -70,8 +62,6 @@ func migrate[F File](ctx context.Context, path string, schemas []Schema[F], hook
 	return nil
 }
 
-// check reads the file's versions and plans its migrations. A file SQLite
-// cannot read, or one whose quick_check fails, is a *corruptError.
 func check[F File](ctx context.Context, conn *sql.DB, p policy, schemas []Schema[F]) (Versions, Plan, error) {
 	if p.quickCheck {
 		if err := quickCheck(ctx, conn, p); err != nil {
@@ -97,9 +87,6 @@ func quickCheck(ctx context.Context, conn *sql.DB, p policy) error {
 	return nil
 }
 
-// readVersions reads every goose_<set> table the file holds. Tables named
-// goose_* whose suffix is not a set name are not version tables and are
-// skipped, so the set name is safe to splice into SQL.
 func readVersions(ctx context.Context, conn *sql.DB) (Versions, error) {
 	rows, err := conn.QueryContext(ctx, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name GLOB 'goose_*' ORDER BY name")
 	if err != nil {
@@ -133,9 +120,6 @@ func readVersions(ctx context.Context, conn *sql.DB) (Versions, error) {
 	return held, nil
 }
 
-// applySet runs one set's pending files with goose's provider API: one
-// provider per set, the global registry disabled, the version table
-// goose_<set>.
 func applySet[F File](ctx context.Context, conn *sql.DB, p policy, s Schema[F]) error {
 	prov, err := goose.NewProvider(goose.DialectSQLite3, conn, s.files,
 		goose.WithTableName("goose_"+s.set),
@@ -156,8 +140,6 @@ func applySet[F File](ctx context.Context, conn *sql.DB, p policy, s Schema[F]) 
 	return nil
 }
 
-// foreignKeyCheck fails the open when a set left a row whose foreign key
-// matches nothing; migrations run with foreign keys off, so SQLite did not.
 func foreignKeyCheck(ctx context.Context, conn *sql.DB, p policy, set string) error {
 	var table, parent string
 	var rowid sql.NullInt64
@@ -172,8 +154,6 @@ func foreignKeyCheck(ctx context.Context, conn *sql.DB, p policy, set string) er
 	return fmt.Errorf("%s: set %s left rows in %s whose foreign key into %s matches nothing", p.name, set, table, parent)
 }
 
-// corruptOr is a *corruptError when SQLite reports err as a file that is not
-// a database or is corrupt, else err.
 func corruptOr(p policy, err error) error {
 	var serr *sqlite.Error
 	if errors.As(err, &serr) {
@@ -185,8 +165,6 @@ func corruptOr(p policy, err error) error {
 	return fmt.Errorf("%s: %w", p.name, err)
 }
 
-// corruptError is SQLITE_NOTADB or SQLITE_CORRUPT before migrating, or a
-// quick_check that is not ok.
 type corruptError struct {
 	file   string
 	advice string

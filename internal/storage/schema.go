@@ -9,21 +9,11 @@ import (
 	"strconv"
 )
 
-// Schema is one owner's migration set in file F: a set name and the
-// owner's schema/ folder. An owner makes it in its Schema function:
-//
-//	//go:embed schema/*.sql
-//	var schemaFiles embed.FS
-//
-//	func Schema() storage.Schema[file] { return storage.NewSchema[file]("clip", schemaFiles) }
-//
-// Because the type carries F, OpenLibrary takes only []Schema[Library] and
-// OpenLocal only []Schema[Local]; a schema cannot land in the wrong file.
 type Schema[F File] struct {
 	set      string
-	files    fs.FS   // rooted at the owner's schema/ folder
-	versions []int64 // every NNNNN in files, ascending
-	latest   int64   // the highest version this Schema applies
+	files    fs.FS
+	versions []int64
+	latest   int64
 }
 
 var (
@@ -35,10 +25,7 @@ var (
 // table and prefixes every table the set creates; it never changes.
 //
 // It panics when set does not match [a-z][a-z0-9]*, is "goose" or
-// "sqlite", or when schema/ holds no NNNNN_slug.sql file: those are
-// programmer errors, and the audit over the composition root's lists
-// reaches every Schema in a test. Version gaps, duplicates and Down
-// sections are release lint's migration-versions findings.
+// "sqlite", or when schema/ holds no NNNNN_slug.sql file.
 func NewSchema[F File](set string, owner fs.FS) Schema[F] {
 	if !setName.MatchString(set) || set == "goose" || set == "sqlite" {
 		panic(fmt.Sprintf("storage: schema set name %q must match [a-z][a-z0-9]* and not be goose or sqlite", set))
@@ -67,8 +54,6 @@ func NewSchema[F File](set string, owner fs.FS) Schema[F] {
 
 func (s Schema[F]) Set() string { return s.set }
 
-// Through is the schema cut at version: what an older binary shipped.
-// Upgrade tests open a file with the cut schema, then with the whole one.
 func (s Schema[F]) Through(version int64) Schema[F] {
 	if version < 1 || version > s.latest {
 		panic(fmt.Sprintf("storage: schema %s has no version %d to cut at", s.set, version))
@@ -77,7 +62,6 @@ func (s Schema[F]) Through(version int64) Schema[F] {
 	return s
 }
 
-// above is every version in files the Schema does not apply.
 func (s Schema[F]) above() []int64 {
 	i, _ := slices.BinarySearch(s.versions, s.latest+1)
 	return s.versions[i:]
@@ -98,12 +82,6 @@ type Step struct {
 	To   int64  `json:"to"`
 }
 
-// Compare checks the versions a file holds against the binary's schema list
-// and plans the migrations opening it would apply. It is pure: startup runs
-// it on the versions read from the file, and Backups and restore runs it on
-// the versions a Backup holds, so restore refuses exactly what startup
-// refuses.
-//
 // The error is a *SchemaError: a held version above the list's latest for
 // that set, or a held set the list lacks. Sets are checked in list order,
 // then unknown sets in name order, so the first finding is deterministic.

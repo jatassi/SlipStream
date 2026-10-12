@@ -23,7 +23,6 @@ func AuditLibrary(t testing.TB, schemas []storage.Schema[storage.Library]) {
 	audit(t, storage.LibraryFile, schemas, openLibrary)
 }
 
-// AuditLocal is AuditLibrary for local.db.
 func AuditLocal(t testing.TB, schemas []storage.Schema[storage.Local]) {
 	t.Helper()
 	audit(t, storage.LocalFile, schemas, openLocal)
@@ -82,19 +81,14 @@ func catalog[F storage.File](ctx context.Context, path string, schemas []storage
 	return c, err
 }
 
-// step is one set's replay: the catalogs before and after it applied.
 type step struct {
 	set    string
-	known  []string // the earlier sets and set itself
+	known  []string
 	before map[string]storage.Object
 	after  map[string]storage.Object
 	out    []string
 }
 
-// findings is every rule over one set's step, as a pure function of the
-// catalogs before and after it applied. A table belongs to the set whose
-// name it carries (<set> or <set>_*); set names have no underscore, so the
-// owner is unambiguous.
 func findings(set string, earlier []string, before, after storage.Catalog) []string {
 	s := &step{set: set, known: append(slices.Clone(earlier), set), before: byKey(before), after: byKey(after)}
 	for _, o := range before.Objects {
@@ -114,7 +108,6 @@ func (s *step) report(format string, args ...any) {
 	s.out = append(s.out, s.set+": "+fmt.Sprintf(format, args...))
 }
 
-// checkKept reports an earlier set's object this set changed or dropped.
 func (s *step) checkKept(o storage.Object) {
 	owner := s.owner(o.Name)
 	if owner == "" || owner == s.set || isVersionTable(o) {
@@ -128,7 +121,6 @@ func (s *step) checkKept(o storage.Object) {
 	}
 }
 
-// checkOwn applies the rules to an object this set created or changed.
 func (s *step) checkOwn(o storage.Object) {
 	if o.Name != s.set && !strings.HasPrefix(o.Name, s.set+"_") {
 		s.report("%s %s lacks the prefix %s_", o.Type, o.Name, s.set)
@@ -171,7 +163,6 @@ func (s *step) checkTable(o storage.Object) {
 	}
 }
 
-// owner is the known set a table or object name belongs to, or "".
 func (s *step) owner(name string) string {
 	prefix, _, _ := strings.Cut(strings.ToLower(name), "_")
 	if slices.Contains(s.known, prefix) {

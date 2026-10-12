@@ -74,8 +74,6 @@ func splitQueries(src string) []*query {
 	return queries
 }
 
-// topLevelWords returns the upper-cased keywords and identifiers outside any
-// parentheses, skipping comments and quoted strings and names.
 func topLevelWords(sql string) []string {
 	var words []string
 	depth := 0
@@ -111,9 +109,8 @@ func topLevelWords(sql string) []string {
 	return words
 }
 
-// skipPast returns the length of s up to and including the first end, or all
-// of s when end never appears. A doubled quote inside a string is two quoted
-// runs back to back, which leaves the scan in the same place.
+// A doubled quote inside a string is two quoted runs back to back, which
+// leaves the scan in the same place.
 func skipPast(s, end string) int {
 	if i := strings.Index(s, end); i >= 0 {
 		return i + len(end)

@@ -27,9 +27,8 @@ func runMigrationsFrozen(ctx context.Context, args []string) error {
 	return migrationsFrozen(ctx, os.Stdout, ".", *base)
 }
 
-// migrationsFrozen reports every owner's schema/*.sql file that HEAD edits,
-// deletes or renames since its merge base with base. Goose records only a
-// version, so an edited migration never reruns on a file that already holds it.
+// Goose records only a version, so an edited migration never reruns on a
+// file that already holds it.
 func migrationsFrozen(ctx context.Context, w io.Writer, dir, base string) error {
 	changes, err := gitChanges(ctx, dir, base, "HEAD")
 	if err != nil {

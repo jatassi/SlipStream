@@ -18,12 +18,9 @@ import (
 )
 
 type Timings struct {
-	// BusyTimeout covers only another process on the file, which the data
-	// dir lock already excludes. Writers inside the Node queue in Go.
 	BusyTimeout time.Duration `yaml:"busy_timeout"`
 }
 
-// DefaultTimings is called only by internal/node/config.go (config-sections).
 func DefaultTimings() Timings { return Timings{BusyTimeout: 5 * time.Second} }
 
 // RefusedError is a library.db the Node must not start on: a *SchemaError
@@ -102,8 +99,6 @@ func discard(path string) error {
 	return nil
 }
 
-// connect opens the writer and reader pools on a migrated file. It pings
-// the writer so a file that cannot open fails here, not on the first Write.
 func connect[F File](ctx context.Context, path string, t Timings) (*DB[F], error) {
 	p := policyOf[F]()
 	write, err := sql.Open("sqlite", dsn(path, p, t, roleWrite))
@@ -133,8 +128,7 @@ const (
 	roleRead
 )
 
-// dsn is the modernc URI for one connection role on path. foreign_keys is
-// off on the migration connection, because SQLite's table-rebuild
+// foreign_keys is off on the migration connection, because SQLite's table-rebuild
 // procedure drops a table, and with foreign keys on that drop would
 // cascade-delete child rows in other sets.
 func dsn(path string, p policy, t Timings, r role) string {

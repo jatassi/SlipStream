@@ -7,18 +7,15 @@ import (
 )
 
 // Time is a UTC instant at microsecond precision, stored as INTEGER unix
-// microseconds. Every *_at column maps to it (each sqlc.yaml's first
-// override). Its field is unexported, so a local time cannot be built; Now
-// and FromTime are the only ways in.
+// microseconds.
 //
 // The zero Time is SQL NULL, both ways: sqlc's column override cannot tell
 // a nullable column apart, so nullability lives in the value. Two Times are
 // equal exactly when == says so, because every Time is normalized.
 type Time struct {
-	t time.Time // zero, or UTC with no monotonic reading, truncated to the µs
+	t time.Time
 }
 
-// Now reads time.Now, which synctest fakes.
 func Now() Time { return FromTime(time.Now()) }
 
 // FromTime converts an instant in any zone to UTC. The zero time.Time stays
@@ -38,7 +35,6 @@ func (t Time) Compare(u Time) int { return t.t.Compare(u.t) }
 
 func (t Time) String() string { return t.t.Format(time.RFC3339Nano) }
 
-// Value is NULL for the zero Time, else unix microseconds.
 func (t Time) Value() (driver.Value, error) {
 	if t.IsZero() {
 		return nil, nil
@@ -46,8 +42,6 @@ func (t Time) Value() (driver.Value, error) {
 	return t.t.UnixMicro(), nil
 }
 
-// Scan accepts NULL (the zero Time) and int64, the only values a STRICT
-// INTEGER column holds.
 func (t *Time) Scan(src any) error {
 	switch v := src.(type) {
 	case nil:

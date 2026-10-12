@@ -1,6 +1,3 @@
-// Package shelf is the stand-in core owner: one table, one migration. clip,
-// the test-only Content Type, has a foreign key into it. Neither ships:
-// release-imports forbids internal/storage/example in cmd/slipstream.
 package shelf
 
 import (

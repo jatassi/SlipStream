@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-// recorder is the audit's t with its errors collected instead of failing.
 type recorder struct {
 	testing.TB
 	errs []string

@@ -18,8 +18,6 @@ func init() {
 	})
 }
 
-// storageMechanism is exempt as one directory: its subpackages, the example
-// owners among them, are owners like any other.
 const storageMechanism = "internal/storage"
 
 var rawStatements = []string{"ExecContext", "QueryContext", "QueryRowContext", "PrepareContext"}

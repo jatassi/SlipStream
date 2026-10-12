@@ -37,8 +37,6 @@ func runSqlc(ctx context.Context, args []string) error {
 	return nil
 }
 
-// sqlcConfigs is every tracked sqlc.yaml outside the dirs the go command
-// ignores (testdata, _*, .*), so lint fixtures are never regenerated.
 func sqlcConfigs(ctx context.Context, root string) ([]string, error) {
 	out, err := gitOutput(ctx, root, nil, "ls-files", "-z", "--", "sqlc.yaml", "*/sqlc.yaml")
 	if err != nil {
@@ -62,15 +60,10 @@ func ignoredByGo(file string) bool {
 	return false
 }
 
-// sqlcArgs invokes the sqlc that tools/go.mod pins with the host
-// environment: it builds without cgo, so it needs none of the native
-// bundle's toolchain. It runs from root, where the -modfile path resolves.
 func sqlcArgs(args ...string) []string {
 	return append([]string{"tool", "-modfile=tools/go.mod", "sqlc"}, args...)
 }
 
-// sqlcDrift writes a finding to w for every config, relative to dir, whose
-// owner's generated code differs from what sqlc would generate now.
 func sqlcDrift(ctx context.Context, root, dir string, configs []string, w io.Writer) error {
 	var stale []string
 	for _, c := range configs {
