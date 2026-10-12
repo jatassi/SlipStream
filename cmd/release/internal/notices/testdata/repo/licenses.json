@@ -1,0 +1,43 @@
+{
+	"allow": [
+		"MIT",
+		"BSD-2-Clause",
+		"BSD-3-Clause",
+		"Apache-2.0",
+		"BSL-1.0",
+		"ISC",
+		"Zlib",
+		"0BSD",
+		"CC0-1.0",
+		"MPL-2.0",
+		"LGPL-2.1-or-later",
+		"GPL-3.0-or-later",
+		"GPL-3.0-with-GCC-exception"
+	],
+	"deny": [
+		{
+			"license": "BSD-4-Clause",
+			"reason": "its advertising clause conflicts with GPL-3.0 (ADR 0010, ADR 0021)"
+		},
+		{
+			"license": "AGPL-3.0",
+			"reason": "SlipStream ships under GPL-3.0, not AGPL-3.0 (ADR 0010, ADR 0021)"
+		},
+		{
+			"license": "GPL-2.0-only",
+			"reason": "GPL-2.0-only cannot combine with GPL-3.0 (ADR 0010, ADR 0021)"
+		},
+		{
+			"license": "NONE",
+			"reason": "code with no license grants no right to redistribute it (ADR 0010, ADR 0021)"
+		}
+	],
+	"overrides": [
+		{
+			"name": "example.com/odd",
+			"version": "v1.0.0",
+			"license": "MIT",
+			"reason": "COPYING grants use without conditions; the author confirmed MIT in issue 4"
+		}
+	]
+}

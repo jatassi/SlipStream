@@ -7,6 +7,7 @@ import (
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 	_ "github.com/jatassi/slipstream/cmd/release/internal/lint/rules"
+	"github.com/jatassi/slipstream/cmd/release/internal/notices"
 )
 
 func init() {
@@ -38,5 +39,8 @@ func runLint(args []string) error {
 	if err != nil {
 		return err
 	}
-	return lint.Run(os.Stdout, lint.Open(root), rules)
+	if err := lint.Run(os.Stdout, lint.Open(root), rules); err != nil || *only != "" {
+		return err
+	}
+	return notices.Check(root)
 }
