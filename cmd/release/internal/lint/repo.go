@@ -97,6 +97,13 @@ func (r *Repo) GoSyntax() ([]GoFile, error) {
 	return r.goSrc, nil
 }
 
+// OwnerSQL reports whether file is a .sql file directly inside a folder named
+// folder, such as an owner's schema or queries folder. Folders the go tool
+// ignores hold fixtures with planted violations, so they are not owners.
+func OwnerSQL(file, folder string) bool {
+	return path.Ext(file) == ".sql" && path.Base(path.Dir(file)) == folder && !ignoredByGo(file)
+}
+
 func ignoredByGo(file string) bool {
 	for _, elem := range strings.Split(path.Dir(file), "/") {
 		if elem == "testdata" || strings.HasPrefix(elem, "_") || strings.HasPrefix(elem, ".") {

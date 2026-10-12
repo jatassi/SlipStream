@@ -153,3 +153,19 @@ func TestConfigSections(t *testing.T) {
 		"internal/torrent/engine/engine.go:9: [config-sections] DefaultTimings is never called by internal/node/config.go; wire the section into node.Config",
 	})
 }
+
+func TestMigrationVersions(t *testing.T) {
+	repo := fixtureRepo(t, "migration-versions")
+	untracked := filepath.Join(repo.Root, "internal", "library", "schema", "00003_untracked.sql")
+	if err := os.WriteFile(untracked, []byte("-- +goose Down\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assertFindings(t, check(t, "migration-versions", repo), []string{
+		"internal/library/schema/00002_library_tags.sql:1: [migration-versions] version 2 is also 00002_library_genres.sql",
+		"internal/library/schema/00004_library_rename.sql:1: [migration-versions] version 4 follows 2; version 3 is missing",
+		"internal/library/schema/00005_library_down.sql:4: [migration-versions] -- +goose Down found; migrations are forward-only (ADR 0015)",
+		"internal/library/schema/00006_Library-Size.sql:1: [migration-versions] name must be NNNNN_slug.sql",
+		"internal/library/schema/6_library_size.sql:1: [migration-versions] name must be NNNNN_slug.sql",
+		"internal/media/schema/00002_media_late.sql:1: [migration-versions] version 2 follows 0; version 1 is missing",
+	})
+}
