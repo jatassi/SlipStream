@@ -1,0 +1,153 @@
+{
+	"targets": [
+		{
+			"name": "linux-amd64",
+			"goos": "linux",
+			"goarch": "amd64",
+			"runner": "ubuntu-24.04",
+			"toolchain": "musl-cross",
+			"triple": "x86_64-linux-musl",
+			"min_os": "linux 3.2",
+			"gate": "pr",
+			"go_tags": ["netgo", "osusergo"],
+			"openssl_target": "linux-x86_64",
+			"system_libs": ["-static", "-lstdc++"]
+		},
+		{
+			"name": "linux-arm64",
+			"goos": "linux",
+			"goarch": "arm64",
+			"runner": "ubuntu-24.04-arm",
+			"toolchain": "musl-cross",
+			"triple": "aarch64-linux-musl",
+			"min_os": "linux 3.2",
+			"gate": "native",
+			"go_tags": ["netgo", "osusergo"],
+			"openssl_target": "linux-aarch64",
+			"system_libs": ["-static", "-lstdc++"]
+		},
+		{
+			"name": "windows-amd64",
+			"goos": "windows",
+			"goarch": "amd64",
+			"runner": "windows-2025",
+			"toolchain": "llvm-mingw-ucrt",
+			"triple": "x86_64-w64-mingw32",
+			"min_os": "windows 10",
+			"gate": "native",
+			"openssl_target": "mingw64",
+			"system_libs": ["-static", "-lc++", "-lws2_32", "-lmswsock", "-liphlpapi", "-lcrypt32", "-lbcrypt", "-ldbghelp", "-ladvapi32", "-luser32"]
+		},
+		{
+			"name": "darwin-arm64",
+			"goos": "darwin",
+			"goarch": "arm64",
+			"runner": "macos-15",
+			"toolchain": "xcode",
+			"min_os": "macos 13.0",
+			"gate": "native",
+			"env": {"CMAKE_OSX_ARCHITECTURES": "arm64", "MACOSX_DEPLOYMENT_TARGET": "13.0"},
+			"openssl_target": "darwin64-arm64-cc",
+			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
+		}
+	],
+	"toolchains": [
+		{
+			"name": "musl-cross",
+			"sources": [
+				{
+					"name": "binutils",
+					"version": "2.45.1",
+					"url": "https://ftp.gnu.org/gnu/binutils/binutils-2.45.1.tar.xz",
+					"sha256": "5fe101e6fe9d18fdec95962d81ed670fdee5f37e3f48f0bef87bddf862513aa5"
+				},
+				{
+					"name": "gcc",
+					"version": "14.4.0",
+					"url": "https://ftp.gnu.org/gnu/gcc/gcc-14.4.0/gcc-14.4.0.tar.xz",
+					"sha256": "752b6f567beac83159c77a7680b1316bdd784738bff9a9d070112c09da90f6d9"
+				},
+				{
+					"name": "gmp",
+					"version": "6.3.0",
+					"url": "https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz",
+					"sha256": "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898"
+				},
+				{
+					"name": "mpfr",
+					"version": "4.2.2",
+					"url": "https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz",
+					"sha256": "b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01"
+				},
+				{
+					"name": "mpc",
+					"version": "1.3.1",
+					"url": "https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz",
+					"sha256": "ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8"
+				},
+				{
+					"name": "musl",
+					"version": "1.2.6",
+					"url": "https://www.musl-libc.org/releases/musl-1.2.6.tar.gz",
+					"sha256": "d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
+				},
+				{
+					"name": "linux-headers",
+					"version": "4.19.88-2",
+					"url": "https://github.com/sabotage-linux/kernel-headers/releases/download/v4.19.88-2/linux-headers-4.19.88-2.tar.xz",
+					"sha256": "dc7abf734487553644258a3822cfd429d74656749e309f2b25f09f4282e05588"
+				}
+			],
+			"runtimes": [
+				{"name": "musl", "source": "musl", "license": "MIT"},
+				{"name": "libstdc++", "source": "gcc", "license": "GPL-3.0-with-GCC-exception"},
+				{"name": "libgcc", "source": "gcc", "license": "GPL-3.0-with-GCC-exception"}
+			]
+		},
+		{
+			"name": "llvm-mingw-ucrt",
+			"sources": [
+				{
+					"name": "llvm-mingw",
+					"version": "20261006",
+					"url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/llvm-mingw-20261006-ucrt-x86_64.zip",
+					"sha256": "317492c456aa27ee607a5919f1d2d38dcdc1112516a24d0bf4b00d078f52d17a"
+				}
+			],
+			"runtimes": [
+				{"name": "mingw-w64-runtime", "source": "llvm-mingw", "license": "ZPL-2.1"},
+				{"name": "libc++", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"},
+				{"name": "libc++abi", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"},
+				{"name": "libunwind", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"},
+				{"name": "compiler-rt", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"}
+			]
+		},
+		{
+			"name": "xcode",
+			"xcode": "16.4"
+		}
+	],
+	"components": [
+		{
+			"name": "libtorrent-rasterbar",
+			"version": "2.0.15",
+			"url": "https://github.com/arvidn/libtorrent/releases/download/v2.0.15/libtorrent-rasterbar-2.0.15.tar.gz",
+			"sha256": "5e2e79129823b7ea48721164c32b5aaf83d3fd733b5502100f6705b29f27bb02",
+			"license": "BSD-3-Clause"
+		},
+		{
+			"name": "openssl",
+			"version": "3.5.9",
+			"url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+			"sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+			"license": "Apache-2.0"
+		},
+		{
+			"name": "boost",
+			"version": "1.92.0",
+			"url": "https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-b2-nodocs.tar.gz",
+			"sha256": "e2a814b3a158ab482c7a3d330f8bf5a7a8423d258a4e2fb396996e00fcee2111",
+			"license": "BSL-1.0"
+		}
+	]
+}

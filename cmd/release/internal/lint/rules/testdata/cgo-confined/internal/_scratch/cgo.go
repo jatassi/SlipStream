@@ -1,0 +1,3 @@
+package scratch
+
+import "C"

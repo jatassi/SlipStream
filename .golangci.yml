@@ -1,0 +1,171 @@
+version: "2"
+
+run:
+  relative-path-mode: gitroot
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - asasalint
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - gocognit
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - intrange
+    - makezero
+    - mirror
+    - misspell
+    - nakedret
+    - nilerr
+    - nilnesserr
+    - noctx
+    - nolintlint
+    - perfsprint
+    - predeclared
+    - reassign
+    - recvcheck
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - wrapcheck
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+
+    # A default case does not excuse a switch from naming every enum member,
+    # so adding a member flags every switch that must handle it.
+    exhaustive:
+      default-signifies-exhaustive: false
+
+    gocognit:
+      min-complexity: 20
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      # dupImport misreads cgo's import "C" and staticcheck's ST1019 covers
+      # it. hugeParam and rangeValCopy trade value semantics for copies that
+      # do not matter here. nolintlint covers whyNoLint.
+      disabled-checks:
+        - dupImport
+        - hugeParam
+        - rangeValCopy
+        - whyNoLint
+
+    govet:
+      enable-all: true
+      # fieldalignment orders fields for size instead of meaning. shadow
+      # flags the idiomatic err redeclared in an if statement.
+      disable:
+        - fieldalignment
+        - shadow
+
+    # Errors from SlipStream's own packages already carry their context.
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/jatassi/slipstream/*
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 0
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+    # Not exported or package-comments: a doc comment that restates a name
+    # is noise, so comments stay for what the code cannot say.
+    revive:
+      rules:
+        - name: atomic
+        - name: bare-return
+        - name: blank-imports
+        - name: bool-literal-in-expr
+        - name: constant-logical-expr
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: datarace
+        - name: deep-exit
+        - name: defer
+        - name: dot-imports
+        - name: early-return
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: identical-branches
+        - name: if-return
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: modifies-value-receiver
+        - name: range
+        - name: range-val-address
+        - name: range-val-in-closure
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: redundant-import-alias
+        - name: string-of-int
+        - name: superfluous-else
+        - name: time-equal
+        - name: time-naming
+        - name: unconditional-recursion
+        - name: unexported-return
+        - name: unnecessary-stmt
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: use-any
+        - name: useless-break
+        - name: var-declaration
+        - name: var-naming
+        - name: waitgroup-by-value
+
+    staticcheck:
+      checks:
+        - all
+        - -ST1000 # package comments, as for revive
+
+  exclusions:
+    generated: strict
+    rules:
+      # cmd/release and tests run the go and bun toolchains and read and
+      # write repo and temp files by design. Their paths and arguments come
+      # from the repo, not from a user, so these rules have nothing to catch.
+      - path: ^cmd/release/|_test\.go$
+        linters:
+          - gosec
+        text: "^G(122|204|301|304|306|702|703):"
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true

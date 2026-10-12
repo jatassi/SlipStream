@@ -24,7 +24,7 @@ This matrix lists every user-observable SlipStream v1 feature and the v2 call on
 
 An exception is written on its row only with the maintainer's explicit yes.
 
-**Covered by.** For a `kept` or `superseded` row, the one spec issue under [Specs: SlipStream v2](https://github.com/jatassi/SlipStream/issues/125) that builds it. For an `excepted` or `out of scope` row, the record of that call, or `-` when the charting rules alone exclude it. Run `scripts/check-parity-owners.sh` after editing this file.
+**Covered by.** For a `kept` or `superseded` row, the one spec issue under [Specs: SlipStream v2](https://github.com/jatassi/SlipStream/issues/125) that builds it. For an `excepted` or `out of scope` row, the record of that call, or `-` when the charting rules alone exclude it. Run `go run ./cmd/release lint -rule parity-owners` after editing this file.
 
 **Status.**
 
@@ -411,7 +411,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-273 | Windows MSI installer with Start Menu, Desktop and Startup shortcuts | `scripts/windows/installer.wxs` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
 | P-274 | Windows portable ZIP | `.github/workflows/release.yml` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
 | P-275 | macOS menu bar item with start at login | `internal/platform/app_darwin.go`, `scripts/macos/com.slipstream.slipstream.plist` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
-| P-276 | macOS DMG for arm64 and amd64 | `scripts/macos/create-dmg.sh` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
+| P-276 | macOS DMG for arm64 and amd64 | `scripts/macos/create-dmg.sh` | working | kept for arm64 only, amd64 excepted by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/126#issuecomment-6117170834) | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
 | P-277 | Linux deb and rpm packages | `scripts/linux/postinstall.sh`, `.github/workflows/release.yml` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
 | P-278 | Linux AppImage | `scripts/linux/create-appimage.sh` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |
 | P-279 | Linux portable tarballs for amd64 and arm64 | `.github/workflows/release.yml` | working | kept | [Packages and run modes](https://github.com/jatassi/SlipStream/issues/181) | planned |

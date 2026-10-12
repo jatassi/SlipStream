@@ -1,0 +1,109 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, "feature/**"]
+  schedule:
+    - cron: "23 4 * * *"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      # A push to a branch other than main is unmerged work, so it is planned
+      # like a pull request into main.
+      - id: touch
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
+        run: go run ./cmd/release touches-native -explain -base "origin/$BASE" -head HEAD
+        env:
+          BASE: ${{ github.base_ref || 'main' }}
+      - id: plan
+        run: go run ./cmd/release plan -event "$EVENT" -native="${NATIVE:-false}"
+        env:
+          EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'release' && 'release' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
+          NATIVE: ${{ steps.touch.outputs.native }}
+
+  build:
+    needs: plan
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@v5
+      - if: matrix.xcode
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
+      # Any Go in the runner's tool cache switches to go.mod's version, which
+      # it downloads into GOMODCACHE, so the Go cache restores the toolchain
+      # faster than setup-go installs go.mod's version. The temp drive is the
+      # fast one on Windows.
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ">=1.21"
+          cache: false
+      - run: |
+          echo "GOTOOLCHAIN=go$(sed -n 's/^go //p' go.mod)" >> "$GITHUB_ENV"
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+          echo "SLIPSTREAM_NATIVE_CACHE=$RUNNER_TEMP/slipstream-native" >> "$GITHUB_ENV"
+          echo "GOLANGCI_LINT_CACHE=$RUNNER_TEMP/golangci-lint" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/go-build
+            ${{ runner.temp }}/go-mod
+            ${{ runner.temp }}/golangci-lint
+          key: go-${{ matrix.target }}-${{ hashFiles('go.mod', 'tools/go.mod') }}-${{ github.sha }}
+          restore-keys: go-${{ matrix.target }}-${{ hashFiles('go.mod', 'tools/go.mod') }}-
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      - run: go run ./cmd/release build
+      - run: go run ./cmd/release test
+      # Lint runs on every target so gofmt, line endings and the cgo type
+      # check are proven on each OS, and runs even when a test fails.
+      - if: ${{ !cancelled() }}
+        run: go run ./cmd/release lint
+
+  native-gate:
+    if: always()
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          for result in "$PLAN" "$BUILD"; do
+            test "$result" = success
+          done
+        env:
+          PLAN: ${{ needs.plan.result }}
+          BUILD: ${{ needs.build.result }}

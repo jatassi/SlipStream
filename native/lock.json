@@ -1,0 +1,60 @@
+{
+	"layers": [
+		{
+			"kind": "toolchain",
+			"target": "linux-amd64",
+			"digest": "e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50",
+			"asset": "toolchain-linux-amd64-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50/toolchain-linux-amd64-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50.tar.gz",
+			"sha256": "29077f36a45b54a049cab4678ec619a7f6135f98456bbe80d2785ef121044a66"
+		},
+		{
+			"kind": "libs",
+			"target": "linux-amd64",
+			"digest": "63c3030fb42b52914e6acaba025c78e26f29d90766f20537824b2ca8bf58248a",
+			"asset": "libs-linux-amd64-63c3030fb42b52914e6acaba025c78e26f29d90766f20537824b2ca8bf58248a.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-63c3030fb42b52914e6acaba025c78e26f29d90766f20537824b2ca8bf58248a/libs-linux-amd64-63c3030fb42b52914e6acaba025c78e26f29d90766f20537824b2ca8bf58248a.tar.gz",
+			"sha256": "21f5fdd35c3cc24bff77b2a61eee80ef7207d9dcf86ecb2c597806ac9702bb61"
+		},
+		{
+			"kind": "toolchain",
+			"target": "linux-arm64",
+			"digest": "c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da",
+			"asset": "toolchain-linux-arm64-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da/toolchain-linux-arm64-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da.tar.gz",
+			"sha256": "e937f4d586ba96f90840b90d9da8e3d5a05541cc4adaf6a8e37d20b5f576341d"
+		},
+		{
+			"kind": "libs",
+			"target": "linux-arm64",
+			"digest": "54420631e0a5d793a3b482655c0b29b308684f08192462286d8ea69088320804",
+			"asset": "libs-linux-arm64-54420631e0a5d793a3b482655c0b29b308684f08192462286d8ea69088320804.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-54420631e0a5d793a3b482655c0b29b308684f08192462286d8ea69088320804/libs-linux-arm64-54420631e0a5d793a3b482655c0b29b308684f08192462286d8ea69088320804.tar.gz",
+			"sha256": "f7043d8c09b02c1936d7b12b0a1e2247da92fd09b405b3dfd909df017c0673d5"
+		},
+		{
+			"kind": "toolchain",
+			"target": "windows-amd64",
+			"digest": "54ff20f1f04ae28ff335c409bb5e5963347db0a559a8e37f7df2d3624fe17d14",
+			"asset": "toolchain-windows-amd64-54ff20f1f04ae28ff335c409bb5e5963347db0a559a8e37f7df2d3624fe17d14.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-54ff20f1f04ae28ff335c409bb5e5963347db0a559a8e37f7df2d3624fe17d14/toolchain-windows-amd64-54ff20f1f04ae28ff335c409bb5e5963347db0a559a8e37f7df2d3624fe17d14.tar.gz",
+			"sha256": "44faa012e71e00fdce959e1f9dc0f134caf2ff2034cf06aa005c4827fab4107e"
+		},
+		{
+			"kind": "libs",
+			"target": "windows-amd64",
+			"digest": "ed2d1bede921d05a45fef7344db32bed8dc4f9a4e25eca31d3df1ca0dd65c86b",
+			"asset": "libs-windows-amd64-ed2d1bede921d05a45fef7344db32bed8dc4f9a4e25eca31d3df1ca0dd65c86b.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-ed2d1bede921d05a45fef7344db32bed8dc4f9a4e25eca31d3df1ca0dd65c86b/libs-windows-amd64-ed2d1bede921d05a45fef7344db32bed8dc4f9a4e25eca31d3df1ca0dd65c86b.tar.gz",
+			"sha256": "e519d6932bc0ebfb461c25caa69d75b13e49f0db64f9f97d3a278f84d8c0ca33"
+		},
+		{
+			"kind": "libs",
+			"target": "darwin-arm64",
+			"digest": "4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a",
+			"asset": "libs-darwin-arm64-4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a/libs-darwin-arm64-4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a.tar.gz",
+			"sha256": "24ce49292c38f0c02ea92df8158f65fd08d177f961216edbe2648f39cdd08d27"
+		}
+	]
+}
