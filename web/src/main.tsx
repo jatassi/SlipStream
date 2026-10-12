@@ -1,3 +1,4 @@
+import "./zod-jitless";
 import "./styles.css";
 
 import { StrictMode } from "react";

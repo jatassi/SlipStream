@@ -162,7 +162,7 @@
     "import/no-unassigned-import": [
       "error",
       {
-        "allow": ["**/*.css"]
+        "allow": ["**/*.css", "./zod-jitless"]
       }
     ],
     "unicorn/prefer-top-level-await": "off"
