@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, "feature/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  linux-amd64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/slipstream/native
+          key: native-linux-amd64-${{ hashFiles('native/lock.json') }}
+      - run: scripts/native-deps fetch
+      - run: go run ./cmd/release lint
+      - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
+      - run: go run ./cmd/release build

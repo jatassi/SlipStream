@@ -1,0 +1,12 @@
+{
+	"targets": [
+		{"name": "linux-amd64", "goos": "linux", "goarch": "amd64", "runner": "ubuntu-24.04", "toolchain": "host-gcc",
+		 "min_os": "linux 3.2", "gate": "pr", "layers": ["libs"], "openssl_target": "linux-x86_64", "system_libs": ["-lstdc++"]},
+		{"name": "darwin-arm64", "goos": "darwin", "goarch": "arm64", "runner": "macos-15", "toolchain": "xcode",
+		 "min_os": "macos 13.0", "gate": "native", "layers": [], "openssl_target": "darwin64-arm64-cc", "system_libs": ["-lc++"]}
+	],
+	"components": [
+		{"name": "libtorrent-rasterbar", "version": "2.0.15", "url": "https://example.test/lt.tar.gz",
+		 "sha256": "5e2e79129823b7ea48721164c32b5aaf83d3fd733b5502100f6705b29f27bb02", "license": "BSD-3-Clause"}
+	]
+}

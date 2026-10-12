@@ -8,7 +8,7 @@ import (
 const fixtureInputs = `{
 	"targets": [
 		{"name": "linux-amd64", "goos": "linux", "goarch": "amd64", "runner": "ubuntu-24.04", "toolchain": "host-gcc",
-		 "min_os": "linux 3.2", "gate": "pr", "openssl_target": "linux-x86_64", "system_libs": ["-lstdc++", "-lm"]},
+		 "min_os": "linux 3.2", "gate": "pr", "layers": ["libs"], "openssl_target": "linux-x86_64", "system_libs": ["-lstdc++", "-lm"]},
 		{"name": "darwin-arm64", "goos": "darwin", "goarch": "arm64", "runner": "macos-15", "toolchain": "xcode",
 		 "min_os": "macos 13.0", "gate": "native", "openssl_target": "darwin64-arm64-cc", "system_libs": ["-lc++"]}
 	],
@@ -46,7 +46,7 @@ func digest(t *testing.T, in Inputs, target string, recipe fstest.MapFS) string 
 
 func TestLibsDigestIsStable(t *testing.T) {
 	in, recipe := fixture(t)
-	const want = "899e75aee0a0f5df73ca0c2dc6f189bd089006c9a22d4375c4d2fed0993b8abc"
+	const want = "6c4509948055f209c3ec2d01b7f0d552d687946d1852efc1d8569178a41efe9c"
 	if got := digest(t, in, "linux-amd64", recipe); got != want {
 		t.Fatalf("digest = %s, want %s", got, want)
 	}

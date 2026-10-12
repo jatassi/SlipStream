@@ -26,3 +26,11 @@ func TestParseInputsRejectsUnknownGate(t *testing.T) {
 		t.Fatal("parsed a target with gate nightly")
 	}
 }
+
+func TestParseInputsRejectsUnknownLayerKind(t *testing.T) {
+	_, err := ParseInputs([]byte(`{"targets": [{"name": "linux-amd64", "gate": "pr", "layers": ["libs", "ffmpeg"]}], "components": []}`))
+	want := `native inputs: target linux-amd64: unknown layer kind "ffmpeg"`
+	if err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %s", err, want)
+	}
+}

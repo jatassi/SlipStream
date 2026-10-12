@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -13,18 +15,17 @@ import (
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
 
-const (
-	inputsPath = "native/inputs.json"
-	recipeDir  = "native/recipe"
-)
-
-var depsCommands = map[string]func(native.Inputs, native.Target, string) error{
-	"build": depsBuild,
-	"env":   depsEnv,
+var depsCommands = map[string]command{
+	"build":   {"build a target's libs layer into a publishable archive", depsBuild},
+	"env":     {"print the cgo environment of the fetched libs layer", depsEnv},
+	"fetch":   {"download, verify and extract a target's pinned layers", depsFetch},
+	"missing": {"print the CI matrix of wanted layers that are not published", depsMissing},
+	"pin":     {"write native/lock.json from the published layers", depsPin},
+	"verify":  {"check native/lock.json against the inputs and recipe", depsVerify},
 }
 
 func init() {
-	register("deps", "build the native libs layer or print its cgo environment", runDeps)
+	register("deps", "fetch, pin, verify and build the native bundle layers", runDeps)
 }
 
 func runDeps(args []string) error {
@@ -33,24 +34,83 @@ func runDeps(args []string) error {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	usage := "usage: deps {" + strings.Join(names, "|") + "} [-target name]"
 	if len(args) == 0 {
-		return fmt.Errorf("%s", usage)
+		var b strings.Builder
+		b.WriteString("usage: deps <command> [args]")
+		for _, name := range names {
+			fmt.Fprintf(&b, "\n  %-8s %s", name, depsCommands[name].summary)
+		}
+		return fmt.Errorf("%s", b.String())
 	}
-	run, ok := depsCommands[args[0]]
+	cmd, ok := depsCommands[args[0]]
 	if !ok {
-		return fmt.Errorf("unknown deps command %q; %s", args[0], usage)
+		return fmt.Errorf("unknown deps command %q; one of %s", args[0], strings.Join(names, ", "))
 	}
-	fs := flag.NewFlagSet("deps "+args[0], flag.ContinueOnError)
-	targetName := fs.String("target", native.HostTargetName(), "target from "+inputsPath)
-	if err := fs.Parse(args[1:]); err != nil {
+	return cmd.run(args[1:])
+}
+
+func targetFlag(fs *flag.FlagSet) *string {
+	return fs.String("target", native.HostTargetName(), "target from "+native.InputsPath)
+}
+
+func loadTarget(name string) (string, native.Inputs, native.Target, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return "", native.Inputs{}, native.Target{}, err
+	}
+	in, err := native.LoadInputs(filepath.Join(root, native.InputsPath))
+	if err != nil {
+		return "", native.Inputs{}, native.Target{}, err
+	}
+	t, err := in.Target(name)
+	return root, in, t, err
+}
+
+func wantRepo(name string, args []string) (string, native.Inputs, []native.LayerID, error) {
+	if err := flag.NewFlagSet("deps "+name, flag.ContinueOnError).Parse(args); err != nil {
+		return "", native.Inputs{}, nil, err
+	}
+	root, err := repoRoot()
+	if err != nil {
+		return "", native.Inputs{}, nil, err
+	}
+	in, want, err := native.WantRepo(root)
+	return root, in, want, err
+}
+
+func depsBuild(args []string) error {
+	fs := flag.NewFlagSet("deps build", flag.ContinueOnError)
+	target := targetFlag(fs)
+	archive := fs.String("archive", "", "write the layer to this .tar.gz (required)")
+	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	in, err := native.LoadInputs(inputsPath)
+	root, in, t, err := loadTarget(*target)
 	if err != nil {
 		return err
 	}
-	target, err := in.Target(*targetName)
+	if *archive == "" {
+		return fmt.Errorf("-archive is required")
+	}
+	if t.GOOS != runtime.GOOS || t.GOARCH != runtime.GOARCH {
+		return fmt.Errorf("target %s builds on its own OS and architecture, not on %s", t.Name, native.HostTargetName())
+	}
+	cacheRoot, err := native.CacheRoot()
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	return native.BuildLibs(ctx, in, t, filepath.Join(root, native.RecipeDir), cacheRoot, *archive, os.Stderr)
+}
+
+func depsEnv(args []string) error {
+	fs := flag.NewFlagSet("deps env", flag.ContinueOnError)
+	target := targetFlag(fs)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, in, t, err := loadTarget(*target)
 	if err != nil {
 		return err
 	}
@@ -58,36 +118,99 @@ func runDeps(args []string) error {
 	if err != nil {
 		return err
 	}
-	return run(in, target, cacheRoot)
+	b, err := native.FetchedLibs(root, cacheRoot, in, t)
+	if err != nil {
+		return err
+	}
+	fmt.Print(native.ExportLines(b.Env))
+	return nil
 }
 
-func depsBuild(in native.Inputs, t native.Target, cacheRoot string) error {
-	if t.GOOS != runtime.GOOS || t.GOARCH != runtime.GOARCH {
-		return fmt.Errorf("target %s builds on its own OS and architecture, not on %s", t.Name, native.HostTargetName())
+func depsFetch(args []string) error {
+	fs := flag.NewFlagSet("deps fetch", flag.ContinueOnError)
+	target := targetFlag(fs)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, _, t, err := loadTarget(*target)
+	if err != nil {
+		return err
+	}
+	lock, err := native.LoadLock(filepath.Join(root, native.LockPath))
+	if err != nil {
+		return err
+	}
+	cacheRoot, err := native.CacheRoot()
+	if err != nil {
+		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	dir, err := native.BuildLibs(ctx, in, t, recipeDir, cacheRoot, os.Stderr)
-	if err != nil {
-		return err
+	fetched := 0
+	for _, l := range lock.Layers {
+		if l.Target != t.Name {
+			continue
+		}
+		dir, err := native.Fetch(ctx, cacheRoot, l)
+		if err != nil {
+			return err
+		}
+		fmt.Println(dir)
+		fetched++
 	}
-	fmt.Println(dir)
+	if fetched == 0 {
+		return fmt.Errorf("%s pins no layer for %s", native.LockPath, t.Name)
+	}
 	return nil
 }
 
-func depsEnv(in native.Inputs, t native.Target, cacheRoot string) error {
-	tc, err := t.Compilers()
+func depsVerify(args []string) error {
+	if err := flag.NewFlagSet("deps verify", flag.ContinueOnError).Parse(args); err != nil {
+		return err
+	}
+	return runLint([]string{"-rule", "native-lock"})
+}
+
+func depsPin(args []string) error {
+	root, _, want, err := wantRepo("pin", args)
 	if err != nil {
 		return err
 	}
-	dir, err := native.FindLibs(in, t, recipeDir, cacheRoot)
+	lock, err := native.Pin(context.Background(), native.ReleasesURL, want)
 	if err != nil {
 		return err
 	}
-	md, err := native.ReadMetadata(dir)
+	return lock.Write(filepath.Join(root, native.LockPath))
+}
+
+type matrixEntry struct {
+	Target string `json:"target"`
+	Runner string `json:"runner"`
+	Tag    string `json:"tag"`
+	Asset  string `json:"asset"`
+}
+
+func depsMissing(args []string) error {
+	_, in, want, err := wantRepo("missing", args)
 	if err != nil {
 		return err
 	}
-	fmt.Print(native.ExportLines(native.CgoEnv(dir, md, tc)))
-	return nil
+	matrix := struct {
+		Include []matrixEntry `json:"include"`
+	}{[]matrixEntry{}}
+	for _, id := range want {
+		published, err := native.Published(context.Background(), native.ReleasesURL, id)
+		if err != nil {
+			return err
+		}
+		if published {
+			continue
+		}
+		t, err := in.Target(id.Target)
+		if err != nil {
+			return err
+		}
+		matrix.Include = append(matrix.Include, matrixEntry{t.Name, t.Runner, id.Tag(), id.AssetName()})
+	}
+	return json.NewEncoder(os.Stdout).Encode(matrix)
 }
