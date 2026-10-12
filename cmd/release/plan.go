@@ -50,7 +50,7 @@ func runPlan(args []string) error {
 	if _, ok := eventRunsNativeTargets[*event]; !ok {
 		return fmt.Errorf("-event %q is not one of %s", *event, strings.Join(events, ", "))
 	}
-	in, err := native.LoadInputs(inputsPath)
+	in, err := native.LoadInputs(native.InputsPath)
 	if err != nil {
 		return err
 	}

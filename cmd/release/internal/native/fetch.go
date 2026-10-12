@@ -78,18 +78,24 @@ func Pin(ctx context.Context, base string, ids []LayerID) (Lock, error) {
 	return lock, nil
 }
 
+// noRedirects stops at GitHub's redirect for a release asset. The signed
+// URL it redirects to accepts only GET.
+var noRedirects = &http.Client{
+	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
+
 func Published(ctx context.Context, base string, id LayerID) (bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, id.URL(base), nil)
 	if err != nil {
 		return false, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := noRedirects.Do(req)
 	if err != nil {
 		return false, err
 	}
 	resp.Body.Close()
 	switch resp.StatusCode {
-	case http.StatusOK:
+	case http.StatusOK, http.StatusFound:
 		return true, nil
 	case http.StatusNotFound:
 		return false, nil

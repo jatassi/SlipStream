@@ -2,7 +2,7 @@
 #define SLIPSTREAM_LIBTORRENT_SHIM_H
 
 #ifndef SLIPSTREAM_NATIVE_BUNDLE
-#error "native bundle missing: run scripts/native-deps build (or fetch) and eval \"$(scripts/native-deps env)\""
+#error "native bundle missing: run scripts/native-deps fetch and eval \"$(scripts/native-deps env)\""
 #endif
 
 #include <stddef.h>

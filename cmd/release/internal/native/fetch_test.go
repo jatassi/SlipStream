@@ -16,8 +16,9 @@ import (
 
 const fakeDigest = "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1"
 
-// publish serves one packed fake libs layer the way a GitHub release does
-// and counts the requests it gets.
+// publish serves one packed fake libs layer the way a GitHub release does,
+// redirecting to a signed URL that accepts only GET, and counts the
+// requests it gets.
 func publish(t *testing.T) (base string, asset []byte, requests *atomic.Int32) {
 	t.Helper()
 	layer := t.TempDir()
@@ -43,11 +44,16 @@ func publish(t *testing.T) (base string, asset []byte, requests *atomic.Int32) {
 	id := LayerID{KindLibs, "linux-amd64", fakeDigest}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
-		if r.URL.Path != "/"+id.Tag()+"/"+id.AssetName() {
+		switch {
+		case r.URL.Path == "/"+id.Tag()+"/"+id.AssetName():
+			http.Redirect(w, r, "/signed/"+id.AssetName(), http.StatusFound)
+		case r.URL.Path == "/signed/"+id.AssetName() && r.Method == http.MethodGet:
+			w.Write(asset)
+		case r.URL.Path == "/signed/"+id.AssetName():
+			w.WriteHeader(http.StatusUnauthorized)
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		w.Write(asset)
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL, asset, requests
@@ -87,8 +93,8 @@ func TestFetchVerifiesExtractsAndThenMakesNoRequest(t *testing.T) {
 	if err != nil || again != dir {
 		t.Fatalf("second Fetch = %s, %v", again, err)
 	}
-	if n := requests.Load(); n != 1 {
-		t.Fatalf("server got %d requests over two fetches, want 1", n)
+	if n := requests.Load(); n != 2 {
+		t.Fatalf("server got %d requests over two fetches, want the redirect and the download", n)
 	}
 }
 

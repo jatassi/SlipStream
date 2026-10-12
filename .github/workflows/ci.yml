@@ -25,6 +25,8 @@ jobs:
           path: ~/.cache/slipstream/native
           key: native-linux-amd64-${{ hashFiles('native/lock.json') }}
       - run: scripts/native-deps fetch
+      - run: bun install --frozen-lockfile && bun run build
+        working-directory: web
       - run: go run ./cmd/release lint
       - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
       - run: go run ./cmd/release build
