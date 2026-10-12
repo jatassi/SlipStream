@@ -5,6 +5,7 @@ package fake
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -78,7 +79,7 @@ func (s httpServer) Serve(ctx context.Context, l net.Listener) error {
 	stop := context.AfterFunc(ctx, func() { _ = srv.Close() })
 	defer stop()
 	if err := srv.Serve(l); !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return fmt.Errorf("serve http: %w", err)
 	}
 	return nil
 }

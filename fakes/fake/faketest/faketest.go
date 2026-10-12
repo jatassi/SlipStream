@@ -5,6 +5,7 @@ package faketest
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -28,7 +29,7 @@ type Served struct {
 // spec.TLS is set. It stops when the test ends.
 func Loopback(t testing.TB, spec fake.Spec, s scenario.Scenario) Served {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,6 +115,6 @@ func (l *pipeListener) dial(ctx context.Context) (net.Conn, error) {
 	case <-l.closed:
 		return nil, net.ErrClosed
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("in-memory dial: %w", ctx.Err())
 	}
 }

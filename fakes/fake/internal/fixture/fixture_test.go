@@ -28,7 +28,7 @@ func TestWhoamiInBothTiers(t *testing.T) {
 
 func assertWhoami(t *testing.T, f faketest.Served) {
 	t.Helper()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL("/whoami"), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, f.Address.URL("/whoami"), http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
