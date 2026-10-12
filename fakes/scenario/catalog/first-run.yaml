@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node left Unclaimed, so a person or a recipe reads the Setup code from
+  its log.
+seed: first-run
+nodes:
+  - name: home
+    setup: none
+timings:
+  node:
+    stop_deadline: 5s
