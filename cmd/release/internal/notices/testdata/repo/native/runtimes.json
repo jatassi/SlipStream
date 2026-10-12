@@ -1,0 +1,5 @@
+{
+	"runtimes": [
+		{"name": "musl", "version": "1.2.5", "license": "MIT", "targets": ["linux-amd64"]}
+	]
+}
