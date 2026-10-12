@@ -44,6 +44,19 @@ func TestMatches(t *testing.T) {
 			want:    []Match{{"native-root", "cmd/release/plan.go"}},
 		},
 		{
+			name: "data dir lock and control socket packages",
+			changes: []Change{
+				modified("internal/node/internal/lock/lock.go", "package lock\n", "package lock\n\n"),
+				{New: file("internal/node/internal/control/control.go", "package control\n")},
+				{New: file("internal/node/internal/config/config.go", "package config\n")},
+				{New: file("internal/node/node.go", "package node\n")},
+			},
+			want: []Match{
+				{"native-root", "internal/node/internal/lock/lock.go"},
+				{"native-root", "internal/node/internal/control/control.go"},
+			},
+		},
+		{
 			name:    "header outside the native roots",
 			changes: []Change{{New: file("web/vendor/thing.h", "")}},
 			want:    []Match{{"c-family", "web/vendor/thing.h"}},
