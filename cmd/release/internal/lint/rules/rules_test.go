@@ -180,3 +180,41 @@ func TestQueryOrder(t *testing.T) {
 		"internal/library/queries/library.sql:42: [query-order] ListFirstWorks uses LIMIT without a top-level ORDER BY",
 	})
 }
+
+func TestSQLConfined(t *testing.T) {
+	const statement = " outside generated queries; add the statement to queries/*.sql"
+	const outside = " outside internal/storage and generated queries"
+	assertFindings(t, check(t, "sql-confined", fixtureRepo(t, "sql-confined")), []string{
+		"internal/media/late_header.go:5: [sql-confined] import database/sql" + outside,
+		"internal/media/media.go:7: [sql-confined] import github.com/pressly/goose/v3" + outside,
+		"internal/media/media.go:8: [sql-confined] import modernc.org/sqlite/lib" + outside,
+		"internal/media/media.go:17: [sql-confined] PrepareContext" + statement,
+		"internal/media/media.go:19: [sql-confined] QueryContext" + statement,
+		"internal/media/mock.go:5: [sql-confined] import database/sql" + outside,
+		"internal/media/mock.go:7: [sql-confined] ExecContext" + statement,
+		"internal/storage/example/clip/clip.go:15: [sql-confined] ExecContext" + statement,
+		"internal/storage/storagetest/audit.go:3: [sql-confined] import database/sql" + outside,
+	})
+}
+
+func TestSqlcGenerated(t *testing.T) {
+	const (
+		typedID = " give the column a typed id override in sqlc.yaml"
+		at      = " _at columns map to storage.Time"
+		outside = " generated output outside <owner>/internal/db; set out: internal/db in the owner's sqlc.yaml"
+	)
+	assertFindings(t, check(t, "sqlc-generated", fixtureRepo(t, "sqlc-generated")), []string{
+		"internal/library/db/models.go:1: [sqlc-generated]" + outside,
+		"internal/library/internal/db/models.go:15: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:16: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:17: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:18: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:21: [sqlc-generated]" + at,
+		"internal/library/internal/db/models.go:22: [sqlc-generated]" + at,
+		"internal/library/internal/db/models.go:23: [sqlc-generated]" + at,
+		"internal/library/internal/db/models.go:24: [sqlc-generated]" + at,
+		"internal/library/internal/db/works.sql.go:20: [sqlc-generated]" + typedID,
+		"internal/media/internal/db/models.go:1: [sqlc-generated]" + outside,
+		"internal/media/internal/db/models.go:8: [sqlc-generated]" + at,
+	})
+}
