@@ -91,7 +91,26 @@ jobs:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - run: go run ./cmd/release build
+      # The end-to-end tier's Nodes bind 127.0.0.2 and up, which macOS
+      # answers only once aliased. The second run must change nothing.
+      - if: matrix.goos == 'darwin'
+        run: |
+          eval "$(go run ./cmd/release deps env)"
+          go build -o "$RUNNER_TEMP/fakeworld" ./cmd/fakeworld
+          sudo "$RUNNER_TEMP/fakeworld" setup-loopback
+          second="$(sudo "$RUNNER_TEMP/fakeworld" setup-loopback)"
+          echo "$second"
+          test "$second" = "loopback aliases already set up"
       - run: go run ./cmd/release test
+        env:
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
+          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fakeworld-runs-${{ matrix.target }}
+          path: ${{ runner.temp }}/fakeworld-runs
+          if-no-files-found: ignore
       # Lint runs on every target so gofmt, line endings and the cgo type
       # check are proven on each OS, and runs even when a test fails.
       - if: ${{ !cancelled() }}
