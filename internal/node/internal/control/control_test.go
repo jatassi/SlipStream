@@ -26,7 +26,7 @@ func serve(t *testing.T, handlers map[string]control.Handler) string {
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s, err := control.Listen(path, func(op string) (control.Handler, error) {
+	s, err := control.Listen(t.Context(), new(net.ListenConfig).Listen, path, func(op string) (control.Handler, error) {
 		if h, ok := handlers[op]; ok {
 			return h, nil
 		}

@@ -16,12 +16,15 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
+	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
-	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
 type Env struct {
@@ -59,6 +62,8 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 // one Go process; they share nothing.
 type Node struct {
 	env      Env
+	machine  machine
+	started  time.Time
 	rootLog  *slog.Logger
 	log      *slog.Logger
 	stack    *Stack
@@ -82,8 +87,14 @@ type Node struct {
 // installs no signal handler and pins no thread. Canceling ctx stops the
 // Node, before or after it is ready.
 func Start(ctx context.Context, env Env) (*Node, error) {
+	return startOn(ctx, env, host)
+}
+
+func startOn(ctx context.Context, env Env, m machine) (*Node, error) {
 	n := &Node{
 		env:      env,
+		machine:  m,
+		started:  time.Now(),
 		deadline: Defaults().Timings.Node.StopDeadline,
 		stopping: make(chan struct{}),
 		drained:  make(chan struct{}),
@@ -172,7 +183,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 		n.log.Warn("timings differ from their defaults", "keys", changed)
 	}
 	var l Listeners
-	if n.server, err = control.Listen(n.env.DataDir.ControlSocket(), n.dispatch); err != nil {
+	if n.server, err = control.Listen(ctx, n.machine.listen, n.env.DataDir.ControlSocket(), n.dispatch); err != nil {
 		return err
 	}
 	n.stack.OnStop("control", func(context.Context) error { return n.server.Close() })
@@ -180,7 +191,8 @@ func (n *Node) startLogged(ctx context.Context) error {
 	if err := n.checkpoint(); err != nil {
 		return err
 	}
-	if err := n.startSubsystems(ctx, cfg, &l); err != nil {
+	setupCode, err := n.startSubsystems(ctx, cfg, &l)
+	if err != nil {
 		return err
 	}
 	if err := n.checkpoint(); err != nil {
@@ -196,6 +208,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 		Seed:      cfg.Seed,
 		Listeners: l,
 		Overrides: overrides(keys),
+		SetupCode: setupCode,
 	}
 	n.log.Info("ready", "ready", n.ready)
 	n.isReady.Store(true)
@@ -203,20 +216,44 @@ func (n *Node) startLogged(ctx context.Context) error {
 }
 
 // startSubsystems is the start order. Each subsystem pushes its stop onto the
-// Stack, so they stop in reverse.
-func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) error {
-	if err := n.openStorage(ctx, cfg); err != nil {
-		return err
-	}
-	torrent, err := libtorrent.Open(engine.Config{ListenInterface: cfg.Torrent.Listen})
+// Stack, so they stop in reverse. HTTP starts last, once every other
+// listener is bound, since getSystem reports them all. It returns the
+// Setup code while the Node is Unclaimed.
+func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (string, error) {
+	lib, err := n.openStorage(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
+		return "", err
+	}
+	keys, err := secret.Open(ctx, lib, n.env.DataDir.LibraryKey())
+	if err != nil {
+		return "", err
+	}
+	hub := live.NewHub(surface.Events)
+	ids, err := identity.New(ctx, lib, keys.PINPepper(), identity.SessionsChangedEvent.Bind(hub), hub)
+	if err != nil {
+		return "", err
+	}
+	// claimed is the one definition of a claimed Node, read by the Setup
+	// gate and the status endpoint alike: it holds an Admin.
+	claimed := ids.HasAdmin
+	gate, setupCode, err := identity.NewGate(ctx, claimed, n.rootLog.With("subsystem", "identity"))
+	if err != nil {
+		return "", err
+	}
+	torrent, err := n.machine.openTorrent(engine.Config{ListenInterface: cfg.Torrent.Listen})
+	if err != nil {
+		return "", fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
 	if l.Torrent, err = torrent.ListenAddr(); err != nil {
-		return fmt.Errorf("torrent listen address: %w", err)
+		return "", fmt.Errorf("torrent listen address: %w", err)
 	}
-	return nil
+	return setupCode, n.startHTTP(ctx, cfg, l, surface.Services{
+		Identity: ids,
+		Hub:      hub,
+		Live:     cfg.Timings.Live,
+		Claimed:  claimed,
+	}, gate)
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.

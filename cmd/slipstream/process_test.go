@@ -24,7 +24,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
 )
 
-const listenLocal = "SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0"
+// localListeners keep parallel Nodes off each other's ports. startNode
+// always sets them.
+var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0"}
 
 var binary string
 
@@ -93,7 +95,7 @@ type nodeProc struct {
 func startNode(t *testing.T, dir string, env ...string) *nodeProc {
 	t.Helper()
 	cmd := exec.CommandContext(context.Background(), binary, "run", "--data-dir", dir)
-	cmd.Env = childEnv(env...)
+	cmd.Env = childEnv(append(slices.Clone(localListeners), env...)...)
 	pipe, err := cmd.StderrPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -214,7 +216,7 @@ func slipstream(t *testing.T, env []string, args ...string) result {
 func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 	t.Parallel()
 	dirA, dirB := dataDir(t), dataDir(t)
-	a, b := startNode(t, dirA, listenLocal), startNode(t, dirB, listenLocal)
+	a, b := startNode(t, dirA), startNode(t, dirB)
 	readyA, readyB := a.ready(), b.ready()
 
 	for _, c := range []struct {
@@ -230,7 +232,10 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 		if c.ready.Listeners.Torrent.Port() == 0 {
 			t.Errorf("node on %s reports torrent port 0", c.dir)
 		}
-		want := []node.Key{{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env"}}
+		want := []node.Key{
+			{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env"},
+			{Key: "http.listen", Value: "127.0.0.1:0", Default: "[::]:8484", Source: "env"},
+		}
 		if !slices.Equal(c.ready.Overrides, want) {
 			t.Errorf("overrides = %+v, want %+v", c.ready.Overrides, want)
 		}
@@ -239,7 +244,7 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 		t.Errorf("both nodes report torrent address %s", readyA.Listeners.Torrent)
 	}
 
-	res := slipstream(t, childEnv(listenLocal), "run", "--data-dir", dirA)
+	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dirA)
 	if want := fmt.Sprintf("data dir %s is in use by SlipStream PID %d\n", dirA, readyA.PID); res.code != node.ExitInUse || res.stderr != want {
 		t.Fatalf("third node: exit %d, stderr %q; want exit %d, stderr %q", res.code, res.stderr, node.ExitInUse, want)
 	}
@@ -288,7 +293,7 @@ func TestRefusedLibraryExitsWithItsOwnCode(t *testing.T) {
 	if err := lib.Close(); err != nil {
 		t.Fatal(err)
 	}
-	res := slipstream(t, childEnv(listenLocal), "run", "--data-dir", dir)
+	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
 	want := "library.db holds schema shelf, which this binary does not have"
 	var failed struct{ Msg, Err string }
 	for line := range strings.SplitSeq(strings.TrimSpace(res.stderr), "\n") {
@@ -324,7 +329,7 @@ func TestSeedIsReportedAndReplayable(t *testing.T) {
 	t.Parallel()
 	var seeds []string
 	for _, env := range [][]string{{"SLIPSTREAM_SEED=fixed"}, {"SLIPSTREAM_SEED=fixed"}, nil} {
-		p := startNode(t, dataDir(t), append([]string{listenLocal}, env...)...)
+		p := startNode(t, dataDir(t), env...)
 		seeds = append(seeds, p.ready().Seed)
 	}
 	if seeds[0] != "fixed" || seeds[1] != "fixed" {
@@ -337,7 +342,7 @@ func TestSeedIsReportedAndReplayable(t *testing.T) {
 
 func TestTimingsOverrideIsReportedAndWarned(t *testing.T) {
 	t.Parallel()
-	p := startNode(t, dataDir(t), listenLocal, "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE=5s")
+	p := startNode(t, dataDir(t), "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE=5s")
 	ready := p.ready()
 	want := node.Key{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "env"}
 	if !slices.Contains(ready.Overrides, want) {
@@ -356,7 +361,7 @@ func TestTimingsOverrideIsReportedAndWarned(t *testing.T) {
 func TestStopWaitsUntilTheDataDirIsFree(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
-	p := startNode(t, dir, listenLocal)
+	p := startNode(t, dir)
 	p.ready()
 
 	res := slipstream(t, childEnv(), "stop", "--data-dir", dir)
@@ -373,7 +378,7 @@ func TestStopWaitsUntilTheDataDirIsFree(t *testing.T) {
 		t.Fatalf("PID file after a clean stop: %v, want removed", err)
 	}
 
-	again := startNode(t, dir, listenLocal)
+	again := startNode(t, dir)
 	again.ready()
 	if res := slipstream(t, childEnv(), "stop", "--data-dir", dir); res.code != node.ExitOK {
 		t.Fatalf("second stop: exit %d, stderr %q", res.code, res.stderr)
@@ -416,6 +421,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
 			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default"},
 			{Key: "timings.http.idle", Value: "2m0s", Default: "2m0s", Source: "default"},
+			{Key: "timings.live.heartbeat", Value: "25s", Default: "25s", Source: "default"},
+			{Key: "timings.live.retry", Value: "3s", Default: "3s", Source: "default"},
 		},
 		Census: []string{},
 	}

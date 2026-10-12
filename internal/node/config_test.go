@@ -23,6 +23,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	want := []string{
 		"seed", "torrent.listen", "http.listen", "http.trusted_origins",
 		"timings.node.stop_deadline", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
+		"timings.live.heartbeat", "timings.live.retry",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)

@@ -65,14 +65,16 @@ type Server struct {
 	conns    sync.WaitGroup
 }
 
+// ListenFunc binds a listener, as net.ListenConfig.Listen does.
+type ListenFunc func(ctx context.Context, network, address string) (net.Listener, error)
+
 // Listen removes a socket left at path by a process that held the same
-// lock, then serves.
-func Listen(path string, dispatch Dispatch) (*Server, error) {
+// lock, then binds path through listen and serves.
+func Listen(ctx context.Context, listen ListenFunc, path string, dispatch Dispatch) (*Server, error) {
 	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("remove stale control socket: %w", err)
 	}
-	var lc net.ListenConfig
-	ln, err := lc.Listen(context.Background(), "unix", path)
+	ln, err := listen(ctx, "unix", path)
 	if err != nil {
 		return nil, fmt.Errorf("listen on control socket: %w", err)
 	}
