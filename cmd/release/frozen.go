@@ -36,7 +36,7 @@ func migrationsFrozen(ctx context.Context, w io.Writer, dir, base string) error 
 	}
 	var findings []lint.Finding
 	for _, c := range changes {
-		if !lint.OwnerSQL(c.Old.Path, "schema") {
+		if !lint.IsOwnerSQL(c.Old.Path, "schema") {
 			continue
 		}
 		change := "edited"

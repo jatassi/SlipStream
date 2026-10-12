@@ -32,9 +32,9 @@ type Column struct {
 }
 
 type ForeignKey struct {
-	Column string
-	Table  string
-	To     string // parent column; the parent's primary key when the SQL names none
+	Column      string
+	ParentTable string
+	To          string // parent column; the parent's primary key when the SQL names none
 }
 
 func (d *DB[F]) Catalog(ctx context.Context) (Catalog, error) {
@@ -105,7 +105,7 @@ func readTable(ctx context.Context, conn *sql.DB, o *Object) error {
 	}
 	for fks.Next() {
 		var fk ForeignKey
-		if err := fks.Scan(&fk.Column, &fk.Table, &fk.To); err != nil {
+		if err := fks.Scan(&fk.Column, &fk.ParentTable, &fk.To); err != nil {
 			return errors.Join(fmt.Errorf("foreign_key_list: %w", err), fks.Close())
 		}
 		o.ForeignKeys = append(o.ForeignKeys, fk)
@@ -128,7 +128,7 @@ func resolveImplicitKeys(objects []Object) {
 	for i := range objects {
 		for j := range objects[i].ForeignKeys {
 			if fk := &objects[i].ForeignKeys[j]; fk.To == "" {
-				fk.To = pk[fk.Table]
+				fk.To = pk[fk.ParentTable]
 			}
 		}
 	}

@@ -13,8 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"time"
-
-	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
 
 type Timings struct {
@@ -58,14 +56,14 @@ func OpenLocal(ctx context.Context, path string, schemas []Schema[Local], t Timi
 func open[F File](ctx context.Context, path string, schemas []Schema[F], hook PreMigrationHook, t Timings, log *slog.Logger) (*DB[F], error) {
 	p := policyOf[F]()
 	err := migrate(ctx, path, schemas, hook, t, log)
-	if unreadable(err) && p.discardUnreadable {
+	if refused(err) && p.discardRefused {
 		if derr := discard(path); derr != nil {
 			return nil, derr
 		}
 		log.Warn("local state discarded", "file", p.name, "reason", err.Error())
 		err = migrate(ctx, path, schemas, hook, t, log)
 	}
-	if unreadable(err) {
+	if refused(err) {
 		return nil, &RefusedError{Err: err}
 	}
 	if err != nil {
@@ -74,7 +72,7 @@ func open[F File](ctx context.Context, path string, schemas []Schema[F], hook Pr
 	return connect[F](ctx, path, t)
 }
 
-func unreadable(err error) bool {
+func refused(err error) bool {
 	var schema *SchemaError
 	var corrupt *corruptError
 	return errors.As(err, &schema) || errors.As(err, &corrupt)

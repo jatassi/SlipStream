@@ -59,7 +59,7 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 // one Go process; they share nothing.
 type Node struct {
 	env      Env
-	base     *slog.Logger
+	rootLog  *slog.Logger
 	log      *slog.Logger
 	stack    *Stack
 	deadline time.Duration
@@ -90,7 +90,17 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 		released: make(chan struct{}),
 		done:     make(chan struct{}),
 	}
-	startCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	if err := n.start(n.canceledAfterStopping(ctx)); err != nil {
+		n.Stop()
+		n.finish(err)
+		return nil, err
+	}
+	go n.wait()
+	return n, nil
+}
+
+func (n *Node) canceledAfterStopping(ctx context.Context) context.Context {
+	stepCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -99,13 +109,7 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 		}
 		cancel()
 	}()
-	if err := n.start(startCtx); err != nil {
-		n.Stop()
-		n.finish(err)
-		return nil, err
-	}
-	go n.wait()
-	return n, nil
+	return stepCtx
 }
 
 func (n *Node) Ready() Ready { return n.ready }
@@ -135,8 +139,8 @@ func (n *Node) start(ctx context.Context) error {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return errors.Join(err, lk.Release())
 	}
-	n.base = log.Logger
-	n.log = n.base.With("subsystem", "node")
+	n.rootLog = log.Logger
+	n.log = n.rootLog.With("subsystem", "node")
 	n.stack = newStack(n.log)
 	n.stack.OnStop("lock", func(context.Context) error {
 		if err := lk.Release(); err != nil {

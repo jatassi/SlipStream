@@ -97,7 +97,7 @@ func (r *Repo) GoSyntax() ([]GoFile, error) {
 	return r.goSrc, nil
 }
 
-func OwnerSQL(file, folder string) bool {
+func IsOwnerSQL(file, folder string) bool {
 	return path.Ext(file) == ".sql" && path.Base(path.Dir(file)) == folder && !ignoredByGo(file)
 }
 

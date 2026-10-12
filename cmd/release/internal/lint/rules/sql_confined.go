@@ -20,6 +20,8 @@ func init() {
 
 const storageMechanism = "internal/storage"
 
+func directlyInStorageMechanism(file string) bool { return path.Dir(file) == storageMechanism }
+
 var rawStatements = []string{"ExecContext", "QueryContext", "QueryRowContext", "PrepareContext"}
 
 func checkSQLConfined(repo *lint.Repo) ([]lint.Finding, error) {
@@ -29,7 +31,7 @@ func checkSQLConfined(repo *lint.Repo) ([]lint.Finding, error) {
 	}
 	var findings []lint.Finding
 	for _, f := range files {
-		if path.Dir(f.Path) == storageMechanism || sqlcGenerated(f) {
+		if directlyInStorageMechanism(f.Path) || sqlcGenerated(f) {
 			continue
 		}
 		for _, imp := range f.Syntax.Imports {

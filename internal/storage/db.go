@@ -16,8 +16,8 @@ type Tx[F File] struct {
 	tx *sql.Tx
 }
 
-// The four exported methods exist for sqlc's generated DBTX and nothing
-// else.
+// Reader is F read through the *DB outside a Write or the *Tx inside one.
+// Its four exported methods exist for sqlc's generated DBTX and nothing else.
 type Reader[F File] interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
@@ -48,14 +48,14 @@ var ErrNoRows = sql.ErrNoRows
 //
 //	storage: read through the Tx inside Write
 //
-// and a Write on a file of lower rank (library.db inside local.db) panics
+// and a Write on a file earlier in write order (library.db inside local.db) panics
 // with
 //
 //	storage: Write on library.db inside Write on local.db deadlocks; write library.db first
 //
 // A Write on local.db inside a library.db Write is allowed.
 func (d *DB[F]) Write(ctx context.Context, fn func(ctx context.Context, tx *Tx[F]) error) error {
-	ctx = enter[F](ctx)
+	ctx = claimWriter[F](ctx)
 	name := policyOf[F]().name
 	sqlTx, err := d.write.BeginTx(ctx, nil)
 	if err != nil {
@@ -161,25 +161,39 @@ func (t *Tx[F]) file() F {
 
 type holdingKey struct{}
 
-type holding [files]string
+type holding [fileCount]string
 
-func enter[F File](ctx context.Context) context.Context {
-	p := policyOf[F]()
+func heldIn(ctx context.Context) holding {
 	h, _ := ctx.Value(holdingKey{}).(holding)
-	if h[p.rank] != "" {
-		panic("storage: Write inside Write on " + p.name + " deadlocks; pass the Tx")
-	}
-	for _, held := range h[p.rank+1:] {
+	return h
+}
+
+func (h holding) holds(writeOrder int) bool { return h[writeOrder] != "" }
+
+func (h holding) heldAfter(writeOrder int) (string, bool) {
+	for _, held := range h[writeOrder+1:] {
 		if held != "" {
-			panic("storage: Write on " + p.name + " inside Write on " + held + " deadlocks; write " + p.name + " first")
+			return held, true
 		}
 	}
-	h[p.rank] = p.name
+	return "", false
+}
+
+func claimWriter[F File](ctx context.Context) context.Context {
+	p := policyOf[F]()
+	h := heldIn(ctx)
+	if h.holds(p.writeOrder) {
+		panic("storage: Write inside Write on " + p.name + " deadlocks; pass the Tx")
+	}
+	if held, ok := h.heldAfter(p.writeOrder); ok {
+		panic("storage: Write on " + p.name + " inside Write on " + held + " deadlocks; write " + p.name + " first")
+	}
+	h[p.writeOrder] = p.name
 	return context.WithValue(ctx, holdingKey{}, h)
 }
 
 func mustNotHold[F File](ctx context.Context) {
-	if h, _ := ctx.Value(holdingKey{}).(holding); h[policyOf[F]().rank] != "" {
+	if heldIn(ctx).holds(policyOf[F]().writeOrder) {
 		panic("storage: read through the Tx inside Write")
 	}
 }

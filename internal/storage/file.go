@@ -19,43 +19,43 @@ type Library struct{}
 type Local struct{}
 
 type policy struct {
-	name              string
-	rank              int
-	synchronous       string
-	quickCheck        bool
-	discardUnreadable bool
-	newerAdvice       string
-	corruptAdvice     string
-	migrationAdvice   string
+	name            string
+	writeOrder      int
+	synchronous     string
+	quickCheck      bool
+	discardRefused  bool
+	newerAdvice     string
+	corruptAdvice   string
+	migrationAdvice string
 }
 
 func (Library) policy() policy {
 	return policy{
-		name:              LibraryFile,
-		rank:              0,
-		synchronous:       "FULL",
-		quickCheck:        false,
-		discardUnreadable: false,
-		newerAdvice:       "; restore a Backup this version took, or update SlipStream",
-		corruptAdvice:     "; restore a Backup",
-		migrationAdvice:   "",
+		name:            LibraryFile,
+		writeOrder:      0,
+		synchronous:     "FULL",
+		quickCheck:      false,
+		discardRefused:  false,
+		newerAdvice:     "; restore a Backup this version took, or update SlipStream",
+		corruptAdvice:   "; restore a Backup",
+		migrationAdvice: "",
 	}
 }
 
 func (Local) policy() policy {
 	return policy{
-		name:              LocalFile,
-		rank:              1,
-		synchronous:       "NORMAL",
-		quickCheck:        true,
-		discardUnreadable: true,
-		newerAdvice:       "",
-		corruptAdvice:     "",
-		migrationAdvice:   "; " + LocalFile + " is safe to delete",
+		name:            LocalFile,
+		writeOrder:      1,
+		synchronous:     "NORMAL",
+		quickCheck:      true,
+		discardRefused:  true,
+		newerAdvice:     "",
+		corruptAdvice:   "",
+		migrationAdvice: "; " + LocalFile + " is safe to delete",
 	}
 }
 
-const files = 2
+const fileCount = 2
 
 func policyOf[F File]() policy {
 	var f F

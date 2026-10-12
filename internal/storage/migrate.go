@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/pressly/goose/v3"
 	"modernc.org/sqlite"
@@ -99,7 +100,7 @@ func readVersions(ctx context.Context, conn *sql.DB) (Versions, error) {
 			_ = rows.Close()
 			return nil, fmt.Errorf("read schema versions: %w", err)
 		}
-		if set := name[len("goose_"):]; setName.MatchString(set) {
+		if set, ok := versionTableSet(name); ok {
 			sets = append(sets, set)
 		}
 	}
@@ -109,9 +110,9 @@ func readVersions(ctx context.Context, conn *sql.DB) (Versions, error) {
 	held := Versions{}
 	for _, set := range sets {
 		var v int64
-		q := "SELECT coalesce(max(version_id), 0) FROM goose_" + set + " WHERE is_applied"
+		q := "SELECT coalesce(max(version_id), 0) FROM " + versionTable(set) + " WHERE is_applied"
 		if err := conn.QueryRowContext(ctx, q).Scan(&v); err != nil {
-			return nil, fmt.Errorf("read goose_%s: %w", set, err)
+			return nil, fmt.Errorf("read %s: %w", versionTable(set), err)
 		}
 		if v > 0 {
 			held[set] = v
@@ -120,9 +121,18 @@ func readVersions(ctx context.Context, conn *sql.DB) (Versions, error) {
 	return held, nil
 }
 
+const versionTablePrefix = "goose_"
+
+func versionTable(set string) string { return versionTablePrefix + set }
+
+func versionTableSet(table string) (string, bool) {
+	set, ok := strings.CutPrefix(table, versionTablePrefix)
+	return set, ok && setName.MatchString(set)
+}
+
 func applySet[F File](ctx context.Context, conn *sql.DB, p policy, s Schema[F]) error {
 	prov, err := goose.NewProvider(goose.DialectSQLite3, conn, s.files,
-		goose.WithTableName("goose_"+s.set),
+		goose.WithTableName(versionTable(s.set)),
 		goose.WithDisableGlobalRegistry(true),
 		goose.WithExcludeVersions(s.above()),
 		goose.WithLogger(goose.NopLogger()),

@@ -29,7 +29,7 @@ func checkQueryOrder(repo *lint.Repo) ([]lint.Finding, error) {
 	}
 	var findings []lint.Finding
 	for _, f := range files {
-		if !lint.OwnerSQL(f, "queries") {
+		if !lint.IsOwnerSQL(f, "queries") {
 			continue
 		}
 		src, err := repo.Read(f)

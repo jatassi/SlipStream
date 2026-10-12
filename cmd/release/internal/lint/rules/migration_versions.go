@@ -38,7 +38,7 @@ func checkMigrationVersions(repo *lint.Repo) ([]lint.Finding, error) {
 	var findings []lint.Finding
 	sets := map[string][]migration{}
 	for _, f := range files {
-		if !lint.OwnerSQL(f, "schema") {
+		if !lint.IsOwnerSQL(f, "schema") {
 			continue
 		}
 		version := 0

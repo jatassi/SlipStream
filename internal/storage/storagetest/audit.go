@@ -153,20 +153,19 @@ func (s *step) checkTable(o storage.Object) {
 		}
 	}
 	for _, fk := range o.ForeignKeys {
-		_, exists := s.after["table "+strings.ToLower(fk.Table)]
-		switch owner := s.owner(fk.Table); {
+		_, exists := s.after["table "+strings.ToLower(fk.ParentTable)]
+		switch owner := s.owner(fk.ParentTable); {
 		case !exists || owner == "":
-			s.report("foreign key %s.%s targets %s, which no earlier set creates", o.Name, fk.Column, fk.Table)
+			s.report("foreign key %s.%s targets %s, which no earlier set creates", o.Name, fk.Column, fk.ParentTable)
 		case owner != s.set && fk.To != "id":
-			s.report("foreign key %s.%s targets %s.%s; a foreign key into another set targets id", o.Name, fk.Column, fk.Table, fk.To)
+			s.report("foreign key %s.%s targets %s.%s; a foreign key into another set targets id", o.Name, fk.Column, fk.ParentTable, fk.To)
 		}
 	}
 }
 
 func (s *step) owner(name string) string {
-	prefix, _, _ := strings.Cut(strings.ToLower(name), "_")
-	if slices.Contains(s.known, prefix) {
-		return prefix
+	if set := storage.SetPrefix(name); slices.Contains(s.known, set) {
+		return set
 	}
 	return ""
 }

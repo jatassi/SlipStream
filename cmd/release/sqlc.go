@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -30,8 +31,11 @@ func runSqlc(ctx context.Context, args []string) error {
 		return err
 	}
 	for _, c := range configs {
-		if err := run(ctx, root, nil, "go", sqlcArgs("generate", "-f", c)...); err != nil {
-			return err
+		cmd := hostSqlc(ctx, root, "generate", "-f", c)
+		cmd.Stdout = os.Stderr
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("sqlc generate -f %s: %w", c, err)
 		}
 	}
 	return nil
@@ -60,16 +64,17 @@ func ignoredByGo(file string) bool {
 	return false
 }
 
-func sqlcArgs(args ...string) []string {
-	return append([]string{"tool", "-modfile=tools/go.mod", "sqlc"}, args...)
+func hostSqlc(ctx context.Context, root string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "go", append([]string{"tool", "-modfile=tools/go.mod", "sqlc"}, args...)...)
+	cmd.Dir = root
+	cmd.Env = os.Environ()
+	return cmd
 }
 
 func sqlcDrift(ctx context.Context, root, dir string, configs []string, w io.Writer) error {
 	var stale []string
 	for _, c := range configs {
-		cmd := exec.CommandContext(ctx, "go", sqlcArgs("diff", "-f", filepath.Join(dir, filepath.FromSlash(c)))...)
-		cmd.Dir = root
-		out, err := cmd.CombinedOutput()
+		out, err := hostSqlc(ctx, root, "diff", "-f", filepath.Join(dir, filepath.FromSlash(c))).CombinedOutput()
 		if err == nil {
 			continue
 		}

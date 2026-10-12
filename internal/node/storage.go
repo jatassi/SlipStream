@@ -14,13 +14,13 @@ func localSchemas() []storage.Schema[storage.Local] {
 	return []storage.Schema[storage.Local]{}
 }
 
-func backupBeforeMigrate(context.Context, *storage.Unmigrated, storage.Plan) error {
+func preMigrationHook(context.Context, *storage.Unmigrated, storage.Plan) error {
 	return nil
 }
 
 func (n *Node) openStorage(ctx context.Context, cfg Config) error {
-	log := n.base.With("subsystem", "storage")
-	lib, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), librarySchemas(), backupBeforeMigrate, cfg.Timings.Storage, log)
+	log := n.rootLog.With("subsystem", "storage")
+	lib, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), librarySchemas(), preMigrationHook, cfg.Timings.Storage, log)
 	if err != nil {
 		return n.stoppedOr(err)
 	}
