@@ -1,0 +1,3 @@
+package webapi
+
+func Routes() {}

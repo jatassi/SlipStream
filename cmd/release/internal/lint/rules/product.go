@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"go/ast"
 	"path"
 	"regexp"
 	"strconv"
@@ -51,4 +52,21 @@ func importNames(f lint.GoFile) map[string]string {
 		names[name] = p
 	}
 	return names
+}
+
+func ownerAPIPackage(f lint.GoFile) bool {
+	name := f.Syntax.Name.Name
+	return strings.HasSuffix(name, "api") && name != "api"
+}
+
+func qualifiedName(imports map[string]string, expr ast.Expr) (pkg, name string, ok bool) {
+	sel, isSel := expr.(*ast.SelectorExpr)
+	if !isSel {
+		return "", "", false
+	}
+	x, isIdent := sel.X.(*ast.Ident)
+	if !isIdent || x.Obj != nil || imports[x.Name] == "" {
+		return "", "", false
+	}
+	return imports[x.Name], sel.Sel.Name, true
 }

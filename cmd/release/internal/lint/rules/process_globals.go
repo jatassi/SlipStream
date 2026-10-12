@@ -56,6 +56,9 @@ var processGlobals = []processGlobal{
 	{pkg: "net/http", replacement: "serve on a listener the Node binds", names: []string{
 		"ListenAndServe", "ListenAndServeTLS",
 	}},
+	{pkg: "net/http", replacement: "register an operation with api.Register", names: []string{
+		"Handle", "HandleFunc", "DefaultServeMux",
+	}},
 }
 
 func checkProcessGlobals(repo *lint.Repo) ([]lint.Finding, error) {

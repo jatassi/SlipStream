@@ -13,6 +13,7 @@ import (
 type Listeners struct {
 	Control string         `json:"control"`
 	Torrent netip.AddrPort `json:"torrent"`
+	HTTP    netip.AddrPort `json:"http"`
 }
 
 func (l Listeners) unbound() []string {
@@ -33,6 +34,9 @@ type Ready struct {
 	Seed      string    `json:"seed"`
 	Listeners Listeners `json:"listeners"`
 	Overrides []Key     `json:"overrides"`
+	// SetupCode is set while the Node is Unclaimed, so the Fake world can
+	// claim it without reading a person's log line.
+	SetupCode string `json:"setup_code,omitempty"`
 }
 
 var ErrNotReadyRecord = errors.New("not the readiness record")

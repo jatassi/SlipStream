@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -41,5 +42,7 @@ func (d DataDir) ControlSocket() string { return filepath.Join(d.RunDir(), "cont
 func (d DataDir) LogsDir() string { return filepath.Join(d.path, "logs") }
 
 func (d DataDir) LibraryDB() string { return filepath.Join(d.path, storage.LibraryFile) }
+
+func (d DataDir) LibraryKey() string { return filepath.Join(d.path, secret.KeyFile) }
 
 func (d DataDir) LocalDB() string { return filepath.Join(d.path, storage.LocalFile) }

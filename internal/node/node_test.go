@@ -34,7 +34,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 	t.Helper()
 	d := testDataDir(t)
 	stderr := new(syncBuffer)
-	return Env{DataDir: d, Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0"}, Stderr: stderr, Version: "test"}, stderr
+	return Env{DataDir: d, Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0"}, Stderr: stderr, Version: "test"}, stderr
 }
 
 func shortTempDir(t *testing.T) string {

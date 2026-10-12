@@ -569,3 +569,30 @@ func TestWrongFileDoesNotCompile(t *testing.T) {
 		}
 	}
 }
+
+func TestInWriteReportsEitherFilesWriter(t *testing.T) {
+	lib := storagetest.Library(t)
+	local := storagetest.Local(t)
+	if storage.InWrite(t.Context()) {
+		t.Error("InWrite outside any Write = true")
+	}
+	var inLibrary, inLocal, inBoth bool
+	if err := lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
+		inLibrary = storage.InWrite(ctx)
+		return local.Write(ctx, func(ctx context.Context, _ *storage.Tx[storage.Local]) error {
+			inBoth = storage.InWrite(ctx)
+			return nil
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := local.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Local]) error {
+		inLocal = storage.InWrite(ctx)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := [3]bool{inLibrary, inLocal, inBoth}; got != [3]bool{true, true, true} {
+		t.Errorf("InWrite inside library, local, both = %v; want all true", got)
+	}
+}

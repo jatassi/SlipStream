@@ -1,0 +1,3 @@
+package liveapi
+
+func Routes() {}
