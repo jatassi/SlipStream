@@ -253,3 +253,14 @@ func TestFetchedBundleBuildsWithXcodeAndTheLibsLayer(t *testing.T) {
 		t.Errorf("FetchedBundle = %+v, %q\nwant %+v, %q", b.Libs, b.Env, libs, wantEnv)
 	}
 }
+
+func TestCacheRootFollowsTheEnvironment(t *testing.T) {
+	t.Setenv(CacheRootEnv, filepath.Join("ci", "native"))
+	got, err := CacheRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join("ci", "native"); got != want {
+		t.Errorf("CacheRoot() = %q, want %q", got, want)
+	}
+}

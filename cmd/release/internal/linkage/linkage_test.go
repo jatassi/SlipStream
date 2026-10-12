@@ -42,7 +42,6 @@ func TestCheckPassesPureGoBinaries(t *testing.T) {
 		{"linux", "arm64"},
 		{"windows", "amd64"},
 		{"darwin", "arm64"},
-		{"darwin", "amd64"},
 	} {
 		t.Run(target.goos+"-"+target.goarch, func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "hello")

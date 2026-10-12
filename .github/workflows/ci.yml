@@ -57,8 +57,6 @@ jobs:
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: bun install --frozen-lockfile && bun run build
-        working-directory: web
       - run: go run ./cmd/release lint
 
   build:
@@ -74,13 +72,19 @@ jobs:
       - uses: actions/checkout@v5
       - if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - run: |
-          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
-          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      # Any Go in the runner's tool cache switches to go.mod's version, which
+      # it downloads into GOMODCACHE, so the Go cache restores the toolchain
+      # faster than setup-go installs go.mod's version. The temp drive is the
+      # fast one on Windows.
       - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version: ">=1.21"
           cache: false
+      - run: |
+          echo "GOTOOLCHAIN=go$(sed -n 's/^go //p' go.mod)" >> "$GITHUB_ENV"
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+          echo "SLIPSTREAM_NATIVE_CACHE=$RUNNER_TEMP/slipstream-native" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: |
@@ -97,20 +101,10 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
       - uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/slipstream-native
-            ~/Library/Caches/slipstream-native
-            ~/AppData/Local/slipstream-native
+          path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - run: scripts/native-deps fetch
-      # The release tool runs on the runner's own architecture. Built for
-      # darwin-amd64 it runs under Rosetta, and its first build in a job
-      # took one to two minutes longer.
-      - run: go build -o "$RUNNER_TEMP/bin/" ./cmd/release
-        env:
-          GOARCH: ""
-      - run: '"$RUNNER_TEMP/bin/release" build'
-      - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
+      - run: go run ./cmd/release build
+      - run: go run ./cmd/release test
 
   native-gate:
     if: always()

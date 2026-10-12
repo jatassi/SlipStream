@@ -18,6 +18,9 @@ func runNotices(args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := buildWeb(root); err != nil {
+		return err
+	}
 	if args[0] == "generate" {
 		return notices.Write(root)
 	}

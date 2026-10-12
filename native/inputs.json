@@ -49,18 +49,6 @@
 			"env": {"CMAKE_OSX_ARCHITECTURES": "arm64", "MACOSX_DEPLOYMENT_TARGET": "13.0"},
 			"openssl_target": "darwin64-arm64-cc",
 			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
-		},
-		{
-			"name": "darwin-amd64",
-			"goos": "darwin",
-			"goarch": "amd64",
-			"runner": "macos-15",
-			"toolchain": "xcode",
-			"min_os": "macos 13.0",
-			"gate": "native",
-			"env": {"CMAKE_OSX_ARCHITECTURES": "x86_64", "MACOSX_DEPLOYMENT_TARGET": "13.0"},
-			"openssl_target": "darwin64-x86_64-cc",
-			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
 		}
 	],
 	"toolchains": [

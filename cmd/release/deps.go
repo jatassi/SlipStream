@@ -93,8 +93,8 @@ func depsBuild(args []string) error {
 	if *archive == "" {
 		return fmt.Errorf("-archive is required")
 	}
-	if t.GOOS != runtime.GOOS {
-		return fmt.Errorf("target %s builds on %s, not on %s", t.Name, t.GOOS, runtime.GOOS)
+	if t.GOOS != runtime.GOOS || t.GOARCH != runtime.GOARCH {
+		return fmt.Errorf("target %s builds on its own OS and architecture, not on %s", t.Name, native.HostTargetName())
 	}
 	cacheRoot, err := native.CacheRoot()
 	if err != nil {
@@ -144,32 +144,44 @@ func depsFetch(args []string) error {
 	if err != nil {
 		return err
 	}
-	lock, err := native.LoadLock(filepath.Join(root, native.LockPath))
-	if err != nil {
-		return err
-	}
 	cacheRoot, err := native.CacheRoot()
 	if err != nil {
 		return err
 	}
+	dirs, err := fetchTarget(root, cacheRoot, t)
+	if err != nil {
+		return err
+	}
+	for _, dir := range dirs {
+		fmt.Println(dir)
+	}
+	return nil
+}
+
+// fetchTarget makes every layer the lock pins for t present in the cache
+// and returns their directories.
+func fetchTarget(root, cacheRoot string, t native.Target) ([]string, error) {
+	lock, err := native.LoadLock(filepath.Join(root, native.LockPath))
+	if err != nil {
+		return nil, err
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	fetched := 0
+	var dirs []string
 	for _, l := range lock.Layers {
 		if l.Target != t.Name {
 			continue
 		}
 		dir, err := native.Fetch(ctx, cacheRoot, l)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		fmt.Println(dir)
-		fetched++
+		dirs = append(dirs, dir)
 	}
-	if fetched == 0 {
-		return fmt.Errorf("%s pins no layer for %s", native.LockPath, t.Name)
+	if len(dirs) == 0 {
+		return nil, fmt.Errorf("%s pins no layer for %s", native.LockPath, t.Name)
 	}
-	return nil
+	return dirs, nil
 }
 
 func depsVerify(args []string) error {

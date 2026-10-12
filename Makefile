@@ -1,7 +1,6 @@
 .PHONY: help deps web build test lint notices check clean
 
 RELEASE := go run ./cmd/release
-NATIVE_ENV := eval "$$(scripts/native-deps env)"
 
 help:
 	@echo "make deps     fetch the pinned native layers for this machine"
@@ -14,24 +13,25 @@ help:
 	@echo "make clean    remove dist/ and web/dist/"
 
 deps:
-	scripts/native-deps fetch
+	$(RELEASE) deps fetch
 
 web:
-	cd web && bun install --frozen-lockfile && bun run build
+	$(RELEASE) web
 
-build: deps
+build:
 	$(RELEASE) build
 
-test: deps
-	$(NATIVE_ENV) && go test -race -shuffle=on ./...
+test:
+	$(RELEASE) test
 
-lint: web
+lint:
 	$(RELEASE) lint
 
-notices: web
+notices:
 	$(RELEASE) notices generate
 
-check: lint test build
+check:
+	$(RELEASE) check
 
 clean:
 	rm -rf dist web/dist

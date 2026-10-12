@@ -13,10 +13,18 @@ import (
 	"strings"
 )
 
+// CacheRootEnv names a directory that replaces the default cache root. CI
+// points it at the runner's temp drive, which on Windows extracts the
+// cached layers about four times faster than the user profile's drive.
+const CacheRootEnv = "SLIPSTREAM_NATIVE_CACHE"
+
 // CacheRoot is the per-machine native cache that every worktree shares. Its
 // name differs from SlipStream v1's data folder, %LOCALAPPDATA%\SlipStream,
 // in more than case, since Windows paths ignore case.
 func CacheRoot() (string, error) {
+	if dir := os.Getenv(CacheRootEnv); dir != "" {
+		return dir, nil
+	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
