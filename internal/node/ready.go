@@ -11,6 +11,7 @@ import (
 // Listeners holds every address the Node bound, one field per listener. Start
 // fails while any field is zero, so a new listener cannot go unreported.
 type Listeners struct {
+	Control string         `json:"control"`
 	Torrent netip.AddrPort `json:"torrent"`
 }
 

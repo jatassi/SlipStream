@@ -30,7 +30,7 @@ func (b *syncBuffer) String() string {
 	return b.buf.String()
 }
 
-func testEnv(t *testing.T, environ ...string) (Env, *syncBuffer) {
+func testEnv(t *testing.T) (Env, *syncBuffer) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "ss") //nolint:usetesting // t.TempDir's path is too long for the socket limit on macOS
 	if err != nil {
@@ -42,7 +42,7 @@ func testEnv(t *testing.T, environ ...string) (Env, *syncBuffer) {
 		t.Fatal(err)
 	}
 	stderr := new(syncBuffer)
-	return Env{DataDir: d, Environ: append([]string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0"}, environ...), Stderr: stderr, Version: "test"}, stderr
+	return Env{DataDir: d, Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0"}, Stderr: stderr, Version: "test"}, stderr
 }
 
 func startTest(t *testing.T, env Env) *Node {

@@ -221,6 +221,9 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 		if c.ready.DataDir != c.dir {
 			t.Errorf("data dir = %s, want %s", c.ready.DataDir, c.dir)
 		}
+		if want := filepath.Join(c.dir, "run", "control.sock"); c.ready.Listeners.Control != want {
+			t.Errorf("control socket = %s, want %s", c.ready.Listeners.Control, want)
+		}
 		if c.ready.Listeners.Torrent.Port() == 0 {
 			t.Errorf("node on %s reports torrent port 0", c.dir)
 		}
@@ -321,5 +324,44 @@ func TestTimingsOverrideIsReportedAndWarned(t *testing.T) {
 	}
 	if want := `["WARN",[{"default":"30s","key":"timings.node.stop_deadline","source":"env","value":"5s"}]]`; string(got) != want {
 		t.Fatalf("warning = %s, want %s", got, want)
+	}
+}
+
+func TestStopWaitsUntilTheDataDirIsFree(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	p := startNode(t, dir, listenLocal)
+	p.ready()
+
+	res := slipstream(t, childEnv(), "stop", "--data-dir", dir)
+	if res.code != node.ExitOK || res.stderr != "" {
+		t.Fatalf("stop: exit %d, stderr %q; want exit 0 and no output", res.code, res.stderr)
+	}
+	if code := p.wait(); code != node.ExitOK {
+		t.Fatalf("node exit %d after stop, want 0:\n%s", code, p.output())
+	}
+	if last := p.lastRecord(); last != "stopped" {
+		t.Fatalf("last record = %q, want stopped:\n%s", last, p.output())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "run", "node.pid")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("PID file after a clean stop: %v, want removed", err)
+	}
+
+	again := startNode(t, dir, listenLocal)
+	again.ready()
+	if res := slipstream(t, childEnv(), "stop", "--data-dir", dir); res.code != node.ExitOK {
+		t.Fatalf("second stop: exit %d, stderr %q", res.code, res.stderr)
+	}
+	if code := again.wait(); code != node.ExitOK {
+		t.Fatalf("restarted node exit %d, want 0:\n%s", code, again.output())
+	}
+}
+
+func TestStopWithNoNodeFails(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	res := slipstream(t, childEnv(), "stop", "--data-dir", dir)
+	if want := "slipstream stop: no Node answered on " + dir + ": "; res.code != node.ExitFailed || !strings.HasPrefix(res.stderr, want) {
+		t.Fatalf("exit %d, stderr %q; want exit %d starting %q", res.code, res.stderr, node.ExitFailed, want)
 	}
 }

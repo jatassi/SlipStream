@@ -16,6 +16,7 @@ import (
 
 const usageText = `usage: slipstream <command>
   run    --data-dir <dir>  run a Node
+  stop   --data-dir <dir>  stop the Node on <dir> and wait until it releases <dir>
   version                  print the build stamp
   notices                  print the third-party notices`
 
@@ -45,6 +46,16 @@ func run(args []string) int {
 			return usage(err)
 		}
 		return node.ExitCode(node.Run(context.Background(), env))
+	case "stop":
+		env, err := nodeEnv(name, rest)
+		if err != nil {
+			return usage(err)
+		}
+		if err := node.StopNode(context.Background(), env.DataDir); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "slipstream stop: %v\n", err)
+			return node.ExitCode(err)
+		}
+		return node.ExitOK
 	default:
 		return usage(fmt.Errorf("unknown command %q", name))
 	}

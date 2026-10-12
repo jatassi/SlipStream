@@ -11,11 +11,13 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
+	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -63,8 +65,15 @@ type Node struct {
 	deadline time.Duration
 	ready    Ready
 
+	server  *control.Server
+	isReady atomic.Bool
+
 	stopOnce sync.Once
 	stopping chan struct{}
+	// drained closes once the Stack has unwound, released once the lock is
+	// released, and done once every control connection has finished.
+	drained  chan struct{}
+	released chan struct{}
 	done     chan struct{}
 	err      error
 }
@@ -77,6 +86,8 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 		env:      env,
 		deadline: DefaultTimings().StopDeadline,
 		stopping: make(chan struct{}),
+		drained:  make(chan struct{}),
+		released: make(chan struct{}),
 		done:     make(chan struct{}),
 	}
 	go func() {
@@ -88,6 +99,7 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 	}()
 	if err := n.start(); err != nil {
 		n.Stop()
+		n.finish(err)
 		return nil, err
 	}
 	go n.wait()
@@ -123,7 +135,13 @@ func (n *Node) start() error {
 	}
 	n.log = log.With("subsystem", "node")
 	n.stack = newStack(n.log)
-	n.stack.OnStop("lock", func(context.Context) error { return lk.Release() })
+	n.stack.OnStop("lock", func(context.Context) error {
+		if err := lk.Release(); err != nil {
+			return err
+		}
+		close(n.released)
+		return nil
+	})
 	n.stack.OnStop("log", func(context.Context) error {
 		n.log.Info("stopped")
 		return log.Close()
@@ -147,6 +165,11 @@ func (n *Node) startLogged() error {
 		n.log.Warn("timings differ from their defaults", "keys", changed)
 	}
 	var l Listeners
+	if n.server, err = control.Listen(n.env.DataDir.ControlSocket(), n.dispatch); err != nil {
+		return err
+	}
+	n.stack.OnStop("control", func(context.Context) error { return n.server.Close() })
+	l.Control = n.env.DataDir.ControlSocket()
 	if err := n.checkpoint(); err != nil {
 		return err
 	}
@@ -168,6 +191,7 @@ func (n *Node) startLogged() error {
 		Overrides: overrides(keys),
 	}
 	n.log.Info("ready", "ready", n.ready)
+	n.isReady.Store(true)
 	return nil
 }
 
@@ -202,7 +226,17 @@ func (n *Node) wait() {
 	case <-n.stopping:
 	case <-n.stack.Failed():
 	}
-	n.err = errors.Join(n.stack.Err(), n.stack.unwind(n.deadline))
+	n.finish(errors.Join(n.stack.Err(), n.stack.unwind(n.deadline)))
+}
+
+// finish lets held stop requests see the outcome before Done closes, so a
+// process that exits on Done has already answered them.
+func (n *Node) finish(err error) {
+	n.err = err
+	close(n.drained)
+	if n.server != nil {
+		n.server.Wait()
+	}
 	close(n.done)
 }
 
