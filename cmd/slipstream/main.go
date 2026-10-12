@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 const usageText = `usage: slipstream <command>
   run    --data-dir <dir>  run a Node
   stop   --data-dir <dir>  stop the Node on <dir> and wait until it releases <dir>
+  config --data-dir <dir>  print the resolved configuration and endpoints census as JSON
   version                  print the build stamp
   notices                  print the third-party notices`
 
@@ -54,6 +56,23 @@ func run(args []string) int {
 		if err := node.StopNode(context.Background(), env.DataDir); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "slipstream stop: %v\n", err)
 			return node.ExitCode(err)
+		}
+		return node.ExitOK
+	case "config":
+		env, err := nodeEnv(name, rest)
+		if err != nil {
+			return usage(err)
+		}
+		resolved, err := node.Resolve(env.DataDir, env.Environ)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "slipstream config: %v\n", err)
+			return node.ExitCode(err)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(resolved); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "slipstream config: %v\n", err)
+			return node.ExitFailed
 		}
 		return node.ExitOK
 	default:

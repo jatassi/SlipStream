@@ -58,6 +58,17 @@ func (l Leaf) setList(items []string) error {
 	return nil
 }
 
+// Hosts are the hosts of an endpoint leaf, one per item, and nil for any other leaf.
+func (l Leaf) Hosts() []string {
+	var hosts []string
+	for _, e := range l.elems() {
+		if h, ok := e.Interface().(hostnamer); ok {
+			hosts = append(hosts, h.Hostname())
+		}
+	}
+	return hosts
+}
+
 // elems yields the leaf's scalar values, one for a scalar and each item of a list.
 func (l Leaf) elems() []reflect.Value {
 	if !l.isList() {

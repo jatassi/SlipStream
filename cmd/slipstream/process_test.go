@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"slices"
@@ -363,5 +364,40 @@ func TestStopWithNoNodeFails(t *testing.T) {
 	res := slipstream(t, childEnv(), "stop", "--data-dir", dir)
 	if want := "slipstream stop: no Node answered on " + dir + ": "; res.code != node.ExitFailed || !strings.HasPrefix(res.stderr, want) {
 		t.Fatalf("exit %d, stderr %q; want exit %d starting %q", res.code, res.stderr, node.ExitFailed, want)
+	}
+}
+
+func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("timings:\n  node:\n    stop_deadline: 5s\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res := slipstream(t, childEnv("SLIPSTREAM_SEED=fixed"), "config", "--data-dir", dir)
+	if res.code != node.ExitOK {
+		t.Fatalf("exit %d, stderr %q", res.code, res.stderr)
+	}
+	var got node.Resolved
+	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil {
+		t.Fatalf("stdout %q: %v", res.stdout, err)
+	}
+	want := node.Resolved{
+		Keys: []node.Key{
+			{Key: "seed", Value: "fixed", Default: "", Source: "env"},
+			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
+			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
+		},
+		Census: []string{},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("config = %+v, want %+v", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "run")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("config started a Node: run dir %v", err)
+	}
+
+	res = slipstream(t, childEnv("SLIPSTREAM_SEDE=fixed"), "config", "--data-dir", dir)
+	if want := "slipstream config: env: SLIPSTREAM_SEDE: unknown key\n"; res.code != node.ExitUsage || res.stderr != want {
+		t.Fatalf("bad config: exit %d, stderr %q; want exit %d, %q", res.code, res.stderr, node.ExitUsage, want)
 	}
 }
