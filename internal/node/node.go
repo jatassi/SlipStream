@@ -300,8 +300,13 @@ func changedTimings(keys []Key) []Key {
 var ErrInterrupted = errors.New("interrupted again while stopping")
 
 // Run is Start plus signals: SIGINT or SIGTERM stops the Node, and a second
-// one returns ErrInterrupted at once.
+// one returns ErrInterrupted at once. Losing the reader of stderr does not
+// stop it.
 func Run(ctx context.Context, env Env) error {
+	// Without a Notify for SIGPIPE, Go kills the process on a write to a
+	// broken pipe on stderr. With one, the write fails and the log file
+	// still gets the record.
+	signal.Notify(make(chan os.Signal, 1), syscall.SIGPIPE)
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigs)
