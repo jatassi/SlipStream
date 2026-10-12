@@ -47,7 +47,7 @@ func RegisterStream[P, I any](o *Owner, level Level[P], op Op, events []live.Eve
 			return send(sse.Message{ID: int(m.ID), Data: m.Data, Retry: int(m.Retry / time.Millisecond), Comment: m.Comment})
 		})
 		if err != nil {
-			r.services.Log.Error("operation failed", "method", op.Method, "path", Prefix+op.Path, "operation", op.ID, "error", err)
+			r.logFailure(ctx, "operation failed", "method", op.Method, "path", Prefix+op.Path, "operation", op.ID, "error", err)
 		}
 	})
 }

@@ -3,7 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -97,5 +99,21 @@ func TestAStreamUnderARecorderWarnsOnEveryMessage(t *testing.T) {
 	warning := "warning: unable to set write deadline: feature not supported\n"
 	if printed != warning+warning {
 		t.Errorf("Huma's sse package printed %q, want the warning twice", printed)
+	}
+}
+
+func TestAStreamWhoseClientLeftLogsAtDebug(t *testing.T) {
+	var log bytes.Buffer
+	r := newRouter(t, &log)
+	r.services.Log = slog.New(slog.NewTextHandler(&log, &slog.HandlerOptions{Level: slog.LevelDebug, ReplaceAttr: noTime}))
+	ctx, leave := context.WithCancel(t.Context())
+	RegisterStream(r.Owner("fixture", Public), Public, Op{ID: "streamFixture", Method: http.MethodGet, Path: "/fixture", Status: http.StatusOK},
+		[]live.Event{fixtureTickEvent}, func(ctx context.Context, _ identity.Anyone, _ *struct{}, _ Send) error {
+			leave()
+			return fmt.Errorf("renew: %w", ctx.Err())
+		})
+	r.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/fixture", http.NoBody))
+	if want := "level=DEBUG msg=\"operation failed\" method=GET path=/api/v1/fixture operation=streamFixture error=\"renew: context canceled\"\n"; log.String() != want {
+		t.Fatalf("log = %q, want %q", log.String(), want)
 	}
 }

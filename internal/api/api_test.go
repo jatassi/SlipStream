@@ -150,6 +150,22 @@ func TestAPlainErrorIsScrubbedAndLogged(t *testing.T) {
 	}
 }
 
+func TestAnOperationWhoseClientLeftLogsAtDebug(t *testing.T) {
+	var log bytes.Buffer
+	r := newRouter(t, &log)
+	r.services.Log = slog.New(slog.NewTextHandler(&log, &slog.HandlerOptions{Level: slog.LevelDebug, ReplaceAttr: noTime}))
+	ctx, leave := context.WithCancel(t.Context())
+	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture"},
+		func(ctx context.Context, _ identity.Anyone, _ *struct{}) (*struct{}, error) {
+			leave()
+			return nil, fmt.Errorf("read: %w", ctx.Err())
+		})
+	r.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/fixture", http.NoBody))
+	if want := "level=DEBUG msg=\"operation failed\" method=GET path=/api/v1/fixture operation=fixtureGet error=\"read: context canceled\"\n"; log.String() != want {
+		t.Fatalf("log = %q, want %q", log.String(), want)
+	}
+}
+
 func TestAPanicFailsOnlyItsRequest(t *testing.T) {
 	var log bytes.Buffer
 	r := newRouter(t, &log)

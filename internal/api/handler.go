@@ -98,7 +98,7 @@ func (r *Router) authenticate(next http.Handler) http.Handler {
 			TLS:     req.TLS != nil,
 		})
 		if err != nil {
-			r.services.Log.Error("authentication failed", "method", req.Method, "path", req.URL.Path, "error", err)
+			r.logFailure(req.Context(), "authentication failed", "method", req.Method, "path", req.URL.Path, "error", err)
 			writeProblem(w, Internal.problem())
 			return
 		}

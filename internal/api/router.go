@@ -137,7 +137,7 @@ func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context
 		}()
 		out, err = handler(ctx, p, in)
 		if err != nil {
-			return nil, r.failure(op, declared, err)
+			return nil, r.failure(ctx, op, declared, err)
 		}
 		return out, nil
 	})
@@ -238,7 +238,7 @@ func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(h
 // failure turns a handler's error into what the client sees. A code the
 // operation declares answers as itself; anything else answers internal
 // and logs the real error.
-func (r *Router) failure(op Op, declared []*Code, err error) error {
+func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error) error {
 	attrs := []any{"method", op.Method, "path", Prefix + op.Path}
 	code, isCode := err.(*Code) //nolint:errorlint // a handler returns its code itself, never wrapped
 	switch {
@@ -247,9 +247,19 @@ func (r *Router) failure(op Op, declared []*Code, err error) error {
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
 	default:
-		r.services.Log.Error("operation failed", append(attrs, "operation", op.ID, "error", err)...)
+		r.logFailure(ctx, "operation failed", append(attrs, "operation", op.ID, "error", err)...)
 	}
 	return Internal.problem()
+}
+
+// logFailure logs at error level, or at debug once ctx is done: a client
+// that went away is no failure of the operation.
+func (r *Router) logFailure(ctx context.Context, msg string, attrs ...any) {
+	level := slog.LevelError
+	if ctx.Err() != nil {
+		level = slog.LevelDebug
+	}
+	r.services.Log.Log(ctx, level, msg, attrs...)
 }
 
 // errorResponses documents each status's codes, so a client's generated
