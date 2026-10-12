@@ -4,8 +4,10 @@
   "type": "module",
   "scripts": {
     "gen": "orval && tsr generate",
-    "build": "orval && vite build && tsc --noEmit",
+    "build": "orval && vite build && tsc --noEmit && tsc --noEmit -p e2e",
     "test": "vitest run",
+    "e2e:install": "node e2e/install.ts",
+    "e2e": "playwright test -c e2e",
     "lint": "oxlint",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
@@ -25,8 +27,10 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@babel/core": "7.29.7",
     "@faker-js/faker": "10.6.0",
+    "@playwright/test": "1.64.0",
     "@rolldown/plugin-babel": "0.2.4",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/router-cli": "1.167.41",

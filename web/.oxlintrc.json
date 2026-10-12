@@ -415,7 +415,8 @@
             "name": "setInterval",
             "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
           }
-        ]
+        ],
+        "react-hooks/rules-of-hooks": "off"
       }
     },
     {
