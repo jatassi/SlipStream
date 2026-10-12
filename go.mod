@@ -2,6 +2,8 @@ module github.com/jatassi/slipstream
 
 go 1.27.2
 
+ignore ./web/node_modules
+
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/gofrs/flock v0.13.1
