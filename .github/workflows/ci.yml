@@ -154,7 +154,9 @@ jobs:
           (cd "$RUNNER_TEMP" && go run imports.go "$bin")
           if [ "$RUNNER_OS" = Windows ]; then trace=-Wl,--trace; else trace=-Wl,-t; fi
           eval "$(scripts/native-deps env)"
-          go build -tags release -o "$RUNNER_TEMP/trace-bin" -ldflags="-extldflags=$trace" ./cmd/slipstream 2>&1 | grep -oE '[^ /\\]+\.(a|tbd|dylib)\b' | sort | uniq -c
+          go build -x -tags release -o "$RUNNER_TEMP/trace-bin" -ldflags="-extldflags=$trace" ./cmd/slipstream > "$RUNNER_TEMP/trace.txt" 2>&1 || echo "BUILD FAILED"
+          grep -oiE '[^ /\\"]+\.(a|tbd|dylib|o|obj)\b' "$RUNNER_TEMP/trace.txt" | sort | uniq -c | sort -rn | head -80
+          grep -iE 'winpthread|unwind|c\+\+|clang_rt|builtins|error' "$RUNNER_TEMP/trace.txt" | head -40
       - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
 
   native-gate:
