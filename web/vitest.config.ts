@@ -2,9 +2,8 @@ import { playwright } from "@vitest/browser-playwright";
 import { msw } from "msw/vite";
 import { defineConfig, mergeConfig } from "vitest/config";
 
+import presets from "./e2e/presets.json" with { type: "json" };
 import viteConfig from "./vite.config.ts";
-
-const desk = { width: 1440, height: 900 };
 
 export default defineConfig((env) =>
   mergeConfig(viteConfig(env), {
@@ -19,7 +18,7 @@ export default defineConfig((env) =>
         headless: true,
         provider: playwright(),
         instances: [{ browser: "chromium" }],
-        viewport: desk,
+        viewport: { width: presets.desk.width, height: presets.desk.height },
       },
     },
   }),
