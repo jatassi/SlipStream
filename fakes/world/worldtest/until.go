@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// budgets is the stop budget of the runs each test launched.
 var budgets struct {
 	mu sync.Mutex
 	m  map[*testing.T]time.Duration

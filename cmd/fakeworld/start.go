@@ -15,14 +15,11 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 )
 
-// report is the one line the supervisor writes on its stdout once its
-// launch has ended.
 type report struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
 }
 
-// outcome is how start's wait for its supervisor's report ended.
 type outcome int
 
 const (
@@ -35,9 +32,7 @@ const (
 
 type handshake struct {
 	outcome outcome
-	// detail is the supervisor's error when it refused, and what was wrong
-	// with its stdout when it died without a report.
-	detail string
+	detail  string
 }
 
 func readReport(stdout io.Reader) handshake {
@@ -55,9 +50,6 @@ func readReport(stdout io.Reader) handshake {
 	return handshake{outcome: ready}
 }
 
-// start spawns a detached supervisor that launches the world, and returns
-// once it reports. A start that fails returns only after the supervisor,
-// and so everything it started, has exited.
 func start(f startFlags) error {
 	runDir, err := filepath.Abs(f.runDir)
 	if err != nil {
@@ -112,9 +104,6 @@ func start(f startFlags) error {
 	return h.err(f.timeout, cmd.ProcessState.ExitCode(), filepath.Join(runDir, "world.log"))
 }
 
-// supervisorCommand runs the run's own copy of this executable, so a go
-// run temp binary disappearing can't take the supervisor with it. Its
-// stderr appends to world.log, which the launch then writes too.
 func supervisorCommand(runDir, binary, scenario string, log *os.File) (*exec.Cmd, error) {
 	self, err := os.Executable()
 	if err != nil {
@@ -143,8 +132,6 @@ func await(signals context.Context, reports <-chan handshake, timeout time.Durat
 	}
 }
 
-// abandon stops a world whose ready report raced start giving up on it.
-// Any other late report means the supervisor is already unwinding.
 func abandon(runDir string, late handshake) {
 	if late.outcome != ready {
 		return

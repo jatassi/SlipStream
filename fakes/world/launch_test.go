@@ -34,8 +34,6 @@ type stub struct {
 	runExit  string
 }
 
-// productionKeys is what slipstream config reports for a config.yaml the
-// world wrote for home on 127.0.0.2.
 func productionKeys() []node.Key {
 	return []node.Key{
 		{Key: "seed", Value: "stub/home", Default: "", Source: "config.yaml"},
@@ -68,7 +66,6 @@ func stubScenario() scenario.Scenario {
 	}
 }
 
-// echo is a TLS fake that answers every request with its name.
 var echo = fake.Spec{
 	Name: "echo",
 	TLS:  true,
@@ -118,8 +115,6 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	assertStopped(t, m)
 }
 
-// checkLaunched checks the manifest and evidence of the stub's one Node
-// launched by TestLaunchAndStopOnTheStub.
 func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 	t.Helper()
 	written, err := world.ReadManifest(runDir)
@@ -239,10 +234,9 @@ func TestANodeThatExitsMidRunIsReported(t *testing.T) {
 func TestLaunchRefuses(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name string
-		stub stub
-		want string
-		// spawned is whether the refusal comes after the Node started.
+		name    string
+		stub    stub
+		want    string
 		spawned bool
 	}{
 		{
@@ -287,8 +281,6 @@ func TestLaunchRefuses(t *testing.T) {
 	}
 }
 
-// assertNothingLeft checks a failed launch: no manifest, no scratch dir,
-// and every Node world.log recorded gone.
 func assertNothingLeft(t *testing.T, runDir string, spawned bool) {
 	t.Helper()
 	wl, err := world.ReadWorldLog(runDir)
@@ -334,8 +326,6 @@ func TestLaunchRefusesAnExistingRunDir(t *testing.T) {
 	}
 }
 
-// TestLaunchRefusesATimingTheLoaderRefuses runs the real binary's loader
-// on the config.yaml the world wrote.
 func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 	t.Parallel()
 	s := stubScenario()

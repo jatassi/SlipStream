@@ -10,8 +10,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 )
 
-// supervise launches the world and holds it until its stop channel stops
-// it. Its stdin is start's: EOF before it reports abandons the launch.
 func supervise(f superviseFlags) int {
 	ctx, abandon := context.WithCancel(context.Background())
 	defer abandon()

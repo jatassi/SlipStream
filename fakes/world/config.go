@@ -16,7 +16,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// nodeAddress is Node i's own loopback address. Fakes take 127.0.0.1.
 func nodeAddress(i int) netip.Addr {
 	addr := netip.AddrFrom4([4]byte{127, 0, 0, 2})
 	for range i {
@@ -46,7 +45,6 @@ func CheckAddresses(ctx context.Context, n int) ([]netip.Addr, error) {
 	return addrs, nil
 }
 
-// listenKeys are the probe's *.listen keys outside timings and endpoints.
 func listenKeys(probe node.Resolved) []string {
 	var keys []string
 	for _, k := range probe.Keys {
@@ -58,9 +56,6 @@ func listenKeys(probe node.Resolved) []string {
 	return keys
 }
 
-// nodeConfig is the config.yaml of Node i: its seed, every listener on its
-// own address at port 0, and the timings and endpoints that differ from
-// production.
 func nodeConfig(s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) ([]byte, error) {
 	root := &yaml.Node{Kind: yaml.MappingNode}
 	set(root, "seed", s.Seed+"/"+s.Nodes[i].Name)
@@ -87,7 +82,6 @@ func nodeConfig(s scenario.Scenario, i int, listen []string, endpoints node.Endp
 	return b.Bytes(), nil
 }
 
-// set puts value at a dotted key, nesting a mapping for each dot.
 func set(m *yaml.Node, key, value string) {
 	head, rest, nested := strings.Cut(key, ".")
 	for i := 0; i < len(m.Content); i += 2 {

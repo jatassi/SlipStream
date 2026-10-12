@@ -12,8 +12,6 @@ import (
 
 const worldLogFile = "world.log"
 
-// openWorldLog opens world.log for appending, since fakeworld start may
-// already send its supervisor's stderr there.
 func openWorldLog(runDir string) (*slog.Logger, *os.File, error) {
 	f, err := os.OpenFile(filepath.Join(runDir, worldLogFile), os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644) //nolint:gosec // world.log is evidence anyone on the machine may read
 	if err != nil {

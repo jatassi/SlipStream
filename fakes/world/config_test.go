@@ -49,8 +49,6 @@ func TestDivergencesRefuseAPlantedKey(t *testing.T) {
 	}
 }
 
-// TestEveryDivergenceIsUsedByTheCatalog keeps the list as short as the
-// catalog allows: an entry no catalog Scenario needs is deleted.
 func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	var defaults yaml.Node
 	if err := defaults.Encode(node.Defaults()); err != nil {
@@ -89,7 +87,6 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	}
 }
 
-// configKeys are the keys the world writes in Node i's config.yaml.
 func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string) []node.Key {
 	t.Helper()
 	data, err := nodeConfig(s, i, listen, node.Defaults().Endpoints)

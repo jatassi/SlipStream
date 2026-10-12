@@ -105,7 +105,6 @@ func TestSingleMachine(t *testing.T) {
 	}
 }
 
-// resolve runs slipstream config on a Node's data dir, as the launch did.
 func resolve(ctx context.Context, t *testing.T, binary, dataDir string) node.Resolved {
 	t.Helper()
 	cmd := exec.CommandContext(ctx, binary, "config", "--data-dir", dataDir)

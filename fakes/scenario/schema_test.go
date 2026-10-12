@@ -22,7 +22,6 @@ const (
 	modeline   = "# yaml-language-server: $schema=../scenario.schema.json\n"
 )
 
-// durationPattern is the language time.ParseDuration accepts.
 const durationPattern = `^[-+]?(0|(([0-9]+(\.[0-9]*)?|\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$`
 
 func schema(t *testing.T) []byte {
@@ -126,7 +125,6 @@ func compileSchema(t *testing.T, data []byte) *validator.Schema {
 	return s
 }
 
-// yamlValue is data as the editor's validator sees it: YAML read as JSON.
 func yamlValue(t *testing.T, data []byte) any {
 	t.Helper()
 	var v any

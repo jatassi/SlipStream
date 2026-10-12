@@ -21,7 +21,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// stopGrace is how long slipstream stop waits past a Node's stop deadline.
 const stopGrace = 5 * time.Second
 
 const logLinesOnFailure = 50

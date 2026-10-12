@@ -1,6 +1,3 @@
-// Command stubnode stands in for slipstream in the world's launch tests.
-// Its behaviour comes from -ldflags -X, and it prints only internal/node's
-// types, so its output cannot drift from the real format.
 package main
 
 import (
@@ -20,12 +17,9 @@ import (
 )
 
 var (
-	// resolved is the node.Resolved config prints, as JSON.
 	resolved string
-	// torrent replaces the torrent listener run reports.
-	torrent string
-	// runExit makes run exit with this code before it is ready.
-	runExit string
+	torrent  string
+	runExit  string
 )
 
 func main() {
@@ -108,7 +102,6 @@ func run(dir string) {
 	_ = control.Close()
 }
 
-// stop asks run to exit and waits until its control connection closes.
 func stop(dir string) {
 	d, err := node.ParseDataDir(dir)
 	fail(err)

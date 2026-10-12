@@ -77,8 +77,6 @@ func Catalog() []string {
 	return out
 }
 
-// parse decodes data strictly: unknown and duplicate keys fail with their
-// line.
 func parse(name string, data []byte) (Scenario, error) {
 	s := Scenario{Name: name}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
@@ -176,8 +174,6 @@ func SetTimings(t node.TimingsBlock) *yaml.Node {
 	return n
 }
 
-// document is the Scenario's canonical form: its fields in order, with
-// only the timings it sets.
 func (s Scenario) document() *yaml.Node {
 	type plain Scenario
 	var doc yaml.Node

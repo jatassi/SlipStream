@@ -1,5 +1,3 @@
-// Command probe GETs a URL with Go's default transport, so it trusts
-// exactly what its environment tells it to.
 package main
 
 import (

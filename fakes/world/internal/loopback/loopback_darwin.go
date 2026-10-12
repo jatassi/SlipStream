@@ -98,7 +98,6 @@ func isLoaded(ctx context.Context) bool {
 	return exec.CommandContext(ctx, "/bin/launchctl", "print", "system/"+Label).Run() == nil
 }
 
-// presentAliases are the aliases lo0 has now.
 func presentAliases() ([]netip.Addr, error) {
 	lo, err := net.InterfaceByName("lo0")
 	if err != nil {

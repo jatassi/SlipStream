@@ -8,8 +8,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 )
 
-// stop stops the run through its supervisor, prints the stop report and
-// returns once the supervisor has exited.
 func stop(f stopFlags) error {
 	signals, stopSignals := interrupted()
 	defer stopSignals()

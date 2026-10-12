@@ -98,7 +98,6 @@ func newFlagSet(name string) *flag.FlagSet {
 	return fs
 }
 
-// parse parses flags anywhere among args and returns the other arguments.
 func parse(fs *flag.FlagSet, args []string) ([]string, error) {
 	var positional []string
 	for {
@@ -210,8 +209,6 @@ func parseSupervise(args []string) (superviseFlags, error) {
 	return f, required(fs, "binary", "scenario", "run-dir")
 }
 
-// interrupted ends on Ctrl+C or SIGTERM. Until stop is called, those
-// signals no longer end the process.
 func interrupted() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }

@@ -110,8 +110,6 @@ func ReadManifest(runDir string) (Manifest, error) {
 	return m, nil
 }
 
-// writeAtomically writes data to path by a temp file beside it, fsync and
-// rename, so path is either absent or whole.
 func writeAtomically(path string, data []byte) error {
 	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
 	if err != nil {

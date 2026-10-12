@@ -161,11 +161,6 @@ linters:
   exclusions:
     generated: strict
     rules:
-      # cmd/release, the Fake world harness and tests run toolchains and
-      # binaries under test and read and write repo, run and temp files by
-      # design. Their paths and arguments come from the repo or the
-      # harness's caller, not from a user, so these rules have nothing to
-      # catch.
       - path: ^(cmd/release|cmd/fakeworld|fakes)/|_test\.go$
         linters:
           - gosec

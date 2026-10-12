@@ -20,8 +20,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/testbin"
 )
 
-// TestCATrustedThroughSSLCertFile settles, per OS, that a Node trusts the
-// run CA through SSL_CERT_FILE in exactly the world's Node environment.
 func TestCATrustedThroughSSLCertFile(t *testing.T) {
 	s, err := scenario.Load("single-machine")
 	if err != nil {

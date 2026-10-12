@@ -54,7 +54,6 @@ func TestManifestSchema(t *testing.T) {
 	}
 }
 
-// validateManifest checks a written manifest against the committed schema.
 func validateManifest(t *testing.T, path string) {
 	t.Helper()
 	data, err := os.ReadFile(path)

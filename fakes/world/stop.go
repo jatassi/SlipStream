@@ -96,9 +96,6 @@ func (r *Run) stop() {
 	_ = r.logFile.Close()
 }
 
-// stopNode asks the Node to stop with slipstream stop, unless it already
-// exited, and reaps it. A Node that slipstream stop did not see release
-// its data dir is killed, so the run never leaves a process behind.
 func (r *Run) stopNode(n *nodeRun, unasked bool) NodeStop {
 	ns := NodeStop{Name: n.spec.Name, ExitedUnasked: unasked}
 	select {

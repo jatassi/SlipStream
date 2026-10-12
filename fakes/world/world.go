@@ -55,10 +55,9 @@ type Run struct {
 	runDir     string
 	scratchDir string
 	socket     string
-	// life outlives the launch context: the run lasts until Stop.
-	life    context.Context
-	log     *slog.Logger
-	logFile *os.File
+	life       context.Context
+	log        *slog.Logger
+	logFile    *os.File
 
 	binary    Binary
 	ca        *ca.CA
@@ -75,7 +74,6 @@ type Run struct {
 	report   StopReport
 }
 
-// nodeRun is one Node through the launch and the run.
 type nodeRun struct {
 	spec    scenario.Node
 	addr    netip.Addr
@@ -94,7 +92,6 @@ type fakeRun struct {
 	done   chan error
 }
 
-// unwind is a failed launch's undo steps, run newest first.
 type unwind []func()
 
 func (u *unwind) push(f func()) { *u = append(*u, f) }
@@ -200,7 +197,6 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	return r, nil
 }
 
-// newRunID is 8 lower-case Crockford base32 characters.
 func newRunID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)
@@ -355,8 +351,6 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
-// resolve runs slipstream config on dir, through S02's loader on exactly
-// the file the Node will read.
 func (r *Run) resolve(ctx context.Context, name, dir string, env []string) (node.Resolved, error) {
 	res, err := proc.Run(ctx, r.binary.Path, []string{"config", "--data-dir", dir}, env)
 	if err != nil {
@@ -379,8 +373,6 @@ func (r *Run) resolve(ctx context.Context, name, dir string, env []string) (node
 	return resolved, nil
 }
 
-// admit refuses a Node whose census names a real host or whose settings
-// differ from production in a way no divergence names.
 func (r *Run) admit(name string, resolved node.Resolved, worldEnv []string) error {
 	if len(resolved.Census) > 0 {
 		values := map[string]string{}
@@ -407,8 +399,6 @@ func (r *Run) admit(name string, resolved node.Resolved, worldEnv []string) erro
 	return nil
 }
 
-// overrides are the keys whose value differs from the default and whose
-// source is not random, the rule the readiness record uses.
 func overrides(keys []node.Key) []node.Key {
 	var out []node.Key
 	for _, k := range keys {
@@ -486,8 +476,6 @@ func (r *Run) checkListeners(context.Context, *unwind) error {
 	return nil
 }
 
-// listenerMap reads the readiness record's listeners as a JSON object, so
-// a listener a later spec adds needs no world edit.
 func listenerMap(l node.Listeners) (map[string]string, error) {
 	data, err := json.Marshal(l)
 	if err != nil {

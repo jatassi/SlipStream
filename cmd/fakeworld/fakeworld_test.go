@@ -142,8 +142,6 @@ func TestStartTimeout(t *testing.T) {
 	}
 }
 
-// loggedPIDs is every PID world.log recorded: the supervisor's, once its
-// launch began, and each Node's.
 func loggedPIDs(t *testing.T, runDir string) []int {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(runDir, "world.log"))
@@ -182,8 +180,6 @@ func TestStopWithoutSupervisor(t *testing.T) {
 	}
 }
 
-// stopByHand does what stop told the person to do, and removes what the
-// dead supervisor would have.
 func stopByHand(t *testing.T, m world.Manifest) {
 	t.Helper()
 	for _, n := range m.Nodes {

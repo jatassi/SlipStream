@@ -8,12 +8,8 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// divergence is one way a Fake world Node differs from production. Every
-// launch refuses a Node whose config or environment differs in a way no
-// entry covers.
 type divergence struct {
-	id string
-	// keys are config key patterns, matched with path.Match.
+	id     string
 	keys   []string
 	env    []string
 	reason string
@@ -47,15 +43,11 @@ var divergences = []divergence{
 	},
 }
 
-// setting is a config key or an environment variable a Node runs with
-// that a production Node does not.
 type setting struct {
 	name string
 	env  bool
 }
 
-// settings are a Node's overrides and the variables the world adds to its
-// environment.
 func settings(overrides []node.Key, worldEnv []string) []setting {
 	var out []setting
 	for _, k := range overrides {
@@ -78,8 +70,6 @@ func (d divergence) covers(s setting) bool {
 	})
 }
 
-// diverge sorts settings into the divergence ids that cover them and the
-// names no entry covers.
 func diverge(settings []setting) (used map[string]bool, uncovered []string) {
 	used = map[string]bool{}
 	for _, s := range settings {
@@ -93,7 +83,6 @@ func diverge(settings []setting) (used map[string]bool, uncovered []string) {
 	return used, uncovered
 }
 
-// usedIDs is the divergence ids in used, in the list's order.
 func usedIDs(used map[string]bool) []string {
 	ids := []string{}
 	for _, d := range divergences {
