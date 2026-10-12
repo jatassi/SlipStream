@@ -6,13 +6,30 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+// Timings is the timings.live section.
+type Timings struct {
+	// Heartbeat is how often a stream sends a keepalive and checks its
+	// session.
+	Heartbeat time.Duration `yaml:"heartbeat"`
+	// Retry is how long a browser waits before it reconnects a dropped
+	// stream.
+	Retry time.Duration `yaml:"retry"`
+}
+
+func DefaultTimings() Timings {
+	return Timings{Heartbeat: 25 * time.Second, Retry: 3 * time.Second}
+}
 
 // Audience is who may see an event.
 type Audience uint8
@@ -189,6 +206,12 @@ func NewHub(events []Event) *Hub {
 		notify: make(chan struct{}),
 		subs:   make(map[*Subscription]struct{}),
 	}
+}
+
+// Events is every event the hub carries, its two control events included,
+// ordered by name.
+func (h *Hub) Events() []Event {
+	return slices.SortedFunc(maps.Values(h.events), func(a, b Event) int { return strings.Compare(a.Name(), b.Name()) })
 }
 
 func (h *Hub) mustDeclare(e Event) {

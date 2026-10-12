@@ -235,16 +235,11 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	if err != nil {
 		return Caller{}, nil, err
 	}
-	now := storage.Now()
-	idle := now.Time().Sub(row.LastSeenAt.Time())
-	if idle > s.lifetime {
-		err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-			return db.New(tx).DeleteSession(ctx, row.SessionID)
-		})
-		if err != nil {
-			return Caller{}, nil, err
-		}
-		s.sessionsChanged(ctx, row.AccountID)
+	u, err := s.use(ctx, row.SessionID, row.AccountID, row.LastSeenAt)
+	if err != nil {
+		return Caller{}, nil, err
+	}
+	if u == expired {
 		return c, clearCookie(r.TLS), nil
 	}
 	c.kind = sessionCaller
@@ -253,16 +248,63 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 		profile: Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
 		session: row.SessionID,
 	}
-	if idle <= s.lifetime/slideDivisor {
-		return c, nil, nil
+	if u == slid {
+		return c, s.cookie(r.Session, r.TLS), nil
 	}
-	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return db.New(tx).TouchSession(ctx, db.TouchSessionParams{LastSeenAt: now, ID: row.SessionID})
-	})
+	return c, nil, nil
+}
+
+// Renew counts a's open stream as use of its session, under the same rule
+// as a request. A session that expired or is gone returns ErrSignedOut.
+func (s *Service) Renew(ctx context.Context, a Account) error {
+	seen, err := db.New(s.lib).GetSessionLastSeen(ctx, a.session)
+	if errors.Is(err, storage.ErrNoRows) {
+		return ErrSignedOut
+	}
 	if err != nil {
-		return Caller{}, nil, err
+		return err
 	}
-	return c, s.cookie(r.Session, r.TLS), nil
+	u, err := s.use(ctx, a.session, a.profile.ID, seen)
+	if err != nil {
+		return err
+	}
+	if u == expired {
+		return ErrSignedOut
+	}
+	return nil
+}
+
+type sessionUse uint8
+
+const (
+	current sessionUse = iota
+	slid
+	expired
+)
+
+// use is one use of a session last seen at seen. An expired session is
+// deleted and its streams end. One idle longer than lifetime/720 slides.
+func (s *Service) use(ctx context.Context, session SessionID, account AccountID, seen storage.Time) (sessionUse, error) {
+	now := storage.Now()
+	idle := now.Time().Sub(seen.Time())
+	switch {
+	case idle > s.lifetime:
+		err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+			return db.New(tx).DeleteSession(ctx, session)
+		})
+		if err != nil {
+			return 0, err
+		}
+		s.ends.EndSession(session.UUID)
+		s.sessionsChanged(ctx, account)
+		return expired, nil
+	case idle > s.lifetime/slideDivisor:
+		err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+			return db.New(tx).TouchSession(ctx, db.TouchSessionParams{LastSeenAt: now, ID: session})
+		})
+		return slid, err
+	}
+	return current, nil
 }
 
 func (s *Service) sessionsChanged(ctx context.Context, account AccountID) {

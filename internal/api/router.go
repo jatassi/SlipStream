@@ -85,6 +85,9 @@ func (r *Router) Owner(tag string, floor Floor) *Owner {
 	if !tagShape.MatchString(tag) {
 		panic(fmt.Sprintf("api: owner tag %q must match %s", tag, tagShape))
 	}
+	if floor.level() == nil {
+		panic("api: owner " + tag + ": its floor is " + zeroLevel)
+	}
 	if r.owners[tag] {
 		panic("api: owner tag " + tag + " is used by two owners")
 	}
@@ -126,16 +129,36 @@ type principalKey struct{}
 // body, or a GET or HEAD with a request body.
 func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context.Context, P, *I) (*O, error)) {
 	r := o.router
-	o.check(level.access, op, reflect.TypeFor[I]())
+	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
+	huma.Register(r.huma, hop, func(ctx context.Context, in *I) (out *O, err error) {
+		p := principal[P](ctx, op)
+		defer func() {
+			if v := recover(); v != nil {
+				r.logPanic(op, v)
+				out, err = nil, Internal.problem()
+			}
+		}()
+		out, err = handler(ctx, p, in)
+		if err != nil {
+			return nil, r.failure(op, declared, err)
+		}
+		return out, nil
+	})
+}
+
+// humaOperation is op as Huma registers it, behind level's access check,
+// and every code it may answer.
+func humaOperation[P any](o *Owner, level Level[P], op Op, input reflect.Type) (huma.Operation, []*Code) {
+	o.check(level.access, op, input)
 	declared := slices.Concat(level.codes, op.Errors, []*Code{Internal})
-	if reflect.TypeFor[I]().NumField() > 0 {
+	if input.NumField() > 0 {
 		declared = append(declared, Invalid)
 	}
 	limit := op.MaxBody
 	if limit == 0 {
 		limit = defaultBodyLimit
 	}
-	huma.Register(r.huma, huma.Operation{
+	return huma.Operation{
 		OperationID:   op.ID,
 		Method:        op.Method,
 		Path:          op.Path,
@@ -148,28 +171,27 @@ func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context
 		// Huma answers 413 when it reads exactly MaxBodyBytes, so the limit
 		// itself is MaxBodyBytes-1.
 		MaxBodyBytes: limit + 1,
-		Middlewares:  huma.Middlewares{admitMiddleware(r, level)},
-	}, func(ctx context.Context, in *I) (out *O, err error) {
-		p, ok := ctx.Value(principalKey{}).(P)
-		if !ok {
-			panic("api: " + op.ID + " ran without its access check")
-		}
-		defer func() {
-			if v := recover(); v != nil {
-				r.services.Log.Error("operation panicked", "operation", op.ID, "method", op.Method, "path", Prefix+op.Path, "panic", v, "stack", string(debug.Stack()))
-				out, err = nil, Internal.problem()
-			}
-		}()
-		out, err = handler(ctx, p, in)
-		if err != nil {
-			return nil, r.failure(op, declared, err)
-		}
-		return out, nil
-	})
+		Middlewares:  huma.Middlewares{admitMiddleware(o.router, level)},
+	}, declared
+}
+
+func principal[P any](ctx context.Context, op Op) P {
+	p, ok := ctx.Value(principalKey{}).(P)
+	if !ok {
+		panic("api: " + op.ID + " ran without its access check")
+	}
+	return p
+}
+
+func (r *Router) logPanic(op Op, v any) {
+	r.services.Log.Error("operation panicked", "operation", op.ID, "method", op.Method, "path", Prefix+op.Path, "panic", v, "stack", string(debug.Stack()))
 }
 
 func (o *Owner) check(level *access, op Op, input reflect.Type) {
 	r := o.router
+	if level == nil {
+		panic(op.ID + ": " + zeroLevel)
+	}
 	if !idShape.MatchString(op.ID) {
 		panic(fmt.Sprintf("api: operation id %q is not lowerCamelCase and verb-first", op.ID))
 	}

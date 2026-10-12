@@ -52,6 +52,10 @@ var (
 	}
 )
 
+// zeroLevel ends the panic for a Level that is none of the four, such as
+// another package's api.Level[identity.Admin]{}.
+const zeroLevel = "a zero api.Level; use api.Public, api.Setup, api.Account or api.Admin"
+
 var levels = []*access{Public.access, Setup.access, Account.access, Admin.access}
 
 func narrowed[P any](narrow func(identity.Caller) (P, error)) admitFunc[P] {
