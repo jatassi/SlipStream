@@ -12,6 +12,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 )
 
 func init() {
@@ -48,20 +50,11 @@ func sqlcConfigs(ctx context.Context, root string) ([]string, error) {
 	}
 	var configs []string
 	for f := range bytes.SplitSeq(bytes.TrimRight(out, "\x00"), []byte{0}) {
-		if len(f) > 0 && !ignoredByGo(string(f)) {
+		if len(f) > 0 && !lint.IgnoredByGo(string(f)) {
 			configs = append(configs, string(f))
 		}
 	}
 	return configs, nil
-}
-
-func ignoredByGo(file string) bool {
-	for elem := range strings.SplitSeq(path.Dir(file), "/") {
-		if elem == "testdata" || strings.HasPrefix(elem, "_") || strings.HasPrefix(elem, ".") {
-			return true
-		}
-	}
-	return false
 }
 
 func hostSqlc(ctx context.Context, root string, args ...string) *exec.Cmd {
@@ -79,7 +72,7 @@ func sqlcDrift(ctx context.Context, root, dir string, configs []string, w io.Wri
 			continue
 		}
 		// sqlc exits 1 both for a diff and for a broken config or query.
-		if exit := (*exec.ExitError)(nil); !errors.As(err, &exit) || !bytes.HasPrefix(out, []byte("--- a/")) {
+		if _, ok := errors.AsType[*exec.ExitError](err); !ok || !bytes.HasPrefix(out, []byte("--- a/")) {
 			return fmt.Errorf("sqlc diff -f %s: %w\n%s", c, err, out)
 		}
 		owner := path.Dir(c)
