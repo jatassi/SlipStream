@@ -1,0 +1,24 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "app-web",
+      "dependencies": {
+        "leftpad": "1.0.0",
+        "tick": "1.0.0",
+      },
+      "devDependencies": {
+        "devtool": "3.0.0",
+      },
+    },
+  },
+  "packages": {
+    "devtool": ["devtool@3.0.0", "", {}, "sha512-devtool"],
+
+    "leftpad": ["leftpad@1.0.0", "", { "dependencies": { "tick": "^2.0.0" } }, "sha512-leftpad"],
+
+    "leftpad/tick": ["tick@2.0.0", "", {}, "sha512-tick2"],
+
+    "tick": ["tick@1.0.0", "", {}, "sha512-tick1"],
+  }
+}
