@@ -13,13 +13,15 @@ import (
 	"strings"
 )
 
-// CacheRoot is the per-machine native cache that every worktree shares.
+// CacheRoot is the per-machine native cache that every worktree shares. Its
+// name differs from SlipStream v1's data folder, %LOCALAPPDATA%\SlipStream,
+// in more than case, since Windows paths ignore case.
 func CacheRoot() (string, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "slipstream", "native"), nil
+	return filepath.Join(dir, "slipstream-native"), nil
 }
 
 // LayerDir is where a fetched layer lives under the cache root. The path
@@ -38,52 +40,102 @@ func BuildToolchain(ctx context.Context, in Inputs, t Target, recipeDir, cacheRo
 	}
 	return buildLayer(archive, func(prefix, work string) error {
 		args := []string{
-			"-DLAYER_PREFIX=" + prefix,
-			"-DWORK_DIR=" + work,
-			"-DDOWNLOAD_DIR=" + downloadDir(cacheRoot),
+			"-DLAYER_PREFIX=" + filepath.ToSlash(prefix),
+			"-DWORK_DIR=" + filepath.ToSlash(work),
+			"-DDOWNLOAD_DIR=" + filepath.ToSlash(downloadDir(cacheRoot)),
 			"-DTRIPLE=" + t.Triple,
 		}
 		for _, s := range tc.Sources {
 			args = append(args, sourceDefines(s)...)
 		}
-		return cmake(ctx, log, append(args, "-P", filepath.Join(recipeDir, string(KindToolchain), "toolchain.cmake"))...)
+		script := filepath.Join(recipeDir, string(KindToolchain), tc.Name, "toolchain.cmake")
+		return cmake(ctx, log, nil, append(args, "-P", script)...)
 	})
 }
 
-// BuildLibs builds the libs layer for t with its recipe and the toolchain
-// layer packed in toolchainArchive, and writes it to archive like
-// BuildToolchain.
-func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, toolchainArchive, cacheRoot, archive string, log io.Writer) error {
+// BuildLibs builds the libs layer for t with its recipe and t's toolchain,
+// and writes it to archive like BuildToolchain.
+func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot, archive string, log io.Writer) error {
 	toolchainDir, err := os.MkdirTemp("", "slipstream-toolchain-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(toolchainDir)
-	if err := extract(toolchainArchive, toolchainDir); err != nil {
-		return err
-	}
-	cc, err := ReadCompilers(toolchainDir)
+	cc, err := libsCompilers(ctx, in, t, recipeDir, toolchainDir)
 	if err != nil {
 		return err
 	}
+	var env []string
+	for name, value := range t.Env {
+		env = append(env, name+"="+value)
+	}
 	return buildLayer(archive, func(prefix, work string) error {
 		configure := []string{
+			"-G", "Ninja",
 			"-S", filepath.Join(recipeDir, string(KindLibs)), "-B", work,
-			"-DCMAKE_C_COMPILER=" + cc.CC,
-			"-DCMAKE_CXX_COMPILER=" + cc.CXX,
-			"-DLAYER_PREFIX=" + prefix,
-			"-DDOWNLOAD_DIR=" + downloadDir(cacheRoot),
+			"-DCMAKE_C_COMPILER=" + filepath.ToSlash(cc.CC),
+			"-DCMAKE_CXX_COMPILER=" + filepath.ToSlash(cc.CXX),
+			"-DLAYER_PREFIX=" + filepath.ToSlash(prefix),
+			"-DDOWNLOAD_DIR=" + filepath.ToSlash(downloadDir(cacheRoot)),
 			"-DOPENSSL_TARGET=" + t.OpenSSLTarget,
 			"-DSYSTEM_LIBS=" + strings.Join(t.SystemLibs, ";"),
 		}
 		for _, c := range in.Components {
 			configure = append(configure, sourceDefines(c.Source)...)
 		}
-		if err := cmake(ctx, log, configure...); err != nil {
+		if err := cmake(ctx, log, env, configure...); err != nil {
 			return err
 		}
-		return cmake(ctx, log, "--build", work)
+		return cmake(ctx, log, env, "--build", work)
 	})
+}
+
+// libsCompilers returns the compilers that build t's libs layer: those of
+// its published toolchain layer, extracted into dir, or those of the
+// selected Xcode once its version is the pinned one.
+func libsCompilers(ctx context.Context, in Inputs, t Target, recipeDir, dir string) (Compilers, error) {
+	tc, err := in.Toolchain(t)
+	if err != nil {
+		return Compilers{}, err
+	}
+	if !tc.Layered() {
+		return xcodeCompilers, checkXcode(ctx, tc.Xcode)
+	}
+	digest, err := ToolchainDigest(in, t, os.DirFS(recipeDir))
+	if err != nil {
+		return Compilers{}, err
+	}
+	id := LayerID{KindToolchain, t.Name, digest}
+	archive := filepath.Join(dir, id.AssetName())
+	f, err := os.Create(archive)
+	if err != nil {
+		return Compilers{}, err
+	}
+	_, err = download(ctx, id.URL(ReleasesURL), f)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return Compilers{}, err
+	}
+	layer := filepath.Join(dir, "layer")
+	if err := extract(archive, layer); err != nil {
+		return Compilers{}, err
+	}
+	return ReadCompilers(layer)
+}
+
+// checkXcode fails unless the selected Xcode is the pinned version.
+func checkXcode(ctx context.Context, version string) error {
+	out, err := exec.CommandContext(ctx, "xcodebuild", "-version").Output()
+	if err != nil {
+		return fmt.Errorf("xcodebuild -version: %w", err)
+	}
+	selected, _, _ := strings.Cut(string(out), "\n")
+	if want := "Xcode " + version; selected != want {
+		return fmt.Errorf("the libs layer is built with %s, but %s is selected; select it with DEVELOPER_DIR or xcode-select", want, selected)
+	}
+	return nil
 }
 
 // buildLayer runs build with a fresh layer prefix and work directory, then
@@ -110,8 +162,9 @@ func sourceDefines(s Source) []string {
 
 func downloadDir(cacheRoot string) string { return filepath.Join(cacheRoot, "downloads") }
 
-func cmake(ctx context.Context, log io.Writer, args ...string) error {
+func cmake(ctx context.Context, log io.Writer, env []string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "cmake", args...)
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout, cmd.Stderr = log, log
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("cmake %s: %w", strings.Join(args, " "), err)

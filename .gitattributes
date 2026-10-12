@@ -1,1 +1,6 @@
-/native/recipe/** text eol=lf
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.mp4 binary
+**/scripts/bin/** binary
+cmd/release/internal/linkage/testdata/** binary

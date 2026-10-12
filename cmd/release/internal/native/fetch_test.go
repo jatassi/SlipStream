@@ -195,7 +195,7 @@ func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
 	if b.Libs != lock.Layers[1] {
 		t.Errorf("Libs = %+v, want %+v", b.Libs, lock.Layers[1])
 	}
-	cflags := "-O2 -g -I" + filepath.Join(libs, "include")
+	cflags := "-O2 -g -DSLIPSTREAM_NATIVE_BUNDLE -I" + filepath.Join(libs, "include")
 	wantEnv := []EnvVar{
 		{"CGO_ENABLED", "1"},
 		{"GOFLAGS", "-tags=netgo"},
@@ -207,5 +207,49 @@ func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
 	}
 	if !slices.Equal(b.Env, wantEnv) {
 		t.Errorf("Env =\n%q\nwant\n%q", b.Env, wantEnv)
+	}
+}
+
+func TestFetchedBundleBuildsWithXcodeAndTheLibsLayer(t *testing.T) {
+	root, cache := t.TempDir(), t.TempDir()
+	in, recipe := fixture(t)
+	if err := os.CopyFS(filepath.Join(root, RecipeDir), recipe); err != nil {
+		t.Fatal(err)
+	}
+	target, err := in.Target("darwin-arm64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := in.Layers(target, recipe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	libs := Layer{ids[0], ids[0].AssetName(), ids[0].URL("https://example.test"), strings.Repeat("c", 64)}
+	if err := (Lock{Layers: []Layer{libs}}).Write(filepath.Join(root, LockPath)); err != nil {
+		t.Fatal(err)
+	}
+	dir := LayerDir(cache, libs)
+	metadata := `{"include_dirs": ["include"], "static_libs": ["lib/libssl.a"], "system_libs": ["-lc++"]}`
+	if err := writeFile(filepath.Join(dir, MetadataFile), strings.NewReader(metadata), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := FetchedBundle(root, cache, in, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cflags := "-O2 -g -DSLIPSTREAM_NATIVE_BUNDLE -I" + filepath.Join(dir, "include")
+	wantEnv := []EnvVar{
+		{"CGO_ENABLED", "1"},
+		{"GOFLAGS", "-tags="},
+		{"CC", "clang"},
+		{"CXX", "clang++"},
+		{"CGO_CFLAGS", cflags},
+		{"CGO_CXXFLAGS", cflags},
+		{"CGO_LDFLAGS", filepath.Join(dir, "lib", "libssl.a") + " -lc++"},
+		{"MACOSX_DEPLOYMENT_TARGET", "13.0"},
+	}
+	if b.Libs != libs || !slices.Equal(b.Env, wantEnv) {
+		t.Errorf("FetchedBundle = %+v, %q\nwant %+v, %q", b.Libs, b.Env, libs, wantEnv)
 	}
 }

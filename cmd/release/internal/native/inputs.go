@@ -27,17 +27,18 @@ type Target struct {
 	GOOS   string `json:"goos"`
 	GOARCH string `json:"goarch"`
 	Runner string `json:"runner"`
-	// Toolchain names the entry of Inputs.Toolchains that builds the
-	// target's toolchain layer.
+	// Toolchain names the entry of Inputs.Toolchains that compiles the
+	// target's libs layer and its cgo packages.
 	Toolchain string `json:"toolchain"`
-	// Triple is the GNU target triple the toolchain compiles for.
+	// Triple is the target triple the toolchain compiles for.
 	Triple string `json:"triple,omitempty"`
 	MinOS  string `json:"min_os"`
 	Gate   Gate   `json:"gate"`
-	// Layers are the bundle layers published and pinned for the target.
-	Layers []Kind `json:"layers"`
 	// GoTags are build tags every build against the target's bundle needs.
 	GoTags []string `json:"go_tags,omitempty"`
+	// Env is the environment every C and C++ compile for the target runs
+	// in, both in the libs layer build and in cgo.
+	Env map[string]string `json:"env,omitempty"`
 	// OpenSSLTarget is the target name OpenSSL's Configure takes.
 	OpenSSLTarget string `json:"openssl_target"`
 	// SystemLibs are linker arguments after the static libraries.
@@ -58,20 +59,26 @@ type Component struct {
 	License string `json:"license"`
 }
 
-// Runtime is a library the toolchain builds from one of its sources and
-// links statically into every binary of the targets that use it.
+// Runtime is a library a toolchain links statically into every binary of
+// the targets that use it, shipped from one of the toolchain's sources.
 type Runtime struct {
 	Name    string `json:"name"`
 	Source  string `json:"source"`
 	License string `json:"license"`
 }
 
-// Toolchain is a C and C++ compiler the bundle builds from its sources.
+// Toolchain is the C and C++ compiler a target builds with. A toolchain
+// with sources is a layer its recipe, native/recipe/toolchain/<name>,
+// builds or mirrors from them. A toolchain with an Xcode version is the
+// runner's own Xcode at that version and has no layer.
 type Toolchain struct {
 	Name     string    `json:"name"`
-	Sources  []Source  `json:"sources"`
-	Runtimes []Runtime `json:"runtimes"`
+	Sources  []Source  `json:"sources,omitempty"`
+	Runtimes []Runtime `json:"runtimes,omitempty"`
+	Xcode    string    `json:"xcode,omitempty"`
 }
+
+func (tc Toolchain) Layered() bool { return tc.Xcode == "" }
 
 type Inputs struct {
 	Targets    []Target    `json:"targets"`
@@ -98,18 +105,13 @@ func ParseInputs(data []byte) (Inputs, error) {
 		if t.Gate != GatePR && t.Gate != GateNative {
 			return Inputs{}, fmt.Errorf("native inputs: target %s: gate %q is neither %q nor %q", t.Name, t.Gate, GatePR, GateNative)
 		}
-		for _, k := range t.Layers {
-			if _, ok := layerDigests[k]; !ok {
-				return Inputs{}, fmt.Errorf("native inputs: target %s: unknown layer kind %q", t.Name, k)
-			}
+		if _, err := in.Toolchain(t); err != nil {
+			return Inputs{}, fmt.Errorf("native inputs: %w", err)
 		}
-		if slices.Contains(t.Layers, KindLibs) && !slices.Contains(t.Layers, KindToolchain) {
-			return Inputs{}, fmt.Errorf("native inputs: target %s: the %s layer is built with the %s layer, which it does not list", t.Name, KindLibs, KindToolchain)
-		}
-		if slices.Contains(t.Layers, KindToolchain) {
-			if _, err := in.Toolchain(t); err != nil {
-				return Inputs{}, fmt.Errorf("native inputs: %w", err)
-			}
+	}
+	for _, tc := range in.Toolchains {
+		if tc.Layered() == (len(tc.Sources) == 0) {
+			return Inputs{}, fmt.Errorf("native inputs: toolchain %s: lists either sources or an Xcode version, not both or neither", tc.Name)
 		}
 	}
 	var sources []Source

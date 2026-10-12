@@ -9,7 +9,6 @@
 			"triple": "x86_64-linux-musl",
 			"min_os": "linux 3.2",
 			"gate": "pr",
-			"layers": ["toolchain", "libs"],
 			"go_tags": ["netgo", "osusergo"],
 			"openssl_target": "linux-x86_64",
 			"system_libs": ["-static", "-lstdc++"]
@@ -23,7 +22,6 @@
 			"triple": "aarch64-linux-musl",
 			"min_os": "linux 3.2",
 			"gate": "native",
-			"layers": ["toolchain", "libs"],
 			"go_tags": ["netgo", "osusergo"],
 			"openssl_target": "linux-aarch64",
 			"system_libs": ["-static", "-lstdc++"]
@@ -34,11 +32,11 @@
 			"goarch": "amd64",
 			"runner": "windows-2025",
 			"toolchain": "llvm-mingw-ucrt",
+			"triple": "x86_64-w64-mingw32",
 			"min_os": "windows 10",
 			"gate": "native",
-			"layers": [],
 			"openssl_target": "mingw64",
-			"system_libs": ["-lc++", "-lws2_32", "-lmswsock", "-liphlpapi", "-lcrypt32", "-lbcrypt", "-ldbghelp", "-ladvapi32", "-luser32"]
+			"system_libs": ["-static", "-lc++", "-lws2_32", "-lmswsock", "-liphlpapi", "-lcrypt32", "-lbcrypt", "-ldbghelp", "-ladvapi32", "-luser32"]
 		},
 		{
 			"name": "darwin-arm64",
@@ -48,7 +46,7 @@
 			"toolchain": "xcode",
 			"min_os": "macos 13.0",
 			"gate": "native",
-			"layers": [],
+			"env": {"CMAKE_OSX_ARCHITECTURES": "arm64", "MACOSX_DEPLOYMENT_TARGET": "13.0"},
 			"openssl_target": "darwin64-arm64-cc",
 			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
 		},
@@ -60,7 +58,7 @@
 			"toolchain": "xcode",
 			"min_os": "macos 13.0",
 			"gate": "native",
-			"layers": [],
+			"env": {"CMAKE_OSX_ARCHITECTURES": "x86_64", "MACOSX_DEPLOYMENT_TARGET": "13.0"},
 			"openssl_target": "darwin64-x86_64-cc",
 			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
 		}
@@ -117,6 +115,28 @@
 				{"name": "libstdc++", "source": "gcc", "license": "GPL-3.0-with-GCC-exception"},
 				{"name": "libgcc", "source": "gcc", "license": "GPL-3.0-with-GCC-exception"}
 			]
+		},
+		{
+			"name": "llvm-mingw-ucrt",
+			"sources": [
+				{
+					"name": "llvm-mingw",
+					"version": "20261006",
+					"url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/llvm-mingw-20261006-ucrt-x86_64.zip",
+					"sha256": "317492c456aa27ee607a5919f1d2d38dcdc1112516a24d0bf4b00d078f52d17a"
+				}
+			],
+			"runtimes": [
+				{"name": "mingw-w64-runtime", "source": "llvm-mingw", "license": "ZPL-2.1"},
+				{"name": "libc++", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"},
+				{"name": "libc++abi", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"},
+				{"name": "libunwind", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"},
+				{"name": "compiler-rt", "source": "llvm-mingw", "license": "Apache-2.0 WITH LLVM-exception"}
+			]
+		},
+		{
+			"name": "xcode",
+			"xcode": "16.4"
 		}
 	],
 	"components": [

@@ -24,6 +24,9 @@ var want = buildinfo.Stamp{
 func build(t *testing.T, goos string, ldflags ...string) string {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "stamped-"+goos)
+	if goos == "windows" {
+		out += ".exe"
+	}
 	args := append([]string{"build", "-trimpath", "-o", out}, ldflags...)
 	cmd := exec.Command("go", append(args, "./testdata/stamped")...)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+runtime.GOARCH)

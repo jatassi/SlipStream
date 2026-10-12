@@ -24,19 +24,13 @@ const PublishHint = "dispatch the bundle workflow at this branch " +
 	"or https://github.com/jatassi/slipstream-native/actions/workflows/layers.yml), " +
 	"then run scripts/native-deps pin"
 
-// Kind names what a layer holds. A target row lists the kinds it ships, and
-// each kind's recipe is the directory of that name under RecipeDir.
+// Kind names what a layer holds.
 type Kind string
 
 const (
 	KindToolchain Kind = "toolchain"
 	KindLibs      Kind = "libs"
 )
-
-var layerDigests = map[Kind]func(Inputs, Target, fs.FS) (string, error){
-	KindToolchain: ToolchainDigest,
-	KindLibs:      LibsDigest,
-}
 
 // LayerID names a layer by what builds it.
 type LayerID struct {
@@ -67,18 +61,38 @@ type Lock struct {
 	Layers []Layer `json:"layers"`
 }
 
-// Want lists the layers the target table asks for, named by the digest of
-// the current inputs and recipe.
+// Layers names the layers t ships by the digest of the current inputs and
+// recipe, in build order: its toolchain layer when its toolchain has one,
+// then its libs layer.
+func (in Inputs) Layers(t Target, recipe fs.FS) ([]LayerID, error) {
+	tc, err := in.Toolchain(t)
+	if err != nil {
+		return nil, err
+	}
+	var ids []LayerID
+	if tc.Layered() {
+		digest, err := ToolchainDigest(in, t, recipe)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, LayerID{KindToolchain, t.Name, digest})
+	}
+	digest, err := LibsDigest(in, t, recipe)
+	if err != nil {
+		return nil, err
+	}
+	return append(ids, LayerID{KindLibs, t.Name, digest}), nil
+}
+
+// Want lists the layers of every target in the table.
 func Want(in Inputs, recipe fs.FS) ([]LayerID, error) {
 	var ids []LayerID
 	for _, t := range in.Targets {
-		for _, k := range t.Layers {
-			digest, err := layerDigests[k](in, t, recipe)
-			if err != nil {
-				return nil, err
-			}
-			ids = append(ids, LayerID{k, t.Name, digest})
+		layers, err := in.Layers(t, recipe)
+		if err != nil {
+			return nil, err
 		}
+		ids = append(ids, layers...)
 	}
 	return ids, nil
 }
