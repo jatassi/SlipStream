@@ -1,6 +1,9 @@
 package rules
 
 import (
+	"path"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
@@ -30,4 +33,22 @@ func underAny(file string, trees []string) bool {
 		}
 	}
 	return false
+}
+
+var majorVersion = regexp.MustCompile(`^v\d+$`)
+
+func importNames(f lint.GoFile) map[string]string {
+	names := map[string]string{}
+	for _, imp := range f.Syntax.Imports {
+		p, _ := strconv.Unquote(imp.Path.Value)
+		name := path.Base(p)
+		if majorVersion.MatchString(name) {
+			name = path.Base(path.Dir(p))
+		}
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		names[name] = p
+	}
+	return names
 }

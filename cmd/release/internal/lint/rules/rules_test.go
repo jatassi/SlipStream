@@ -111,3 +111,36 @@ func TestEndpointLiterals(t *testing.T) {
 		"internal/torrent/defaults.go:10: [endpoint-literals] host dht.transmissionbt.com" + declare,
 	})
 }
+
+func TestProcessGlobals(t *testing.T) {
+	const (
+		stream = " is process-global; draw from the subsystem's seeded stream from its Node"
+		logger = " is process-global; log through the *slog.Logger the Node hands the subsystem"
+		config = " is process-global; read the value from the Node's Config"
+		listen = " is process-global; bind through the Node so readiness reports the address"
+		client = " is process-global; build an *http.Client from the Node's config"
+		serve  = " is process-global; serve on a listener the Node binds"
+	)
+	assertFindings(t, check(t, "process-globals", fixtureRepo(t, "process-globals")), []string{
+		"internal/media/media.go:4: [process-globals] package log" + logger,
+		"internal/media/media.go:6: [process-globals] package math/rand" + stream,
+		"internal/media/media.go:14: [process-globals] math/rand/v2.IntN" + stream,
+		"internal/media/media.go:15: [process-globals] math/rand/v2.NewPCG" + stream,
+		"internal/media/media.go:16: [process-globals] math/rand/v2.N" + stream,
+		"internal/media/media.go:17: [process-globals] math/rand/v2.NewChaCha8" + stream,
+		"internal/media/media.go:20: [process-globals] os.Getenv" + config,
+		"internal/media/media.go:21: [process-globals] os.LookupEnv" + config,
+		"internal/media/media.go:22: [process-globals] os.Environ" + config,
+		"internal/media/media.go:24: [process-globals] log/slog.Info" + logger,
+		"internal/media/media.go:25: [process-globals] log/slog.SetDefault" + logger,
+		"internal/media/media.go:29: [process-globals] net.Listen" + listen,
+		"internal/media/media.go:30: [process-globals] net.ListenPacket" + listen,
+		"internal/media/media.go:31: [process-globals] net.ListenConfig" + listen,
+		"internal/media/media.go:33: [process-globals] net/http.Get" + client,
+		"internal/media/media.go:34: [process-globals] net/http.DefaultClient" + client,
+		"internal/media/media.go:35: [process-globals] net/http.ListenAndServe" + serve,
+		"internal/media/shadow.go:15: [process-globals] os.Getenv" + config,
+		"internal/media/shadow.go:16: [process-globals] net/http.Post" + client,
+		"internal/seed/seed.go:3: [process-globals] package math/rand" + stream,
+	})
+}
