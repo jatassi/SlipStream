@@ -9,31 +9,31 @@ import (
 )
 
 type divergence struct {
-	id     string
-	keys   []string
-	env    []string
-	reason string
-	spec   string
+	id          string
+	keyPatterns []string
+	env         []string
+	reason      string
+	spec        string
 }
 
 var divergences = []divergence{
 	{
-		id:     "loopback-listen",
-		keys:   []string{"*.listen"},
-		reason: "Every listener binds its Node's own 127.0.0.N on port 0.",
-		spec:   "#130",
+		id:          "loopback-listen",
+		keyPatterns: []string{"*.listen"},
+		reason:      "Every listener binds its Node's own 127.0.0.N on port 0.",
+		spec:        "#130",
 	},
 	{
-		id:     "seed",
-		keys:   []string{"seed"},
-		reason: "Each Node's seed is <scenario seed>/<node>, so runs replay. Production draws a random one.",
-		spec:   "#127",
+		id:          "seed",
+		keyPatterns: []string{"seed"},
+		reason:      "Each Node's seed is <scenario seed>/<node>, so runs replay. Production draws a random one.",
+		spec:        "#127",
 	},
 	{
-		id:     "timings",
-		keys:   []string{"timings.*"},
-		reason: "Protocol durations are shortened for the wall-clock tier (boundary 42).",
-		spec:   "#130",
+		id:          "timings",
+		keyPatterns: []string{"timings.*"},
+		reason:      "Protocol durations are shortened for the wall-clock tier (boundary 42).",
+		spec:        "#130",
 	},
 	{
 		id:     "test-ca",
@@ -64,7 +64,7 @@ func (d divergence) covers(s setting) bool {
 	if s.env {
 		return slices.Contains(d.env, s.name)
 	}
-	return slices.ContainsFunc(d.keys, func(pattern string) bool {
+	return slices.ContainsFunc(d.keyPatterns, func(pattern string) bool {
 		ok, _ := path.Match(pattern, s.name)
 		return ok
 	})

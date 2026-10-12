@@ -13,10 +13,7 @@ import (
 func supervise(f superviseFlags) int {
 	ctx, abandon := context.WithCancel(context.Background())
 	defer abandon()
-	go func() {
-		_, _ = io.Copy(io.Discard, os.Stdin)
-		abandon()
-	}()
+	go abandonOnStdinEOF(os.Stdin, abandon)
 	run, err := launch(ctx, f)
 	if err != nil {
 		writeReport(report{Error: err.Error()})
@@ -28,6 +25,11 @@ func supervise(f superviseFlags) int {
 		return exitFailed
 	}
 	return exitOK
+}
+
+func abandonOnStdinEOF(stdin io.Reader, abandon context.CancelFunc) {
+	_, _ = io.Copy(io.Discard, stdin)
+	abandon()
 }
 
 func launch(ctx context.Context, f superviseFlags) (*world.Run, error) {
