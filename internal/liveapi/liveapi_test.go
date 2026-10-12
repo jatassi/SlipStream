@@ -189,3 +189,26 @@ func TestASignOutBetweenAuthenticationAndSubscribeEndsTheStream(t *testing.T) {
 		}
 	})
 }
+
+func TestASlowHeartbeatDelaysTheNextOne(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := serve(t, 2*time.Hour)
+		session := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
+		s := n.stream(session)
+		next(t, s)
+		opened := time.Now()
+		time.Sleep(time.Hour)
+		// Holding the writer until 5h makes the 2h heartbeat's slide wait.
+		go func() {
+			_ = n.lib.Write(t.Context(), func(context.Context, *storage.Tx[storage.Library]) error {
+				time.Sleep(4 * time.Hour)
+				return nil
+			})
+		}()
+		for _, want := range []time.Duration{5 * time.Hour, 7 * time.Hour} {
+			if got := next(t, s); got != ": keepalive\n" || time.Since(opened) != want {
+				t.Fatalf("after %v read %q, want a keepalive after %v", time.Since(opened), got, want)
+			}
+		}
+	})
+}

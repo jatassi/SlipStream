@@ -72,10 +72,10 @@ func (s *stream) run(ctx context.Context, sub *live.Subscription) error {
 				return nil
 			}
 		case errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil:
-			beat = beat.Add(s.timings.Heartbeat)
 			if ended, err := s.heartbeat(ctx); ended {
 				return err
 			}
+			beat = time.Now().Add(s.timings.Heartbeat)
 		default:
 			return nil
 		}
