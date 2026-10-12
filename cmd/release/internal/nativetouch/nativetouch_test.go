@@ -44,6 +44,11 @@ func TestMatches(t *testing.T) {
 			want:    []Match{{"native-root", "cmd/release/plan.go"}},
 		},
 		{
+			name:    "workflow change",
+			changes: []Change{modified(".github/workflows/ci.yml", "a", "b")},
+			want:    []Match{{"native-root", ".github/workflows/ci.yml"}},
+		},
+		{
 			name: "data dir lock and control socket packages",
 			changes: []Change{
 				modified("internal/node/internal/lock/lock.go", "package lock\n", "package lock\n\n"),
