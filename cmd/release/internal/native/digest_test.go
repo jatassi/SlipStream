@@ -37,8 +37,8 @@ func fixture(t *testing.T) (Inputs, fstest.MapFS) {
 	}
 	recipe := fstest.MapFS{
 		"toolchain/musl-cross/toolchain.cmake": {Data: []byte("execute_process()\n")},
-		"libs/CMakeLists.txt":       {Data: []byte("project(x)\n")},
-		"libs/metadata.cmake":       {Data: []byte("file(WRITE x)\n")},
+		"libs/CMakeLists.txt":                  {Data: []byte("project(x)\n")},
+		"libs/metadata.cmake":                  {Data: []byte("file(WRITE x)\n")},
 	}
 	return in, recipe
 }
