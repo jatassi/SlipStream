@@ -93,8 +93,8 @@ func depsBuild(args []string) error {
 	if *archive == "" {
 		return fmt.Errorf("-archive is required")
 	}
-	if t.GOOS != runtime.GOOS || t.GOARCH != runtime.GOARCH {
-		return fmt.Errorf("target %s builds on its own OS and architecture, not on %s", t.Name, native.HostTargetName())
+	if t.GOOS != runtime.GOOS {
+		return fmt.Errorf("target %s builds on %s, not on %s", t.Name, t.GOOS, runtime.GOOS)
 	}
 	cacheRoot, err := native.CacheRoot()
 	if err != nil {
