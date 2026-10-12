@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "feature/**", claude/project-thread-0quoim-bundle]
+    branches: [main, "feature/**"]
 
 permissions:
   contents: read
