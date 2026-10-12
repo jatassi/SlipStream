@@ -98,9 +98,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/slipstream/native
-            ~/Library/Caches/slipstream/native
-            ~/AppData/Local/slipstream/native
+            ~/.cache/slipstream-native
+            ~/Library/Caches/slipstream-native
+            ~/AppData/Local/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - run: scripts/native-deps fetch
       - run: go run ./cmd/release build
@@ -153,11 +153,17 @@ jobs:
           GO
           bin=$(ls "$GITHUB_WORKSPACE"/dist/slipstream*)
           (cd "$RUNNER_TEMP" && go run imports.go "$bin")
-          if [ "$RUNNER_OS" = Windows ]; then trace=-Wl,--trace; else trace=-Wl,-t; fi
+          if [ "$RUNNER_OS" = Windows ]; then trace=-Wl,--verbose; else trace=-Wl,-t; fi
+          if [ "$RUNNER_OS" = macOS ] && [ "$GOARCH" = amd64 ]; then
+            env -u GOARCH go build -o "$RUNNER_TEMP/release-native" ./cmd/release
+            file "$RUNNER_TEMP/release-native"
+            start=$(date +%s); go run ./cmd/release build >/dev/null 2>&1; echo "TIMING go run (translated tool): $(( $(date +%s) - start ))s"
+            start=$(date +%s); "$RUNNER_TEMP/release-native" build >/dev/null 2>&1; echo "TIMING native tool: $(( $(date +%s) - start ))s"
+          fi
           eval "$(scripts/native-deps env)"
           go build -x -tags release -o "$RUNNER_TEMP/trace-bin" -ldflags="-extldflags=$trace" ./cmd/slipstream > "$RUNNER_TEMP/trace.txt" 2>&1 || echo "BUILD FAILED"
           grep -oiE '[^ /\\"]+\.(a|tbd|dylib|o|obj)\b' "$RUNNER_TEMP/trace.txt" | sort | uniq -c | sort -rn | head -80
-          grep -iE 'winpthread|unwind|c\+\+|clang_rt|builtins|error' "$RUNNER_TEMP/trace.txt" | head -40
+          grep -iE 'winpthread|unwind|libc\+\+|clang_rt|builtins|error' "$RUNNER_TEMP/trace.txt" | grep -v '^TERM\|^packagefile\|^modinfo\|-o \$WORK' | head -60
       - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
 
   native-gate:
