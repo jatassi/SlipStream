@@ -29,7 +29,7 @@ function SystemPage() {
         {rows.map(([term, value]) => (
           <div key={term} className="contents">
             <dt className="text-ink-3">{term}</dt>
-            <dd className="font-mono">{value}</dd>
+            <dd className="font-mono wrap-anywhere">{value}</dd>
           </div>
         ))}
       </dl>
