@@ -40,8 +40,9 @@ type Keys struct {
 }
 
 var (
-	errMissing = errors.New("library.key is missing, but library.db was set up with one; restore library.key from the Backup that holds this library.db")
-	errForeign = errors.New("library.key does not belong to this library.db; restore the library.key that does")
+	errMissing   = errors.New("library.key is missing, but library.db was set up with one; restore library.key from the Backup that holds this library.db")
+	errForeign   = errors.New("library.key does not belong to this library.db; restore the library.key that does")
+	errMalformed = errors.New("library.key is not 64 hex characters")
 )
 
 // Open converges the key file at path with library.db's check row. A key
@@ -60,6 +61,8 @@ func Open(ctx context.Context, lib *storage.DB[file], path string) (*Keys, error
 		if k, err = createKey(path); err != nil {
 			return nil, err
 		}
+	case errors.Is(err, errMalformed) && hasRow:
+		return nil, &storage.RefusedError{Err: errForeign}
 	case err != nil:
 		return nil, err
 	}
@@ -99,9 +102,9 @@ func readKey(path string) (*Keys, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", KeyFile, err)
 	}
-	raw, err := hex.DecodeString(strings.TrimSuffix(string(b), "\n"))
+	raw, err := hex.DecodeString(strings.TrimSpace(string(b)))
 	if err != nil || len(raw) != keySize {
-		return nil, fmt.Errorf("%s is not %d hex characters", KeyFile, 2*keySize)
+		return nil, errMalformed
 	}
 	var k Keys
 	copy(k.key[:], raw)

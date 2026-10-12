@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/secret"
@@ -107,6 +108,35 @@ func TestARowWithAForeignFileIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	write(t, path, otherKey)
+	_, err := secret.Open(t.Context(), lib, path)
+	refused(t, err, "library.key does not belong to this library.db; restore the library.key that does")
+}
+
+func TestAKeyWithACRLFEndingIsTheSameKey(t *testing.T) {
+	lib := storagetest.Library(t, secret.Schema())
+	path := keyPath(t)
+	write(t, path, fixedKey)
+	if _, err := secret.Open(t.Context(), lib, path); err != nil {
+		t.Fatal(err)
+	}
+	write(t, path, strings.TrimSuffix(fixedKey, "\n")+"\r\n")
+	keys, err := secret.Open(t.Context(), lib, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
+		t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
+	}
+}
+
+func TestARowWithATruncatedFileIsRefused(t *testing.T) {
+	lib := storagetest.Library(t, secret.Schema())
+	path := keyPath(t)
+	write(t, path, fixedKey)
+	if _, err := secret.Open(t.Context(), lib, path); err != nil {
+		t.Fatal(err)
+	}
+	write(t, path, fixedKey[:40])
 	_, err := secret.Open(t.Context(), lib, path)
 	refused(t, err, "library.key does not belong to this library.db; restore the library.key that does")
 }
