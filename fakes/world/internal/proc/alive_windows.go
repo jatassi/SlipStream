@@ -9,7 +9,7 @@ const (
 
 // Alive reports whether a process with pid exists and has not exited.
 func Alive(pid int) bool {
-	h, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(pid))
+	h, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(pid)) //nolint:gosec // a PID is positive and fits
 	if err != nil {
 		return false
 	}

@@ -146,25 +146,32 @@ func (e *SupervisorGoneError) Error() string {
 }
 
 // StopRun stops the run in runDir through its supervisor's stop channel
-// and returns the report once the work is done. A run that already stopped
-// returns its stopped.json. It never stops a Node itself: when the
-// supervisor is gone it returns a *SupervisorGoneError.
+// and returns the report once the work is done and a supervisor in another
+// process has exited. A run that already stopped returns its stopped.json.
+// It never stops a Node itself: when the supervisor is gone it returns a
+// *SupervisorGoneError.
 func StopRun(ctx context.Context, runDir string) (StopReport, error) {
 	wl, err := ReadWorldLog(runDir)
 	if err != nil {
 		return StopReport{}, err
 	}
-	if data, err := os.ReadFile(filepath.Join(runDir, stopReportFile)); err == nil {
-		return decodeReport(data)
+	data, err := os.ReadFile(filepath.Join(runDir, stopReportFile))
+	if err != nil {
+		data, err = channel.Stop(ctx, wl.Supervisor.Control)
 	}
-	data, err := channel.Stop(ctx, wl.Supervisor.Control)
 	if errors.Is(err, channel.ErrNoAnswer) {
 		return StopReport{}, &SupervisorGoneError{PID: wl.Supervisor.PID, Spawns: wl.Spawns}
 	}
 	if err != nil {
 		return StopReport{}, err
 	}
-	return decodeReport(data)
+	report, err := decodeReport(data)
+	if wl.Supervisor.PID != os.Getpid() {
+		if werr := proc.WaitExit(ctx, wl.Supervisor.PID); werr != nil {
+			return report, errors.Join(err, fmt.Errorf("the supervisor: %w", werr))
+		}
+	}
+	return report, err
 }
 
 func decodeReport(data []byte) (StopReport, error) {
