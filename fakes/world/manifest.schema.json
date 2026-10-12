@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "schema": {
+      "type": "integer"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "runDir": {
+      "type": "string"
+    },
+    "scratchDir": {
+      "type": "string"
+    },
+    "scenario": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "sha256",
+        "seed"
+      ]
+    },
+    "binary": {
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "source",
+        "path",
+        "sha256",
+        "version"
+      ]
+    },
+    "supervisor": {
+      "properties": {
+        "pid": {
+          "type": "integer"
+        },
+        "log": {
+          "type": "string"
+        },
+        "control": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "pid",
+        "log",
+        "control"
+      ]
+    },
+    "ca": {
+      "properties": {
+        "file": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "file"
+      ]
+    },
+    "divergences": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "setup": {
+            "type": "string",
+            "enum": [
+              "none",
+              "controller"
+            ]
+          },
+          "claim": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "browserUrl": {
+            "type": "string"
+          },
+          "listeners": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "dataDir": {
+            "type": "string"
+          },
+          "pid": {
+            "type": "integer"
+          },
+          "seed": {
+            "type": "string"
+          },
+          "log": {
+            "type": "string"
+          },
+          "overrides": {
+            "items": {
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "default": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "key",
+                "value",
+                "default",
+                "source"
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "setup",
+          "claim",
+          "address",
+          "host",
+          "url",
+          "browserUrl",
+          "listeners",
+          "dataDir",
+          "pid",
+          "seed",
+          "log",
+          "overrides"
+        ]
+      },
+      "type": "array"
+    },
+    "fakes": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ]
+      },
+      "type": "array"
+    },
+    "admin": {
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "email",
+        "displayName",
+        "pin"
+      ]
+    },
+    "apiKey": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema",
+    "runId",
+    "runDir",
+    "scratchDir",
+    "scenario",
+    "binary",
+    "supervisor",
+    "ca",
+    "divergences",
+    "nodes",
+    "fakes"
+  ]
+}

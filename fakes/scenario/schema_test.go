@@ -69,7 +69,7 @@ func TestSchema(t *testing.T) {
 	}
 
 	compiled := compileSchema(t, got)
-	for _, name := range names() {
+	for _, name := range Catalog() {
 		data, err := catalog.ReadFile("catalog/" + name + ".yaml")
 		if err != nil {
 			t.Fatal(err)

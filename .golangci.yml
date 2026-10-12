@@ -161,10 +161,12 @@ linters:
   exclusions:
     generated: strict
     rules:
-      # cmd/release and tests run the go and bun toolchains and read and
-      # write repo and temp files by design. Their paths and arguments come
-      # from the repo, not from a user, so these rules have nothing to catch.
-      - path: ^cmd/release/|_test\.go$
+      # cmd/release, the Fake world harness and tests run toolchains and
+      # binaries under test and read and write repo, run and temp files by
+      # design. Their paths and arguments come from the repo or the
+      # harness's caller, not from a user, so these rules have nothing to
+      # catch.
+      - path: ^(cmd/release|cmd/fakeworld|fakes)/|_test\.go$
         linters:
           - gosec
         text: "^G(122|204|301|304|306|702|703):"

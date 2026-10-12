@@ -21,10 +21,19 @@ func (s Setup) String() string { return setupNames[s] }
 
 func (s Setup) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
 
+func (s *Setup) UnmarshalText(b []byte) error {
+	for v := range Setup(len(setupNames)) {
+		if setupNames[v] == string(b) {
+			*s = v
+			return nil
+		}
+	}
+	return fmt.Errorf("setup %q is not one of none, controller", b)
+}
+
 func (s *Setup) UnmarshalYAML(n *yaml.Node) error {
-	for i, name := range setupNames {
-		if n.Kind == yaml.ScalarNode && n.Value == name {
-			*s = Setup(i)
+	if n.Kind == yaml.ScalarNode {
+		if err := s.UnmarshalText([]byte(n.Value)); err == nil {
 			return nil
 		}
 	}

@@ -59,7 +59,7 @@ var catalog embed.FS
 func Load(name string) (Scenario, error) {
 	data, err := catalog.ReadFile("catalog/" + name + ".yaml")
 	if errors.Is(err, fs.ErrNotExist) {
-		return Scenario{}, fmt.Errorf("scenario %s is not in the catalog (%s)", name, strings.Join(names(), ", "))
+		return Scenario{}, fmt.Errorf("scenario %s is not in the catalog (%s)", name, strings.Join(Catalog(), ", "))
 	}
 	if err != nil {
 		return Scenario{}, fmt.Errorf("scenario %s: %w", name, err)
@@ -67,7 +67,8 @@ func Load(name string) (Scenario, error) {
 	return parse(name, data)
 }
 
-func names() []string {
+// Catalog is the name of every catalog Scenario.
+func Catalog() []string {
 	entries, _ := catalog.ReadDir("catalog")
 	out := make([]string, 0, len(entries))
 	for _, e := range entries {

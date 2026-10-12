@@ -8,8 +8,8 @@ import "os"
 // needs SystemRoot to initialize sockets.
 var inherited = []string{"PATH", "HOME", "USERPROFILE", "SystemRoot", "TMPDIR", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA"}
 
-// Environ is the inherited variables the caller has set, then
-// SSL_CERT_FILE naming the run's CA.
+// Environ is the inherited variables the caller has set, then the world's
+// own.
 func Environ(caFile string) []string {
 	var env []string
 	for _, name := range inherited {
@@ -17,5 +17,11 @@ func Environ(caFile string) []string {
 			env = append(env, name+"="+v)
 		}
 	}
-	return append(env, "SSL_CERT_FILE="+caFile)
+	return append(env, World(caFile)...)
+}
+
+// World is what the world adds to a Node's environment: every variable a
+// production Node lacks, each one a divergence.
+func World(caFile string) []string {
+	return []string{"SSL_CERT_FILE=" + caFile}
 }
