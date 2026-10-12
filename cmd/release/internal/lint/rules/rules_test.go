@@ -65,7 +65,7 @@ func TestCgoConfined(t *testing.T) {
 }
 
 func TestReleaseImports(t *testing.T) {
-	all := "linux/amd64, linux/arm64, windows/amd64, darwin/arm64, darwin/amd64"
+	all := "linux/amd64, linux/arm64, windows/amd64, darwin/arm64"
 	assertFindings(t, check(t, "release-imports", fixtureRepo(t, "release-imports")), []string{
 		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> cmd/release/stamp on " + all,
 		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> fakes/web on " + all,

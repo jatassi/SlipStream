@@ -55,14 +55,6 @@
 			"asset": "libs-darwin-arm64-4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a.tar.gz",
 			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a/libs-darwin-arm64-4d0b284b91377556ed72a7824fab6eb722d0ae3502054811c114e2db5ae7311a.tar.gz",
 			"sha256": "24ce49292c38f0c02ea92df8158f65fd08d177f961216edbe2648f39cdd08d27"
-		},
-		{
-			"kind": "libs",
-			"target": "darwin-amd64",
-			"digest": "64d9b67307ef35995c57d869b49ce99f097e7696415ce64d4a041ffe67cb7898",
-			"asset": "libs-darwin-amd64-64d9b67307ef35995c57d869b49ce99f097e7696415ce64d4a041ffe67cb7898.tar.gz",
-			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-64d9b67307ef35995c57d869b49ce99f097e7696415ce64d4a041ffe67cb7898/libs-darwin-amd64-64d9b67307ef35995c57d869b49ce99f097e7696415ce64d4a041ffe67cb7898.tar.gz",
-			"sha256": "ea7d87883c53b5e26dc6b3f36b5e40dc125967fc09b0e31ab5dfd85a8c21d2ce"
 		}
 	]
 }

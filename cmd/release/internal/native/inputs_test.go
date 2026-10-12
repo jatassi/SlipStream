@@ -14,7 +14,7 @@ func TestRepoInputsListEveryTarget(t *testing.T) {
 	for _, tg := range in.Targets {
 		got = append(got, tg.Name+":"+string(tg.Gate))
 	}
-	want := []string{"linux-amd64:pr", "linux-arm64:native", "windows-amd64:native", "darwin-arm64:native", "darwin-amd64:native"}
+	want := []string{"linux-amd64:pr", "linux-arm64:native", "windows-amd64:native", "darwin-arm64:native"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("targets = %v, want %v", got, want)
 	}

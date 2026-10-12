@@ -106,7 +106,7 @@ func TestDigestsCoverTheirInputs(t *testing.T) {
 			in.Components[0].SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"
 		}, []LayerID{linuxLibs, darwinLibs}},
 		{"own target row", func(in *Inputs, _ fstest.MapFS) { in.Targets[0].SystemLibs = nil }, []LayerID{linuxLibs}},
-		{"another target row", func(in *Inputs, _ fstest.MapFS) { in.Targets[1].OpenSSLTarget = "darwin64-x86_64-cc" }, []LayerID{darwinLibs}},
+		{"another target row", func(in *Inputs, _ fstest.MapFS) { in.Targets[1].OpenSSLTarget = "darwin64-arm64" }, []LayerID{darwinLibs}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			in, recipe := fixture(t)

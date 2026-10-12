@@ -12,7 +12,7 @@ var planInputs = native.Inputs{
 	Targets: []native.Target{
 		{Name: "linux-amd64", GOOS: "linux", GOARCH: "amd64", Runner: "ubuntu-24.04", Toolchain: "musl-cross", Gate: native.GatePR},
 		{Name: "windows-amd64", GOOS: "windows", GOARCH: "amd64", Runner: "windows-2025", Toolchain: "llvm-mingw-ucrt", Gate: native.GateNative},
-		{Name: "darwin-amd64", GOOS: "darwin", GOARCH: "amd64", Runner: "macos-15", Toolchain: "xcode", Gate: native.GateNative},
+		{Name: "darwin-arm64", GOOS: "darwin", GOARCH: "arm64", Runner: "macos-15", Toolchain: "xcode", Gate: native.GateNative},
 	},
 	Toolchains: []native.Toolchain{{Name: "musl-cross"}, {Name: "llvm-mingw-ucrt"}, {Name: "xcode", Xcode: "16.4"}},
 }
@@ -22,7 +22,7 @@ func TestPlan(t *testing.T) {
 	all := []MatrixEntry{
 		{"linux-amd64", "ubuntu-24.04", "linux", "amd64", ""},
 		{"windows-amd64", "windows-2025", "windows", "amd64", ""},
-		{"darwin-amd64", "macos-15", "darwin", "amd64", "16.4"},
+		{"darwin-arm64", "macos-15", "darwin", "arm64", "16.4"},
 	}
 	tests := []struct {
 		event         string
@@ -58,7 +58,7 @@ func TestPlanJSON(t *testing.T) {
 	want := `{"include":[` +
 		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64"},` +
 		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64"},` +
-		`{"target":"darwin-amd64","runner":"macos-15","goos":"darwin","goarch":"amd64","xcode":"16.4"}]}`
+		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4"}]}`
 	if string(got) != want {
 		t.Errorf("matrix JSON = %s, want %s", got, want)
 	}

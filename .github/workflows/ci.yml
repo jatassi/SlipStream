@@ -103,13 +103,7 @@ jobs:
             ~/AppData/Local/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - run: scripts/native-deps fetch
-      # The release tool runs on the runner's own architecture. Built for
-      # darwin-amd64 it runs under Rosetta, and its first build in a job
-      # took one to two minutes longer.
-      - run: go build -o "$RUNNER_TEMP/bin/" ./cmd/release
-        env:
-          GOARCH: ""
-      - run: '"$RUNNER_TEMP/bin/release" build'
+      - run: go run ./cmd/release build
       - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
 
   native-gate:

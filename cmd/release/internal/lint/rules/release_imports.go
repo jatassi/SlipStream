@@ -18,7 +18,6 @@ var releaseTargets = []lint.Target{
 	{GOOS: "linux", GOARCH: "arm64"},
 	{GOOS: "windows", GOARCH: "amd64"},
 	{GOOS: "darwin", GOARCH: "arm64"},
-	{GOOS: "darwin", GOARCH: "amd64"},
 }
 
 var forbiddenTrees = []string{"fakes", "cmd/release"}

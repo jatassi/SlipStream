@@ -7,7 +7,7 @@ go run ./cmd/release notices generate; do not edit it.
 ================================================================================
 boost 1.92.0 (native library)
 License: BSL-1.0
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -320,7 +320,7 @@ SOFTWARE.
 ================================================================================
 go 1.27.2 (toolchain runtime)
 License: BSD-3-Clause
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 Copyright 2009 The Go Authors.
 
@@ -2427,7 +2427,7 @@ requirements of the license of GCC.
 ================================================================================
 libtorrent-rasterbar 2.0.15 (native library)
 License: BSD-3-Clause
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 Copyright (c) 2003-2020, Arvid Norberg
 All rights reserved.
@@ -3369,7 +3369,7 @@ obstacle to adoption, that text has been removed.
 ================================================================================
 openssl 3.5.9 (native library)
 License: Apache-2.0
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 Apache License
                            Version 2.0, January 2004
@@ -3551,7 +3551,7 @@ Apache License
 ================================================================================
 react 19.3.0 (npm package)
 License: MIT
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 MIT License
 
@@ -3578,7 +3578,7 @@ SOFTWARE.
 ================================================================================
 react-dom 19.3.0 (npm package)
 License: MIT
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 MIT License
 
@@ -3605,7 +3605,7 @@ SOFTWARE.
 ================================================================================
 scheduler 0.28.0 (npm package)
 License: MIT
-Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64, darwin-amd64
+Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
 MIT License
 
