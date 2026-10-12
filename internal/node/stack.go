@@ -28,10 +28,8 @@ type stopEntry struct {
 	stop func(context.Context) error
 }
 
-// ErrStopDeadline is a stop that ran past timings.node.stop_deadline.
 var ErrStopDeadline = errors.New("stop deadline passed")
 
-// PanicError is a panic recovered from a goroutine run through the Stack.
 type PanicError struct {
 	Value any
 	Stack []byte

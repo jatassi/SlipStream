@@ -12,7 +12,6 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// Source names the layer that set a key.
 type Source string
 
 const (
@@ -31,7 +30,6 @@ const (
 	DataDirVar = envPrefix + "DATA_DIR"
 )
 
-// Key is one resolved key: its value, its default and the layer that set it.
 type Key struct {
 	Key     string `json:"key"`
 	Value   string `json:"value"`
@@ -273,7 +271,7 @@ func (l *loader) applyVar(src Source, v envVar) {
 		l.problem(src, v.line, v.name, "unknown key")
 		return
 	}
-	if err := leaf.SetText(v.value); err != nil {
+	if err := leaf.setText(v.value); err != nil {
 		l.problem(src, v.line, v.name, "%v", err)
 		return
 	}

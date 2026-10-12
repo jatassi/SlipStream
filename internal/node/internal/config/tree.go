@@ -18,12 +18,9 @@ type Leaf struct {
 	codec codec
 }
 
-// Env is the leaf's environment variable name.
 func (l Leaf) Env() string {
 	return "SLIPSTREAM_" + strings.ToUpper(strings.ReplaceAll(l.Path, ".", "_"))
 }
-
-func (l Leaf) Value() any { return l.value.Interface() }
 
 func (l Leaf) String() string {
 	elems := l.elems()
@@ -34,8 +31,8 @@ func (l Leaf) String() string {
 	return strings.Join(out, ",")
 }
 
-// SetText parses the environment form, where a list is comma-separated.
-func (l Leaf) SetText(s string) error {
+// setText parses the environment form, where a list is comma-separated.
+func (l Leaf) setText(s string) error {
 	if l.value.Kind() != reflect.Slice {
 		return l.codec.parse(s, l.value)
 	}
@@ -69,7 +66,6 @@ func (l Leaf) Hosts() []string {
 	return hosts
 }
 
-// elems yields the leaf's scalar values, one for a scalar and each item of a list.
 func (l Leaf) elems() []reflect.Value {
 	if !l.isList() {
 		return []reflect.Value{l.value}
@@ -167,7 +163,7 @@ var (
 			m, _ := v.Interface().(encoding.TextMarshaler)
 			b, err := m.MarshalText()
 			if err != nil {
-				return fmt.Sprintf("<%v>", err)
+				panic(fmt.Sprintf("config: format %s: %v", v.Type(), err))
 			}
 			return string(b)
 		},

@@ -156,7 +156,6 @@ func (p *nodeProc) wait() int {
 	}
 }
 
-// record finds the first stderr record with msg.
 func (p *nodeProc) record(msg string) map[string]any {
 	p.t.Helper()
 	p.mu.Lock()

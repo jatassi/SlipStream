@@ -26,7 +26,6 @@ func (l Listeners) unbound() []string {
 	return names
 }
 
-// Ready is the record a Node logs once it is ready.
 type Ready struct {
 	PID       int       `json:"pid"`
 	DataDir   string    `json:"data_dir"`
@@ -36,7 +35,6 @@ type Ready struct {
 	Overrides []Key     `json:"overrides"`
 }
 
-// ErrNotReadyRecord is a log record other than the readiness record.
 var ErrNotReadyRecord = errors.New("not the readiness record")
 
 // ParseReady reads the readiness record from one JSON log line.

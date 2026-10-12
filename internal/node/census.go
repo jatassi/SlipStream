@@ -28,14 +28,11 @@ func census(tree, defaults any) []string {
 	return out
 }
 
-// Resolved is what slipstream config prints: every key with its value,
-// default and source, and the census.
 type Resolved struct {
 	Keys   []Key    `json:"keys"`
 	Census []string `json:"census"`
 }
 
-// Resolve loads the configuration of the Node on dir without starting it.
 func Resolve(dir DataDir, environ []string) (Resolved, error) {
 	cfg, keys, err := LoadConfig(dir, environ)
 	if err != nil {

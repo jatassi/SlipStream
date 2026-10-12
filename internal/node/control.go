@@ -30,14 +30,12 @@ type released struct {
 	Released bool `json:"released"`
 }
 
-// ControlError is an error reply from a Node's control socket.
 type ControlError = control.Error
 
 // stopGrace is how long past the Node's own deadline the stop client waits
 // for the Node to exit by itself.
 const stopGrace = 5 * time.Second
 
-// Call sends one request to the Node on dir and returns its reply.
 func Call[Req, Resp any](ctx context.Context, dir DataDir, o op.Op[Req, Resp], req Req) (Resp, error) {
 	var resp Resp
 	c, err := dial(ctx, dir)

@@ -35,11 +35,6 @@ func MustParseURL(s string) URL {
 	return u
 }
 
-func (u URL) URL() *url.URL {
-	c := u.u
-	return &c
-}
-
 func (u URL) Hostname() string { return u.u.Hostname() }
 
 func (u URL) String() string { return u.u.String() }

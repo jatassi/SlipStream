@@ -27,7 +27,6 @@ const (
 	CodeFailed     Code = "failed"
 )
 
-// Error is a reply that carries an error instead of a body.
 type Error struct {
 	Code    Code   `json:"code"`
 	Message string `json:"message"`
@@ -55,7 +54,6 @@ type reply struct {
 // with CodeFailed.
 type Handler func(ctx context.Context, body json.RawMessage, send func(any) error) error
 
-// Dispatch returns the handler for op, or the *Error to reply with.
 type Dispatch func(op string) (Handler, error)
 
 type Server struct {
@@ -187,7 +185,6 @@ func Decode(data []byte, v any) error {
 	return nil
 }
 
-// Conn is the client side of one request.
 type Conn struct {
 	conn net.Conn
 	r    *bufio.Reader

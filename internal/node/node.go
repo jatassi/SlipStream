@@ -24,7 +24,6 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
-// Env is what the process supplies to a Node.
 type Env struct {
 	DataDir DataDir
 	Environ []string
@@ -225,6 +224,7 @@ func (n *Node) wait() {
 	select {
 	case <-n.stopping:
 	case <-n.stack.Failed():
+		n.Stop()
 	}
 	n.finish(errors.Join(n.stack.Err(), n.stack.unwind(n.deadline)))
 }
@@ -250,7 +250,6 @@ func changedTimings(keys []Key) []Key {
 	return changed
 }
 
-// ErrInterrupted is a second signal during a stop.
 var ErrInterrupted = errors.New("interrupted again while stopping")
 
 // Run is Start plus signals: SIGINT or SIGTERM stops the Node, and a second

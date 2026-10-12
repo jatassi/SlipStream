@@ -19,15 +19,12 @@ type Config struct {
 	Timings   TimingsBlock    `yaml:"timings"`
 }
 
-// EndpointsBlock holds every fixed external host. No boundary exists yet.
 type EndpointsBlock struct{}
 
-// TimingsBlock holds every protocol duration.
 type TimingsBlock struct {
 	Node Timings `yaml:"node"`
 }
 
-// Timings is the Node's own protocol durations.
 type Timings struct {
 	StopDeadline time.Duration `yaml:"stop_deadline"`
 }
@@ -43,12 +40,10 @@ func Defaults() Config {
 	}
 }
 
-// Key is one resolved configuration key with its value, default and source.
 type Key = config.Key
 
-// LoadConfig resolves the configuration of the Node on dir from the
-// environment, then dir/.env, then dir/config.yaml, then the defaults. An
-// empty seed becomes 16 random bytes in hex, reported with source random.
+// LoadConfig resolves the configuration of the Node on dir. An empty seed
+// becomes 16 random bytes in hex, reported with source random.
 func LoadConfig(dir DataDir, environ []string) (Config, []Key, error) {
 	cfg := Defaults()
 	keys, err := config.Load(&cfg, dir.Path(), environ)
@@ -56,7 +51,9 @@ func LoadConfig(dir DataDir, environ []string) (Config, []Key, error) {
 		return Config{}, nil, &ConfigError{Err: err}
 	}
 	if cfg.Seed == "" {
-		cfg.Seed = hex.EncodeToString(randomBytes(16))
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		cfg.Seed = hex.EncodeToString(b)
 		for i := range keys {
 			if keys[i].Key == "seed" {
 				keys[i].Value, keys[i].Source = cfg.Seed, config.SourceRandom
@@ -64,12 +61,6 @@ func LoadConfig(dir DataDir, environ []string) (Config, []Key, error) {
 		}
 	}
 	return cfg, keys, nil
-}
-
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	return b
 }
 
 // overrides are the keys a layer set to something other than the default.

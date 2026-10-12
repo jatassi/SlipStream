@@ -22,7 +22,6 @@ func (e *UsageError) Error() string { return e.Err.Error() }
 
 func (e *UsageError) Unwrap() error { return e.Err }
 
-// ConfigError is a configuration that does not load.
 type ConfigError struct{ Err error }
 
 func (e *ConfigError) Error() string { return e.Err.Error() }
@@ -43,10 +42,8 @@ func (e *InUseError) Error() string {
 	return fmt.Sprintf("data dir %s is in use by SlipStream PID %d", e.Dir, e.PID)
 }
 
-// ErrStopped is a Node asked to stop before it was ready.
 var ErrStopped = errors.New("node stopped before it was ready")
 
-// ExitCode maps the error a command returns to the process exit code.
 func ExitCode(err error) int {
 	var usage *UsageError
 	var cfg *ConfigError
