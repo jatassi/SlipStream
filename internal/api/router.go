@@ -25,9 +25,9 @@ import (
 const (
 	// Prefix is where the operations live; Op paths are relative to it.
 	Prefix = "/api/v1"
-	// Version is info.version, constant so a stamped and an unstamped build
+	// version is info.version, constant so a stamped and an unstamped build
 	// produce the same document.
-	Version = "1"
+	version = "1"
 
 	defaultBodyLimit = 2 << 20
 	accessExtension  = "x-slipstream-access"
@@ -59,7 +59,7 @@ func NewRouter(s Services) *Router {
 	h := huma.NewAPI(huma.Config{
 		OpenAPI: &huma.OpenAPI{
 			OpenAPI: "3.1.0",
-			Info:    &huma.Info{Title: "SlipStream", Version: Version},
+			Info:    &huma.Info{Title: "SlipStream", Version: version},
 			Servers: []*huma.Server{{URL: Prefix}},
 			Components: &huma.Components{
 				Schemas: registry,
@@ -156,7 +156,7 @@ func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context
 		}
 		defer func() {
 			if v := recover(); v != nil {
-				r.log().Error("operation panicked", "operation", op.ID, "method", op.Method, "path", Prefix+op.Path, "panic", v, "stack", string(debug.Stack()))
+				r.services.Log.Error("operation panicked", "operation", op.ID, "method", op.Method, "path", Prefix+op.Path, "panic", v, "stack", string(debug.Stack()))
 				out, err = nil, Internal.problem()
 			}
 		}()
@@ -226,14 +226,12 @@ func (r *Router) failure(op Op, declared []*Code, err error) error {
 	case isCode && slices.Contains(declared, code):
 		return code.problem()
 	case isCode:
-		r.log().Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
+		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
 	default:
-		r.log().Error("operation failed", append(attrs, "operation", op.ID, "error", err)...)
+		r.services.Log.Error("operation failed", append(attrs, "operation", op.ID, "error", err)...)
 	}
 	return Internal.problem()
 }
-
-func (r *Router) log() *slog.Logger { return r.services.Log }
 
 // errorResponses documents each status's codes, so a client's generated
 // types know exactly which codes an operation answers.
