@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"io"
 	"io/fs"
 	"net/http"
@@ -32,11 +31,12 @@ var securityHeaders = []struct{ name, value string }{
 
 // Handler serves the operations under /api/v1, answers any other /api/
 // path 404 not_found, and serves the web app everywhere else. Outermost
-// first: security headers, CSRF, authentication on /api/ only, the mux.
+// first: security headers, CSRF, the mux. Each operation authenticates
+// its caller in its own access check.
 func (r *Router) Handler() http.Handler {
 	r.mux.Handle(apiTree, problemHandler(NotFound))
 	r.mux.Handle("/", webApp(r.services.Web))
-	return wrapWriter(withSecurityHeaders(r.crossOriginProtection(r.authenticate(r.mux))))
+	return wrapWriter(withSecurityHeaders(r.crossOriginProtection(r.mux)))
 }
 
 func problemHandler(c *Code) http.Handler {
@@ -78,35 +78,29 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 	})
 }
 
-type callerKey struct{}
-
-func (r *Router) authenticate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if !strings.HasPrefix(req.URL.Path, apiTree) {
-			next.ServeHTTP(w, req)
-			return
-		}
-		var token string
-		if c, err := req.Cookie(identity.CookieName); err == nil {
-			token = c.Value
-		}
-		peer, _ := netip.ParseAddrPort(req.RemoteAddr)
-		caller, cookie, err := r.services.Identity.Authenticate(req.Context(), identity.Request{
-			APIKey:  req.Header.Get(apiKeyHeader),
-			Session: token,
-			Address: peer.Addr().Unmap(),
-			TLS:     req.TLS != nil,
-		})
-		if err != nil {
-			r.logFailure(req.Context(), "authentication failed", "method", req.Method, "path", req.URL.Path, "error", err)
-			writeProblem(w, Internal.problem())
-			return
-		}
-		if cookie != nil {
-			http.SetCookie(w, cookie)
-		}
-		next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), callerKey{}, caller)))
-	})
+// caller resolves req's Caller once its operation is known. A public
+// operation's caller presents nothing, so it never reads or slides a
+// session, whatever cookie or key the request carries.
+func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates bool) (identity.Caller, bool) {
+	peer, _ := netip.ParseAddrPort(req.RemoteAddr)
+	creds := identity.Request{Address: peer.Addr().Unmap(), TLS: req.TLS != nil}
+	if !authenticates {
+		return creds.Unauthenticated(), true
+	}
+	creds.APIKey = req.Header.Get(apiKeyHeader)
+	if c, err := req.Cookie(identity.CookieName); err == nil {
+		creds.Session = c.Value
+	}
+	caller, cookie, err := r.services.Identity.Authenticate(req.Context(), creds)
+	if err != nil {
+		r.logFailure(req.Context(), "authentication failed", "method", req.Method, "path", req.URL.Path, "error", err)
+		writeProblem(w, Internal.problem())
+		return identity.Caller{}, false
+	}
+	if cookie != nil {
+		http.SetCookie(w, cookie)
+	}
+	return caller, true
 }
 
 // webApp serves dist with an index.html fallback on GET and HEAD. Vite

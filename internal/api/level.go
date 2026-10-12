@@ -22,6 +22,9 @@ type access struct {
 	rank     int
 	security []map[string][]string
 	codes    []*Code
+	// authenticates is false only for public, whose principal needs no
+	// credential.
+	authenticates bool
 }
 
 // Floor is the lowest level an owner's operations may use.
@@ -37,17 +40,17 @@ var (
 		narrowed(func(c identity.Caller) (identity.Anyone, error) { return c.Anyone(), nil }),
 	}
 	Setup = Level[identity.Claim]{
-		&access{name: "setup", rank: 1, security: []map[string][]string{{schemeSetupCode: {}}}, codes: []*Code{APIKeyWrong, SetupCodeWrong, SetupBusy, AlreadyClaimed}},
+		&access{name: "setup", rank: 1, security: []map[string][]string{{schemeSetupCode: {}}}, codes: []*Code{APIKeyWrong, SetupCodeWrong, SetupBusy, AlreadyClaimed}, authenticates: true},
 		func(ctx context.Context, gate *identity.Gate, c identity.Caller, setupCode string, next func(identity.Claim)) error {
 			return gate.Run(ctx, c, setupCode, next)
 		},
 	}
 	Account = Level[identity.Account]{
-		&access{name: "account", rank: 2, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount}},
+		&access{name: "account", rank: 2, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount}, authenticates: true},
 		narrowed(identity.Caller.Account),
 	}
 	Admin = Level[identity.Admin]{
-		&access{name: "admin", rank: 3, security: []map[string][]string{{schemeSession: {"admin"}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAdmin}},
+		&access{name: "admin", rank: 3, security: []map[string][]string{{schemeSession: {"admin"}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAdmin}, authenticates: true},
 		narrowed(identity.Caller.Admin),
 	}
 )

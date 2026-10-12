@@ -216,9 +216,10 @@ func (o *Owner) check(level *access, op Op, input reflect.Type) {
 
 func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
-		c, ok := ctx.Context().Value(callerKey{}).(identity.Caller)
+		req, w := humago.Unwrap(ctx)
+		c, ok := r.caller(w, req, level.authenticates)
 		if !ok {
-			panic("api: an operation ran without authentication")
+			return
 		}
 		err := level.admit(ctx.Context(), r.services.Gate, c, ctx.Header(setupCodeHeader), func(p P) {
 			next(huma.WithValue(ctx, principalKey{}, p))
@@ -230,7 +231,6 @@ func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(h
 		if !ok {
 			panic(fmt.Sprintf("api: %s refused with %v, which maps to no code", ctx.Operation().OperationID, err))
 		}
-		_, w := humago.Unwrap(ctx)
 		writeProblem(w, code.problem())
 	}
 }

@@ -206,12 +206,17 @@ type Request struct {
 	TLS     bool
 }
 
+// Unauthenticated is r's caller as nobody, its credentials unread.
+func (r Request) Unauthenticated() Caller {
+	return Caller{client: client{address: r.Address, tls: r.TLS}}
+}
+
 // Authenticate resolves r's Caller. A request with an API key
 // authenticates by it alone. Otherwise the session cookie is looked up;
 // the cookie returned, when not nil, re-sends a session that slid or
 // clears one that is gone or expired.
 func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Cookie, error) {
-	c := Caller{client: client{address: r.Address, tls: r.TLS}}
+	c := r.Unauthenticated()
 	if r.APIKey != "" {
 		stored, err := db.New(s.lib).GetAPIKeyHash(ctx)
 		if err != nil && !errors.Is(err, storage.ErrNoRows) {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"testing/synctest"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -221,6 +222,34 @@ func TestTheGateAnswersBeforeParsing(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity || !read {
 		t.Fatalf("a Member got %d %q, body read %v; want 422 after reading the body", w.Code, w.Body, read)
 	}
+}
+
+func TestAPublicOperationLeavesASessionUntouched(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r, lib := newRouterOn(t, &bytes.Buffer{})
+		o := r.Owner("fixture", Public)
+		Register(o, Public, Op{ID: "getFixture", Method: http.MethodGet, Path: "/fixture"},
+			func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
+		Register(o, Account, Op{ID: "getAccountFixture", Method: http.MethodGet, Path: "/account-fixture"},
+			func(context.Context, identity.Account, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
+		h := r.Handler()
+		session := identitytest.Session(t, lib, identitytest.Member(t, lib, "member@example.com"))
+		time.Sleep(2 * time.Hour)
+		send := func(target string) []string {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody)
+			req.Header.Set("Cookie", identity.CookieName+"="+session)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, req)
+			return w.Header().Values("Set-Cookie")
+		}
+		if got := send("/api/v1/fixture"); got != nil {
+			t.Fatalf("the public operation set %q, want no cookie", got)
+		}
+		want := identity.CookieName + "=" + session + "; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax"
+		if got := send("/api/v1/account-fixture"); len(got) != 1 || got[0] != want {
+			t.Fatalf("the Account operation set %q, want [%q]: the public one slid the session", got, want)
+		}
+	})
 }
 
 type readerFunc func([]byte) (int, error)
