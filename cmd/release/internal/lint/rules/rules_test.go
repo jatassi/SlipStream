@@ -239,7 +239,12 @@ func TestRoutesPlacement(t *testing.T) {
 		"internal/nodes/nodes.go:6: [routes-placement] api.RegisterStream outside <owner>api.Routes",
 		"internal/nodes/nodesapi/routes.go:13: [routes-placement] api.Register outside <owner>api.Routes",
 		"internal/nodes/nodesapi/routes.go:19: [routes-placement] api.Register outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:22: [routes-placement] api.Register outside <owner>api.Routes",
 		"internal/nodes/nodesapi/routes.go:24: [routes-placement] api.RegisterStream outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:27: [routes-placement] api.Register outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:28: [routes-placement] api.RegisterStream outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:29: [routes-placement] api.Register outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:35: [routes-placement] api.Register outside <owner>api.Routes",
 		"internal/tmdb/api/routes.go:6: [routes-placement] api.Register outside <owner>api.Routes",
 	})
 }

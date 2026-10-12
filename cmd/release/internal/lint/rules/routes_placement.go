@@ -11,7 +11,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "routes-placement",
-		Doc:   "api.Register and api.RegisterStream are called only from Routes in an <owner>api package (spec #129, Lint rules)",
+		Doc:   "api.Register and api.RegisterStream are referenced only from Routes in an <owner>api package (spec #129, Lint rules)",
 		Check: checkRoutesPlacement,
 	})
 }
@@ -36,14 +36,14 @@ func checkRoutesPlacement(repo *lint.Repo) ([]lint.Finding, error) {
 				continue
 			}
 			ast.Inspect(decl, func(n ast.Node) bool {
-				call, ok := n.(*ast.CallExpr)
+				sel, ok := n.(*ast.SelectorExpr)
 				if !ok {
 					return true
 				}
-				if pkg, name, ok := qualifiedName(imports, call.Fun); ok && pkg == apiPkg && slices.Contains(registerFuncs, name) {
+				if pkg, name, ok := qualifiedName(imports, sel); ok && pkg == apiPkg && slices.Contains(registerFuncs, name) {
 					findings = append(findings, lint.Finding{
 						Path:    f.Path,
-						Line:    repo.Fset.Position(call.Pos()).Line,
+						Line:    repo.Fset.Position(sel.Pos()).Line,
 						Message: "api." + name + " outside <owner>api.Routes",
 					})
 				}
