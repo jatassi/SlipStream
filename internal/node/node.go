@@ -58,7 +58,9 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 // Node is one running SlipStream process's worth of state. Several can run in
 // one Go process; they share nothing.
 type Node struct {
-	env      Env
+	env Env
+	// base is the log without attributes, so each subsystem adds only its own.
+	base     *slog.Logger
 	log      *slog.Logger
 	stack    *Stack
 	deadline time.Duration
@@ -89,14 +91,18 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 		released: make(chan struct{}),
 		done:     make(chan struct{}),
 	}
+	// startCtx ends only once stopping has closed, so a step it cancels
+	// finds ErrStopped at its checkpoint.
+	startCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	go func() {
 		select {
 		case <-ctx.Done():
 			n.Stop()
 		case <-n.stopping:
 		}
+		cancel()
 	}()
-	if err := n.start(); err != nil {
+	if err := n.start(startCtx); err != nil {
 		n.Stop()
 		n.finish(err)
 		return nil, err
@@ -118,7 +124,7 @@ func (n *Node) Stop() { n.stopOnce.Do(func() { close(n.stopping) }) }
 
 // start runs the startup order. Errors before the log opens go to stderr as
 // plain text, later ones to the log.
-func (n *Node) start() error {
+func (n *Node) start(ctx context.Context) error {
 	lk, err := lock.Acquire(n.env.DataDir.RunDir())
 	if held, ok := errors.AsType[*lock.HeldError](err); ok {
 		err = &InUseError{Dir: n.env.DataDir, PID: held.PID}
@@ -132,7 +138,8 @@ func (n *Node) start() error {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return errors.Join(err, lk.Release())
 	}
-	n.log = log.With("subsystem", "node")
+	n.base = log.Logger
+	n.log = n.base.With("subsystem", "node")
 	n.stack = newStack(n.log)
 	n.stack.OnStop("lock", func(context.Context) error {
 		if err := lk.Release(); err != nil {
@@ -145,7 +152,7 @@ func (n *Node) start() error {
 		n.log.Info("stopped")
 		return log.Close()
 	})
-	if err := n.startLogged(); err != nil {
+	if err := n.startLogged(ctx); err != nil {
 		if !errors.Is(err, ErrStopped) {
 			n.log.Error("start failed", "err", err.Error())
 		}
@@ -154,7 +161,7 @@ func (n *Node) start() error {
 	return nil
 }
 
-func (n *Node) startLogged() error {
+func (n *Node) startLogged(ctx context.Context) error {
 	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ)
 	if err != nil {
 		return err
@@ -172,7 +179,7 @@ func (n *Node) startLogged() error {
 	if err := n.checkpoint(); err != nil {
 		return err
 	}
-	if err := n.startSubsystems(cfg, &l); err != nil {
+	if err := n.startSubsystems(ctx, cfg, &l); err != nil {
 		return err
 	}
 	if err := n.checkpoint(); err != nil {
@@ -196,7 +203,10 @@ func (n *Node) startLogged() error {
 
 // startSubsystems is the start order. Each subsystem pushes its stop onto the
 // Stack, so they stop in reverse.
-func (n *Node) startSubsystems(cfg Config, l *Listeners) error {
+func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) error {
+	if err := n.openStorage(ctx, cfg); err != nil {
+		return err
+	}
 	torrent, err := libtorrent.Open(engine.Config{ListenInterface: cfg.Torrent.Listen})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)

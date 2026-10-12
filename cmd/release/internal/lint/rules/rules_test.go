@@ -69,6 +69,7 @@ func TestReleaseImports(t *testing.T) {
 	assertFindings(t, check(t, "release-imports", fixtureRepo(t, "release-imports")), []string{
 		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> cmd/release/stamp on " + all,
 		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> fakes/web on " + all,
+		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> internal/storage/example/shelf on " + all,
 		"cmd/slipstream/tmdb_windows.go:6: [release-imports] cmd/slipstream imports fakes/tmdb on windows/amd64",
 	})
 }
