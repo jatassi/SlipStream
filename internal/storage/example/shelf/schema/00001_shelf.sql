@@ -1,0 +1,5 @@
+-- +goose Up
+CREATE TABLE shelf (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+) STRICT;

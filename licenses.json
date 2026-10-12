@@ -22,5 +22,9 @@
 		{"license": "GPL-2.0-only", "reason": "GPL-2.0-only cannot combine with GPL-3.0 (ADR 0010, ADR 0021)"},
 		{"license": "NONE", "reason": "code with no license grants no right to redistribute it (ADR 0010, ADR 0021)"}
 	],
-	"overrides": []
+	"overrides": [
+		{"name": "modernc.org/libc", "version": "v1.78.0", "license": "BSD-3-Clause", "reason": "LICENSE is BSD-3-Clause; LICENSE-3RD-PARTY.md holds the BSD-3-Clause Go and MIT musl, go-netdb and nixpkgs notices for code inside it, which NOTICES.txt reproduces"},
+		{"name": "modernc.org/memory", "version": "v1.12.1", "license": "BSD-3-Clause", "reason": "LICENSE, LICENSE-GO and LICENSE-MMAP-GO are BSD-3-Clause; LICENSE-LOGO is only the source URL of the project logo, which the binary does not carry"},
+		{"name": "modernc.org/sqlite", "version": "v1.60.1", "license": "BSD-3-Clause", "reason": "LICENSE is BSD-3-Clause; LICENSE-SQLITE is SQLite's public-domain dedication, LICENSE-SQLITE_VEC covers the vec package SlipStream does not import, and LICENSE-3RD-PARTY.md lists the module's dependencies, each checked on its own"}
+	]
 }

@@ -96,6 +96,12 @@ linters:
     nakedret:
       max-func-lines: 0
 
+    # database/sql calls Value on the value and Scan on the pointer, so a
+    # column type such as storage.Time has both receivers by design.
+    recvcheck:
+      exclusions:
+        - "*.Scan"
+
     nolintlint:
       require-explanation: true
       require-specific: true

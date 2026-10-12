@@ -1,0 +1,27 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          # First, in every owner: every _at column is a UTC storage.Time.
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          # This owner's ids: a bare go_type resolves in internal/db (ids.go).
+          - column: clip.id
+            go_type:
+              type: ClipID
+          - column: clip.public_id
+            go_type:
+              type: ClipPublicID
+          # A foreign key into another owner maps to that owner's exported id.
+          - column: clip.shelf_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage/example/shelf
+              type: ID

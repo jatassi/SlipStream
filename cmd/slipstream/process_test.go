@@ -385,6 +385,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "seed", Value: "fixed", Default: "", Source: "env"},
 			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
+			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
 		},
 		Census: []string{},
 	}
