@@ -84,8 +84,7 @@ func parse(name string, data []byte) (Scenario, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(&s); err != nil {
-		var te *yaml.TypeError
-		if errors.As(err, &te) {
+		if te, ok := errors.AsType[*yaml.TypeError](err); ok {
 			lines := make([]string, len(te.Errors))
 			for i, e := range te.Errors {
 				lines[i] = "scenario " + name + ": " + e

@@ -40,7 +40,6 @@ type handshake struct {
 	detail string
 }
 
-// readReport reads the supervisor's report from its stdout.
 func readReport(stdout io.Reader) handshake {
 	line, err := bufio.NewReader(stdout).ReadBytes('\n')
 	if err != nil {
