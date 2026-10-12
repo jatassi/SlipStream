@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -143,6 +144,44 @@ func (p *nodeProc) ready() node.Ready {
 	}
 }
 
+func (p *nodeProc) wait() int {
+	p.t.Helper()
+	select {
+	case <-p.exited:
+		return p.cmd.ProcessState.ExitCode()
+	case <-time.After(60 * time.Second):
+		p.t.Fatalf("node still running after 60s:\n%s", p.output())
+		return -1
+	}
+}
+
+// record finds the first stderr record with msg.
+func (p *nodeProc) record(msg string) map[string]any {
+	p.t.Helper()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, line := range p.stderr {
+		var rec map[string]any
+		if json.Unmarshal([]byte(line), &rec) == nil && rec["msg"] == msg {
+			return rec
+		}
+	}
+	p.t.Fatalf("no %q record in:\n%s", msg, strings.Join(p.stderr, "\n"))
+	return nil
+}
+
+func (p *nodeProc) lastRecord() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var rec struct {
+		Msg string `json:"msg"`
+	}
+	if len(p.stderr) == 0 || json.Unmarshal([]byte(p.stderr[len(p.stderr)-1]), &rec) != nil {
+		return ""
+	}
+	return rec.Msg
+}
+
 func (p *nodeProc) output() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -264,5 +303,23 @@ func TestSeedIsReportedAndReplayable(t *testing.T) {
 	}
 	if !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(seeds[2]) {
 		t.Fatalf("drawn seed %q is not 32 hex characters", seeds[2])
+	}
+}
+
+func TestTimingsOverrideIsReportedAndWarned(t *testing.T) {
+	t.Parallel()
+	p := startNode(t, dataDir(t), listenLocal, "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE=5s")
+	ready := p.ready()
+	want := node.Key{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "env"}
+	if !slices.Contains(ready.Overrides, want) {
+		t.Fatalf("overrides = %+v, want %+v among them", ready.Overrides, want)
+	}
+	warning := p.record("timings differ from their defaults")
+	got, err := json.Marshal([]any{warning["level"], warning["keys"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `["WARN",[{"default":"30s","key":"timings.node.stop_deadline","source":"env","value":"5s"}]]`; string(got) != want {
+		t.Fatalf("warning = %s, want %s", got, want)
 	}
 }
