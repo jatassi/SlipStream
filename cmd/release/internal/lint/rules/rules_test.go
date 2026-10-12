@@ -169,3 +169,14 @@ func TestMigrationVersions(t *testing.T) {
 		"internal/media/schema/00002_media_late.sql:1: [migration-versions] version 2 follows 0; version 1 is missing",
 	})
 }
+
+func TestQueryOrder(t *testing.T) {
+	assertFindings(t, check(t, "query-order", fixtureRepo(t, "query-order")), []string{
+		"internal/library/queries/library.sql:4: [query-order] ListWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:15: [query-order] AnyWork uses LIMIT without a top-level ORDER BY",
+		"internal/library/queries/library.sql:18: [query-order] ListRecentWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:23: [query-order] ListRankedWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:42: [query-order] ListFirstWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:42: [query-order] ListFirstWorks uses LIMIT without a top-level ORDER BY",
+	})
+}
