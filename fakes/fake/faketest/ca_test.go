@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,7 +46,11 @@ func TestCATrustedThroughSSLCertFile(t *testing.T) {
 		t.Fatalf("probe with SSL_CERT_FILE: %q", got)
 	}
 	without := slices.DeleteFunc(slices.Clone(env), func(kv string) bool { return strings.HasPrefix(kv, "SSL_CERT_FILE=") })
-	if got, want := runProbe(t, probe, url, without), "exit 1: x509: certificate signed by unknown authority\n"; got != want {
+	want := "exit 1: x509: certificate signed by unknown authority\n"
+	if runtime.GOOS == "darwin" {
+		want = "exit 1: x509: “127.0.0.1” certificate is not trusted\n"
+	}
+	if got := runProbe(t, probe, url, without); got != want {
 		t.Fatalf("probe without SSL_CERT_FILE: %q, want %q", got, want)
 	}
 }
