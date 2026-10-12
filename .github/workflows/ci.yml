@@ -79,6 +79,10 @@ jobs:
         uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
+      # Vitest and Playwright run under Node through bun run.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
@@ -86,6 +90,11 @@ jobs:
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/slipstream-native
@@ -101,6 +110,11 @@ jobs:
           second="$(sudo "$RUNNER_TEMP/fakeworld" setup-loopback)"
           echo "$second"
           test "$second" = "loopback aliases already set up"
+      # The browsers' system libraries are not in the cache, so Linux
+      # installs them on every run.
+      - if: runner.os == 'Linux'
+        working-directory: web
+        run: bun run e2e:install --with-deps
       - run: go run ./cmd/release test
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
