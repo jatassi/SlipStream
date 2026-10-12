@@ -48,7 +48,7 @@ func publish(t *testing.T) (base string, asset []byte, requests *atomic.Int32) {
 		case r.URL.Path == "/"+id.Tag()+"/"+id.AssetName():
 			http.Redirect(w, r, "/signed/"+id.AssetName(), http.StatusFound)
 		case r.URL.Path == "/signed/"+id.AssetName() && r.Method == http.MethodGet:
-			w.Write(asset)
+			_, _ = w.Write(asset)
 		case r.URL.Path == "/signed/"+id.AssetName():
 			w.WriteHeader(http.StatusUnauthorized)
 		default:

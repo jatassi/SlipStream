@@ -73,13 +73,13 @@ var formats = []struct {
 func read(path string) (string, []Import, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("open the binary: %w", err)
 	}
 	head := make([]byte, 4)
 	_, err = io.ReadFull(f, head)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("%s: read the magic number: %w", path, err)
 	}
 	for _, format := range formats {
 		if strings.HasPrefix(string(head), format.magic) {
@@ -93,22 +93,22 @@ func read(path string) (string, []Import, error) {
 func readELF(path string) ([]Import, error) {
 	f, err := elf.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var imports []Import
 	for _, p := range f.Progs {
 		if p.Type == elf.PT_INTERP {
 			interp, err := io.ReadAll(p.Open())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%s: read the interpreter: %w", path, err)
 			}
 			imports = append(imports, Import{"interpreter", strings.TrimRight(string(interp), "\x00")})
 		}
 	}
 	libs, err := f.ImportedLibraries()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	for _, lib := range libs {
 		imports = append(imports, Import{"library", lib})
@@ -119,12 +119,12 @@ func readELF(path string) ([]Import, error) {
 func readPE(path string) ([]Import, error) {
 	f, err := pe.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	syms, err := f.ImportedSymbols()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	var dlls []string
 	for _, sym := range syms {
@@ -149,9 +149,9 @@ var dylibLoads = map[macho.LoadCmd]string{
 func readMachO(path string) ([]Import, error) {
 	f, err := macho.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var imports []Import
 	for _, load := range f.Loads {
 		raw := load.Raw()

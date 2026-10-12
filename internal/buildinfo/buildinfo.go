@@ -33,7 +33,7 @@ var stamp string
 func Encode(s Stamp) (string, error) {
 	payload, err := json.Marshal(s)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("encode the stamp: %w", err)
 	}
 	if strings.ContainsFunc(string(payload), unicode.IsSpace) {
 		return "", fmt.Errorf("stamp %s contains whitespace", payload)
@@ -55,9 +55,9 @@ func Current() (Stamp, bool) {
 
 // ReadFile reads the stamp from a binary file without running it.
 func ReadFile(path string) (Stamp, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: reading the binary the caller names is this function's job
 	if err != nil {
-		return Stamp{}, err
+		return Stamp{}, fmt.Errorf("read the stamp: %w", err)
 	}
 	for {
 		i := bytes.Index(data, []byte(magic))

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,7 +28,7 @@ func CacheRoot() (string, error) {
 	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("find the native cache: %w", err)
 	}
 	return filepath.Join(dir, "slipstream-native"), nil
 }
@@ -66,9 +67,9 @@ func BuildToolchain(ctx context.Context, in Inputs, t Target, recipeDir, cacheRo
 func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot, archive string, log io.Writer) error {
 	toolchainDir, err := os.MkdirTemp("", "slipstream-toolchain-")
 	if err != nil {
-		return err
+		return fmt.Errorf("create the toolchain directory: %w", err)
 	}
-	defer os.RemoveAll(toolchainDir)
+	defer func() { _ = os.RemoveAll(toolchainDir) }()
 	cc, err := libsCompilers(ctx, in, t, recipeDir, toolchainDir)
 	if err != nil {
 		return err
@@ -117,7 +118,7 @@ func libsCompilers(ctx context.Context, in Inputs, t Target, recipeDir, dir stri
 	archive := filepath.Join(dir, id.AssetName())
 	f, err := os.Create(archive)
 	if err != nil {
-		return Compilers{}, err
+		return Compilers{}, fmt.Errorf("create the toolchain archive: %w", err)
 	}
 	_, err = download(ctx, id.URL(ReleasesURL), f)
 	if closeErr := f.Close(); err == nil {
@@ -151,9 +152,9 @@ func checkXcode(ctx context.Context, version string) error {
 func buildLayer(archive string, build func(prefix, work string) error) error {
 	tmp, err := os.MkdirTemp("", "slipstream-layer-")
 	if err != nil {
-		return err
+		return fmt.Errorf("create the layer directory: %w", err)
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 	prefix := filepath.Join(tmp, "layer")
 	if err := build(prefix, filepath.Join(tmp, "work")); err != nil {
 		return err
@@ -183,7 +184,7 @@ func cmake(ctx context.Context, log io.Writer, env []string, args ...string) err
 func pack(dir, archive string) error {
 	f, err := os.Create(archive)
 	if err != nil {
-		return err
+		return fmt.Errorf("create the layer archive: %w", err)
 	}
 	zw := gzip.NewWriter(f)
 	tw := tar.NewWriter(zw)
@@ -191,36 +192,7 @@ func pack(dir, archive string) error {
 		if err != nil || path == dir {
 			return err
 		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() && !info.IsDir() {
-			return fmt.Errorf("%s: layers hold only files and directories", path)
-		}
-		hdr, err := tar.FileInfoHeader(info, "")
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		hdr.Name = filepath.ToSlash(rel)
-		if info.IsDir() {
-			hdr.Name += "/"
-		}
-		hdr.Uid, hdr.Gid, hdr.Uname, hdr.Gname = 0, 0, "", ""
-		if err := tw.WriteHeader(hdr); err != nil || info.IsDir() {
-			return err
-		}
-		src, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-		_, err = io.Copy(tw, src)
-		return err
+		return packEntry(tw, dir, path, d)
 	})
 	for _, c := range []io.Closer{tw, zw, f} {
 		if closeErr := c.Close(); err == nil {
@@ -228,29 +200,70 @@ func pack(dir, archive string) error {
 		}
 	}
 	if err != nil {
-		os.Remove(archive)
+		_ = os.Remove(archive)
+		return fmt.Errorf("pack %s: %w", dir, err)
 	}
-	return err
+	return nil
+}
+
+// packEntry writes the file or directory at path, which lies under dir, to
+// tw with a path relative to dir and no owner.
+func packEntry(tw *tar.Writer, dir, path string, d fs.DirEntry) error {
+	info, err := d.Info()
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() && !info.IsDir() {
+		return fmt.Errorf("%s: layers hold only files and directories", path)
+	}
+	hdr, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	hdr.Name = filepath.ToSlash(rel)
+	if info.IsDir() {
+		hdr.Name += "/"
+	}
+	hdr.Uid, hdr.Gid, hdr.Uname, hdr.Gname = 0, 0, "", ""
+	if err := tw.WriteHeader(hdr); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if info.IsDir() {
+		return nil
+	}
+	src, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open the layer file: %w", err)
+	}
+	defer func() { _ = src.Close() }()
+	if _, err := io.Copy(tw, src); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
 }
 
 func extract(archive, dir string) error {
 	f, err := os.Open(archive)
 	if err != nil {
-		return err
+		return fmt.Errorf("open the layer archive: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	zr, err := gzip.NewReader(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", archive, err)
 	}
 	tr := tar.NewReader(zr)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", archive, err)
 		}
 		rel := filepath.FromSlash(strings.TrimSuffix(hdr.Name, "/"))
 		if !filepath.IsLocal(rel) {
@@ -259,7 +272,9 @@ func extract(archive, dir string) error {
 		path := filepath.Join(dir, rel)
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			err = os.MkdirAll(path, 0o755)
+			if err = os.MkdirAll(path, 0o755); err != nil {
+				err = fmt.Errorf("extract the layer: %w", err)
+			}
 		case tar.TypeReg:
 			err = writeFile(path, tr, hdr.FileInfo().Mode().Perm())
 		default:
@@ -273,15 +288,18 @@ func extract(archive, dir string) error {
 
 func writeFile(path string, r io.Reader, perm fs.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return fmt.Errorf("extract the layer: %w", err)
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 	if err != nil {
-		return err
+		return fmt.Errorf("extract the layer: %w", err)
 	}
 	_, err = io.Copy(f, r)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("extract %s: %w", path, err)
+	}
+	return nil
 }

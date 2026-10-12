@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/notices"
 )
@@ -10,19 +11,19 @@ func init() {
 	register("notices", "generate or check the third-party notices file and the license allow-list", runNotices)
 }
 
-func runNotices(args []string) error {
+func runNotices(ctx context.Context, args []string) error {
 	if len(args) != 1 || (args[0] != "generate" && args[0] != "check") {
-		return fmt.Errorf("usage: notices {generate|check}")
+		return errors.New("usage: notices {generate|check}")
 	}
-	root, err := repoRoot()
+	root, err := repoRoot(ctx)
 	if err != nil {
 		return err
 	}
-	if err := buildWeb(root); err != nil {
+	if err := buildWeb(ctx, root); err != nil {
 		return err
 	}
 	if args[0] == "generate" {
-		return notices.Write(root)
+		return notices.Write(ctx, root)
 	}
-	return notices.Check(root)
+	return notices.Check(ctx, root)
 }

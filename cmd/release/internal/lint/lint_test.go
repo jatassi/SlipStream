@@ -13,7 +13,7 @@ func rule(name string, findings ...lint.Finding) lint.Rule {
 
 func TestRunPrintsSortedFindingsAndFails(t *testing.T) {
 	var out strings.Builder
-	err := lint.Run(&out, lint.Open(t.TempDir()), []lint.Rule{
+	err := lint.Run(&out, lint.Open(t.Context(), t.TempDir()), []lint.Rule{
 		rule("b-rule",
 			lint.Finding{Path: "z.go", Line: 2, Message: "late"},
 			lint.Finding{Path: "a.go", Line: 10, Message: "ten"},
@@ -32,7 +32,7 @@ func TestRunPrintsSortedFindingsAndFails(t *testing.T) {
 
 func TestRunPassesWithoutFindings(t *testing.T) {
 	var out strings.Builder
-	if err := lint.Run(&out, lint.Open(t.TempDir()), []lint.Rule{rule("clean")}); err != nil {
+	if err := lint.Run(&out, lint.Open(t.Context(), t.TempDir()), []lint.Rule{rule("clean")}); err != nil {
 		t.Fatal(err)
 	}
 	if out.String() != "" {

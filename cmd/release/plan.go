@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -37,7 +38,7 @@ func init() {
 	register("plan", "print the CI matrix of targets for an event", runPlan)
 }
 
-func runPlan(args []string) error {
+func runPlan(_ context.Context, args []string) error {
 	events := make([]string, 0, len(eventRunsNativeTargets))
 	for e := range eventRunsNativeTargets {
 		events = append(events, e)
@@ -47,7 +48,7 @@ func runPlan(args []string) error {
 	event := fs.String("event", "", "CI event: "+strings.Join(events, ", "))
 	touchesNative := fs.Bool("native", false, "the change touches native code (from touches-native)")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
 	if _, ok := eventRunsNativeTargets[*event]; !ok {
 		return fmt.Errorf("-event %q is not one of %s", *event, strings.Join(events, ", "))
@@ -62,7 +63,7 @@ func runPlan(args []string) error {
 	}
 	matrix, err := json.Marshal(m)
 	if err != nil {
-		return err
+		return fmt.Errorf("encode the matrix: %w", err)
 	}
 	fmt.Println(string(matrix))
 	return githubOutput("matrix", string(matrix))

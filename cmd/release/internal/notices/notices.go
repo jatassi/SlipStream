@@ -4,6 +4,7 @@ package notices
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,7 +49,7 @@ func (d Dependency) String() string {
 // Generate collects every dependency the release binary ships for the
 // targets in native/inputs.json, enforces the license policy and renders
 // the notices file.
-func Generate(root string) ([]byte, error) {
+func Generate(ctx context.Context, root string) ([]byte, error) {
 	in, err := native.LoadInputs(filepath.Join(root, inputsPath))
 	if err != nil {
 		return nil, err
@@ -57,7 +58,7 @@ func Generate(root string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	goDeps, err := goModules(root, in.Targets)
+	goDeps, err := goModules(ctx, root, in.Targets)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +77,8 @@ func Generate(root string) ([]byte, error) {
 	return render(deps), nil
 }
 
-func Check(root string) error {
-	want, err := Generate(root)
+func Check(ctx context.Context, root string) error {
+	want, err := Generate(ctx, root)
 	if err != nil {
 		return err
 	}
@@ -91,12 +92,15 @@ func Check(root string) error {
 	return nil
 }
 
-func Write(root string) error {
-	data, err := Generate(root)
+func Write(ctx context.Context, root string) error {
+	data, err := Generate(ctx, root)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(root, noticesPath), data, 0o644)
+	if err := os.WriteFile(filepath.Join(root, noticesPath), data, 0o644); err != nil {
+		return fmt.Errorf("write the notices file: %w", err)
+	}
+	return nil
 }
 
 func nativeLibraries(root string, in native.Inputs) ([]Dependency, error) {
@@ -135,7 +139,10 @@ func targetNames(targets []native.Target) []string {
 
 func readText(path string) (string, error) {
 	data, err := os.ReadFile(path)
-	return strings.ReplaceAll(string(data), "\r\n", "\n"), err
+	if err != nil {
+		return "", fmt.Errorf("read license text: %w", err)
+	}
+	return strings.ReplaceAll(string(data), "\r\n", "\n"), nil
 }
 
 const header = `Third-party notices for SlipStream

@@ -11,8 +11,8 @@ import (
 const parityMatrix = "docs/parity-matrix.md"
 
 var (
-	parityRow = regexp.MustCompile(`^[|] P-[0-9]+ `)
-	specIssue = regexp.MustCompile(`github[.]com/jatassi/SlipStream/issues/[0-9]+\)`)
+	parityRow = regexp.MustCompile(`^[|] P-\d+ `)
+	specIssue = regexp.MustCompile(`github[.]com/jatassi/SlipStream/issues/\d+\)`)
 )
 
 func init() {

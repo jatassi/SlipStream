@@ -109,7 +109,7 @@ func WantRepo(root string) (Inputs, []LayerID, error) {
 func LoadLock(path string) (Lock, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Lock{}, err
+		return Lock{}, fmt.Errorf("read the native lock: %w", err)
 	}
 	var l Lock
 	if err := json.Unmarshal(data, &l); err != nil {
@@ -121,9 +121,12 @@ func LoadLock(path string) (Lock, error) {
 func (l Lock) Write(path string) error {
 	data, err := json.MarshalIndent(l, "", "\t")
 	if err != nil {
-		return err
+		return fmt.Errorf("encode the native lock: %w", err)
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write the native lock: %w", err)
+	}
+	return nil
 }
 
 func (l Lock) Pinned(id LayerID) (Layer, error) {

@@ -2,6 +2,7 @@ package native
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -44,15 +45,21 @@ type Metadata struct {
 
 func ReadMetadata(layerDir string) (Metadata, error) {
 	var md Metadata
-	return md, readMetadata(layerDir, &md)
+	if err := readMetadata(layerDir, &md); err != nil {
+		return Metadata{}, err
+	}
+	return md, nil
 }
 
 func readMetadata(layerDir string, v any) error {
 	data, err := os.ReadFile(filepath.Join(layerDir, MetadataFile))
 	if err != nil {
-		return err
+		return fmt.Errorf("read the layer metadata: %w", err)
 	}
-	return json.Unmarshal(data, v)
+	if err := json.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("%s: %w", filepath.Join(layerDir, MetadataFile), err)
+	}
+	return nil
 }
 
 func abs(layerDir, path string) string { return filepath.Join(layerDir, filepath.FromSlash(path)) }

@@ -50,10 +50,7 @@ func checkReleaseImports(repo *lint.Repo) ([]lint.Finding, error) {
 			if !forbidden(module, p.ImportPath) {
 				continue
 			}
-			chain := []string{p.ImportPath}
-			for parents[chain[0]] != root.ImportPath {
-				chain = slices.Insert(chain, 0, parents[chain[0]])
-			}
+			chain := importChain(parents, root.ImportPath, p.ImportPath)
 			file, line, err := importSite(repo, root, chain[0])
 			if err != nil {
 				return nil, err
@@ -89,6 +86,16 @@ func forbidden(module, importPath string) bool {
 	return false
 }
 
+// importChain is the path of imports that leads from root to importPath,
+// starting at root's direct import.
+func importChain(parents map[string]string, root, importPath string) []string {
+	chain := []string{importPath}
+	for parents[chain[0]] != root {
+		chain = slices.Insert(chain, 0, parents[chain[0]])
+	}
+	return chain
+}
+
 func importParents(pkgs []lint.Package, root string) map[string]string {
 	byPath := make(map[string]lint.Package, len(pkgs))
 	for _, p := range pkgs {
@@ -109,14 +116,14 @@ func importParents(pkgs []lint.Package, root string) map[string]string {
 	return parents
 }
 
-func importSite(repo *lint.Repo, root lint.Package, importPath string) (string, int, error) {
+func importSite(repo *lint.Repo, root lint.Package, importPath string) (path string, line int, err error) {
 	names := slices.Concat(root.GoFiles, root.CgoFiles)
 	slices.Sort(names)
 	for _, name := range names {
 		file := filepath.Join(root.Dir, name)
 		syntax, err := parser.ParseFile(repo.Fset, file, nil, parser.ImportsOnly)
 		if err != nil {
-			return "", 0, err
+			return "", 0, fmt.Errorf("find the import of %s: %w", importPath, err)
 		}
 		for _, imp := range syntax.Imports {
 			if p, _ := strconv.Unquote(imp.Path.Value); p == importPath {

@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -28,7 +28,7 @@ func init() {
 	register("deps", "fetch, pin, verify and build the native bundle layers", runDeps)
 }
 
-func runDeps(args []string) error {
+func runDeps(ctx context.Context, args []string) error {
 	names := make([]string, 0, len(depsCommands))
 	for name := range depsCommands {
 		names = append(names, name)
@@ -40,21 +40,21 @@ func runDeps(args []string) error {
 		for _, name := range names {
 			fmt.Fprintf(&b, "\n  %-8s %s", name, depsCommands[name].summary)
 		}
-		return fmt.Errorf("%s", b.String())
+		return errors.New(b.String())
 	}
 	cmd, ok := depsCommands[args[0]]
 	if !ok {
 		return fmt.Errorf("unknown deps command %q; one of %s", args[0], strings.Join(names, ", "))
 	}
-	return cmd.run(args[1:])
+	return cmd.run(ctx, args[1:])
 }
 
 func targetFlag(fs *flag.FlagSet) *string {
 	return fs.String("target", native.HostTargetName(), "target from "+native.InputsPath)
 }
 
-func loadTarget(name string) (string, native.Inputs, native.Target, error) {
-	root, err := repoRoot()
+func loadTarget(ctx context.Context, name string) (string, native.Inputs, native.Target, error) {
+	root, err := repoRoot(ctx)
 	if err != nil {
 		return "", native.Inputs{}, native.Target{}, err
 	}
@@ -66,11 +66,11 @@ func loadTarget(name string) (string, native.Inputs, native.Target, error) {
 	return root, in, t, err
 }
 
-func wantRepo(name string, args []string) (string, native.Inputs, []native.LayerID, error) {
+func wantRepo(ctx context.Context, name string, args []string) (string, native.Inputs, []native.LayerID, error) {
 	if err := flag.NewFlagSet("deps "+name, flag.ContinueOnError).Parse(args); err != nil {
-		return "", native.Inputs{}, nil, err
+		return "", native.Inputs{}, nil, fmt.Errorf("parse flags: %w", err)
 	}
-	root, err := repoRoot()
+	root, err := repoRoot(ctx)
 	if err != nil {
 		return "", native.Inputs{}, nil, err
 	}
@@ -78,20 +78,20 @@ func wantRepo(name string, args []string) (string, native.Inputs, []native.Layer
 	return root, in, want, err
 }
 
-func depsBuild(args []string) error {
+func depsBuild(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("deps build", flag.ContinueOnError)
 	target := targetFlag(fs)
 	kind := fs.String("kind", "", "layer kind to build: toolchain or libs (required)")
 	archive := fs.String("archive", "", "write the layer to this .tar.gz (required)")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
-	root, in, t, err := loadTarget(*target)
+	root, in, t, err := loadTarget(ctx, *target)
 	if err != nil {
 		return err
 	}
 	if *archive == "" {
-		return fmt.Errorf("-archive is required")
+		return errors.New("-archive is required")
 	}
 	if t.GOOS != runtime.GOOS || t.GOARCH != runtime.GOARCH {
 		return fmt.Errorf("target %s builds on its own OS and architecture, not on %s", t.Name, native.HostTargetName())
@@ -100,8 +100,6 @@ func depsBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 	recipe := filepath.Join(root, native.RecipeDir)
 	switch native.Kind(*kind) {
 	case native.KindToolchain:
@@ -112,13 +110,13 @@ func depsBuild(args []string) error {
 	return fmt.Errorf("-kind is %s or %s, not %q", native.KindToolchain, native.KindLibs, *kind)
 }
 
-func depsEnv(args []string) error {
+func depsEnv(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("deps env", flag.ContinueOnError)
 	target := targetFlag(fs)
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
-	root, in, t, err := loadTarget(*target)
+	root, in, t, err := loadTarget(ctx, *target)
 	if err != nil {
 		return err
 	}
@@ -134,13 +132,13 @@ func depsEnv(args []string) error {
 	return nil
 }
 
-func depsFetch(args []string) error {
+func depsFetch(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("deps fetch", flag.ContinueOnError)
 	target := targetFlag(fs)
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
-	root, _, t, err := loadTarget(*target)
+	root, _, t, err := loadTarget(ctx, *target)
 	if err != nil {
 		return err
 	}
@@ -148,7 +146,7 @@ func depsFetch(args []string) error {
 	if err != nil {
 		return err
 	}
-	dirs, err := fetchTarget(root, cacheRoot, t)
+	dirs, err := fetchTarget(ctx, root, cacheRoot, t)
 	if err != nil {
 		return err
 	}
@@ -160,13 +158,11 @@ func depsFetch(args []string) error {
 
 // fetchTarget makes every layer the lock pins for t present in the cache
 // and returns their directories.
-func fetchTarget(root, cacheRoot string, t native.Target) ([]string, error) {
+func fetchTarget(ctx context.Context, root, cacheRoot string, t native.Target) ([]string, error) {
 	lock, err := native.LoadLock(filepath.Join(root, native.LockPath))
 	if err != nil {
 		return nil, err
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 	var dirs []string
 	for _, l := range lock.Layers {
 		if l.Target != t.Name {
@@ -184,19 +180,19 @@ func fetchTarget(root, cacheRoot string, t native.Target) ([]string, error) {
 	return dirs, nil
 }
 
-func depsVerify(args []string) error {
+func depsVerify(ctx context.Context, args []string) error {
 	if err := flag.NewFlagSet("deps verify", flag.ContinueOnError).Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parse flags: %w", err)
 	}
-	return runLint([]string{"-rule", "native-lock"})
+	return runLint(ctx, []string{"-rule", "native-lock"})
 }
 
-func depsPin(args []string) error {
-	root, _, want, err := wantRepo("pin", args)
+func depsPin(ctx context.Context, args []string) error {
+	root, _, want, err := wantRepo(ctx, "pin", args)
 	if err != nil {
 		return err
 	}
-	lock, err := native.Pin(context.Background(), native.ReleasesURL, want)
+	lock, err := native.Pin(ctx, native.ReleasesURL, want)
 	if err != nil {
 		return err
 	}
@@ -219,8 +215,8 @@ type matrix struct {
 // depsMissing prints one CI matrix per layer kind. The bundle workflow
 // builds and publishes the toolchain layers before the libs layers that
 // download them.
-func depsMissing(args []string) error {
-	_, in, want, err := wantRepo("missing", args)
+func depsMissing(ctx context.Context, args []string) error {
+	_, in, want, err := wantRepo(ctx, "missing", args)
 	if err != nil {
 		return err
 	}
@@ -229,7 +225,7 @@ func depsMissing(args []string) error {
 		native.KindLibs:      {[]matrixEntry{}},
 	}
 	for _, id := range want {
-		published, err := native.Published(context.Background(), native.ReleasesURL, id)
+		published, err := native.Published(ctx, native.ReleasesURL, id)
 		if err != nil {
 			return err
 		}
@@ -246,5 +242,8 @@ func depsMissing(args []string) error {
 		}
 		missing[id.Kind].Include = append(missing[id.Kind].Include, matrixEntry{t.Name, t.Runner, id.Tag(), id.AssetName(), tc.Xcode})
 	}
-	return json.NewEncoder(os.Stdout).Encode(missing)
+	if err := json.NewEncoder(os.Stdout).Encode(missing); err != nil {
+		return fmt.Errorf("print the missing layers: %w", err)
+	}
+	return nil
 }
