@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: identity_account.id
+            go_type:
+              type: AccountID
+          - column: identity_account.admin
+            go_type: bool
+          - column: identity_session.id
+            go_type:
+              type: SessionID
+          - column: identity_session.account_id
+            go_type:
+              type: AccountID
