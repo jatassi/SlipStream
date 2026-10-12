@@ -77,10 +77,7 @@ func runBuild(ctx context.Context, args []string) error {
 	if err := linkage.Check(tmp.Name()); err != nil {
 		return err
 	}
-	out := filepath.Join(dist, "slipstream")
-	if target.GOOS == "windows" {
-		out += ".exe"
-	}
+	out := executable(target, dist, "slipstream")
 	if err := os.Rename(tmp.Name(), out); err != nil {
 		return fmt.Errorf("move build output into dist: %w", err)
 	}
