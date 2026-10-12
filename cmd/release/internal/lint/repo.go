@@ -80,7 +80,7 @@ func (r *Repo) GoSyntax() ([]GoFile, error) {
 		return nil, err
 	}
 	for _, f := range files {
-		if path.Ext(f) != ".go" || ignoredByGo(f) {
+		if path.Ext(f) != ".go" || IgnoredByGo(f) {
 			continue
 		}
 		src, err := r.Read(f)
@@ -97,7 +97,11 @@ func (r *Repo) GoSyntax() ([]GoFile, error) {
 	return r.goSrc, nil
 }
 
-func ignoredByGo(file string) bool {
+func IsOwnerSQL(file, folder string) bool {
+	return path.Ext(file) == ".sql" && path.Base(path.Dir(file)) == folder && !IgnoredByGo(file)
+}
+
+func IgnoredByGo(file string) bool {
 	for _, elem := range strings.Split(path.Dir(file), "/") {
 		if elem == "testdata" || strings.HasPrefix(elem, "_") || strings.HasPrefix(elem, ".") {
 			return true

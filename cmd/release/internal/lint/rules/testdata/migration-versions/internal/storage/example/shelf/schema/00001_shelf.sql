@@ -1,0 +1,2 @@
+-- +goose Up
+CREATE TABLE x (id INTEGER PRIMARY KEY) STRICT;
