@@ -1,0 +1,3 @@
+package identityapi
+
+func Routes() {}

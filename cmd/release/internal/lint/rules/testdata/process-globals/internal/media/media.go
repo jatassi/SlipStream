@@ -34,4 +34,10 @@ func Probe(logger *slog.Logger, r *rand.Rand) {
 	_ = http.DefaultClient
 	_ = http.ListenAndServe(":0", nil)
 	_ = &http.Client{}
+	http.Handle("/", nil)
+	http.HandleFunc("/", nil)
+	_ = http.DefaultServeMux
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", nil)
+	http.NewServeMux().Handle("/", nil)
 }
