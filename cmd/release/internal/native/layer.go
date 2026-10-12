@@ -13,13 +13,15 @@ import (
 	"strings"
 )
 
-// CacheRoot is the per-machine native cache that every worktree shares.
+// CacheRoot is the per-machine native cache that every worktree shares. Its
+// name differs from SlipStream v1's data folder, %LOCALAPPDATA%\SlipStream,
+// in more than case, since Windows paths ignore case.
 func CacheRoot() (string, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "slipstream", "native"), nil
+	return filepath.Join(dir, "slipstream-native"), nil
 }
 
 // LayerDir is where a fetched layer lives under the cache root. The path
