@@ -144,3 +144,12 @@ func TestProcessGlobals(t *testing.T) {
 		"internal/seed/seed.go:3: [process-globals] package math/rand" + stream,
 	})
 }
+
+func TestConfigSections(t *testing.T) {
+	assertFindings(t, check(t, "config-sections", fixtureRepo(t, "config-sections")), []string{
+		"internal/media/media.go:5: [config-sections] DefaultSettings is never called by internal/node/config.go; wire the section into node.Config",
+		"internal/node/timings.go:9: [config-sections] engine.DefaultSettings called outside internal/node/config.go; read the section from the Node's Config",
+		"internal/tmdb/client.go:3: [config-sections] DefaultEndpoints called outside internal/node/config.go; read the section from the Node's Config",
+		"internal/torrent/engine/engine.go:9: [config-sections] DefaultTimings is never called by internal/node/config.go; wire the section into node.Config",
+	})
+}
