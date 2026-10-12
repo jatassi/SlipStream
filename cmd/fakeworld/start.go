@@ -68,6 +68,9 @@ func start(f startFlags) error {
 	if err != nil {
 		return fmt.Errorf("binary: %w", err)
 	}
+	if _, err := world.CheckAddresses(context.Background(), len(f.scenario.Nodes)); err != nil {
+		return err
+	}
 	if err := world.CreateRunDir(runDir); err != nil {
 		return err
 	}
@@ -76,7 +79,7 @@ func start(f startFlags) error {
 		return fmt.Errorf("open world.log: %w", err)
 	}
 	defer func() { _ = log.Close() }()
-	cmd, err := supervisorCommand(runDir, binary, f.scenario, log)
+	cmd, err := supervisorCommand(runDir, binary, f.scenario.Name, log)
 	if err != nil {
 		return err
 	}

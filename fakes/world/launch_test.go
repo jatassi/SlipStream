@@ -350,7 +350,7 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 
 func TestAddressCheckRefusesTheThirtyThirdAddress(t *testing.T) {
 	t.Parallel()
-	_, err := world.UsableAddress(worldtest.Context(t), 31)
+	_, err := world.CheckAddresses(worldtest.Context(t), 32)
 	if want := `127.0.0.33 is not usable on this machine; on macOS run "sudo fakeworld setup-loopback" once`; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}

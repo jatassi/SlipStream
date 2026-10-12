@@ -137,6 +137,10 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	if err := opts.Scenario.Validate(); err != nil {
 		return nil, err
 	}
+	addrs, err := CheckAddresses(ctx, len(opts.Scenario.Nodes))
+	if err != nil {
+		return nil, err
+	}
 	runDir, err := filepath.Abs(opts.RunDir)
 	if err != nil {
 		return nil, fmt.Errorf("run dir: %w", err)
@@ -147,6 +151,9 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		}
 	}
 	r := &Run{scenario: opts.Scenario, id: newRunID(), runDir: runDir, life: context.WithoutCancel(ctx), used: map[string]bool{}}
+	for i, n := range opts.Scenario.Nodes {
+		r.nodes = append(r.nodes, &nodeRun{spec: n, addr: addrs[i]})
+	}
 	scratchRoot := filepath.Join(os.TempDir(), "ssfw")
 	r.scratchDir = filepath.Join(scratchRoot, r.id)
 	r.socket = filepath.Join(scratchRoot, r.id+".sock")
@@ -176,7 +183,6 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 
 	steps := []func(context.Context, *unwind) error{
 		func(context.Context, *unwind) error { return r.copyBinary(opts.Binary) },
-		r.checkAddresses,
 		r.mintCA,
 		func(ctx context.Context, undo *unwind) error { return r.startFakes(ctx, undo, fakes) },
 		r.prepareNodes,
@@ -246,17 +252,6 @@ func CopyExecutable(src, dst string) (string, error) {
 		return "", fmt.Errorf("binary %s: %w", dst, err)
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-func (r *Run) checkAddresses(ctx context.Context, _ *unwind) error {
-	for i, n := range r.scenario.Nodes {
-		addr, err := usableAddress(ctx, i)
-		if err != nil {
-			return err
-		}
-		r.nodes = append(r.nodes, &nodeRun{spec: n, addr: addr})
-	}
-	return nil
 }
 
 func (r *Run) mintCA(context.Context, *unwind) error {

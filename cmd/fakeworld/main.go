@@ -141,15 +141,17 @@ func required(fs *flag.FlagSet, names ...string) error {
 }
 
 type startFlags struct {
-	binary, scenario, runDir string
-	timeout                  time.Duration
+	binary, runDir string
+	scenario       scenario.Scenario
+	timeout        time.Duration
 }
 
 func parseStart(args []string) (startFlags, error) {
 	fs := newFlagSet("start")
 	var f startFlags
+	var name string
 	fs.StringVar(&f.binary, "binary", "", "")
-	fs.StringVar(&f.scenario, "scenario", "", "")
+	fs.StringVar(&name, "scenario", "", "")
 	fs.StringVar(&f.runDir, "run-dir", "", "")
 	fs.DurationVar(&f.timeout, "timeout", defaultTimeout, "")
 	if err := noArguments(fs, args); err != nil {
@@ -158,9 +160,11 @@ func parseStart(args []string) (startFlags, error) {
 	if err := required(fs, "binary", "scenario", "run-dir"); err != nil {
 		return startFlags{}, err
 	}
-	if _, err := scenario.Load(f.scenario); err != nil {
+	s, err := scenario.Load(name)
+	if err != nil {
 		return startFlags{}, fmt.Errorf("start: %w", err)
 	}
+	f.scenario = s
 	return f, positiveTimeout(fs, f.timeout)
 }
 

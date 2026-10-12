@@ -25,20 +25,25 @@ func nodeAddress(i int) netip.Addr {
 	return addr
 }
 
-// usableAddress is Node i's address once a listener has bound it. Past
-// the 31 addresses setup-loopback aliases, it refuses without trying.
-func usableAddress(ctx context.Context, i int) (netip.Addr, error) {
-	addr := nodeAddress(i)
-	refuse := fmt.Errorf(`%s is not usable on this machine; on macOS run "sudo fakeworld setup-loopback" once`, addr)
-	if i >= scenario.MaxNodes {
-		return netip.Addr{}, refuse
+// CheckAddresses binds and closes the address of each of n Nodes, and
+// returns them. Past the 31 addresses setup-loopback aliases, it refuses
+// without trying.
+func CheckAddresses(ctx context.Context, n int) ([]netip.Addr, error) {
+	addrs := make([]netip.Addr, n)
+	for i := range n {
+		addr := nodeAddress(i)
+		refuse := fmt.Errorf(`%s is not usable on this machine; on macOS run "sudo fakeworld setup-loopback" once`, addr)
+		if i >= scenario.MaxNodes {
+			return nil, refuse
+		}
+		l, err := new(net.ListenConfig).Listen(ctx, "tcp", netip.AddrPortFrom(addr, 0).String())
+		if err != nil {
+			return nil, refuse
+		}
+		_ = l.Close()
+		addrs[i] = addr
 	}
-	l, err := new(net.ListenConfig).Listen(ctx, "tcp", netip.AddrPortFrom(addr, 0).String())
-	if err != nil {
-		return netip.Addr{}, refuse
-	}
-	_ = l.Close()
-	return addr, nil
+	return addrs, nil
 }
 
 // listenKeys are the probe's *.listen keys outside timings and endpoints.
