@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
@@ -28,29 +28,8 @@ import (
 // always sets them.
 var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0"}
 
-var binary string
-
 func TestMain(m *testing.M) {
-	os.Exit(buildThenRun(m))
-}
-
-func buildThenRun(m *testing.M) int {
-	dir, err := os.MkdirTemp("", "slipstream-bin")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
-	binary = filepath.Join(dir, "slipstream")
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
-	}
-	build := exec.CommandContext(context.Background(), "go", "build", "-o", binary, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		fmt.Fprintf(os.Stderr, "build slipstream: %v\n%s", err, out)
-		return 1
-	}
-	return m.Run()
+	os.Exit(testbin.Run(m))
 }
 
 // childEnv is explicit, so a stray SLIPSTREAM_ variable in the developer's
@@ -94,7 +73,7 @@ type nodeProc struct {
 
 func startNode(t *testing.T, dir string, env ...string) *nodeProc {
 	t.Helper()
-	return startBinary(t, binary, dir, env...)
+	return startBinary(t, testbin.Slipstream(t), dir, env...)
 }
 
 func startBinary(t *testing.T, bin, dir string, env ...string) *nodeProc {
@@ -207,7 +186,7 @@ func slipstream(t *testing.T, env []string, args ...string) result {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd := exec.CommandContext(ctx, testbin.Slipstream(t), args...)
 	cmd.Env = env
 	var out, errOut strings.Builder
 	cmd.Stdout, cmd.Stderr = &out, &errOut

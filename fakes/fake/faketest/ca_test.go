@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake/internal/fixture"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/testbin"
 )
 
 // TestCATrustedThroughSSLCertFile settles, per OS, that a Node trusts the
@@ -38,7 +38,7 @@ func TestCATrustedThroughSSLCertFile(t *testing.T) {
 	if err := os.WriteFile(caFile, authority.PEM(), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	probe := buildProbe(t, dir)
+	probe := testbin.Build(t, dir, "./fakes/fake/faketest/testdata/probe")
 	env := nodeenv.Environ(caFile)
 
 	if got := runProbe(t, probe, url, env); got != "exit 0: ok fixture\n" {
@@ -48,19 +48,6 @@ func TestCATrustedThroughSSLCertFile(t *testing.T) {
 	if got, want := runProbe(t, probe, url, without), "exit 1: x509: certificate signed by unknown authority\n"; got != want {
 		t.Fatalf("probe without SSL_CERT_FILE: %q, want %q", got, want)
 	}
-}
-
-func buildProbe(t *testing.T, dir string) string {
-	t.Helper()
-	out := filepath.Join(dir, "probe")
-	if runtime.GOOS == "windows" {
-		out += ".exe"
-	}
-	build := exec.CommandContext(t.Context(), "go", "build", "-o", out, "./testdata/probe")
-	if b, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build probe: %v\n%s", err, b)
-	}
-	return out
 }
 
 func runProbe(t *testing.T, probe, url string, env []string) string {

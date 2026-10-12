@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/node"
 )
@@ -129,8 +130,8 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	if report.DataDir != dir || report.Seed != "fixed" || report.Listeners.HTTP != ready.Listeners.HTTP.String() {
 		t.Fatalf("getSystem = %s, want dataDir %s, seed fixed and listeners.http %s", sys.body, dir, ready.Listeners.HTTP)
 	}
-	if stamped, ok := report.Build["stamped"].(bool); len(report.Build) != 1 || !ok || stamped {
-		t.Fatalf("the unstamped test binary reports build %v, want only stamped false", report.Build)
+	if stamped, _ := report.Build["stamped"].(bool); stamped != binaryIsStamped(t) {
+		t.Fatalf("getSystem reports build %v, and slipstream version says stamped is %t", report.Build, binaryIsStamped(t))
 	}
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/system", "", nil), 401, `{"status":401,"code":"signed_out","title":"Sign in to continue"}`+"\n")
 
@@ -142,6 +143,15 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	}
 	expectReply(t, call(t, readyAgain, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"controller"}`+"\n")
 	expectReply(t, claimController(t, readyAgain, ready.SetupCode), 409, `{"status":409,"code":"already_claimed","title":"This Node is already set up"}`+"\n")
+}
+
+func binaryIsStamped(t *testing.T) bool {
+	t.Helper()
+	out, err := exec.CommandContext(t.Context(), testbin.Slipstream(t), "version").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out) != "slipstream dev (unstamped build)\n"
 }
 
 // TestSystemReportsTheBinarysStamp links a stamped binary, as the release
@@ -159,11 +169,7 @@ func TestSystemReportsTheBinarysStamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stamped := filepath.Join(t.TempDir(), filepath.Base(binary))
-	build := exec.CommandContext(t.Context(), "go", "build", "-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+stamp, "-o", stamped, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build a stamped slipstream: %v\n%s", err, out)
-	}
+	stamped := testbin.Build(t, t.TempDir(), "./cmd/slipstream", "-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+stamp)
 	version, err := exec.CommandContext(t.Context(), stamped, "version").Output()
 	if err != nil {
 		t.Fatal(err)
