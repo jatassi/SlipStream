@@ -86,7 +86,8 @@ func TestParityOwners(t *testing.T) {
 func TestNativeLock(t *testing.T) {
 	hint := "; " + native.PublishHint
 	assertFindings(t, check(t, "native-lock", fixtureRepo(t, "native-lock")), []string{
-		"native/lock.json:1: [native-lock] pins libs layer 0000000000000000000000000000000000000000000000000000000000000000 for linux-amd64, inputs and recipe build 41e240209ea997120408aaad56123ed4059a7ce51fe6beb4b7408d7f6795ef1f" + hint,
+		"native/lock.json:1: [native-lock] pins libs layer 0000000000000000000000000000000000000000000000000000000000000000 for linux-amd64, inputs and recipe build c4996dbb8ea7b03aeb1f3200a8c48453ac70904368a06634597619030fcfdcb7" + hint,
 		"native/lock.json:1: [native-lock] pins libs layer 2222222222222222222222222222222222222222222222222222222222222222 for darwin-arm64, which native/inputs.json does not list" + hint,
+		"native/lock.json:1: [native-lock] pins no toolchain layer for linux-amd64, inputs and recipe build c871a31bd840d2719733f3d367edc4c1807ebcd6ba999b630294eb6bab409d39" + hint,
 	})
 }

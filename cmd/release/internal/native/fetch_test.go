@@ -152,8 +152,8 @@ func TestPublishedChecksTheAsset(t *testing.T) {
 	}
 }
 
-func TestFetchedLibsNamesTheFetchCommand(t *testing.T) {
-	root := t.TempDir()
+func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
+	root, cache := t.TempDir(), t.TempDir()
 	in, recipe := fixture(t)
 	if err := os.CopyFS(filepath.Join(root, RecipeDir), recipe); err != nil {
 		t.Fatal(err)
@@ -162,7 +162,10 @@ func TestFetchedLibsNamesTheFetchCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lock := Lock{Layers: []Layer{{want[0], want[0].AssetName(), want[0].URL("https://example.test"), strings.Repeat("a", 64)}}}
+	lock := Lock{}
+	for i, id := range want {
+		lock.Layers = append(lock.Layers, Layer{id, id.AssetName(), id.URL("https://example.test"), strings.Repeat(string(rune('a'+i)), 64)})
+	}
 	if err := lock.Write(filepath.Join(root, LockPath)); err != nil {
 		t.Fatal(err)
 	}
@@ -171,8 +174,38 @@ func TestFetchedLibsNamesTheFetchCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = FetchedLibs(root, t.TempDir(), in, target)
-	if wantErr := "the libs layer for linux-amd64 is not fetched: run scripts/native-deps fetch -target linux-amd64"; err == nil || err.Error() != wantErr {
-		t.Fatalf("FetchedLibs err = %v, want %s", err, wantErr)
+	_, err = FetchedBundle(root, cache, in, target)
+	if wantErr := "the toolchain layer for linux-amd64 is not fetched: run scripts/native-deps fetch -target linux-amd64"; err == nil || err.Error() != wantErr {
+		t.Fatalf("FetchedBundle err = %v, want %s", err, wantErr)
+	}
+
+	toolchain, libs := LayerDir(cache, lock.Layers[0]), LayerDir(cache, lock.Layers[1])
+	for path, content := range map[string]string{
+		filepath.Join(toolchain, MetadataFile): `{"cc": "bin/x86_64-linux-musl-gcc", "cxx": "bin/x86_64-linux-musl-g++"}`,
+		filepath.Join(libs, MetadataFile):      `{"include_dirs": ["include"], "static_libs": ["lib/libtorrent-rasterbar.a"], "system_libs": ["-static", "-lstdc++"]}`,
+	} {
+		if err := writeFile(path, strings.NewReader(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := FetchedBundle(root, cache, in, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Libs != lock.Layers[1] {
+		t.Errorf("Libs = %+v, want %+v", b.Libs, lock.Layers[1])
+	}
+	cflags := "-O2 -g -I" + filepath.Join(libs, "include")
+	wantEnv := []EnvVar{
+		{"CGO_ENABLED", "1"},
+		{"GOFLAGS", "-tags=netgo"},
+		{"CC", filepath.Join(toolchain, "bin", "x86_64-linux-musl-gcc")},
+		{"CXX", filepath.Join(toolchain, "bin", "x86_64-linux-musl-g++")},
+		{"CGO_CFLAGS", cflags},
+		{"CGO_CXXFLAGS", cflags},
+		{"CGO_LDFLAGS", filepath.Join(libs, "lib", "libtorrent-rasterbar.a") + " -static -lstdc++"},
+	}
+	if !slices.Equal(b.Env, wantEnv) {
+		t.Errorf("Env =\n%q\nwant\n%q", b.Env, wantEnv)
 	}
 }

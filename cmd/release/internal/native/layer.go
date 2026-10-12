@@ -29,41 +29,94 @@ func LayerDir(cacheRoot string, l Layer) string {
 	return filepath.Join(cacheRoot, string(l.Kind), l.Target, l.SHA256)
 }
 
-// BuildLibs builds the libs layer for t with the recipe and writes it to
-// archive as a gzipped tar whose paths are relative to the layer root.
-func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot, archive string, log io.Writer) error {
-	tc, err := t.Compilers()
+// BuildToolchain builds the toolchain layer for t with its recipe and writes
+// it to archive as a gzipped tar whose paths are relative to the layer root.
+func BuildToolchain(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot, archive string, log io.Writer) error {
+	tc, err := in.Toolchain(t)
 	if err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp("", "slipstream-libs-")
+	return buildLayer(archive, func(prefix, work string) error {
+		args := []string{
+			"-DLAYER_PREFIX=" + prefix,
+			"-DWORK_DIR=" + work,
+			"-DDOWNLOAD_DIR=" + downloadDir(cacheRoot),
+			"-DTRIPLE=" + t.Triple,
+		}
+		for _, s := range tc.Sources {
+			args = append(args, sourceDefines(s)...)
+		}
+		return cmake(ctx, log, append(args, "-P", filepath.Join(recipeDir, string(KindToolchain), "toolchain.cmake"))...)
+	})
+}
+
+// BuildLibs builds the libs layer for t with its recipe and the toolchain
+// layer packed in toolchainArchive, and writes it to archive like
+// BuildToolchain.
+func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, toolchainArchive, cacheRoot, archive string, log io.Writer) error {
+	toolchainDir, err := os.MkdirTemp("", "slipstream-toolchain-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(toolchainDir)
+	if err := extract(toolchainArchive, toolchainDir); err != nil {
+		return err
+	}
+	cc, err := ReadCompilers(toolchainDir)
+	if err != nil {
+		return err
+	}
+	return buildLayer(archive, func(prefix, work string) error {
+		configure := []string{
+			"-S", filepath.Join(recipeDir, string(KindLibs)), "-B", work,
+			"-DCMAKE_C_COMPILER=" + cc.CC,
+			"-DCMAKE_CXX_COMPILER=" + cc.CXX,
+			"-DLAYER_PREFIX=" + prefix,
+			"-DDOWNLOAD_DIR=" + downloadDir(cacheRoot),
+			"-DOPENSSL_TARGET=" + t.OpenSSLTarget,
+			"-DSYSTEM_LIBS=" + strings.Join(t.SystemLibs, ";"),
+		}
+		for _, c := range in.Components {
+			configure = append(configure, sourceDefines(c.Source)...)
+		}
+		if err := cmake(ctx, log, configure...); err != nil {
+			return err
+		}
+		return cmake(ctx, log, "--build", work)
+	})
+}
+
+// buildLayer runs build with a fresh layer prefix and work directory, then
+// packs the prefix into archive.
+func buildLayer(archive string, build func(prefix, work string) error) error {
+	tmp, err := os.MkdirTemp("", "slipstream-layer-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmp)
-
-	prefix, work := filepath.Join(tmp, "layer"), filepath.Join(tmp, "work")
-	configure := []string{
-		"-S", recipeDir, "-B", work,
-		"-DCMAKE_C_COMPILER=" + tc.CC,
-		"-DCMAKE_CXX_COMPILER=" + tc.CXX,
-		"-DLAYER_PREFIX=" + prefix,
-		"-DDOWNLOAD_DIR=" + filepath.Join(cacheRoot, "downloads"),
-		"-DOPENSSL_TARGET=" + t.OpenSSLTarget,
-		"-DSYSTEM_LIBS=" + strings.Join(t.SystemLibs, ";"),
-	}
-	for _, c := range in.Components {
-		id := strings.ToUpper(strings.ReplaceAll(c.Name, "-", "_"))
-		configure = append(configure, "-D"+id+"_URL="+c.URL, "-D"+id+"_SHA256="+c.SHA256)
-	}
-	for _, args := range [][]string{configure, {"--build", work}} {
-		cmd := exec.CommandContext(ctx, "cmake", args...)
-		cmd.Stdout, cmd.Stderr = log, log
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("cmake %s: %w", args[0], err)
-		}
+	prefix := filepath.Join(tmp, "layer")
+	if err := build(prefix, filepath.Join(tmp, "work")); err != nil {
+		return err
 	}
 	return pack(prefix, archive)
+}
+
+// sourceDefines passes a source to a recipe as <NAME>_URL and
+// <NAME>_SHA256, with the name upper-cased and dashes made underscores.
+func sourceDefines(s Source) []string {
+	id := strings.ToUpper(strings.ReplaceAll(s.Name, "-", "_"))
+	return []string{"-D" + id + "_URL=" + s.URL, "-D" + id + "_SHA256=" + s.SHA256}
+}
+
+func downloadDir(cacheRoot string) string { return filepath.Join(cacheRoot, "downloads") }
+
+func cmake(ctx context.Context, log io.Writer, args ...string) error {
+	cmd := exec.CommandContext(ctx, "cmake", args...)
+	cmd.Stdout, cmd.Stderr = log, log
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cmake %s: %w", strings.Join(args, " "), err)
+	}
+	return nil
 }
 
 func pack(dir, archive string) error {

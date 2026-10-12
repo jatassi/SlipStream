@@ -61,10 +61,10 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	wantPrinted := fmt.Sprintf("slipstream %s\n"+
 		"commit         %s\n"+
 		"target         %s\n"+
-		"libtorrent     2.0.15\n"+
+		"libtorrent     %s\n"+
 		"fingerprint    %s\n"+
 		"native bundle  %s\n",
-		want.Version, want.Commit, want.Target, want.Fingerprint, want.NativeBundle)
+		want.Version, want.Commit, want.Target, want.Libtorrent, want.Fingerprint, want.NativeBundle)
 	if string(printed) != wantPrinted {
 		t.Errorf("slipstream version printed\n%s\nwant\n%s", printed, wantPrinted)
 	}

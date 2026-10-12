@@ -20,17 +20,21 @@ func TestRepoInputsListEveryTarget(t *testing.T) {
 	}
 }
 
-func TestParseInputsRejectsUnknownGate(t *testing.T) {
-	_, err := ParseInputs([]byte(`{"targets": [{"name": "linux-amd64", "gate": "nightly"}], "components": []}`))
-	if err == nil {
-		t.Fatal("parsed a target with gate nightly")
-	}
-}
-
-func TestParseInputsRejectsUnknownLayerKind(t *testing.T) {
-	_, err := ParseInputs([]byte(`{"targets": [{"name": "linux-amd64", "gate": "pr", "layers": ["libs", "ffmpeg"]}], "components": []}`))
-	want := `native inputs: target linux-amd64: unknown layer kind "ffmpeg"`
-	if err == nil || err.Error() != want {
-		t.Fatalf("err = %v, want %s", err, want)
+func TestParseInputsRejectsInconsistentInputs(t *testing.T) {
+	for _, tc := range []struct{ inputs, want string }{
+		{`{"targets": [{"name": "linux-amd64", "gate": "nightly"}]}`,
+			`native inputs: target linux-amd64: gate "nightly" is neither "pr" nor "native"`},
+		{`{"targets": [{"name": "linux-amd64", "gate": "pr", "layers": ["libs", "ffmpeg"]}]}`,
+			`native inputs: target linux-amd64: unknown layer kind "ffmpeg"`},
+		{`{"targets": [{"name": "linux-amd64", "gate": "pr", "layers": ["libs"]}]}`,
+			`native inputs: target linux-amd64: the libs layer is built with the toolchain layer, which it does not list`},
+		{`{"targets": [{"name": "linux-amd64", "gate": "pr", "toolchain": "musl-cross", "layers": ["toolchain"]}]}`,
+			`native inputs: target linux-amd64: toolchain "musl-cross" is not listed`},
+		{`{"toolchains": [{"name": "musl-cross", "runtimes": [{"name": "libgcc", "source": "gcc"}]}]}`,
+			`native inputs: toolchain musl-cross: runtime libgcc names no source "gcc"`},
+	} {
+		if _, err := ParseInputs([]byte(tc.inputs)); err == nil || err.Error() != tc.want {
+			t.Errorf("ParseInputs(%s) err = %v, want %s", tc.inputs, err, tc.want)
+		}
 	}
 }

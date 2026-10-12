@@ -16,7 +16,7 @@ import (
 )
 
 var depsCommands = map[string]command{
-	"build":   {"build a target's libs layer into a publishable archive", depsBuild},
+	"build":   {"build one of a target's layers into a publishable archive", depsBuild},
 	"env":     {"print the cgo environment of the fetched libs layer", depsEnv},
 	"fetch":   {"download, verify and extract a target's pinned layers", depsFetch},
 	"missing": {"print the CI matrix of wanted layers that are not published", depsMissing},
@@ -81,7 +81,9 @@ func wantRepo(name string, args []string) (string, native.Inputs, []native.Layer
 func depsBuild(args []string) error {
 	fs := flag.NewFlagSet("deps build", flag.ContinueOnError)
 	target := targetFlag(fs)
+	kind := fs.String("kind", "", "layer kind to build: toolchain or libs (required)")
 	archive := fs.String("archive", "", "write the layer to this .tar.gz (required)")
+	toolchain := fs.String("toolchain", "", "the toolchain layer .tar.gz a libs layer is compiled with")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -101,7 +103,17 @@ func depsBuild(args []string) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	return native.BuildLibs(ctx, in, t, filepath.Join(root, native.RecipeDir), cacheRoot, *archive, os.Stderr)
+	recipe := filepath.Join(root, native.RecipeDir)
+	switch native.Kind(*kind) {
+	case native.KindToolchain:
+		return native.BuildToolchain(ctx, in, t, recipe, cacheRoot, *archive, os.Stderr)
+	case native.KindLibs:
+		if *toolchain == "" {
+			return fmt.Errorf("-toolchain is required to build a %s layer", native.KindLibs)
+		}
+		return native.BuildLibs(ctx, in, t, recipe, *toolchain, cacheRoot, *archive, os.Stderr)
+	}
+	return fmt.Errorf("-kind is %s or %s, not %q", native.KindToolchain, native.KindLibs, *kind)
 }
 
 func depsEnv(args []string) error {
@@ -118,7 +130,7 @@ func depsEnv(args []string) error {
 	if err != nil {
 		return err
 	}
-	b, err := native.FetchedLibs(root, cacheRoot, in, t)
+	b, err := native.FetchedBundle(root, cacheRoot, in, t)
 	if err != nil {
 		return err
 	}
@@ -188,16 +200,33 @@ type matrixEntry struct {
 	Runner string `json:"runner"`
 	Tag    string `json:"tag"`
 	Asset  string `json:"asset"`
+	// Toolchain is the release URL of the toolchain layer a libs layer is
+	// compiled with.
+	Toolchain string `json:"toolchain,omitempty"`
 }
 
+type matrix struct {
+	Include []matrixEntry `json:"include"`
+}
+
+// depsMissing prints one CI matrix per layer kind. The bundle workflow
+// builds and publishes the toolchain layers before the libs layers that
+// fetch them.
 func depsMissing(args []string) error {
 	_, in, want, err := wantRepo("missing", args)
 	if err != nil {
 		return err
 	}
-	matrix := struct {
-		Include []matrixEntry `json:"include"`
-	}{[]matrixEntry{}}
+	missing := map[native.Kind]*matrix{
+		native.KindToolchain: {[]matrixEntry{}},
+		native.KindLibs:      {[]matrixEntry{}},
+	}
+	toolchains := map[string]native.LayerID{}
+	for _, id := range want {
+		if id.Kind == native.KindToolchain {
+			toolchains[id.Target] = id
+		}
+	}
 	for _, id := range want {
 		published, err := native.Published(context.Background(), native.ReleasesURL, id)
 		if err != nil {
@@ -210,7 +239,11 @@ func depsMissing(args []string) error {
 		if err != nil {
 			return err
 		}
-		matrix.Include = append(matrix.Include, matrixEntry{t.Name, t.Runner, id.Tag(), id.AssetName()})
+		entry := matrixEntry{Target: t.Name, Runner: t.Runner, Tag: id.Tag(), Asset: id.AssetName()}
+		if id.Kind == native.KindLibs {
+			entry.Toolchain = toolchains[id.Target].URL(native.ReleasesURL)
+		}
+		missing[id.Kind].Include = append(missing[id.Kind].Include, entry)
 	}
-	return json.NewEncoder(os.Stdout).Encode(matrix)
+	return json.NewEncoder(os.Stdout).Encode(missing)
 }

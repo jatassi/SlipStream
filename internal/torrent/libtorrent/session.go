@@ -12,6 +12,7 @@ import "C"
 
 import (
 	"net/netip"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -36,7 +37,12 @@ type Session struct {
 	closed bool
 }
 
-func Version() string { return C.GoString(C.lts_version()) }
+// Version is the linked libtorrent's version as major.minor.tiny, the form
+// its releases are named by. libtorrent itself appends a fourth number.
+func Version() string {
+	parts := strings.SplitN(C.GoString(C.lts_version()), ".", 4)
+	return strings.Join(parts[:3], ".")
+}
 
 func Open(cfg engine.Config) (*Session, error) {
 	iface := C.CString(cfg.ListenInterface.String())
