@@ -63,14 +63,18 @@ type EnvVar struct {
 
 // CgoEnv is the environment that builds cgo packages for t against the
 // libs layer at layerDir with cc. The flags start with cgo's own defaults,
-// -O2 -g, which setting the variables would otherwise drop.
+// -O2 -g, which setting the variables would otherwise drop, and define
+// SLIPSTREAM_NATIVE_BUNDLE, which the shim's header requires. The layer's
+// defines go to C++ only: only C++ includes libtorrent's headers, and C
+// packages such as runtime/cgo define some of them themselves.
 func CgoEnv(layerDir string, md Metadata, cc Compilers, t Target) []EnvVar {
-	cflags := []string{"-O2", "-g"}
+	cflags := []string{"-O2", "-g", "-DSLIPSTREAM_NATIVE_BUNDLE"}
 	for _, dir := range md.IncludeDirs {
 		cflags = append(cflags, "-I"+abs(layerDir, dir))
 	}
+	cxxflags := slices.Clone(cflags)
 	for _, def := range md.Defines {
-		cflags = append(cflags, "-D"+def)
+		cxxflags = append(cxxflags, "-D"+def)
 	}
 	var ldflags []string
 	for _, lib := range md.StaticLibs {
@@ -83,7 +87,7 @@ func CgoEnv(layerDir string, md Metadata, cc Compilers, t Target) []EnvVar {
 		{"CC", cc.CC},
 		{"CXX", cc.CXX},
 		{"CGO_CFLAGS", joinFlags(cflags)},
-		{"CGO_CXXFLAGS", joinFlags(cflags)},
+		{"CGO_CXXFLAGS", joinFlags(cxxflags)},
 		{"CGO_LDFLAGS", joinFlags(ldflags)},
 	}
 	for _, name := range slices.Sorted(maps.Keys(t.Env)) {

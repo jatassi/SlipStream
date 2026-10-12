@@ -195,7 +195,7 @@ func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
 	if b.Libs != lock.Layers[1] {
 		t.Errorf("Libs = %+v, want %+v", b.Libs, lock.Layers[1])
 	}
-	cflags := "-O2 -g -I" + filepath.Join(libs, "include")
+	cflags := "-O2 -g -DSLIPSTREAM_NATIVE_BUNDLE -I" + filepath.Join(libs, "include")
 	wantEnv := []EnvVar{
 		{"CGO_ENABLED", "1"},
 		{"GOFLAGS", "-tags=netgo"},
@@ -238,7 +238,7 @@ func TestFetchedBundleBuildsWithXcodeAndTheLibsLayer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cflags := "-O2 -g -I" + filepath.Join(dir, "include")
+	cflags := "-O2 -g -DSLIPSTREAM_NATIVE_BUNDLE -I" + filepath.Join(dir, "include")
 	wantEnv := []EnvVar{
 		{"CGO_ENABLED", "1"},
 		{"GOFLAGS", "-tags="},

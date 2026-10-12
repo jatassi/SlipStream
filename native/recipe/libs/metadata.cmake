@@ -16,7 +16,6 @@ endfunction()
 file(STRINGS ${LAYER_PREFIX}/lib/pkgconfig/libtorrent-rasterbar.pc cflags REGEX "^Cflags:")
 string(REGEX MATCHALL "-D[^ ]+" defines "${cflags}")
 list(TRANSFORM defines REPLACE "^-D" "")
-list(PREPEND defines SLIPSTREAM_NATIVE_BUNDLE)
 
 json_array(include_dirs include)
 json_array(defines_json ${defines})

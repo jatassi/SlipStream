@@ -15,7 +15,7 @@ func TestCgoEnvFromMetadata(t *testing.T) {
 	}
 	metadata := `{
 		"include_dirs": ["include"],
-		"defines": ["SLIPSTREAM_NATIVE_BUNDLE", "TORRENT_NO_DEPRECATE"],
+		"defines": ["TORRENT_NO_DEPRECATE", "WIN32_LEAN_AND_MEAN"],
 		"static_libs": ["lib/libtorrent-rasterbar.a", "lib/libcrypto.a"],
 		"system_libs": ["-lstdc++", "-lm"]
 	}`
@@ -30,14 +30,14 @@ func TestCgoEnvFromMetadata(t *testing.T) {
 	target := Target{GoTags: []string{"netgo", "osusergo"}, Env: map[string]string{"MACOSX_DEPLOYMENT_TARGET": "13.0", "CMAKE_OSX_ARCHITECTURES": "x86_64"}}
 	got := CgoEnv(layer, md, Compilers{CC: "gcc", CXX: "g++"}, target)
 
-	cflags := "-O2 -g '-I" + filepath.Join(layer, "include") + "' -DSLIPSTREAM_NATIVE_BUNDLE -DTORRENT_NO_DEPRECATE"
+	cflags := "-O2 -g -DSLIPSTREAM_NATIVE_BUNDLE '-I" + filepath.Join(layer, "include") + "'"
 	want := []EnvVar{
 		{"CGO_ENABLED", "1"},
 		{"GOFLAGS", "-tags=netgo,osusergo"},
 		{"CC", "gcc"},
 		{"CXX", "g++"},
 		{"CGO_CFLAGS", cflags},
-		{"CGO_CXXFLAGS", cflags},
+		{"CGO_CXXFLAGS", cflags + " -DTORRENT_NO_DEPRECATE -DWIN32_LEAN_AND_MEAN"},
 		{"CGO_LDFLAGS", "'" + filepath.Join(layer, "lib", "libtorrent-rasterbar.a") + "' '" +
 			filepath.Join(layer, "lib", "libcrypto.a") + "' -lstdc++ -lm"},
 		{"CMAKE_OSX_ARCHITECTURES", "x86_64"},
