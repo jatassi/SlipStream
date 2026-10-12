@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
+	"math"
 	"net/http"
 	"path"
 	"reflect"
@@ -123,7 +124,7 @@ type principalKey struct{}
 // Register adds an operation. Its handler receives the principal its
 // level admits. Register panics at start on an id that is not
 // lowerCamelCase or is taken, a level below the owner's floor, an unlimited
-// body, or a GET or HEAD with a request body.
+// or overflowing body limit, or a GET or HEAD with a request body.
 func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context.Context, P, *I) (*O, error)) {
 	r := o.router
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
@@ -206,6 +207,9 @@ func (o *Owner) check(level *access, op Op, input reflect.Type) {
 	}
 	if op.MaxBody < 0 {
 		panic(op.ID + ": an operation's body limit is never unlimited")
+	}
+	if op.MaxBody == math.MaxInt64 {
+		panic(op.ID + ": a body limit of math.MaxInt64 overflows; raise it only as far as the operation needs")
 	}
 	_, body := input.FieldByName("Body")
 	_, raw := input.FieldByName("RawBody")

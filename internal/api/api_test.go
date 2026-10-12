@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -99,6 +100,10 @@ func TestRegisterRefusesWhatWouldCollideOrHaveNoLimit(t *testing.T) {
 			Register(o, Public, Op{ID: "postFixture", Method: http.MethodPost, Path: "/x", MaxBody: -1}, withBody)
 		},
 			"postFixture: an operation's body limit is never unlimited"},
+		{func() {
+			Register(o, Public, Op{ID: "uploadFixture", Method: http.MethodPost, Path: "/z", MaxBody: math.MaxInt64}, withBody)
+		},
+			"uploadFixture: a body limit of math.MaxInt64 overflows; raise it only as far as the operation needs"},
 		{func() { Register(o, Public, Op{ID: "readFixture", Method: http.MethodGet, Path: "/y"}, withBody) },
 			"readFixture: a GET operation takes no request body"},
 	} {
