@@ -422,3 +422,61 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 		t.Fatalf("bad config: exit %d, stderr %q; want exit %d, %q", res.code, res.stderr, node.ExitUsage, want)
 	}
 }
+
+func TestNodeOutlivesItsStderrReader(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.CommandContext(context.Background(), testbin.Slipstream(t), "run", "--data-dir", dir)
+	cmd.Env = childEnv(localListeners...)
+	cmd.Stderr = w
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	exited := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(exited)
+	}()
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		<-exited
+	})
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		if _, err := node.ParseReady(sc.Bytes()); err == nil {
+			break
+		}
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	res := slipstream(t, childEnv(), "stop", "--data-dir", dir)
+	if res.code != node.ExitOK || res.stderr != "" {
+		t.Fatalf("stop after the stderr reader closed: exit %d, stderr %q; want exit 0 and no output", res.code, res.stderr)
+	}
+	select {
+	case <-exited:
+	case <-time.After(60 * time.Second):
+		t.Fatal("node still running 60s after stop")
+	}
+	if code := cmd.ProcessState.ExitCode(); code != node.ExitOK {
+		t.Fatalf("node exit %d (%s), want 0", code, cmd.ProcessState)
+	}
+	logged, err := os.ReadFile(filepath.Join(dir, "logs", "slipstream.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(logged)), "\n")
+	var last struct{ Msg string }
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &last); err != nil || last.Msg != "stopped" {
+		t.Fatalf("last log file record = %q (%v), want stopped:\n%s", last.Msg, err, logged)
+	}
+}
