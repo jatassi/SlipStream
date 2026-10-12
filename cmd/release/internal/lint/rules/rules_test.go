@@ -314,3 +314,19 @@ func TestDeadlineWaits(t *testing.T) {
 		"fakes/world/worldtest/launch.go:5: [deadline-waits] time.Sleep" + until,
 	})
 }
+
+func TestWebLayout(t *testing.T) {
+	const (
+		route   = " signed-in pages live under web/src/routes/_app/; a public route is listed in web-layout"
+		browser = " browser tests live under web/e2e/"
+		comp    = " component tests live under web/src/; browser tests are web/e2e/*.spec.ts"
+	)
+	assertFindings(t, check(t, "web-layout", fixtureRepo(t, "web-layout")), []string{
+		"web/e2e/x.test.ts:1: [web-layout]" + comp,
+		"web/src/routes/admin/users.tsx:1: [web-layout]" + route,
+		"web/src/routes/movies.tsx:1: [web-layout]" + route,
+		"web/src/routes/setup.test.ts:1: [web-layout]" + route,
+		"web/src/x.spec.ts:1: [web-layout]" + browser,
+		"web/x.test.tsx:1: [web-layout]" + comp,
+	})
+}
