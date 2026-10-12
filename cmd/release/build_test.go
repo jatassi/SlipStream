@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/native"
 	"github.com/jatassi/slipstream/cmd/release/internal/worktree"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 )
@@ -17,7 +18,6 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the web app and the release binary")
 	}
-	t.Setenv("CGO_ENABLED", "0")
 	root, err := repoRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -27,10 +27,18 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		t.Fatal(err)
 	}
 	want.Target = runtime.GOOS + "-" + runtime.GOARCH
-	want.NativeBundle = "test-bundle"
-	want.Libtorrent = "0.0.0-test"
+	want.Libtorrent = "2.0.15"
+	lock, err := native.LoadLock(filepath.Join(root, native.LockPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range lock.Layers {
+		if l.Kind == native.KindLibs && l.Target == want.Target {
+			want.NativeBundle = l.Digest
+		}
+	}
 
-	if err := runBuild([]string{"-native-bundle", "test-bundle", "-libtorrent", "0.0.0-test"}); err != nil {
+	if err := runBuild(nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,10 +61,10 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	wantPrinted := fmt.Sprintf("slipstream %s\n"+
 		"commit         %s\n"+
 		"target         %s\n"+
-		"libtorrent     0.0.0-test\n"+
+		"libtorrent     2.0.15\n"+
 		"fingerprint    %s\n"+
-		"native bundle  test-bundle\n",
-		want.Version, want.Commit, want.Target, want.Fingerprint)
+		"native bundle  %s\n",
+		want.Version, want.Commit, want.Target, want.Fingerprint, want.NativeBundle)
 	if string(printed) != wantPrinted {
 		t.Errorf("slipstream version printed\n%s\nwant\n%s", printed, wantPrinted)
 	}

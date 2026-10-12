@@ -1,15 +1,16 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/linkage"
+	"github.com/jatassi/slipstream/cmd/release/internal/native"
 	"github.com/jatassi/slipstream/cmd/release/internal/worktree"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 )
@@ -19,15 +20,8 @@ func init() {
 }
 
 func runBuild(args []string) error {
-	fs := flag.NewFlagSet("build", flag.ContinueOnError)
-	bundle := fs.String("native-bundle", "", "digest of the native bundle the cgo environment links")
-	libtorrent := fs.String("libtorrent", "", "libtorrent-rasterbar version in the native bundle")
-	if err := fs.Parse(args); err != nil {
+	if err := flag.NewFlagSet("build", flag.ContinueOnError).Parse(args); err != nil {
 		return err
-	}
-	if *bundle == "" || *libtorrent == "" {
-		fs.Usage()
-		return errors.New("-native-bundle and -libtorrent are required")
 	}
 	root, err := repoRoot()
 	if err != nil {
@@ -42,9 +36,29 @@ func runBuild(args []string) error {
 		return fmt.Errorf("go env: %w", err)
 	}
 	goos, goarch, _ := strings.Cut(strings.TrimSpace(string(goenv)), "\n")
-	stamp.Target = goos + "-" + goarch
-	stamp.NativeBundle = *bundle
-	stamp.Libtorrent = *libtorrent
+	in, err := native.LoadInputs(filepath.Join(root, native.InputsPath))
+	if err != nil {
+		return err
+	}
+	target, err := in.Target(goos + "-" + goarch)
+	if err != nil {
+		return err
+	}
+	cacheRoot, err := native.CacheRoot()
+	if err != nil {
+		return err
+	}
+	bundle, err := native.FetchedLibs(root, cacheRoot, in, target)
+	if err != nil {
+		return err
+	}
+	libtorrent, err := in.Component("libtorrent-rasterbar")
+	if err != nil {
+		return err
+	}
+	stamp.Target = target.Name
+	stamp.NativeBundle = bundle.Layer.Digest
+	stamp.Libtorrent = libtorrent.Version
 	ldflag, err := buildinfo.Encode(stamp)
 	if err != nil {
 		return err
@@ -68,11 +82,17 @@ func runBuild(args []string) error {
 	}
 	tmp.Close()
 	defer os.Remove(tmp.Name())
-	err = run(root, "go", "build", "-trimpath", "-tags", "release",
+	gobuild := exec.Command("go", "build", "-trimpath", "-tags", "release",
 		"-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+ldflag,
 		"-o", tmp.Name(), "./cmd/slipstream")
-	if err != nil {
-		return err
+	gobuild.Dir = root
+	gobuild.Stdout, gobuild.Stderr = os.Stderr, os.Stderr
+	gobuild.Env = append(withoutCgoEnv(os.Environ()), "CGO_ENABLED=1")
+	for _, v := range bundle.Env {
+		gobuild.Env = append(gobuild.Env, v.Name+"="+v.Value)
+	}
+	if err := gobuild.Run(); err != nil {
+		return fmt.Errorf("go build: %w", err)
 	}
 	if err := linkage.Check(tmp.Name()); err != nil {
 		return err
@@ -105,4 +125,13 @@ func repoRoot() (string, error) {
 		return "", fmt.Errorf("git rev-parse: %w", err)
 	}
 	return strings.TrimSpace(string(top)), nil
+}
+
+// withoutCgoEnv drops the C toolchain and cgo flags from env, so the build's
+// cgo environment comes only from the native bundle.
+func withoutCgoEnv(env []string) []string {
+	return slices.DeleteFunc(env, func(kv string) bool {
+		name, _, _ := strings.Cut(kv, "=")
+		return name == "CC" || name == "CXX" || strings.HasPrefix(name, "CGO_")
+	})
 }

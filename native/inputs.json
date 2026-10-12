@@ -8,6 +8,7 @@
 			"toolchain": "host-gcc",
 			"min_os": "linux 3.2",
 			"gate": "pr",
+			"layers": ["libs"],
 			"openssl_target": "linux-x86_64",
 			"system_libs": ["-lstdc++", "-lm", "-ldl", "-lpthread"]
 		},
@@ -19,6 +20,7 @@
 			"toolchain": "host-gcc",
 			"min_os": "linux 3.2",
 			"gate": "native",
+			"layers": [],
 			"openssl_target": "linux-aarch64",
 			"system_libs": ["-lstdc++", "-lm", "-ldl", "-lpthread"]
 		},
@@ -30,6 +32,7 @@
 			"toolchain": "llvm-mingw-ucrt",
 			"min_os": "windows 10",
 			"gate": "native",
+			"layers": [],
 			"openssl_target": "mingw64",
 			"system_libs": ["-lc++", "-lws2_32", "-lmswsock", "-liphlpapi", "-lcrypt32", "-lbcrypt", "-ldbghelp", "-ladvapi32", "-luser32"]
 		},
@@ -41,6 +44,7 @@
 			"toolchain": "xcode",
 			"min_os": "macos 13.0",
 			"gate": "native",
+			"layers": [],
 			"openssl_target": "darwin64-arm64-cc",
 			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
 		},
@@ -52,6 +56,7 @@
 			"toolchain": "xcode",
 			"min_os": "macos 13.0",
 			"gate": "native",
+			"layers": [],
 			"openssl_target": "darwin64-x86_64-cc",
 			"system_libs": ["-lc++", "-framework", "CoreFoundation", "-framework", "SystemConfiguration", "-framework", "Security"]
 		}

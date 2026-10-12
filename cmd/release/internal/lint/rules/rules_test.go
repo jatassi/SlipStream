@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 	_ "github.com/jatassi/slipstream/cmd/release/internal/lint/rules"
+	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
 
 func fixtureRepo(t *testing.T, name string) *lint.Repo {
@@ -79,5 +80,13 @@ func TestParityOwners(t *testing.T) {
 		"docs/parity-matrix.md:7: [parity-owners] P-003: expected one spec in Covered by, found 2",
 		"docs/parity-matrix.md:9: [parity-owners] P-005: Status is planned, expected -",
 		"docs/parity-matrix.md:10: [parity-owners] P-006: unknown disposition open",
+	})
+}
+
+func TestNativeLock(t *testing.T) {
+	hint := "; " + native.PublishHint
+	assertFindings(t, check(t, "native-lock", fixtureRepo(t, "native-lock")), []string{
+		"native/lock.json:1: [native-lock] pins libs layer 0000000000000000000000000000000000000000000000000000000000000000 for linux-amd64, inputs and recipe build 41e240209ea997120408aaad56123ed4059a7ce51fe6beb4b7408d7f6795ef1f" + hint,
+		"native/lock.json:1: [native-lock] pins libs layer 2222222222222222222222222222222222222222222222222222222222222222 for darwin-arm64, which native/inputs.json does not list" + hint,
 	})
 }

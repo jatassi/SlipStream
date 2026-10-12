@@ -1,5 +1,6 @@
 // Package native holds the native bundle's inputs, its layer digests, the
-// per-machine layer cache and the cgo environment a layer provides.
+// lock that pins published layers, the per-machine layer cache and the cgo
+// environment a layer provides.
 package native
 
 import (
@@ -28,6 +29,8 @@ type Target struct {
 	Toolchain string `json:"toolchain"`
 	MinOS     string `json:"min_os"`
 	Gate      Gate   `json:"gate"`
+	// Layers are the bundle layers published and pinned for the target.
+	Layers []Kind `json:"layers"`
 	// OpenSSLTarget is the target name OpenSSL's Configure takes.
 	OpenSSLTarget string `json:"openssl_target"`
 	// SystemLibs are linker arguments after the static libraries.
@@ -66,6 +69,11 @@ func ParseInputs(data []byte) (Inputs, error) {
 		if t.Gate != GatePR && t.Gate != GateNative {
 			return Inputs{}, fmt.Errorf("native inputs: target %s: gate %q is neither %q nor %q", t.Name, t.Gate, GatePR, GateNative)
 		}
+		for _, k := range t.Layers {
+			if _, ok := layerDigests[k]; !ok {
+				return Inputs{}, fmt.Errorf("native inputs: target %s: unknown layer kind %q", t.Name, k)
+			}
+		}
 	}
 	for _, c := range in.Components {
 		if b, err := hex.DecodeString(c.SHA256); err != nil || len(b) != 32 {
@@ -82,6 +90,15 @@ func (in Inputs) Target(name string) (Target, error) {
 		}
 	}
 	return Target{}, fmt.Errorf("unknown target %q", name)
+}
+
+func (in Inputs) Component(name string) (Component, error) {
+	for _, c := range in.Components {
+		if c.Name == name {
+			return c, nil
+		}
+	}
+	return Component{}, fmt.Errorf("native inputs list no component %q", name)
 }
 
 func HostTargetName() string { return runtime.GOOS + "-" + runtime.GOARCH }

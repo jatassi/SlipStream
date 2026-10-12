@@ -1,0 +1,12 @@
+{
+	"layers": [
+		{
+			"kind": "libs",
+			"target": "linux-amd64",
+			"digest": "41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c",
+			"asset": "libs-linux-amd64-41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c/libs-linux-amd64-41090973e8d114794ce5d63e01897ffba67693fcfe453eaedacbc516a08e1e9c.tar.gz",
+			"sha256": "bc33ed3010981f5e8661177640cf1c7fc829452413f287f70cc20e3476b32254"
+		}
+	]
+}

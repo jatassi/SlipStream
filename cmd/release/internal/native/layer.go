@@ -1,8 +1,9 @@
 package native
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -21,35 +22,23 @@ func CacheRoot() (string, error) {
 	return filepath.Join(dir, "slipstream", "native"), nil
 }
 
-// LibsDir is where the libs layer for t lives under the cache root. key is
-// the layer digest for a locally built layer.
-func LibsDir(cacheRoot string, t Target, key string) string {
-	return filepath.Join(cacheRoot, "libs", t.Name, key)
+// LayerDir is where a fetched layer lives under the cache root. The path
+// holds the asset's SHA-256, so a bump moves every cgo flag that points
+// into the layer and Go's build cache rebuilds the cgo packages.
+func LayerDir(cacheRoot string, l Layer) string {
+	return filepath.Join(cacheRoot, string(l.Kind), l.Target, l.SHA256)
 }
 
-// BuildLibs builds the libs layer for t with the recipe and returns its
-// directory. It builds into a temporary directory beside the final one and
-// renames it into place, so the cache never holds a half-built layer. An
-// existing layer is returned as is.
-func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot string, log io.Writer) (string, error) {
+// BuildLibs builds the libs layer for t with the recipe and writes it to
+// archive as a gzipped tar whose paths are relative to the layer root.
+func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot, archive string, log io.Writer) error {
 	tc, err := t.Compilers()
 	if err != nil {
-		return "", err
+		return err
 	}
-	digest, err := LibsDigest(in, t, os.DirFS(recipeDir))
+	tmp, err := os.MkdirTemp("", "slipstream-libs-")
 	if err != nil {
-		return "", err
-	}
-	dir := LibsDir(cacheRoot, t, digest)
-	if _, err := os.Stat(dir); err == nil {
-		return dir, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
-		return "", err
-	}
-	tmp, err := os.MkdirTemp(filepath.Dir(dir), ".building-")
-	if err != nil {
-		return "", err
+		return err
 	}
 	defer os.RemoveAll(tmp)
 
@@ -71,31 +60,114 @@ func BuildLibs(ctx context.Context, in Inputs, t Target, recipeDir, cacheRoot st
 		cmd := exec.CommandContext(ctx, "cmake", args...)
 		cmd.Stdout, cmd.Stderr = log, log
 		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("cmake %s: %w", args[0], err)
+			return fmt.Errorf("cmake %s: %w", args[0], err)
 		}
 	}
-	if err := os.Rename(prefix, dir); err != nil {
-		// A concurrent build of the same digest renamed its layer first.
-		if _, statErr := os.Stat(dir); statErr == nil {
-			return dir, nil
-		}
-		return "", err
-	}
-	return dir, nil
+	return pack(prefix, archive)
 }
 
-// FindLibs returns the cached libs layer for t, built from the current
-// inputs and recipe.
-func FindLibs(in Inputs, t Target, recipeDir, cacheRoot string) (string, error) {
-	digest, err := LibsDigest(in, t, os.DirFS(recipeDir))
+func pack(dir, archive string) error {
+	f, err := os.Create(archive)
 	if err != nil {
-		return "", err
+		return err
 	}
-	dir := LibsDir(cacheRoot, t, digest)
-	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("no libs layer for %s in %s: run scripts/native-deps build -target %s", t.Name, cacheRoot, t.Name)
-	} else if err != nil {
-		return "", err
+	zw := gzip.NewWriter(f)
+	tw := tar.NewWriter(zw)
+	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || path == dir {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() && !info.IsDir() {
+			return fmt.Errorf("%s: layers hold only files and directories", path)
+		}
+		hdr, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		hdr.Name = filepath.ToSlash(rel)
+		if info.IsDir() {
+			hdr.Name += "/"
+		}
+		hdr.Uid, hdr.Gid, hdr.Uname, hdr.Gname = 0, 0, "", ""
+		if err := tw.WriteHeader(hdr); err != nil || info.IsDir() {
+			return err
+		}
+		src, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+		_, err = io.Copy(tw, src)
+		return err
+	})
+	for _, c := range []io.Closer{tw, zw, f} {
+		if closeErr := c.Close(); err == nil {
+			err = closeErr
+		}
 	}
-	return dir, nil
+	if err != nil {
+		os.Remove(archive)
+	}
+	return err
+}
+
+func extract(archive, dir string) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	tr := tar.NewReader(zr)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		rel := filepath.FromSlash(strings.TrimSuffix(hdr.Name, "/"))
+		if !filepath.IsLocal(rel) {
+			return fmt.Errorf("%s: entry %q leaves the layer", archive, hdr.Name)
+		}
+		path := filepath.Join(dir, rel)
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			err = os.MkdirAll(path, 0o755)
+		case tar.TypeReg:
+			err = writeFile(path, tr, hdr.FileInfo().Mode().Perm())
+		default:
+			err = fmt.Errorf("%s: entry %q is neither a file nor a directory", archive, hdr.Name)
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func writeFile(path string, r io.Reader, perm fs.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, r)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
 }
