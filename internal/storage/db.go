@@ -197,3 +197,6 @@ func mustNotHold[F File](ctx context.Context) {
 		panic("storage: read through the Tx inside Write")
 	}
 }
+
+// InWrite reports whether ctx is inside a Write on either file.
+func InWrite(ctx context.Context) bool { return heldIn(ctx) != holding{} }
