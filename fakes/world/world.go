@@ -201,7 +201,6 @@ func newRunID() string {
 	return base32.NewEncoding("0123456789abcdefghjkmnpqrstvwxyz").WithPadding(base32.NoPadding).EncodeToString(b)
 }
 
-// Manifest is the manifest the launch wrote.
 func (r *Run) Manifest() Manifest { return r.manifest }
 
 func (r *Run) removeScratch() {

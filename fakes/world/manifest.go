@@ -98,7 +98,6 @@ type Admin struct {
 	PIN         string `json:"pin"`
 }
 
-// ReadManifest reads the manifest of the ready world in runDir.
 func ReadManifest(runDir string) (Manifest, error) {
 	data, err := os.ReadFile(filepath.Join(runDir, manifestFile))
 	if err != nil {
