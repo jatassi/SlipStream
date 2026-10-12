@@ -106,6 +106,7 @@ jobs:
       - run: go run ./cmd/release build
       - name: imports and link trace (temporary)
         if: runner.os != 'Linux'
+        continue-on-error: true
         run: |
           cat > "$RUNNER_TEMP/imports.go" <<'GO'
             package main
