@@ -94,7 +94,12 @@ type nodeProc struct {
 
 func startNode(t *testing.T, dir string, env ...string) *nodeProc {
 	t.Helper()
-	cmd := exec.CommandContext(context.Background(), binary, "run", "--data-dir", dir)
+	return startBinary(t, binary, dir, env...)
+}
+
+func startBinary(t *testing.T, bin, dir string, env ...string) *nodeProc {
+	t.Helper()
+	cmd := exec.CommandContext(context.Background(), bin, "run", "--data-dir", dir)
 	cmd.Env = childEnv(append(slices.Clone(localListeners), env...)...)
 	pipe, err := cmd.StderrPipe()
 	if err != nil {
