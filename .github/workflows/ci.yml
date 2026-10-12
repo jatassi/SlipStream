@@ -41,6 +41,13 @@ jobs:
         env:
           EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'release' && 'release' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
           NATIVE: ${{ steps.touch.outputs.native }}
+      # A merged migration is frozen, because goose records only its version.
+      # Unmerged work is checked from its merge base with the base branch, and
+      # a push to main from the commit before it.
+      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: go run ./cmd/release migrations-frozen -base "$BASE"
+        env:
+          BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
 
   build:
     needs: plan
