@@ -21,7 +21,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
-	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -145,7 +144,7 @@ func (n *Node) start(ctx context.Context) error {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return err
 	}
-	log, err := logs.Open(n.env.DataDir.LogsDir(), n.env.Stderr)
+	log, err := n.machine.openLog(n.env.DataDir.LogsDir(), n.env.Stderr)
 	if err != nil {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return errors.Join(err, lk.Release())

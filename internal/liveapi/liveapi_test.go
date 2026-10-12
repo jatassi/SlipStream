@@ -1,7 +1,6 @@
 package liveapi_test
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"io"
@@ -85,55 +84,24 @@ func (n *node) get(path, session string) *http.Response {
 	return res
 }
 
-// stream reads its messages as a browser does, as they arrive: a net.Pipe
-// has no buffer, so a write the client doesn't read would miss its deadline.
-type stream struct {
-	t        *testing.T
-	body     io.ReadCloser
-	messages chan string
-	end      chan error
-}
-
-func (n *node) stream(session string) *stream {
+func (n *node) stream(session string) *apitest.Stream {
 	n.t.Helper()
 	res := n.get("/api/v1/events", session)
 	if res.StatusCode != http.StatusOK {
 		n.t.Fatalf("GET /api/v1/events = %d", res.StatusCode)
 	}
-	s := &stream{t: n.t, body: res.Body, messages: make(chan string, 1024), end: make(chan error, 1)}
-	go func() {
-		r := bufio.NewReader(res.Body)
-		for {
-			msg, err := apitest.ReadMessage(r)
-			if err != nil {
-				s.end <- err
-				close(s.messages)
-				return
-			}
-			s.messages <- msg
-		}
-	}()
-	n.t.Cleanup(func() { _ = res.Body.Close() })
+	s := apitest.NewStream(res.Body)
+	n.t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 
-func (s *stream) next() string {
-	s.t.Helper()
-	msg, ok := <-s.messages
-	if !ok {
-		s.t.Fatalf("the stream ended: %v", <-s.end)
+func next(t *testing.T, s *apitest.Stream) string {
+	t.Helper()
+	msg, err := s.Next()
+	if err != nil {
+		t.Fatalf("the stream ended: %v", err)
 	}
 	return msg
-}
-
-func (s *stream) ended() {
-	s.t.Helper()
-	if msg, ok := <-s.messages; ok {
-		s.t.Fatalf("read %q, want the stream to end", msg)
-	}
-	if err := <-s.end; !errors.Is(err, io.EOF) {
-		s.t.Fatalf("the stream ended with %v, want EOF", err)
-	}
 }
 
 func TestAQuietStreamSendsKeepalivesAndCountsAsUse(t *testing.T) {
@@ -141,18 +109,17 @@ func TestAQuietStreamSendsKeepalivesAndCountsAsUse(t *testing.T) {
 		n := serve(t, 2*time.Hour)
 		session := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
 		s := n.stream(session)
-		if got := s.next(); got != "id: 946684800000000\nretry: 3000\nevent: live.resync\ndata: {}\n" {
+		if got := next(t, s); got != "id: 946684800000000\nretry: 3000\nevent: live.resync\ndata: {}\n" {
 			t.Fatalf("first message = %q", got)
 		}
 		opened := time.Now()
-		if got := s.next(); got != ": keepalive\n" || time.Since(opened) != 2*time.Hour {
+		if got := next(t, s); got != ": keepalive\n" || time.Since(opened) != 2*time.Hour {
 			t.Fatalf("after %v read %q, want a keepalive after 2h0m0s", time.Since(opened), got)
 		}
 		time.Sleep(31 * 24 * time.Hour)
 		if res := n.get("/api/v1/session", session); res.StatusCode != http.StatusOK {
 			t.Fatalf("after 31 days with a stream open, getSession = %d, want 200", res.StatusCode)
 		}
-		_ = s.body.Close()
 	})
 }
 
@@ -161,11 +128,13 @@ func TestAStreamWhoseSessionExpiresEndsWithExpired(t *testing.T) {
 		n := serve(t, 30*24*time.Hour+time.Second)
 		session := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
 		s := n.stream(session)
-		s.next()
-		if got, want := s.next(), "event: live.session-ended\ndata: {\"reason\":\"expired\"}\n"; got != want {
+		next(t, s)
+		if got, want := next(t, s), "event: live.session-ended\ndata: {\"reason\":\"expired\"}\n"; got != want {
 			t.Fatalf("read %q, want %q", got, want)
 		}
-		s.ended()
+		if msg, err := s.Next(); !errors.Is(err, io.EOF) {
+			t.Fatalf("read %q, %v; want the stream to end", msg, err)
+		}
 		if res := n.get("/api/v1/session", session); res.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("getSession after expiry = %d, want 401", res.StatusCode)
 		}

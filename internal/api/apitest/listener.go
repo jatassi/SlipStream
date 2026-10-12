@@ -3,6 +3,7 @@ package apitest
 import (
 	"bufio"
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -59,9 +60,45 @@ func (l *Listener) Client() *http.Client {
 	return &http.Client{Transport: &http.Transport{DialContext: l.Dial, DisableKeepAlives: true}}
 }
 
-// ReadMessage reads one Server-Sent Events message, its lines up to the
-// blank line that ends it.
-func ReadMessage(r *bufio.Reader) (string, error) {
+// Stream reads a Server-Sent Events body as a browser does, each message
+// as it arrives. A net.Pipe has no buffer, so a message the client leaves
+// unread would miss the server's write deadline.
+type Stream struct {
+	body     io.Closer
+	messages chan string
+	end      chan error
+}
+
+func NewStream(body io.ReadCloser) *Stream {
+	s := &Stream{body: body, messages: make(chan string, 4096), end: make(chan error, 1)}
+	go func() {
+		r := bufio.NewReader(body)
+		for {
+			msg, err := readMessage(r)
+			if err != nil {
+				s.end <- err
+				close(s.messages)
+				return
+			}
+			s.messages <- msg
+		}
+	}()
+	return s
+}
+
+// Next returns the next message, its lines up to the blank line that ends
+// it, or the error that ended the stream: io.EOF when the server closed it.
+func (s *Stream) Next() (string, error) {
+	if msg, ok := <-s.messages; ok {
+		return msg, nil
+	}
+	return "", <-s.end
+}
+
+// Close drops the connection, as a closed browser tab does.
+func (s *Stream) Close() error { return s.body.Close() }
+
+func readMessage(r *bufio.Reader) (string, error) {
 	var msg strings.Builder
 	for {
 		line, err := r.ReadString('\n')

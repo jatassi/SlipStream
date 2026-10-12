@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
+	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -19,18 +21,20 @@ import (
 	"github.com/jatassi/slipstream/web"
 )
 
-// machine is what a Node takes from its host beyond the data dir: the
-// listeners it binds and the torrent engine. The in-process Node test
-// swaps in in-memory ones, so a whole Node runs inside a testing/synctest
-// bubble.
+// machine is the part of a Node a testing/synctest bubble cannot hold: a
+// real Accept and libtorrent's alert poll in cgo never count as blocked, so
+// fake time would stop, and lumberjack's mill goroutine never exits. The
+// in-process Node test swaps in in-memory ones.
 type machine struct {
 	listen      control.ListenFunc
 	openTorrent func(engine.Config) (engine.Engine, error)
+	openLog     func(dir string, stderr io.Writer) (*logs.Log, error)
 }
 
 var host = machine{
 	listen:      new(net.ListenConfig).Listen,
 	openTorrent: func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
+	openLog:     logs.Open,
 }
 
 // startHTTP binds http.listen and serves every operation on it. Its stop
