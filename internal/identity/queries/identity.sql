@@ -24,6 +24,9 @@ FROM identity_session AS s
 JOIN identity_account AS a ON a.id = s.account_id
 WHERE s.token_hash = sqlc.arg(token_hash);
 
+-- name: GetSessionLastSeen :one
+SELECT last_seen_at FROM identity_session WHERE id = sqlc.arg(id);
+
 -- name: TouchSession :exec
 UPDATE identity_session SET last_seen_at = sqlc.arg(last_seen_at) WHERE id = sqlc.arg(id);
 

@@ -3,6 +3,7 @@ package live_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -367,4 +368,16 @@ func TestPublishInsideWritePanics(t *testing.T) {
 			return nil
 		})
 	})
+}
+
+func TestEventsListsEveryEventWithTheControlEvents(t *testing.T) {
+	h, _ := newHub(t)
+	var names []string
+	for _, e := range h.Events() {
+		names = append(names, e.Name())
+	}
+	want := "identity.sessions-changed live.resync live.session-ended nodes.changed notices.posted"
+	if got := strings.Join(names, " "); got != want {
+		t.Fatalf("Events = %s, want %s", got, want)
+	}
 }

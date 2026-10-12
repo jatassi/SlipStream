@@ -100,6 +100,17 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 	return i, err
 }
 
+const getSessionLastSeen = `-- name: GetSessionLastSeen :one
+SELECT last_seen_at FROM identity_session WHERE id = ?1
+`
+
+func (q *Queries) GetSessionLastSeen(ctx context.Context, id SessionID) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, getSessionLastSeen, id)
+	var last_seen_at storage.Time
+	err := row.Scan(&last_seen_at)
+	return last_seen_at, err
+}
+
 const getSessionLifetimeDays = `-- name: GetSessionLifetimeDays :one
 SELECT session_lifetime_days FROM identity_settings WHERE id = 1
 `

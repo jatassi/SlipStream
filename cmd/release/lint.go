@@ -10,11 +10,12 @@ import (
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 	_ "github.com/jatassi/slipstream/cmd/release/internal/lint/rules"
+	"github.com/jatassi/slipstream/cmd/release/internal/native"
 	"github.com/jatassi/slipstream/cmd/release/internal/notices"
 )
 
 func init() {
-	register("lint", "run the architecture lint, gofmt, go vet, golangci-lint, the sqlc drift check, the web checks and the notices check", runLint)
+	register("lint", "run the architecture lint, gofmt, go vet, the cgo-free openapi.json check, golangci-lint, the sqlc drift check, the web checks and the notices check", runLint)
 	register("fmt", "format the Go code with gofmt and the web app with Oxfmt", runFmt)
 }
 
@@ -53,6 +54,9 @@ func runLint(ctx context.Context, args []string) error {
 		return err
 	}
 	goEnv := bundleEnv(bundle)
+	// The document must build without libtorrent, so a web-only change
+	// never needs the native toolchain.
+	cgoFree := append(bundleEnv(native.Bundle{}), "CGO_ENABLED=0")
 	web := filepath.Join(root, "web")
 	checks := []struct {
 		name string
@@ -61,6 +65,9 @@ func runLint(ctx context.Context, args []string) error {
 		{"architecture lint", func() error { return lint.Run(os.Stdout, lint.Open(ctx, root), lint.Rules()) }},
 		{"gofmt", func() error { return golangciLint(ctx, root, nil, "fmt", "--diff") }},
 		{"go vet", func() error { return run(ctx, root, goEnv, "go", "vet", "./...") }},
+		{"openapi.json without cgo", func() error {
+			return run(ctx, root, cgoFree, "go", "test", "-count=1", "-run", "^TestDocument$", "./internal/node/surface")
+		}},
 		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "./...") }},
 		{"sqlc drift", func() error {
 			configs, err := sqlcConfigs(ctx, root)

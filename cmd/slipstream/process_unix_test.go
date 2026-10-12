@@ -13,7 +13,7 @@ import (
 
 func TestSIGTERMStopsTheNodeCleanly(t *testing.T) {
 	t.Parallel()
-	p := startNode(t, dataDir(t), listenLocal)
+	p := startNode(t, dataDir(t))
 	p.ready()
 	if err := p.cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestSIGTERMStopsTheNodeCleanly(t *testing.T) {
 func TestDataDirIsPrivateToItsUser(t *testing.T) {
 	t.Parallel()
 	dir := filepath.Join(dataDir(t), "node")
-	p := startNode(t, dir, listenLocal)
+	p := startNode(t, dir)
 	p.ready()
 	for _, path := range []string{dir, filepath.Join(dir, "run"), filepath.Join(dir, "logs")} {
 		info, err := os.Stat(path)

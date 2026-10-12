@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -28,6 +29,7 @@ type TimingsBlock struct {
 	Node    Timings         `yaml:"node"`
 	Storage storage.Timings `yaml:"storage"`
 	HTTP    api.Timings     `yaml:"http"`
+	Live    live.Timings    `yaml:"live"`
 }
 
 type Timings struct {
@@ -42,7 +44,12 @@ func Defaults() Config {
 	return Config{
 		Torrent: engine.DefaultSettings(),
 		HTTP:    api.DefaultSettings(),
-		Timings: TimingsBlock{Node: DefaultTimings(), Storage: storage.DefaultTimings(), HTTP: api.DefaultTimings()},
+		Timings: TimingsBlock{
+			Node:    DefaultTimings(),
+			Storage: storage.DefaultTimings(),
+			HTTP:    api.DefaultTimings(),
+			Live:    live.DefaultTimings(),
+		},
 	}
 }
 

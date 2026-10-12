@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/notices"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
-	_ "github.com/jatassi/slipstream/web"
 )
 
 const usageText = `usage: slipstream <command>

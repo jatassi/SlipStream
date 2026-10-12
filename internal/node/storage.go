@@ -23,19 +23,21 @@ func preMigrationHook(context.Context, *storage.Unmigrated, storage.Plan) error 
 	return nil
 }
 
-func (n *Node) openStorage(ctx context.Context, cfg Config) error {
+// openStorage opens both files and hands library.db on to the subsystems
+// that start after it.
+func (n *Node) openStorage(ctx context.Context, cfg Config) (*storage.DB[storage.Library], error) {
 	log := n.rootLog.With("subsystem", "storage")
 	lib, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), librarySchemas(), preMigrationHook, cfg.Timings.Storage, log)
 	if err != nil {
-		return n.stoppedOr(err)
+		return nil, n.stoppedOr(err)
 	}
 	n.stack.OnStop("library.db", func(context.Context) error { return lib.Close() })
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), cfg.Timings.Storage, log)
 	if err != nil {
-		return n.stoppedOr(err)
+		return nil, n.stoppedOr(err)
 	}
 	n.stack.OnStop("local.db", func(context.Context) error { return local.Close() })
-	return nil
+	return lib, nil
 }
 
 func (n *Node) stoppedOr(err error) error {
