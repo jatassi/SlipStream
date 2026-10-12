@@ -1,0 +1,32 @@
+<div class="app">
+  <header class="top">
+    <div class="crumb">Nodes</div>
+    <nav class="tabs" aria-label="Nodes views">
+      <button class="tab" aria-current="page">Topology</button>
+      <button class="tab" disabled>Roster</button>
+    </nav>
+    <div class="states" role="group" aria-label="Prototype state">
+      <span class="states-label">Preview</span>
+      <button data-state="calm">Calm</button>
+      <button data-state="busy">Busy</button>
+      <button data-state="warn">Warn</button>
+      <button data-state="down">Down</button>
+    </div>
+  </header>
+  <p class="sentence" data-sentence></p>
+  <div class="layout">
+    <div class="stage iso-plate" tabindex="0" role="group" aria-roledescription="topology" aria-label="Nodes topology. Arrow keys move between the Nodes and their resources; Escape clears the selection.">
+      __SVG__
+      <div class="corner hint" aria-hidden="true">Hover a part to see what it is doing</div>
+      <div class="corner readout" data-readout aria-hidden="true"></div>
+    </div>
+    <aside class="panel">
+      <div class="panel-kicker" data-kicker>Overview</div>
+      <h2 class="panel-title" data-title>Both Nodes</h2>
+      <div class="pill" data-pill><span class="pill-dot"></span><span data-pill-text>Running</span></div>
+      <div class="panel-lines" data-lines></div>
+      <details class="details" data-details><summary>Details</summary><dl data-dl></dl></details>
+    </aside>
+  </div>
+  <div class="sr" aria-live="polite" data-live></div>
+</div>

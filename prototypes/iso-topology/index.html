@@ -1,0 +1,40 @@
+<title>Isometric Nodes Topology</title>
+<style>
+  :root { color-scheme: dark; padding: 0; --page: hsl(214 7% 5%); --ink: hsl(214 25% 96%); --ink2: hsl(214 18% 83%); }
+  html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink); font: 13px/1.3 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 8px 16px; background: #ffd84a; color: #111; }
+  .bar b { font-weight: 700; margin-right: 4px; }
+  .group { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .bar button { font: inherit; border: 1px solid #0003; background: #fff8; color: #111; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .bar button[aria-pressed="true"] { background: #111; color: #ffd84a; border-color: #111; }
+  .note { margin-left: auto; opacity: .75; }
+  iframe { flex: 1; width: 100%; border: 0; background: var(--page); }
+</style>
+<div class="bar" role="toolbar" aria-label="Prototype switcher">
+  <div class="group"><b>Variant</b>
+    <button data-variant="a" aria-pressed="true">A · Machines on a bench</button>
+    <button data-variant="b" aria-pressed="false">B · Sites as dioramas</button>
+  </div>
+  <div class="group"><b>State</b>
+    <button data-state="calm" aria-pressed="false">Calm</button>
+    <button data-state="busy" aria-pressed="true">Busy evening</button>
+    <button data-state="warn" aria-pressed="false">Relay warning</button>
+    <button data-state="down" aria-pressed="false">Media server offline</button>
+  </div>
+  <span class="note">Prototype · throwaway</span>
+</div>
+<iframe id="stage" title="Isometric Nodes topology" src="a/index.html?state=busy#busy"></iframe>
+<script>
+  const frame = document.getElementById('stage');
+  let variant = 'a', state = 'busy';
+  const press = (attr, value) => document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === value)));
+  document.querySelectorAll('[data-variant]').forEach((b) => b.addEventListener('click', () => {
+    variant = b.dataset.variant; press('variant', variant);
+    frame.src = `${variant}/index.html?state=${state}#${state}`;
+  }));
+  document.querySelectorAll('[data-state]').forEach((b) => b.addEventListener('click', () => {
+    state = b.dataset.state; press('state', state);
+    frame.contentWindow.postMessage({ state }, '*');
+  }));
+</script>

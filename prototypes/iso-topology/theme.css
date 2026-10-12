@@ -1,0 +1,14 @@
+/* PROTOTYPE. The anatomy kit's dark tokens resolved to SlipStream's Lit Console (DESIGN.md, hue 214). Load after iso.css. */
+.iso{
+  --h:214;
+  --anatomy-page:hsl(214 7% 5%);--anatomy-card:hsl(214 8% 7%);--anatomy-text:hsl(214 14% 71%);--anatomy-strong:hsl(214 25% 96%);--anatomy-muted:hsl(214 12% 60%);
+  --anatomy-paper:hsl(214 8% 7%);--anatomy-face:hsl(214 9% 11%);--anatomy-top:hsl(214 9% 11.5%);
+  --anatomy-shade-0:hsl(214 9% 6.2%);--anatomy-shade-1:hsl(214 9% 7.4%);--anatomy-shade-2:hsl(214 9% 8.6%);--anatomy-shade-3:hsl(214 9% 9.8%);
+  --anatomy-lit-top:hsl(214 14% 17%);--anatomy-lit-shade:hsl(214 12% 12.5%);
+  --anatomy-hi:hsl(214 18% 83%);--anatomy-mid:hsl(214 9% 42%);--anatomy-lo:hsl(214 9% 25%);--anatomy-faint:hsl(214 9% 16%);--anatomy-lit:hsl(214 25% 96%);
+  --anatomy-halo:hsl(214 30% 2%);--anatomy-halo-opacity:.9;--anatomy-dot:hsl(214 25% 90%);
+  --anatomy-red:#ff6b61;--anatomy-green:#5fd394;--anatomy-blue:#74affb;
+  --glow:hsl(214 95% 72%);--halo:hsl(214 80% 58% / .5);
+  --ok:#5fd394;--warn:#ffb547;--fail:#ff6b61;
+  --anatomy-mono:'Geist Mono',ui-monospace,monospace;
+}
