@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // client_data_t only stores typed pointers, so torrent ids ride in it as a
@@ -30,6 +31,7 @@ struct lts_session {
 	std::mutex mu;
 	std::unordered_map<int64_t, lt::torrent_handle> by_id;
 	std::unordered_map<lt::torrent_handle, int64_t> by_handle;
+	std::unordered_set<int64_t> finishing;
 	int64_t next = 1;
 	std::vector<lt::alert*> popped;
 	std::deque<lts_alert> pending;
@@ -155,13 +157,27 @@ void convert(lts_session* s, lt::alert* a) {
 		o.state = state(sc->state);
 		break;
 	}
-	case lt::torrent_finished_alert::alert_type:
+	// libtorrent posts torrent_finished once the last piece passes its hash
+	// check, which can be before that piece's blocks are written to the file.
+	// Finishing also releases the torrent's files behind a fence on every
+	// queued write, and that release posts cache_flushed. Finished waits for it
+	// so a reader of the file sees the whole payload.
+	case lt::torrent_finished_alert::alert_type: {
+		int64_t id = torrent(static_cast<lt::torrent_alert*>(a));
+		if (id != 0) s->finishing.insert(id);
+		return;
+	}
+	case lt::cache_flushed_alert::alert_type: {
+		int64_t id = torrent(static_cast<lt::torrent_alert*>(a));
+		if (s->finishing.erase(id) == 0) return;
 		o.kind = LTS_ALERT_FINISHED;
-		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
+		o.torrent = id;
 		break;
+	}
 	case lt::torrent_removed_alert::alert_type:
 		o.kind = LTS_ALERT_REMOVED;
 		o.torrent = id_of(static_cast<lt::torrent_removed_alert*>(a)->userdata);
+		s->finishing.erase(o.torrent);
 		break;
 	case lt::torrent_error_alert::alert_type: {
 		auto* te = static_cast<lt::torrent_error_alert*>(a);
@@ -200,7 +216,7 @@ lts_session* lts_open(char const* listen_interface, uint32_t discovery, lts_erro
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
 		p.set_str(sp::listen_interfaces, listen_interface);
-		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status)));
+		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage)));
 		s = new lts_session(lt::session_params(std::move(p)));
 	});
 	return s;
