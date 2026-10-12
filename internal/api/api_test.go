@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -26,7 +27,7 @@ import (
 type noEvents struct{}
 
 func (noEvents) Publish(context.Context, storage.UUID, identity.SessionsChanged) {}
-func (noEvents) EndSession(storage.UUID)                                          {}
+func (noEvents) EndSession(storage.UUID)                                         {}
 
 func newRouter(t *testing.T, log *bytes.Buffer) *Router {
 	t.Helper()
@@ -48,9 +49,9 @@ func newRouterOn(t *testing.T, log *bytes.Buffer) (*Router, *storage.DB[storage.
 	}), lib
 }
 
-func serve(h http.Handler, method, target string, body io.Reader) *httptest.ResponseRecorder {
+func get(t *testing.T, h http.Handler, target string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest(method, target, body))
+	h.ServeHTTP(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody))
 	return w
 }
 
@@ -93,7 +94,9 @@ func TestRegisterRefusesWhatWouldCollideOrHaveNoLimit(t *testing.T) {
 			"api: operation id getFixture is registered twice: GET /api/v1/fixture by owner fixture and GET /api/v1/other by owner fixture"},
 		{func() { Register(o, Public, Op{ID: "fixture-get", Method: http.MethodGet, Path: "/x"}, ok) },
 			`api: operation id "fixture-get" is not lowerCamelCase and verb-first`},
-		{func() { Register(o, Public, Op{ID: "postFixture", Method: http.MethodPost, Path: "/x", MaxBody: -1}, withBody) },
+		{func() {
+			Register(o, Public, Op{ID: "postFixture", Method: http.MethodPost, Path: "/x", MaxBody: -1}, withBody)
+		},
 			"postFixture: an operation's body limit is never unlimited"},
 		{func() { Register(o, Public, Op{ID: "readFixture", Method: http.MethodGet, Path: "/y"}, withBody) },
 			"readFixture: a GET operation takes no request body"},
@@ -111,7 +114,7 @@ func TestAnUndeclaredCodeAnswersInternal(t *testing.T) {
 	r := newRouter(t, &log)
 	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture"},
 		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return nil, fixtureGone })
-	w := serve(r.Handler(), http.MethodGet, "/api/v1/fixture", nil)
+	w := get(t, r.Handler(), "/api/v1/fixture")
 	if w.Code != http.StatusInternalServerError || w.Body.String() != internalBody {
 		t.Fatalf("got %d %q, want 500 %q", w.Code, w.Body, internalBody)
 	}
@@ -124,7 +127,7 @@ func TestADeclaredCodeAnswersAsItself(t *testing.T) {
 	r := newRouter(t, &bytes.Buffer{})
 	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
 		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return nil, fixtureGone })
-	w := serve(r.Handler(), http.MethodGet, "/api/v1/fixture", nil)
+	w := get(t, r.Handler(), "/api/v1/fixture")
 	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone"}` + "\n"
 	if w.Code != http.StatusGone || w.Body.String() != want || w.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("got %d %s %q, want 410 application/problem+json %q", w.Code, w.Header().Get("Content-Type"), w.Body, want)
@@ -135,8 +138,10 @@ func TestAPlainErrorIsScrubbedAndLogged(t *testing.T) {
 	var log bytes.Buffer
 	r := newRouter(t, &log)
 	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture"},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return nil, errors.New("secret /etc/path") })
-	w := serve(r.Handler(), http.MethodGet, "/api/v1/fixture", nil)
+		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
+			return nil, errors.New("secret /etc/path")
+		})
+	w := get(t, r.Handler(), "/api/v1/fixture")
 	if w.Code != http.StatusInternalServerError || w.Body.String() != internalBody {
 		t.Fatalf("got %d %q, want 500 %q", w.Code, w.Body, internalBody)
 	}
@@ -150,7 +155,7 @@ func TestAPanicFailsOnlyItsRequest(t *testing.T) {
 	r := newRouter(t, &log)
 	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture"},
 		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { panic("fixture bug") })
-	w := serve(r.Handler(), http.MethodGet, "/api/v1/fixture", nil)
+	w := get(t, r.Handler(), "/api/v1/fixture")
 	if w.Code != http.StatusInternalServerError || w.Body.String() != internalBody {
 		t.Fatalf("got %d %q, want 500 %q", w.Code, w.Body, internalBody)
 	}
@@ -178,14 +183,14 @@ func TestTheGateAnswersBeforeParsing(t *testing.T) {
 	h := r.Handler()
 	send := func(session string) (*httptest.ResponseRecorder, bool) {
 		read := false
-		req := httptest.NewRequest(http.MethodPut, "/api/v1/fixture/not-a-uuid?count=0", readerFunc(func(p []byte) (int, error) {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/fixture/not-a-uuid?count=0", readerFunc(func(p []byte) (int, error) {
 			read = true
 			return copy(p, `{"name":""}`), io.EOF
 		}))
 		req.Header.Set("X-Fixture", "NOT LOWER")
 		req.Header.Set("Content-Type", "application/json")
 		if session != "" {
-			req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: session})
+			req.Header.Set("Cookie", identity.CookieName+"="+session)
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
@@ -210,7 +215,7 @@ func TestUnknownAPIPathsAnswerNotFound(t *testing.T) {
 	h := newRouter(t, &bytes.Buffer{}).Handler()
 	want := `{"status":404,"code":"not_found","title":"Nothing is here"}` + "\n"
 	for _, target := range []string{"/api/v1/nothing", "/api/v2/health", "/api/"} {
-		w := serve(h, http.MethodGet, target, nil)
+		w := get(t, h, target)
 		if w.Code != http.StatusNotFound || w.Body.String() != want {
 			t.Errorf("GET %s = %d %q, want 404 %q", target, w.Code, w.Body, want)
 		}
@@ -230,7 +235,7 @@ func TestTheWebAppFallsBackToIndexAndCachesHashedAssets(t *testing.T) {
 		{"/library/works", "index", "no-cache"},
 		{"/assets/app-1a.js", "app", "public, max-age=31536000, immutable"},
 	} {
-		w := serve(h, http.MethodGet, tc.target, nil)
+		w := get(t, h, tc.target)
 		if w.Code != http.StatusOK || w.Body.String() != tc.body || w.Header().Get("Cache-Control") != tc.cache {
 			t.Errorf("GET %s = %d %q Cache-Control %q, want 200 %q %q", tc.target, w.Code, w.Body, w.Header().Get("Cache-Control"), tc.body, tc.cache)
 		}
@@ -240,7 +245,7 @@ func TestTheWebAppFallsBackToIndexAndCachesHashedAssets(t *testing.T) {
 func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
 	r := newRouter(t, &bytes.Buffer{})
 	r.services.Web = fstest.MapFS{}
-	w := serve(r.Handler(), http.MethodGet, "/", nil)
+	w := get(t, r.Handler(), "/")
 	want := "the web app is not embedded in this build; use the Vite dev server\n"
 	if w.Code != http.StatusNotFound || w.Body.String() != want {
 		t.Fatalf("GET / = %d %q, want 404 %q", w.Code, w.Body, want)
@@ -249,16 +254,16 @@ func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
 
 func TestOriginAcceptsOnlySchemeHostAndPort(t *testing.T) {
 	for text, ok := range map[string]bool{
-		"https://media.example.com":       true,
-		"http://192.0.2.1:8484":           true,
-		"https://media.example.com/":      false,
-		"https://media.example.com/path":  false,
-		"media.example.com":               false,
-		"ftp://media.example.com":         false,
-		"https://user@media.example.com":  false,
-		"https://media.example.com?x=1":   false,
-		"https://media.example.com#frag":  false,
-		"https://":                        false,
+		"https://media.example.com":      true,
+		"http://192.0.2.1:8484":          true,
+		"https://media.example.com/":     false,
+		"https://media.example.com/path": false,
+		"media.example.com":              false,
+		"ftp://media.example.com":        false,
+		"https://user@media.example.com": false,
+		"https://media.example.com?x=1":  false,
+		"https://media.example.com#frag": false,
+		"https://":                       false,
 	} {
 		var o Origin
 		err := o.UnmarshalText([]byte(text))
@@ -268,7 +273,7 @@ func TestOriginAcceptsOnlySchemeHostAndPort(t *testing.T) {
 		if ok && o.String() != text {
 			t.Errorf("Origin(%q).String() = %q", text, o)
 		}
-		if !ok && err != nil && err.Error() != fmt.Sprintf("origin %q is not scheme://host[:port]", text) {
+		if !ok && err != nil && err.Error() != "not scheme://host[:port]" {
 			t.Errorf("UnmarshalText(%q) error = %q", text, err)
 		}
 	}
@@ -293,7 +298,7 @@ func TestTheDocumentIsTheSameBytesEveryTime(t *testing.T) {
 func TestHumaServesNoDocumentDocsOrSchemas(t *testing.T) {
 	h := newRouter(t, &bytes.Buffer{}).Handler()
 	for _, target := range []string{"/api/v1/openapi.json", "/api/v1/openapi.yaml", "/api/v1/docs", "/api/v1/schemas/Problem.json"} {
-		if w := serve(h, http.MethodGet, target, nil); w.Code != http.StatusNotFound {
+		if w := get(t, h, target); w.Code != http.StatusNotFound {
 			t.Errorf("GET %s = %d, want 404", target, w.Code)
 		}
 	}
@@ -303,4 +308,23 @@ func panicOf(f func()) (msg string) {
 	defer func() { msg = fmt.Sprint(recover()) }()
 	f()
 	return "<nil>"
+}
+
+func TestTheServerTakesItsTimingsAndLogsAtWarn(t *testing.T) {
+	var log bytes.Buffer
+	s := NewServer(http.NotFoundHandler(), DefaultTimings(), slog.New(slog.NewTextHandler(&log, &slog.HandlerOptions{ReplaceAttr: noTime})))
+	if s.ReadHeaderTimeout != 10*time.Second || s.IdleTimeout != 2*time.Minute || s.WriteTimeout != 0 {
+		t.Fatalf("timeouts = %v, %v, %v; want 10s, 2m0s, 0s", s.ReadHeaderTimeout, s.IdleTimeout, s.WriteTimeout)
+	}
+	s.ErrorLog.Print("http: TLS handshake error")
+	if want := "level=WARN msg=\"http: TLS handshake error\"\n"; log.String() != want {
+		t.Fatalf("log = %q, want %q", log.String(), want)
+	}
+}
+
+func noTime(_ []string, a slog.Attr) slog.Attr {
+	if a.Key == slog.TimeKey {
+		return slog.Attr{}
+	}
+	return a
 }

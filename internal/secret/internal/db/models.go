@@ -5,6 +5,6 @@
 package db
 
 type SecretCheck struct {
-	ID    int64
+	ID    Singleton
 	Value []byte
 }

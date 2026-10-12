@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	apiKeyHeader    = "X-Api-Key"
+	apiKeyHeader    = "X-Api-Key" //nolint:gosec // a header's name, not a credential
 	setupCodeHeader = "X-Setup-Code"
 	apiTree         = "/api/"
 	notEmbedded     = "the web app is not embedded in this build; use the Vite dev server"
@@ -159,10 +159,10 @@ func openFile(dist fs.FS, name string) (seekFile, bool) {
 	return sf, true
 }
 
-// responseWriter gives Huma the deadlines and flushing net/http offers only
-// through http.ResponseController: Huma's body read timeout sets the read
-// deadline, and its sse package sets a write deadline per event and prints
-// to stderr when it cannot.
+// responseWriter is the writer every handler sees. It keeps the flushing
+// and deadlines of net/http's writer: Huma's body read timeout sets the
+// read deadline, and its sse package flushes each event and sets a write
+// deadline per event, printing to stderr when it cannot.
 type responseWriter struct {
 	http.ResponseWriter
 }

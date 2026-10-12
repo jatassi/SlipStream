@@ -23,3 +23,9 @@ sql:
           - column: identity_session.account_id
             go_type:
               type: AccountID
+          - column: identity_api_key.id
+            go_type:
+              type: Singleton
+          - column: identity_settings.id
+            go_type:
+              type: Singleton

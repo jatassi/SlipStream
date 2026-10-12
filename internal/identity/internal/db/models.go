@@ -18,7 +18,7 @@ type IdentityAccount struct {
 }
 
 type IdentityApiKey struct {
-	ID        int64
+	ID        Singleton
 	TokenHash []byte
 	CreatedAt storage.Time
 }
@@ -33,6 +33,6 @@ type IdentitySession struct {
 }
 
 type IdentitySetting struct {
-	ID                  int64
+	ID                  Singleton
 	SessionLifetimeDays int64
 }

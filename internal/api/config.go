@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -42,7 +42,7 @@ func (o *Origin) UnmarshalText(text []byte) error {
 	u, err := url.Parse(s)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
 		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.ForceQuery {
-		return fmt.Errorf("origin %q is not scheme://host[:port]", s)
+		return errors.New("not scheme://host[:port]")
 	}
 	o.origin = s
 	return nil

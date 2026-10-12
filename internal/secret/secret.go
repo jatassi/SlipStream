@@ -96,7 +96,7 @@ func (k *Keys) derive(info string) []byte {
 }
 
 func readKey(path string) (*Keys, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) //nolint:gosec // path is the data dir's key file, chosen by the Node
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", KeyFile, err)
 	}

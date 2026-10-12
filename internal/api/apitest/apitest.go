@@ -120,16 +120,16 @@ func check(handler http.Handler, method, route, target string, op operation, c C
 	}
 	var breaches []string
 	for i, who := range callers {
-		req := httptest.NewRequest(method, target, http.NoBody)
-		switch who {
-		case "member":
-			req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: c.Member()})
-		case "admin":
-			req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: c.Admin()})
-		case "api key":
-			req.Header.Set("X-Api-Key", c.APIKey)
-		}
-		status, code := send(handler, req)
+		status, code := send(handler, method, target, func(h http.Header) {
+			switch who {
+			case "member":
+				h.Set("Cookie", identity.CookieName+"="+c.Member())
+			case "admin":
+				h.Set("Cookie", identity.CookieName+"="+c.Admin())
+			case "api key":
+				h.Set("X-Api-Key", c.APIKey)
+			}
+		})
 		if !wants[i].met(status, code) {
 			breaches = append(breaches, fmt.Sprintf("%s %s as %s: got %d %s, want %s", method, route, who, status, code, wants[i]))
 		}
@@ -137,11 +137,13 @@ func check(handler http.Handler, method, route, target string, op operation, c C
 	return breaches
 }
 
-func send(handler http.Handler, req *http.Request) (status int, code string) {
-	ctx, cancel := context.WithCancel(req.Context())
+func send(handler http.Handler, method, target string, credential func(http.Header)) (status int, code string) {
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	req := httptest.NewRequestWithContext(ctx, method, target, http.NoBody)
+	credential(req.Header)
 	w := &cutWriter{ResponseRecorder: httptest.NewRecorder(), cut: cancel}
-	handler.ServeHTTP(w, req.WithContext(ctx))
+	handler.ServeHTTP(w, req)
 	var p struct {
 		Code string `json:"code"`
 	}

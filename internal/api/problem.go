@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -93,7 +94,7 @@ type Problem struct {
 	Code   string       `json:"code"`
 	Title  string       `json:"title"`
 	Detail string       `json:"detail,omitempty"`
-	Errors []FieldError `json:"errors,omitempty"`
+	Errors []FieldError `json:"errors,omitempty" nullable:"false"`
 }
 
 type FieldError struct {
@@ -125,7 +126,7 @@ func newError(status int, _ string, errs ...error) huma.StatusError {
 		return p
 	}
 	for _, err := range errs {
-		if d, ok := err.(huma.ErrorDetailer); ok { //nolint:errorlint // Huma passes its details unwrapped
+		if d, ok := err.(huma.ErrorDetailer); ok {
 			detail := d.ErrorDetail()
 			p.Errors = append(p.Errors, FieldError{Location: detail.Location, Message: detail.Message})
 		}
@@ -134,9 +135,11 @@ func newError(status int, _ string, errs ...error) huma.StatusError {
 }
 
 func writeProblem(w http.ResponseWriter, p *Problem) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		panic(fmt.Sprintf("api: marshal a problem: %v", err))
+	}
 	w.Header().Set("Content-Type", problemType)
 	w.WriteHeader(p.Status)
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	_ = enc.Encode(p)
+	_, _ = w.Write(append(body, '\n'))
 }

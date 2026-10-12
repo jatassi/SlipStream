@@ -1,7 +1,6 @@
 package identityapi_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -99,7 +99,7 @@ type call struct {
 
 func (n *node) do(c call) *httptest.ResponseRecorder {
 	n.t.Helper()
-	req := httptest.NewRequest(c.method, c.target, strings.NewReader(c.body))
+	req := httptest.NewRequestWithContext(n.t.Context(), c.method, c.target, strings.NewReader(c.body))
 	if c.body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -107,7 +107,7 @@ func (n *node) do(c call) *httptest.ResponseRecorder {
 		req.Header.Set(k, v)
 	}
 	if c.session != "" {
-		req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: c.session})
+		req.Header.Set("Cookie", identity.CookieName+"="+c.session)
 	}
 	w := httptest.NewRecorder()
 	n.h.ServeHTTP(w, req)
@@ -141,13 +141,12 @@ type claimResponse struct {
 }
 
 // claimed claims n and returns the response and the session token.
-func (n *node) claimed() (claimResponse, string) {
+func (n *node) claimed() (res claimResponse, session string) {
 	n.t.Helper()
 	w := n.claim(n.code, "1234")
 	if w.Code != http.StatusCreated {
 		n.t.Fatalf("claimController = %d %s", w.Code, w.Body)
 	}
-	var res claimResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
 		n.t.Fatal(err)
 	}
@@ -223,7 +222,7 @@ func TestConcurrentSetupIsBusy(t *testing.T) {
 	n := newNode(t)
 	body, send := io.Pipe()
 	reading := make(chan struct{})
-	first := httptest.NewRequest(http.MethodPost, "/api/v1/setup/controller", &signalOnRead{r: body, first: reading})
+	first := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/setup/controller", &signalOnRead{r: body, first: reading})
 	first.Header.Set("X-Setup-Code", n.code)
 	first.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -253,7 +252,7 @@ type signalOnRead struct {
 
 func (s *signalOnRead) Read(p []byte) (int, error) {
 	s.once.Do(func() { close(s.first) })
-	return s.r.Read(p)
+	return s.r.Read(p) //nolint:wrapcheck // a Reader returns io.EOF as itself
 }
 
 func TestCreateSession(t *testing.T) {
@@ -263,7 +262,7 @@ func TestCreateSession(t *testing.T) {
 	expect(t, wrong, 401, pinWrong)
 	unknown := n.signIn("nobody@example.com", "1234")
 	expect(t, unknown, 401, pinWrong)
-	if !equalHeaders(wrong.Header(), unknown.Header()) {
+	if !reflect.DeepEqual(wrong.Header(), unknown.Header()) {
 		t.Fatalf("a wrong PIN and an unknown email differ: %v and %v", wrong.Header(), unknown.Header())
 	}
 	w := n.signIn(" Admin@Example.COM ", "1234")
@@ -274,12 +273,6 @@ func TestCreateSession(t *testing.T) {
 	if len(n.events.published) != 2 {
 		t.Fatalf("published %v, want one per sign-in", n.events.published)
 	}
-}
-
-func equalHeaders(a, b http.Header) bool {
-	ja, _ := json.Marshal(a)
-	jb, _ := json.Marshal(b)
-	return bytes.Equal(ja, jb)
 }
 
 func TestTheGatesCodes(t *testing.T) {

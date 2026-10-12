@@ -272,7 +272,7 @@ func (s *Service) sessionsChanged(ctx context.Context, account AccountID) {
 // cookie builds the session cookie: slipstream_session=<token>; Path=/;
 // Max-Age=<lifetime>; HttpOnly; SameSite=Lax, plus Secure over TLS.
 func (s *Service) cookie(token string, secure bool) *http.Cookie {
-	return &http.Cookie{
+	return &http.Cookie{ //nolint:gosec // Secure only over TLS: a LAN Node is reached by plain HTTP
 		Name:     CookieName,
 		Value:    token,
 		Path:     "/",
@@ -284,7 +284,7 @@ func (s *Service) cookie(token string, secure bool) *http.Cookie {
 }
 
 func clearCookie(secure bool) *http.Cookie {
-	return &http.Cookie{
+	return &http.Cookie{ //nolint:gosec // Secure only over TLS: a LAN Node is reached by plain HTTP
 		Name:     CookieName,
 		Path:     "/",
 		MaxAge:   -1,

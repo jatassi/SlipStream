@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -16,6 +17,7 @@ import (
 type Config struct {
 	Seed      string          `yaml:"seed"`
 	Torrent   engine.Settings `yaml:"torrent"`
+	HTTP      api.Settings    `yaml:"http"`
 	Endpoints EndpointsBlock  `yaml:"endpoints"`
 	Timings   TimingsBlock    `yaml:"timings"`
 }
@@ -25,6 +27,7 @@ type EndpointsBlock struct{}
 type TimingsBlock struct {
 	Node    Timings         `yaml:"node"`
 	Storage storage.Timings `yaml:"storage"`
+	HTTP    api.Timings     `yaml:"http"`
 }
 
 type Timings struct {
@@ -38,7 +41,8 @@ func DefaultTimings() Timings {
 func Defaults() Config {
 	return Config{
 		Torrent: engine.DefaultSettings(),
-		Timings: TimingsBlock{Node: DefaultTimings(), Storage: storage.DefaultTimings()},
+		HTTP:    api.DefaultSettings(),
+		Timings: TimingsBlock{Node: DefaultTimings(), Storage: storage.DefaultTimings(), HTTP: api.DefaultTimings()},
 	}
 }
 

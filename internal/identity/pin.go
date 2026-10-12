@@ -107,7 +107,7 @@ func (p *pins) acquire(ctx context.Context) error {
 	case p.slots <- struct{}{}:
 		return nil
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return fmt.Errorf("identity: wait to hash a PIN: %w", context.Cause(ctx))
 	}
 }
 

@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"testing"
@@ -19,7 +20,10 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		seen[leaf.Env()] = leaf.Path
 		paths = append(paths, leaf.Path)
 	}
-	want := []string{"seed", "torrent.listen", "timings.node.stop_deadline", "timings.storage.busy_timeout"}
+	want := []string{
+		"seed", "torrent.listen", "http.listen", "http.trusted_origins",
+		"timings.node.stop_deadline", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
+	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
 	}
@@ -62,4 +66,24 @@ func testDataDir(t *testing.T) DataDir {
 		t.Fatal(err)
 	}
 	return d
+}
+
+func TestHTTPConfigReadsListenAndTrustedOrigins(t *testing.T) {
+	cfg, _, err := LoadConfig(testDataDir(t), []string{
+		"SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0",
+		"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com,http://192.0.2.1:8484",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(cfg.HTTP.Listen, cfg.HTTP.TrustedOrigins); got != "127.0.0.1:0 [https://media.example.com http://192.0.2.1:8484]" {
+		t.Fatalf("http = %s", got)
+	}
+	if got := Defaults().HTTP.Listen.String(); got != "[::]:8484" {
+		t.Fatalf("default http.listen = %s, want [::]:8484", got)
+	}
+	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com/app"})
+	if err == nil || err.Error() != `env: SLIPSTREAM_HTTP_TRUSTED_ORIGINS: item 1: "https://media.example.com/app": not scheme://host[:port]` {
+		t.Fatalf("err = %v, want the bad origin named", err)
+	}
 }

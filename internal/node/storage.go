@@ -3,11 +3,16 @@ package node
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 func librarySchemas() []storage.Schema[storage.Library] {
-	return []storage.Schema[storage.Library]{}
+	return []storage.Schema[storage.Library]{
+		secret.Schema(),
+		identity.Schema(),
+	}
 }
 
 func localSchemas() []storage.Schema[storage.Local] {
