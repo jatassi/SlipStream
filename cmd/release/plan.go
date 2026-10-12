@@ -25,6 +25,8 @@ type MatrixEntry struct {
 	Runner string `json:"runner"`
 	GOOS   string `json:"goos"`
 	GOARCH string `json:"goarch"`
+	// Xcode is the Xcode version the runner selects for the target.
+	Xcode string `json:"xcode,omitempty"`
 }
 
 type Matrix struct {
@@ -54,7 +56,11 @@ func runPlan(args []string) error {
 	if err != nil {
 		return err
 	}
-	matrix, err := json.Marshal(plan(in.Targets, *event, *touchesNative))
+	m, err := plan(in, *event, *touchesNative)
+	if err != nil {
+		return err
+	}
+	matrix, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
@@ -62,16 +68,21 @@ func runPlan(args []string) error {
 	return githubOutput("matrix", string(matrix))
 }
 
-func plan(targets []native.Target, event string, touchesNative bool) Matrix {
+func plan(in native.Inputs, event string, touchesNative bool) (Matrix, error) {
 	gates := []native.Gate{native.GatePR}
 	if eventRunsNativeTargets[event] || touchesNative {
 		gates = append(gates, native.GateNative)
 	}
 	m := Matrix{Include: []MatrixEntry{}}
-	for _, t := range targets {
-		if slices.Contains(gates, t.Gate) {
-			m.Include = append(m.Include, MatrixEntry{t.Name, t.Runner, t.GOOS, t.GOARCH})
+	for _, t := range in.Targets {
+		if !slices.Contains(gates, t.Gate) {
+			continue
 		}
+		tc, err := in.Toolchain(t)
+		if err != nil {
+			return Matrix{}, err
+		}
+		m.Include = append(m.Include, MatrixEntry{t.Name, t.Runner, t.GOOS, t.GOARCH, tc.Xcode})
 	}
-	return m
+	return m, nil
 }

@@ -24,6 +24,7 @@ json_array(static_libs lib/libtorrent-rasterbar.a lib/libssl.a lib/libcrypto.a)
 json_array(system_libs ${SYSTEM_LIBS})
 
 set(json "{}")
+string(JSON json SET "${json}" compiler "\"${COMPILER}\"")
 string(JSON json SET "${json}" include_dirs "${include_dirs}")
 string(JSON json SET "${json}" defines "${defines_json}")
 string(JSON json SET "${json}" static_libs "${static_libs}")

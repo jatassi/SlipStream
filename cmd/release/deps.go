@@ -83,7 +83,6 @@ func depsBuild(args []string) error {
 	target := targetFlag(fs)
 	kind := fs.String("kind", "", "layer kind to build: toolchain or libs (required)")
 	archive := fs.String("archive", "", "write the layer to this .tar.gz (required)")
-	toolchain := fs.String("toolchain", "", "the toolchain layer .tar.gz a libs layer is compiled with")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -108,10 +107,7 @@ func depsBuild(args []string) error {
 	case native.KindToolchain:
 		return native.BuildToolchain(ctx, in, t, recipe, cacheRoot, *archive, os.Stderr)
 	case native.KindLibs:
-		if *toolchain == "" {
-			return fmt.Errorf("-toolchain is required to build a %s layer", native.KindLibs)
-		}
-		return native.BuildLibs(ctx, in, t, recipe, *toolchain, cacheRoot, *archive, os.Stderr)
+		return native.BuildLibs(ctx, in, t, recipe, cacheRoot, *archive, os.Stderr)
 	}
 	return fmt.Errorf("-kind is %s or %s, not %q", native.KindToolchain, native.KindLibs, *kind)
 }
@@ -200,9 +196,8 @@ type matrixEntry struct {
 	Runner string `json:"runner"`
 	Tag    string `json:"tag"`
 	Asset  string `json:"asset"`
-	// Toolchain is the release URL of the toolchain layer a libs layer is
-	// compiled with.
-	Toolchain string `json:"toolchain,omitempty"`
+	// Xcode is the Xcode version the runner selects to build the layer.
+	Xcode string `json:"xcode,omitempty"`
 }
 
 type matrix struct {
@@ -211,7 +206,7 @@ type matrix struct {
 
 // depsMissing prints one CI matrix per layer kind. The bundle workflow
 // builds and publishes the toolchain layers before the libs layers that
-// fetch them.
+// download them.
 func depsMissing(args []string) error {
 	_, in, want, err := wantRepo("missing", args)
 	if err != nil {
@@ -220,12 +215,6 @@ func depsMissing(args []string) error {
 	missing := map[native.Kind]*matrix{
 		native.KindToolchain: {[]matrixEntry{}},
 		native.KindLibs:      {[]matrixEntry{}},
-	}
-	toolchains := map[string]native.LayerID{}
-	for _, id := range want {
-		if id.Kind == native.KindToolchain {
-			toolchains[id.Target] = id
-		}
 	}
 	for _, id := range want {
 		published, err := native.Published(context.Background(), native.ReleasesURL, id)
@@ -239,11 +228,11 @@ func depsMissing(args []string) error {
 		if err != nil {
 			return err
 		}
-		entry := matrixEntry{Target: t.Name, Runner: t.Runner, Tag: id.Tag(), Asset: id.AssetName()}
-		if id.Kind == native.KindLibs {
-			entry.Toolchain = toolchains[id.Target].URL(native.ReleasesURL)
+		tc, err := in.Toolchain(t)
+		if err != nil {
+			return err
 		}
-		missing[id.Kind].Include = append(missing[id.Kind].Include, entry)
+		missing[id.Kind].Include = append(missing[id.Kind].Include, matrixEntry{t.Name, t.Runner, id.Tag(), id.AssetName(), tc.Xcode})
 	}
 	return json.NewEncoder(os.Stdout).Encode(missing)
 }

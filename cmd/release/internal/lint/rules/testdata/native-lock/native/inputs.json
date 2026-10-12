@@ -1,16 +1,17 @@
 {
 	"targets": [
 		{"name": "linux-amd64", "goos": "linux", "goarch": "amd64", "runner": "ubuntu-24.04", "toolchain": "musl-cross",
-		 "triple": "x86_64-linux-musl", "min_os": "linux 3.2", "gate": "pr", "layers": ["toolchain", "libs"],
+		 "triple": "x86_64-linux-musl", "min_os": "linux 3.2", "gate": "pr",
 		 "openssl_target": "linux-x86_64", "system_libs": ["-static", "-lstdc++"]},
 		{"name": "darwin-arm64", "goos": "darwin", "goarch": "arm64", "runner": "macos-15", "toolchain": "xcode",
-		 "min_os": "macos 13.0", "gate": "native", "layers": [], "openssl_target": "darwin64-arm64-cc", "system_libs": ["-lc++"]}
+		 "min_os": "macos 13.0", "gate": "native", "openssl_target": "darwin64-arm64-cc", "system_libs": ["-lc++"]}
 	],
 	"toolchains": [
 		{"name": "musl-cross",
 		 "sources": [{"name": "musl", "version": "1.2.6", "url": "https://example.test/musl.tar.gz",
 		              "sha256": "d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"}],
-		 "runtimes": [{"name": "musl", "source": "musl", "license": "MIT"}]}
+		 "runtimes": [{"name": "musl", "source": "musl", "license": "MIT"}]},
+		{"name": "xcode", "xcode": "16.4"}
 	],
 	"components": [
 		{"name": "libtorrent-rasterbar", "version": "2.0.15", "url": "https://example.test/lt.tar.gz",

@@ -27,7 +27,8 @@ func TestCgoEnvFromMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := CgoEnv(layer, md, Compilers{CC: "gcc", CXX: "g++"}, []string{"netgo", "osusergo"})
+	target := Target{GoTags: []string{"netgo", "osusergo"}, Env: map[string]string{"MACOSX_DEPLOYMENT_TARGET": "13.0", "CMAKE_OSX_ARCHITECTURES": "x86_64"}}
+	got := CgoEnv(layer, md, Compilers{CC: "gcc", CXX: "g++"}, target)
 
 	cflags := "-O2 -g '-I" + filepath.Join(layer, "include") + "' -DSLIPSTREAM_NATIVE_BUNDLE -DTORRENT_NO_DEPRECATE"
 	want := []EnvVar{
@@ -39,6 +40,8 @@ func TestCgoEnvFromMetadata(t *testing.T) {
 		{"CGO_CXXFLAGS", cflags},
 		{"CGO_LDFLAGS", "'" + filepath.Join(layer, "lib", "libtorrent-rasterbar.a") + "' '" +
 			filepath.Join(layer, "lib", "libcrypto.a") + "' -lstdc++ -lm"},
+		{"CMAKE_OSX_ARCHITECTURES", "x86_64"},
+		{"MACOSX_DEPLOYMENT_TARGET", "13.0"},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("CgoEnv =\n%q\nwant\n%q", got, want)

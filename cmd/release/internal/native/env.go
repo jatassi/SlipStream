@@ -2,8 +2,10 @@ package native
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -16,6 +18,10 @@ type Compilers struct {
 	CC  string `json:"cc"`
 	CXX string `json:"cxx"`
 }
+
+// xcodeCompilers are the compilers of the selected Xcode, which xcrun finds
+// through DEVELOPER_DIR or xcode-select.
+var xcodeCompilers = Compilers{"clang", "clang++"}
 
 // ReadCompilers reads the compilers of the toolchain layer at layerDir as
 // absolute paths.
@@ -55,11 +61,10 @@ type EnvVar struct {
 	Name, Value string
 }
 
-// CgoEnv is the environment that builds cgo packages against the libs layer
-// at layerDir with cc and the target's build tags. The flags start with
-// cgo's own defaults, -O2 -g, which setting the variables would otherwise
-// drop.
-func CgoEnv(layerDir string, md Metadata, cc Compilers, tags []string) []EnvVar {
+// CgoEnv is the environment that builds cgo packages for t against the
+// libs layer at layerDir with cc. The flags start with cgo's own defaults,
+// -O2 -g, which setting the variables would otherwise drop.
+func CgoEnv(layerDir string, md Metadata, cc Compilers, t Target) []EnvVar {
 	cflags := []string{"-O2", "-g"}
 	for _, dir := range md.IncludeDirs {
 		cflags = append(cflags, "-I"+abs(layerDir, dir))
@@ -72,15 +77,19 @@ func CgoEnv(layerDir string, md Metadata, cc Compilers, tags []string) []EnvVar 
 		ldflags = append(ldflags, abs(layerDir, lib))
 	}
 	ldflags = append(ldflags, md.SystemLibs...)
-	return []EnvVar{
+	env := []EnvVar{
 		{"CGO_ENABLED", "1"},
-		{"GOFLAGS", "-tags=" + strings.Join(tags, ",")},
+		{"GOFLAGS", "-tags=" + strings.Join(t.GoTags, ",")},
 		{"CC", cc.CC},
 		{"CXX", cc.CXX},
 		{"CGO_CFLAGS", joinFlags(cflags)},
 		{"CGO_CXXFLAGS", joinFlags(cflags)},
 		{"CGO_LDFLAGS", joinFlags(ldflags)},
 	}
+	for _, name := range slices.Sorted(maps.Keys(t.Env)) {
+		env = append(env, EnvVar{name, t.Env[name]})
+	}
+	return env
 }
 
 // joinFlags quotes each flag the way the go command splits CGO_*FLAGS:

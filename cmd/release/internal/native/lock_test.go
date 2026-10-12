@@ -13,14 +13,15 @@ func TestWantListsTheLayersEachTargetShips(t *testing.T) {
 	}
 	want := []LayerID{
 		{KindToolchain, "linux-amd64", "c871a31bd840d2719733f3d367edc4c1807ebcd6ba999b630294eb6bab409d39"},
-		{KindLibs, "linux-amd64", "1c74e51413566aee8c4891038cc0675c4b45cff18264b40319bd460bfb5a15a7"},
+		{KindLibs, "linux-amd64", "5198b18496aea3325f343b78e62f606383025afa4445da5ef2a971e1b13ae398"},
+		{KindLibs, "darwin-arm64", "8c0bac6bc6c590541977390e9181d8c0cd634f805c78e61568ea806710f41548"},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Want = %v, want %v", got, want)
 	}
 	if got, want := got[1].URL("https://example.test/dl"),
-		"https://example.test/dl/layer-1c74e51413566aee8c4891038cc0675c4b45cff18264b40319bd460bfb5a15a7/"+
-			"libs-linux-amd64-1c74e51413566aee8c4891038cc0675c4b45cff18264b40319bd460bfb5a15a7.tar.gz"; got != want {
+		"https://example.test/dl/layer-5198b18496aea3325f343b78e62f606383025afa4445da5ef2a971e1b13ae398/"+
+			"libs-linux-amd64-5198b18496aea3325f343b78e62f606383025afa4445da5ef2a971e1b13ae398.tar.gz"; got != want {
 		t.Fatalf("URL = %s, want %s", got, want)
 	}
 }

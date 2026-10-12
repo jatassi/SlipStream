@@ -3,13 +3,46 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "claude/**"]
+  schedule:
+    - cron: "23 4 * * *"
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  linux-amd64:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      # A push to a branch other than main is unmerged work, so it is planned
+      # like a pull request into main.
+      - id: touch
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
+        run: go run ./cmd/release touches-native -explain -base "origin/$BASE" -head HEAD
+        env:
+          BASE: ${{ github.base_ref || 'main' }}
+      - id: plan
+        run: go run ./cmd/release plan -event "$EVENT" -native="${NATIVE:-false}"
+        env:
+          EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'release' && 'release' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
+          NATIVE: ${{ steps.touch.outputs.native }}
+
+  lint:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -22,11 +55,67 @@ jobs:
           bun-version-file: web/package.json
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/slipstream/native
-          key: native-linux-amd64-${{ hashFiles('native/lock.json') }}
-      - run: scripts/native-deps fetch
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
       - run: bun install --frozen-lockfile && bun run build
         working-directory: web
       - run: go run ./cmd/release lint
-      - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
+
+  build:
+    needs: plan
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@v5
+      - if: matrix.xcode
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
+      - run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/go-build
+            ${{ runner.temp }}/go-mod
+          key: go-${{ matrix.target }}-${{ hashFiles('go.mod') }}-${{ github.sha }}
+          restore-keys: go-${{ matrix.target }}-${{ hashFiles('go.mod') }}-
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/slipstream/native
+            ~/Library/Caches/slipstream/native
+            ~/AppData/Local/slipstream/native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      - run: scripts/native-deps fetch
       - run: go run ./cmd/release build
+      - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
+
+  native-gate:
+    if: always()
+    needs: [plan, lint, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          for result in "$PLAN" "$LINT" "$BUILD"; do
+            test "$result" = success
+          done
+        env:
+          PLAN: ${{ needs.plan.result }}
+          LINT: ${{ needs.lint.result }}
+          BUILD: ${{ needs.build.result }}

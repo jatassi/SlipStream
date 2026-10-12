@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 )
 
 // Fetch makes the layer present in the cache and returns its directory. It
@@ -129,51 +128,45 @@ func download(ctx context.Context, url string, w io.Writer) (string, error) {
 
 // Bundle is a target's fetched layers as the lock pins them for the current
 // inputs and recipe: the libs layer, whose digest names the whole bundle,
-// and the environment that builds against it with the toolchain layer.
+// and the environment that builds against it with the target's toolchain.
 type Bundle struct {
 	Libs Layer
 	Env  []EnvVar
 }
 
 func FetchedBundle(root, cacheRoot string, in Inputs, t Target) (Bundle, error) {
-	if !slices.Contains(t.Layers, KindLibs) {
-		return Bundle{}, fmt.Errorf("target %s lists no %s layer in %s", t.Name, KindLibs, InputsPath)
-	}
 	lock, err := LoadLock(filepath.Join(root, LockPath))
 	if err != nil {
 		return Bundle{}, err
 	}
-	recipe := os.DirFS(filepath.Join(root, RecipeDir))
-	fetched := func(k Kind) (Layer, string, error) {
-		digest, err := layerDigests[k](in, t, recipe)
+	ids, err := in.Layers(t, os.DirFS(filepath.Join(root, RecipeDir)))
+	if err != nil {
+		return Bundle{}, err
+	}
+	cc := xcodeCompilers
+	var libs Layer
+	var libsDir string
+	for _, id := range ids {
+		layer, err := lock.Pinned(id)
 		if err != nil {
-			return Layer{}, "", err
-		}
-		layer, err := lock.Pinned(LayerID{k, t.Name, digest})
-		if err != nil {
-			return Layer{}, "", err
+			return Bundle{}, err
 		}
 		dir := LayerDir(cacheRoot, layer)
 		if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
-			return Layer{}, "", fmt.Errorf("the %s layer for %s is not fetched: run scripts/native-deps fetch -target %s", k, t.Name, t.Name)
+			return Bundle{}, fmt.Errorf("the %s layer for %s is not fetched: run scripts/native-deps fetch -target %s", id.Kind, t.Name, t.Name)
 		}
-		return layer, dir, nil
-	}
-	_, toolchainDir, err := fetched(KindToolchain)
-	if err != nil {
-		return Bundle{}, err
-	}
-	libs, libsDir, err := fetched(KindLibs)
-	if err != nil {
-		return Bundle{}, err
-	}
-	cc, err := ReadCompilers(toolchainDir)
-	if err != nil {
-		return Bundle{}, err
+		switch id.Kind {
+		case KindToolchain:
+			if cc, err = ReadCompilers(dir); err != nil {
+				return Bundle{}, err
+			}
+		case KindLibs:
+			libs, libsDir = layer, dir
+		}
 	}
 	md, err := ReadMetadata(libsDir)
 	if err != nil {
 		return Bundle{}, err
 	}
-	return Bundle{libs, CgoEnv(libsDir, md, cc, t.GoTags)}, nil
+	return Bundle{libs, CgoEnv(libsDir, md, cc, t)}, nil
 }

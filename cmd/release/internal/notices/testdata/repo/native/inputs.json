@@ -1,7 +1,7 @@
 {
 	"targets": [
 		{"name": "linux-amd64", "goos": "linux", "goarch": "amd64", "toolchain": "musl-cross", "gate": "pr"},
-		{"name": "windows-amd64", "goos": "windows", "goarch": "amd64", "gate": "native"}
+		{"name": "windows-amd64", "goos": "windows", "goarch": "amd64", "toolchain": "llvm-mingw-ucrt", "gate": "native"}
 	],
 	"toolchains": [
 		{
@@ -16,6 +16,17 @@
 			],
 			"runtimes": [
 				{"name": "musl", "source": "musl", "license": "MIT"}
+			]
+		},
+		{
+			"name": "llvm-mingw-ucrt",
+			"sources": [
+				{
+					"name": "llvm-mingw",
+					"version": "20261006",
+					"url": "https://example.com/llvm-mingw-20261006-ucrt-x86_64.zip",
+					"sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+				}
 			]
 		}
 	],
