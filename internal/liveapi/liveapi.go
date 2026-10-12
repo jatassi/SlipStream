@@ -50,6 +50,17 @@ type stream struct {
 // live.session-ended with expired and closes.
 func (s *stream) run(ctx context.Context, sub *live.Subscription) error {
 	defer sub.Close()
+	// A sign-out that deleted the session after authentication but before
+	// Subscribe ended no subscription of ours; reading the session again
+	// now catches it.
+	err := s.sessions.Renew(ctx, s.account)
+	if errors.Is(err, identity.ErrSignedOut) {
+		s.write(api.StreamMessage{Data: live.SessionEnded{Reason: "signed-out"}})
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	beat := time.Now().Add(s.timings.Heartbeat)
 	for {
 		wait, cancel := context.WithDeadline(ctx, beat)

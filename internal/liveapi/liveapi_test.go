@@ -147,3 +147,45 @@ func TestAStreamWhoseSessionExpiresEndsWithExpired(t *testing.T) {
 		}
 	})
 }
+
+func TestASignOutBetweenAuthenticationAndSubscribeEndsTheStream(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := serve(t, 2*time.Hour)
+		session := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
+		time.Sleep(2 * time.Hour)
+		held, release, signedOut := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+		go func() {
+			signedOut <- n.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+				close(held)
+				<-release
+				_, err := tx.ExecContext(ctx, "DELETE FROM identity_session")
+				return err
+			})
+		}()
+		<-held
+		opened := make(chan *http.Response, 1)
+		go func() {
+			req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://slipstream/api/v1/events", http.NoBody)
+			req.Header.Set("Cookie", identity.CookieName+"="+session)
+			res, _ := n.client.Do(req) //nolint:bodyclose // the Stream closes it
+			opened <- res
+		}()
+		synctest.Wait() // the stream's authentication waits on the writer to slide its session
+		close(release)
+		if err := <-signedOut; err != nil {
+			t.Fatal(err)
+		}
+		res := <-opened
+		if res == nil || res.StatusCode != http.StatusOK {
+			t.Fatalf("GET /api/v1/events = %v, want 200", res)
+		}
+		s := apitest.NewStream(res.Body)
+		t.Cleanup(func() { _ = s.Close() })
+		if got, want := next(t, s), "retry: 3000\nevent: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
+			t.Fatalf("read %q, want %q", got, want)
+		}
+		if msg, err := s.Next(); !errors.Is(err, io.EOF) {
+			t.Fatalf("read %q, %v; want the stream to end", msg, err)
+		}
+	})
+}
