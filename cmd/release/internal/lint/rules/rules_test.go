@@ -121,6 +121,7 @@ func TestProcessGlobals(t *testing.T) {
 		listen = " is process-global; bind through the Node so readiness reports the address"
 		client = " is process-global; build an *http.Client from the Node's config"
 		serve  = " is process-global; serve on a listener the Node binds"
+		mux    = " is process-global; register an operation with api.Register"
 	)
 	assertFindings(t, check(t, "process-globals", fixtureRepo(t, "process-globals")), []string{
 		"internal/media/media.go:4: [process-globals] package log" + logger,
@@ -140,6 +141,9 @@ func TestProcessGlobals(t *testing.T) {
 		"internal/media/media.go:33: [process-globals] net/http.Get" + client,
 		"internal/media/media.go:34: [process-globals] net/http.DefaultClient" + client,
 		"internal/media/media.go:35: [process-globals] net/http.ListenAndServe" + serve,
+		"internal/media/media.go:37: [process-globals] net/http.Handle" + mux,
+		"internal/media/media.go:38: [process-globals] net/http.HandleFunc" + mux,
+		"internal/media/media.go:39: [process-globals] net/http.DefaultServeMux" + mux,
 		"internal/media/shadow.go:15: [process-globals] os.Getenv" + config,
 		"internal/media/shadow.go:16: [process-globals] net/http.Post" + client,
 		"internal/seed/seed.go:3: [process-globals] package math/rand" + stream,
@@ -217,5 +221,54 @@ func TestSqlcGenerated(t *testing.T) {
 		"internal/library/internal/db/works.sql.go:20: [sqlc-generated]" + typedID,
 		"internal/media/internal/db/models.go:1: [sqlc-generated]" + outside,
 		"internal/media/internal/db/models.go:8: [sqlc-generated]" + at,
+	})
+}
+
+func TestHumaConfined(t *testing.T) {
+	const outside = " huma imported outside internal/api; register operations with api.Register"
+	assertFindings(t, check(t, "huma-confined", fixtureRepo(t, "huma-confined")), []string{
+		"fakes/web/web.go:3: [huma-confined]" + outside,
+		"internal/api/apitest/walk.go:3: [huma-confined]" + outside,
+		"internal/nodes/nodes_test.go:3: [huma-confined]" + outside,
+		"internal/nodes/nodesapi/routes.go:6: [huma-confined]" + outside,
+	})
+}
+
+func TestRoutesPlacement(t *testing.T) {
+	assertFindings(t, check(t, "routes-placement", fixtureRepo(t, "routes-placement")), []string{
+		"internal/nodes/nodes.go:6: [routes-placement] api.RegisterStream outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:13: [routes-placement] api.Register outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:19: [routes-placement] api.Register outside <owner>api.Routes",
+		"internal/nodes/nodesapi/routes.go:24: [routes-placement] api.RegisterStream outside <owner>api.Routes",
+		"internal/tmdb/api/routes.go:6: [routes-placement] api.Register outside <owner>api.Routes",
+	})
+}
+
+func TestSurfaceWired(t *testing.T) {
+	assertFindings(t, check(t, "surface-wired", fixtureRepo(t, "surface-wired")), []string{
+		"internal/nodes/nodes.go:16: [surface-wired] nodes.ChangedEvent is not listed in surface.Events",
+		"internal/nodes/nodes.go:19: [surface-wired] nodes.RemovedEvent is not listed in surface.Events",
+		"internal/nodes/nodesapi/routes.go:3: [surface-wired] nodesapi.Routes is never mounted in internal/node/surface",
+	})
+}
+
+func TestSurfaceWiredWithoutSurface(t *testing.T) {
+	repo := fixtureRepo(t, "surface-wired")
+	if err := os.RemoveAll(filepath.Join(repo.Root, "internal", "node")); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.CommandContext(t.Context(), "git", "add", "-A")
+	cmd.Dir = repo.Root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+	assertFindings(t, check(t, "surface-wired", repo), []string{
+		"internal/identity/identity.go:7: [surface-wired] identity.SessionsChangedEvent is not listed in surface.Events",
+		"internal/identity/identityapi/routes.go:3: [surface-wired] identityapi.Routes is never mounted in internal/node/surface",
+		"internal/live/liveapi/routes.go:3: [surface-wired] liveapi.Routes is never mounted in internal/node/surface",
+		"internal/nodes/nodes.go:15: [surface-wired] nodes.ListedEvent is not listed in surface.Events",
+		"internal/nodes/nodes.go:16: [surface-wired] nodes.ChangedEvent is not listed in surface.Events",
+		"internal/nodes/nodes.go:19: [surface-wired] nodes.RemovedEvent is not listed in surface.Events",
+		"internal/nodes/nodesapi/routes.go:3: [surface-wired] nodesapi.Routes is never mounted in internal/node/surface",
 	})
 }

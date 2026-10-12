@@ -1,0 +1,3 @@
+package nodesapi
+
+func Routes() {}
