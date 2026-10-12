@@ -92,3 +92,22 @@ func TestNativeLock(t *testing.T) {
 		"native/lock.json:1: [native-lock] pins no toolchain layer for linux-amd64, inputs and recipe build c871a31bd840d2719733f3d367edc4c1807ebcd6ba999b630294eb6bab409d39" + hint,
 	})
 }
+
+func TestEndpointLiterals(t *testing.T) {
+	const declare = " outside DefaultEndpoints; declare it in the package's Endpoints section"
+	assertFindings(t, check(t, "endpoint-literals", fixtureRepo(t, "endpoint-literals")), []string{
+		"internal/node/node.go:3: [endpoint-literals] host dns.google" + declare,
+		"internal/tmdb/client.go:3: [endpoint-literals] host api.themoviedb.org" + declare,
+		"internal/tmdb/client.go:6: [endpoint-literals] host tracker.opentrackr.org" + declare,
+		"internal/tmdb/client.go:7: [endpoint-literals] host stun.l.google.com" + declare,
+		"internal/tmdb/client.go:8: [endpoint-literals] host relay.slipstream.app" + declare,
+		"internal/tmdb/client.go:9: [endpoint-literals] host router.bittorrent.com" + declare,
+		"internal/tmdb/client.go:10: [endpoint-literals] host 8.8.8.8" + declare,
+		"internal/tmdb/client.go:11: [endpoint-literals] host 2001:db8::1" + declare,
+		"internal/tmdb/client.go:12: [endpoint-literals] host Docs.SlipStream.app" + declare,
+		"internal/tmdb/client.go:13: [endpoint-literals] host tracker" + declare,
+		"internal/tmdb/endpoints.go:16: [endpoint-literals] host image.tmdb.org" + declare,
+		"internal/torrent/defaults.go:6: [endpoint-literals] host router.utorrent.com" + declare,
+		"internal/torrent/defaults.go:10: [endpoint-literals] host dht.transmissionbt.com" + declare,
+	})
+}
