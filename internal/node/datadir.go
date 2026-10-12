@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 // maxSocketPath is the smallest sun_path limit across the targets, macOS's,
@@ -37,3 +39,7 @@ func (d DataDir) RunDir() string { return filepath.Join(d.path, "run") }
 func (d DataDir) ControlSocket() string { return filepath.Join(d.RunDir(), "control.sock") }
 
 func (d DataDir) LogsDir() string { return filepath.Join(d.path, "logs") }
+
+func (d DataDir) LibraryDB() string { return filepath.Join(d.path, storage.LibraryFile) }
+
+func (d DataDir) LocalDB() string { return filepath.Join(d.path, storage.LocalFile) }

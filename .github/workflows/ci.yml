@@ -48,6 +48,10 @@ jobs:
         env:
           EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'release' && 'release' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
           SCOPE: ${{ steps.scope.outputs.scope }}
+      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: go run ./cmd/release migrations-frozen -base "$BASE"
+        env:
+          BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
       - if: github.event_name == 'push' && steps.go.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storage/example/shelf"
 )
 
 const listenLocal = "SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0"
@@ -275,6 +278,29 @@ func TestBadConfigurationExitsWithTheUsageCode(t *testing.T) {
 	}
 }
 
+func TestRefusedLibraryExitsWithItsOwnCode(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	lib, err := storage.OpenLibrary(t.Context(), filepath.Join(dir, storage.LibraryFile), []storage.Schema[storage.Library]{shelf.Schema()}, nil, storage.Timings{BusyTimeout: time.Second}, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.Close(); err != nil {
+		t.Fatal(err)
+	}
+	res := slipstream(t, childEnv(listenLocal), "run", "--data-dir", dir)
+	want := "library.db holds schema shelf, which this binary does not have"
+	var failed struct{ Msg, Err string }
+	for line := range strings.SplitSeq(strings.TrimSpace(res.stderr), "\n") {
+		if err := json.Unmarshal([]byte(line), &failed); err == nil && failed.Msg == "start failed" {
+			break
+		}
+	}
+	if res.code != node.ExitLibraryRefused || failed.Err != want {
+		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, failed.Err, node.ExitLibraryRefused, want, res.stderr)
+	}
+}
+
 func TestDataDirErrorsExitWithTheUsageCode(t *testing.T) {
 	t.Parallel()
 	res := slipstream(t, childEnv(), "run")
@@ -385,6 +411,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "seed", Value: "fixed", Default: "", Source: "env"},
 			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
+			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
 		},
 		Census: []string{},
 	}

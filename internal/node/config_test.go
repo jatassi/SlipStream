@@ -19,7 +19,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		seen[leaf.Env()] = leaf.Path
 		paths = append(paths, leaf.Path)
 	}
-	want := []string{"seed", "torrent.listen", "timings.node.stop_deadline"}
+	want := []string{"seed", "torrent.listen", "timings.node.stop_deadline", "timings.storage.busy_timeout"}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
 	}

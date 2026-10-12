@@ -69,6 +69,7 @@ func TestReleaseImports(t *testing.T) {
 	assertFindings(t, check(t, "release-imports", fixtureRepo(t, "release-imports")), []string{
 		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> cmd/release/stamp on " + all,
 		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> fakes/web on " + all,
+		"cmd/slipstream/main.go:3: [release-imports] cmd/slipstream imports internal/app -> internal/storage/example/shelf on " + all,
 		"cmd/slipstream/tmdb_windows.go:6: [release-imports] cmd/slipstream imports fakes/tmdb on windows/amd64",
 	})
 }
@@ -151,5 +152,70 @@ func TestConfigSections(t *testing.T) {
 		"internal/node/timings.go:9: [config-sections] engine.DefaultSettings called outside internal/node/config.go; read the section from the Node's Config",
 		"internal/tmdb/client.go:3: [config-sections] DefaultEndpoints called outside internal/node/config.go; read the section from the Node's Config",
 		"internal/torrent/engine/engine.go:9: [config-sections] DefaultTimings is never called by internal/node/config.go; wire the section into node.Config",
+	})
+}
+
+func TestMigrationVersions(t *testing.T) {
+	repo := fixtureRepo(t, "migration-versions")
+	untracked := filepath.Join(repo.Root, "internal", "library", "schema", "00003_untracked.sql")
+	if err := os.WriteFile(untracked, []byte("-- +goose Down\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assertFindings(t, check(t, "migration-versions", repo), []string{
+		"internal/library/schema/00002_library_tags.sql:1: [migration-versions] version 2 is also 00002_library_genres.sql",
+		"internal/library/schema/00004_library_rename.sql:1: [migration-versions] version 4 follows 2; version 3 is missing",
+		"internal/library/schema/00005_library_down.sql:4: [migration-versions] -- +goose Down found; migrations are forward-only (ADR 0015)",
+		"internal/library/schema/00006_Library-Size.sql:1: [migration-versions] name must be NNNNN_slug.sql",
+		"internal/library/schema/6_library_size.sql:1: [migration-versions] name must be NNNNN_slug.sql",
+		"internal/media/schema/00002_media_late.sql:1: [migration-versions] version 2 follows 0; version 1 is missing",
+	})
+}
+
+func TestQueryOrder(t *testing.T) {
+	assertFindings(t, check(t, "query-order", fixtureRepo(t, "query-order")), []string{
+		"internal/library/queries/library.sql:4: [query-order] ListWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:15: [query-order] AnyWork uses LIMIT without a top-level ORDER BY",
+		"internal/library/queries/library.sql:18: [query-order] ListRecentWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:23: [query-order] ListRankedWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:42: [query-order] ListFirstWorks returns many rows without a top-level ORDER BY",
+		"internal/library/queries/library.sql:42: [query-order] ListFirstWorks uses LIMIT without a top-level ORDER BY",
+	})
+}
+
+func TestSQLConfined(t *testing.T) {
+	const statement = " outside generated queries; add the statement to queries/*.sql"
+	const outside = " outside internal/storage and generated queries"
+	assertFindings(t, check(t, "sql-confined", fixtureRepo(t, "sql-confined")), []string{
+		"internal/media/late_header.go:5: [sql-confined] import database/sql" + outside,
+		"internal/media/media.go:7: [sql-confined] import github.com/pressly/goose/v3" + outside,
+		"internal/media/media.go:8: [sql-confined] import modernc.org/sqlite/lib" + outside,
+		"internal/media/media.go:17: [sql-confined] PrepareContext" + statement,
+		"internal/media/media.go:19: [sql-confined] QueryContext" + statement,
+		"internal/media/mock.go:5: [sql-confined] import database/sql" + outside,
+		"internal/media/mock.go:7: [sql-confined] ExecContext" + statement,
+		"internal/storage/example/clip/clip.go:15: [sql-confined] ExecContext" + statement,
+		"internal/storage/storagetest/audit.go:3: [sql-confined] import database/sql" + outside,
+	})
+}
+
+func TestSqlcGenerated(t *testing.T) {
+	const (
+		typedID = " give the column a typed id override in sqlc.yaml"
+		at      = " _at columns map to storage.Time"
+		outside = " generated output outside <owner>/internal/db; set out: internal/db in the owner's sqlc.yaml"
+	)
+	assertFindings(t, check(t, "sqlc-generated", fixtureRepo(t, "sqlc-generated")), []string{
+		"internal/library/db/models.go:1: [sqlc-generated]" + outside,
+		"internal/library/internal/db/models.go:15: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:16: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:17: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:18: [sqlc-generated]" + typedID,
+		"internal/library/internal/db/models.go:21: [sqlc-generated]" + at,
+		"internal/library/internal/db/models.go:22: [sqlc-generated]" + at,
+		"internal/library/internal/db/models.go:23: [sqlc-generated]" + at,
+		"internal/library/internal/db/models.go:24: [sqlc-generated]" + at,
+		"internal/library/internal/db/works.sql.go:20: [sqlc-generated]" + typedID,
+		"internal/media/internal/db/models.go:1: [sqlc-generated]" + outside,
+		"internal/media/internal/db/models.go:8: [sqlc-generated]" + at,
 	})
 }

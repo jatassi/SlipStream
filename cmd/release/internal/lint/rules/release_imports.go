@@ -20,12 +20,12 @@ var releaseTargets = []lint.Target{
 	{GOOS: "darwin", GOARCH: "arm64"},
 }
 
-var forbiddenTrees = []string{"fakes", "cmd/release"}
+var forbiddenTrees = []string{"fakes", "cmd/release", "internal/storage/example"}
 
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "release-imports",
-		Doc:   "cmd/slipstream depends on nothing under fakes/ or cmd/release for any target (ADR 0014)",
+		Doc:   "cmd/slipstream depends on nothing under fakes/, cmd/release or internal/storage/example for any target (ADR 0014)",
 		Check: checkReleaseImports,
 	})
 }
