@@ -17,7 +17,7 @@ import (
 
 var depsCommands = map[string]command{
 	"build":   {"build one of a target's layers into a publishable archive", depsBuild},
-	"env":     {"print the cgo environment of the fetched libs layer", depsEnv},
+	"env":     {"print the build environment of the fetched bundle", depsEnv},
 	"fetch":   {"download, verify and extract a target's pinned layers", depsFetch},
 	"missing": {"print the CI matrix of wanted layers that are not published", depsMissing},
 	"pin":     {"write native/lock.json from the published layers", depsPin},
