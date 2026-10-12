@@ -39,6 +39,9 @@ func runLint(args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := buildWeb(root); err != nil {
+		return err
+	}
 	if err := lint.Run(os.Stdout, lint.Open(root), rules); err != nil || *only != "" {
 		return err
 	}

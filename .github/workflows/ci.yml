@@ -57,8 +57,6 @@ jobs:
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: bun install --frozen-lockfile && bun run build
-        working-directory: web
       - run: go run ./cmd/release lint
 
   build:
@@ -105,9 +103,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - run: scripts/native-deps fetch
       - run: go run ./cmd/release build
-      - run: eval "$(scripts/native-deps env)" && go test -race -shuffle=on ./...
+      - run: go run ./cmd/release test
 
   native-gate:
     if: always()
