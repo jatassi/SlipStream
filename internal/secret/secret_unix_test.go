@@ -19,10 +19,10 @@ func TestCreatingTheKeySyncsItsDirectory(t *testing.T) {
 	}
 	lib := storagetest.Library(t, secret.Schema())
 	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o300); err != nil {
+	if err := os.Chmod(dir, 0o300); err != nil { //nolint:gosec // write and search without read is the point
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) }) //nolint:gosec // a directory needs search permission
 	_, err := secret.Open(t.Context(), lib, filepath.Join(dir, secret.KeyFile))
 	want := "create library.key: sync " + dir + ": open " + dir + ": permission denied"
 	if err == nil || err.Error() != want {
