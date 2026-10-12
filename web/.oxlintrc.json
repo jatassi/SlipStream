@@ -22,6 +22,7 @@
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
+  "ignorePatterns": ["src/api/gen/**", "src/routeTree.gen.ts"],
   "rules": {
     "eqeqeq": "error",
     "no-console": "error",
@@ -39,6 +40,389 @@
     "typescript/use-unknown-in-catch-callback-variable": "error",
     "typescript/prefer-readonly-parameter-types": "off",
     "react/react-in-jsx-scope": "off",
-    "react/jsx-filename-extension": ["error", { "extensions": [".tsx"] }]
-  }
+    "react/jsx-filename-extension": [
+      "error",
+      {
+        "extensions": [".tsx"]
+      }
+    ],
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "fetch",
+        "message": "call the generated client in src/api/gen"
+      },
+      {
+        "name": "XMLHttpRequest",
+        "message": "call the generated client in src/api/gen"
+      },
+      {
+        "name": "EventSource",
+        "message": "live updates come through src/live/stream.ts"
+      },
+      {
+        "name": "WebSocket",
+        "message": "live updates come through src/live/stream.ts"
+      },
+      {
+        "name": "localStorage",
+        "message": "server state lives in Query and the session is an HttpOnly cookie"
+      },
+      {
+        "name": "sessionStorage",
+        "message": "server state lives in Query and the session is an HttpOnly cookie"
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "axios",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
+            "name": "react-hook-form",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
+            "name": "zustand",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
+            "name": "sonner",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
+            "name": "lucide-react",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
+            "name": "msw",
+            "message": "MSW and mocks belong to tests"
+          },
+          {
+            "name": "@faker-js/faker",
+            "message": "MSW and mocks belong to tests"
+          }
+        ],
+        "patterns": [
+          {
+            "group": ["@hugeicons-pro/*"],
+            "message": "only the Hugeicons free set ships"
+          },
+          {
+            "group": ["**/api/fetch"],
+            "message": "only generated code calls the mutator"
+          },
+          {
+            "group": ["msw/*", "**/*.msw", "**/test/*"],
+            "message": "MSW and mocks belong to tests"
+          }
+        ]
+      }
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        "property": "invalidateQueries",
+        "message": "map server changes to cache effects in src/live/effects.ts"
+      },
+      {
+        "property": "setQueryData",
+        "message": "map server changes to cache effects in src/live/effects.ts"
+      },
+      {
+        "property": "setQueriesData",
+        "message": "map server changes to cache effects in src/live/effects.ts"
+      },
+      {
+        "property": "resetQueries",
+        "message": "map server changes to cache effects in src/live/effects.ts"
+      },
+      {
+        "property": "refetchQueries",
+        "message": "map server changes to cache effects in src/live/effects.ts"
+      },
+      {
+        "property": "removeQueries",
+        "message": "map server changes to cache effects in src/live/effects.ts"
+      }
+    ],
+    "react-perf/jsx-no-new-object-as-prop": "off",
+    "react-perf/jsx-no-new-array-as-prop": "off",
+    "react-perf/jsx-no-new-function-as-prop": "off",
+    "react-perf/jsx-no-jsx-as-prop": "off",
+    "unicorn/no-useless-undefined": [
+      "error",
+      {
+        "checkArguments": false
+      }
+    ],
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": ["**/*.css"]
+      }
+    ],
+    "unicorn/prefer-top-level-await": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/api/errors.ts"],
+      "rules": {
+        "max-classes-per-file": "off"
+      }
+    },
+    {
+      "files": ["src/api/fetch.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "XMLHttpRequest",
+            "message": "call the generated client in src/api/gen"
+          },
+          {
+            "name": "EventSource",
+            "message": "live updates come through src/live/stream.ts"
+          },
+          {
+            "name": "WebSocket",
+            "message": "live updates come through src/live/stream.ts"
+          },
+          {
+            "name": "localStorage",
+            "message": "server state lives in Query and the session is an HttpOnly cookie"
+          },
+          {
+            "name": "sessionStorage",
+            "message": "server state lives in Query and the session is an HttpOnly cookie"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/live/stream.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "call the generated client in src/api/gen"
+          },
+          {
+            "name": "XMLHttpRequest",
+            "message": "call the generated client in src/api/gen"
+          },
+          {
+            "name": "WebSocket",
+            "message": "live updates come through src/live/stream.ts"
+          },
+          {
+            "name": "localStorage",
+            "message": "server state lives in Query and the session is an HttpOnly cookie"
+          },
+          {
+            "name": "sessionStorage",
+            "message": "server state lives in Query and the session is an HttpOnly cookie"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/live/**", "src/session/**", "src/app.tsx"],
+      "rules": {
+        "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "axios",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "react-hook-form",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "zustand",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "sonner",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "lucide-react",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@hugeicons-pro/*"],
+                "message": "only the Hugeicons free set ships"
+              },
+              {
+                "group": ["**/api/fetch"],
+                "message": "only generated code calls the mutator"
+              }
+            ]
+          }
+        ],
+        "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "axios",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "react-hook-form",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "zustand",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "sonner",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "lucide-react",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "msw",
+                "message": "MSW and mocks belong to tests"
+              },
+              {
+                "name": "@faker-js/faker",
+                "message": "MSW and mocks belong to tests"
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@hugeicons-pro/*"],
+                "message": "only the Hugeicons free set ships"
+              },
+              {
+                "group": ["**/api/fetch"],
+                "message": "only generated code calls the mutator"
+              },
+              {
+                "group": ["**/*.msw", "**/test/*"],
+                "message": "MSW and mocks belong to tests"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["e2e/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "axios",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "react-hook-form",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "zustand",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "sonner",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "lucide-react",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@hugeicons-pro/*"],
+                "message": "only the Hugeicons free set ships"
+              },
+              {
+                "group": ["**/api/fetch"],
+                "message": "only generated code calls the mutator"
+              }
+            ]
+          }
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            "property": "waitForTimeout",
+            "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
+          },
+          {
+            "object": "test",
+            "property": "only",
+            "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
+          },
+          {
+            "object": "test",
+            "property": "skip",
+            "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
+          },
+          {
+            "object": "test",
+            "property": "fixme",
+            "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
+          },
+          {
+            "object": "page",
+            "property": "route",
+            "message": "the browser tier tests the real Node"
+          },
+          {
+            "object": "context",
+            "property": "route",
+            "message": "the browser tier tests the real Node"
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "setTimeout",
+            "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
+          },
+          {
+            "name": "setInterval",
+            "message": "wait on a condition with expect(); skip only with skipFlaky(issue)"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["e2e/fixtures.ts"],
+      "rules": {
+        "no-restricted-properties": "off"
+      }
+    }
+  ]
 }
