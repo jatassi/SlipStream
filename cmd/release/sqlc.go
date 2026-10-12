@@ -3,9 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -26,7 +30,7 @@ func runSqlc(ctx context.Context, args []string) error {
 		return err
 	}
 	for _, c := range configs {
-		if err := sqlc(ctx, root, "generate", "-f", c); err != nil {
+		if err := run(ctx, root, nil, "go", sqlcArgs("generate", "-f", c)...); err != nil {
 			return err
 		}
 	}
@@ -58,8 +62,34 @@ func ignoredByGo(file string) bool {
 	return false
 }
 
-// sqlc runs the sqlc that tools/go.mod pins with the host environment: it
-// builds without cgo, so it needs none of the native bundle's toolchain.
-func sqlc(ctx context.Context, root string, args ...string) error {
-	return run(ctx, root, nil, "go", append([]string{"tool", "-modfile=tools/go.mod", "sqlc"}, args...)...)
+// sqlcArgs invokes the sqlc that tools/go.mod pins with the host
+// environment: it builds without cgo, so it needs none of the native
+// bundle's toolchain. It runs from root, where the -modfile path resolves.
+func sqlcArgs(args ...string) []string {
+	return append([]string{"tool", "-modfile=tools/go.mod", "sqlc"}, args...)
+}
+
+// sqlcDrift writes a finding to w for every config, relative to dir, whose
+// owner's generated code differs from what sqlc would generate now.
+func sqlcDrift(ctx context.Context, root, dir string, configs []string, w io.Writer) error {
+	var stale []string
+	for _, c := range configs {
+		cmd := exec.CommandContext(ctx, "go", sqlcArgs("diff", "-f", filepath.Join(dir, filepath.FromSlash(c)))...)
+		cmd.Dir = root
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			continue
+		}
+		// sqlc exits 1 both for a diff and for a broken config or query.
+		if exit := (*exec.ExitError)(nil); !errors.As(err, &exit) || !bytes.HasPrefix(out, []byte("--- a/")) {
+			return fmt.Errorf("sqlc diff -f %s: %w\n%s", c, err, out)
+		}
+		owner := path.Dir(c)
+		_, _ = fmt.Fprintf(w, "%s: generated code is stale; run go run ./cmd/release sqlc\n%s", owner, out)
+		stale = append(stale, owner)
+	}
+	if len(stale) > 0 {
+		return fmt.Errorf("stale: %s", strings.Join(stale, ", "))
+	}
+	return nil
 }

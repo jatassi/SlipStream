@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	register("lint", "run the architecture lint, gofmt, go vet, golangci-lint, the web checks and the notices check", runLint)
+	register("lint", "run the architecture lint, gofmt, go vet, golangci-lint, the sqlc drift check, the web checks and the notices check", runLint)
 	register("fmt", "format the Go code with gofmt and the web app with Oxfmt", runFmt)
 }
 
@@ -62,6 +62,13 @@ func runLint(ctx context.Context, args []string) error {
 		{"gofmt", func() error { return golangciLint(ctx, root, nil, "fmt", "--diff") }},
 		{"go vet", func() error { return run(ctx, root, goEnv, "go", "vet", "./...") }},
 		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "./...") }},
+		{"sqlc drift", func() error {
+			configs, err := sqlcConfigs(ctx, root)
+			if err != nil {
+				return err
+			}
+			return sqlcDrift(ctx, root, root, configs, os.Stdout)
+		}},
 		{"oxlint", func() error { return run(ctx, web, nil, "bun", "run", "lint") }},
 		{"oxfmt", func() error { return run(ctx, web, nil, "bun", "run", "fmt:check") }},
 		{"notices", func() error { return notices.Check(ctx, root) }},
