@@ -101,17 +101,14 @@ type Owner struct {
 	floor  *access
 }
 
-// Op declares an operation.
 type Op struct {
 	// ID is lowerCamelCase and verb-first: listNodes, getSystem.
-	ID string
-	// Method is an http.Method* constant.
+	ID     string
 	Method string
 	// Path is relative to Prefix: /nodes/{id}.
 	Path    string
 	Summary string
-	// Status is the success status.
-	Status int
+	Status  int
 	// Errors are the owner's codes the handler may return, beyond its
 	// level's codes, invalid and internal.
 	Errors []*Code

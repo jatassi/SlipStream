@@ -63,7 +63,6 @@ func claimController(t *testing.T, ready node.Ready, code string) httpReply {
 	return call(t, ready, http.MethodPost, "/api/v1/setup/controller", `{"email":"admin@example.com","displayName":"Admin","pin":"1234"}`, map[string]string{"X-Setup-Code": code})
 }
 
-// stopNode stops the Node on dir through the CLI and waits for it to exit.
 func stopNode(t *testing.T, p *nodeProc, dir string) {
 	t.Helper()
 	if res := slipstream(t, childEnv(), "stop", "--data-dir", dir); res.code != node.ExitOK {

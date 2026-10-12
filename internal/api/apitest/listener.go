@@ -21,7 +21,6 @@ type Listener struct {
 	once   sync.Once
 }
 
-// NewListener reports addr as its address.
 func NewListener(addr net.Addr) *Listener {
 	return &Listener{addr: addr, conns: make(chan net.Conn), closed: make(chan struct{})}
 }

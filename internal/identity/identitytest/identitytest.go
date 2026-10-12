@@ -19,7 +19,6 @@ import (
 // here signs in only through Session.
 const neverMatches = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
-// Member adds a Member Account with email and returns its id.
 func Member(t testing.TB, lib *storage.DB[storage.Library], email string) identity.AccountID {
 	t.Helper()
 	id := identity.AccountID{UUID: storage.NewUUID()}

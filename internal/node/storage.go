@@ -23,8 +23,6 @@ func preMigrationHook(context.Context, *storage.Unmigrated, storage.Plan) error 
 	return nil
 }
 
-// openStorage opens both files and hands library.db on to the subsystems
-// that start after it.
 func (n *Node) openStorage(ctx context.Context, cfg Config) (*storage.DB[storage.Library], error) {
 	log := n.rootLog.With("subsystem", "storage")
 	lib, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), librarySchemas(), preMigrationHook, cfg.Timings.Storage, log)

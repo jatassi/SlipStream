@@ -30,7 +30,6 @@ type Account struct {
 func (a Account) Profile() Profile   { return a.profile }
 func (a Account) Session() SessionID { return a.session }
 
-// AsAdmin narrows a to an Admin. It fails for a Member.
 func (a Account) AsAdmin() (Admin, bool) {
 	if !a.profile.Admin {
 		return Admin{}, false

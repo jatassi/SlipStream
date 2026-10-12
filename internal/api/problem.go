@@ -31,7 +31,6 @@ func (c *Code) problem() *Problem {
 	return &Problem{Status: c.status, Code: c.name, Title: c.title}
 }
 
-// Huma's own errors, mapped by status.
 var (
 	BadRequest           = NewCode(http.StatusBadRequest, "bad_request", "The request is malformed")
 	NotFound             = NewCode(http.StatusNotFound, "not_found", "Nothing is here")
@@ -42,7 +41,6 @@ var (
 	Internal             = NewCode(http.StatusInternalServerError, "internal", "Something went wrong")
 )
 
-// The gate's codes.
 var (
 	SignedOut      = NewCode(http.StatusUnauthorized, "signed_out", "Sign in to continue")
 	APIKeyWrong    = NewCode(http.StatusUnauthorized, "api_key_wrong", "The API key is wrong")

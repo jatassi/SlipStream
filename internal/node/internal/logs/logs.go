@@ -33,7 +33,6 @@ func Open(dir string, stderr io.Writer) (*Log, error) {
 	}), nil
 }
 
-// File is the log file's name in the logs dir.
 const File = "slipstream.log"
 
 // New fans records out to stderr and file, and Close closes file.

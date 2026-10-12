@@ -19,7 +19,6 @@ type Facts struct {
 	Listeners Listeners
 }
 
-// Listeners is every address the Node bound.
 type Listeners struct {
 	HTTP    netip.AddrPort
 	Torrent netip.AddrPort

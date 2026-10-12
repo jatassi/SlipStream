@@ -46,7 +46,6 @@ type SessionsPublisher interface {
 	Publish(ctx context.Context, account storage.UUID, v SessionsChanged)
 }
 
-// SessionEnder ends a session's open streams.
 type SessionEnder interface {
 	EndSession(session storage.UUID)
 }
@@ -90,7 +89,6 @@ func New(ctx context.Context, lib *storage.DB[file], pepper []byte, sessions Ses
 	return s, nil
 }
 
-// HasAdmin reports whether any Account is an Admin.
 func (s *Service) HasAdmin(ctx context.Context) (bool, error) {
 	return db.New(s.lib).HasAdmin(ctx)
 }
@@ -349,7 +347,6 @@ func insertSession(ctx context.Context, q *db.Queries, account AccountID, token 
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 
-// newToken is 32 random bytes as 43 base64url characters.
 func newToken() string {
 	b := make([]byte, tokenBytes)
 	_, _ = rand.Read(b)

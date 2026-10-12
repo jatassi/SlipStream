@@ -140,7 +140,6 @@ type claimResponse struct {
 	APIKey string `json:"apiKey"`
 }
 
-// claimed claims n and returns the response and the session token.
 func (n *node) claimed() (res claimResponse, session string) {
 	n.t.Helper()
 	w := n.claim(n.code, "1234")

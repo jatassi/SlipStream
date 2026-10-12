@@ -31,7 +31,6 @@ func DefaultTimings() Timings {
 	return Timings{Heartbeat: 25 * time.Second, Retry: 3 * time.Second}
 }
 
-// Audience is who may see an event.
 type Audience uint8
 
 const (
@@ -283,7 +282,6 @@ func (h *Hub) EndSession(session storage.UUID) {
 	h.wake()
 }
 
-// Close ends every subscription.
 func (h *Hub) Close() {
 	h.mu.Lock()
 	defer h.mu.Unlock()

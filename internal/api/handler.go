@@ -80,7 +80,6 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 
 type callerKey struct{}
 
-// authenticate resolves the request's one identity.Caller, once.
 func (r *Router) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if !strings.HasPrefix(req.URL.Path, apiTree) {
