@@ -57,7 +57,7 @@ func TestLoadConfigDrawsASeedOnlyWhenNoneIsSet(t *testing.T) {
 
 func testDataDir(t *testing.T) DataDir {
 	t.Helper()
-	d, err := ParseDataDir(t.TempDir())
+	d, err := ParseDataDir(shortTempDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}

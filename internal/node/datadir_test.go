@@ -8,7 +8,7 @@ import (
 )
 
 func TestParseDataDirMakesTheSocketPathAbsoluteAndShort(t *testing.T) {
-	t.Chdir(t.TempDir())
+	t.Chdir(shortTempDir(t))
 	wd, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatal(err)
