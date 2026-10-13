@@ -180,7 +180,7 @@ func TestAWithdrawnItemFollowsItsLiveSiblings(t *testing.T) {
 func show() contenttypetest.Record {
 	return contenttypetest.Record{
 		Tree: works.Fetched{
-			Label: "Harbour Lights",
+			Label: "Lamplight Bay",
 			Children: []works.Entry{
 				branch("sp", "Specials", leaf("x9001", "Christmas Special")),
 				branch("sn1", "Season 1", leaf("x1101", "Pilot"), leaf("x1102", "Tides")),
@@ -203,7 +203,7 @@ func TestASeasonalWorkFollowsItsSource(t *testing.T) {
 	h := shaped(t, "seasonal", seasonalShape)
 	h.fx.Put("s1", show())
 	first, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1")
-	expectTree(t, "add", first, err, `s1 "Harbour Lights" sort "Harbour Lights"
+	expectTree(t, "add", first, err, `s1 "Lamplight Bay" sort "Lamplight Bay"
   level sp depth 1 under "" #1 "Specials" number=0
   level sn1 depth 1 under "" #2 "Season 1" number=1
   level sn2 depth 1 under "" #3 "Season 2" number=2
@@ -225,7 +225,7 @@ func TestASeasonalWorkFollowsItsSource(t *testing.T) {
 	}
 	h.fx.Put("s1", next)
 	second, err := h.works.Refresh(t.Context(), admin, first.ID)
-	expectTree(t, "move, reorder, unaired", second, err, `s1 "Harbour Lights" sort "Harbour Lights"
+	expectTree(t, "move, reorder, unaired", second, err, `s1 "Lamplight Bay" sort "Lamplight Bay"
   level sp depth 1 under "" #1 "Specials" number=0
   level sn2 depth 1 under "" #2 "Season 2" number=2
   level sn1 depth 1 under "" #3 "Season 1" number=1
@@ -248,7 +248,7 @@ func TestASeasonalWorkFollowsItsSource(t *testing.T) {
 	}
 	h.fx.Put("s1", next)
 	third, err := h.works.Refresh(t.Context(), admin, first.ID)
-	expectTree(t, "season withdrawn", third, err, `s1 "Harbour Lights" sort "Harbour Lights"
+	expectTree(t, "season withdrawn", third, err, `s1 "Lamplight Bay" sort "Lamplight Bay"
   level sp depth 1 under "" #1 "Specials" number=0
   level sn1 depth 1 under "" #2 "Season 1" number=1
   level sn3 depth 1 under "" #3 "Season 3" number=3
