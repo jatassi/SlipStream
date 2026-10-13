@@ -120,7 +120,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 // as the process world probes the binary.
 func listenKeys(t *testing.T) []string {
 	t.Helper()
-	probe, err := node.ParseDataDir(t.TempDir())
+	probe, err := node.ParseDataDir(shortTempDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func listenKeys(t *testing.T) []string {
 
 func dataDir(t *testing.T, s scenario.Scenario, i int, listen []string) node.DataDir {
 	t.Helper()
-	dir, err := node.ParseDataDir(t.TempDir())
+	dir, err := node.ParseDataDir(shortTempDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,4 +325,16 @@ func (n *Node) logTail() {
 	lines := n.Log()
 	lines = lines[max(0, len(lines)-logLinesOnFailure):]
 	n.w.t.Logf("last %d lines of node %s's log:\n%s", len(lines), n.spec.Name, strings.Join(lines, "\n"))
+}
+
+// shortTempDir keeps a data dir's control socket path under macOS's 103-byte
+// limit, which t.TempDir's path can exceed.
+func shortTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "ss") //nolint:usetesting // t.TempDir's path is too long for the socket limit on macOS
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }
