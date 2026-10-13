@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -22,7 +24,12 @@ const (
 
 	connectPackage = protogen.GoImportPath("connectrpc.com/connect")
 	rpcPackage     = protogen.GoImportPath("github.com/jatassi/slipstream/internal/rpc")
+	rolePackage    = protogen.GoImportPath("github.com/jatassi/slipstream/internal/role")
 )
+
+// roleName is a Role's text form; the descriptor names its role.Name
+// constant, so a Role that does not exist fails to compile.
+var roleName = regexp.MustCompile(`^[a-z]+(-[a-z]+)*$`)
 
 // SyncService is the Role engine's own stream, which internal/role calls
 // directly; dispatch never routes it.
@@ -152,7 +159,11 @@ func place(f *protogen.File, s *protogen.Service, sb *servedBy) (dispatched, err
 	case "every_node":
 		return dispatched{service: s, constructor: "NewNodeService"}, nil
 	default:
-		return dispatched{service: s, constructor: "NewRoleService", role: holder.Get(target).String()}, nil
+		name := holder.Get(target).String()
+		if !roleName.MatchString(name) {
+			return dispatched{}, fmt.Errorf("%s: service %s is served by role %q, which is not a Role name", at(s.Desc), s.Desc.Name(), name)
+		}
+		return dispatched{service: s, constructor: "NewRoleService", role: name}, nil
 	}
 }
 
@@ -171,11 +182,21 @@ func emit(p *protogen.Plugin, f *protogen.File, services []dispatched) {
 		g.P("// ", name, " is the rpc descriptor of ", d.service.Desc.FullName(), ".")
 		g.P("var ", name, " = ", rpcPackage.Ident(d.constructor), "(")
 		if d.role != "" {
-			g.P(fmt.Sprintf("%q", d.role), ",")
+			g.P(rolePackage.Ident(constant(d.role)), ",")
 		}
 		g.P(name, "Name,")
 		g.P("func(c *", connectPackage.Ident("Client"), ") ", name, "Handler { return New", name, "Client(c) },")
 		g.P("Register", name, "Handler,")
 		g.P(")")
 	}
+}
+
+// constant is the role.Name constant for a Role's text form:
+// media-server-link is MediaServerLink.
+func constant(name string) string {
+	var b strings.Builder
+	for word := range strings.SplitSeq(name, "-") {
+		b.WriteString(strings.ToUpper(word[:1]) + word[1:])
+	}
+	return b.String()
 }

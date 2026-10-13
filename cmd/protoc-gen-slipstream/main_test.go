@@ -101,6 +101,7 @@ func TestRefusesAnUndispatchableService(t *testing.T) {
 	for name, want := range map[string]string{
 		"unplaced":  "fixture.proto:7: service EchoService has no served_by option",
 		"streaming": "fixture.proto:11: method WatchService.Watch streams; a dispatched service is unary",
+		"badrole":   `fixture.proto:9: service SearchingService is served by role "Media_Server", which is not a Role name`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			res := run(t, name)

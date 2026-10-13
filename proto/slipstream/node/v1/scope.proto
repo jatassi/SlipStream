@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package slipstream.node.v1;
+
+// NodeIntent is the node scope's intent: the Roles assigned to the Node.
+message NodeIntent {
+  repeated string roles = 1;
+}
+
+// NodeFacts is the node scope's facts: the Roles the holder half has
+// assigned, running and waiting to restart, and the node-scope version it
+// applied.
+message NodeFacts {
+  repeated string assigned = 1;
+  repeated string running = 2;
+  repeated string restarting = 3;
+  bytes applied_version = 4;
+}

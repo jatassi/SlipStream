@@ -6,6 +6,7 @@ package fixturev1connect
 
 import (
 	connect "connectrpc.com/connect/v2"
+	role "github.com/jatassi/slipstream/internal/role"
 	rpc "github.com/jatassi/slipstream/internal/rpc"
 )
 
@@ -25,7 +26,7 @@ var ProbeService = rpc.NewNodeService(
 
 // SearchingService is the rpc descriptor of fixture.v1.SearchingService.
 var SearchingService = rpc.NewRoleService(
-	"searching",
+	role.Searching,
 	SearchingServiceName,
 	func(c *connect.Client) SearchingServiceHandler { return NewSearchingServiceClient(c) },
 	RegisterSearchingServiceHandler,
