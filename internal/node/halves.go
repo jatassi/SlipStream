@@ -88,6 +88,10 @@ func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
 		TLSHandshakeTimeout: 10 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
 	}
+	n.claimed.OnStop("content types", func(context.Context) error {
+		transport.CloseIdleConnections()
+		return nil
+	})
 	client := &http.Client{Transport: transport}
 	types := map[works.TypeID]contenttype.Type{}
 	for _, t := range n.env.Types.All() {
