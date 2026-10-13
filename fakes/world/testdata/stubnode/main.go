@@ -105,11 +105,12 @@ func run(dir string) {
 func stop(dir string) {
 	d, err := node.ParseDataDir(dir)
 	fail(err)
-	conn, err := net.Dial("unix", d.ControlSocket())
+	conn, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: d.ControlSocket(), Net: "unix"})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "slipstream stop: no Node answered on "+dir)
 		os.Exit(node.ExitFailed)
 	}
+	fail(conn.CloseWrite())
 	if _, err := io.Copy(io.Discard, conn); err != nil && !errors.Is(err, net.ErrClosed) {
 		fail(err)
 	}

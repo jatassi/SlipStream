@@ -45,10 +45,10 @@ func Version() string {
 }
 
 func Open(cfg engine.Config) (*Session, error) {
-	iface := C.CString(cfg.ListenInterface.String())
-	defer C.free(unsafe.Pointer(iface))
+	addr := C.CString(cfg.ListenInterface.Addr().String())
+	defer C.free(unsafe.Pointer(addr))
 	var cerr C.lts_error
-	ses := C.lts_open(iface, discoveryBits(cfg.Discovery), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(cfg.ListenInterface.Port()), discoveryBits(cfg.Discovery), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}

@@ -5,9 +5,11 @@
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/bdecode.hpp>
 #include <libtorrent/error_code.hpp>
+#include <libtorrent/io_context.hpp>
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
 #include <libtorrent/settings_pack.hpp>
+#include <libtorrent/socket.hpp>
 #include <libtorrent/torrent_handle.hpp>
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/torrent_status.hpp>
@@ -201,13 +203,40 @@ void convert(lts_session* s, lt::alert* a) {
 	if (o.torrent != 0) s->pending.push_back(o);
 }
 
+// libtorrent binds TCP on the listen port and then uTP on the same port, and
+// retries only on address-in-use. Windows refuses that UDP bind with
+// WSAEACCES when another socket holds the port on 0.0.0.0 with
+// SO_EXCLUSIVEADDRUSE, which left a session asked for any port listening
+// nowhere.
+uint16_t shared_port(lt::address const& addr) {
+	lt::io_context io;
+	lt::error_code ec;
+	for (int i = 0; i < 8; ++i) {
+		lt::udp::socket udp(io, lt::udp::endpoint(addr, 0));
+		uint16_t port = udp.local_endpoint().port();
+		lt::tcp::acceptor tcp(io);
+		tcp.open(addr.is_v4() ? lt::tcp::v4() : lt::tcp::v6());
+		tcp.bind(lt::tcp::endpoint(addr, port), ec);
+		if (!ec) return port;
+	}
+	throw lt::system_error(ec);
+}
+
+std::string listen_interface(lt::address const& addr, uint16_t port) {
+	std::string host = addr.to_string();
+	if (addr.is_v6()) host = "[" + host + "]";
+	return host + ":" + std::to_string(port);
+}
+
 }
 
 extern "C" {
 
-lts_session* lts_open(char const* listen_interface, uint32_t discovery, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
+		lt::address addr = lt::make_address(address);
+		if (port == 0) port = shared_port(addr);
 		sp p = lt::high_performance_seed();
 		for (auto const& kv : preset_ints) p.set_int(kv.name, kv.value);
 		for (auto const& kv : preset_bools) p.set_bool(kv.name, kv.value);
@@ -215,7 +244,7 @@ lts_session* lts_open(char const* listen_interface, uint32_t discovery, lts_erro
 		p.set_bool(sp::enable_lsd, discovery & LTS_DISCOVERY_LSD);
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
-		p.set_str(sp::listen_interfaces, listen_interface);
+		p.set_str(sp::listen_interfaces, listen_interface(addr, port));
 		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage)));
 		s = new lts_session(lt::session_params(std::move(p)));
 	});
