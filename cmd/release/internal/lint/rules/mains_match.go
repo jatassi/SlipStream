@@ -26,12 +26,6 @@ const (
 	e2eMainDir     = "cmd/slipstream-e2e"
 )
 
-type mainFile struct {
-	path   string
-	fset   *token.FileSet
-	syntax *ast.File
-}
-
 func checkMainsMatch(repo *lint.Repo) ([]lint.Finding, error) {
 	module, err := modulePath(repo)
 	if err != nil {
@@ -63,7 +57,7 @@ func checkMainsMatch(repo *lint.Repo) ([]lint.Finding, error) {
 		return findings, nil
 	}
 	release, e2e := mains[releaseMainDir], mains[e2eMainDir]
-	stripped, removed := newTestTypeStripper(module, e2e).strip(e2e.Syntax)
+	stripped, removed := newTestTypeStripper(module, e2e).file(e2e.Syntax)
 	if removed == 0 {
 		findings = append(findings, lint.Finding{Path: e2e.Path, Line: 1, Message: "registers no test Content Type"})
 	}
@@ -101,60 +95,79 @@ func newTestTypeStripper(module string, f lint.GoFile) testTypeStripper {
 	return s
 }
 
-// strip returns n's copy and how many node.Main arguments it removed; a nil
-// copy means n goes entirely.
-func (s testTypeStripper) strip(n ast.Node) (ast.Node, int) {
-	switch n := n.(type) {
-	case *ast.File:
-		c := *n
-		var removed int
-		c.Decls, removed = stripEach(s, n.Decls)
-		return &c, removed
-	case *ast.GenDecl:
-		if n.Tok != token.IMPORT {
-			return n, 0
+func (s testTypeStripper) file(f *ast.File) (out *ast.File, removed int) {
+	c := *f
+	c.Decls = nil
+	for _, d := range f.Decls {
+		switch d := d.(type) {
+		case *ast.GenDecl:
+			if d.Tok != token.IMPORT {
+				c.Decls = append(c.Decls, d)
+				continue
+			}
+			g := *d
+			g.Specs = slices.DeleteFunc(slices.Clone(d.Specs), s.isTestImport)
+			if len(g.Specs) > 0 {
+				c.Decls = append(c.Decls, &g)
+			}
+		case *ast.FuncDecl:
+			fn := *d
+			if d.Body != nil {
+				var n int
+				fn.Body, n = s.block(d.Body)
+				removed += n
+			}
+			c.Decls = append(c.Decls, &fn)
+		default:
+			c.Decls = append(c.Decls, d)
 		}
-		c := *n
-		c.Specs, _ = stripEach(s, n.Specs)
-		if len(c.Specs) == 0 {
-			return nil, 0
-		}
-		return &c, 0
-	case *ast.ImportSpec:
-		if p, _ := strconv.Unquote(n.Path.Value); strings.HasPrefix(p, s.prefix) {
-			return nil, 0
-		}
-		return n, 0
-	case *ast.FuncDecl:
-		if n.Body == nil {
-			return n, 0
-		}
-		c := *n
-		body, removed := s.strip(n.Body)
-		c.Body = body.(*ast.BlockStmt)
-		return &c, removed
-	case *ast.BlockStmt:
-		c := *n
-		var removed int
-		c.List, removed = stripEach(s, n.List)
-		return &c, removed
-	case *ast.ExprStmt:
-		c := *n
-		x, removed := s.strip(n.X)
-		c.X = x.(ast.Expr)
-		return &c, removed
-	case *ast.CallExpr:
-		c := *n
-		var removed int
-		c.Args, removed = stripEach(s, n.Args)
-		if pkg, name, ok := qualifiedName(s.imports, n.Fun); ok && pkg == s.nodeMain && name == "Main" {
-			before := len(c.Args)
-			c.Args = slices.DeleteFunc(c.Args, s.isTestDef)
-			removed += before - len(c.Args)
-		}
-		return &c, removed
 	}
-	return n, 0
+	return &c, removed
+}
+
+func (s testTypeStripper) block(b *ast.BlockStmt) (out *ast.BlockStmt, removed int) {
+	c := *b
+	c.List = make([]ast.Stmt, len(b.List))
+	for i, stmt := range b.List {
+		c.List[i] = stmt
+		if e, ok := stmt.(*ast.ExprStmt); ok {
+			x := *e
+			var n int
+			x.X, n = s.expr(e.X)
+			removed += n
+			c.List[i] = &x
+		}
+	}
+	return &c, removed
+}
+
+func (s testTypeStripper) expr(e ast.Expr) (out ast.Expr, removed int) {
+	call, ok := e.(*ast.CallExpr)
+	if !ok {
+		return e, 0
+	}
+	c := *call
+	c.Args = make([]ast.Expr, len(call.Args))
+	for i, arg := range call.Args {
+		var n int
+		c.Args[i], n = s.expr(arg)
+		removed += n
+	}
+	if pkg, name, ok := qualifiedName(s.imports, call.Fun); ok && pkg == s.nodeMain && name == "Main" {
+		before := len(c.Args)
+		c.Args = slices.DeleteFunc(c.Args, s.isTestDef)
+		removed += before - len(c.Args)
+	}
+	return &c, removed
+}
+
+func (s testTypeStripper) isTestImport(spec ast.Spec) bool {
+	imp, ok := spec.(*ast.ImportSpec)
+	if !ok {
+		return false
+	}
+	p, _ := strconv.Unquote(imp.Path.Value)
+	return strings.HasPrefix(p, s.prefix)
 }
 
 func (s testTypeStripper) isTestDef(arg ast.Expr) bool {
@@ -164,19 +177,6 @@ func (s testTypeStripper) isTestDef(arg ast.Expr) bool {
 	}
 	x, ok := sel.X.(*ast.Ident)
 	return ok && s.testTypes[x.Name]
-}
-
-func stripEach[T ast.Node](s testTypeStripper, nodes []T) ([]T, int) {
-	out := make([]T, 0, len(nodes))
-	total := 0
-	for _, n := range nodes {
-		c, removed := s.strip(n)
-		total += removed
-		if c != nil {
-			out = append(out, c.(T))
-		}
-	}
-	return out, total
 }
 
 func firstDifference(fset *token.FileSet, a, b ast.Node) ast.Node {
