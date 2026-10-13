@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
@@ -49,6 +51,9 @@ type Env struct {
 	// OpenLog opens the log in dir, mirrored to stderr.
 	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
 	Types   contenttype.Set
+	// Media probes video files: the bundled ffprobe for a process, which
+	// Run finds beside the executable.
+	Media media.Prober
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -377,10 +382,32 @@ func changedTimings(keys []Key) []Key {
 
 var ErrInterrupted = errors.New("interrupted again while stopping")
 
+// bundledProber is the ffprobe the release ships beside the executable,
+// with ffmpeg beside it too (ADR 0015).
+func bundledProber() (media.FFprobe, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return media.FFprobe{}, fmt.Errorf("find the executable: %w", err)
+	}
+	beside := func(tool string) string { return filepath.Join(filepath.Dir(exe), tool+filepath.Ext(exe)) }
+	for _, tool := range []string{"ffprobe", "ffmpeg"} {
+		if info, err := os.Stat(beside(tool)); err != nil || !info.Mode().IsRegular() {
+			return media.FFprobe{}, fmt.Errorf("%s not found beside %s", tool, exe)
+		}
+	}
+	return media.FFprobe{Path: beside("ffprobe")}, nil
+}
+
 // Run is Start plus signals: SIGINT or SIGTERM stops the Node, and a second
 // one returns ErrInterrupted at once. Losing the reader of stderr does not
 // stop it.
 func Run(ctx context.Context, env Env) error {
+	prober, err := bundledProber()
+	if err != nil {
+		_, _ = fmt.Fprintln(env.Stderr, err)
+		return err
+	}
+	env.Media = prober
 	// Without a Notify for SIGPIPE, Go kills the process on a write to a
 	// broken pipe on stderr. With one, the write fails and the log file
 	// still gets the record.

@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -606,5 +607,32 @@ func TestNodeOutlivesItsStderrReader(t *testing.T) {
 	var last struct{ Msg string }
 	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &last); err != nil || last.Msg != "stopped" {
 		t.Fatalf("last log file record = %q (%v), want stopped:\n%s", last.Msg, err, logged)
+	}
+}
+
+func TestRunRefusesToStartWithoutFFprobeBesideIt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	bin := filepath.Join(dir, filepath.Base(testbin.Slipstream(t)))
+	program, err := os.ReadFile(testbin.Slipstream(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A child forked while bin is open for writing would make exec of bin
+	// fail with "text file busy".
+	syscall.ForkLock.RLock()
+	err = os.WriteFile(bin, program, 0o700) //nolint:gosec // the copy must run
+	syscall.ForkLock.RUnlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := startBinary(t, bin, dataDir(t))
+	if code := p.wait(); code != node.ExitFailed || p.output() != "ffprobe not found beside "+bin {
+		t.Fatalf("run: exit %d, stderr %q; want exit %d, ffprobe not found beside %s", code, p.output(), node.ExitFailed, bin)
+	}
+	cmd := exec.CommandContext(t.Context(), bin, "config", "--data-dir", dataDir(t))
+	cmd.Env = childEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("config without ffprobe: %v\n%s", err, out)
 	}
 }
