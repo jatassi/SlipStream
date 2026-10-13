@@ -1,0 +1,21 @@
+// Lockstep: a version mismatch closes every lockstep service on both sides,
+// so this package changes freely.
+syntax = "proto3";
+
+package slipstream.node.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// served_by places a dispatched service; protoc-gen-slipstream emits its
+// rpc descriptor from it.
+extend google.protobuf.ServiceOptions {
+  Holder served_by = 51000;
+}
+
+message Holder {
+  oneof target {
+    bool controller = 1;
+    bool every_node = 2;
+    string role = 3;
+  }
+}

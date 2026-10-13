@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package fixture.v1;
+
+import "slipstream/node/v1/options.proto";
+
+option go_package = "github.com/jatassi/slipstream/fixture/v1;fixturev1";
+
+service FactsService {
+  option (slipstream.node.v1.served_by) = {controller: true};
+  rpc Report(ReportRequest) returns (ReportResponse);
+}
+
+service ProbeService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
+}
+
+service SearchingService {
+  option (slipstream.node.v1.served_by) = {role: "searching"};
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+message ReportRequest {}
+message ReportResponse {}
+message ProbeRequest {}
+message ProbeResponse {}
+message SearchRequest {}
+message SearchResponse {}

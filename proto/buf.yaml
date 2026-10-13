@@ -1,0 +1,12 @@
+version: v2
+lint:
+  use:
+    - STANDARD
+  ignore_only:
+    RPC_REQUEST_STANDARD_NAME:
+      - slipstream/node/v1/sync.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - slipstream/node/v1/sync.proto
+breaking:
+  use:
+    - FILE

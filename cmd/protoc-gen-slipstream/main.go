@@ -1,0 +1,181 @@
+// Command protoc-gen-slipstream emits one rpc descriptor per dispatched
+// service, typed by the service's served_by option, into the package
+// protoc-gen-connect-go writes, so a call placed wrong does not compile.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"path"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
+)
+
+const (
+	frozenPackage = "slipstream.link.v1"
+	servedByName  = "slipstream.node.v1.served_by"
+
+	connectPackage = protogen.GoImportPath("connectrpc.com/connect")
+	rpcPackage     = protogen.GoImportPath("github.com/jatassi/slipstream/internal/rpc")
+)
+
+// SyncService is the Role engine's own stream, which internal/role calls
+// directly; dispatch never routes it.
+var undispatched = map[protoreflect.FullName]bool{
+	"slipstream.node.v1.SyncService": true,
+}
+
+// options names the connect import "connect", not "v2", by importing the
+// unversioned path and rewriting it, as protoc-gen-connect-go does.
+var options = protogen.Options{
+	ImportRewriteFunc: func(p protogen.GoImportPath) protogen.GoImportPath {
+		if p == connectPackage {
+			return connectPackage + "/v2"
+		}
+		return p
+	},
+}
+
+func main() {
+	options.Run(generate)
+}
+
+type dispatched struct {
+	service     *protogen.Service
+	constructor string
+	role        string
+}
+
+func generate(p *protogen.Plugin) error {
+	sb, err := servedByType(p)
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, f := range p.Files {
+		if !f.Generate {
+			continue
+		}
+		var services []dispatched
+		for _, s := range f.Services {
+			if f.Desc.Package() == frozenPackage || undispatched[s.Desc.FullName()] {
+				continue
+			}
+			d, err := place(f, s, sb)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			services = append(services, d)
+		}
+		if len(services) > 0 {
+			emit(p, f, services)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// servedBy reads the option through a dynamic type built from the request,
+// so the plugin never links the code it generates. Its zero value finds no
+// option, for a request that never imports it.
+type servedBy struct {
+	ext      protoreflect.ExtensionType
+	resolver protoregistry.Types
+}
+
+func servedByType(p *protogen.Plugin) (*servedBy, error) {
+	sb := &servedBy{}
+	for _, f := range p.Files {
+		for _, x := range f.Extensions {
+			if x.Desc.FullName() == servedByName {
+				sb.ext = dynamicpb.NewExtensionType(x.Desc)
+				if err := sb.resolver.RegisterExtension(sb.ext); err != nil {
+					return nil, fmt.Errorf("register %s: %w", servedByName, err)
+				}
+				return sb, nil
+			}
+		}
+	}
+	return sb, nil
+}
+
+func (sb *servedBy) holder(s *protogen.Service) (protoreflect.Message, error) {
+	if sb.ext == nil {
+		return nil, nil
+	}
+	raw, err := proto.Marshal(s.Desc.Options())
+	if err != nil {
+		return nil, fmt.Errorf("marshal options: %w", err)
+	}
+	opts := &descriptorpb.ServiceOptions{}
+	if err := (proto.UnmarshalOptions{Resolver: &sb.resolver}).Unmarshal(raw, opts); err != nil {
+		return nil, fmt.Errorf("unmarshal options: %w", err)
+	}
+	var holder protoreflect.Message
+	opts.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.FullName() == servedByName {
+			holder = v.Message()
+		}
+		return holder == nil
+	})
+	return holder, nil
+}
+
+func place(f *protogen.File, s *protogen.Service, sb *servedBy) (dispatched, error) {
+	at := func(d protoreflect.Descriptor) string {
+		return fmt.Sprintf("%s:%d", f.Desc.Path(), f.Desc.SourceLocations().ByDescriptor(d).StartLine+1)
+	}
+	holder, err := sb.holder(s)
+	if err != nil {
+		return dispatched{}, fmt.Errorf("%s: %w", at(s.Desc), err)
+	}
+	var target protoreflect.FieldDescriptor
+	if holder != nil {
+		target = holder.WhichOneof(holder.Descriptor().Oneofs().ByName("target"))
+	}
+	if target == nil {
+		return dispatched{}, fmt.Errorf("%s: service %s has no served_by option", at(s.Desc), s.Desc.Name())
+	}
+	for _, m := range s.Methods {
+		if m.Desc.IsStreamingClient() || m.Desc.IsStreamingServer() {
+			return dispatched{}, fmt.Errorf("%s: method %s.%s streams; a dispatched service is unary", at(m.Desc), s.Desc.Name(), m.Desc.Name())
+		}
+	}
+	switch target.Name() {
+	case "controller":
+		return dispatched{service: s, constructor: "NewControllerService"}, nil
+	case "every_node":
+		return dispatched{service: s, constructor: "NewNodeService"}, nil
+	default:
+		return dispatched{service: s, constructor: "NewRoleService", role: holder.Get(target).String()}, nil
+	}
+}
+
+func emit(p *protogen.Plugin, f *protogen.File, services []dispatched) {
+	pkg := f.GoPackageName + "connect"
+	prefix := path.Join(path.Dir(f.GeneratedFilenamePrefix), string(pkg), path.Base(f.GeneratedFilenamePrefix))
+	g := p.NewGeneratedFile(prefix+".slipstream.go", protogen.GoImportPath(path.Join(string(f.GoImportPath), string(pkg))))
+	g.P("// Code generated by protoc-gen-slipstream. DO NOT EDIT.")
+	g.P("//")
+	g.P("// Source: ", f.Desc.Path())
+	g.P()
+	g.P("package ", pkg)
+	for _, d := range services {
+		name := d.service.GoName
+		g.P()
+		g.P("// ", name, " is the rpc descriptor of ", d.service.Desc.FullName(), ".")
+		g.P("var ", name, " = ", rpcPackage.Ident(d.constructor), "(")
+		if d.role != "" {
+			g.P(fmt.Sprintf("%q", d.role), ",")
+		}
+		g.P(name, "Name,")
+		g.P("func(c *", connectPackage.Ident("Client"), ") ", name, "Handler { return New", name, "Client(c) },")
+		g.P("Register", name, "Handler,")
+		g.P(")")
+	}
+}

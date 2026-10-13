@@ -1,0 +1,131 @@
+// Frozen at the first v1.0.0 release: every Node of every version speaks it,
+// so a Worker on any version can pair, say Hello and fetch its update.
+// `release proto-frozen` runs buf breaking with the FILE rules against it.
+syntax = "proto3";
+
+package slipstream.link.v1;
+
+service LinkService {
+  rpc Pair(PairRequest) returns (PairResponse);
+  // The first call on every session, by whichever side dialed.
+  rpc Hello(HelloRequest) returns (HelloResponse);
+}
+
+service UpdateService {
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+  rpc FetchArtifact(FetchArtifactRequest) returns (stream FetchArtifactResponse);
+}
+
+// ip is 4 or 16 bytes.
+message Address {
+  bytes ip = 1;
+  uint32 port = 2;
+}
+
+message PeerAddresses {
+  repeated Address addresses = 1;
+}
+
+enum InstallKind {
+  INSTALL_KIND_UNSPECIFIED = 0;
+  INSTALL_KIND_DEV = 1;
+  INSTALL_KIND_TARBALL = 2;
+  INSTALL_KIND_DEB = 3;
+  INSTALL_KIND_RPM = 4;
+  INSTALL_KIND_MSI = 5;
+  INSTALL_KIND_WINDOWS_ZIP = 6;
+  INSTALL_KIND_MACOS_APP = 7;
+  INSTALL_KIND_DOCKER = 8;
+}
+
+message NodeInfo {
+  string version = 1;
+  string os = 2;
+  string arch = 3;
+  InstallKind install_kind = 4;
+  PeerAddresses addresses = 5;
+}
+
+message PairRequest {
+  bytes secret = 1;
+  string name = 2;
+}
+
+message PairResponse {
+  oneof outcome {
+    Paired paired = 1;
+    Refused refused = 2;
+  }
+}
+
+message Paired {
+  bytes node_id = 1;
+}
+
+message HelloRequest {
+  NodeInfo node = 1;
+  Superseded superseded = 2;
+}
+
+message HelloResponse {
+  oneof outcome {
+    Welcome welcome = 1;
+    Superseded superseded = 2;
+    Redirect redirect = 3;
+    Refused refused = 4;
+  }
+}
+
+message Welcome {
+  NodeInfo node = 1;
+}
+
+message Superseded {
+  bytes by_key = 1;
+  PeerAddresses addresses = 2;
+}
+
+// notice is a serialized HandoverNotice, Ed25519-signed by the old key.
+message Redirect {
+  bytes notice = 1;
+  bytes signature = 2;
+}
+
+message HandoverNotice {
+  bytes new_key = 1;
+  PeerAddresses addresses = 2;
+  int64 issued_at_unix_micro = 3;
+}
+
+message Refused {
+  RefusedReason reason = 1;
+}
+
+enum RefusedReason {
+  REFUSED_REASON_UNSPECIFIED = 0;
+  REFUSED_REASON_UNKNOWN_KEY = 1;
+  REFUSED_REASON_JOIN_CODE_UNKNOWN = 2;
+  REFUSED_REASON_JOIN_CODE_EXPIRED = 3;
+  REFUSED_REASON_JOIN_CODE_USED = 4;
+  REFUSED_REASON_NOT_A_CONTROLLER = 5;
+}
+
+message GetManifestRequest {
+  string os = 1;
+  string arch = 2;
+  InstallKind install_kind = 3;
+}
+
+// manifest is opaque here; its format belongs to the Updates spec.
+message GetManifestResponse {
+  bytes manifest = 1;
+}
+
+message FetchArtifactRequest {
+  string name = 1;
+  uint64 offset = 2;
+}
+
+message FetchArtifactResponse {
+  bytes data = 1;
+}

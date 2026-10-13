@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package fixture.v1;
+
+option go_package = "github.com/jatassi/slipstream/fixture/v1;fixturev1";
+
+service EchoService {
+  rpc Echo(EchoRequest) returns (EchoResponse);
+}
+
+message EchoRequest {}
+message EchoResponse {}
