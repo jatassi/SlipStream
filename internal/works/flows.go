@@ -288,7 +288,7 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 		levelIDs[l.Key], levelKeys[l.ID] = l.ID, l.Key
 	}
 	for _, l := range levels {
-		stored.Levels = append(stored.Levels, node{Key: l.Key, Parent: levelKeys[l.ParentID], Depth: int(l.Depth), Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt})
+		stored.Levels = append(stored.Levels, level{node: node{Key: l.Key, Parent: levelKeys[l.ParentID], Label: l.Label, Position: int(l.Position), WithdrawnAt: l.WithdrawnAt}, Depth: int(l.Depth)})
 	}
 	itemIDs := map[Key]ItemID{}
 	for _, it := range items {
@@ -300,22 +300,24 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 		return err
 	}
 	for _, c := range pl.Levels {
+		l := c.Node
 		if c.Insert {
-			levelIDs[c.Key] = LevelID{UUID: storage.NewUUID()}
-			err = q.InsertLevel(ctx, db.InsertLevelParams{ID: levelIDs[c.Key], WorkID: id, ParentID: levelIDs[c.Parent], Depth: int64(c.Depth), Key: c.Key, Label: c.Label, Position: int64(c.Position), WithdrawnAt: c.WithdrawnAt})
+			levelIDs[l.Key] = LevelID{UUID: storage.NewUUID()}
+			err = q.InsertLevel(ctx, db.InsertLevelParams{ID: levelIDs[l.Key], WorkID: id, ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Key: l.Key, Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt})
 		} else {
-			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[c.Parent], Depth: int64(c.Depth), Label: c.Label, Position: int64(c.Position), WithdrawnAt: c.WithdrawnAt, ID: levelIDs[c.Key]})
+			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, ID: levelIDs[l.Key]})
 		}
 		if err != nil {
 			return err
 		}
 	}
 	for _, c := range pl.Items {
+		it := c.Node
 		if c.Insert {
-			itemIDs[c.Key] = ItemID{UUID: storage.NewUUID()}
-			err = q.InsertItem(ctx, db.InsertItemParams{ID: itemIDs[c.Key], WorkID: id, LevelID: levelIDs[c.Parent], Key: c.Key, Label: c.Label, Position: int64(c.Position), WithdrawnAt: c.WithdrawnAt})
+			itemIDs[it.Key] = ItemID{UUID: storage.NewUUID()}
+			err = q.InsertItem(ctx, db.InsertItemParams{ID: itemIDs[it.Key], WorkID: id, LevelID: levelIDs[it.Parent], Key: it.Key, Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt})
 		} else {
-			err = q.UpdateItem(ctx, db.UpdateItemParams{LevelID: levelIDs[c.Parent], Label: c.Label, Position: int64(c.Position), WithdrawnAt: c.WithdrawnAt, ID: itemIDs[c.Key]})
+			err = q.UpdateItem(ctx, db.UpdateItemParams{LevelID: levelIDs[it.Parent], Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, ID: itemIDs[it.Key]})
 		}
 		if err != nil {
 			return err

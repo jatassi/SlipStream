@@ -10,14 +10,20 @@ import (
 type node struct {
 	Key         Key
 	Parent      Key
-	Depth       int
 	Label       string
 	Position    int
 	WithdrawnAt storage.Time
 }
 
+func (n *node) entry() *node { return n }
+
+type level struct {
+	node
+	Depth int
+}
+
 type nodes struct {
-	Levels []node
+	Levels []level
 	Items  []node
 }
 
@@ -76,8 +82,7 @@ func (p *parser) entries(parentName string, parent Key, depth int, es []Entry) e
 			p.out.Items = append(p.out.Items, n)
 			continue
 		}
-		n.Depth = depth
-		p.out.Levels = append(p.out.Levels, n)
+		p.out.Levels = append(p.out.Levels, level{node: n, Depth: depth})
 		if err := p.entries(name, e.Key, depth+1, e.Children); err != nil {
 			return err
 		}
@@ -89,8 +94,8 @@ func invalid(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, args...))
 }
 
-type change struct {
-	node
+type change[N any] struct {
+	Node   N
 	Insert bool
 }
 
@@ -98,8 +103,8 @@ type plan struct {
 	Label       string
 	SortLabel   string
 	RefreshedAt storage.Time
-	Levels      []change
-	Items       []change
+	Levels      []change[level]
+	Items       []change[node]
 }
 
 func planMerge(stored nodes, fetched parsed, now storage.Time) plan {
@@ -112,24 +117,30 @@ func planMerge(stored nodes, fetched parsed, now storage.Time) plan {
 	}
 }
 
-func mergeTier(stored, fetched []node, now storage.Time) []change {
-	byKey := make(map[Key]node, len(stored))
+type tierNode[N any] interface {
+	*N
+	entry() *node
+}
+
+func mergeTier[N comparable, P tierNode[N]](stored, fetched []N, now storage.Time) []change[N] {
+	byKey := make(map[Key]N, len(stored))
 	for _, n := range stored {
-		byKey[n.Key] = n
+		byKey[P(&n).entry().Key] = n
 	}
 	listed := make(map[Key]bool, len(fetched))
-	var out []change
+	var out []change[N]
 	for _, n := range fetched {
-		listed[n.Key] = true
-		old, ok := byKey[n.Key]
+		key := P(&n).entry().Key
+		listed[key] = true
+		old, ok := byKey[key]
 		if !ok || old != n {
-			out = append(out, change{node: n, Insert: !ok})
+			out = append(out, change[N]{Node: n, Insert: !ok})
 		}
 	}
 	for _, n := range stored {
-		if !listed[n.Key] && n.WithdrawnAt.IsZero() {
-			n.WithdrawnAt = now
-			out = append(out, change{node: n})
+		if e := P(&n).entry(); !listed[e.Key] && e.WithdrawnAt.IsZero() {
+			e.WithdrawnAt = now
+			out = append(out, change[N]{Node: n})
 		}
 	}
 	return out

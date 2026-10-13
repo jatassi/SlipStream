@@ -15,24 +15,28 @@ var (
 	now     = storage.FromTime(time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC))
 )
 
-func album(key Key, pos int) node {
-	return node{Key: key, Depth: 1, Label: "Album " + string(key), Position: pos}
+func album(key Key, pos int) level {
+	return level{node: node{Key: key, Label: "Album " + string(key), Position: pos}, Depth: 1}
 }
 
 func track(key, on Key, pos int) node {
 	return node{Key: key, Parent: on, Label: "Track " + string(key), Position: pos}
 }
 
-func fetched(levels, items []node) parsed {
+func fetched(levels []level, items []node) parsed {
 	return parsed{Label: "Artist", SortLabel: "Artist, The", nodes: nodes{Levels: levels, Items: items}}
 }
 
+func withdrawn[N any, P tierNode[N]](n N, at storage.Time) N {
+	P(&n).entry().WithdrawnAt = at
+	return n
+}
+
 func TestPlanMerge(t *testing.T) {
-	withdrawn := func(n node, at storage.Time) node { n.WithdrawnAt = at; return n }
 	renamed := func(n node, label string) node { n.Label = label; return n }
 	moved := func(n node, parent Key, pos int) node { n.Parent, n.Position = parent, pos; return n }
 	stored := nodes{
-		Levels: []node{album("b1", 1), album("b2", 2)},
+		Levels: []level{album("b1", 1), album("b2", 2)},
 		Items:  []node{track("c1", "b1", 1), track("c2", "b1", 2), track("c3", "b2", 1)},
 	}
 	cases := []struct {
@@ -43,10 +47,10 @@ func TestPlanMerge(t *testing.T) {
 	}{
 		{
 			name:    "fresh tree",
-			fetched: fetched([]node{album("b1", 1)}, []node{track("c1", "b1", 1), track("c2", "b1", 2)}),
+			fetched: fetched([]level{album("b1", 1)}, []node{track("c1", "b1", 1), track("c2", "b1", 2)}),
 			want: plan{Label: "Artist", SortLabel: "Artist, The", RefreshedAt: now,
-				Levels: []change{{node: album("b1", 1), Insert: true}},
-				Items:  []change{{node: track("c1", "b1", 1), Insert: true}, {node: track("c2", "b1", 2), Insert: true}},
+				Levels: []change[level]{{Node: album("b1", 1), Insert: true}},
+				Items:  []change[node]{{Node: track("c1", "b1", 1), Insert: true}, {Node: track("c2", "b1", 2), Insert: true}},
 			},
 		},
 		{
@@ -60,37 +64,37 @@ func TestPlanMerge(t *testing.T) {
 			stored:  stored,
 			fetched: fetched(stored.Levels, []node{renamed(track("c1", "b1", 1), "Intro"), track("c2", "b1", 2), track("c3", "b2", 1)}),
 			want: plan{Label: "Artist", SortLabel: "Artist, The", RefreshedAt: now,
-				Items: []change{{node: renamed(track("c1", "b1", 1), "Intro")}},
+				Items: []change[node]{{Node: renamed(track("c1", "b1", 1), "Intro")}},
 			},
 		},
 		{
 			name:    "reorder",
 			stored:  stored,
-			fetched: fetched([]node{album("b2", 1), album("b1", 2)}, []node{track("c2", "b1", 1), track("c1", "b1", 2), track("c3", "b2", 1)}),
+			fetched: fetched([]level{album("b2", 1), album("b1", 2)}, []node{track("c2", "b1", 1), track("c1", "b1", 2), track("c3", "b2", 1)}),
 			want: plan{Label: "Artist", SortLabel: "Artist, The", RefreshedAt: now,
-				Levels: []change{{node: album("b2", 1)}, {node: album("b1", 2)}},
-				Items:  []change{{node: track("c2", "b1", 1)}, {node: track("c1", "b1", 2)}},
+				Levels: []change[level]{{Node: album("b2", 1)}, {Node: album("b1", 2)}},
+				Items:  []change[node]{{Node: track("c2", "b1", 1)}, {Node: track("c1", "b1", 2)}},
 			},
 		},
 		{
 			name:    "withdrawal",
 			stored:  stored,
-			fetched: fetched([]node{album("b1", 1)}, []node{track("c1", "b1", 1)}),
+			fetched: fetched([]level{album("b1", 1)}, []node{track("c1", "b1", 1)}),
 			want: plan{Label: "Artist", SortLabel: "Artist, The", RefreshedAt: now,
-				Levels: []change{{node: withdrawn(album("b2", 2), now)}},
-				Items:  []change{{node: withdrawn(track("c2", "b1", 2), now)}, {node: withdrawn(track("c3", "b2", 1), now)}},
+				Levels: []change[level]{{Node: withdrawn(album("b2", 2), now)}},
+				Items:  []change[node]{{Node: withdrawn(track("c2", "b1", 2), now)}, {Node: withdrawn(track("c3", "b2", 1), now)}},
 			},
 		},
 		{
 			name: "return",
 			stored: nodes{
-				Levels: []node{album("b1", 1), withdrawn(album("b2", 2), earlier)},
+				Levels: []level{album("b1", 1), withdrawn(album("b2", 2), earlier)},
 				Items:  []node{track("c1", "b1", 1), withdrawn(track("c2", "b1", 2), earlier), withdrawn(track("c3", "b2", 1), earlier)},
 			},
-			fetched: fetched([]node{album("b1", 1), album("b2", 2)}, []node{track("c1", "b1", 1), track("c3", "b2", 1)}),
+			fetched: fetched([]level{album("b1", 1), album("b2", 2)}, []node{track("c1", "b1", 1), track("c3", "b2", 1)}),
 			want: plan{Label: "Artist", SortLabel: "Artist, The", RefreshedAt: now,
-				Levels: []change{{node: album("b2", 2)}},
-				Items:  []change{{node: track("c3", "b2", 1)}},
+				Levels: []change[level]{{Node: album("b2", 2)}},
+				Items:  []change[node]{{Node: track("c3", "b2", 1)}},
 			},
 		},
 		{
@@ -98,7 +102,7 @@ func TestPlanMerge(t *testing.T) {
 			stored:  stored,
 			fetched: fetched(stored.Levels, []node{track("c1", "b1", 1), track("c3", "b2", 1), track("c2", "b2", 2)}),
 			want: plan{Label: "Artist", SortLabel: "Artist, The", RefreshedAt: now,
-				Items: []change{{node: moved(track("c2", "b1", 2), "b2", 2)}},
+				Items: []change[node]{{Node: moved(track("c2", "b1", 2), "b2", 2)}},
 			},
 		},
 	}
@@ -130,7 +134,7 @@ func TestParseFetchedPlacesEveryNode(t *testing.T) {
 	want := parsed{
 		Label: "Artist", SortLabel: "Artist",
 		nodes: nodes{
-			Levels: []node{{Key: "b1", Depth: 1, Label: "First", Position: 1}, {Key: "b2", Depth: 1, Label: "Second", Position: 2}},
+			Levels: []level{{node: node{Key: "b1", Label: "First", Position: 1}, Depth: 1}, {node: node{Key: "b2", Label: "Second", Position: 2}, Depth: 1}},
 			Items: []node{
 				{Key: "c1", Parent: "b1", Label: "One", Position: 1},
 				{Key: "c2", Parent: "b1", Label: "Two", Position: 2},
