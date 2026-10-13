@@ -53,12 +53,12 @@ type Node struct {
 	Key   link.Key
 	Host  *fault.Host
 	Trust *Trust
-	// Listening is every address the Node accepts sessions on.
-	Listening link.Addresses
+
+	listening link.Addresses
 }
 
 func (n *Node) Target() link.Target {
-	return link.Target{Key: n.Key, Addresses: n.Listening}
+	return link.Target{Key: n.Key, Addresses: n.listening}
 }
 
 // Start runs a Link named name on net at addrs, listening on Port at each.
@@ -123,7 +123,7 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 			}
 		})
 	}
-	if n.Listening, err = link.ParseAddresses(listening); err != nil {
+	if n.listening, err = link.ParseAddresses(listening); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
