@@ -2,20 +2,25 @@ package scenario
 
 import (
 	"fmt"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 )
 
 // Setup is what the world does with a Node once it is ready. The zero value
-// leaves it Unclaimed.
+// leaves it Unclaimed, controller claims it with the Scenario's Admin, and
+// join pairs it to the controller Node by Join Code.
 type Setup uint8
 
 const (
 	SetupNone Setup = iota
 	SetupController
+	SetupJoin
 )
 
-var setupNames = [...]string{SetupNone: "none", SetupController: "controller"}
+var setupNames = [...]string{SetupNone: "none", SetupController: "controller", SetupJoin: "join"}
+
+var setupList = strings.Join(setupNames[:], ", ")
 
 func (s Setup) String() string { return setupNames[s] }
 
@@ -28,7 +33,7 @@ func (s *Setup) UnmarshalText(b []byte) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("setup %q is not one of none, controller", b)
+	return fmt.Errorf("setup %q is not one of %s", b, setupList)
 }
 
 func (s *Setup) UnmarshalYAML(n *yaml.Node) error {
@@ -37,5 +42,5 @@ func (s *Setup) UnmarshalYAML(n *yaml.Node) error {
 			return nil
 		}
 	}
-	return &yaml.TypeError{Errors: []string{fmt.Sprintf("line %d: setup %q is not one of none, controller", n.Line, n.Value)}}
+	return &yaml.TypeError{Errors: []string{fmt.Sprintf("line %d: setup %q is not one of %s", n.Line, n.Value, setupList)}}
 }

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  Two Nodes. The Controller home holds every Role but Acquire and Relaying.
+  The Worker seedbox pairs by Join Code and holds Searching and Downloading.
+seed: home
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+timings:
+  node:
+    stop_deadline: 5s

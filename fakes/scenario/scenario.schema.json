@@ -39,8 +39,28 @@
             "type": "string",
             "enum": [
               "none",
-              "controller"
+              "controller",
+              "join"
             ]
+          },
+          "roles": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "searching",
+                "downloading",
+                "storage",
+                "converting",
+                "subtitles",
+                "metadata",
+                "media-server-link",
+                "notifying",
+                "relaying",
+                "serving"
+              ]
+            },
+            "type": "array",
+            "uniqueItems": true
           }
         },
         "additionalProperties": false,
