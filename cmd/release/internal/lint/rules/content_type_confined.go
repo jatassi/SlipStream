@@ -83,7 +83,6 @@ func (c *contentTypeCheck) reportLine(file string, line int, format string, args
 func (c *contentTypeCheck) defines(f lint.GoFile) {
 	dir := path.Dir(f.Path)
 	isType := isContentTypePackage(dir)
-	exempt := dir == contentTypePkg || strings.HasPrefix(dir, contentTypePkg+"/")
 	imports := importNames(f)
 	ast.Inspect(f.Syntax, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
@@ -99,15 +98,21 @@ func (c *contentTypeCheck) defines(f lint.GoFile) {
 			}
 			id, _ := strconv.Unquote(lit.Value)
 			c.ids = append(c.ids, id)
-		case !exempt:
+		case !definesFixtures(dir):
 			c.report(f.Path, call.Pos(), "contenttype.Define outside a Content Type package")
 		}
 		return true
 	})
 }
 
+// definesFixtures is internal/contenttype's tree, whose tests and helpers
+// Define the types they exercise.
+func definesFixtures(dir string) bool {
+	return dir == contentTypePkg || strings.HasPrefix(dir, contentTypePkg+"/")
+}
+
 func (c *contentTypeCheck) imports(f lint.GoFile) {
-	importer, _ := contentTypeScope(path.Dir(f.Path))
+	importer := scopeOf(path.Dir(f.Path)).id
 	importerIsType := isContentTypePackage(path.Dir(f.Path))
 	for _, imp := range f.Syntax.Imports {
 		p, _ := strconv.Unquote(imp.Path.Value)
@@ -115,7 +120,7 @@ func (c *contentTypeCheck) imports(f lint.GoFile) {
 		if !ok || !isContentTypePackage(rel) {
 			continue
 		}
-		imported, _ := contentTypeScope(rel)
+		imported := scopeOf(rel).id
 		switch {
 		case isCore(f.Path):
 			c.report(f.Path, imp.Pos(), "core imports %s; reach a Content Type through its facet", rel)
@@ -213,12 +218,12 @@ func scriptStrings(src string) []scriptString {
 }
 
 type scriptLexer struct {
-	src       string
-	i         int
-	line      int
-	depth     int
-	templates []int
-	lits      []scriptString
+	src                 string
+	i                   int
+	line                int
+	depth               int
+	interpolationDepths []int
+	lits                []scriptString
 }
 
 func (l *scriptLexer) next() {
@@ -228,9 +233,11 @@ func (l *scriptLexer) next() {
 		l.line++
 		l.i++
 	case strings.HasPrefix(src[i:], "//"):
-		l.skipTo("\n", 0)
+		l.skipTo("\n")
 	case strings.HasPrefix(src[i:], "/*"):
-		l.skipTo("*/", len("*/"))
+		if l.skipTo("*/") {
+			l.i += len("*/")
+		}
 	case c == '\'' || c == '"':
 		start := l.line
 		end := quoteEnd(src, i+1, c, &l.line)
@@ -241,15 +248,14 @@ func (l *scriptLexer) next() {
 		l.i = end
 	case c == '`':
 		start := l.line
-		end, interpolated := l.template(i + 1)
-		if !interpolated && end < len(src) {
-			l.lits = append(l.lits, scriptString{start, src[i+1 : end]})
+		if stop := l.template(i + 1); !stop.interpolated && stop.textEnd < len(src) {
+			l.lits = append(l.lits, scriptString{start, src[i+1 : stop.textEnd]})
 		}
 	case c == '{':
 		l.depth++
 		l.i++
-	case c == '}' && len(l.templates) > 0 && l.templates[len(l.templates)-1] == l.depth:
-		l.templates = l.templates[:len(l.templates)-1]
+	case c == '}' && len(l.interpolationDepths) > 0 && l.interpolationDepths[len(l.interpolationDepths)-1] == l.depth:
+		l.interpolationDepths = l.interpolationDepths[:len(l.interpolationDepths)-1]
 		l.template(i + 1)
 	case c == '}':
 		l.depth--
@@ -259,23 +265,24 @@ func (l *scriptLexer) next() {
 	}
 }
 
-func (l *scriptLexer) skipTo(end string, keep int) {
+func (l *scriptLexer) skipTo(end string) (found bool) {
 	n := strings.Index(l.src[l.i:], end)
 	if n < 0 {
 		l.i = len(l.src)
-		return
+		return false
 	}
 	l.line += strings.Count(l.src[l.i:l.i+n], "\n")
-	l.i += n + keep
+	l.i += n
+	return true
 }
 
-func (l *scriptLexer) template(i int) (end int, interpolated bool) {
-	end, interpolated = templateEnd(l.src, i, &l.line)
-	if interpolated {
-		l.templates = append(l.templates, l.depth)
+func (l *scriptLexer) template(i int) templateStop {
+	stop := templateEnd(l.src, i, &l.line)
+	if stop.interpolated {
+		l.interpolationDepths = append(l.interpolationDepths, l.depth)
 	}
-	l.i = end + 1
-	return end, interpolated
+	l.i = stop.resume()
+	return stop
 }
 
 func quoteEnd(src string, i int, quote byte, line *int) int {
@@ -297,13 +304,27 @@ func escaped(src string, i int, line *int) int {
 	return i + 1
 }
 
-func templateEnd(src string, i int, line *int) (end int, interpolated bool) {
+// templateStop is where a template's text stops: at its closing backtick,
+// or at the $ of an interpolation.
+type templateStop struct {
+	textEnd      int
+	interpolated bool
+}
+
+func (s templateStop) resume() int {
+	if s.interpolated {
+		return s.textEnd + len("${")
+	}
+	return s.textEnd + len("`")
+}
+
+func templateEnd(src string, i int, line *int) templateStop {
 	for i < len(src) {
 		switch {
 		case src[i] == '`':
-			return i, false
+			return templateStop{textEnd: i}
 		case strings.HasPrefix(src[i:], "${"):
-			return i + 1, true
+			return templateStop{textEnd: i, interpolated: true}
 		case src[i] == '\\':
 			i = escaped(src, i, line)
 		case src[i] == '\n':
@@ -311,7 +332,7 @@ func templateEnd(src string, i int, line *int) (end int, interpolated bool) {
 		}
 		i++
 	}
-	return len(src), false
+	return templateStop{textEnd: len(src)}
 }
 
 func (c *contentTypeCheck) surface() error {

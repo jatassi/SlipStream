@@ -100,7 +100,7 @@ func (idx fakesIndex) add(f lint.GoFile) {
 }
 
 func isFakePackage(dir string) bool {
-	if _, fake := contentTypeScope(dir); fake != "" {
+	if fake := scopeOf(dir).fake; fake != "" {
 		return fake == dir
 	}
 	return path.Dir(dir) == fakesTree && dir != testContentTypes && !slices.Contains(fakeInfrastructure, path.Base(dir))

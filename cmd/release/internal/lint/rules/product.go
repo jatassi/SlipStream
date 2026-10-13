@@ -32,7 +32,12 @@ const (
 	testContentTypes    = "fakes/contenttypes"
 )
 
-func contentTypeScope(dir string) (id, fake string) {
+type contentTypeScope struct {
+	id   string
+	fake string
+}
+
+func scopeOf(dir string) contentTypeScope {
 	for _, root := range []string{shippedContentTypes, testContentTypes} {
 		rest, ok := strings.CutPrefix(dir, root+"/")
 		if !ok {
@@ -40,16 +45,16 @@ func contentTypeScope(dir string) (id, fake string) {
 		}
 		elems := strings.Split(rest, "/")
 		if root == testContentTypes && len(elems) > 1 && elems[1] != "internal" {
-			return elems[0], path.Join(root, elems[0], elems[1])
+			return contentTypeScope{id: elems[0], fake: path.Join(root, elems[0], elems[1])}
 		}
-		return elems[0], ""
+		return contentTypeScope{id: elems[0]}
 	}
-	return "", ""
+	return contentTypeScope{}
 }
 
 func isContentTypePackage(dir string) bool {
-	id, fake := contentTypeScope(dir)
-	return id != "" && fake == ""
+	s := scopeOf(dir)
+	return s.id != "" && s.fake == ""
 }
 
 func underAny(file string, trees []string) bool {
