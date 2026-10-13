@@ -1,6 +1,6 @@
-import type { WorksWork } from "./worksWork.ts";
+import type { WorksListedWork } from "./worksListedWork.ts";
 
 export interface WorksWorkList {
   /** By sort label, then id */
-  works: WorksWork[];
+  works: WorksListedWork[];
 }

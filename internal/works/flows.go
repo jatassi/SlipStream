@@ -342,26 +342,49 @@ func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p
 	return c.Store(ctx, tx, at, p.Detail)
 }
 
-// List lists Works by sort label, then id: every Work, or t's.
-func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Summary, error) {
-	q := db.New(w.cfg.Library)
-	var rows []db.WorksWork
-	var err error
-	if t == nil {
-		rows, err = q.ListWorks(ctx)
-	} else if _, ok := w.types[*t]; !ok {
-		return nil, ErrNoType
-	} else {
-		rows, err = q.ListWorksOfType(ctx, *t)
+// Listed is a Work with its own fields, without its levels and Items.
+type Listed struct {
+	Summary
+	Fields []FieldValue
+}
+
+// List lists Works by sort label, then id, with their fields, from one
+// snapshot: every Work, or t's.
+func (w *Works) List(ctx context.Context, _ identity.Admin, t *TypeID) ([]Listed, error) {
+	if t != nil {
+		if _, ok := w.types[*t]; !ok {
+			return nil, ErrNoType
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Summary, len(rows))
-	for i, r := range rows {
-		out[i] = Summary(r)
-	}
-	return out, nil
+	var out []Listed
+	err := w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		q := db.New(r)
+		var rows []db.WorksWork
+		var err error
+		if t == nil {
+			rows, err = q.ListWorks(ctx)
+		} else {
+			rows, err = q.ListWorksOfType(ctx, *t)
+		}
+		if err != nil {
+			return err
+		}
+		out = make([]Listed, len(rows))
+		for i, row := range rows {
+			reg := w.types[row.ContentType]
+			fs, err := reg.catalog.Fields(ctx, r, row.ID)
+			if err != nil {
+				return fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+			}
+			values, err := ordered(reg.specs(TierWork), fs.Work)
+			if err != nil {
+				return fmt.Errorf("content type %s: fields of work %s: %w", row.ContentType, row.ID, err)
+			}
+			out[i] = Listed{Summary: Summary(row), Fields: values}
+		}
+		return nil
+	})
+	return out, err
 }
 
 // Get reads one Work's tree and its display fields from one snapshot.

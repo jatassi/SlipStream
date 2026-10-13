@@ -132,10 +132,12 @@ type principalKey struct{}
 // Register adds an operation. Its handler receives the principal its
 // level admits. Register panics at start on an id that is not
 // lowerCamelCase or is taken, a level below the owner's floor, an unlimited
-// or overflowing body limit, or a GET or HEAD with a request body.
+// or overflowing body limit, a GET or HEAD with a request body, or an
+// input or output embedding an unexported struct.
 func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context.Context, P, *I) (*O, error)) {
 	r := o.router
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
+	mustDocumentEmbedded(reflect.TypeFor[O](), map[reflect.Type]bool{})
 	huma.Register(r.huma, hop, func(ctx context.Context, in *I) (out *O, err error) {
 		p := principal[P](ctx, op)
 		defer func() {

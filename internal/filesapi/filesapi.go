@@ -46,7 +46,8 @@ func (cell) Variants() (discriminator string, variants []any) {
 	return "state", []any{missingCell{}, downloadingCell{}, failedCell{}, metCell{}}
 }
 
-type cellBase struct {
+// CellBase is exported so the document carries the fields each cell embeds.
+type CellBase struct {
 	ItemID     string `json:"itemId" format:"uuid"`
 	Edition    string `json:"edition" enum:"standard"`
 	TargetID   string `json:"targetId" format:"uuid"`
@@ -55,28 +56,28 @@ type cellBase struct {
 }
 
 type missingCell struct {
-	cellBase
+	CellBase
 	State string `json:"state" enum:"missing"`
 }
 
 type downloadingCell struct {
-	cellBase
+	CellBase
 	State string `json:"state" enum:"downloading"`
 }
 
 type failedCell struct {
-	cellBase
+	CellBase
 	State string `json:"state" enum:"failed"`
 }
 
 type metCell struct {
-	cellBase
+	CellBase
 	State string      `json:"state" enum:"met"`
 	File  libraryFile `json:"file" doc:"The file filling it"`
 }
 
 func variantOf(c files.Cell) api.OneOf[cell] {
-	base := cellBase{ItemID: c.Item.ID.String(), Edition: string(c.Edition), TargetID: c.Target.ID.String(), TargetName: c.Target.Name, Wanted: c.Wanted()}
+	base := CellBase{ItemID: c.Item.ID.String(), Edition: string(c.Edition), TargetID: c.Target.ID.String(), TargetName: c.Target.Name, Wanted: c.Wanted()}
 	state := c.State.String()
 	switch c.State {
 	case files.Missing:
