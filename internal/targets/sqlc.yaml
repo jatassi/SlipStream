@@ -1,0 +1,38 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: targets_target.id
+            go_type:
+              type: TargetID
+          - column: targets_resolution.target_id
+            go_type:
+              type: TargetID
+          - column: targets_resolution.resolution
+            go_type:
+              type: Resolution
+          - column: targets_profile.id
+            go_type:
+              type: ProfileID
+          - column: targets_profile.is_default
+            go_type: bool
+          - column: targets_profile.content_type
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+          - column: targets_profile_target.profile_id
+            go_type:
+              type: ProfileID
+          - column: targets_profile_target.target_id
+            go_type:
+              type: TargetID
