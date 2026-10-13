@@ -18,10 +18,13 @@ const (
 // Manifest describes a ready world. It exists only while the world is
 // ready: the launch writes it as its last step and stop renames it.
 type Manifest struct {
-	Schema      int         `json:"schema"`
-	RunID       string      `json:"runId"`
-	RunDir      string      `json:"runDir"`
-	ScratchDir  string      `json:"scratchDir"`
+	Schema     int    `json:"schema"`
+	RunID      string `json:"runId"`
+	RunDir     string `json:"runDir"`
+	ScratchDir string `json:"scratchDir"`
+	// MediaDir holds the library roots' folders, beside the Nodes' data
+	// dirs; absent for a Scenario without a library.
+	MediaDir    string      `json:"mediaDir,omitempty"`
 	Scenario    ScenarioRef `json:"scenario"`
 	Binary      Binary      `json:"binary"`
 	Supervisor  Supervisor  `json:"supervisor"`

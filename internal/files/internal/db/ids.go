@@ -32,5 +32,8 @@ func (p *Probe) Scan(v any) error {
 	if !ok {
 		return fmt.Errorf("scan a probe from %T", v)
 	}
-	return json.Unmarshal([]byte(s), p)
+	if err := json.Unmarshal([]byte(s), p); err != nil {
+		return fmt.Errorf("scan a probe: %w", err)
+	}
+	return nil
 }

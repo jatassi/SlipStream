@@ -3,6 +3,7 @@ package filesapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -84,8 +85,10 @@ func variantOf(c files.Cell) api.OneOf[cell] {
 		return api.NewOneOf[cell](downloadingCell{base, state})
 	case files.Failed:
 		return api.NewOneOf[cell](failedCell{base, state})
+	case files.Met:
+		return api.NewOneOf[cell](metCell{base, state, libraryFile{ID: c.File.ID.String(), Path: c.File.Path, Size: c.File.Size, Probe: probe(c.File.Probe)}})
 	}
-	return api.NewOneOf[cell](metCell{base, state, libraryFile{ID: c.File.ID.String(), Path: c.File.Path, Size: c.File.Size, Probe: probe(c.File.Probe)}})
+	panic(fmt.Sprintf("filesapi: a cell in state %d", c.State))
 }
 
 type cellsInput struct {

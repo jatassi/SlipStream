@@ -6,6 +6,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -112,7 +113,7 @@ func usable(path string) error {
 		return &UnusableError{Reason: "SlipStream can't create a file in the folder: " + cause(err)}
 	}
 	if err := probe.Close(); err != nil {
-		return err
+		return fmt.Errorf("close the check file: %w", err)
 	}
 	if err := os.Remove(probe.Name()); err != nil {
 		return &UnusableError{Reason: "SlipStream can't delete a file in the folder: " + cause(err)}

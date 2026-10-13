@@ -13,6 +13,9 @@
     "scratchDir": {
       "type": "string"
     },
+    "mediaDir": {
+      "type": "string"
+    },
     "scenario": {
       "properties": {
         "name": {

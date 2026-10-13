@@ -35,6 +35,9 @@ type Scenario struct {
 	// Music is the catalog fake-music-meta serves. A Scenario that sets it
 	// runs only on a binary that registers the music Content Type.
 	Music *Music `yaml:"music,omitempty"`
+	// Library is what the world creates on the controller Node after
+	// setting it up.
+	Library *Library `yaml:"library,omitempty"`
 }
 
 // Admin is the first Admin a controller Node is set up with.
@@ -123,6 +126,12 @@ func (s Scenario) Validate() error {
 	}
 	if s.Music != nil {
 		s.Music.check(add)
+	}
+	if s.Library != nil {
+		if len(controllers) == 0 {
+			add("library is set, but no node is controller")
+		}
+		s.Library.check(add)
 	}
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))

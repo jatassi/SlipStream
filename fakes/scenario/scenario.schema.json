@@ -329,6 +329,93 @@
       "required": [
         "artists"
       ]
+    },
+    "library": {
+      "properties": {
+        "roots": {
+          "items": {
+            "properties": {
+              "content_type": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]{1,15}$"
+              },
+              "folder": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "content_type",
+              "folder"
+            ]
+          },
+          "type": "array"
+        },
+        "targets": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "resolutions": {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "2160p",
+                    "1080p",
+                    "720p",
+                    "576p",
+                    "480p"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "resolutions"
+            ]
+          },
+          "type": "array"
+        },
+        "profiles": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "content_type": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]{1,15}$"
+              },
+              "targets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "content_type",
+              "targets"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     }
   },
   "additionalProperties": false,

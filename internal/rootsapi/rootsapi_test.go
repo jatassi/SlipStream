@@ -93,10 +93,10 @@ func TestAFolderThisNodeCannotWriteIsUnusable(t *testing.T) {
 	}
 	s, _ := serve(t)
 	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o500); err != nil {
+	if err := os.Chmod(dir, 0o500); err != nil { //nolint:gosec // a folder it can list but not write
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) }) //nolint:gosec // as t.TempDir made it
 	s.Expect(t, http.MethodPost, "/api/v1/roots", body("fixture", dir), http.StatusUnprocessableEntity,
 		`{"status":422,"code":"root_unusable","title":"The folder can't be a root","detail":"SlipStream can't create a file in the folder: permission denied"}`)
 }

@@ -34,10 +34,11 @@ func serve(t *testing.T) (*ownertest.Owner, *published) {
 
 func TestTargetsAndProfilesAreCreatedAndListed(t *testing.T) {
 	s, changed := serve(t)
-	s.Expect(t, http.MethodPost, "/api/v1/targets", `{"name":"1080p","resolutions":["1080p","720p"]}`, http.StatusCreated,
-		`{"id":"id1","name":"1080p","resolutions":["1080p","720p"],"createdAt":"T"}`)
+	code, hd := s.Call(t, http.MethodPost, "/api/v1/targets", `{"name":"1080p","resolutions":["1080p","720p"]}`)
+	if want := `{"id":"id1","name":"1080p","resolutions":["1080p","720p"],"createdAt":"T"}` + "\n"; code != http.StatusCreated || ownertest.Masked(hd) != want {
+		t.Fatalf("createTarget = %d %s, want 201 %s", code, hd, want)
+	}
 	_, uhd := s.Call(t, http.MethodPost, "/api/v1/targets", `{"name":"2160p","resolutions":["2160p"]}`)
-	_, hd := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.Expect(t, http.MethodGet, "/api/v1/targets", "", http.StatusOK,
 		`{"targets":[{"id":"id1","name":"1080p","resolutions":["1080p","720p"],"createdAt":"T"},{"id":"id2","name":"2160p","resolutions":["2160p"],"createdAt":"T"}]}`)
 	hdID, uhdID := ownertest.FirstID(hd), ownertest.FirstID(uhd)
