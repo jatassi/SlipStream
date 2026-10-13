@@ -30,6 +30,19 @@ func ParseUUID(s string) (UUID, error) {
 	return UUID{u: u}, nil
 }
 
+// UUIDFromBytes is the UUID whose 16 bytes are b, as it crosses the link.
+func UUIDFromBytes(b []byte) (UUID, error) {
+	if len(b) != len(uuid.UUID{}) {
+		return UUID{}, fmt.Errorf("storage.UUID: %d bytes, want 16", len(b))
+	}
+	return UUID{u: uuid.UUID(b)}, nil
+}
+
+func (u UUID) Bytes() []byte {
+	b := u.u
+	return b[:]
+}
+
 func (u UUID) String() string { return u.u.String() }
 
 func (u UUID) IsZero() bool { return u.u == uuid.Nil() }
