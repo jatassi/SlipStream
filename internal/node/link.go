@@ -8,8 +8,8 @@ import (
 	"net/netip"
 	"runtime"
 
+	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/link"
-	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 )
 
 // osNetwork is the operating system's network.
@@ -57,7 +57,7 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 
 // nodeInfo is this build as the link's Hello carries it.
 func nodeInfo(version string) link.NodeInfo {
-	return link.NodeInfo{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, InstallKind: linkv1.InstallKind_INSTALL_KIND_DEV}
+	return link.NodeInfo{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, InstallKind: buildinfo.InstallKind()}
 }
 
 func boundTCP(ln net.Listener) netip.AddrPort {
