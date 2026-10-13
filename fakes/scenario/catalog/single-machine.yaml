@@ -13,3 +13,16 @@ nodes:
 timings:
   node:
     stop_deadline: 5s
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+  - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 40
+    seeded: false
+tracker:
+  interval: 5s

@@ -35,6 +35,10 @@ type Scenario struct {
 	// Music is the catalog fake-music-meta serves. A Scenario that sets it
 	// runs only on a binary that registers the music Content Type.
 	Music *Music `yaml:"music,omitempty"`
+	// Releases are the releases the fakes offer, and Tracker how
+	// fake-tracker answers their announces.
+	Releases []Release `yaml:"releases,omitempty"`
+	Tracker  Tracker   `yaml:"tracker,omitempty"`
 }
 
 // Admin is the first Admin a controller Node is set up with.
@@ -124,6 +128,8 @@ func (s Scenario) Validate() error {
 	if s.Music != nil {
 		s.Music.check(add)
 	}
+	checkReleases(add, s.Releases)
+	s.Tracker.check(add)
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))
 	}

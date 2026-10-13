@@ -20,6 +20,15 @@ func singleMachine() Scenario {
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
 		Nodes:       []Node{{Name: "home", Setup: SetupController}},
 		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		Releases:    quietOrchard(),
+		Tracker:     Tracker{Interval: 5 * time.Second},
+	}
+}
+
+func quietOrchard() []Release {
+	return []Release{
+		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40},
 	}
 }
 
@@ -47,7 +56,9 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 			{Name: "home", Setup: SetupController, Roles: []role.Name{role.Storage, role.Converting, role.Subtitles, role.Metadata, role.MediaServerLink, role.Notifying, role.Serving}},
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
 		},
-		Timings: node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		Releases: quietOrchard(),
+		Tracker:  Tracker{Interval: 5 * time.Second},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Load(home) = %+v, want %+v", got, want)
@@ -220,6 +231,24 @@ nodes:
 timings:
   node:
     stop_deadline: 5s
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video:
+      width: 1920
+      height: 1080
+      seconds: 6
+    seeders: 12
+    seeded: true
+  - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video:
+      width: 1280
+      height: 720
+      seconds: 6
+    seeders: 40
+tracker:
+  interval: 5s
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)
@@ -257,8 +286,8 @@ func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
 	if !reflect.DeepEqual(back, s) {
 		t.Fatalf("read back %+v, want %+v", back, s)
 	}
-	want := "timings:\n  node:\n    stop_deadline: 5s\n  live:\n    retry: 2s\n"
-	if got := string(s.YAML()); !strings.HasSuffix(got, want) {
-		t.Fatalf("YAML() =\n%s\nwant it to end\n%s", got, want)
+	want := "timings:\n  node:\n    stop_deadline: 5s\n  live:\n    retry: 2s\nreleases:\n"
+	if got := string(s.YAML()); !strings.Contains(got, want) {
+		t.Fatalf("YAML() =\n%s\nwant it to hold\n%s", got, want)
 	}
 }

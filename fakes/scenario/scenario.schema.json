@@ -329,6 +329,73 @@
       "required": [
         "artists"
       ]
+    },
+    "releases": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "tmdb_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "video": {
+            "properties": {
+              "width": {
+                "type": "integer",
+                "multipleOf": 2,
+                "maximum": 7680,
+                "minimum": 2
+              },
+              "height": {
+                "type": "integer",
+                "multipleOf": 2,
+                "maximum": 4320,
+                "minimum": 2
+              },
+              "seconds": {
+                "type": "integer",
+                "maximum": 60,
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "width",
+              "height",
+              "seconds"
+            ]
+          },
+          "seeders": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "seeded": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "tmdb_id",
+          "video"
+        ]
+      },
+      "type": "array"
+    },
+    "tracker": {
+      "properties": {
+        "interval": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     }
   },
   "additionalProperties": false,
