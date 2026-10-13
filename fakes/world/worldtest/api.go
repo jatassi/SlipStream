@@ -102,6 +102,7 @@ type Row struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
 	Self          bool     `json:"self"`
+	Key           string   `json:"key"`
 	Addresses     []string `json:"addresses"`
 	Roles         []string `json:"roles"`
 	IntentVersion string   `json:"intentVersion"`
@@ -186,8 +187,8 @@ func CheckHome(t *testing.T, a *API) {
 	if seedbox.Link.Build == nil || home.Link.Build == nil || *seedbox.Link.Build != *home.Link.Build {
 		t.Fatalf("seedbox's build %+v is not home's %+v", seedbox.Link.Build, home.Link.Build)
 	}
-	if seedbox.ID != box.NodeID || !slices.Equal(box.Roles, seedboxRoles) || box.NodeKey == "" {
-		t.Fatalf("the manifest has seedbox as %s with roles %v and key %q; want %s with %v", box.NodeID, box.Roles, box.NodeKey, seedbox.ID, seedboxRoles)
+	if seedbox.ID != box.NodeID || !slices.Equal(box.Roles, seedboxRoles) || box.NodeKey != seedbox.Key {
+		t.Fatalf("the manifest has seedbox as %s with roles %v and key %q; want %s with %v and key %q", box.NodeID, box.Roles, box.NodeKey, seedbox.ID, seedboxRoles, seedbox.Key)
 	}
 
 	set := a.SetRoles("home", seedbox.ID, "searching")
