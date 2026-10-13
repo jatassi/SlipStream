@@ -134,6 +134,13 @@ func (e *end) Close() error {
 	return nil
 }
 
+// CloseWrite ends what this end writes; the peer reads io.EOF after the
+// buffered bytes, as a half-closed socket does.
+func (e *end) CloseWrite() error {
+	e.out.close(false)
+	return nil
+}
+
 func (e *end) LocalAddr() net.Addr  { return e.local }
 func (e *end) RemoteAddr() net.Addr { return e.remote }
 

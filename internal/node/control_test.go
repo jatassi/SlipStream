@@ -10,7 +10,7 @@ import (
 func TestStopNodeReturnsOnceTheDataDirIsFree(t *testing.T) {
 	env, _ := testEnv(t)
 	n := startTest(t, env)
-	if err := StopNode(t.Context(), env.DataDir); err != nil {
+	if err := StopNode(t.Context(), env.Net, env.DataDir); err != nil {
 		t.Fatalf("stop: %v", err)
 	}
 	startTest(t, env)
@@ -24,7 +24,7 @@ func TestUnknownOpNamesTheNodeVersion(t *testing.T) {
 	env, _ := testEnv(t)
 	startTest(t, env)
 	rename := op.Op[struct{}, struct{}]{Name: "rename"}
-	_, err := Call(t.Context(), env.DataDir, rename, struct{}{})
+	_, err := Call(t.Context(), env.Net, env.DataDir, rename, struct{}{})
 	want := &ControlError{Code: "unknown_op", Message: `unknown op "rename"; node version test`}
 	if got, ok := errors.AsType[*ControlError](err); !ok || *got != *want {
 		t.Fatalf("err = %v, want %v", err, want)

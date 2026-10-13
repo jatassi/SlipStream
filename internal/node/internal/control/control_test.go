@@ -90,7 +90,7 @@ func TestOneRequestManyReplies(t *testing.T) {
 			return errors.New("ran out")
 		},
 	})
-	c, err := control.Dial(t.Context(), path)
+	c, err := control.Dial(t.Context(), new(net.Dialer).DialContext, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestEveryRoundTripEndsAtEOF(t *testing.T) {
 	})
 	for i := range 500 {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		c, err := control.Dial(ctx, path)
+		c, err := control.Dial(ctx, new(net.Dialer).DialContext, path)
 		if err != nil {
 			t.Fatal(err)
 		}

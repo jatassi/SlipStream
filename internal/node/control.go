@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/op"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -37,9 +38,11 @@ type ControlError = control.Error
 // for the Node to exit by itself.
 const stopGrace = 5 * time.Second
 
-func Call[Req, Resp any](ctx context.Context, dir DataDir, o op.Op[Req, Resp], req Req) (Resp, error) {
+// Call sends o to the Node on dir through network, the one the Node's Env
+// serves its control socket on.
+func Call[Req, Resp any](ctx context.Context, network link.Network, dir DataDir, o op.Op[Req, Resp], req Req) (Resp, error) {
 	var resp Resp
-	c, err := dial(ctx, dir)
+	c, err := dial(ctx, network, dir)
 	if err != nil {
 		return resp, err
 	}
@@ -53,8 +56,8 @@ func Call[Req, Resp any](ctx context.Context, dir DataDir, o op.Op[Req, Resp], r
 	return resp, nil
 }
 
-func dial(ctx context.Context, dir DataDir) (*control.Conn, error) {
-	c, err := control.Dial(ctx, dir.ControlSocket())
+func dial(ctx context.Context, network link.Network, dir DataDir) (*control.Conn, error) {
+	c, err := control.Dial(ctx, network.DialContext, dir.ControlSocket())
 	if err != nil {
 		return nil, fmt.Errorf("no Node answered on %s: %w", dir, err)
 	}
@@ -63,10 +66,10 @@ func dial(ctx context.Context, dir DataDir) (*control.Conn, error) {
 
 // StopNode stops the Node on dir and returns once it has released the data
 // dir, or an error when no Node answered or its stop deadline passed.
-func StopNode(ctx context.Context, dir DataDir) error {
+func StopNode(ctx context.Context, network link.Network, dir DataDir) error {
 	dialCtx, cancel := context.WithTimeout(ctx, stopGrace)
 	defer cancel()
-	c, err := dial(dialCtx, dir)
+	c, err := dial(dialCtx, network, dir)
 	if err != nil {
 		return err
 	}

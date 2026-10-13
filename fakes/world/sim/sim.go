@@ -68,6 +68,7 @@ type Node struct {
 	w    *World
 	spec scenario.Node
 	addr netip.Addr
+	host *fault.Host
 	dir  node.DataDir
 
 	running *node.Node
@@ -101,6 +102,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	listen := listenKeys(t)
 	for i, spec := range s.Nodes {
 		n := &Node{w: w, spec: spec, addr: setup.Address(i)}
+		n.host = net.Host(n.addr)
 		n.dir = dataDir(t, s, i, listen)
 		w.nodes = append(w.nodes, n)
 		n.Start()
@@ -229,13 +231,19 @@ func (n *Node) Join(ctx context.Context, code joincode.Code) (pairing.Joined, er
 	return node.Join(ctx, n.env(), code)
 }
 
+// JoinOp sends the join op to the running Node over its control socket,
+// as slipstream join does while a Node holds the data dir.
+func (n *Node) JoinOp(ctx context.Context, code joincode.Code) (pairing.JoinReply, error) {
+	return node.Call(ctx, n.host, n.dir, pairing.JoinOp, pairing.JoinRequest{Code: code.String()})
+}
+
 func (n *Node) env() node.Env {
 	return node.Env{
 		DataDir: n.dir,
 		Environ: []string{},
 		Stderr:  io.Discard,
 		Version: n.w.opts.version,
-		Net:     n.w.net.Host(n.addr),
+		Net:     n.host,
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Test:    n.test(),

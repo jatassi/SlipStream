@@ -57,7 +57,7 @@ func run(args []string) int {
 		if err != nil {
 			return usage(err)
 		}
-		if err := node.StopNode(context.Background(), env.DataDir); err != nil {
+		if err := node.StopNode(context.Background(), env.Net, env.DataDir); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "slipstream stop: %v\n", err)
 			return node.ExitCode(err)
 		}
@@ -136,7 +136,7 @@ func join(args []string) int {
 	joined, err := node.Join(ctx, env, code)
 	if _, held := errors.AsType[*node.InUseError](err); held {
 		var reply pairing.JoinReply
-		if reply, err = node.Call(ctx, env.DataDir, pairing.JoinOp, pairing.JoinRequest{Code: code.String()}); err == nil {
+		if reply, err = node.Call(ctx, env.Net, env.DataDir, pairing.JoinOp, pairing.JoinRequest{Code: code.String()}); err == nil {
 			if reply.Refused == nil {
 				fmt.Println(reply.Joined)
 				return node.ExitOK
