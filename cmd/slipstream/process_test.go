@@ -219,6 +219,7 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 		want := []node.Key{
 			{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env"},
 			{Key: "http.listen", Value: "127.0.0.1:0", Default: "[::]:8484", Source: "env"},
+			{Key: "link.listen", Value: "127.0.0.1:0", Default: "[::]:8485", Source: "env"},
 		}
 		if !slices.Equal(c.ready.Overrides, want) {
 			t.Errorf("overrides = %+v, want %+v", c.ready.Overrides, want)
