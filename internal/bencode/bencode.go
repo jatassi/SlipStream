@@ -86,16 +86,15 @@ func (d *decoder) end() bool {
 	return false
 }
 
-func (d *decoder) entry() (string, any, error) {
+func (d *decoder) entry() (key string, value any, err error) {
 	if d.pos >= len(d.data) || d.data[d.pos] < '0' || d.data[d.pos] > '9' {
 		return "", nil, d.errorf("a dictionary key is not a string")
 	}
-	k, err := d.str()
-	if err != nil {
+	if key, err = d.str(); err != nil {
 		return "", nil, err
 	}
-	v, err := d.value()
-	return k, v, err
+	value, err = d.value()
+	return key, value, err
 }
 
 func (d *decoder) integer(stop byte) (int64, error) {

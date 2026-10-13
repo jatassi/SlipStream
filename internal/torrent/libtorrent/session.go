@@ -114,7 +114,9 @@ func (s *Session) Status(h engine.Handle) (engine.Status, error) {
 func (s *Session) Files(h engine.Handle) ([]engine.File, error) {
 	var files *C.lts_file
 	var count C.int32_t
-	err := s.call(func(cerr *C.lts_error) C.int { return C.lts_torrent_files(s.ses, C.int64_t(h), &files, &count, cerr) })
+	err := s.call(func(cerr *C.lts_error) C.int {
+		return C.lts_torrent_files(s.ses, C.int64_t(h), &files, &count, cerr) //nolint:gocritic // cgo's pointer check repeats &files
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -145,19 +145,26 @@ func ParseInputs(data []byte) (Inputs, error) {
 	if err := checkDigests(sources); err != nil {
 		return Inputs{}, err
 	}
+	if err := in.checkTools(); err != nil {
+		return Inputs{}, err
+	}
+	return in, nil
+}
+
+func (in Inputs) checkTools() error {
 	for _, tool := range in.Tools {
 		for _, t := range in.Targets {
 			if _, ok := tool.Archives[t.Name]; !ok {
-				return Inputs{}, fmt.Errorf("native inputs: tool %s: no archive for target %s", tool.Name, t.Name)
+				return fmt.Errorf("native inputs: tool %s: no archive for target %s", tool.Name, t.Name)
 			}
 		}
 		for name := range tool.Archives {
 			if _, err := in.Target(name); err != nil {
-				return Inputs{}, fmt.Errorf("native inputs: tool %s: archive for %w", tool.Name, err)
+				return fmt.Errorf("native inputs: tool %s: archive for %w", tool.Name, err)
 			}
 		}
 	}
-	return in, nil
+	return nil
 }
 
 func checkDigests(sources []Source) error {

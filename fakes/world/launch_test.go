@@ -65,7 +65,7 @@ func (s stub) build(t *testing.T) string {
 		return bin
 	}
 	for _, tool := range []string{"ffmpeg", "ffprobe"} {
-		if err := os.WriteFile(filepath.Join(filepath.Dir(bin), tool+filepath.Ext(bin)), nil, 0o755); err != nil { //nolint:gosec // the stub never runs the tools, but the world copies them as programs
+		if err := os.WriteFile(filepath.Join(filepath.Dir(bin), tool+filepath.Ext(bin)), nil, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}

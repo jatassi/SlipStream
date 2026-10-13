@@ -108,7 +108,7 @@ func copyProgram(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", src, err)
 	}
-	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
+	if err := os.Chmod(tmp.Name(), 0o755); err != nil { //nolint:gosec // the tools run as programs
 		return fmt.Errorf("copy %s: %w", src, err)
 	}
 	if err := os.Rename(tmp.Name(), dst); err != nil {

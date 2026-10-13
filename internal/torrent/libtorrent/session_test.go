@@ -17,15 +17,15 @@ import (
 
 const payloadSize = 8 << 20
 
-func open(t *testing.T, addr string) engine.Engine {
+func open(t *testing.T) engine.Engine {
 	t.Helper()
-	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort(addr)})
+	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0")})
 	if err != nil {
-		t.Fatalf("open %s: %v", addr, err)
+		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := e.Close(); err != nil && !errors.Is(err, engine.ErrClosed) {
-			t.Errorf("close %s: %v", addr, err)
+			t.Errorf("close: %v", err)
 		}
 	})
 	return e
@@ -57,8 +57,8 @@ func TestEngineRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	seeder := open(t, "127.0.0.1:0")
-	leecher := open(t, "127.0.0.1:0")
+	seeder := open(t)
+	leecher := open(t)
 
 	seedHandle, err := seeder.Add(engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
 	if err != nil {
@@ -109,7 +109,7 @@ func TestEngineRoundTrip(t *testing.T) {
 }
 
 func TestEngineRejectsBadInput(t *testing.T) {
-	e := open(t, "127.0.0.1:0")
+	e := open(t)
 
 	_, err := e.Add(engine.AddParams{Metainfo: []byte("d4:infoi1e"), SavePath: t.TempDir()})
 	if !errors.Is(err, engine.CategoryBdecode) {
@@ -161,7 +161,7 @@ func TestFilesListThePathsLibtorrentSanitized(t *testing.T) {
 			map[string]any{"length": 2000, "path": []any{"feature.mkv"}},
 		},
 	}, data, 16<<10)
-	e := open(t, "127.0.0.1:0")
+	e := open(t)
 	h, err := e.Add(engine.AddParams{Metainfo: meta, SavePath: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
