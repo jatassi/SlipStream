@@ -59,7 +59,7 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 		probe.Keys = append(probe.Keys, node.Key{Key: key})
 	}
 	listen := listenKeys(probe)
-	if want := []string{"torrent.listen", "http.listen"}; !slices.Equal(listen, want) {
+	if want := []string{"torrent.listen", "http.listen", "link.listen"}; !slices.Equal(listen, want) {
 		t.Fatalf("listen keys = %v, want %v", listen, want)
 	}
 	used := map[string]bool{}

@@ -63,6 +63,9 @@ func run(dir string) {
 		HTTP struct {
 			Listen string `yaml:"listen"`
 		} `yaml:"http"`
+		Link struct {
+			Listen string `yaml:"listen"`
+		} `yaml:"link"`
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "config.yaml"))
 	fail(err)
@@ -86,6 +89,7 @@ func run(dir string) {
 			Control: d.ControlSocket(),
 			Torrent: netip.MustParseAddrPort(cfg.Torrent.Listen),
 			HTTP:    netip.MustParseAddrPort(cfg.HTTP.Listen),
+			Link:    netip.MustParseAddrPort(cfg.Link.Listen),
 		},
 	}
 	line, err := json.Marshal(struct {
