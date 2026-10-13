@@ -12,6 +12,7 @@ import "C"
 
 import (
 	"net/netip"
+	"path/filepath"
 	"strings"
 	"sync"
 	"unsafe"
@@ -110,6 +111,21 @@ func (s *Session) Status(h engine.Handle) (engine.Status, error) {
 	}, nil
 }
 
+func (s *Session) Files(h engine.Handle) ([]engine.File, error) {
+	var files *C.lts_file
+	var count C.int32_t
+	err := s.call(func(cerr *C.lts_error) C.int { return C.lts_torrent_files(s.ses, C.int64_t(h), &files, &count, cerr) })
+	if err != nil {
+		return nil, err
+	}
+	defer C.lts_free_files(files, count)
+	out := make([]engine.File, int(count))
+	for i, f := range unsafe.Slice(files, int(count)) {
+		out[i] = engine.File{Index: int(f.index), Path: filepath.ToSlash(C.GoString(f.path)), Size: int64(f.size)}
+	}
+	return out, nil
+}
+
 func (s *Session) Remove(h engine.Handle) error {
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_remove(s.ses, C.int64_t(h), cerr) })
 }
@@ -196,6 +212,10 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.Removed{Torrent: h}
 	case C.LTS_ALERT_TORRENT_FAILED:
 		return engine.TorrentFailed{Torrent: h, Err: goError(&a.error)}
+	case C.LTS_ALERT_TRACKER_REPLIED:
+		return engine.TrackerReplied{Torrent: h}
+	case C.LTS_ALERT_TRACKER_FAILED:
+		return engine.TrackerFailed{Torrent: h, Err: goError(&a.error)}
 	case C.LTS_ALERT_LISTEN_FAILED:
 		return engine.ListenFailed{Err: goError(&a.error)}
 	case C.LTS_ALERT_DROPPED:

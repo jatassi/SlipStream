@@ -51,7 +51,9 @@ enum {
 	LTS_ALERT_REMOVED,
 	LTS_ALERT_TORRENT_FAILED,
 	LTS_ALERT_LISTEN_FAILED,
-	LTS_ALERT_DROPPED
+	LTS_ALERT_DROPPED,
+	LTS_ALERT_TRACKER_REPLIED,
+	LTS_ALERT_TRACKER_FAILED
 };
 
 typedef struct {
@@ -68,6 +70,12 @@ typedef struct {
 } lts_status;
 
 typedef struct {
+	int32_t index;
+	int64_t size;
+	char* path;
+} lts_file;
+
+typedef struct {
 	int32_t kind;
 	int32_t state;
 	int64_t torrent;
@@ -82,6 +90,10 @@ int lts_add(lts_session* s, const char* metainfo, size_t len, const char* save_p
 int lts_connect_peer(lts_session* s, int64_t torrent, const char* address, uint16_t port, lts_error* err);
 int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* err);
 int lts_remove(lts_session* s, int64_t torrent, lts_error* err);
+/* Lists the torrent's files but its pad files, with paths relative to the
+   save path as libtorrent sanitized them. Free *files with lts_free_files. */
+int lts_torrent_files(lts_session* s, int64_t torrent, lts_file** files, int32_t* count, lts_error* err);
+void lts_free_files(lts_file* files, int32_t count);
 /* Single consumer. Returns the number of alerts copied into out, or -1. */
 int lts_wait_alerts(lts_session* s, int timeout_ms, lts_alert* out, int max, lts_error* err);
 int lts_close(lts_session* s, lts_error* err);

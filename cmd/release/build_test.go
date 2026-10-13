@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
@@ -70,6 +71,16 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		want.Version, want.Commit, want.Target, want.Libtorrent, want.Fingerprint, want.NativeBundle)
 	if string(printed) != wantPrinted {
 		t.Errorf("slipstream version printed\n%s\nwant\n%s", printed, wantPrinted)
+	}
+
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		if runtime.GOOS == "windows" {
+			tool += ".exe"
+		}
+		out, err := exec.CommandContext(t.Context(), filepath.Join(dist, tool), "-version").Output()
+		if prefix := strings.TrimSuffix(tool, ".exe") + " version 8.1.3-Jellyfin "; err != nil || !strings.HasPrefix(string(out), prefix) {
+			t.Errorf("%s -version = %q, %v; want it to start %q", tool, out, err, prefix)
+		}
 	}
 
 	index, err := os.ReadFile(filepath.Join(root, "web", "dist", "index.html"))

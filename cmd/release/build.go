@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,6 +73,46 @@ func runBuild(ctx context.Context, args []string) error {
 			return err
 		}
 		fmt.Println(out)
+	}
+	return placeTools(bundle, *dist)
+}
+
+// placeTools copies the bundle's tool programs into dir, beside the
+// binaries built there, as the release manifest ships them (ADR 0015).
+// They run as separate processes, so linkage.Check, which governs what a
+// binary links, does not apply to them.
+func placeTools(bundle native.Bundle, dir string) error {
+	for _, src := range bundle.Tools {
+		if err := copyProgram(src, filepath.Join(dir, filepath.Base(src))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyProgram(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open the tool: %w", err)
+	}
+	defer func() { _ = in.Close() }()
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tool-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create the tool copy: %w", err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	_, err = io.Copy(tmp, in)
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", src, err)
+	}
+	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
+		return fmt.Errorf("copy %s: %w", src, err)
+	}
+	if err := os.Rename(tmp.Name(), dst); err != nil {
+		return fmt.Errorf("place %s: %w", dst, err)
 	}
 	return nil
 }
@@ -152,7 +193,7 @@ func goTargetBundle(ctx context.Context) (native.Inputs, native.Target, native.B
 	if err != nil {
 		return native.Inputs{}, native.Target{}, native.Bundle{}, err
 	}
-	if _, err := fetchTarget(ctx, root, cacheRoot, target); err != nil {
+	if _, err := fetchTarget(ctx, root, cacheRoot, in, target); err != nil {
 		return native.Inputs{}, native.Target{}, native.Bundle{}, err
 	}
 	bundle, err := native.FetchedBundle(root, cacheRoot, in, target)

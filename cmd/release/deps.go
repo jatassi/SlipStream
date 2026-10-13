@@ -138,7 +138,7 @@ func depsFetch(ctx context.Context, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
-	root, _, t, err := loadTarget(ctx, *target)
+	root, in, t, err := loadTarget(ctx, *target)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func depsFetch(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	dirs, err := fetchTarget(ctx, root, cacheRoot, t)
+	dirs, err := fetchTarget(ctx, root, cacheRoot, in, t)
 	if err != nil {
 		return err
 	}
@@ -156,9 +156,9 @@ func depsFetch(ctx context.Context, args []string) error {
 	return nil
 }
 
-// fetchTarget makes every layer the lock pins for t present in the cache
-// and returns their directories.
-func fetchTarget(ctx context.Context, root, cacheRoot string, t native.Target) ([]string, error) {
+// fetchTarget makes every layer and tool archive the lock pins for t
+// present in the cache and returns their directories.
+func fetchTarget(ctx context.Context, root, cacheRoot string, in native.Inputs, t native.Target) ([]string, error) {
 	lock, err := native.LoadLock(filepath.Join(root, native.LockPath))
 	if err != nil {
 		return nil, err
@@ -177,6 +177,17 @@ func fetchTarget(ctx context.Context, root, cacheRoot string, t native.Target) (
 	if len(dirs) == 0 {
 		return nil, fmt.Errorf("%s pins no layer for %s", native.LockPath, t.Name)
 	}
+	for _, tool := range in.Tools {
+		p, err := lock.PinnedTool(native.ToolArchive{Tool: tool.Name, Target: t.Name, URL: tool.Archives[t.Name]})
+		if err != nil {
+			return nil, err
+		}
+		dir, err := native.FetchTool(ctx, cacheRoot, p, t, tool.Programs)
+		if err != nil {
+			return nil, err
+		}
+		dirs = append(dirs, dir)
+	}
 	return dirs, nil
 }
 
@@ -188,12 +199,15 @@ func depsVerify(ctx context.Context, args []string) error {
 }
 
 func depsPin(ctx context.Context, args []string) error {
-	root, _, want, err := wantRepo(ctx, "pin", args)
+	root, in, want, err := wantRepo(ctx, "pin", args)
 	if err != nil {
 		return err
 	}
 	lock, err := native.Pin(ctx, native.ReleasesURL, want)
 	if err != nil {
+		return err
+	}
+	if lock.Tools, err = native.PinTools(ctx, in.ToolArchives()); err != nil {
 		return err
 	}
 	return lock.Write(filepath.Join(root, native.LockPath))

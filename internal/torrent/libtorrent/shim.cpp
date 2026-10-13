@@ -5,6 +5,7 @@
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/bdecode.hpp>
 #include <libtorrent/error_code.hpp>
+#include <libtorrent/file_storage.hpp>
 #include <libtorrent/io_context.hpp>
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
@@ -15,8 +16,10 @@
 #include <libtorrent/torrent_status.hpp>
 #include <libtorrent/version.hpp>
 
+#include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -59,9 +62,11 @@ struct bool_setting {
 	bool value;
 };
 
-// The production preset, applied on top of lt::high_performance_seed(). No
-// caller reaches ssrf_mitigation or peer_fingerprint: libtorrent's defaults
-// (mitigation on, the -LT peer id) always hold.
+// The production preset, applied on top of lt::high_performance_seed(). A
+// tracker on loopback must then announce on a path ending in /announce, and
+// an HTTPS tracker must present a certificate OpenSSL's default verify
+// paths trust. No caller reaches peer_fingerprint: libtorrent's -LT peer id
+// always holds.
 int_setting const preset_ints[] = {
 	{sp::active_downloads, -1},
 	{sp::active_seeds, -1},
@@ -75,6 +80,8 @@ bool_setting const preset_bools[] = {
 	{sp::dont_count_slow_torrents, true},
 	{sp::announce_to_all_tiers, false},
 	{sp::announce_to_all_trackers, false},
+	{sp::validate_https_trackers, true},
+	{sp::ssrf_mitigation, true},
 };
 
 void fill(lts_error* err, int32_t category, int32_t code, std::string const& text) {
@@ -188,6 +195,17 @@ void convert(lts_session* s, lt::alert* a) {
 		fill(&o.error, te->error);
 		break;
 	}
+	case lt::tracker_reply_alert::alert_type:
+		o.kind = LTS_ALERT_TRACKER_REPLIED;
+		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
+		break;
+	case lt::tracker_error_alert::alert_type: {
+		auto* te = static_cast<lt::tracker_error_alert*>(a);
+		o.kind = LTS_ALERT_TRACKER_FAILED;
+		o.torrent = torrent(te);
+		fill(&o.error, te->error);
+		break;
+	}
 	case lt::listen_failed_alert::alert_type:
 		o.kind = LTS_ALERT_LISTEN_FAILED;
 		fill(&o.error, static_cast<lt::listen_failed_alert*>(a)->error);
@@ -245,7 +263,7 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, lt
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
 		p.set_str(sp::listen_interfaces, listen_interface(addr, port));
-		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage)));
+		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::tracker)));
 		s = new lts_session(lt::session_params(std::move(p)));
 	});
 	return s;
@@ -303,6 +321,39 @@ int lts_remove(lts_session* s, int64_t torrent, lts_error* err) {
 		s->by_handle.erase(h);
 		s->by_id.erase(torrent);
 	});
+}
+
+int lts_torrent_files(lts_session* s, int64_t torrent, lts_file** files, int32_t* count, lts_error* err) {
+	return guard(err, [&] {
+		std::shared_ptr<lt::torrent_info const> ti = find(s, torrent).torrent_file();
+		lt::file_storage const& fs = ti->files();
+		std::vector<lt::file_index_t> kept;
+		std::vector<std::string> paths;
+		for (lt::file_index_t i : fs.file_range()) {
+			if (fs.pad_file_at(i)) continue;
+			kept.push_back(i);
+			paths.push_back(fs.file_path(i));
+		}
+		auto* out = static_cast<lts_file*>(std::calloc(kept.size() + 1, sizeof(lts_file)));
+		if (out == nullptr) throw std::bad_alloc();
+		for (std::size_t n = 0; n < kept.size(); ++n) {
+			out[n].index = int32_t(static_cast<int>(kept[n]));
+			out[n].size = fs.file_size(kept[n]);
+			out[n].path = static_cast<char*>(std::malloc(paths[n].size() + 1));
+			if (out[n].path == nullptr) {
+				lts_free_files(out, int32_t(n));
+				throw std::bad_alloc();
+			}
+			std::memcpy(out[n].path, paths[n].c_str(), paths[n].size() + 1);
+		}
+		*files = out;
+		*count = int32_t(kept.size());
+	});
+}
+
+void lts_free_files(lts_file* files, int32_t count) {
+	for (int32_t i = 0; i < count; ++i) std::free(files[i].path);
+	std::free(files);
 }
 
 int lts_wait_alerts(lts_session* s, int timeout_ms, lts_alert* out, int max, lts_error* err) {

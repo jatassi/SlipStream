@@ -227,6 +227,12 @@ func (r *Run) copyBinary(source string) error {
 	}
 	r.binary = Binary{Source: src, Path: dst, SHA256: sum}
 	r.log.Info("binary copied", "source", src, "path", dst, "sha256", sum)
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		name := tool + filepath.Ext(src)
+		if _, err := CopyExecutable(filepath.Join(filepath.Dir(src), name), filepath.Join(r.runDir, "bin", name)); err != nil {
+			return fmt.Errorf("%s beside the binary: %w", tool, err)
+		}
+	}
 	return nil
 }
 
