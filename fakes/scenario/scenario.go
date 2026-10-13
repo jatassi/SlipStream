@@ -32,6 +32,9 @@ type Scenario struct {
 	// Timings holds the durations the Scenario shortens. A zero duration is
 	// unset, so the Node keeps its production value.
 	Timings node.TimingsBlock `yaml:"timings"`
+	// Music is the catalog fake-music-meta serves. A Scenario that sets it
+	// runs only on a binary that registers the music Content Type.
+	Music *Music `yaml:"music,omitempty"`
 }
 
 // Admin is the first Admin a controller Node is set up with.
@@ -117,6 +120,9 @@ func (s Scenario) Validate() error {
 		add("admin is set, but no node is controller")
 	case s.Admin != nil && !pin.MatchString(s.Admin.PIN):
 		add("admin pin %q is not four digits", s.Admin.PIN)
+	}
+	if s.Music != nil {
+		s.Music.check(add)
 	}
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))

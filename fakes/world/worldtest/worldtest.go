@@ -28,11 +28,7 @@ const logLinesOnFailure = 50
 // Launch launches the catalog Scenario name. See LaunchScenario.
 func Launch(t *testing.T, name string) *world.Run {
 	t.Helper()
-	s, err := scenario.Load(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return LaunchScenario(t, s)
+	return LaunchScenario(t, load(t, name))
 }
 
 // LaunchScenario launches s in-process against the binary under test. The
@@ -41,7 +37,33 @@ func Launch(t *testing.T, name string) *world.Run {
 // renamed. On failure it logs the end of every Node log.
 func LaunchScenario(t *testing.T, s scenario.Scenario) *world.Run {
 	t.Helper()
-	binary := testbin.Slipstream(t)
+	return launch(t, s, testbin.Slipstream(t))
+}
+
+// LaunchE2E launches the catalog Scenario name on the e2e binary, which
+// also registers the test Content Types. See LaunchScenario.
+func LaunchE2E(t *testing.T, name string) *world.Run {
+	t.Helper()
+	return LaunchE2EScenario(t, load(t, name))
+}
+
+// LaunchE2EScenario launches s on the e2e binary. See LaunchScenario.
+func LaunchE2EScenario(t *testing.T, s scenario.Scenario) *world.Run {
+	t.Helper()
+	return launch(t, s, testbin.E2E(t))
+}
+
+func load(t *testing.T, name string) scenario.Scenario {
+	t.Helper()
+	s, err := scenario.Load(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func launch(t *testing.T, s scenario.Scenario, binary string) *world.Run {
+	t.Helper()
 	runDir := RunDir(t)
 	addBudget(t, stopBudget(s))
 	var run *world.Run

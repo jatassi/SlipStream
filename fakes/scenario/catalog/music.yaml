@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller with the first Admin, on a binary that
+  registers the music Content Type. Between its first and second lookup The
+  Lanterns renames a track, drops one and adds one. Marrow Bay's first lookup
+  answers unavailable.
+seed: music
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+  works:
+    fetch: 2s
+music:
+  artists:
+    - id: a1000000-0000-4000-8000-000000000001
+      revisions:
+        - name: The Lanterns
+          sort_name: Lanterns, The
+          country: GB
+          albums:
+            - id: b1000000-0000-4000-8000-000000000001
+              release: c1000000-0000-4000-8000-000000000001
+              title: Harbor Lights
+              kind: Album
+              first_release: "2001-03-12"
+              tracks:
+                - {recording: d1000000-0000-4000-8000-000000000001, title: Tidewater, length: 3m25s, disc: 1}
+                - {recording: d1000000-0000-4000-8000-000000000002, title: Paper Boats, length: 4m2s, disc: 1}
+                - {recording: d1000000-0000-4000-8000-000000000003, title: Low Bridge, length: 2m58s, disc: 1}
+            - id: b1000000-0000-4000-8000-000000000002
+              release: c1000000-0000-4000-8000-000000000002
+              title: Night Ferry
+              kind: EP
+              first_release: "2003"
+              tracks:
+                - {recording: d1000000-0000-4000-8000-000000000004, title: Night Ferry, length: 3m10s, disc: 1}
+                - {recording: d1000000-0000-4000-8000-000000000005, title: Signal Fires, length: 3m44s, disc: 1}
+            - id: b1000000-0000-4000-8000-000000000003
+              release: c1000000-0000-4000-8000-000000000003
+              title: Tidewater
+              kind: Single
+              first_release: "2001-02"
+              tracks:
+                - {recording: d1000000-0000-4000-8000-000000000001, title: Tidewater, length: 3m25s, disc: 1}
+        - name: The Lanterns
+          sort_name: Lanterns, The
+          country: GB
+          albums:
+            - id: b1000000-0000-4000-8000-000000000001
+              release: c1000000-0000-4000-8000-000000000001
+              title: Harbor Lights
+              kind: Album
+              first_release: "2001-03-12"
+              tracks:
+                - {recording: d1000000-0000-4000-8000-000000000001, title: Tidewater, length: 3m25s, disc: 1}
+                - {recording: d1000000-0000-4000-8000-000000000002, title: Paper Ships, length: 4m2s, disc: 1}
+                - {recording: d1000000-0000-4000-8000-000000000006, title: Lantern Song, length: 5m1s, disc: 1}
+            - id: b1000000-0000-4000-8000-000000000002
+              release: c1000000-0000-4000-8000-000000000002
+              title: Night Ferry
+              kind: EP
+              first_release: "2003"
+              tracks:
+                - {recording: d1000000-0000-4000-8000-000000000004, title: Night Ferry, length: 3m10s, disc: 1}
+                - {recording: d1000000-0000-4000-8000-000000000005, title: Signal Fires, length: 3m44s, disc: 1}
+            - id: b1000000-0000-4000-8000-000000000003
+              release: c1000000-0000-4000-8000-000000000003
+              title: Tidewater
+              kind: Single
+              first_release: "2001-02"
+              tracks:
+                - {recording: d1000000-0000-4000-8000-000000000001, title: Tidewater, length: 3m25s, disc: 1}
+    - id: a1000000-0000-4000-8000-000000000002
+      revisions:
+        - name: Marrow Bay
+          sort_name: Marrow Bay
+          country: NZ
+          albums:
+            - id: b2000000-0000-4000-8000-000000000001
+              release: c2000000-0000-4000-8000-000000000001
+              title: Saltgrass
+              kind: Album
+              first_release: "2019-11"
+              tracks:
+                - {recording: d2000000-0000-4000-8000-000000000001, title: Saltgrass, disc: 1}
+  faults:
+    - {artist: a1000000-0000-4000-8000-000000000002, answer: unavailable, times: 1}

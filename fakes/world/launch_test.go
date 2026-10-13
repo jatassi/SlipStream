@@ -10,8 +10,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -259,6 +261,11 @@ func TestLaunchRefuses(t *testing.T) {
 			want: "node home sets torrent.dht, which the divergences list in fakes/world does not name",
 		},
 		{
+			name: "a fake setting a key the binary does not list",
+			stub: stub{resolved: node.Resolved{Keys: productionKeys(), Census: []string{}, ContentTypes: []string{"music"}}},
+			want: "fake music-meta sets endpoints.content_types.music.metadata, which this binary does not list",
+		},
+		{
 			name:    "a listener off the Node's address",
 			stub:    stub{torrent: "0.0.0.0:6881"},
 			want:    "node home listener torrent is on 0.0.0.0:6881, not on its address 127.0.0.2",
@@ -339,6 +346,47 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
 	assertNothingLeft(t, runDir, false)
+}
+
+func TestLaunchRefusesAScenarioNeedingAContentTypeTheBinaryLacks(t *testing.T) {
+	t.Parallel()
+	s, err := scenario.Load("music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runDir := filepath.Join(t.TempDir(), "run")
+	_, err = world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir})
+	want := "scenario music needs Content Type music, which slipstream does not register; launch it with worldtest.LaunchE2E"
+	if runtime.GOOS == "windows" {
+		want = strings.Replace(want, "slipstream", "slipstream.exe", 1)
+	}
+	if err == nil || err.Error() != want {
+		t.Fatalf("Launch = %v\nwant %s", err, want)
+	}
+	assertNothingLeft(t, runDir, false)
+	wl, err := os.ReadFile(filepath.Join(runDir, "world.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(wl), "fake started") {
+		t.Fatalf("world.log records a fake started:\n%s", wl)
+	}
+}
+
+func TestTheE2EBinaryCensusListsTheMusicEndpointAtItsDefault(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	out, err := exec.CommandContext(worldtest.Context(t), testbin.E2E(t), "config", "--data-dir", dir).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resolved node.Resolved
+	if err := json.Unmarshal(out, &resolved); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := fmt.Sprint(resolved.ContentTypes, resolved.Census), "[music] [endpoints.content_types.music.metadata]"; got != want {
+		t.Fatalf("contentTypes and census = %s, want %s", got, want)
+	}
 }
 
 func TestAddressCheckRefusesTheThirtyThirdAddress(t *testing.T) {

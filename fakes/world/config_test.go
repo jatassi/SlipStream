@@ -1,6 +1,7 @@
 package world
 
 import (
+	"net/netip"
 	"reflect"
 	"slices"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
@@ -46,8 +48,9 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		endpoints := fakeEndpoints(s)
 		for i := range s.Nodes {
-			ids, uncovered := diverge(settings(configKeys(t, s, i, listen), nodeenv.World("ca.pem")))
+			ids, uncovered := diverge(settings(configKeys(t, s, i, listen, endpoints), nodeenv.World("ca.pem")))
 			if uncovered != nil {
 				t.Fatalf("catalog %s node %s sets %v, which no divergence names", name, s.Nodes[i].Name, uncovered)
 			}
@@ -65,9 +68,23 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	}
 }
 
-func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string) []node.Key {
+// fakeEndpoints is the endpoints block once every fake s runs with has
+// pointed its keys at itself: the core fakes, and those of the Content
+// Types s needs.
+func fakeEndpoints(s scenario.Scenario) node.EndpointsBlock {
+	e := node.Defaults(contenttype.Set{}).Endpoints
+	at := fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:1"), TLS: true}
+	for _, spec := range fakes {
+		if spec.ContentType == "" || slices.Contains(s.ContentTypes(), spec.ContentType) {
+			spec.Endpoints(&e, at)
+		}
+	}
+	return e
+}
+
+func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) []node.Key {
 	t.Helper()
-	data, err := setup.Config(s, i, listen, node.Defaults(contenttype.Set{}).Endpoints)
+	data, err := setup.Config(s, i, listen, endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}

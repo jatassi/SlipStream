@@ -28,13 +28,14 @@ type binary struct {
 var (
 	slipstream = &binary{variable: "TEST_SLIPSTREAM_BINARY", pkg: "./cmd/slipstream"}
 	fakeworld  = &binary{variable: "TEST_FAKEWORLD_BINARY", pkg: "./cmd/fakeworld"}
+	e2e        = &binary{variable: "TEST_SLIPSTREAM_E2E_BINARY", pkg: "./cmd/slipstream-e2e"}
 
 	buildDir string
 )
 
 // Run runs the package's tests and then removes the binaries this process
-// built. A package whose tests call Slipstream or Fakeworld calls it from
-// TestMain.
+// built. A package whose tests call Slipstream, E2E or Fakeworld calls it
+// from TestMain.
 func Run(m *testing.M) int {
 	dir, err := os.MkdirTemp("", "testbin")
 	if err != nil {
@@ -51,6 +52,14 @@ func Run(m *testing.M) int {
 func Slipstream(t testing.TB) string {
 	t.Helper()
 	return slipstream.find(t)
+}
+
+// E2E is TEST_SLIPSTREAM_E2E_BINARY when set, otherwise cmd/slipstream-e2e,
+// the binary that also registers the test Content Types, built once for the
+// test process.
+func E2E(t testing.TB) string {
+	t.Helper()
+	return e2e.find(t)
 }
 
 // Fakeworld is TEST_FAKEWORLD_BINARY when set, otherwise cmd/fakeworld

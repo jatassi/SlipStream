@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/netip"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -83,6 +84,18 @@ func (c *ContentTypeEndpoints) Set(id, key, url string) {
 		c.set[id] = map[string]string{}
 	}
 	c.set[id][key] = url
+}
+
+// Paths is every endpoints.content_types key Set has set, sorted.
+func (c ContentTypeEndpoints) Paths() []string {
+	var out []string
+	for id, keys := range c.set {
+		for key := range keys {
+			out = append(out, "endpoints.content_types."+id+"."+key)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // MarshalYAML is the block as config.yaml nests it.

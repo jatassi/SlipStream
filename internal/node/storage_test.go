@@ -7,6 +7,6 @@ import (
 )
 
 func TestSchemaListsPassTheAudit(t *testing.T) {
-	storagetest.AuditLibrary(t, librarySchemas(noTypes))
+	storagetest.AuditLibrary(t, LibrarySchemas(noTypes))
 	storagetest.AuditLocal(t, localSchemas())
 }

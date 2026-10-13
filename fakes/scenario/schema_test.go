@@ -111,7 +111,7 @@ func TestCatalog(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	if want := []string{"first-run", "home", "single-machine"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"first-run", "home", "music", "single-machine"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("catalog = %v, want %v", got, want)
 	}
 }
