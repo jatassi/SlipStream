@@ -27,18 +27,15 @@ type API struct {
 	m      world.Manifest
 }
 
-// NewAPI calls m's Nodes over client under ctx.
 func NewAPI(ctx context.Context, t *testing.T, client *http.Client, m world.Manifest) *API {
 	return &API{ctx: ctx, t: t, client: client, m: m}
 }
 
-// Reply is an answer's status and body.
 type Reply struct {
 	Status int
 	Body   string
 }
 
-// Node is the manifest entry of the Node named name.
 func (a *API) Node(name string) world.Node {
 	a.t.Helper()
 	i := slices.IndexFunc(a.m.Nodes, func(n world.Node) bool { return n.Name == name })
@@ -89,7 +86,6 @@ func (a *API) do(name, method, path, body, apiKey string) Reply {
 	return Reply{res.StatusCode, string(data)}
 }
 
-// Expect fails the test unless got is want.
 func Expect(t *testing.T, what string, got, want Reply) {
 	t.Helper()
 	if got != want {

@@ -32,7 +32,6 @@ func ClaimController(ctx context.Context, c *http.Client, baseURL, setupCode str
 	return claimed.APIKey, err
 }
 
-// CreateJoinCode mints a Join Code on the Controller with the API key.
 func CreateJoinCode(ctx context.Context, c *http.Client, baseURL, apiKey string) (string, error) {
 	var minted struct {
 		Code string `json:"code"`
@@ -77,7 +76,6 @@ type Node struct {
 	Body string `json:"-"`
 }
 
-// ListNodes is every Node the Controller knows.
 func ListNodes(ctx context.Context, c *http.Client, baseURL, apiKey string) ([]Node, error) {
 	var list struct {
 		Nodes []Node `json:"nodes"`

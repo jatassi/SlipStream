@@ -79,7 +79,6 @@ type listed struct {
 	Name string `json:"name"`
 }
 
-// boxID is box's id as home lists it.
 func (h home) boxID(t *testing.T) string {
 	t.Helper()
 	var res struct {

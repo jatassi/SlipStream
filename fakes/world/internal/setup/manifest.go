@@ -9,7 +9,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// Node is one Node's manifest entry.
 type Node struct {
 	Name       string            `json:"name"`
 	Setup      scenario.Setup    `json:"setup"`
@@ -78,7 +77,6 @@ func Entry(n Ran, m Member) (Node, error) {
 	}, nil
 }
 
-// Listeners is l as a map from listener name to address.
 func Listeners(l node.Listeners) (map[string]string, error) {
 	data, err := json.Marshal(l)
 	if err != nil {

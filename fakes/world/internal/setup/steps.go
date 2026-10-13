@@ -107,5 +107,4 @@ func setRoles(ctx context.Context, c *http.Client, controller, apiKey, id string
 	return Member{ID: row.ID, Roles: row.Roles}, nil
 }
 
-// url is the base URL of a ready Node's HTTP listener.
 func url(ready node.Ready) string { return "http://" + ready.Listeners.HTTP.String() }

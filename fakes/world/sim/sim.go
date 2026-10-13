@@ -46,7 +46,6 @@ type options struct {
 
 type Option func(*options)
 
-// Build runs every Node as build version.
 func Build(version string) Option { return func(o *options) { o.version = version } }
 
 // WithProbe serves and holds roletest's Probe on every Node, assigned to
@@ -64,7 +63,6 @@ type World struct {
 	claims   setup.Claims
 }
 
-// Node is one Node of a World.
 type Node struct {
 	w    *World
 	spec scenario.Node
@@ -194,7 +192,6 @@ func (w *World) API() *worldtest.API {
 	return worldtest.NewAPI(w.t.Context(), w.t, w.client, w.Manifest())
 }
 
-// Node is the Node named name.
 func (w *World) Node(name string) *Node {
 	w.t.Helper()
 	i := slices.IndexFunc(w.nodes, func(n *Node) bool { return n.spec.Name == name })
