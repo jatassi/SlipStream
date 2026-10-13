@@ -125,7 +125,8 @@ func TestPairWithACodeNamingAnotherKey(t *testing.T) {
 
 // An Unclaimed Node's Trust refuses every key, so the handshake fails
 // before any call. TLS 1.3 finishes the client's side first, so the
-// dialer sees only a closed connection; the refusal is the server's.
+// dialer sees only a closed connection and may return before the
+// server logs its refusal.
 func TestAnUnclaimedNodeRefusesEveryHandshake(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		log := &recordLog{}
@@ -137,6 +138,7 @@ func TestAnUnclaimedNodeRefusesEveryHandshake(t *testing.T) {
 		if _, err := p.Worker.Pair(t.Context(), codeFor(t, p.Controller.Key), "box"); err == nil {
 			t.Fatal("Pair with an Unclaimed Node succeeded")
 		}
+		synctest.Wait()
 		want := []string{"link handshake failed: peer key " + p.Worker.Key.Fingerprint() + " is refused"}
 		if got := log.lines(); !slices.Equal(got, want) {
 			t.Fatalf("the Unclaimed Node logged %q, want %q", got, want)
