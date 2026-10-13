@@ -363,3 +363,32 @@ func TestWebLayout(t *testing.T) {
 		"web/x.test.tsx:1: [web-layout]" + comp,
 	})
 }
+
+func TestContentTypeConfined(t *testing.T) {
+	const (
+		facet   = "; ask its facet instead"
+		surface = "internal/node/surface/surface.go:6: [content-type-confined] surface depends on internal/contenttype; the API document must not vary with registered Content Types"
+	)
+	assertFindings(t, check(t, "content-type-confined", fixtureRepo(t, "content-type-confined")), []string{
+		"internal/contenttypes/book/book.go:7: [content-type-confined] contenttype.Define takes the Content Type id as a string literal",
+		"internal/contenttypes/tv/tv.go:5: [content-type-confined] Content Type tv imports Content Type movie; Content Types never import each other",
+		"internal/library/types.go:5: [content-type-confined] contenttype.Define outside a Content Type package",
+		surface,
+		"internal/search/plan.go:7: [content-type-confined] core imports fakes/contenttypes/music; reach a Content Type through its facet",
+		"internal/search/plan.go:13: [content-type-confined] identifier music names Content Type music",
+		"internal/works/api.go:3: [content-type-confined] identifier musicTracks names Content Type music",
+		"internal/works/api.go:5: [content-type-confined] identifier HTTPMovieClient names Content Type movie",
+		"internal/works/api.go:7: [content-type-confined] identifier tv_shows names Content Type tv",
+		"internal/works/api.go:9: [content-type-confined] identifier musicTracks names Content Type music",
+		"internal/works/tree.go:5: [content-type-confined] core names Content Type music" + facet,
+		"internal/works/tree.go:7: [content-type-confined] core names Content Type tv" + facet,
+		"internal/works/works_test.go:7: [content-type-confined] core names Content Type tv" + facet,
+		"web/src/works/badge.tsx:4: [content-type-confined] core names Content Type music" + facet,
+		"web/src/works/kinds.ts:4: [content-type-confined] core names Content Type movie" + facet,
+		"web/src/works/kinds.ts:4: [content-type-confined] core names Content Type music" + facet,
+		"web/src/works/kinds.ts:4: [content-type-confined] core names Content Type tv" + facet,
+		"web/src/works/kinds.ts:6: [content-type-confined] core names Content Type movie" + facet,
+		"web/src/works/kinds.ts:6: [content-type-confined] core names Content Type tv" + facet,
+		"web/src/works/kinds.ts:7: [content-type-confined] core names Content Type tv" + facet,
+	})
+}
