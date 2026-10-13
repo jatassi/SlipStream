@@ -60,3 +60,6 @@ ON CONFLICT (content_type) DO NOTHING;
 
 -- name: EnableType :execrows
 DELETE FROM works_disabled_type WHERE content_type = sqlc.arg(content_type);
+
+-- name: MonitorItems :exec
+UPDATE works_item SET monitored = 1 WHERE work_id = sqlc.arg(work_id);

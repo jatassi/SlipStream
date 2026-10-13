@@ -356,6 +356,7 @@ export const WorksItem = zod.object({
   key: zod.string(),
   label: zod.string(),
   levelId: zod.uuid().nullable().describe("Null when the Content Type declares no levels"),
+  monitored: zod.boolean(),
   position: zod.int().min(1),
   withdrawnAt: zod.iso
     .datetime({ offset: true })
@@ -492,6 +493,10 @@ export const WorksNewWork = zod.object({
     .min(1)
     .max(worksNewWorkKeyMax)
     .describe("The Work's key at its metadata source"),
+  monitor: zod
+    .boolean()
+    .exactOptional()
+    .describe("Monitor a new Work's Items; adding a Work already in the library changes nothing"),
 });
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;

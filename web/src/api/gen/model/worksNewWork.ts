@@ -7,4 +7,6 @@ export interface WorksNewWork {
    * @maxLength 200
    */
   key: string;
+  /** Monitor a new Work's Items; adding a Work already in the library changes nothing */
+  monitor?: boolean;
 }

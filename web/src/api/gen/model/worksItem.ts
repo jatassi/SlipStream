@@ -10,6 +10,7 @@ export interface WorksItem {
    * @nullable
    */
   levelId: string | null;
+  monitored: boolean;
   /** @minimum 1 */
   position: number;
   /**

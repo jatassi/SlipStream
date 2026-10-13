@@ -59,6 +59,7 @@ type Item struct {
 	Label       string
 	Position    int
 	WithdrawnAt storage.Time
+	Monitored   bool
 	Fields      []FieldValue
 }
 
@@ -153,9 +154,10 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 const maxCandidates = 25
 
 // Add puts the Work t's source knows by key in the library with its whole
-// tree, or returns the Work already there with created false. Two racing
-// adds converge on one Work.
-func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key) (tree Tree, created bool, err error) {
+// tree, its Items monitored when monitor is set, or returns the Work
+// already there, unchanged, with created false. Two racing adds converge on
+// one Work.
+func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, monitor bool) (tree Tree, created bool, err error) {
 	reg, err := w.open(ctx, t)
 	if err != nil {
 		return Tree{}, false, err
@@ -195,7 +197,13 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key) (
 		if err := q.InsertWork(ctx, db.InsertWorkParams{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel, AddedAt: now, RefreshedAt: now}); err != nil {
 			return err
 		}
-		return converge(ctx, tx, reg.catalog, id, p, now)
+		if err := converge(ctx, tx, reg.catalog, id, p, now); err != nil {
+			return err
+		}
+		if monitor {
+			return q.MonitorItems(ctx, id)
+		}
+		return nil
 	})
 	if err != nil {
 		return Tree{}, false, err
@@ -428,7 +436,7 @@ func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []
 		if err != nil {
 			return Tree{}, fmt.Errorf("item %s: %w", it.Key, err)
 		}
-		t.Items = append(t.Items, Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Fields: values})
+		t.Items = append(t.Items, Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Monitored: it.Monitored, Fields: values})
 	}
 	for id := range fs.Levels {
 		if _, ok := rank[id]; !ok {
