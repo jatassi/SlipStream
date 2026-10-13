@@ -21,7 +21,7 @@ type healthOutput struct {
 }
 
 type status struct {
-	Claim string `json:"claim" enum:"unclaimed,controller"`
+	Claim string `json:"claim" enum:"unclaimed,controller,worker"`
 }
 
 type statusOutput struct {
@@ -51,6 +51,7 @@ type build struct {
 type listeners struct {
 	HTTP    string `json:"http"`
 	Torrent string `json:"torrent"`
+	Link    string `json:"link"`
 	Control string `json:"control"`
 }
 
@@ -80,14 +81,19 @@ func reportOf(f system.Facts) report {
 		Listeners: listeners{
 			HTTP:    f.Listeners.HTTP.String(),
 			Torrent: f.Listeners.Torrent.String(),
+			Link:    f.Listeners.Link.String(),
 			Control: f.Listeners.Control,
 		},
 	}
 }
 
-// Routes reports facts, and the claim state from claimed, the composition
-// root's one definition of a claimed Node.
-func Routes(r *api.Router, facts system.Facts, claimed func(context.Context) (bool, error)) {
+// Claims is the composition root's one definition of the Node's claim.
+type Claims interface {
+	Claim(context.Context) (system.Claim, error)
+}
+
+// Routes reports facts and the claim.
+func Routes(r *api.Router, facts system.Facts, claims Claims) {
 	o := r.Owner("system", api.Public)
 
 	api.Register(o, api.Public, api.Op{
@@ -104,17 +110,14 @@ func Routes(r *api.Router, facts system.Facts, claimed func(context.Context) (bo
 		ID:      "getStatus",
 		Method:  http.MethodGet,
 		Path:    "/status",
-		Summary: "Report whether the Node is claimed",
+		Summary: "Report whether the Node is Unclaimed, a Controller or a Worker",
 		Status:  http.StatusOK,
 	}, func(ctx context.Context, _ identity.Anyone, _ *struct{}) (*statusOutput, error) {
-		done, err := claimed(ctx)
+		claim, err := claims.Claim(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if done {
-			return &statusOutput{Body: status{Claim: "controller"}}, nil
-		}
-		return &statusOutput{Body: status{Claim: "unclaimed"}}, nil
+		return &statusOutput{Body: status{Claim: claim.String()}}, nil
 	})
 
 	api.Register(o, api.Admin, api.Op{

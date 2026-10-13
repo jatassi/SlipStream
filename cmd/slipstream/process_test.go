@@ -26,7 +26,7 @@ import (
 
 // localListeners keep parallel Nodes off each other's ports. startNode
 // always sets them.
-var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0"}
+var localListeners = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0"}
 
 func TestMain(m *testing.M) {
 	os.Exit(testbin.Run(m))
@@ -279,14 +279,70 @@ func TestRefusedLibraryExitsWithItsOwnCode(t *testing.T) {
 	}
 	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
 	want := "library.db holds schema shelf, which this binary does not have"
+	if got := startFailed(res.stderr); res.code != node.ExitLibraryRefused || got != want {
+		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitLibraryRefused, want, res.stderr)
+	}
+}
+
+// startFailed is the err of the start failed record on stderr.
+func startFailed(stderr string) string {
 	var failed struct{ Msg, Err string }
-	for line := range strings.SplitSeq(strings.TrimSpace(res.stderr), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(stderr), "\n") {
 		if err := json.Unmarshal([]byte(line), &failed); err == nil && failed.Msg == "start failed" {
-			break
+			return failed.Err
 		}
 	}
-	if res.code != node.ExitLibraryRefused || failed.Err != want {
-		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, failed.Err, node.ExitLibraryRefused, want, res.stderr)
+	return ""
+}
+
+func TestAMalformedNodeKeyExitsWithItsOwnCode(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	key := filepath.Join(dir, "node.key")
+	if err := os.WriteFile(key, []byte("0123456789"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
+	want := "node key " + key + " is not 64 hex characters"
+	if got := startFailed(res.stderr); res.code != node.ExitRecordRefused || got != want {
+		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitRecordRefused, want, res.stderr)
+	}
+}
+
+// joinCode is the SLP1 golden code; no output may hold its text.
+const joinCode = "SLP1-CC6WT-AB6RG-SPD48-JAH4B-QCJV9-XJ6AS-K7D1M-PMTVC-DNQ6Y-W3HE9-SG213-Z0000-58D1S-QG852-G"
+
+func holdsTheCode(out string) bool { return strings.Contains(strings.ToUpper(out), "CC6WT-AB6RG") }
+
+func TestAJoinCodeNeverReachesALogOrTheConfigOutput(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	damaged := strings.ToLower(joinCode[:len(joinCode)-1] + "H")
+	res := slipstream(t, childEnv(append(slices.Clone(localListeners), "SLIPSTREAM_JOIN_CODE="+damaged)...), "run", "--data-dir", dir)
+	want := "env: SLIPSTREAM_JOIN_CODE: the Join Code is mistyped or cut short"
+	if res.code != node.ExitUsage || startFailed(res.stderr) != want {
+		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, startFailed(res.stderr), node.ExitUsage, want, res.stderr)
+	}
+	logged, err := os.ReadFile(filepath.Join(dir, "logs", "slipstream.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if holdsTheCode(res.stderr) || holdsTheCode(string(logged)) {
+		t.Fatalf("a log holds the Join Code:\n%s\n%s", res.stderr, logged)
+	}
+
+	res = slipstream(t, childEnv("SLIPSTREAM_JOIN_CODE="+damaged), "config", "--data-dir", dir)
+	if res.code != node.ExitUsage || res.stderr != "slipstream config: "+want+"\n" {
+		t.Fatalf("config with a damaged code: exit %d, stderr %q; want exit %d, %q", res.code, res.stderr, node.ExitUsage, want)
+	}
+	res = slipstream(t, childEnv("SLIPSTREAM_JOIN_CODE="+joinCode), "config", "--data-dir", dir)
+	var got node.Resolved
+	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil || res.code != node.ExitOK {
+		t.Fatalf("config: exit %d, stdout %q, stderr %q", res.code, res.stdout, res.stderr)
+	}
+	wantKey := node.Key{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: "env"}
+	if !slices.Contains(got.Keys, wantKey) || holdsTheCode(res.stdout) || holdsTheCode(res.stderr) {
+		t.Fatalf("config = %s, want %+v and no code", res.stdout, wantKey)
 	}
 }
 
@@ -395,18 +451,34 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil {
 		t.Fatalf("stdout %q: %v", res.stdout, err)
 	}
+	host, err := os.Hostname()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := node.Resolved{
 		Keys: []node.Key{
 			{Key: "seed", Value: "fixed", Default: "", Source: "env"},
+			{Key: "name", Value: host, Default: host, Source: "default"},
 			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
 			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default"},
 			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default"},
+			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default"},
+			{Key: "link.stream_window", Value: "16777216", Default: "16777216", Source: "default"},
+			{Key: "join.code", Value: "", Default: "", Source: "default"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
 			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default"},
 			{Key: "timings.http.idle", Value: "2m0s", Default: "2m0s", Source: "default"},
 			{Key: "timings.live.heartbeat", Value: "25s", Default: "25s", Source: "default"},
 			{Key: "timings.live.retry", Value: "3s", Default: "3s", Source: "default"},
+			{Key: "timings.link.handshake", Value: "10s", Default: "10s", Source: "default"},
+			{Key: "timings.link.keepalive", Value: "25s", Default: "25s", Source: "default"},
+			{Key: "timings.link.write_timeout", Value: "10s", Default: "10s", Source: "default"},
+			{Key: "timings.link.redial_min", Value: "1s", Default: "1s", Source: "default"},
+			{Key: "timings.link.redial_max", Value: "1m0s", Default: "1m0s", Source: "default"},
+			{Key: "timings.link.fallback_delay", Value: "300ms", Default: "300ms", Source: "default"},
+			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default"},
+			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default"},
 		},
 		Census: []string{},
 	}

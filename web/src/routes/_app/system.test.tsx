@@ -16,6 +16,7 @@ test("/system shows this Node's build and data dir", async () => {
         listeners: {
           http: "127.0.0.2:8080",
           torrent: "127.0.0.2:6881",
+          link: "127.0.0.2:8485",
           control: "/data/home/control.sock",
         },
         pid: 4242,

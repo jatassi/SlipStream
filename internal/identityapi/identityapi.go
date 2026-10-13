@@ -11,6 +11,26 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
+// Library is the Node's library.db as identity's operations reach it.
+type Library interface {
+	// Identity is the identity service, false while library.db is closed.
+	Identity() (*identity.Service, bool)
+	// ClaimController opens library.db and library.key, creating them,
+	// runs claim on the identity service, and once claim succeeds makes the
+	// Node a Controller.
+	ClaimController(ctx context.Context, claim func(*identity.Service) error) error
+}
+
+// open is the identity service of an operation an Account check admitted,
+// which only a Controller, with library.db open, admits.
+func open(lib Library) *identity.Service {
+	s, ok := lib.Identity()
+	if !ok {
+		panic("identityapi: an Account operation ran while library.db is closed")
+	}
+	return s
+}
+
 var pinWrong = api.NewCode(http.StatusUnauthorized, "pin_wrong", "The email or PIN is wrong")
 
 type account struct {
@@ -70,7 +90,7 @@ type signOutOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 }
 
-func Routes(r *api.Router, s *identity.Service) {
+func Routes(r *api.Router, lib Library) {
 	o := r.Owner("identity", api.Public)
 
 	api.Register(o, api.Setup, api.Op{
@@ -84,7 +104,12 @@ func Routes(r *api.Router, s *identity.Service) {
 		if err != nil {
 			return nil, err
 		}
-		res, err := s.ClaimController(ctx, c, in.Body.Email, in.Body.DisplayName, pin)
+		var res identity.Claimed
+		err = lib.ClaimController(ctx, func(s *identity.Service) error {
+			var err error
+			res, err = s.ClaimController(ctx, c, in.Body.Email, in.Body.DisplayName, pin)
+			return err
+		})
 		if errors.Is(err, identity.ErrAlreadyClaimed) {
 			return nil, api.AlreadyClaimed
 		}
@@ -108,6 +133,10 @@ func Routes(r *api.Router, s *identity.Service) {
 		pin, err := identity.ParsePIN(in.Body.PIN)
 		if err != nil {
 			return nil, err
+		}
+		s, ok := lib.Identity()
+		if !ok {
+			return nil, pinWrong
 		}
 		profile, cookie, err := s.SignIn(ctx, a, in.Body.Email, pin)
 		if errors.Is(err, identity.ErrPINWrong) {
@@ -136,7 +165,7 @@ func Routes(r *api.Router, s *identity.Service) {
 		Summary: "Sign out",
 		Status:  http.StatusNoContent,
 	}, func(ctx context.Context, a identity.Account, _ *struct{}) (*signOutOutput, error) {
-		cookie, err := s.SignOut(ctx, a)
+		cookie, err := open(lib).SignOut(ctx, a)
 		if err != nil {
 			return nil, err
 		}

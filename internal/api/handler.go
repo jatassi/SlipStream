@@ -80,18 +80,24 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 
 // caller resolves req's Caller once its operation is known. A public
 // operation's caller presents nothing, so it never reads or slides a
-// session, whatever cookie or key the request carries.
+// session, whatever cookie or key the request carries. Neither does any
+// caller of a Node whose library.db is closed, which holds no session or
+// API key to match.
 func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates bool) (identity.Caller, bool) {
 	peer, _ := netip.ParseAddrPort(req.RemoteAddr)
 	creds := identity.Request{Address: peer.Addr().Unmap(), TLS: req.TLS != nil}
 	if !authenticates {
 		return creds.Unauthenticated(), true
 	}
+	ids, open := r.services.Node.Identity()
+	if !open {
+		return creds.Unauthenticated(), true
+	}
 	creds.APIKey = req.Header.Get(apiKeyHeader)
 	if c, err := req.Cookie(identity.CookieName); err == nil {
 		creds.Session = c.Value
 	}
-	caller, cookie, err := r.services.Identity.Authenticate(req.Context(), creds)
+	caller, cookie, err := ids.Authenticate(req.Context(), creds)
 	if err != nil {
 		r.logFailure(req.Context(), "authentication failed", "method", req.Method, "path", req.URL.Path, "error", err)
 		writeProblem(w, Internal.problem())

@@ -47,13 +47,13 @@ func serve(t *testing.T, heartbeat time.Duration) *node {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	gate, _, err := identity.NewGate(ctx, svc.HasAdmin, log)
+	gate, _, err := identity.NewGate(ctx, identitytest.Node{Service: svc}.Claim, log)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := api.NewRouter(api.Services{Identity: svc, Gate: gate, Web: fstest.MapFS{}, Log: log})
-	identityapi.Routes(r, svc)
-	liveapi.Routes(r, hub, svc, live.Timings{Heartbeat: heartbeat, Retry: 3 * time.Second})
+	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{}, Log: log})
+	identityapi.Routes(r, identitytest.Node{Service: svc})
+	liveapi.Routes(r, hub, identitytest.Node{Service: svc}, live.Timings{Heartbeat: heartbeat, Retry: 3 * time.Second})
 	ln := apitest.NewListener(&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8484})
 	srv := &http.Server{Handler: r.Handler(), ReadHeaderTimeout: time.Minute}
 	served := make(chan error, 1)

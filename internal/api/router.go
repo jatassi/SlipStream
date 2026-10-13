@@ -21,6 +21,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/system"
 )
 
 const (
@@ -37,11 +38,18 @@ const (
 
 // Services are what serving needs. The document needs none of them.
 type Services struct {
-	Identity       *identity.Service
+	Node           Node
 	Gate           *identity.Gate
 	Web            fs.FS
 	TrustedOrigins []Origin
 	Log            *slog.Logger
+}
+
+// Node is the Node serving the API as the access checks read it, on every
+// request: its claim, and its identity service once library.db is open.
+type Node interface {
+	Claim(context.Context) (system.Claim, error)
+	Identity() (*identity.Service, bool)
 }
 
 // Router holds every registered operation. Owners register through Owner,
@@ -221,6 +229,15 @@ func (o *Owner) check(level *access, op Op, input reflect.Type) {
 func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		req, w := humago.Unwrap(ctx)
+		if err := r.refusedByClaim(ctx.Context(), level.access); err != nil {
+			code, ok := identityCode(err)
+			if !ok {
+				r.logFailure(ctx.Context(), "claim unknown", "method", req.Method, "path", req.URL.Path, "error", err)
+				code = Internal
+			}
+			writeProblem(w, code.problem())
+			return
+		}
 		c, ok := r.caller(w, req, level.authenticates)
 		if !ok {
 			return
@@ -237,6 +254,25 @@ func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(h
 		}
 		writeProblem(w, code.problem())
 	}
+}
+
+// refusedByClaim answers an Account or Admin check before any credential
+// is read: an Unclaimed Node has no Account yet, and a Worker's live on its
+// Controller.
+func (r *Router) refusedByClaim(ctx context.Context, a *access) error {
+	if !a.byClaim {
+		return nil
+	}
+	claim, err := r.services.Node.Claim(ctx)
+	switch {
+	case err != nil:
+		return err
+	case claim == system.Unclaimed:
+		return identity.ErrSignedOut
+	case claim == system.Worker:
+		return identity.ErrWorkerNode
+	}
+	return nil
 }
 
 // failure turns a handler's error into what the client sees. A code the

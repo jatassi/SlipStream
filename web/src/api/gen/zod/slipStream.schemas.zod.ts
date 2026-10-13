@@ -119,6 +119,7 @@ export type SystemHealthOutput = zod.output<typeof SystemHealth>;
 export const SystemListeners = zod.object({
   control: zod.string(),
   http: zod.string(),
+  link: zod.string(),
   torrent: zod.string(),
 });
 
@@ -138,7 +139,7 @@ export type SystemReport = zod.input<typeof SystemReport>;
 export type SystemReportOutput = zod.output<typeof SystemReport>;
 
 export const SystemStatus = zod.object({
-  claim: zod.enum(["unclaimed", "controller"]),
+  claim: zod.enum(["unclaimed", "controller", "worker"]),
 });
 
 export type SystemStatus = zod.input<typeof SystemStatus>;

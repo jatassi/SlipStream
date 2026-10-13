@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/jatassi/slipstream/internal/system"
 )
 
 func TestSetupCodesReadAsTyped(t *testing.T) {
@@ -78,20 +80,20 @@ func TestAtMostTwoPINHashesRunAtOnce(t *testing.T) {
 }
 
 type claimedFlag struct {
-	mu   sync.Mutex
-	done bool
+	mu    sync.Mutex
+	claim system.Claim
 }
 
-func (c *claimedFlag) claimed(context.Context) (bool, error) {
+func (c *claimedFlag) claimed(context.Context) (system.Claim, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.done, nil
+	return c.claim, nil
 }
 
 func (c *claimedFlag) set() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.done = true
+	c.claim = system.Controller
 }
 
 func TestTheGateOpensBusiesAndCloses(t *testing.T) {
@@ -136,13 +138,32 @@ func TestTheGateOpensBusiesAndCloses(t *testing.T) {
 }
 
 func TestAClaimedNodeHasAClosedGateAndNoCode(t *testing.T) {
-	flag := &claimedFlag{done: true}
-	g, code, err := NewGate(t.Context(), flag.claimed, slog.New(slog.DiscardHandler))
-	if err != nil || code != "" {
-		t.Fatalf("NewGate = %q, %v; want no code", code, err)
+	for _, claim := range []system.Claim{system.Controller, system.Worker} {
+		flag := &claimedFlag{claim: claim}
+		g, code, err := NewGate(t.Context(), flag.claimed, slog.New(slog.DiscardHandler))
+		if err != nil || code != "" {
+			t.Fatalf("%s: NewGate = %q, %v; want no code", claim, code, err)
+		}
+		if err := g.Run(t.Context(), Caller{}, "", func(Claim) {}); !errors.Is(err, ErrAlreadyClaimed) {
+			t.Fatalf("%s: Run = %v, want ErrAlreadyClaimed", claim, err)
+		}
 	}
-	if err := g.Run(t.Context(), Caller{}, "", func(Claim) {}); !errors.Is(err, ErrAlreadyClaimed) {
-		t.Fatalf("Run = %v, want ErrAlreadyClaimed", err)
+}
+
+func TestAClaimOutsideTheGateClosesIt(t *testing.T) {
+	var log bytes.Buffer
+	g, code, err := NewGate(t.Context(), (&claimedFlag{}).claimed, slog.New(slog.NewTextHandler(&log, &slog.HandlerOptions{ReplaceAttr: noTime})))
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Reset()
+	g.Close()
+	if err := g.Run(t.Context(), Caller{}, code, func(Claim) {}); !errors.Is(err, ErrAlreadyClaimed) {
+		t.Fatalf("Run with the code after Close = %v, want ErrAlreadyClaimed", err)
+	}
+	g.Close()
+	if want := "level=INFO msg=\"setup code used\"\n"; log.String() != want {
+		t.Fatalf("log = %q, want %q once", log.String(), want)
 	}
 }
 

@@ -49,13 +49,32 @@ func (w want) met(status int, code string) bool {
 
 var callers = []string{"nobody", "member", "admin", "api key"}
 
+var alreadyClaimed, workerNode = want{409, "already_claimed"}, want{409, "worker_node"}
+
 // walk is what each caller, in callers' order, must get at each level. A
 // setup operation is walked on a claimed Node.
 var walk = map[string][]want{
 	"public":  {pass, pass, pass, pass},
-	"setup":   {{409, "already_claimed"}, {409, "already_claimed"}, {409, "already_claimed"}, {409, "already_claimed"}},
+	"setup":   {alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed},
 	"account": {{401, "signed_out"}, pass, pass, {403, "needs_account"}},
 	"admin":   {{401, "signed_out"}, {403, "needs_admin"}, pass, pass},
+}
+
+// workerWalk is the walk on a Worker, which holds no Account: every Account
+// and Admin check answers worker_node before reading a credential.
+var workerWalk = map[string][]want{
+	"public":  {pass, pass, pass, pass},
+	"setup":   {alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed},
+	"account": {workerNode, workerNode, workerNode, workerNode},
+	"admin":   {workerNode, workerNode, workerNode, workerNode},
+}
+
+// madeUp are credentials no Node issued, which is all a Worker's caller can
+// hold.
+var madeUp = Credentials{
+	Member: func() string { return "made-up-member-session" },
+	Admin:  func() string { return "made-up-admin-session" },
+	APIKey: "ssk_made-up",
 }
 
 const zeroUUID = "00000000-0000-0000-0000-000000000000"
@@ -84,6 +103,15 @@ var methods = map[string]string{
 // the gate answers before Huma parses anything. A stream is cut after its
 // status line. It returns one line per breach.
 func CheckAccess(handler http.Handler, doc []byte, c Credentials) []string {
+	return checkAll(handler, doc, c, walk)
+}
+
+// CheckWorkerAccess is CheckAccess on a Worker, with made-up credentials.
+func CheckWorkerAccess(handler http.Handler, doc []byte) []string {
+	return checkAll(handler, doc, madeUp, workerWalk)
+}
+
+func checkAll(handler http.Handler, doc []byte, c Credentials, walk map[string][]want) []string {
 	var d document
 	if err := json.Unmarshal(doc, &d); err != nil {
 		return []string{"the document is not JSON: " + err.Error()}
@@ -104,13 +132,13 @@ func CheckAccess(handler http.Handler, doc []byte, c Credentials) []string {
 				return append(breaches, fmt.Sprintf("%s %s%s: %v", method, prefix, p, err))
 			}
 			target := prefix + pathParam.ReplaceAllString(p, zeroUUID)
-			breaches = append(breaches, check(handler, method, prefix+p, target, op, c)...)
+			breaches = append(breaches, check(handler, method, prefix+p, target, op, c, walk)...)
 		}
 	}
 	return breaches
 }
 
-func check(handler http.Handler, method, route, target string, op operation, c Credentials) []string {
+func check(handler http.Handler, method, route, target string, op operation, c Credentials, walk map[string][]want) []string {
 	if op.Access == nil {
 		return []string{fmt.Sprintf("%s %s: operation %s has no x-slipstream-access", method, route, op.ID)}
 	}

@@ -15,6 +15,8 @@ export type EntryKind = Entry["kind"];
 const entries: { readonly [C in SystemStatusClaim]: (account: IdentityAccount | null) => Entry } = {
   unclaimed: () => ({ kind: "setup" }),
   controller: (account) => (account === null ? { kind: "sign-in" } : { kind: "app", account }),
+  // A placeholder until the worker entry and its /worker page land.
+  worker: () => ({ kind: "setup" }),
 };
 
 export const entryOf = (status: SystemStatus, account: IdentityAccount | null): Entry =>

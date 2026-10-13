@@ -12,7 +12,7 @@ export const getGetHealthResponseMock = (
 export const getGetStatusResponseMock = (
   overrideResponse: Partial<Extract<SystemStatus, object>> = {},
 ): SystemStatus => ({
-  claim: faker.helpers.arrayElement(["unclaimed", "controller"] as const),
+  claim: faker.helpers.arrayElement(["unclaimed", "controller", "worker"] as const),
   ...overrideResponse,
 });
 
@@ -44,6 +44,7 @@ export const getGetSystemResponseMock = (
   listeners: {
     control: faker.string.alpha({ length: { min: 10, max: 20 } }),
     http: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    link: faker.string.alpha({ length: { min: 10, max: 20 } }),
     torrent: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   pid: faker.number.int(),

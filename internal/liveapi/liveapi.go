@@ -17,7 +17,13 @@ type streamInput struct {
 	LastEventID string `header:"Last-Event-ID" doc:"The id of the last event a dropped stream received"`
 }
 
-func Routes(r *api.Router, hub *live.Hub, sessions *identity.Service, t live.Timings) {
+// Identities is where the stream finds the identity service. Only a
+// Controller admits an Account, and its library.db is open.
+type Identities interface {
+	Identity() (*identity.Service, bool)
+}
+
+func Routes(r *api.Router, hub *live.Hub, ids Identities, t live.Timings) {
 	o := r.Owner("live", api.Account)
 
 	api.RegisterStream(o, api.Account, api.Op{
@@ -27,6 +33,7 @@ func Routes(r *api.Router, hub *live.Hub, sessions *identity.Service, t live.Tim
 		Summary: "Stream the events this session may see",
 		Status:  http.StatusOK,
 	}, hub.Events(), func(ctx context.Context, a identity.Account, in *streamInput, send api.Send) error {
+		sessions, _ := ids.Identity()
 		s := stream{sessions: sessions, timings: t, account: a, send: send, retry: t.Retry}
 		return s.run(ctx, hub.Subscribe(live.Viewer{
 			Account: a.Profile().ID.UUID,

@@ -74,18 +74,18 @@ func newNode(t *testing.T, origins ...api.Origin) *node {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	gate, code, err := identity.NewGate(ctx, svc.HasAdmin, log)
+	gate, code, err := identity.NewGate(ctx, identitytest.Node{Service: svc}.Claim, log)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := api.NewRouter(api.Services{
-		Identity:       svc,
+		Node:           identitytest.Node{Service: svc},
 		Gate:           gate,
 		Web:            fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
 		TrustedOrigins: origins,
 		Log:            log,
 	})
-	identityapi.Routes(r, svc)
+	identityapi.Routes(r, identitytest.Node{Service: svc})
 	api.Register(r.Owner("fixture", api.Admin), api.Admin, api.Op{ID: fixtureAdmin.ID, Method: http.MethodGet, Path: fixtureAdmin.Path},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
 	return &node{t: t, lib: lib, h: r.Handler(), doc: r.Document(), code: code, events: events}

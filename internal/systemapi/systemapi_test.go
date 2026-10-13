@@ -1,6 +1,7 @@
 package systemapi_test
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -31,6 +33,7 @@ var facts = system.Facts{
 	Listeners: system.Listeners{
 		HTTP:    netip.MustParseAddrPort("127.0.0.1:8484"),
 		Torrent: netip.MustParseAddrPort("0.0.0.0:6881"),
+		Link:    netip.MustParseAddrPort("127.0.0.1:8485"),
 		Control: "/srv/slipstream/run/control.sock",
 	},
 }
@@ -55,13 +58,13 @@ func newNode(t *testing.T, f system.Facts) *node {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	gate, code, err := identity.NewGate(ctx, svc.HasAdmin, log)
+	gate, code, err := identity.NewGate(ctx, identitytest.Node{Service: svc}.Claim, log)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := api.NewRouter(api.Services{Identity: svc, Gate: gate, Web: fstest.MapFS{}, Log: log})
-	identityapi.Routes(r, svc)
-	systemapi.Routes(r, f, svc.HasAdmin)
+	r := api.NewRouter(api.Services{Node: identitytest.Node{Service: svc}, Gate: gate, Web: fstest.MapFS{}, Log: log})
+	identityapi.Routes(r, identitytest.Node{Service: svc})
+	systemapi.Routes(r, f, identitytest.Node{Service: svc})
 	return &node{t: t, h: r.Handler(), code: code}
 }
 
@@ -124,7 +127,27 @@ func TestSystemReportsTheFactsToTheAPIKey(t *testing.T) {
 		n := newNode(t, tc.facts)
 		key := n.claim()
 		expect(t, n.do(http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": key}), 200,
-			`{"build":`+tc.build+`,"dataDir":"/srv/slipstream","pid":4242,"seed":"fixed","startedAt":"2026-10-12T09:30:00Z","listeners":{"http":"127.0.0.1:8484","torrent":"0.0.0.0:6881","control":"/srv/slipstream/run/control.sock"}}`+"\n")
+			`{"build":`+tc.build+`,"dataDir":"/srv/slipstream","pid":4242,"seed":"fixed","startedAt":"2026-10-12T09:30:00Z","listeners":{"http":"127.0.0.1:8484","torrent":"0.0.0.0:6881","link":"127.0.0.1:8485","control":"/srv/slipstream/run/control.sock"}}`+"\n")
 		expect(t, n.do(http.MethodGet, "/api/v1/system", "", nil), 401, `{"status":401,"code":"signed_out","title":"Sign in to continue"}`+"\n")
 	}
+}
+
+// worker is a Worker's claim: no library.db, so no identity service.
+type worker struct{}
+
+func (worker) Claim(context.Context) (system.Claim, error) { return system.Worker, nil }
+func (worker) Identity() (*identity.Service, bool)         { return nil, false }
+
+func TestAWorkerReportsItsClaimAndSendsAdminsToItsController(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	gate, code, err := identity.NewGate(t.Context(), worker{}.Claim, log)
+	if err != nil || code != "" {
+		t.Fatalf("NewGate = %q, %v; want a closed gate", code, err)
+	}
+	r := api.NewRouter(api.Services{Node: worker{}, Gate: gate, Web: fstest.MapFS{}, Log: log})
+	systemapi.Routes(r, facts, worker{})
+	n := &node{t: t, h: r.Handler()}
+	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker"}`+"\n")
+	expect(t, n.do(http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": "ssk_made-up"}), 409,
+		`{"status":409,"code":"worker_node","title":"This Node is a Worker. Manage it from its Controller."}`+"\n")
 }

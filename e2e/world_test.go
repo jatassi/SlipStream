@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"testing"
@@ -63,6 +64,11 @@ func TestFirstRun(t *testing.T) {
 	}
 	ctx := worldtest.Context(t)
 	expect(t, "GET /api/v1/status", get(ctx, t, home.URL+"/api/v1/status", ""), reply{200, `{"claim":"unclaimed"}` + "\n"})
+	for name, want := range map[string]bool{"node.key": true, "library.db": false, "library.key": false, "local.db": false} {
+		if _, err := os.Stat(filepath.Join(home.DataDir, name)); (err == nil) != want {
+			t.Errorf("the Unclaimed data dir holds %s: %v, want %v", name, err == nil, want)
+		}
+	}
 }
 
 func TestSingleMachine(t *testing.T) {

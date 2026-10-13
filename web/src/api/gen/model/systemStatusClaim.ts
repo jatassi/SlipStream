@@ -1,1 +1,1 @@
-export type SystemStatusClaim = "unclaimed" | "controller";
+export type SystemStatusClaim = "unclaimed" | "controller" | "worker";

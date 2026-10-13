@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
+
+	"github.com/jatassi/slipstream/internal/system"
 )
 
 // Listeners holds every address the Node bound, one field per listener. Start
@@ -14,6 +16,7 @@ type Listeners struct {
 	Control string         `json:"control"`
 	Torrent netip.AddrPort `json:"torrent"`
 	HTTP    netip.AddrPort `json:"http"`
+	Link    netip.AddrPort `json:"link"`
 }
 
 func (l Listeners) unbound() []string {
@@ -28,10 +31,13 @@ func (l Listeners) unbound() []string {
 }
 
 type Ready struct {
-	PID       int       `json:"pid"`
-	DataDir   string    `json:"data_dir"`
-	Version   string    `json:"version"`
-	Seed      string    `json:"seed"`
+	PID     int          `json:"pid"`
+	DataDir string       `json:"data_dir"`
+	Version string       `json:"version"`
+	Seed    string       `json:"seed"`
+	Claim   system.Claim `json:"claim"`
+	// NodeKey is node.key's fingerprint.
+	NodeKey   string    `json:"node_key"`
 	Listeners Listeners `json:"listeners"`
 	Overrides []Key     `json:"overrides"`
 	// SetupCode is set while the Node is Unclaimed, so the Fake world can

@@ -1,14 +1,12 @@
 package node
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/netip"
@@ -22,6 +20,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
@@ -55,31 +54,46 @@ func (e *idleEngine) Close() error {
 	return nil
 }
 
-// inMemory binds every listener in memory, the control socket included,
-// runs an idle torrent engine and logs to a file that never rotates.
-func inMemory() (machine, *apitest.Listener) {
-	httpLn := apitest.NewListener(&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8484})
-	return machine{
-		listen: func(_ context.Context, network, address string) (net.Listener, error) {
-			if network == "unix" {
-				return apitest.NewListener(&net.UnixAddr{Name: address, Net: network}), nil
-			}
-			return httpLn, nil
-		},
-		openTorrent: func(c engine.Config) (engine.Engine, error) {
-			return &idleEngine{listen: netip.AddrPortFrom(c.ListenInterface.Addr(), 6881), events: make(chan engine.Event)}, nil
-		},
-		openLog: func(dir string, stderr io.Writer) (*logs.Log, error) {
-			if err := os.MkdirAll(dir, 0o700); err != nil {
-				return nil, fmt.Errorf("create logs dir: %w", err)
-			}
-			f, err := os.OpenFile(filepath.Join(dir, logs.File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-			if err != nil {
-				return nil, fmt.Errorf("open log file: %w", err)
-			}
-			return logs.New(stderr, f), nil
-		},
-	}, httpLn
+// inMemory runs env on an in-memory network whose host holds 127.0.0.1,
+// the control socket included, with an idle torrent engine and a log file
+// that never rotates. It returns the host to dial the Node from.
+func inMemory(env Env) (Env, *fault.Host) {
+	host := fault.NewNetwork().Host(netip.MustParseAddr("127.0.0.1"))
+	env.Net = host
+	env.Engine = func(c engine.Config) (engine.Engine, error) {
+		return &idleEngine{listen: netip.AddrPortFrom(c.ListenInterface.Addr(), 6881), events: make(chan engine.Event)}, nil
+	}
+	env.OpenLog = func(dir string, stderr io.Writer) (*logs.Log, error) {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, fmt.Errorf("create logs dir: %w", err)
+		}
+		f, err := os.OpenFile(filepath.Join(dir, logs.File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err != nil {
+			return nil, fmt.Errorf("open log file: %w", err)
+		}
+		return logs.New(stderr, f), nil
+	}
+	return env, host
+}
+
+// startInMemory starts env in memory inside the caller's bubble and returns
+// a client of its HTTP listener.
+func startInMemory(t *testing.T, env Env) (*Node, client) {
+	t.Helper()
+	env, host := inMemory(env)
+	n, err := Start(t.Context(), env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		n.Stop()
+		<-n.Done()
+		if n.Err() != nil {
+			t.Errorf("the Node stopped with %v", n.Err())
+		}
+	})
+	c := &http.Client{Transport: &http.Transport{DialContext: host.DialContext, DisableKeepAlives: true}}
+	return n, client{t: t, c: c, base: "http://" + n.Ready().Listeners.HTTP.String()}
 }
 
 type client struct {
@@ -223,19 +237,8 @@ type claimedNode struct {
 func TestTheEventStreamThroughAStartedNode(t *testing.T) {
 	env, _ := testEnv(t)
 	synctest.Test(t, func(t *testing.T) {
-		m, ln := inMemory()
-		n, err := startOn(t.Context(), env, m)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			n.Stop()
-			<-n.Done()
-			if n.Err() != nil {
-				t.Errorf("the Node stopped with %v", n.Err())
-			}
-		})
-		cn := claimThroughTheGate(t, client{t: t, c: ln.Client(), base: "http://slipstream"}, n.Ready().SetupCode)
+		n, c := startInMemory(t, env)
+		cn := claimThroughTheGate(t, c, n.Ready().SetupCode)
 		a := signInAsTheAdmin(t, cn)
 		streamAndSignOut(t, cn, a)
 		expireAndSlide(t, cn)

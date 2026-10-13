@@ -21,21 +21,26 @@ var Events = []live.Event{
 	identity.SessionsChangedEvent,
 }
 
+// Node is the running Node as the operations reach it: its claim, the
+// composition root's one definition of it, and its library.db.
+type Node interface {
+	Claim(context.Context) (system.Claim, error)
+	identityapi.Library
+}
+
 // Services are what the operations run against. Document passes none.
 type Services struct {
-	Identity *identity.Service
-	Hub      *live.Hub
-	Live     live.Timings
-	System   system.Facts
-	// Claimed is the composition root's one definition of a claimed Node.
-	Claimed func(context.Context) (bool, error)
+	Node   Node
+	Hub    *live.Hub
+	Live   live.Timings
+	System system.Facts
 }
 
 // Mount registers every owner's operations, one line each.
 func Mount(r *api.Router, s Services) {
-	identityapi.Routes(r, s.Identity)
-	liveapi.Routes(r, s.Hub, s.Identity, s.Live)
-	systemapi.Routes(r, s.System, s.Claimed)
+	identityapi.Routes(r, s.Node)
+	liveapi.Routes(r, s.Hub, s.Node, s.Live)
+	systemapi.Routes(r, s.System, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

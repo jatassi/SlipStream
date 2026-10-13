@@ -236,6 +236,9 @@
           "http": {
             "type": "string"
           },
+          "link": {
+            "type": "string"
+          },
           "torrent": {
             "type": "string"
           }
@@ -243,6 +246,7 @@
         "required": [
           "http",
           "torrent",
+          "link",
           "control"
         ],
         "type": "object"
@@ -287,7 +291,8 @@
           "claim": {
             "enum": [
               "unclaimed",
-              "controller"
+              "controller",
+              "worker"
             ],
             "type": "string"
           }
@@ -482,6 +487,31 @@
             },
             "description": "Forbidden"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -658,6 +688,31 @@
             },
             "description": "Forbidden"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -758,6 +813,31 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "500": {
             "content": {
@@ -1121,7 +1201,7 @@
           }
         },
         "security": [],
-        "summary": "Report whether the Node is claimed",
+        "summary": "Report whether the Node is Unclaimed, a Controller or a Worker",
         "tags": [
           "system"
         ],
@@ -1192,6 +1272,31 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "500": {
             "content": {
