@@ -115,7 +115,11 @@ type recordingJSON struct {
 func (s *server) revision(a scenario.MusicArtist) scenario.MusicRevision {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return a.Revisions[min(max(s.lookups[a.ID]-1, 0), len(a.Revisions)-1)]
+	looked := s.lookups[a.ID]
+	if looked == 0 {
+		return a.Revisions[0]
+	}
+	return a.Revisions[min(looked, len(a.Revisions))-1]
 }
 
 func (s *server) search(w http.ResponseWriter, r *http.Request) {

@@ -121,17 +121,17 @@ func canonical(releases []Release) (Release, bool) {
 		return Release{}, false
 	}
 	return slices.MinFunc(releases, func(a, b Release) int {
-		return cmp.Or(compareFirst(a.Disambiguation == "", b.Disambiguation == ""), compareDates(a.Date, b.Date), cmp.Compare(a.ID, b.ID))
+		return cmp.Or(trueFirst(a.Disambiguation == "", b.Disambiguation == ""), compareDates(a.Date, b.Date), cmp.Compare(a.ID, b.ID))
 	}), true
 }
 
 // compareDates orders partial dates as text, which sorts them by time, and
 // an empty date last.
 func compareDates(a, b string) int {
-	return cmp.Or(compareFirst(a != "", b != ""), cmp.Compare(a, b))
+	return cmp.Or(trueFirst(a != "", b != ""), cmp.Compare(a, b))
 }
 
-func compareFirst(a, b bool) int {
+func trueFirst(a, b bool) int {
 	switch {
 	case a == b:
 		return 0
