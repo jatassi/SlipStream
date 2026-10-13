@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,34 +105,53 @@ func frozenRepo(t *testing.T, tags ...string) string {
 	return dir
 }
 
-func TestProtoFrozenRunsBufBreakingAgainstTheLatestV1Tag(t *testing.T) {
+// releaseIn runs the release command args in dir, as go run ./cmd/release
+// does there, with the repo's tools module beside it so buf resolves.
+func releaseIn(t *testing.T, dir, args string) (code int, stdout, stderr string) {
+	t.Helper()
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := frozenRepo(t, "v0.9.0", "v1.0.0")
-	var out strings.Builder
-	err = protoFrozen(t.Context(), &out, root, dir, "main")
-	want := "slipstream/link/v1/link.proto:6:3:Field \"1\" with name \"secret\" on message \"PairRequest\" changed type from \"bytes\" to \"string\".\n"
-	if out.String() != want {
-		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	for _, name := range []string{"tools/go.mod", "tools/go.sum"} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(dir, "tools"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err == nil || !strings.HasPrefix(err.Error(), "slipstream.link.v1 breaks against v1.0.0: ") {
-		t.Errorf("err = %v, want a break against v1.0.0", err)
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.CommandContext(t.Context(), self)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), mainArgs+"="+args)
+	var out, errOut strings.Builder
+	cmd.Stdout, cmd.Stderr = &out, &errOut
+	err = cmd.Run()
+	if _, exit := errors.AsType[*exec.ExitError](err); err != nil && !exit {
+		t.Fatal(err)
+	}
+	return cmd.ProcessState.ExitCode(), out.String(), errOut.String()
 }
 
-func TestProtoFrozenWithoutAV1TagIsNotFrozenYet(t *testing.T) {
-	root, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
+func TestProtoFrozenExitCodes(t *testing.T) {
+	code, stdout, stderr := releaseIn(t, frozenRepo(t, "v0.9.0", "v1.0.0"), "proto-frozen -base main")
+	finding := "slipstream/link/v1/link.proto:6:3:Field \"1\" with name \"secret\" on message \"PairRequest\" changed type from \"bytes\" to \"string\".\n"
+	if want := "release proto-frozen: slipstream.link.v1 breaks against v1.0.0: exit status 100\n"; code != 1 || stdout != finding || stderr != want {
+		t.Errorf("a break: exit %d, stdout %q, stderr %q; want exit 1, %q, %q", code, stdout, stderr, finding, want)
 	}
-	dir := frozenRepo(t, "v0.9.0")
-	var out strings.Builder
-	if err := protoFrozen(t.Context(), &out, root, dir, "main"); err != nil {
-		t.Fatal(err)
-	}
-	if out.String() != "no v1+ release tag; slipstream.link.v1 is not frozen yet\n" {
-		t.Errorf("output = %q", out.String())
+	code, stdout, stderr = releaseIn(t, frozenRepo(t, "v0.9.0"), "proto-frozen -base main")
+	if want := "no v1+ release tag; slipstream.link.v1 is not frozen yet\n"; code != 0 || stdout != want || stderr != "" {
+		t.Errorf("no v1 tag: exit %d, stdout %q, stderr %q; want exit 0, %q", code, stdout, stderr, want)
 	}
 }
