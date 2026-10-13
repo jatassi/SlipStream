@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -235,7 +236,9 @@ func (c *Conn) Send(op string, body any) error {
 	if _, err := c.conn.Write(append(line, '\n')); err != nil {
 		return fmt.Errorf("send %s request: %w", op, err)
 	}
-	if err := c.conn.CloseWrite(); err != nil {
+	// macOS answers ENOTCONN once the Node has replied and closed; the
+	// replies stay readable.
+	if err := c.conn.CloseWrite(); err != nil && !errors.Is(err, syscall.ENOTCONN) {
 		return fmt.Errorf("send %s request: %w", op, err)
 	}
 	return nil

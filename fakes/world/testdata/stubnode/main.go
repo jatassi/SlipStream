@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"go.yaml.in/yaml/v3"
 
@@ -115,7 +116,10 @@ func stop(dir string) {
 		fmt.Fprintln(os.Stderr, "slipstream stop: no Node answered on "+dir)
 		os.Exit(node.ExitFailed)
 	}
-	fail(conn.CloseWrite())
+	// macOS answers ENOTCONN once the Node has closed; that is the answer.
+	if err := conn.CloseWrite(); !errors.Is(err, syscall.ENOTCONN) {
+		fail(err)
+	}
 	if _, err := io.Copy(io.Discard, conn); err != nil && !errors.Is(err, net.ErrClosed) {
 		fail(err)
 	}
