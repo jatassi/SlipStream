@@ -278,6 +278,35 @@ func TestSurfaceWiredWithoutSurface(t *testing.T) {
 	})
 }
 
+func TestLinkConfined(t *testing.T) {
+	const (
+		connect = " [link-confined] connectrpc.com/connect imported outside the Node link; call the service through its rpc descriptor"
+		link    = " [link-confined] internal/link imported outside the Node runtime; call the service through its rpc descriptor"
+	)
+	assertFindings(t, check(t, "link-confined", fixtureRepo(t, "link-confined")), []string{
+		"fakes/world/world.go:4:" + connect,
+		"internal/node/node.go:4:" + connect,
+		"internal/node/node.go:11: [link-confined] nodev1connect.RegisterSyncServiceHandler called outside the Node link; call the service through its rpc descriptor",
+		"internal/node/surface/surface.go:3:" + link,
+		"internal/role/roletest/roletest.go:6:" + link,
+		"internal/search/client.go:12:" + connect,
+		"internal/search/client.go:17: [link-confined] linkv1connect.NewLinkServiceClient called outside the Node link; call the service through its rpc descriptor",
+		"internal/search/search_test.go:6:" + connect,
+		"internal/search/transport.go:4: [link-confined] github.com/libp2p/go-yamux/v5 imported outside the Node link; call the service through its rpc descriptor",
+		"internal/search/transport.go:5: [link-confined] golang.org/x/net/http2 imported outside the Node link; call the service through its rpc descriptor",
+		"internal/search/transport.go:7:" + link,
+	})
+}
+
+func TestRoleDefsWired(t *testing.T) {
+	assertFindings(t, check(t, "role-defs-wired", fixtureRepo(t, "role-defs-wired")), []string{
+		"internal/converting/converting.go:5: [role-defs-wired] internal/converting.Def is not held in internal/node",
+		"internal/downloading/downloading.go:5: [role-defs-wired] internal/downloading.Def is not served in internal/node",
+		"internal/fetching/fetching.go:6: [role-defs-wired] role downloading is declared twice",
+		"internal/fetching/fetching.go:7: [role-defs-wired] internal/fetching.Named names its Role without a role constant",
+	})
+}
+
 func TestFakesWired(t *testing.T) {
 	assertFindings(t, check(t, "fakes-wired", fixtureRepo(t, "fakes-wired")), []string{
 		"fakes/tmdb/doc.go:3: [fakes-wired] fakes/tmdb declares no var Fake fake.Spec",

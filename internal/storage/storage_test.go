@@ -534,6 +534,13 @@ func TestUUIDsRoundTripAndSortByCreation(t *testing.T) {
 	if err != nil || parsed != added[0].PublicID.UUID {
 		t.Errorf("ParseUUID(%s) = %v, %v", added[0].PublicID, parsed, err)
 	}
+	fromBytes, err := storage.UUIDFromBytes(added[0].PublicID.Bytes())
+	if err != nil || fromBytes != added[0].PublicID.UUID {
+		t.Errorf("UUIDFromBytes(%x) = %v, %v", added[0].PublicID.Bytes(), fromBytes, err)
+	}
+	if _, err := storage.UUIDFromBytes([]byte{1, 2, 3}); err == nil || err.Error() != "storage.UUID: 3 bytes, want 16" {
+		t.Errorf("UUIDFromBytes of 3 bytes = %v", err)
+	}
 	if _, err := clip.Get(t.Context(), lib, added[3].ID+1); !errors.Is(err, storage.ErrNoRows) {
 		t.Errorf("Get of a missing clip = %v, want storage.ErrNoRows", err)
 	}

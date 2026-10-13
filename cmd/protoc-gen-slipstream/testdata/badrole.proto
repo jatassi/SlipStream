@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package fixture.v1;
+
+import "slipstream/node/v1/options.proto";
+
+option go_package = "github.com/jatassi/slipstream/fixture/v1;fixturev1";
+
+service SearchingService {
+  option (slipstream.node.v1.served_by) = {role: "Media_Server"};
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+message SearchRequest {}
+message SearchResponse {}

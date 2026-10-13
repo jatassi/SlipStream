@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"go.yaml.in/yaml/v3"
 
@@ -63,6 +64,9 @@ func run(dir string) {
 		HTTP struct {
 			Listen string `yaml:"listen"`
 		} `yaml:"http"`
+		Link struct {
+			Listen string `yaml:"listen"`
+		} `yaml:"link"`
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "config.yaml"))
 	fail(err)
@@ -82,10 +86,12 @@ func run(dir string) {
 		DataDir: d.Path(),
 		Version: "stub",
 		Seed:    cfg.Seed,
+		NodeKey: "0000-0000-0000-0000",
 		Listeners: node.Listeners{
 			Control: d.ControlSocket(),
 			Torrent: netip.MustParseAddrPort(cfg.Torrent.Listen),
 			HTTP:    netip.MustParseAddrPort(cfg.HTTP.Listen),
+			Link:    netip.MustParseAddrPort(cfg.Link.Listen),
 		},
 	}
 	line, err := json.Marshal(struct {
@@ -110,7 +116,10 @@ func stop(dir string) {
 		fmt.Fprintln(os.Stderr, "slipstream stop: no Node answered on "+dir)
 		os.Exit(node.ExitFailed)
 	}
-	fail(conn.CloseWrite())
+	// macOS answers ENOTCONN once the Node has closed; that is the answer.
+	if err := conn.CloseWrite(); !errors.Is(err, syscall.ENOTCONN) {
+		fail(err)
+	}
 	if _, err := io.Copy(io.Discard, conn); err != nil && !errors.Is(err, net.ErrClosed) {
 		fail(err)
 	}

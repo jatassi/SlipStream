@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package fixture.v1;
+
+import "slipstream/node/v1/options.proto";
+
+option go_package = "github.com/jatassi/slipstream/fixture/v1;fixturev1";
+
+service WatchService {
+  option (slipstream.node.v1.served_by) = {controller: true};
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
+}
+
+message WatchRequest {}
+message WatchResponse {}

@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package slipstream.node.v1;
+
+import "google/protobuf/any.proto";
+import "slipstream/node/v1/options.proto";
+
+// The holder half opens one Sync stream per session. A scope is "node" or a
+// Role name.
+service SyncService {
+  option (served_by) = {controller: true};
+  rpc Sync(stream Up) returns (stream Down);
+}
+
+message Up {
+  oneof frame {
+    Open open = 1;
+    Facts facts = 2;
+    Result result = 3;
+  }
+}
+
+message Open {
+  bytes epoch = 1;
+  repeated Have have = 2;
+}
+
+message Have {
+  string scope = 1;
+  bytes version = 2;
+}
+
+message Facts {
+  string scope = 1;
+  google.protobuf.Any payload = 2;
+}
+
+message Result {
+  string scope = 1;
+  uint64 seq = 2;
+  google.protobuf.Any payload = 3;
+}
+
+message Down {
+  oneof frame {
+    Ack ack = 1;
+    Intent intent = 2;
+    CaughtUp caught_up = 3;
+  }
+}
+
+message Ack {
+  uint64 seq = 1;
+}
+
+message Intent {
+  string scope = 1;
+  bytes version = 2;
+  google.protobuf.Any payload = 3;
+}
+
+message CaughtUp {}

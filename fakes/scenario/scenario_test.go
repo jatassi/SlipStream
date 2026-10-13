@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 func singleMachine() Scenario {
@@ -32,9 +33,30 @@ func TestLoadLeavesUnsetTimingsZero(t *testing.T) {
 	}
 }
 
+func TestLoadReadsTheHomeScenario(t *testing.T) {
+	got, err := Load("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Scenario{
+		Name:        "home",
+		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading.",
+		Seed:        "home",
+		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
+		Nodes: []Node{
+			{Name: "home", Setup: SetupController, Roles: []role.Name{role.Storage, role.Converting, role.Subtitles, role.Metadata, role.MediaServerLink, role.Notifying, role.Serving}},
+			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
+		},
+		Timings: node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Load(home) = %+v, want %+v", got, want)
+	}
+}
+
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
-	_, err := Load("home")
-	if want := "scenario home is not in the catalog (first-run, single-machine)"; err == nil || err.Error() != want {
+	_, err := Load("office")
+	if want := "scenario office is not in the catalog (first-run, home, single-machine)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -60,8 +82,8 @@ func TestParseRefuses(t *testing.T) {
 		},
 		{
 			"setup outside the closed set",
-			"seed: x\nnodes:\n  - name: home\n    setup: join\n",
-			`scenario x: line 4: setup "join" is not one of none, controller`,
+			"seed: x\nnodes:\n  - name: home\n    setup: relay\n",
+			`scenario x: line 4: setup "relay" is not one of none, controller, join`,
 		},
 		{
 			"name in the file",
@@ -97,6 +119,31 @@ func TestParseRefuses(t *testing.T) {
 			"controller without an admin",
 			"seed: x\nnodes: [{name: home, setup: controller}]\n",
 			"scenario x: node home is controller, so admin is required",
+		},
+		{
+			"join without an earlier controller",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: box, setup: join}, {name: home, setup: controller}]\n",
+			"scenario x: node box is join, so an earlier node must be controller",
+		},
+		{
+			"roles on an Unclaimed node",
+			"seed: x\nnodes: [{name: home, setup: none, roles: [searching]}]\n",
+			"scenario x: node home has roles, but only controller and join nodes hold Roles",
+		},
+		{
+			"a role twice",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: home, setup: controller, roles: [searching, storage, searching]}]\n",
+			"scenario x: node home holds role searching twice",
+		},
+		{
+			"a role that is not one",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: home, setup: controller, roles: [acquire]}]\n",
+			`scenario x: node home role "acquire" is not a Role`,
+		},
+		{
+			"two relaying nodes",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: home, setup: controller, roles: [relaying]}, {name: box, setup: join, roles: [relaying]}]\n",
+			"scenario x: nodes home, box all hold relaying; at most one Node does",
 		},
 		{
 			"names used twice",

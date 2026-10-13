@@ -3,14 +3,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/notices"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
@@ -18,6 +21,8 @@ const usageText = `usage: slipstream <command>
   run    --data-dir <dir>  run a Node
   stop   --data-dir <dir>  stop the Node on <dir> and wait until it releases <dir>
   config --data-dir <dir>  print the resolved configuration and endpoints census as JSON
+  join   --data-dir <dir> <code>
+                           join this Node to the Controller a Join Code names
   version                  print the build stamp
   notices                  print the third-party notices`
 
@@ -52,7 +57,7 @@ func run(args []string) int {
 		if err != nil {
 			return usage(err)
 		}
-		if err := node.StopNode(context.Background(), env.DataDir); err != nil {
+		if err := node.StopNode(context.Background(), env.Net, env.DataDir); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "slipstream stop: %v\n", err)
 			return node.ExitCode(err)
 		}
@@ -74,6 +79,8 @@ func run(args []string) int {
 			return node.ExitFailed
 		}
 		return node.ExitOK
+	case "join":
+		return join(rest)
 	default:
 		return usage(fmt.Errorf("unknown command %q", name))
 	}
@@ -94,6 +101,72 @@ func nodeEnv(name string, args []string) (node.Env, error) {
 		return node.Env{}, fmt.Errorf("%s: %w", name, err)
 	}
 	return env, nil
+}
+
+// join pairs the Node on the data dir: through the join control op when a
+// Node holds the data dir, else offline.
+func join(args []string) int {
+	fs := flag.NewFlagSet("join", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	dataDir := fs.String("data-dir", "", "")
+	var positional []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return usage(fmt.Errorf("join: %w", err))
+		}
+		if fs.NArg() == 0 {
+			break
+		}
+		positional = append(positional, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+	if len(positional) != 1 {
+		return usage(errors.New("join takes one Join Code"))
+	}
+	code, err := joincode.Parse(positional[0])
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream join: %v\n", err)
+		return node.ExitUsage
+	}
+	env, err := node.ProcessEnv(*dataDir)
+	if err != nil {
+		return usage(fmt.Errorf("join: %w", err))
+	}
+	ctx := context.Background()
+	joined, err := node.Join(ctx, env, code)
+	if _, held := errors.AsType[*node.InUseError](err); held {
+		var reply pairing.JoinReply
+		if reply, err = node.Call(ctx, env.Net, env.DataDir, pairing.JoinOp, pairing.JoinRequest{Code: code.String()}); err == nil {
+			if reply.Refused == nil {
+				fmt.Println(reply.Joined)
+				return node.ExitOK
+			}
+			err = reply.Refused
+		}
+	} else if err == nil {
+		fmt.Println(joined)
+		return node.ExitOK
+	}
+	return joinFailed(err)
+}
+
+func joinFailed(err error) int {
+	refused, ok := errors.AsType[*pairing.Error](err)
+	switch {
+	case ok && refused.Kind == pairing.AlreadyJoined:
+		fmt.Println("join code ignored: " + refused.Reason)
+		return node.ExitOK
+	case ok && refused.Kind.Ignored():
+		_, _ = fmt.Fprintln(os.Stderr, "join code ignored: "+refused.Reason)
+	case ok && refused.Kind == pairing.Unreachable:
+		_, _ = fmt.Fprintln(os.Stderr, "join failed: "+refused.Reason)
+	case ok:
+		_, _ = fmt.Fprintln(os.Stderr, "join refused: "+refused.Reason)
+	default:
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream join: %v\n", err)
+		return node.ExitCode(err)
+	}
+	return node.ExitFailed
 }
 
 func usage(err error) int {

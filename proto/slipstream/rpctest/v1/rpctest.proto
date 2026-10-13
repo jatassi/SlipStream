@@ -1,0 +1,52 @@
+// Test-only services for internal/rpc's tests. Production never imports
+// the generated code.
+syntax = "proto3";
+
+package slipstream.rpctest.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service RecordService {
+  option (slipstream.node.v1.served_by) = {controller: true};
+  rpc Record(RecordRequest) returns (RecordResponse);
+}
+
+service PingService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+service SearchService {
+  option (slipstream.node.v1.served_by) = {role: "searching"};
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+message RecordRequest {
+  string text = 1;
+  Fail fail = 2;
+}
+
+// Fail is how the recorder fails: with its own coded error, or with the
+// error of a call it made that never ran.
+enum Fail {
+  FAIL_UNSPECIFIED = 0;
+  FAIL_CODED = 1;
+  FAIL_FORWARD = 2;
+}
+
+message RecordResponse {
+  string text = 1;
+  bytes caller = 2;
+}
+
+message PingRequest {}
+
+message PingResponse {
+  bytes caller = 1;
+}
+
+message SearchRequest {}
+
+message SearchResponse {
+  bytes caller = 1;
+}

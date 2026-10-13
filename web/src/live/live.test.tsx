@@ -2,6 +2,7 @@ import { HttpResponse, http, sse } from "msw";
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
+import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
 import { getGetSystemQueryKey } from "../api/gen/query/system/system";
 import { type LiveMap, ada, problem } from "../test/handlers";
 import { renderApp } from "../test/render-app";
@@ -77,6 +78,32 @@ test("identity.sessions-changed refetches the session once", async () => {
 
   server.clients[0]?.send({ event: "identity.sessions-changed", data: { account: ada.id } });
   await expect.poll(() => requests("GET /api/v1/session")).toBe(3);
+});
+
+test("nodes.changed invalidates the Node list and that Node", async () => {
+  const server = liveServer();
+  const { queryClient } = renderApp({ path: "/", handlers: server.handlers });
+  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
+  const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
+  const keys = {
+    list: getListNodesQueryKey(),
+    seedbox: getGetNodeQueryKey(seedbox),
+    home: getGetNodeQueryKey(home),
+  };
+  for (const key of Object.values(keys)) {
+    queryClient.setQueryData(key, {});
+  }
+  const invalidated = () =>
+    Object.fromEntries(
+      Object.entries(keys).map(([name, key]) => [
+        name,
+        queryClient.getQueryState(key)?.isInvalidated,
+      ]),
+    );
+
+  server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedbox } });
+  await expect.poll(invalidated).toEqual({ list: true, seedbox: true, home: false });
 });
 
 test("live.resync refetches every active query once", async () => {

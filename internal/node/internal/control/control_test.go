@@ -27,7 +27,7 @@ func serve(t *testing.T, handlers map[string]control.Handler) string {
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s, err := control.Listen(t.Context(), new(net.ListenConfig).Listen, path, func(op string) (control.Handler, error) {
+	s, err := control.Listen(net.Listen, path, func(op string) (control.Handler, error) {
 		if h, ok := handlers[op]; ok {
 			return h, nil
 		}
@@ -90,7 +90,7 @@ func TestOneRequestManyReplies(t *testing.T) {
 			return errors.New("ran out")
 		},
 	})
-	c, err := control.Dial(t.Context(), path)
+	c, err := control.Dial(t.Context(), new(net.Dialer).DialContext, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestEveryRoundTripEndsAtEOF(t *testing.T) {
 	})
 	for i := range 500 {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		c, err := control.Dial(ctx, path)
+		c, err := control.Dial(ctx, new(net.Dialer).DialContext, path)
 		if err != nil {
 			t.Fatal(err)
 		}

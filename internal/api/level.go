@@ -25,6 +25,9 @@ type access struct {
 	// authenticates is false only for public, whose principal needs no
 	// credential.
 	authenticates bool
+	// byClaim answers the check from the Node's claim first: only a
+	// Controller has Accounts.
+	byClaim bool
 }
 
 // Floor is the lowest level an owner's operations may use.
@@ -46,11 +49,11 @@ var (
 		},
 	}
 	Account = Level[identity.Account]{
-		&access{name: "account", rank: 2, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount}, authenticates: true},
+		&access{name: "account", rank: 2, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount, WorkerNode}, authenticates: true, byClaim: true},
 		narrowed(identity.Caller.Account),
 	}
 	Admin = Level[identity.Admin]{
-		&access{name: "admin", rank: 3, security: []map[string][]string{{schemeSession: {"admin"}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAdmin}, authenticates: true},
+		&access{name: "admin", rank: 3, security: []map[string][]string{{schemeSession: {"admin"}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAdmin, WorkerNode}, authenticates: true, byClaim: true},
 		narrowed(identity.Caller.Admin),
 	}
 )

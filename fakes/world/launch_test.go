@@ -39,6 +39,7 @@ func productionKeys() []node.Key {
 		{Key: "seed", Value: "stub/home", Default: "", Source: "config.yaml"},
 		{Key: "torrent.listen", Value: "127.0.0.2:0", Default: "0.0.0.0:6881", Source: "config.yaml"},
 		{Key: "http.listen", Value: "127.0.0.2:0", Default: "[::]:8484", Source: "config.yaml"},
+		{Key: "link.listen", Value: "127.0.0.2:0", Default: "[::]:8485", Source: "config.yaml"},
 		{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
 	}
 }
@@ -132,9 +133,9 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 		Name: "home", Setup: scenario.SetupNone, Claim: world.ClaimUnclaimed,
 		Address: "127.0.0.2", Host: "home.localhost",
 		URL: "http://127.0.0.2:0", BrowserURL: "http://home.localhost:0",
-		Listeners: map[string]string{"control": filepath.Join(scratch, "home", "run", "control.sock"), "http": "127.0.0.2:0", "torrent": "127.0.0.2:0"},
+		Listeners: map[string]string{"control": filepath.Join(scratch, "home", "run", "control.sock"), "http": "127.0.0.2:0", "link": "127.0.0.2:0", "torrent": "127.0.0.2:0"},
 		DataDir:   filepath.Join(scratch, "home"), PID: home.PID, Seed: "stub/home",
-		Log: filepath.Join(runDir, "nodes", "home.log"), Overrides: []node.Key{},
+		Log: filepath.Join(runDir, "nodes", "home.log"), Overrides: []node.Key{}, NodeKey: "0000-0000-0000-0000",
 	}
 	if !reflect.DeepEqual(home, wantHome) {
 		t.Fatalf("manifest node = %+v\nwant %+v", home, wantHome)
@@ -332,7 +333,7 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 	s.Timings.Node.StopDeadline = -time.Second
 	runDir := filepath.Join(t.TempDir(), "run")
 	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir})
-	if want := "node home: config.yaml:8: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
+	if want := "node home: config.yaml:11: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
 	assertNothingLeft(t, runDir, false)

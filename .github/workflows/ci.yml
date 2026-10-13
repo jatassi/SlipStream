@@ -52,6 +52,10 @@ jobs:
         run: go run ./cmd/release migrations-frozen -base "$BASE"
         env:
           BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
+      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: go run ./cmd/release proto-frozen -base "$BASE"
+        env:
+          BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
       - if: github.event_name == 'push' && steps.go.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
@@ -140,6 +144,54 @@ jobs:
             ${{ runner.temp }}/go-mod
             ${{ runner.temp }}/golangci-lint
           key: ${{ steps.go.outputs.cache-key }}
+
+  # One link stream measured between two network namespaces, per spec S07's
+  # yamux measurement: nightly, and on pull requests that touch the link.
+  # It is not a required check. The table lands in the step summary and the
+  # log; a nightly failure opens or comments on an issue.
+  link-measure:
+    if: github.event_name == 'schedule' || github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: scope
+        run: |
+          if [ "$EVENT" = schedule ] || ! git diff --quiet "origin/$BASE...HEAD" -- internal/link/; then
+            echo "measure=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+      - if: steps.scope.outputs.measure == 'true'
+        uses: ./.github/actions/go
+        with:
+          cache: go-link-measure
+      # netem ships in the extra modules on some runner kernels.
+      - if: steps.scope.outputs.measure == 'true'
+        run: sudo modprobe sch_netem || { sudo apt-get install -y "linux-modules-extra-$(uname -r)" && sudo modprobe sch_netem; }
+      - if: steps.scope.outputs.measure == 'true'
+        run: |
+          go test -c -o "$RUNNER_TEMP/mux.test" ./internal/link/internal/mux
+          sudo env TEST_LINK_MEASURE=1 GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
+            "$RUNNER_TEMP/mux.test" -test.run '^TestMeasureStream$' -test.v -test.timeout 30m
+      - if: failure() && github.event_name == 'schedule'
+        run: |
+          title="link-measure failed"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "The nightly yamux measurement failed again: $url"
+          else
+            gh issue create --title "$title" --body "The nightly yamux measurement failed: $url"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
   native-gate:
     if: always()

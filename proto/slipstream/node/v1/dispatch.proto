@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package slipstream.node.v1;
+
+// NotHolder is the error detail of a Role call the target refused, or the
+// caller never sent, because the target does not hold the Role.
+message NotHolder {
+  string role = 1;
+}

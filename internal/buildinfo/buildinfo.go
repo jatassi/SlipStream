@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"unicode"
+
+	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 )
 
 // Stamp names exactly what a release binary was built from.
@@ -52,6 +54,10 @@ func Current() (Stamp, bool) {
 	}
 	return s, true
 }
+
+// InstallKind is how this binary was installed. Every build reports DEV
+// until #181's install-kind marker exists.
+func InstallKind() linkv1.InstallKind { return linkv1.InstallKind_INSTALL_KIND_DEV }
 
 // ReadFile reads the stamp from a binary file without running it.
 func ReadFile(path string) (Stamp, error) {

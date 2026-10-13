@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -31,8 +32,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/channel"
-	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
+	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -66,7 +67,7 @@ type Run struct {
 	endpoints node.EndpointsBlock
 	nodes     []*nodeRun
 	used      map[string]bool
-	apiKey    string
+	claims    setup.Claims
 	channel   *channel.Server
 	manifest  Manifest
 
@@ -185,7 +186,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.prepareNodes,
 		r.startNodes,
 		r.checkListeners,
-		r.claim,
+		r.setUp,
 		r.publish,
 	}
 	for _, step := range steps {
@@ -322,7 +323,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 	if err != nil {
 		return err
 	}
-	listen := listenKeys(probe)
+	listen := setup.ListenKeys(probe)
 	for i, n := range r.nodes {
 		name := n.spec.Name
 		n.dataDir, err = node.ParseDataDir(filepath.Join(r.scratchDir, name))
@@ -332,7 +333,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err := os.Mkdir(n.dataDir.Path(), 0o700); err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
-		config, err := nodeConfig(r.scenario, i, listen, r.endpoints)
+		config, err := setup.Config(r.scenario, i, listen, r.endpoints)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
@@ -463,7 +464,7 @@ func (r *Run) startNode(ctx context.Context, undo *unwind, n *nodeRun) error {
 
 func (r *Run) checkListeners(context.Context, *unwind) error {
 	for _, n := range r.nodes {
-		listeners, err := listenerMap(n.ready.Listeners)
+		listeners, err := setup.Listeners(n.ready.Listeners)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", n.spec.Name, err)
 		}
@@ -474,18 +475,6 @@ func (r *Run) checkListeners(context.Context, *unwind) error {
 		}
 	}
 	return nil
-}
-
-func listenerMap(l node.Listeners) (map[string]string, error) {
-	data, err := json.Marshal(l)
-	if err != nil {
-		return nil, fmt.Errorf("listeners: %w", err)
-	}
-	var m map[string]string
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("listeners: %w", err)
-	}
-	return m, nil
 }
 
 func (n *nodeRun) checkListener(name, value string) error {
@@ -501,23 +490,20 @@ func (n *nodeRun) checkListener(name, value string) error {
 	return nil
 }
 
-func (r *Run) claim(ctx context.Context, _ *unwind) error {
-	admin := r.scenario.Admin
-	for _, n := range r.nodes {
-		if n.spec.Setup != scenario.SetupController {
-			continue
-		}
-		key, err := nodeapi.ClaimController(ctx, n.url(), n.ready.SetupCode, nodeapi.Admin{Email: admin.Email, DisplayName: admin.DisplayName, PIN: admin.PIN})
-		if err != nil {
-			return fmt.Errorf("node %s: %w", n.spec.Name, err)
-		}
-		r.apiKey = key
-		r.log.Info("node claimed", "node", n.spec.Name)
+// setUp runs the setup steps over the OS network.
+func (r *Run) setUp(ctx context.Context, _ *unwind) error {
+	ready := make([]node.Ready, len(r.nodes))
+	for i, n := range r.nodes {
+		ready[i] = n.ready
 	}
+	var err error
+	r.claims, err = setup.Steps(ctx, http.DefaultClient, r.scenario, ready)
+	if err != nil {
+		return err
+	}
+	r.log.Info("nodes set up")
 	return nil
 }
-
-func (n *nodeRun) url() string { return "http://" + n.ready.Listeners.HTTP.String() }
 
 func (r *Run) publish(ctx context.Context, undo *unwind) error {
 	var err error
@@ -545,7 +531,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Divergences: usedIDs(r.used),
 		Nodes:       []Node{},
 		Fakes:       []Fake{},
-		APIKey:      r.apiKey,
+		APIKey:      r.claims.APIKey,
 	}
 	m.Binary.Version = r.nodes[0].ready.Version
 	if a := r.scenario.Admin; a != nil {
@@ -554,28 +540,12 @@ func (r *Run) buildManifest() (Manifest, error) {
 	for _, f := range r.fakes {
 		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL("")})
 	}
-	for _, n := range r.nodes {
-		listeners, err := listenerMap(n.ready.Listeners)
+	for i, n := range r.nodes {
+		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.ready, DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
 		if err != nil {
 			return Manifest{}, err
 		}
-		port := n.ready.Listeners.HTTP.Port()
-		host := n.spec.Name + ".localhost"
-		m.Nodes = append(m.Nodes, Node{
-			Name:       n.spec.Name,
-			Setup:      n.spec.Setup,
-			Claim:      claimAfter[n.spec.Setup],
-			Address:    n.addr.String(),
-			Host:       host,
-			URL:        n.url(),
-			BrowserURL: fmt.Sprintf("http://%s:%d", host, port),
-			Listeners:  listeners,
-			DataDir:    n.dataDir.Path(),
-			PID:        n.ready.PID,
-			Seed:       n.ready.Seed,
-			Log:        n.log,
-			Overrides:  append([]node.Key{}, n.ready.Overrides...),
-		})
+		m.Nodes = append(m.Nodes, entry)
 	}
 	return m, nil
 }

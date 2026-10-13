@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+
+	"github.com/jatassi/slipstream/internal/system"
 )
 
 const (
@@ -65,24 +67,24 @@ const (
 // while one runs, and closed for the life of the process once the Node is
 // claimed.
 type Gate struct {
-	claimed func(context.Context) (bool, error)
-	log     *slog.Logger
+	claim func(context.Context) (system.Claim, error)
+	log   *slog.Logger
 
 	mu    sync.Mutex
 	state gateState
 	code  string
 }
 
-// NewGate asks claimed once. An Unclaimed Node draws a Setup code, logs it
+// NewGate asks claim once. An Unclaimed Node draws a Setup code, logs it
 // and returns it for the readiness record; a claimed one returns "" and a
-// closed gate. claimed is the composition root's one definition of claimed.
-func NewGate(ctx context.Context, claimed func(context.Context) (bool, error), log *slog.Logger) (*Gate, string, error) {
-	g := &Gate{claimed: claimed, log: log}
-	done, err := claimed(ctx)
+// closed gate. claim is the composition root's one definition of the claim.
+func NewGate(ctx context.Context, claim func(context.Context) (system.Claim, error), log *slog.Logger) (*Gate, string, error) {
+	g := &Gate{claim: claim, log: log}
+	c, err := claim(ctx)
 	if err != nil {
 		return nil, "", err
 	}
-	if done {
+	if c != system.Unclaimed {
 		g.state = gateClosed
 		return g, "", nil
 	}
@@ -126,17 +128,28 @@ func (g *Gate) enter(typed string) error {
 }
 
 func (g *Gate) leave(ctx context.Context) {
-	done, err := g.claimed(ctx)
+	c, err := g.claim(ctx)
 	if err != nil {
 		g.log.Error("setup gate cannot tell whether the Node is claimed", "error", err)
 	}
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if done {
-		g.state = gateClosed
-		g.code = ""
-		g.log.Info("setup code used")
+	if c != system.Unclaimed {
+		g.Close()
 		return
 	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.state = gateOpen
+}
+
+// Close closes the gate for good. A claim made outside it, by the join op or
+// join.code, closes it here.
+func (g *Gate) Close() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.state == gateClosed {
+		return
+	}
+	g.state = gateClosed
+	g.code = ""
+	g.log.Info("setup code used")
 }

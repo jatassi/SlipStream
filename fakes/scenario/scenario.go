@@ -20,6 +20,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/internal/yamltree"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 type Scenario struct {
@@ -43,6 +44,8 @@ type Admin struct {
 type Node struct {
 	Name  string `jsonschema:"required,pattern=^[a-z][a-z0-9-]{0\\,15}$" yaml:"name"`
 	Setup Setup  `yaml:"setup"`
+	// Roles are the Roles the world assigns a controller or join Node.
+	Roles []role.Name `jsonschema:"uniqueItems=true" yaml:"roles,omitempty"`
 }
 
 const MaxNodes = 31
@@ -106,23 +109,7 @@ func (s Scenario) Validate() error {
 	if len(s.Nodes) == 0 || len(s.Nodes) > MaxNodes {
 		add("has %d nodes; a Scenario has 1 to %d", len(s.Nodes), MaxNodes)
 	}
-	seen := map[string]bool{}
-	var controllers []string
-	for _, n := range s.Nodes {
-		if !nodeName.MatchString(n.Name) {
-			add("node name %q does not match %s", n.Name, nodeName)
-		}
-		if seen[n.Name] {
-			add("node name %s is used twice", n.Name)
-		}
-		seen[n.Name] = true
-		if n.Setup == SetupController {
-			controllers = append(controllers, n.Name)
-		}
-	}
-	if len(controllers) > 1 {
-		add("nodes %s are all controller; a Scenario has at most one", strings.Join(controllers, ", "))
-	}
+	controllers := s.checkNodes(add)
 	switch {
 	case s.Admin == nil && len(controllers) > 0:
 		add("node %s is controller, so admin is required", controllers[0])
@@ -135,6 +122,55 @@ func (s Scenario) Validate() error {
 		return errors.New(strings.Join(problems, "\n"))
 	}
 	return nil
+}
+
+// checkNodes checks each Node and the rules across them, and returns the
+// controller Nodes.
+func (s Scenario) checkNodes(add func(format string, args ...any)) []string {
+	seen := map[string]bool{}
+	var controllers, relaying []string
+	for _, n := range s.Nodes {
+		if !nodeName.MatchString(n.Name) {
+			add("node name %q does not match %s", n.Name, nodeName)
+		}
+		if seen[n.Name] {
+			add("node name %s is used twice", n.Name)
+		}
+		seen[n.Name] = true
+		switch n.Setup {
+		case SetupController:
+			controllers = append(controllers, n.Name)
+		case SetupJoin:
+			if len(controllers) == 0 {
+				add("node %s is join, so an earlier node must be controller", n.Name)
+			}
+		case SetupNone:
+		}
+		n.checkRoles(add)
+		if slices.Contains(n.Roles, role.Relaying) {
+			relaying = append(relaying, n.Name)
+		}
+	}
+	if len(controllers) > 1 {
+		add("nodes %s are all controller; a Scenario has at most one", strings.Join(controllers, ", "))
+	}
+	if len(relaying) > 1 {
+		add("nodes %s all hold relaying; at most one Node does", strings.Join(relaying, ", "))
+	}
+	return controllers
+}
+
+func (n Node) checkRoles(add func(format string, args ...any)) {
+	if n.Setup == SetupNone && len(n.Roles) > 0 {
+		add("node %s has roles, but only controller and join nodes hold Roles", n.Name)
+	}
+	for i, r := range n.Roles {
+		if _, err := role.ParseName(string(r)); err != nil {
+			add("node %s role %s", n.Name, err)
+		} else if slices.Contains(n.Roles[:i], r) {
+			add("node %s holds role %s twice", n.Name, r)
+		}
+	}
 }
 
 // Hash is the hex SHA-256 of the Scenario's canonical JSON, so a Scenario

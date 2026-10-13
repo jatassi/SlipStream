@@ -11,6 +11,9 @@ import (
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/liveapi"
+	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodesapi"
+	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
 )
@@ -19,23 +22,34 @@ import (
 // and every Bind read it.
 var Events = []live.Event{
 	identity.SessionsChangedEvent,
+	nodes.ChangedEvent,
+}
+
+// Node is the running Node as the operations reach it: its claim, the
+// composition root's one definition of it, its library.db, its roster
+// and its Join.
+type Node interface {
+	Claim(context.Context) (system.Claim, error)
+	identityapi.Library
+	nodesapi.Roster
+	pairingapi.Joiner
 }
 
 // Services are what the operations run against. Document passes none.
 type Services struct {
-	Identity *identity.Service
-	Hub      *live.Hub
-	Live     live.Timings
-	System   system.Facts
-	// Claimed is the composition root's one definition of a claimed Node.
-	Claimed func(context.Context) (bool, error)
+	Node   Node
+	Hub    *live.Hub
+	Live   live.Timings
+	System system.Facts
 }
 
 // Mount registers every owner's operations, one line each.
 func Mount(r *api.Router, s Services) {
-	identityapi.Routes(r, s.Identity)
-	liveapi.Routes(r, s.Hub, s.Identity, s.Live)
-	systemapi.Routes(r, s.System, s.Claimed)
+	identityapi.Routes(r, s.Node)
+	liveapi.Routes(r, s.Hub, s.Node, s.Live)
+	systemapi.Routes(r, s.System, s.Node)
+	nodesapi.Routes(r, s.Node)
+	pairingapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

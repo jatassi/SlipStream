@@ -85,6 +85,7 @@ var (
 	ErrSetupCodeWrong = errors.New("identity: the Setup code is missing or wrong")
 	ErrSetupBusy      = errors.New("identity: another setup operation is running")
 	ErrAlreadyClaimed = errors.New("identity: the Node is claimed")
+	ErrWorkerNode     = errors.New("identity: this Node is a Worker, with no Accounts")
 	ErrPINWrong       = errors.New("identity: the email or PIN is wrong")
 )
 

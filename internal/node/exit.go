@@ -18,6 +18,9 @@ const (
 	// ExitLibraryRefused is a library.db newer than this binary, holding a
 	// schema set it lacks, or unreadable.
 	ExitLibraryRefused = 5
+	// ExitRecordRefused is a node key or pairing record refused: an
+	// unreadable or malformed node.key or pairing.json.
+	ExitRecordRefused = 6
 )
 
 // UsageError is a bad command line or a missing or invalid data dir.
@@ -47,6 +50,13 @@ func (e *InUseError) Error() string {
 	return fmt.Sprintf("data dir %s is in use by SlipStream PID %d", e.Dir, e.PID)
 }
 
+// RecordError is a node.key or pairing.json the Node cannot use.
+type RecordError struct{ Err error }
+
+func (e *RecordError) Error() string { return e.Err.Error() }
+
+func (e *RecordError) Unwrap() error { return e.Err }
+
 var ErrStopped = errors.New("node stopped before it was ready")
 
 func ExitCode(err error) int {
@@ -54,6 +64,7 @@ func ExitCode(err error) int {
 	var cfg *ConfigError
 	var inUse *InUseError
 	var refused *storage.RefusedError
+	var record *RecordError
 	switch {
 	case err == nil, errors.Is(err, ErrStopped):
 		return ExitOK
@@ -63,6 +74,8 @@ func ExitCode(err error) int {
 		return ExitInUse
 	case errors.As(err, &refused):
 		return ExitLibraryRefused
+	case errors.As(err, &record):
+		return ExitRecordRefused
 	default:
 		return ExitFailed
 	}

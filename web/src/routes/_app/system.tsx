@@ -20,6 +20,7 @@ function SystemPage() {
     ["Data dir", data.dataDir],
     ["HTTP", data.listeners.http],
     ["Torrent", data.listeners.torrent],
+    ["Link", data.listeners.link],
     ["Control socket", data.listeners.control],
   ] as const;
   return (

@@ -13,6 +13,7 @@ import type {
   GetStatus500,
   GetSystem401,
   GetSystem403,
+  GetSystem409,
   GetSystem500,
   SystemHealth,
   SystemReport,
@@ -146,7 +147,7 @@ export const getGetStatusUrl = () => {
 };
 
 /**
- * @summary Report whether the Node is claimed
+ * @summary Report whether the Node is Unclaimed, a Controller or a Worker
  */
 export const getStatus = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -220,7 +221,7 @@ export function useGetStatusSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Report whether the Node is claimed
+ * @summary Report whether the Node is Unclaimed, a Controller or a Worker
  */
 
 export function useGetStatusSuspense<
@@ -265,7 +266,7 @@ export const getGetSystemQueryKey = () => {
 
 export const getGetSystemSuspenseQueryOptions = <
   TData = Awaited<ReturnType<typeof getSystem>>,
-  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem500>,
+  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem409 | GetSystem500>,
 >(options?: {
   query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSystem>>, TError, TData>>;
   request?: SecondParameter<typeof apiFetch>;
@@ -289,11 +290,13 @@ export const getGetSystemSuspenseQueryOptions = <
 };
 
 export type GetSystemSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getSystem>>>;
-export type GetSystemSuspenseQueryError = ErrorType<GetSystem401 | GetSystem403 | GetSystem500>;
+export type GetSystemSuspenseQueryError = ErrorType<
+  GetSystem401 | GetSystem403 | GetSystem409 | GetSystem500
+>;
 
 export function useGetSystemSuspense<
   TData = Awaited<ReturnType<typeof getSystem>>,
-  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem500>,
+  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem409 | GetSystem500>,
 >(
   options: {
     query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSystem>>, TError, TData>>;
@@ -303,7 +306,7 @@ export function useGetSystemSuspense<
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetSystemSuspense<
   TData = Awaited<ReturnType<typeof getSystem>>,
-  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem500>,
+  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem409 | GetSystem500>,
 >(
   options?: {
     query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSystem>>, TError, TData>>;
@@ -313,7 +316,7 @@ export function useGetSystemSuspense<
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetSystemSuspense<
   TData = Awaited<ReturnType<typeof getSystem>>,
-  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem500>,
+  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem409 | GetSystem500>,
 >(
   options?: {
     query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSystem>>, TError, TData>>;
@@ -327,7 +330,7 @@ export function useGetSystemSuspense<
 
 export function useGetSystemSuspense<
   TData = Awaited<ReturnType<typeof getSystem>>,
-  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem500>,
+  TError = ErrorType<GetSystem401 | GetSystem403 | GetSystem409 | GetSystem500>,
 >(
   options?: {
     query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSystem>>, TError, TData>>;

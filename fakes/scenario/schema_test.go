@@ -13,6 +13,8 @@ import (
 	"github.com/invopop/jsonschema"
 	validator "github.com/santhosh-tekuri/jsonschema/v6"
 	"go.yaml.in/yaml/v3"
+
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 var update = flag.Bool("update", false, "rewrite scenario.schema.json from the Scenario type")
@@ -30,6 +32,10 @@ func schema(t *testing.T) []byte {
 	for i, name := range setupNames {
 		setups[i] = name
 	}
+	var roles []any
+	for _, name := range role.Names() {
+		roles = append(roles, string(name))
+	}
 	r := jsonschema.Reflector{
 		Anonymous:                  true,
 		DoNotReference:             true,
@@ -41,6 +47,8 @@ func schema(t *testing.T) []byte {
 				return &jsonschema.Schema{Type: "string", Pattern: durationPattern}
 			case reflect.TypeFor[Setup]():
 				return &jsonschema.Schema{Type: "string", Enum: setups}
+			case reflect.TypeFor[role.Name]():
+				return &jsonschema.Schema{Type: "string", Enum: roles}
 			}
 			return nil
 		},
@@ -103,7 +111,7 @@ func TestCatalog(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	if want := []string{"first-run", "single-machine"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"first-run", "home", "single-machine"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("catalog = %v, want %v", got, want)
 	}
 }

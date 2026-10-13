@@ -10,32 +10,9 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/node"
 )
-
-func TestNodeConfigWritesOnlyWhatTheWorldSets(t *testing.T) {
-	s, err := scenario.Load("single-machine")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.Nodes = append(s.Nodes, scenario.Node{Name: "work"})
-	got, err := nodeConfig(s, 1, []string{"torrent.listen", "http.listen"}, node.Defaults().Endpoints)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := `seed: single-machine/work
-torrent:
-  listen: 127.0.0.3:0
-http:
-  listen: 127.0.0.3:0
-timings:
-  node:
-    stop_deadline: 5s
-`
-	if string(got) != want {
-		t.Fatalf("config.yaml =\n%s\nwant\n%s", got, want)
-	}
-}
 
 func TestDivergencesRefuseAPlantedKey(t *testing.T) {
 	r := &Run{used: map[string]bool{}}
@@ -58,8 +35,8 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	for _, key := range flatten(&defaults, "") {
 		probe.Keys = append(probe.Keys, node.Key{Key: key})
 	}
-	listen := listenKeys(probe)
-	if want := []string{"torrent.listen", "http.listen"}; !slices.Equal(listen, want) {
+	listen := setup.ListenKeys(probe)
+	if want := []string{"torrent.listen", "http.listen", "link.listen"}; !slices.Equal(listen, want) {
 		t.Fatalf("listen keys = %v, want %v", listen, want)
 	}
 	used := map[string]bool{}
@@ -89,7 +66,7 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 
 func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string) []node.Key {
 	t.Helper()
-	data, err := nodeConfig(s, i, listen, node.Defaults().Endpoints)
+	data, err := setup.Config(s, i, listen, node.Defaults().Endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26,9 +26,11 @@ import type {
   CreateSession500,
   DeleteSession401,
   DeleteSession403,
+  DeleteSession409,
   DeleteSession500,
   GetSession401,
   GetSession403,
+  GetSession409,
   GetSession500,
   IdentityClaimBody,
   IdentityClaimed,
@@ -73,7 +75,7 @@ export const deleteSession = async (options?: Parameters<typeof apiFetch>[1]): P
 export const getDeleteSessionMutationKey = () => ["deleteSession"] as const;
 
 export const getDeleteSessionMutationOptions = <
-  TError = ErrorType<DeleteSession401 | DeleteSession403 | DeleteSession500>,
+  TError = ErrorType<DeleteSession401 | DeleteSession403 | DeleteSession409 | DeleteSession500>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteSession>>, TError, void, TContext>;
@@ -96,14 +98,14 @@ export const getDeleteSessionMutationOptions = <
 export type DeleteSessionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSession>>>;
 
 export type DeleteSessionMutationError = ErrorType<
-  DeleteSession401 | DeleteSession403 | DeleteSession500
+  DeleteSession401 | DeleteSession403 | DeleteSession409 | DeleteSession500
 >;
 
 /**
  * @summary Sign out
  */
 export const useDeleteSession = <
-  TError = ErrorType<DeleteSession401 | DeleteSession403 | DeleteSession500>,
+  TError = ErrorType<DeleteSession401 | DeleteSession403 | DeleteSession409 | DeleteSession500>,
   TContext = unknown,
 >(
   options?: {
@@ -141,7 +143,7 @@ export const getGetSessionQueryKey = () => {
 
 export const getGetSessionSuspenseQueryOptions = <
   TData = Awaited<ReturnType<typeof getSession>>,
-  TError = ErrorType<GetSession401 | GetSession403 | GetSession500>,
+  TError = ErrorType<GetSession401 | GetSession403 | GetSession409 | GetSession500>,
 >(options?: {
   query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>>;
   request?: SecondParameter<typeof apiFetch>;
@@ -165,11 +167,13 @@ export const getGetSessionSuspenseQueryOptions = <
 };
 
 export type GetSessionSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getSession>>>;
-export type GetSessionSuspenseQueryError = ErrorType<GetSession401 | GetSession403 | GetSession500>;
+export type GetSessionSuspenseQueryError = ErrorType<
+  GetSession401 | GetSession403 | GetSession409 | GetSession500
+>;
 
 export function useGetSessionSuspense<
   TData = Awaited<ReturnType<typeof getSession>>,
-  TError = ErrorType<GetSession401 | GetSession403 | GetSession500>,
+  TError = ErrorType<GetSession401 | GetSession403 | GetSession409 | GetSession500>,
 >(
   options: {
     query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>>;
@@ -179,7 +183,7 @@ export function useGetSessionSuspense<
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetSessionSuspense<
   TData = Awaited<ReturnType<typeof getSession>>,
-  TError = ErrorType<GetSession401 | GetSession403 | GetSession500>,
+  TError = ErrorType<GetSession401 | GetSession403 | GetSession409 | GetSession500>,
 >(
   options?: {
     query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>>;
@@ -189,7 +193,7 @@ export function useGetSessionSuspense<
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetSessionSuspense<
   TData = Awaited<ReturnType<typeof getSession>>,
-  TError = ErrorType<GetSession401 | GetSession403 | GetSession500>,
+  TError = ErrorType<GetSession401 | GetSession403 | GetSession409 | GetSession500>,
 >(
   options?: {
     query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>>;
@@ -203,7 +207,7 @@ export function useGetSessionSuspense<
 
 export function useGetSessionSuspense<
   TData = Awaited<ReturnType<typeof getSession>>,
-  TError = ErrorType<GetSession401 | GetSession403 | GetSession500>,
+  TError = ErrorType<GetSession401 | GetSession403 | GetSession409 | GetSession500>,
 >(
   options?: {
     query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>>;

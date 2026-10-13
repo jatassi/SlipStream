@@ -1,0 +1,17 @@
+// The test-only Probe Role's messages (internal/role/roletest). Production
+// never imports the generated code.
+syntax = "proto3";
+
+package slipstream.probe.v1;
+
+message Intent {
+  string value = 1;
+}
+
+message Facts {
+  string value = 1;
+}
+
+message Result {
+  uint64 n = 1;
+}

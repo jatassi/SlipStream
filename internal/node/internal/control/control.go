@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -65,16 +66,16 @@ type Server struct {
 	conns    sync.WaitGroup
 }
 
-// ListenFunc binds a listener, as net.ListenConfig.Listen does.
-type ListenFunc func(ctx context.Context, network, address string) (net.Listener, error)
+// ListenFunc binds a listener, as net.Listen does.
+type ListenFunc func(network, address string) (net.Listener, error)
 
 // Listen removes a socket left at path by a process that held the same
 // lock, then binds path through listen and serves.
-func Listen(ctx context.Context, listen ListenFunc, path string, dispatch Dispatch) (*Server, error) {
+func Listen(listen ListenFunc, path string, dispatch Dispatch) (*Server, error) {
 	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("remove stale control socket: %w", err)
 	}
-	ln, err := listen(ctx, "unix", path)
+	ln, err := listen("unix", path)
 	if err != nil {
 		return nil, fmt.Errorf("listen on control socket: %w", err)
 	}
@@ -187,17 +188,31 @@ func Decode(data []byte, v any) error {
 	return nil
 }
 
+// DialFunc connects, as net.Dialer.DialContext does.
+type DialFunc func(ctx context.Context, network, address string) (net.Conn, error)
+
+// halfCloser is a connection whose write side closes alone, as a
+// *net.UnixConn's does.
+type halfCloser interface {
+	net.Conn
+	CloseWrite() error
+}
+
 type Conn struct {
-	conn *net.UnixConn
+	conn halfCloser
 	r    *bufio.Reader
 }
 
-// Dial connects to the socket at path. The connection's deadline is ctx's.
-func Dial(ctx context.Context, path string) (*Conn, error) {
-	var d net.Dialer
-	conn, err := d.DialUnix(ctx, "unix", nil, &net.UnixAddr{Name: path, Net: "unix"})
+// Dial connects through dial to the socket at path. The connection's
+// deadline is ctx's.
+func Dial(ctx context.Context, dial DialFunc, path string) (*Conn, error) {
+	c, err := dial(ctx, "unix", path)
 	if err != nil {
 		return nil, fmt.Errorf("dial control socket: %w", err)
+	}
+	conn, ok := c.(halfCloser)
+	if !ok {
+		return nil, errors.Join(fmt.Errorf("dial control socket: a %T cannot close its write side", c), c.Close())
 	}
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := conn.SetDeadline(deadline); err != nil {
@@ -221,7 +236,9 @@ func (c *Conn) Send(op string, body any) error {
 	if _, err := c.conn.Write(append(line, '\n')); err != nil {
 		return fmt.Errorf("send %s request: %w", op, err)
 	}
-	if err := c.conn.CloseWrite(); err != nil {
+	// macOS answers ENOTCONN once the Node has replied and closed; the
+	// replies stay readable.
+	if err := c.conn.CloseWrite(); err != nil && !errors.Is(err, syscall.ENOTCONN) {
 		return fmt.Errorf("send %s request: %w", op, err)
 	}
 	return nil

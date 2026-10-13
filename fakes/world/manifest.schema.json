@@ -105,7 +105,8 @@
             "type": "string",
             "enum": [
               "none",
-              "controller"
+              "controller",
+              "join"
             ]
           },
           "claim": {
@@ -167,6 +168,18 @@
               ]
             },
             "type": "array"
+          },
+          "nodeKey": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
@@ -184,7 +197,8 @@
           "pid",
           "seed",
           "log",
-          "overrides"
+          "overrides",
+          "nodeKey"
         ]
       },
       "type": "array"

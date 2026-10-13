@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand/v2"
+	"net/http"
 	"os"
 	"os/signal"
 	"slices"
@@ -17,20 +19,36 @@ import (
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
+	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
-	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
+// Env is what a Node runs on. A process passes the OS network, libtorrent
+// and a rotating log; the simulation tier passes an in-memory network, an
+// in-memory engine and a plain log file, which a testing/synctest bubble
+// can hold.
 type Env struct {
 	DataDir DataDir
 	Environ []string
 	Stderr  io.Writer
 	Version string
+	// Net serves every listener, the control socket's included, and every
+	// link dial.
+	Net    link.Network
+	Engine func(engine.Config) (engine.Engine, error)
+	// OpenLog opens the log in dir, mirrored to stderr.
+	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
+	// Test adds test-only Roles; a process leaves it zero.
+	Test Test
 }
 
 // ProcessEnv is this process's Env, with the data dir from dataDirFlag or
@@ -54,14 +72,21 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 	if s, ok := buildinfo.Current(); ok {
 		version = s.Version
 	}
-	return Env{DataDir: dir, Environ: environ, Stderr: os.Stderr, Version: version}, nil
+	return Env{
+		DataDir: dir,
+		Environ: environ,
+		Stderr:  os.Stderr,
+		Version: version,
+		Net:     osNetwork{},
+		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
+		OpenLog: logs.Open,
+	}, nil
 }
 
 // Node is one running SlipStream process's worth of state. Several can run in
 // one Go process; they share nothing.
 type Node struct {
 	env      Env
-	machine  machine
 	started  time.Time
 	rootLog  *slog.Logger
 	log      *slog.Logger
@@ -71,6 +96,27 @@ type Node struct {
 
 	server  *control.Server
 	isReady atomic.Bool
+
+	// Set during start, before the Node is ready.
+	cfg      Config
+	key      link.PrivateKey
+	info     link.NodeInfo
+	hub      *live.Hub
+	gate     *identity.Gate
+	link     *link.Link
+	pairing  *pairing.Pairing
+	lockstep *http.ServeMux
+	roleRand *rand.Rand
+	// claimed is where library.db and a half push their stops, so they
+	// stop after HTTP and the link, whenever they start.
+	claimed *Stack
+
+	libMu sync.Mutex
+	lib   atomic.Pointer[library]
+	half  atomic.Pointer[half]
+	// claimMu serializes claims, so a Controller claim and a Join never
+	// interleave.
+	claimMu sync.Mutex
 
 	stopOnce sync.Once
 	stopping chan struct{}
@@ -86,13 +132,8 @@ type Node struct {
 // installs no signal handler and pins no thread. Canceling ctx stops the
 // Node, before or after it is ready.
 func Start(ctx context.Context, env Env) (*Node, error) {
-	return startOn(ctx, env, host)
-}
-
-func startOn(ctx context.Context, env Env, m machine) (*Node, error) {
 	n := &Node{
 		env:      env,
-		machine:  m,
 		started:  time.Now(),
 		deadline: Defaults().Timings.Node.StopDeadline,
 		stopping: make(chan struct{}),
@@ -144,7 +185,7 @@ func (n *Node) start(ctx context.Context) error {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return err
 	}
-	log, err := n.machine.openLog(n.env.DataDir.LogsDir(), n.env.Stderr)
+	log, err := n.env.OpenLog(n.env.DataDir.LogsDir(), n.env.Stderr)
 	if err != nil {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return errors.Join(err, lk.Release())
@@ -182,7 +223,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 		n.log.Warn("timings differ from their defaults", "keys", changed)
 	}
 	var l Listeners
-	if n.server, err = control.Listen(ctx, n.machine.listen, n.env.DataDir.ControlSocket(), n.dispatch); err != nil {
+	if n.server, err = control.Listen(n.env.Net.Listen, n.env.DataDir.ControlSocket(), n.dispatch); err != nil {
 		return err
 	}
 	n.stack.OnStop("control", func(context.Context) error { return n.server.Close() })
@@ -190,7 +231,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 	if err := n.checkpoint(); err != nil {
 		return err
 	}
-	setupCode, err := n.startSubsystems(ctx, cfg, &l)
+	claim, setupCode, err := n.startSubsystems(ctx, cfg, &l)
 	if err != nil {
 		return err
 	}
@@ -205,6 +246,8 @@ func (n *Node) startLogged(ctx context.Context) error {
 		DataDir:   n.env.DataDir.Path(),
 		Version:   n.env.Version,
 		Seed:      cfg.Seed,
+		Claim:     claim,
+		NodeKey:   n.key.Public().Fingerprint(),
 		Listeners: l,
 		Overrides: overrides(keys),
 		SetupCode: setupCode,
@@ -217,42 +260,75 @@ func (n *Node) startLogged(ctx context.Context) error {
 // startSubsystems is the start order. Each subsystem pushes its stop onto the
 // Stack, so they stop in reverse. HTTP starts last, once every other
 // listener is bound, since getSystem reports them all. It returns the
-// Setup code while the Node is Unclaimed.
-func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (string, error) {
-	lib, err := n.openStorage(ctx, cfg)
+// claim and, while the Node is Unclaimed, the Setup code.
+func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (system.Claim, string, error) {
+	n.cfg = cfg
+	key, err := openKey(n.env.DataDir)
 	if err != nil {
-		return "", err
+		return 0, "", err
 	}
-	keys, err := secret.Open(ctx, lib, n.env.DataDir.LibraryKey())
-	if err != nil {
-		return "", err
+	n.key = key
+	streams := NewStreams(cfg.Seed)
+	n.roleRand = streams.Stream("role")
+	n.hub = live.NewHub(surface.Events)
+	n.claimed = n.stack.Sub("claimed")
+	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
+		if _, err := n.openLibrary(ctx); err != nil {
+			return 0, "", n.stoppedOr(err)
+		}
 	}
-	hub := live.NewHub(surface.Events)
-	ids, err := identity.New(ctx, lib, keys.PINPepper(), identity.SessionsChangedEvent.Bind(hub), hub)
+	claim, err := n.claim(ctx)
 	if err != nil {
-		return "", err
+		return 0, "", err
 	}
-	// claimed is the one definition of a claimed Node, read by the Setup
-	// gate and the status endpoint alike: it holds an Admin.
-	claimed := ids.HasAdmin
-	gate, setupCode, err := identity.NewGate(ctx, claimed, n.rootLog.With("subsystem", "identity"))
-	if err != nil {
-		return "", err
+	var setupCode string
+	if n.gate, setupCode, err = identity.NewGate(ctx, n.claim, n.rootLog.With("subsystem", "identity")); err != nil {
+		return 0, "", err
 	}
-	torrent, err := n.machine.openTorrent(engine.Config{ListenInterface: cfg.Torrent.Listen})
+	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen})
 	if err != nil {
-		return "", fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
+		return 0, "", fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
 	if l.Torrent, err = torrent.ListenAddr(); err != nil {
-		return "", fmt.Errorf("torrent listen address: %w", err)
+		return 0, "", fmt.Errorf("torrent listen address: %w", err)
 	}
-	return setupCode, n.startHTTP(ctx, cfg, l, surface.Services{
-		Identity: ids,
-		Hub:      hub,
-		Live:     cfg.Timings.Live,
-		Claimed:  claimed,
-	}, gate)
+	if err := n.startLink(cfg, streams, l); err != nil {
+		return 0, "", err
+	}
+	n.pairing, err = pairing.Open(pairing.Config{
+		DataDir: n.env.DataDir.Path(),
+		Link:    n.link,
+		Name:    cfg.Name,
+		Claims:  surfaceNode{n},
+		Log:     n.rootLog.With("subsystem", "pairing"),
+	})
+	if _, malformed := errors.AsType[*pairing.RecordError](err); malformed {
+		err = &RecordError{Err: err}
+	}
+	if err != nil {
+		return 0, "", err
+	}
+	switch claim {
+	case system.Controller:
+		err = n.startController(ctx)
+	case system.Worker:
+		// A join.code that re-pairs starts the half once its Claim ends.
+		if !n.pairing.Repairs(cfg.Join.Code) {
+			err = n.startWorker(ctx)
+		}
+	case system.Unclaimed:
+	}
+	if err != nil {
+		return 0, "", n.stoppedOr(err)
+	}
+	if code := cfg.Join.Code; !code.IsZero() {
+		n.stack.Go("join-code", func(ctx context.Context) error {
+			n.joinAtStart(ctx, code)
+			return nil
+		})
+	}
+	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, n.gate)
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.
