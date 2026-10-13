@@ -217,64 +217,81 @@ type scriptString struct {
 // apostrophe in JSX text) yields nothing, so the lexer resynchronises at the
 // next line.
 func scriptStrings(src string) []scriptString {
-	var lits []scriptString
-	line := 1
-	depth := 0
-	var templates []int
-	for i := 0; i < len(src); {
-		switch c := src[i]; {
-		case c == '\n':
-			line++
-			i++
-		case strings.HasPrefix(src[i:], "//"):
-			end := strings.IndexByte(src[i:], '\n')
-			if end < 0 {
-				return lits
-			}
-			i += end
-		case strings.HasPrefix(src[i:], "/*"):
-			end := strings.Index(src[i+2:], "*/")
-			if end < 0 {
-				return lits
-			}
-			line += strings.Count(src[i:i+2+end], "\n")
-			i += end + 4
-		case c == '\'' || c == '"':
-			start := line
-			end := quoteEnd(src, i+1, c, &line)
-			if end < len(src) && src[end] == c {
-				lits = append(lits, scriptString{start, src[i+1 : end]})
-				end++
-			}
-			i = end
-		case c == '`':
-			start := line
-			end, interpolated := templateEnd(src, i+1, &line)
-			if !interpolated && end < len(src) {
-				lits = append(lits, scriptString{start, src[i+1 : end]})
-			}
-			if interpolated {
-				templates = append(templates, depth)
-			}
-			i = end + 1
-		case c == '{':
-			depth++
-			i++
-		case c == '}' && len(templates) > 0 && templates[len(templates)-1] == depth:
-			templates = templates[:len(templates)-1]
-			end, interpolated := templateEnd(src, i+1, &line)
-			if interpolated {
-				templates = append(templates, depth)
-			}
-			i = end + 1
-		case c == '}':
-			depth--
-			i++
-		default:
-			i++
-		}
+	l := scriptLexer{src: src, line: 1}
+	for l.i < len(src) {
+		l.next()
 	}
-	return lits
+	return l.lits
+}
+
+type scriptLexer struct {
+	src   string
+	i     int
+	line  int
+	depth int
+	// templates holds the brace depth of each open template interpolation.
+	templates []int
+	lits      []scriptString
+}
+
+func (l *scriptLexer) next() {
+	src, i := l.src, l.i
+	switch c := src[i]; {
+	case c == '\n':
+		l.line++
+		l.i++
+	case strings.HasPrefix(src[i:], "//"):
+		l.skipTo("\n", 0)
+	case strings.HasPrefix(src[i:], "/*"):
+		l.skipTo("*/", len("*/"))
+	case c == '\'' || c == '"':
+		start := l.line
+		end := quoteEnd(src, i+1, c, &l.line)
+		if end < len(src) && src[end] == c {
+			l.lits = append(l.lits, scriptString{start, src[i+1 : end]})
+			end++
+		}
+		l.i = end
+	case c == '`':
+		start := l.line
+		end, interpolated := l.template(i + 1)
+		if !interpolated && end < len(src) {
+			l.lits = append(l.lits, scriptString{start, src[i+1 : end]})
+		}
+	case c == '{':
+		l.depth++
+		l.i++
+	case c == '}' && len(l.templates) > 0 && l.templates[len(l.templates)-1] == l.depth:
+		l.templates = l.templates[:len(l.templates)-1]
+		l.template(i + 1)
+	case c == '}':
+		l.depth--
+		l.i++
+	default:
+		l.i++
+	}
+}
+
+// skipTo moves past the next occurrence of end, keeping it when keep is 0,
+// or to the end of the source.
+func (l *scriptLexer) skipTo(end string, keep int) {
+	n := strings.Index(l.src[l.i:], end)
+	if n < 0 {
+		l.i = len(l.src)
+		return
+	}
+	l.line += strings.Count(l.src[l.i:l.i+n], "\n")
+	l.i += n + keep
+}
+
+// template scans template text from i, opening an interpolation at ${.
+func (l *scriptLexer) template(i int) (end int, interpolated bool) {
+	end, interpolated = templateEnd(l.src, i, &l.line)
+	if interpolated {
+		l.templates = append(l.templates, l.depth)
+	}
+	l.i = end + 1
+	return end, interpolated
 }
 
 // quoteEnd is the index of the quote closing a string begun before i, or of

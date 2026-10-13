@@ -392,3 +392,57 @@ func TestContentTypeConfined(t *testing.T) {
 		"web/src/works/kinds.ts:7: [content-type-confined] core names Content Type tv" + facet,
 	})
 }
+
+func TestMainsMatch(t *testing.T) {
+	const extra = "cmd/slipstream-e2e/flags.go:1: [mains-match] a main holds only main.go"
+	cases := []struct {
+		name    string
+		e2eMain string
+		want    []string
+	}{
+		{
+			name: "differs",
+			want: []string{
+				extra,
+				"cmd/slipstream-e2e/main.go:11: [mains-match] differs from cmd/slipstream/main.go beyond registering test Content Types",
+			},
+		},
+		{
+			name: "registers music",
+			e2eMain: "package main\n\nimport (\n\t\"os\"\n\n\tm \"example.com/app/fakes/contenttypes/music\"\n\t\"example.com/app/internal/node\"\n)\n\n" +
+				"func main() {\n\tos.Exit(node.Main(os.Args, m.Def))\n}\n",
+			want: []string{extra},
+		},
+		{
+			name:    "registers nothing",
+			e2eMain: "package main\n\nimport (\n\t\"os\"\n\n\t\"example.com/app/internal/node\"\n)\n\nfunc main() {\n\tos.Exit(node.Main(os.Args))\n}\n",
+			want: []string{
+				extra,
+				"cmd/slipstream-e2e/main.go:1: [mains-match] registers no test Content Type",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := fixtureRepo(t, "mains-match")
+			if tc.e2eMain != "" {
+				if err := os.WriteFile(filepath.Join(repo.Root, "cmd", "slipstream-e2e", "main.go"), []byte(tc.e2eMain), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			assertFindings(t, check(t, "mains-match", repo), tc.want)
+		})
+	}
+}
+
+func TestMainsMatchWithoutE2EMain(t *testing.T) {
+	repo := fixtureRepo(t, "mains-match")
+	cmd := exec.CommandContext(t.Context(), "git", "rm", "-q", "-r", "-f", "cmd/slipstream-e2e")
+	cmd.Dir = repo.Root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git rm: %v\n%s", err, out)
+	}
+	assertFindings(t, check(t, "mains-match", repo), []string{
+		"cmd/slipstream-e2e/main.go:1: [mains-match] does not exist",
+	})
+}
