@@ -5,8 +5,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/netip"
 	"slices"
@@ -269,31 +269,22 @@ func TestAJoinCodeIsStoredOnlyAsItsSecretsHash(t *testing.T) {
 		code := c.mint(t).Code
 		secret := code.Secret()
 		hash := sha256.Sum256(secret[:])
-		var hashes [][]byte
-		for _, row := range rows(t, c.lib, "SELECT secret_hash FROM nodes_join_code") {
-			hashes = append(hashes, row[0].([]byte))
-		}
-		if len(hashes) != 1 || !bytes.Equal(hashes[0], hash[:]) {
+		if hashes := cells(t, c.lib, "SELECT secret_hash FROM nodes_join_code"); len(hashes) != 1 || !bytes.Equal(hashes[0], hash[:]) {
 			t.Fatalf("nodes_join_code holds secret hashes %x, want only %x", hashes, hash)
 		}
-		for _, table := range rows(t, c.lib, "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'nodes!_%' ESCAPE '!'") {
-			for _, row := range rows(t, c.lib, "SELECT * FROM "+table[0].(string)) {
-				for _, v := range row {
-					b := []byte(fmt.Sprint(v))
-					if raw, ok := v.([]byte); ok {
-						b = raw
-					}
-					if bytes.Contains(b, secret[:]) || bytes.Contains(b, []byte(code.String())) || bytes.Contains(bytes.ToUpper(b), []byte("SLP1")) {
-						t.Fatalf("%s holds %q, which carries the Join Code", table[0], v)
-					}
+		for _, table := range cells(t, c.lib, "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'nodes!_%' ESCAPE '!'") {
+			for _, v := range cells(t, c.lib, "SELECT * FROM "+string(table)) {
+				if bytes.Contains(v, secret[:]) || bytes.Contains(v, []byte(code.String())) || bytes.Contains(bytes.ToUpper(v), []byte("SLP1")) {
+					t.Fatalf("%s holds %q, which carries the Join Code", table, v)
 				}
 			}
 		}
 	})
 }
 
-// rows is every row query returns, each as its column values.
-func rows(t *testing.T, lib *storage.DB[storage.Library], query string) [][]any {
+// cells is every value query returns, row by row, as bytes: a BLOB as
+// stored, anything else as its text.
+func cells(t *testing.T, lib *storage.DB[storage.Library], query string) [][]byte {
 	t.Helper()
 	r, err := lib.QueryContext(t.Context(), query)
 	if err != nil {
@@ -304,9 +295,9 @@ func rows(t *testing.T, lib *storage.DB[storage.Library], query string) [][]any 
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out [][]any
+	var out [][]byte
 	for r.Next() {
-		row := make([]any, len(cols))
+		row := make([]sql.RawBytes, len(cols))
 		ptrs := make([]any, len(cols))
 		for i := range row {
 			ptrs[i] = &row[i]
@@ -314,7 +305,9 @@ func rows(t *testing.T, lib *storage.DB[storage.Library], query string) [][]any 
 		if err := r.Scan(ptrs...); err != nil {
 			t.Fatal(err)
 		}
-		out = append(out, row)
+		for _, v := range row {
+			out = append(out, bytes.Clone(v))
+		}
 	}
 	if err := r.Err(); err != nil {
 		t.Fatal(err)

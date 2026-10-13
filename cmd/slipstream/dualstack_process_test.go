@@ -25,7 +25,8 @@ func acceptsIPv4OnUnspecifiedIPv6(t *testing.T) bool {
 	}
 	defer func() { _ = ln.Close() }()
 	d := net.Dialer{Timeout: 5 * time.Second}
-	c, err := d.DialContext(t.Context(), "tcp4", netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), uint16(ln.Addr().(*net.TCPAddr).Port)).String()) //nolint:gosec // a port number
+	port := netip.MustParseAddrPort(ln.Addr().String()).Port()
+	c, err := d.DialContext(t.Context(), "tcp4", netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port).String())
 	if err != nil {
 		return false
 	}
@@ -73,7 +74,7 @@ func TestALinkOnTheUnspecifiedIPv6AddressServesIPv4(t *testing.T) {
 		}
 		return
 	}
-	_, id := h.nodes(t)
+	id := h.boxID(t)
 	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, viaIPv4); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join through %s: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", viaIPv4, res.code, res.stdout, res.stderr, want)
 	}

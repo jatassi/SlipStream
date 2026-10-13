@@ -77,25 +77,22 @@ func (h home) mint(t *testing.T) string {
 type listed struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
-	Link struct {
-		State string `json:"state"`
-	} `json:"link"`
 }
 
-// nodes is listNodes as "name state" lines, and box's id.
-func (h home) nodes(t *testing.T) (rows []string, box string) {
+// boxID is box's id as home lists it.
+func (h home) boxID(t *testing.T) string {
 	t.Helper()
 	var res struct {
 		Nodes []listed `json:"nodes"`
 	}
 	h.admin(t, http.MethodGet, "/api/v1/nodes", &res)
 	for _, n := range res.Nodes {
-		rows = append(rows, n.Name+" "+n.Link.State)
 		if n.Name == "box" {
-			box = n.ID
+			return n.ID
 		}
 	}
-	return rows, box
+	t.Fatalf("home lists no box: %+v", res.Nodes)
+	return ""
 }
 
 // await is the first record with msg, read or still to come.
@@ -193,7 +190,7 @@ func TestJoinOffline(t *testing.T) {
 	code := h.mint(t)
 	dir := dataDir(t)
 	res := slipstream(t, childEnv(boxEnv...), "join", "--data-dir", dir, code)
-	_, id := h.nodes(t)
+	id := h.boxID(t)
 	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", res.code, res.stdout, res.stderr, want)
 	}
@@ -232,7 +229,7 @@ func TestJoinRunning(t *testing.T) {
 	ready := box.ready()
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed"}`+"\n")
 	res := slipstream(t, childEnv(), "join", h.mint(t), "--data-dir", dir)
-	_, id := h.nodes(t)
+	id := h.boxID(t)
 	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", res.code, res.stdout, res.stderr, want)
 	}
