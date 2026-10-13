@@ -14,14 +14,15 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 )
 
-func row(t *testing.T, a *worldtest.API, name string) worldtest.Row {
+// seedbox is seedbox's row in listNodes on home.
+func seedbox(t *testing.T, a *worldtest.API) worldtest.Row {
 	t.Helper()
 	for _, r := range a.Nodes("home") {
-		if r.Name == name {
+		if r.Name == "seedbox" {
 			return r
 		}
 	}
-	t.Fatalf("listNodes on home has no row %s", name)
+	t.Fatal("listNodes on home has no row seedbox")
 	return worldtest.Row{}
 }
 
@@ -70,7 +71,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		if got := standing(t, w, "seedbox"); got != role.Unreachable {
 			t.Fatalf("seedbox's Probe stands %s after the stall, want unreachable", got)
 		}
-		box := row(t, a, "seedbox")
+		box := seedbox(t, a)
 		if box.Link.State != "down" || box.Link.Since != down.Format(time.RFC3339Nano) {
 			t.Fatalf("listNodes shows seedbox %s since %s, want down since %s", box.Link.State, box.Link.Since, down.Format(time.RFC3339Nano))
 		}
@@ -88,12 +89,12 @@ func TestPartitionThenRedial(t *testing.T) {
 		}
 		time.Sleep(time.Until(redial) - time.Nanosecond)
 		synctest.Wait()
-		if box := row(t, a, "seedbox"); box.Link.State != "down" {
+		if box := seedbox(t, a); box.Link.State != "down" {
 			t.Fatalf("seedbox is %s before its re-dial at %s", box.Link.State, redial.Format(time.RFC3339Nano))
 		}
 		time.Sleep(time.Nanosecond)
 		synctest.Wait()
-		box = row(t, a, "seedbox")
+		box = seedbox(t, a)
 		if box.Link.State != "up" || box.Link.Since != redial.Format(time.RFC3339Nano) {
 			t.Fatalf("listNodes shows seedbox %s since %s, want up since %s", box.Link.State, box.Link.Since, redial.Format(time.RFC3339Nano))
 		}

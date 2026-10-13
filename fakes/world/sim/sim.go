@@ -226,7 +226,7 @@ func (n *Node) Start(edit ...func(*node.Env)) {
 // Join runs slipstream join on the stopped Node's data dir, as an
 // operator pairs a Node with no service running.
 func (n *Node) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
-	return node.Join(ctx, n.env(), code) //nolint:wrapcheck // the test reads node.Join's own error
+	return node.Join(ctx, n.env(), code)
 }
 
 func (n *Node) env() node.Env {

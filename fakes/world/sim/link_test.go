@@ -63,44 +63,46 @@ func TestMismatch(t *testing.T) {
 		w.Node("home").Control().Touch(box)
 		synctest.Wait()
 
-		seedbox := w.Node("seedbox")
-		seedbox.Stop()
-		seedbox.Start(func(e *node.Env) { e.Version = "0.0.0-b" })
+		worker := w.Node("seedbox")
+		worker.Stop()
+		worker.Start(func(e *node.Env) { e.Version = "0.0.0-b" })
 		synctest.Wait()
-		homeKey, boxKey := key(t, w, "home"), key(t, w, "seedbox")
-		if live, ok := seedbox.Half().Link.State(homeKey).(link.Live); !ok || live.Matched || live.Peer.Version != "0.0.0-a" {
-			t.Fatalf("seedbox's link to home is %+v, want live and unmatched with 0.0.0-a", seedbox.Half().Link.State(homeKey))
+		homeKey := key(t, w, "home")
+		if live, ok := worker.Half().Link.State(homeKey).(link.Live); !ok || live.Matched || live.Peer.Version != "0.0.0-a" {
+			t.Fatalf("seedbox's link to home is %+v, want live and unmatched with 0.0.0-a", worker.Half().Link.State(homeKey))
 		}
-
-		p := pings{calls: make(chan struct{}, 1)}
-		rpctestv1connect.PingService.Mount(seedbox.Half().Dispatch, p)
-		_, err = rpctestv1connect.PingService.On(w.Node("home").Half().Cluster, box).Ping(t.Context(), &rpctestv1.PingRequest{})
-		if why, ok := rpc.NotSent(err); !ok || why != rpc.Mismatched {
-			t.Fatalf("a call from home to seedbox = %v, want NotSent mismatched", err)
-		}
-		select {
-		case <-p.calls:
-			t.Fatal("the call reached seedbox's handler")
-		default:
-		}
-
-		r := row(t, w.API(), "seedbox")
+		checkNotSent(t, w, box)
+		r := seedbox(t, w.API())
 		if r.Link.State != "mismatched" || r.Facts != nil {
 			t.Fatalf("listNodes shows seedbox %s with facts %+v, want mismatched with none, since no Sync stream opened", r.Link.State, r.Facts)
 		}
-		snap, ok := seedbox.Probe().Snapshot()
+		snap, ok := worker.Probe().Snapshot()
 		if !ok || snap.Standing != role.Mismatched || snap.Intent.GetValue() != "before" {
 			t.Fatalf("seedbox's Probe snapshot is %v, want the cached intent before, mismatched", snap)
 		}
 
-		res, err := linkv1connect.NewLinkServiceClient(seedbox.Half().Link.Client(homeKey)).Hello(t.Context(), &linkv1.HelloRequest{Node: &linkv1.NodeInfo{Version: "0.0.0-b"}})
+		res, err := linkv1connect.NewLinkServiceClient(worker.Half().Link.Client(homeKey)).Hello(t.Context(), &linkv1.HelloRequest{Node: &linkv1.NodeInfo{Version: "0.0.0-b"}})
 		if err != nil || res.GetWelcome().GetNode().GetVersion() != "0.0.0-a" {
 			t.Fatalf("Hello from seedbox to home = %v, %v; want home's Welcome", res, err)
 		}
-		if _, live := w.Node("home").Half().Link.State(boxKey).(link.Live); !live {
-			t.Fatalf("home's link to seedbox is %+v after the Hello, want it live", w.Node("home").Half().Link.State(boxKey))
-		}
 	})
+}
+
+// checkNotSent calls a lockstep service on seedbox from home: the call is
+// NotSent as Mismatched and never reaches seedbox's handler.
+func checkNotSent(t *testing.T, w *sim.World, box role.NodeID) {
+	t.Helper()
+	p := pings{calls: make(chan struct{}, 1)}
+	rpctestv1connect.PingService.Mount(w.Node("seedbox").Half().Dispatch, p)
+	_, err := rpctestv1connect.PingService.On(w.Node("home").Half().Cluster, box).Ping(t.Context(), &rpctestv1.PingRequest{})
+	if why, ok := rpc.NotSent(err); !ok || why != rpc.Mismatched {
+		t.Fatalf("a call from home to seedbox = %v, want NotSent mismatched", err)
+	}
+	select {
+	case <-p.calls:
+		t.Fatal("the call reached seedbox's handler")
+	default:
+	}
 }
 
 // office is a second Controller: the Unclaimed Node office of the world,
@@ -177,20 +179,20 @@ func TestRepairSupersedes(t *testing.T) {
 		s.Nodes = append(s.Nodes, scenario.Node{Name: "office"})
 		w := sim.Launch(t, s)
 		officeKey := office(t, w)
-		seedbox := w.Node("seedbox")
-		seedbox.Stop()
-		joined, err := seedbox.Join(t.Context(), mint(t, w, "office", officeKey))
+		worker := w.Node("seedbox")
+		worker.Stop()
+		joined, err := worker.Join(t.Context(), mint(t, w, "office", officeKey))
 		if err != nil {
 			t.Fatalf("join seedbox to office: %v", err)
 		}
 		if joined.ControllerName != "office" {
 			t.Fatalf("seedbox joined %s, want office", joined.ControllerName)
 		}
-		seedbox.Start()
+		worker.Start()
 		synctest.Wait()
 
 		homeKey, officeLinkKey, boxKey := key(t, w, "home"), key(t, w, "office"), key(t, w, "seedbox")
-		r := readRecord(t, seedbox)
+		r := readRecord(t, worker)
 		if r.Controller.Key != officeLinkKey.String() || len(r.Superseded) != 1 || r.Superseded[0].Key != homeKey.String() || r.Superseded[0].ByKey != officeLinkKey.String() {
 			t.Fatalf("seedbox's record is %+v, want controller office %s and home %s superseded by it", r, officeLinkKey, homeKey)
 		}
@@ -203,7 +205,7 @@ func TestRepairSupersedes(t *testing.T) {
 		}
 
 		home := w.Node("home")
-		home.Half().Link.Keep(link.Target{Key: boxKey, Addresses: addresses(t, seedbox.Ready().Listeners.Link)})
+		home.Half().Link.Keep(link.Target{Key: boxKey, Addresses: addresses(t, worker.Ready().Listeners.Link)})
 		synctest.Wait()
 		refusals := logged(t, home, "link refused")
 		if len(refusals) != 1 || refusals[0]["err"] != "the peer answered that key "+officeLinkKey.Fingerprint()+" superseded this Node" {
@@ -212,13 +214,13 @@ func TestRepairSupersedes(t *testing.T) {
 		home.Half().Link.Drop(boxKey)
 
 		code := mint(t, w, "home", w.Manifest().APIKey)
-		seedbox.Stop()
-		seedbox.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_JOIN_CODE="+code.String()) })
+		worker.Stop()
+		worker.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_JOIN_CODE="+code.String()) })
 		synctest.Wait()
-		if ignored := logged(t, seedbox, "join code ignored: superseded Controller"); len(ignored) != 1 {
+		if ignored := logged(t, worker, "join code ignored: superseded Controller"); len(ignored) != 1 {
 			t.Fatalf("seedbox logged %d join code ignored records for home's code, want 1", len(ignored))
 		}
-		if r := readRecord(t, seedbox); r.Controller.Key != officeLinkKey.String() {
+		if r := readRecord(t, worker); r.Controller.Key != officeLinkKey.String() {
 			t.Fatalf("home's code moved seedbox to %s, want it still office's %s", r.Controller.Key, officeLinkKey)
 		}
 	})

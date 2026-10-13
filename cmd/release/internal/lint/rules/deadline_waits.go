@@ -2,8 +2,8 @@ package rules
 
 import (
 	"go/ast"
-	"maps"
 	"go/token"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -25,9 +25,9 @@ const (
 	untilFile = "fakes/world/worldtest/until.go"
 	// simTree runs inside a testing/synctest bubble, whose waits are fake
 	// time, as is every file importing synctest.
-	simTree = "fakes/world/sim/"
+	simTree      = "fakes/world/sim/"
 	synctestPath = "testing/synctest"
-	issueLink = "https://github.com/jatassi/SlipStream/issues/"
+	issueLink    = "https://github.com/jatassi/SlipStream/issues/"
 
 	useUntil   = "wait on a condition with worldtest.Until"
 	useContext = "take the context from worldtest.Context"

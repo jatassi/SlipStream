@@ -109,6 +109,24 @@ func (s Scenario) Validate() error {
 	if len(s.Nodes) == 0 || len(s.Nodes) > MaxNodes {
 		add("has %d nodes; a Scenario has 1 to %d", len(s.Nodes), MaxNodes)
 	}
+	controllers := s.checkNodes(add)
+	switch {
+	case s.Admin == nil && len(controllers) > 0:
+		add("node %s is controller, so admin is required", controllers[0])
+	case s.Admin != nil && len(controllers) == 0:
+		add("admin is set, but no node is controller")
+	case s.Admin != nil && !pin.MatchString(s.Admin.PIN):
+		add("admin pin %q is not four digits", s.Admin.PIN)
+	}
+	if problems != nil {
+		return errors.New(strings.Join(problems, "\n"))
+	}
+	return nil
+}
+
+// checkNodes checks each Node and the rules across them, and returns the
+// controller Nodes.
+func (s Scenario) checkNodes(add func(format string, args ...any)) []string {
 	seen := map[string]bool{}
 	var controllers, relaying []string
 	for _, n := range s.Nodes {
@@ -139,18 +157,7 @@ func (s Scenario) Validate() error {
 	if len(relaying) > 1 {
 		add("nodes %s all hold relaying; at most one Node does", strings.Join(relaying, ", "))
 	}
-	switch {
-	case s.Admin == nil && len(controllers) > 0:
-		add("node %s is controller, so admin is required", controllers[0])
-	case s.Admin != nil && len(controllers) == 0:
-		add("admin is set, but no node is controller")
-	case s.Admin != nil && !pin.MatchString(s.Admin.PIN):
-		add("admin pin %q is not four digits", s.Admin.PIN)
-	}
-	if problems != nil {
-		return errors.New(strings.Join(problems, "\n"))
-	}
-	return nil
+	return controllers
 }
 
 func (n Node) checkRoles(add func(format string, args ...any)) {

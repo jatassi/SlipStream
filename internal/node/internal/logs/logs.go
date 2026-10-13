@@ -41,7 +41,7 @@ func OpenFile(dir string, stderr io.Writer) (*Log, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create logs dir: %w", err)
 	}
-	f, err := os.OpenFile(filepath.Join(dir, File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	f, err := os.OpenFile(filepath.Join(dir, File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) //nolint:gosec // dir is the Node's own logs dir
 	if err != nil {
 		return nil, fmt.Errorf("open log file: %w", err)
 	}

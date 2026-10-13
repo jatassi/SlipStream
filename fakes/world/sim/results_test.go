@@ -33,10 +33,10 @@ func nodeID(t *testing.T, w *sim.World, name string) role.NodeID {
 	return role.NodeID{UUID: id}
 }
 
-// applied is every Probe result home applied from the Node named name.
-func applied(t *testing.T, w *sim.World, name string) []uint64 {
+// applied is every Probe result home applied from seedbox.
+func applied(t *testing.T, w *sim.World) []uint64 {
 	t.Helper()
-	got, err := roletest.Applied(t.Context(), w.Node("home").Half().Library, nodeID(t, w, name))
+	got, err := roletest.Applied(t.Context(), w.Node("home").Half().Library, nodeID(t, w, "seedbox"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestResultsApplyOnce(t *testing.T) {
 		time.Sleep(partitioned)
 		report(t, w, "seedbox", 1, 2, 3)
 		synctest.Wait()
-		if got := applied(t, w, "seedbox"); len(got) != 0 {
+		if got := applied(t, w); len(got) != 0 {
 			t.Fatalf("home applied %v while partitioned", got)
 		}
 
@@ -76,7 +76,7 @@ func TestResultsApplyOnce(t *testing.T) {
 		path.Set(fault.CutAfter(0))
 		resume()
 		synctest.Wait()
-		if got := applied(t, w, "seedbox"); !slices.Equal(got, []uint64{1, 2, 3}) {
+		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3}) {
 			t.Fatalf("after the heal, home applied %v, want [1 2 3]", got)
 		}
 		if got := standing(t, w, "seedbox"); got != role.Unreachable {
@@ -86,7 +86,7 @@ func TestResultsApplyOnce(t *testing.T) {
 		path.Set(fault.None{})
 		time.Sleep(redialed)
 		synctest.Wait()
-		if got := applied(t, w, "seedbox"); !slices.Equal(got, []uint64{1, 2, 3}) {
+		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3}) {
 			t.Fatalf("after the next re-dial, home applied %v, want [1 2 3]", got)
 		}
 
@@ -101,7 +101,7 @@ func TestResultsApplyOnce(t *testing.T) {
 		synctest.Wait()
 		report(t, w, "seedbox", 1)
 		synctest.Wait()
-		if got := applied(t, w, "seedbox"); !slices.Equal(got, []uint64{1, 2, 3, 1}) {
+		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3, 1}) {
 			t.Fatalf("with a new local.db, home applied %v, want [1 2 3 1]", got)
 		}
 	})
@@ -116,12 +116,12 @@ func TestSupervisorRestarts(t *testing.T) {
 		synctest.Wait()
 		w.Node("seedbox").Probe().Crash()
 		synctest.Wait()
-		if f := row(t, a, "seedbox").Facts; f == nil || len(f.Running) != 0 || !slices.Equal(f.Restarting, []string{"probe"}) {
+		if f := seedbox(t, a).Facts; f == nil || len(f.Running) != 0 || !slices.Equal(f.Restarting, []string{"probe"}) {
 			t.Fatalf("after the panic, seedbox's facts are %+v, want probe restarting", f)
 		}
 		time.Sleep(time.Second)
 		synctest.Wait()
-		if f := row(t, a, "seedbox").Facts; f == nil || !slices.Equal(f.Running, []string{"probe"}) || len(f.Restarting) != 0 {
+		if f := seedbox(t, a).Facts; f == nil || !slices.Equal(f.Running, []string{"probe"}) || len(f.Restarting) != 0 {
 			t.Fatalf("restart_min later, seedbox's facts are %+v, want probe running", f)
 		}
 		if starts := w.Node("seedbox").Probe().Starts(); starts != 2 {
