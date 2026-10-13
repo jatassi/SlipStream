@@ -247,7 +247,7 @@ func (q *Queries) ListDisabledTypes(ctx context.Context) ([]TypeID, error) {
 }
 
 const listItems = `-- name: ListItems :many
-SELECT id, work_id, level_id, "key", label, position, withdrawn_at FROM works_item WHERE work_id = ?1 ORDER BY position, id
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at FROM works_item WHERE work_id = ?1 ORDER BY withdrawn_at IS NOT NULL, position, id
 `
 
 func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, error) {
@@ -282,7 +282,7 @@ func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, er
 }
 
 const listLevels = `-- name: ListLevels :many
-SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level WHERE work_id = ?1 ORDER BY depth, position, id
+SELECT id, work_id, parent_id, depth, "key", label, position, withdrawn_at FROM works_level WHERE work_id = ?1 ORDER BY depth, withdrawn_at IS NOT NULL, position, id
 `
 
 func (q *Queries) ListLevels(ctx context.Context, workID WorkID) ([]WorksLevel, error) {

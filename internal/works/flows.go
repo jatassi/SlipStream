@@ -30,7 +30,8 @@ type Summary struct {
 
 // Tree is a Work with its levels, by depth, then their parent's order,
 // then position, and its Items, by their level's order, then position.
-// Withdrawn nodes stay in it.
+// Withdrawn nodes stay in it, after their live siblings: a withdrawn
+// node keeps the position it last had, which a live sibling may now hold.
 type Tree struct {
 	Summary
 	Fields []FieldValue

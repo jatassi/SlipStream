@@ -175,8 +175,8 @@ func workOf(s works.Summary) work {
 type tree struct {
 	work
 	Fields []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
-	Levels []level                 `json:"levels" nullable:"false" doc:"By depth, then their parent's order, then position"`
-	Items  []item                  `json:"items" nullable:"false" doc:"By their level's order, then position"`
+	Levels []level                 `json:"levels" nullable:"false" doc:"By depth, then their parent's order, live before withdrawn, then position"`
+	Items  []item                  `json:"items" nullable:"false" doc:"By their level's order, live before withdrawn, then position"`
 }
 
 type level struct {

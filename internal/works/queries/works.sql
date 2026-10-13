@@ -25,7 +25,7 @@ UPDATE works_work SET label = sqlc.arg(label), sort_label = sqlc.arg(sort_label)
 WHERE id = sqlc.arg(id);
 
 -- name: ListLevels :many
-SELECT * FROM works_level WHERE work_id = sqlc.arg(work_id) ORDER BY depth, position, id;
+SELECT * FROM works_level WHERE work_id = sqlc.arg(work_id) ORDER BY depth, withdrawn_at IS NOT NULL, position, id;
 
 -- name: InsertLevel :exec
 INSERT INTO works_level (id, work_id, parent_id, depth, key, label, position, withdrawn_at)
@@ -37,7 +37,7 @@ UPDATE works_level SET parent_id = sqlc.arg(parent_id), depth = sqlc.arg(depth),
 WHERE id = sqlc.arg(id);
 
 -- name: ListItems :many
-SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY position, id;
+SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY withdrawn_at IS NOT NULL, position, id;
 
 -- name: InsertItem :exec
 INSERT INTO works_item (id, work_id, level_id, key, label, position, withdrawn_at)

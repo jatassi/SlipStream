@@ -1076,14 +1076,14 @@
             "type": "array"
           },
           "items": {
-            "description": "By their level's order, then position",
+            "description": "By their level's order, live before withdrawn, then position",
             "items": {
               "$ref": "#/components/schemas/WorksItem"
             },
             "type": "array"
           },
           "levels": {
-            "description": "By depth, then their parent's order, then position",
+            "description": "By depth, then their parent's order, live before withdrawn, then position",
             "items": {
               "$ref": "#/components/schemas/WorksLevel"
             },

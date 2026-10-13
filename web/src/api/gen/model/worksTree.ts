@@ -4,8 +4,8 @@ import type { WorksLevel } from "./worksLevel.ts";
 
 export interface WorksTree {
   fields: WorksFieldValue[];
-  /** By their level's order, then position */
+  /** By their level's order, live before withdrawn, then position */
   items: WorksItem[];
-  /** By depth, then their parent's order, then position */
+  /** By depth, then their parent's order, live before withdrawn, then position */
   levels: WorksLevel[];
 }

@@ -385,8 +385,12 @@ export type WorksLevelOutput = zod.output<typeof WorksLevel>;
 
 export const WorksTree = zod.object({
   fields: zod.array(WorksFieldValue),
-  items: zod.array(WorksItem).describe("By their level's order, then position"),
-  levels: zod.array(WorksLevel).describe("By depth, then their parent's order, then position"),
+  items: zod
+    .array(WorksItem)
+    .describe("By their level's order, live before withdrawn, then position"),
+  levels: zod
+    .array(WorksLevel)
+    .describe("By depth, then their parent's order, live before withdrawn, then position"),
 });
 
 export type WorksTree = zod.input<typeof WorksTree>;

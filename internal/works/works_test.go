@@ -51,7 +51,7 @@ type harness struct {
 	log     *bytes.Buffer
 }
 
-func open(t *testing.T, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog) (*works.Works, *harness) {
+func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog) (*works.Works, *harness) {
 	t.Helper()
 	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}}
 	w, err := works.Open(t.Context(), works.Config{
