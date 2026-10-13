@@ -207,8 +207,8 @@ func Dial(ctx context.Context, path string) (*Conn, error) {
 	return &Conn{conn: conn, r: bufio.NewReader(io.LimitReader(conn, maxLine))}, nil
 }
 
-// Closing the write side after the request works around Windows AF_UNIX
-// reads that never see the Node close the connection.
+// Send writes the request and then closes the write side, which works
+// around Windows AF_UNIX reads that never see the Node close the connection.
 func (c *Conn) Send(op string, body any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
