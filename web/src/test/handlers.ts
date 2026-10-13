@@ -11,11 +11,14 @@ const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
   { eager: true },
 );
 
-const tagMocks = Object.values(generated).flatMap((module) =>
-  Object.entries(module)
-    .filter(([name]) => /^get[A-Z]\w*Mock$/u.test(name) && !name.endsWith("ResponseMock"))
-    .flatMap(([, handlers]) => handlers()),
-);
+const tagMocks = Object.entries(generated).flatMap(([path, module]) => {
+  const tag = path
+    .replaceAll(/^.*\/|\.msw\.ts$/gu, "")
+    .split(/[^a-z0-9]+/iu)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+  return module[`get${tag}Mock`]();
+});
 
 export const ada: IdentityAccount = {
   id: "0b6f3a8e-2c4d-4e1f-9a7b-5d8c6e2f1a3b",
