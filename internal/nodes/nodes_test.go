@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"slices"
@@ -57,6 +59,7 @@ func (p *published) has(id string) bool {
 type controller struct {
 	net  *fault.Network
 	node *linktest.Node
+	lib  *storage.DB[storage.Library]
 	svc  *nodes.Service
 	pub  *published
 }
@@ -67,8 +70,9 @@ func startController(t *testing.T) *controller {
 	s := &side{}
 	node := linktest.Start(t, net, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair})
 	pub := &published{}
+	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
 	svc, err := nodes.Open(t.Context(), nodes.Config{
-		Library: storagetest.Library(t, nodes.Schema(), role.LibrarySchema()),
+		Library: lib,
 		Key:     node.Key,
 		Name:    "home",
 		Link:    node.Link,
@@ -89,7 +93,7 @@ func startController(t *testing.T) *controller {
 		cancel()
 		<-done
 	})
-	return &controller{net: net, node: node, svc: svc, pub: pub}
+	return &controller{net: net, node: node, lib: lib, svc: svc, pub: pub}
 }
 
 func (c *controller) mint(t *testing.T) nodes.JoinCode {
@@ -228,6 +232,68 @@ func TestTheControllersOwnRow(t *testing.T) {
 			t.Fatalf("roles for an unknown Node: %v, want ErrNotFound", err)
 		}
 	})
+}
+
+// TestAJoinCodeIsStoredOnlyAsItsSecretsHash mints a code: its one row
+// holds the SHA-256 of the secret, and no value in the nodes set holds
+// the secret, the code's text or its prefix.
+func TestAJoinCodeIsStoredOnlyAsItsSecretsHash(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		code := c.mint(t).Code
+		secret := code.Secret()
+		hash := sha256.Sum256(secret[:])
+		var hashes [][]byte
+		for _, row := range rows(t, c.lib, "SELECT secret_hash FROM nodes_join_code") {
+			hashes = append(hashes, row[0].([]byte))
+		}
+		if len(hashes) != 1 || !bytes.Equal(hashes[0], hash[:]) {
+			t.Fatalf("nodes_join_code holds secret hashes %x, want only %x", hashes, hash)
+		}
+		for _, table := range rows(t, c.lib, "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'nodes!_%' ESCAPE '!'") {
+			for _, row := range rows(t, c.lib, "SELECT * FROM "+table[0].(string)) {
+				for _, v := range row {
+					b := []byte(fmt.Sprint(v))
+					if raw, ok := v.([]byte); ok {
+						b = raw
+					}
+					if bytes.Contains(b, secret[:]) || bytes.Contains(b, []byte(code.String())) || bytes.Contains(bytes.ToUpper(b), []byte("SLP1")) {
+						t.Fatalf("%s holds %q, which carries the Join Code", table[0], v)
+					}
+				}
+			}
+		}
+	})
+}
+
+// rows is every row query returns, each as its column values.
+func rows(t *testing.T, lib *storage.DB[storage.Library], query string) [][]any {
+	t.Helper()
+	r, err := lib.QueryContext(t.Context(), query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close() }()
+	cols, err := r.Columns()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out [][]any
+	for r.Next() {
+		row := make([]any, len(cols))
+		ptrs := make([]any, len(cols))
+		for i := range row {
+			ptrs[i] = &row[i]
+		}
+		if err := r.Scan(ptrs...); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, row)
+	}
+	if err := r.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 func TestTheNodesSetPassesTheAudit(t *testing.T) {
