@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -13,7 +14,7 @@ func TestConfigWritesOnlyWhatTheWorldSets(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Nodes = append(s.Nodes, scenario.Node{Name: "work"})
-	got, err := Config(s, 1, []string{"torrent.listen", "http.listen", "link.listen"}, node.Defaults().Endpoints)
+	got, err := Config(s, 1, []string{"torrent.listen", "http.listen", "link.listen"}, node.Defaults(contenttype.Set{}).Endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}

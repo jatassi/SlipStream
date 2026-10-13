@@ -34,7 +34,7 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	if lib := n.lib.Load(); lib != nil {
 		return lib, nil
 	}
-	db, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), append(librarySchemas(), n.env.Test.Library...), preMigrationHook, n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
+	db, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), append(librarySchemas(n.env.Types), n.env.Test.Library...), preMigrationHook, n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
 		return nil, err
 	}

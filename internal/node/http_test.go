@@ -412,7 +412,7 @@ func TestTheAccessWalkPassesOnAStartedNode(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.body), &res); err != nil || r.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s", r.status, r.body)
 	}
-	lib, err := storage.OpenLibrary(t.Context(), env.DataDir.LibraryDB(), librarySchemas(), preMigrationHook, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+	lib, err := storage.OpenLibrary(t.Context(), env.DataDir.LibraryDB(), librarySchemas(noTypes), preMigrationHook, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -145,6 +145,19 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	expectReply(t, claimController(t, readyAgain, ready.SetupCode), 409, `{"status":409,"code":"already_claimed","title":"This Node is already set up"}`+"\n")
 }
 
+func TestTheReleaseBinaryListsNoContentType(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	ready := startNode(t, dir).ready()
+	claimed := claimController(t, ready, ready.SetupCode)
+	session, _, _ := strings.Cut(strings.TrimPrefix(claimed.header.Get("Set-Cookie"), "slipstream_session="), ";")
+	if claimed.status != http.StatusCreated || session == "" {
+		t.Fatalf("claimController = %d %s, Set-Cookie %q", claimed.status, claimed.body, claimed.header.Get("Set-Cookie"))
+	}
+	r := call(t, ready, http.MethodGet, "/api/v1/content-types", "", map[string]string{"Cookie": "slipstream_session=" + session})
+	expectReply(t, r, http.StatusOK, `{"contentTypes":[]}`+"\n")
+}
+
 func binaryIsStamped(t *testing.T) bool {
 	t.Helper()
 	out, err := exec.CommandContext(t.Context(), testbin.Slipstream(t), "version").Output()

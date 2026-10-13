@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -11,14 +12,16 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-func librarySchemas() []storage.Schema[storage.Library] {
-	return []storage.Schema[storage.Library]{
+// librarySchemas is the core owners' sets, then each of types' in id order.
+func librarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
+	core := []storage.Schema[storage.Library]{
 		secret.Schema(),
 		identity.Schema(),
 		nodes.Schema(),
 		role.LibrarySchema(),
 		works.Schema(),
 	}
+	return append(core, types.Schemas()...)
 }
 
 func localSchemas() []storage.Schema[storage.Local] {

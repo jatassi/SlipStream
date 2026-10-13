@@ -506,10 +506,11 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default"},
 			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default"},
 		},
-		Census: []string{},
+		Census:       []string{},
+		ContentTypes: []string{},
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("config = %+v, want %+v", got, want)
+	if !reflect.DeepEqual(got, want) || !strings.Contains(res.stdout, `"contentTypes": []`) {
+		t.Fatalf("config = %+v, want %+v printed with \"contentTypes\": []", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "run")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("config started a Node: run dir %v", err)
@@ -518,6 +519,15 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	res = slipstream(t, childEnv("SLIPSTREAM_SEDE=fixed"), "config", "--data-dir", dir)
 	if want := "slipstream config: env: SLIPSTREAM_SEDE: unknown key\n"; res.code != node.ExitUsage || res.stderr != want {
 		t.Fatalf("bad config: exit %d, stderr %q; want exit %d, %q", res.code, res.stderr, node.ExitUsage, want)
+	}
+}
+
+func TestTheReleaseBinaryHasNoKeyForAContentTypeItLacks(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	res := slipstream(t, childEnv("SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MUSIC_METADATA=https://x.invalid"), "config", "--data-dir", dir)
+	if want := "slipstream config: env: SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MUSIC_METADATA: unknown key\n"; res.code != node.ExitUsage || res.stderr != want {
+		t.Fatalf("exit %d, stderr %q; want exit %d, %q", res.code, res.stderr, node.ExitUsage, want)
 	}
 }
 

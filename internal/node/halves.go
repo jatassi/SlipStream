@@ -2,7 +2,10 @@ package node
 
 import (
 	"context"
+	"net/http"
+	"time"
 
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
@@ -41,7 +44,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	tree, err := works.Open(ctx, works.Config{
 		Library:      lib.db,
-		Catalogs:     map[works.TypeID]works.Catalog{},
+		Catalogs:     contenttype.Project(n.openTypes(), func(t contenttype.Type) works.Catalog { return t }),
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
@@ -78,6 +81,28 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("nodes", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil
+}
+
+// openTypes builds each registered Content Type once, from its loaded
+// endpoints section, with one HTTP client that dials through the Node's
+// network and trusts the OS roots.
+func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
+	transport := &http.Transport{
+		DialContext:         n.env.Net.DialContext,
+		ForceAttemptHTTP2:   true,
+		TLSHandshakeTimeout: 10 * time.Second,
+		IdleConnTimeout:     90 * time.Second,
+	}
+	client := &http.Client{Transport: transport}
+	types := map[works.TypeID]contenttype.Type{}
+	for _, t := range n.env.Types.All() {
+		types[t.ID()] = t.Open(contenttype.Deps{
+			HTTP:      client,
+			UserAgent: "SlipStream/" + n.env.Version + " ( https://github.com/jatassi/SlipStream )",
+			Log:       n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
+		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
+	}
+	return types
 }
 
 // startWorker starts the Worker half: the holder half over the link to its

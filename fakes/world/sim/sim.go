@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -126,7 +127,7 @@ func listenKeys(t *testing.T) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolved, err := node.Resolve(probe, nil)
+	resolved, err := node.Resolve(node.Env{DataDir: probe})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +140,7 @@ func dataDir(t *testing.T, s scenario.Scenario, i int, listen []string) node.Dat
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := setup.Config(s, i, listen, node.Defaults().Endpoints)
+	config, err := setup.Config(s, i, listen, node.Defaults(contenttype.Set{}).Endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -57,6 +57,13 @@ type Fixture struct {
 	fetches   map[works.Key]int
 	stored    map[works.WorkID]works.FieldSet
 	hold      *hold
+	opened    []Opened
+}
+
+// Opened is one build of the Fixture by its Def.
+type Opened struct {
+	Deps      contenttype.Deps
+	Endpoints Endpoints
 }
 
 type hold struct {
@@ -78,7 +85,19 @@ func New() *Fixture {
 func (f *Fixture) Def() contenttype.Def[Endpoints] {
 	return contenttype.Define(string(ID), nil, func() Endpoints {
 		return Endpoints{API: endpoint.MustParseURL("https://fixture.invalid/v1")}
-	}, func(contenttype.Deps, Endpoints) contenttype.Type { return f })
+	}, func(d contenttype.Deps, e Endpoints) contenttype.Type {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		f.opened = append(f.opened, Opened{Deps: d, Endpoints: e})
+		return f
+	})
+}
+
+// Opens lists each build of f by its Def so far.
+func (f *Fixture) Opens() []Opened {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.opened)
 }
 
 // Put sets what the source serves for key from now on.

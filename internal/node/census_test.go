@@ -56,7 +56,7 @@ func TestCensusListsEndpointsStillAtADefaultHost(t *testing.T) {
 }
 
 func TestCensusOfTheDefaultsIsEmpty(t *testing.T) {
-	if got := Census(Defaults()); got == nil || len(got) != 0 {
+	if got := Census(Defaults(noTypes), noTypes); got == nil || len(got) != 0 {
 		t.Fatalf("census = %#v, want an empty list", got)
 	}
 }

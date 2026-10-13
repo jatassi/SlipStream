@@ -67,7 +67,6 @@ func answer(err error) error {
 	return err
 }
 
-
 type noun struct {
 	One  string `json:"one"`
 	Many string `json:"many"`
@@ -147,10 +146,12 @@ type durationValue struct {
 }
 
 var valueOf = map[works.FieldKind]func(works.FieldValue) any{
-	works.KindText:     func(v works.FieldValue) any { return textValue{Key: v.Key, Kind: "text", Text: v.Text} },
-	works.KindNumber:   func(v works.FieldValue) any { return numberValue{Key: v.Key, Kind: "number", Number: v.Number} },
-	works.KindDate:     func(v works.FieldValue) any { return dateValue{Key: v.Key, Kind: "date", Date: v.Date.String()} },
-	works.KindDuration: func(v works.FieldValue) any { return durationValue{Key: v.Key, Kind: "duration", Ms: v.Duration.Milliseconds()} },
+	works.KindText:   func(v works.FieldValue) any { return textValue{Key: v.Key, Kind: "text", Text: v.Text} },
+	works.KindNumber: func(v works.FieldValue) any { return numberValue{Key: v.Key, Kind: "number", Number: v.Number} },
+	works.KindDate:   func(v works.FieldValue) any { return dateValue{Key: v.Key, Kind: "date", Date: v.Date.String()} },
+	works.KindDuration: func(v works.FieldValue) any {
+		return durationValue{Key: v.Key, Kind: "duration", Ms: v.Duration.Milliseconds()}
+	},
 }
 
 func fieldsOf(vs []works.FieldValue) []api.OneOf[fieldValue] {

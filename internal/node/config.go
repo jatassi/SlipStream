@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
@@ -33,7 +34,68 @@ type Config struct {
 	Timings   TimingsBlock     `yaml:"timings"`
 }
 
-type EndpointsBlock struct{}
+type EndpointsBlock struct {
+	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
+}
+
+// ContentTypeEndpoints is endpoints.content_types: one section per
+// registered Content Type that reaches a host, in id order. The Fake world,
+// which links no Content Type, sets a type's keys by path with Set.
+type ContentTypeEndpoints struct {
+	sections []config.Section
+	set      map[string]map[string]string
+}
+
+func contentTypeEndpoints(types contenttype.Set) ContentTypeEndpoints {
+	var c ContentTypeEndpoints
+	for _, t := range types.All() {
+		if e := t.Endpoints(); e != nil {
+			c.sections = append(c.sections, config.Section{Name: string(t.ID()), Tree: e})
+		}
+	}
+	return c
+}
+
+func (c ContentTypeEndpoints) ConfigSections() []config.Section { return c.sections }
+
+// section is id's loaded section, nil when the type reaches no host.
+func (c ContentTypeEndpoints) section(id works.TypeID) any {
+	for _, s := range c.sections {
+		if s.Name == string(id) {
+			return s.Tree
+		}
+	}
+	return nil
+}
+
+// Set points endpoints.content_types.<id>.<key> at url, on a block that
+// holds no section for id.
+func (c *ContentTypeEndpoints) Set(id, key, url string) {
+	for _, s := range c.sections {
+		if s.Name == id {
+			panic("node: endpoints.content_types." + id + " has its typed section; set its field")
+		}
+	}
+	if c.set == nil {
+		c.set = map[string]map[string]string{}
+	}
+	if c.set[id] == nil {
+		c.set[id] = map[string]string{}
+	}
+	c.set[id][key] = url
+}
+
+// MarshalYAML is the block as config.yaml nests it.
+func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
+	out := map[string]any{}
+	for _, s := range c.sections {
+		out[s.Name] = s.Tree
+	}
+	for id, keys := range c.set {
+		out[id] = keys
+	}
+	return out, nil
+}
 
 type TimingsBlock struct {
 	Node    Timings         `yaml:"node"`
@@ -53,14 +115,18 @@ func DefaultTimings() Timings {
 	return Timings{StopDeadline: 30 * time.Second}
 }
 
-// Defaults is every key's default. The link and role sections have theirs
-// here, since only the composition root binds link.listen.
-func Defaults() Config {
+// Defaults is every key's default, with a fresh section for each of
+// types' endpoints. The link and role sections have theirs here, since
+// only the composition root binds link.listen.
+func Defaults(types contenttype.Set) Config {
 	name, _ := os.Hostname()
 	return Config{
 		Name:    name,
 		Torrent: engine.DefaultSettings(),
 		HTTP:    api.DefaultSettings(),
+		Endpoints: EndpointsBlock{
+			ContentTypes: contentTypeEndpoints(types),
+		},
 		Link: link.Settings{
 			Listen:       netip.AddrPortFrom(netip.IPv6Unspecified(), 8485),
 			StreamWindow: 16 << 20,
@@ -86,10 +152,11 @@ func Defaults() Config {
 
 type Key = config.Key
 
-// LoadConfig resolves the configuration of the Node on dir. An empty seed
-// becomes 16 random bytes in hex, reported with source random.
-func LoadConfig(dir DataDir, environ []string) (Config, []Key, error) {
-	cfg := Defaults()
+// LoadConfig resolves the configuration of the Node on dir, which holds
+// keys for types. An empty seed becomes 16 random bytes in hex, reported
+// with source random.
+func LoadConfig(dir DataDir, environ []string, types contenttype.Set) (Config, []Key, error) {
+	cfg := Defaults(types)
 	keys, err := config.Load(&cfg, dir.Path(), environ)
 	if err != nil {
 		return Config{}, nil, &ConfigError{Err: err}

@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -28,7 +29,7 @@ func TestDivergencesRefuseAPlantedKey(t *testing.T) {
 
 func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	var defaults yaml.Node
-	if err := defaults.Encode(node.Defaults()); err != nil {
+	if err := defaults.Encode(node.Defaults(contenttype.Set{})); err != nil {
 		t.Fatal(err)
 	}
 	var probe node.Resolved
@@ -66,7 +67,7 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 
 func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string) []node.Key {
 	t.Helper()
-	data, err := setup.Config(s, i, listen, node.Defaults().Endpoints)
+	data, err := setup.Config(s, i, listen, node.Defaults(contenttype.Set{}).Endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}

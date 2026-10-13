@@ -3,16 +3,21 @@ package node
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 )
 
+var noTypes contenttype.Set
+
 func TestDefaultsAreAValidTree(t *testing.T) {
-	cfg := Defaults()
+	cfg := Defaults(noTypes)
 	seen := map[string]string{}
 	var paths []string
 	for _, leaf := range config.Walk(&cfg) {
@@ -33,14 +38,14 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
 	}
 
-	if _, _, err := LoadConfig(testDataDir(t), nil); err != nil {
+	if _, _, err := LoadConfig(testDataDir(t), nil, noTypes); err != nil {
 		t.Fatalf("defaults do not load: %v", err)
 	}
 }
 
 func TestLoadConfigDrawsASeedOnlyWhenNoneIsSet(t *testing.T) {
 	dir := testDataDir(t)
-	cfg, keys, err := LoadConfig(dir, nil)
+	cfg, keys, err := LoadConfig(dir, nil, noTypes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +59,7 @@ func TestLoadConfigDrawsASeedOnlyWhenNoneIsSet(t *testing.T) {
 		t.Fatalf("overrides = %v, want none", got)
 	}
 
-	cfg, keys, err = LoadConfig(dir, []string{"SLIPSTREAM_SEED=fixed"})
+	cfg, keys, err = LoadConfig(dir, []string{"SLIPSTREAM_SEED=fixed"}, noTypes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,17 +82,17 @@ func TestHTTPConfigReadsListenAndTrustedOrigins(t *testing.T) {
 	cfg, _, err := LoadConfig(testDataDir(t), []string{
 		"SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0",
 		"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com,http://192.0.2.1:8484",
-	})
+	}, noTypes)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := fmt.Sprint(cfg.HTTP.Listen, cfg.HTTP.TrustedOrigins); got != "127.0.0.1:0 [https://media.example.com http://192.0.2.1:8484]" {
 		t.Fatalf("http = %s", got)
 	}
-	if got := Defaults().HTTP.Listen.String(); got != "[::]:8484" {
+	if got := Defaults(noTypes).HTTP.Listen.String(); got != "[::]:8484" {
 		t.Fatalf("default http.listen = %s, want [::]:8484", got)
 	}
-	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com,https://Media.Example.com:443/"})
+	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_HTTP_TRUSTED_ORIGINS=https://media.example.com,https://Media.Example.com:443/"}, noTypes)
 	if err == nil || err.Error() != `env: SLIPSTREAM_HTTP_TRUSTED_ORIGINS: item 2: "https://Media.Example.com:443/": not a canonical origin; write https://media.example.com` {
 		t.Fatalf("err = %v, want the bad origin named", err)
 	}
@@ -96,7 +101,7 @@ func TestHTTPConfigReadsListenAndTrustedOrigins(t *testing.T) {
 const goldenCode = "SLP1-CC6WT-AB6RG-SPD48-JAH4B-QCJV9-XJ6AS-K7D1M-PMTVC-DNQ6Y-W3HE9-SG213-Z0000-58D1S-QG852-G"
 
 func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
-	cfg, keys, err := LoadConfig(testDataDir(t), []string{"SLIPSTREAM_JOIN_CODE=" + strings.ToLower(goldenCode)})
+	cfg, keys, err := LoadConfig(testDataDir(t), []string{"SLIPSTREAM_JOIN_CODE=" + strings.ToLower(goldenCode)}, noTypes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,19 +111,82 @@ func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
 	}
 
 	damaged := goldenCode[:len(goldenCode)-1] + "H"
-	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_JOIN_CODE=" + damaged})
+	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_JOIN_CODE=" + damaged}, noTypes)
 	if want := "env: SLIPSTREAM_JOIN_CODE: the Join Code is mistyped or cut short"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
 		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
 	}
 }
 
 func TestTheLinkAndRoleSectionsHaveTheirDefaults(t *testing.T) {
-	cfg := Defaults()
+	cfg := Defaults(noTypes)
 	got := fmt.Sprint(cfg.Link, cfg.Timings.Link, cfg.Timings.Role)
 	if want := "{[::]:8485 16777216} {10s 25s 10s 1s 1m0s 300ms} {1s 1m0s}"; got != want {
 		t.Fatalf("link, timings.link, timings.role = %s, want %s", got, want)
 	}
 	if host, _ := os.Hostname(); cfg.Name != host {
 		t.Fatalf("name = %q, want the host name %q", cfg.Name, host)
+	}
+}
+
+func fixtureTypes() (*contenttypetest.Fixture, contenttype.Set) {
+	f := contenttypetest.New()
+	return f, contenttype.NewSet(f.Def())
+}
+
+func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
+	_, types := fixtureTypes()
+	cfg := Defaults(types)
+	var paths []string
+	for _, leaf := range config.Walk(&cfg) {
+		if strings.HasPrefix(leaf.Path, "endpoints.") {
+			paths = append(paths, leaf.Path+" "+leaf.Env())
+		}
+	}
+	if want := []string{"endpoints.content_types.fixture.api SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}; !slices.Equal(paths, want) {
+		t.Fatalf("endpoints leaves = %q, want %q", paths, want)
+	}
+
+	env := Env{DataDir: testDataDir(t), Types: types}
+	resolved, err := Resolve(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault}
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
+		t.Fatalf("resolved = %+v; want %+v, the key in the census and contentTypes [fixture]", resolved, key)
+	}
+
+	env.Environ = []string{"SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API=https://127.0.0.1:8443/v1"}
+	resolved, err = Resolve(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv}
+	if !slices.Contains(resolved.Keys, key) || len(resolved.Census) != 0 {
+		t.Fatalf("resolved = %+v; want %+v and an empty census", resolved, key)
+	}
+	cfg, _, err = LoadConfig(env.DataDir, env.Environ, types)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Endpoints.ContentTypes.section(contenttypetest.ID).(*contenttypetest.Endpoints).API.String(); got != "https://127.0.0.1:8443/v1" {
+		t.Fatalf("loaded section api = %s, want the env value", got)
+	}
+}
+
+func TestAnUnregisteredContentTypesKeyIsUnknown(t *testing.T) {
+	_, types := fixtureTypes()
+	dir := testDataDir(t)
+	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("endpoints:\n  content_types:\n    fixture:\n      api: https://127.0.0.1:1/\n    other:\n      url: https://127.0.0.1:2/\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := LoadConfig(dir, []string{"SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_OTHER_URL=https://127.0.0.1:3/"}, types)
+	want := "config.yaml:5: endpoints.content_types.other: unknown key\nenv: SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_OTHER_URL: unknown key"
+	if err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
+		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
+	}
+	_, _, err = LoadConfig(dir, nil, noTypes)
+	if want := "config.yaml:1: endpoints: unknown key"; err == nil || err.Error() != want {
+		t.Fatalf("with no types, err = %v, want %q", err, want)
 	}
 }
