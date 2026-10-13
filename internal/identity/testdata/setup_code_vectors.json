@@ -1,0 +1,8 @@
+[
+  {"input": "7k2m q9xd 4hbt", "normalized": "7K2MQ9XD4HBT", "formatted": "7K2M-Q9XD-4HBT"},
+  {"input": "7K2M-Q9XD-4HBT", "normalized": "7K2MQ9XD4HBT", "formatted": "7K2M-Q9XD-4HBT"},
+  {"input": "7K2MQ9XD4HBT", "normalized": "7K2MQ9XD4HBT", "formatted": "7K2M-Q9XD-4HBT"},
+  {"input": "OIL0", "normalized": "0110", "formatted": "0110"},
+  {"input": "7k2m-q9xd-4hbtx", "normalized": "7K2MQ9XD4HBTX", "formatted": "7K2M-Q9XD-4HBT-X"},
+  {"input": "7K2MQ9", "normalized": "7K2MQ9", "formatted": "7K2M-Q9"}
+]

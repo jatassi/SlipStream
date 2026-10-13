@@ -14,7 +14,9 @@
 		"GPL-3.0-or-later",
 		"GPL-3.0-with-GCC-exception",
 		"Apache-2.0 WITH LLVM-exception",
-		"ZPL-2.1"
+		"ZPL-2.1",
+		"OFL-1.1",
+		"Unlicense"
 	],
 	"deny": [
 		{"license": "BSD-4-Clause", "reason": "its advertising clause conflicts with GPL-3.0 (ADR 0010, ADR 0021)"},
