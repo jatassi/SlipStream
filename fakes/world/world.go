@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/channel"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -277,7 +278,7 @@ func (r *Run) startFakes(ctx context.Context, undo *unwind, specs []fake.Spec) e
 			}
 		})
 	}
-	r.endpoints = node.Defaults().Endpoints
+	r.endpoints = node.Defaults(contenttype.Set{}).Endpoints
 	for _, f := range r.fakes {
 		f.spec.Endpoints(&r.endpoints, f.at)
 	}

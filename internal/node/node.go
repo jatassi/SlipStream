@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
@@ -47,6 +48,9 @@ type Env struct {
 	Engine func(engine.Config) (engine.Engine, error)
 	// OpenLog opens the log in dir, mirrored to stderr.
 	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
+	// Types are the Content Types the binary registers, node.Main's
+	// arguments.
+	Types contenttype.Set
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -135,7 +139,7 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 	n := &Node{
 		env:      env,
 		started:  time.Now(),
-		deadline: Defaults().Timings.Node.StopDeadline,
+		deadline: Defaults(env.Types).Timings.Node.StopDeadline,
 		stopping: make(chan struct{}),
 		drained:  make(chan struct{}),
 		released: make(chan struct{}),
@@ -214,7 +218,7 @@ func (n *Node) start(ctx context.Context) error {
 }
 
 func (n *Node) startLogged(ctx context.Context) error {
-	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ)
+	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types)
 	if err != nil {
 		return err
 	}

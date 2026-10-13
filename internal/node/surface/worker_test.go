@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/system"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // worker is a Worker's Node: a pairing record and no library.db.
@@ -29,6 +30,8 @@ func (worker) ClaimController(context.Context, func(*identity.Service) error) er
 }
 
 func (worker) Nodes() (*nodes.Service, bool) { return nil, false }
+
+func (worker) Works() (*works.Works, bool) { return nil, false }
 
 func (worker) Join(context.Context, joincode.Code) (pairing.Joined, error) {
 	panic("a Worker's closed gate admitted claimWorker")

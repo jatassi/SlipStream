@@ -48,7 +48,7 @@ func (s stub) build(t *testing.T) string {
 	t.Helper()
 	r := s.resolved
 	if r.Keys == nil {
-		r = node.Resolved{Keys: productionKeys(), Census: []string{}}
+		r = node.Resolved{Keys: productionKeys(), Census: []string{}, ContentTypes: []string{}}
 	}
 	resolved, err := json.Marshal(r)
 	if err != nil {
@@ -243,16 +243,18 @@ func TestLaunchRefuses(t *testing.T) {
 		{
 			name: "a census entry",
 			stub: stub{resolved: node.Resolved{
-				Keys:   append(productionKeys(), node.Key{Key: "endpoints.example.api", Value: "https://api.example.org/", Default: "https://api.example.org/", Source: "default"}),
-				Census: []string{"endpoints.example.api"},
+				Keys:         append(productionKeys(), node.Key{Key: "endpoints.example.api", Value: "https://api.example.org/", Default: "https://api.example.org/", Source: "default"}),
+				Census:       []string{"endpoints.example.api"},
+				ContentTypes: []string{},
 			}},
 			want: "node home: endpoints still at real hosts: endpoints.example.api (https://api.example.org/); add its fake to fakes/world",
 		},
 		{
 			name: "a divergence the list does not name",
 			stub: stub{resolved: node.Resolved{
-				Keys:   append(productionKeys(), node.Key{Key: "torrent.dht", Value: "true", Default: "false", Source: "config.yaml"}),
-				Census: []string{},
+				Keys:         append(productionKeys(), node.Key{Key: "torrent.dht", Value: "true", Default: "false", Source: "config.yaml"}),
+				Census:       []string{},
+				ContentTypes: []string{},
 			}},
 			want: "node home sets torrent.dht, which the divergences list in fakes/world does not name",
 		},

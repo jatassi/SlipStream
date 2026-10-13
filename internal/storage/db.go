@@ -16,7 +16,8 @@ type Tx[F File] struct {
 	tx *sql.Tx
 }
 
-// Reader is F read through the *DB outside a Write or the *Tx inside one.
+// Reader is F read through the *DB outside a Write, the *Tx inside one, or
+// the snapshot inside a Read.
 // Its four exported methods exist for sqlc's generated DBTX and nothing else.
 type Reader[F File] interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
@@ -29,6 +30,7 @@ type Reader[F File] interface {
 var (
 	_ Reader[Library] = (*DB[Library])(nil)
 	_ Reader[Library] = (*Tx[Library])(nil)
+	_ Reader[Library] = (*snapshot[Library])(nil)
 )
 
 // ErrNoRows is what a generated :one query returns when no row matches.
@@ -75,6 +77,19 @@ func (d *DB[F]) Write(ctx context.Context, fn func(ctx context.Context, tx *Tx[F
 	}
 	committed = true
 	return nil
+}
+
+// Read runs fn on one reader connection inside one transaction, so every
+// query fn makes reads the same snapshot. Inside a Write on F it panics, as
+// any read through the DB does.
+func (d *DB[F]) Read(ctx context.Context, fn func(ctx context.Context, r Reader[F]) error) error {
+	mustNotHold[F](ctx)
+	sqlTx, err := d.read.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("%s: begin read: %w", policyOf[F]().name, err)
+	}
+	defer func() { _ = sqlTx.Rollback() }()
+	return fn(ctx, &snapshot[F]{Tx[F]{tx: sqlTx}})
 }
 
 func (d *DB[F]) Close() error {
@@ -157,6 +172,14 @@ func (t *Tx[F]) QueryRowContext(ctx context.Context, query string, args ...any) 
 func (t *Tx[F]) file() F {
 	var f F
 	return f
+}
+
+// snapshot is the Reader inside a Read: a Tx on a reader connection that
+// refuses writes.
+type snapshot[F File] struct{ Tx[F] }
+
+func (*snapshot[F]) ExecContext(context.Context, string, ...any) (sql.Result, error) {
+	panic("storage: write inside Read; take a *storage.Tx")
 }
 
 type holdingKey struct{}
