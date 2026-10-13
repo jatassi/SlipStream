@@ -1,13 +1,17 @@
 // Package enginetest is an in-memory torrent engine behind the engine
 // interface. It starts no goroutine and no thread, so a testing/synctest
 // bubble can hold it, which libtorrent's threads cannot (ADR 0014). A
-// torrent added in seed mode seeds; any other downloads and never finishes.
-// It reads the files a torrent lists from its metainfo.
+// torrent added in seed mode seeds. Any other finishes at once when the
+// engine holds its payload, and else downloads and never finishes. It
+// reads the files a torrent lists from its metainfo.
 package enginetest
 
 import (
+	"fmt"
 	"net/netip"
+	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"sync"
 
@@ -23,8 +27,9 @@ const events = 64
 const defaultPort = 6881
 
 type Engine struct {
-	listen netip.AddrPort
-	events chan engine.Event
+	listen   netip.AddrPort
+	events   chan engine.Event
+	payloads map[bencode.InfoHash][]byte
 
 	mu       sync.Mutex
 	closed   bool
@@ -40,12 +45,19 @@ type torrent struct {
 
 // Open builds an engine listening on cfg's interface, or on port 6881 of
 // its address when it asks for any port.
-func Open(cfg engine.Config) (engine.Engine, error) {
-	listen := cfg.ListenInterface
-	if listen.Port() == 0 {
-		listen = netip.AddrPortFrom(listen.Addr(), defaultPort)
+func Open(cfg engine.Config) (engine.Engine, error) { return Payloads(nil)(cfg) }
+
+// Payloads opens engines that finish a download of a single-file torrent
+// whose info hash payloads holds: Add writes the payload as the file
+// under the save path and sends Finished.
+func Payloads(payloads map[bencode.InfoHash][]byte) func(engine.Config) (engine.Engine, error) {
+	return func(cfg engine.Config) (engine.Engine, error) {
+		listen := cfg.ListenInterface
+		if listen.Port() == 0 {
+			listen = netip.AddrPortFrom(listen.Addr(), defaultPort)
+		}
+		return &Engine{listen: listen, events: make(chan engine.Event, events), payloads: payloads, torrents: map[engine.Handle]torrent{}}, nil
 	}
-	return &Engine{listen: listen, events: make(chan engine.Event, events), torrents: map[engine.Handle]torrent{}}, nil
 }
 
 func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
@@ -59,14 +71,39 @@ func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
 		return 0, &engine.Error{Category: engine.CategoryBdecode, Text: err.Error()}
 	}
 	e.next++
-	state := engine.StateDownloading
-	if p.SeedMode {
-		state = engine.StateSeeding
+	t := torrent{engine.Status{State: engine.StateDownloading}, files(m.Info)}
+	payload, finishes := e.payloads[m.InfoHash]
+	switch {
+	case p.SeedMode:
+		t.status.State = engine.StateSeeding
+	case finishes:
+		if err := write(p.SavePath, t.files, payload); err != nil {
+			return 0, err
+		}
+		size := int64(len(payload))
+		t.status = engine.Status{State: engine.StateSeeding, Done: size, Wanted: size}
 	}
-	e.torrents[e.next] = torrent{engine.Status{State: state}, files(m.Info)}
+	e.torrents[e.next] = t
 	e.emit(engine.Added{Torrent: e.next})
-	e.emit(engine.StateChanged{Torrent: e.next, State: state})
+	e.emit(engine.StateChanged{Torrent: e.next, State: t.status.State})
+	if finishes && !p.SeedMode {
+		e.emit(engine.Finished{Torrent: e.next})
+	}
 	return e.next, nil
+}
+
+func write(savePath string, files []engine.File, payload []byte) error {
+	if len(files) != 1 {
+		return &engine.Error{Category: engine.CategoryOther, Text: fmt.Sprintf("a payload fills one file, and the torrent has %d", len(files))}
+	}
+	file := filepath.Join(savePath, filepath.FromSlash(files[0].Path))
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		return &engine.Error{Category: engine.CategorySystem, Text: err.Error()}
+	}
+	if err := os.WriteFile(file, payload, 0o644); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it
+		return &engine.Error{Category: engine.CategorySystem, Text: err.Error()}
+	}
+	return nil
 }
 
 func (e *Engine) ConnectPeer(h engine.Handle, _ netip.AddrPort) error {

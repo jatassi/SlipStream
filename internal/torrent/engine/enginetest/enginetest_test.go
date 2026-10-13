@@ -3,9 +3,12 @@ package enginetest_test
 import (
 	"errors"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
@@ -96,5 +99,36 @@ func TestFilesListTheMetainfosFiles(t *testing.T) {
 	}
 	if _, err := e.Files(99); !errors.Is(err, engine.ErrUnknownTorrent) {
 		t.Errorf("Files of an unknown torrent err = %v", err)
+	}
+}
+
+func TestADownloadWithAPayloadFinishesIntoItsSavePath(t *testing.T) {
+	m, err := bencode.DecodeMetainfo([]byte(single))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := enginetest.Payloads(map[bencode.InfoHash][]byte{m.InfoHash: []byte("hello")})(engine.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	h, err := e.Add(engine.AddParams{Metainfo: []byte(single), SavePath: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s, err := e.Status(h); err != nil || s != (engine.Status{State: engine.StateSeeding, Done: 5, Wanted: 5}) {
+		t.Fatalf("Status = %+v, %v; want seeding 5 of 5", s, err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "a.mkv")); err != nil || string(got) != "hello" {
+		t.Fatalf("a.mkv holds %q, %v; want hello", got, err)
+	}
+	_ = e.Close()
+	var got []engine.Event
+	for ev := range e.Events() {
+		got = append(got, ev)
+	}
+	want := []engine.Event{engine.Added{Torrent: h}, engine.StateChanged{Torrent: h, State: engine.StateSeeding}, engine.Finished{Torrent: h}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("events = %#v, want %#v", got, want)
 	}
 }
