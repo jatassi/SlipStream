@@ -70,6 +70,9 @@ type Config struct {
 	Changed Publisher
 	// Served is every Role's control half.
 	Served []role.Served
+	// Always is Roles every Node holds beyond its nodes_role rows: only a
+	// test's, as the simulation tier runs roletest's Probe.
+	Always []role.Name
 	Log    *slog.Logger
 }
 
@@ -231,13 +234,13 @@ func (s *Service) Admit(key link.Key) link.Admission {
 }
 
 // Assigned derives the node scope: the Roles assigned to node, in
-// role.Names() order.
+// role.Names() order, then Always.
 func (s *Service) Assigned(ctx context.Context, r storage.Reader[file], node ID) ([]role.Name, error) {
 	roles, err := db.New(r).NodeRoles(ctx, node)
 	if err != nil {
 		return nil, err
 	}
-	return ordered(roles), nil
+	return append(ordered(roles), s.cfg.Always...), nil
 }
 
 func ordered(roles []role.Name) []role.Name {

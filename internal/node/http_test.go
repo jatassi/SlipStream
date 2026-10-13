@@ -11,8 +11,6 @@ import (
 	"net/http/httputil"
 	"net/netip"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,39 +22,14 @@ import (
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
-	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
 
-// idleEngine is a torrent engine with no torrents and no goroutine. The
-// libtorrent engine polls its alerts in cgo, which a synctest bubble never
-// counts as blocked, so fake time would never advance.
-type idleEngine struct {
-	listen netip.AddrPort
-	events chan engine.Event
-}
-
-var errIdleEngine = errors.New("the idle engine holds no torrents")
-
-func (e *idleEngine) Add(engine.AddParams) (engine.Handle, error)     { return 0, errIdleEngine }
-func (e *idleEngine) ConnectPeer(engine.Handle, netip.AddrPort) error { return errIdleEngine }
-func (e *idleEngine) Status(engine.Handle) (engine.Status, error) {
-	return engine.Status{}, errIdleEngine
-}
-func (e *idleEngine) Remove(engine.Handle) error          { return errIdleEngine }
-func (e *idleEngine) ListenAddr() (netip.AddrPort, error) { return e.listen, nil }
-func (e *idleEngine) Events() <-chan engine.Event         { return e.events }
-
-func (e *idleEngine) Close() error {
-	close(e.events)
-	return nil
-}
-
 // inMemory runs env on an in-memory network whose host holds 127.0.0.1,
-// the control socket included, with an idle torrent engine and a log file
-// that never rotates. It returns the host to dial the Node from.
+// the control socket included, with the in-memory torrent engine and a log
+// file that never rotates. It returns the host to dial the Node from.
 func inMemory(env Env) (Env, *fault.Host) {
 	host := fault.NewNetwork().Host(netip.MustParseAddr("127.0.0.1"))
 	return inMemoryOn(env, host), host
@@ -65,19 +38,8 @@ func inMemory(env Env) (Env, *fault.Host) {
 // inMemoryOn runs env on host, one machine of an in-memory network.
 func inMemoryOn(env Env, host *fault.Host) Env {
 	env.Net = host
-	env.Engine = func(c engine.Config) (engine.Engine, error) {
-		return &idleEngine{listen: netip.AddrPortFrom(c.ListenInterface.Addr(), 6881), events: make(chan engine.Event)}, nil
-	}
-	env.OpenLog = func(dir string, stderr io.Writer) (*logs.Log, error) {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("create logs dir: %w", err)
-		}
-		f, err := os.OpenFile(filepath.Join(dir, logs.File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-		if err != nil {
-			return nil, fmt.Errorf("open log file: %w", err)
-		}
-		return logs.New(stderr, f), nil
-	}
+	env.Engine = enginetest.Open
+	env.OpenLog = OpenFileLog
 	return env
 }
 

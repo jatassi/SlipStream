@@ -48,6 +48,8 @@ type Env struct {
 	Engine func(engine.Config) (engine.Engine, error)
 	// OpenLog opens the log in dir, mirrored to stderr.
 	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
+	// Test adds test-only Roles; a process leaves it zero.
+	Test Test
 }
 
 // ProcessEnv is this process's Env, with the data dir from dataDirFlag or

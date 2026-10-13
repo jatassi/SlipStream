@@ -43,22 +43,26 @@ func (n *Node) startController(ctx context.Context) error {
 		Node:    n.info,
 		Link:    n.link,
 		Changed: nodes.ChangedEvent.Bind(n.hub),
+		Served:  n.env.Test.Served,
+		Always:  n.env.Test.Always,
 		Log:     n.rootLog.With("subsystem", "nodes"),
 	})
 	if err != nil {
 		return err
 	}
 	controls := side.Controls()
-	holding, err := n.startHolding(ctx, role.InProcess(controls))
+	holding, local, err := n.startHolding(ctx, role.InProcess(controls))
 	if err != nil {
 		return err
 	}
 	self := n.key.Public()
 	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
+	cluster := rpc.NewCluster(dispatch, side)
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: rpc.NewCluster(dispatch, side)})
+	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster})
 	n.claimed.Go("nodes", side.Run)
+	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil
 }
 
@@ -67,7 +71,7 @@ func (n *Node) startController(ctx context.Context) error {
 func (n *Node) startWorker(ctx context.Context) error {
 	side := n.pairing
 	controller := side.Controller()
-	holding, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key))
+	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key))
 	if err != nil {
 		return err
 	}
@@ -76,29 +80,30 @@ func (n *Node) startWorker(ctx context.Context) error {
 	n.setHalf(&half{peers: side, dispatch: dispatch})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
+	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local})
 	return nil
 }
 
 // startHolding opens local.db and runs the holder half toward upstream.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream) (*role.Holding, error) {
+func (n *Node) startHolding(ctx context.Context, upstream role.Upstream) (*role.Holding, *storage.DB[storage.Local], error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:    local,
 		Upstream: upstream,
-		Held:     heldRoles(),
+		Held:     append(heldRoles(), n.env.Test.held(local)...),
 		Timings:  n.cfg.Timings.Role,
 		Rand:     n.roleRand,
 		Log:      n.rootLog.With("subsystem", "role"),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	n.claimed.Go("role", holding.Run)
-	return holding, nil
+	return holding, local, nil
 }
 
 func (n *Node) setHalf(h *half) {

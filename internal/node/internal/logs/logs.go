@@ -35,6 +35,19 @@ func Open(dir string, stderr io.Writer) (*Log, error) {
 
 const File = "slipstream.log"
 
+// OpenFile opens one log file in dir that never rotates. Rotation runs a
+// goroutine that a testing/synctest bubble never sees end.
+func OpenFile(dir string, stderr io.Writer) (*Log, error) {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("create logs dir: %w", err)
+	}
+	f, err := os.OpenFile(filepath.Join(dir, File), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open log file: %w", err)
+	}
+	return New(stderr, f), nil
+}
+
 // New fans records out to stderr and file, and Close closes file.
 func New(stderr io.Writer, file io.WriteCloser) *Log {
 	level := new(slog.LevelVar)
