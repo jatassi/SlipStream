@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -163,6 +165,53 @@ func TestAWorkerJoinsThroughTheSetupGate(t *testing.T) {
 		}
 		if box.Ready().Claim != system.Unclaimed {
 			t.Fatalf("box was ready as %s, want unclaimed", box.Ready().Claim)
+		}
+	})
+}
+
+// TestARefusedJoinCodeLeavesTheNodeUnclaimed starts a Node whose join.code
+// another Node already used: it logs the refusal once and stays Unclaimed.
+func TestARefusedJoinCodeLeavesTheNodeUnclaimed(t *testing.T) {
+	net := fault.NewNetwork()
+	homeEnv, homeHost := machine(t, net, "127.0.0.2", "home")
+	boxEnv, boxHost := machine(t, net, "127.0.0.3", "box")
+	lateEnv, lateHost := machine(t, net, "127.0.0.4", "late")
+	synctest.Test(t, func(t *testing.T) {
+		home, hc := startOn(t, homeEnv, homeHost)
+		apiKey, code := claimedHome(t, home, hc)
+		box, bc := startOn(t, boxEnv, boxHost)
+		joinBox(t, box, bc, boxEnv.DataDir, code, apiKey)
+
+		lateEnv.Environ = append(lateEnv.Environ, "SLIPSTREAM_JOIN_CODE="+code)
+		_, lc := startOn(t, lateEnv, lateHost)
+		synctest.Wait()
+		expect(t, lc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"unclaimed"}`+"\n")
+		logged, err := os.ReadFile(filepath.Join(lateEnv.DataDir.LogsDir(), "slipstream.log"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var refusals []any
+		for _, r := range records(t, string(logged)) {
+			if r["msg"] == "join refused" {
+				refusals = append(refusals, r["reason"])
+			}
+		}
+		if want := []any{"the Join Code was already used"}; !slices.Equal(refusals, want) {
+			t.Fatalf("join refused records with reasons %v, want %v", refusals, want)
+		}
+	})
+}
+
+func TestAPairingRecordOfAnotherSchemaRefusesTheStart(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := os.WriteFile(filepath.Join(env.DataDir.Path(), "pairing.json"), []byte(`{"schema":2}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	synctest.Test(t, func(t *testing.T) {
+		env, _ := inMemory(env)
+		_, err := Start(t.Context(), env)
+		if code := ExitCode(err); code != ExitRecordRefused {
+			t.Fatalf("start = %v, exit %d; want exit %d", err, code, ExitRecordRefused)
 		}
 	})
 }
