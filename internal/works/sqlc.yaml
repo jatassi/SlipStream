@@ -1,0 +1,50 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: works_work.id
+            go_type:
+              type: WorkID
+          - column: works_work.content_type
+            go_type:
+              type: TypeID
+          - column: works_work.key
+            go_type:
+              type: Key
+          - column: works_level.id
+            go_type:
+              type: LevelID
+          - column: works_level.work_id
+            go_type:
+              type: WorkID
+          - column: works_level.parent_id
+            go_type:
+              type: LevelID
+          - column: works_level.key
+            go_type:
+              type: Key
+          - column: works_item.id
+            go_type:
+              type: ItemID
+          - column: works_item.work_id
+            go_type:
+              type: WorkID
+          - column: works_item.level_id
+            go_type:
+              type: LevelID
+          - column: works_item.key
+            go_type:
+              type: Key
+          - column: works_disabled_type.content_type
+            go_type:
+              type: TypeID
