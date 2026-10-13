@@ -2,7 +2,6 @@ package link
 
 import (
 	"context"
-	"net"
 	"net/http"
 
 	"connectrpc.com/connect/v2"
@@ -10,14 +9,21 @@ import (
 	"github.com/jatassi/slipstream/internal/link/internal/wire"
 )
 
-// OpenStream opens a stream of kind on key's live session, as S09's
-// Transfers will.
-func (l *Link) OpenStream(ctx context.Context, key Key, kind byte) (net.Conn, error) {
+// RawStream opens a stream of kind on key's live session whatever the
+// peer's version, as a peer that skipped OpenStream's check could.
+func (l *Link) RawStream(ctx context.Context, key Key, kind Kind) (Stream, error) {
 	l.mu.Lock()
 	s := l.live[key]
 	l.mu.Unlock()
-	if s == nil {
-		return nil, ErrDisconnected
+	return wire.Open(ctx, s.mux, wire.Kind(kind))
+}
+
+// UnwelcomedStream dials t and opens a stream of kind over that session
+// with no Pair or Hello.
+func (l *Link) UnwelcomedStream(ctx context.Context, t Target, kind Kind) (Stream, error) {
+	s, err := l.race(ctx, t.Addresses, func(Key) error { return nil })
+	if err != nil {
+		return nil, err
 	}
 	return wire.Open(ctx, s.mux, wire.Kind(kind))
 }
