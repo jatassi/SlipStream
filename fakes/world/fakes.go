@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/musicmeta"
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/tracker"
 )
 
-var fakes = []fake.Spec{musicmeta.Fake}
+var fakes = []fake.Spec{musicmeta.Fake, tracker.Fake}
