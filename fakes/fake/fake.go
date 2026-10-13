@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/node"
 )
@@ -40,6 +41,9 @@ type Server interface {
 type Env struct {
 	Log     *slog.Logger
 	Streams *node.Streams
+	// Releases is the world's release catalog, nil in a fake's own tests
+	// that hand it none.
+	Releases *releases.Catalog
 }
 
 // NewEnv keys the fake's random streams under the Scenario's seed, the way
