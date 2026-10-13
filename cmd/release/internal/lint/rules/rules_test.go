@@ -298,6 +298,15 @@ func TestLinkConfined(t *testing.T) {
 	})
 }
 
+func TestRoleDefsWired(t *testing.T) {
+	assertFindings(t, check(t, "role-defs-wired", fixtureRepo(t, "role-defs-wired")), []string{
+		"internal/converting/converting.go:5: [role-defs-wired] internal/converting.Def is not held in internal/node",
+		"internal/downloading/downloading.go:5: [role-defs-wired] internal/downloading.Def is not served in internal/node",
+		"internal/fetching/fetching.go:6: [role-defs-wired] role downloading is declared twice",
+		"internal/fetching/fetching.go:7: [role-defs-wired] internal/fetching.Named names its Role without a role constant",
+	})
+}
+
 func TestFakesWired(t *testing.T) {
 	assertFindings(t, check(t, "fakes-wired", fixtureRepo(t, "fakes-wired")), []string{
 		"fakes/tmdb/doc.go:3: [fakes-wired] fakes/tmdb declares no var Fake fake.Spec",
