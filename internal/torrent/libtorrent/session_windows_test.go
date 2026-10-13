@@ -23,7 +23,7 @@ func TestEngineListensWhenTheNextTCPPortsAreTakenForUDP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cursor := l.Addr().(*net.TCPAddr).Port
+	cursor := int(netip.MustParseAddrPort(l.Addr().String()).Port())
 	if err := l.Close(); err != nil {
 		t.Fatal(err)
 	}
