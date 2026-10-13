@@ -130,13 +130,14 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 	err = w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		q := db.New(r)
 		for i, c := range found {
-			if _, err := ordered(work, c.Fields); err != nil {
+			fields, err := ordered(work, c.Fields)
+			if err != nil {
 				return fmt.Errorf("content type %s: candidate %s: %w", t, c.Key, err)
 			}
+			found[i].Fields = fields
 			row, err := q.GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: c.Key})
 			switch {
 			case errors.Is(err, storage.ErrNoRows):
-				found[i].WorkID = WorkID{}
 			case err != nil:
 				return err
 			default:
