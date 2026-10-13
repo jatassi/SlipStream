@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
-	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
@@ -25,7 +25,7 @@ func TestAProcessThatIsNotAliveReleasesItsExecutable(t *testing.T) {
 			t.Fatal(err)
 		}
 		for proc.Alive(cmd.Process.Pid) {
-			time.Sleep(time.Millisecond)
+			runtime.Gosched()
 		}
 		if err := os.Remove(exe); err != nil {
 			t.Fatalf("remove the executable of an exited process: %v", err)
