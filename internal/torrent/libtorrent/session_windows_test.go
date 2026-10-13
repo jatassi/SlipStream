@@ -12,9 +12,13 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
-const soExclusiveAddrUse = ^4
+const (
+	soExclusiveAddrUse = ^4
+	firstDynamicPort   = 49152
+)
 
-// Windows hands out TCP ports in sequence, and refuses a UDP bind to
+// Windows hands out TCP ports in sequence, wrapping from 65535 to the start
+// of its dynamic range, and refuses a UDP bind to
 // 127.0.0.1 on a port another socket holds on 0.0.0.0 with
 // SO_EXCLUSIVEADDRUSE (WSAEACCES).
 func TestEngineListensWhenTheNextTCPPortsAreTakenForUDP(t *testing.T) {
@@ -28,7 +32,11 @@ func TestEngineListensWhenTheNextTCPPortsAreTakenForUDP(t *testing.T) {
 		t.Fatal(err)
 	}
 	held := 0
-	for port := cursor + 1; port <= min(cursor+2048, 65535); port++ {
+	for i := 1; i <= 2048; i++ {
+		port := cursor + i
+		if port > 65535 {
+			port -= 65536 - firstDynamicPort
+		}
 		if holdUDP(t, port) {
 			held++
 		}
