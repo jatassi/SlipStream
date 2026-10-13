@@ -128,7 +128,10 @@ func measureAll(t *testing.T) {
 	report(results)
 	for _, r := range results {
 		if r.Arm == controlArm {
-			predicted := float64(256<<10) * 8 / r.RTT.Seconds() / 1e6
+			// hashicorp/yamux grants more window only once half of its 256 KiB
+			// is consumed (stream.go sendWindowUpdate), so one stream keeps
+			// about 128 KiB in flight per round trip.
+			predicted := float64(128<<10) * 8 / r.RTT.Seconds() / 1e6
 			if r.Mbits < predicted*0.75 || r.Mbits > predicted*1.25 {
 				t.Errorf("%s at %v carried %.1f Mbit/s, predicted %.1f: harness did not measure the yamux window", r.Arm, r.RTT, r.Mbits, predicted)
 			}
