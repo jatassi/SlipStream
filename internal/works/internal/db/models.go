@@ -21,6 +21,7 @@ type WorksItem struct {
 	Label       string
 	Position    int64
 	WithdrawnAt storage.Time
+	Monitored   bool
 }
 
 type WorksLevel struct {

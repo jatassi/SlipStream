@@ -247,7 +247,7 @@ func (q *Queries) ListDisabledTypes(ctx context.Context) ([]TypeID, error) {
 }
 
 const listItems = `-- name: ListItems :many
-SELECT id, work_id, level_id, "key", label, position, withdrawn_at FROM works_item WHERE work_id = ?1 ORDER BY withdrawn_at IS NOT NULL, position, id
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item WHERE work_id = ?1 ORDER BY withdrawn_at IS NOT NULL, position, id
 `
 
 func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, error) {
@@ -267,6 +267,7 @@ func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, er
 			&i.Label,
 			&i.Position,
 			&i.WithdrawnAt,
+			&i.Monitored,
 		); err != nil {
 			return nil, err
 		}
@@ -385,6 +386,15 @@ func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]Wo
 		return nil, err
 	}
 	return items, nil
+}
+
+const monitorItems = `-- name: MonitorItems :exec
+UPDATE works_item SET monitored = 1 WHERE work_id = ?1
+`
+
+func (q *Queries) MonitorItems(ctx context.Context, workID WorkID) error {
+	_, err := q.db.ExecContext(ctx, monitorItems, workID)
+	return err
 }
 
 const updateItem = `-- name: UpdateItem :exec

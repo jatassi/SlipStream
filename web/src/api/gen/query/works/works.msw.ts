@@ -237,6 +237,7 @@ export const getAddWorkResponseMock = (
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        monitored: faker.datatype.boolean(),
         position: faker.number.int({ min: 1 }),
         withdrawnAt: faker.helpers.arrayElement([
           faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -339,6 +340,7 @@ export const getGetWorkResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    monitored: faker.datatype.boolean(),
     position: faker.number.int({ min: 1 }),
     withdrawnAt: faker.helpers.arrayElement([
       faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -439,6 +441,7 @@ export const getRefreshWorkResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    monitored: faker.datatype.boolean(),
     position: faker.number.int({ min: 1 }),
     withdrawnAt: faker.helpers.arrayElement([
       faker.date.past().toISOString().slice(0, 19) + "Z",

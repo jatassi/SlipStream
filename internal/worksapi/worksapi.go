@@ -197,6 +197,7 @@ type item struct {
 	Label       string                  `json:"label"`
 	Position    int                     `json:"position" minimum:"1"`
 	WithdrawnAt *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
+	Monitored   bool                    `json:"monitored"`
 	Fields      []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
 }
 
@@ -211,7 +212,7 @@ func treeOf(t works.Tree) tree {
 	for _, it := range t.Items {
 		out.Items = append(out.Items, item{
 			ID: it.ID.String(), LevelID: idOrNull(it.LevelID.UUID), Key: string(it.Key), Label: it.Label,
-			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Fields: fieldsOf(it.Fields),
+			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(it.Fields),
 		})
 	}
 	return out
@@ -275,6 +276,7 @@ type addInput struct {
 type newWork struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Key         string `json:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
+	Monitor     bool   `json:"monitor,omitempty" doc:"Monitor a new Work's Items; adding a Work already in the library changes nothing"`
 }
 
 type added struct {
@@ -414,7 +416,7 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	if err != nil {
 		return nil, api.Invalid
 	}
-	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key)
+	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key, in.Body.Monitor)
 	if err != nil {
 		return nil, answer(err)
 	}

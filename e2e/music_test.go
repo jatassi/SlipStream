@@ -56,6 +56,7 @@ type treeNode struct {
 	Label       string  `json:"label"`
 	Position    int     `json:"position"`
 	WithdrawnAt *string `json:"withdrawnAt"`
+	Monitored   bool    `json:"monitored"`
 	Fields      []field `json:"fields"`
 }
 
@@ -84,6 +85,9 @@ func (tr tree) outline(ids *[]string) string {
 		s := fmt.Sprintf("%s %d %s %v", name(n.ID), n.Position, n.Label, n.Fields)
 		if n.WithdrawnAt != nil {
 			s += " withdrawn"
+		}
+		if n.Monitored {
+			s += " monitored"
 		}
 		return s
 	}

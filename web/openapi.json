@@ -900,6 +900,9 @@
               "null"
             ]
           },
+          "monitored": {
+            "type": "boolean"
+          },
           "position": {
             "format": "int64",
             "minimum": 1,
@@ -921,6 +924,7 @@
           "label",
           "position",
           "withdrawnAt",
+          "monitored",
           "fields"
         ],
         "type": "object"
@@ -995,6 +999,10 @@
             "maxLength": 200,
             "minLength": 1,
             "type": "string"
+          },
+          "monitor": {
+            "description": "Monitor a new Work's Items; adding a Work already in the library changes nothing",
+            "type": "boolean"
           }
         },
         "required": [
