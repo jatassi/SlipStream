@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-yamux/v5"
 )
 
-// Config tunes one session.
 type Config struct {
 	// Keepalive is how often a session pings; a ping unanswered within
 	// WriteTimeout closes it.
@@ -50,12 +49,10 @@ type Stream interface {
 	Reset() error
 }
 
-// Session multiplexes streams over one connection.
 type Session struct {
 	s *yamux.Session
 }
 
-// Client starts the dialing side's session over conn.
 func Client(conn net.Conn, cfg Config) (*Session, error) {
 	s, err := yamux.Client(conn, cfg.yamux(), nil)
 	if err != nil {
@@ -64,7 +61,6 @@ func Client(conn net.Conn, cfg Config) (*Session, error) {
 	return &Session{s}, nil
 }
 
-// Server starts the accepting side's session over conn.
 func Server(conn net.Conn, cfg Config) (*Session, error) {
 	s, err := yamux.Server(conn, cfg.yamux(), nil)
 	if err != nil {

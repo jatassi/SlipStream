@@ -19,7 +19,6 @@ import (
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 )
 
-// Port is where every test Node listens.
 const Port = 8485
 
 // Timings and StreamWindow are the link's shipped defaults, spelled out:
@@ -49,7 +48,6 @@ type Side struct {
 	Net func(*fault.Host) link.Network
 }
 
-// Node is one running Link.
 type Node struct {
 	*link.Link
 	Key   link.Key
@@ -59,7 +57,6 @@ type Node struct {
 	Listening link.Addresses
 }
 
-// Target is how a peer keeps a session to n.
 func (n *Node) Target() link.Target {
 	return link.Target{Key: n.Key, Addresses: n.Listening}
 }

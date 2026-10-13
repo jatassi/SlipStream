@@ -62,7 +62,6 @@ func (k *Key) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// PrivateKey is a Node's Ed25519 key.
 type PrivateKey struct {
 	key ed25519.PrivateKey
 }

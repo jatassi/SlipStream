@@ -55,13 +55,11 @@ type (
 func (Down) state() {}
 func (Live) state() {}
 
-// Change is a peer's new State.
 type Change struct {
 	Key   Key
 	State State
 }
 
-// Target is a peer the link keeps a session to.
 type Target struct {
 	Key       Key
 	Addresses Addresses

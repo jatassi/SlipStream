@@ -334,7 +334,6 @@ func incompressible() []byte {
 	return b
 }
 
-// write sends 1 MiB buffers on st until it fails.
 func write(st net.Conn, moved *atomic.Int64) error {
 	buf := incompressible()
 	for {

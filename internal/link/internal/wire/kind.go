@@ -17,7 +17,6 @@ type Kind byte
 // relay forwards.
 const RPC Kind = 1
 
-// Open opens a stream on s that carries k.
 func Open(ctx context.Context, s *mux.Session, k Kind) (net.Conn, error) {
 	st, err := s.Open(ctx)
 	if err != nil {
@@ -30,7 +29,6 @@ func Open(ctx context.Context, s *mux.Session, k Kind) (net.Conn, error) {
 	return st, nil
 }
 
-// ReadKind reads the kind an accepted stream opens with.
 func ReadKind(c net.Conn) (Kind, error) {
 	var b [1]byte
 	if _, err := io.ReadFull(c, b[:]); err != nil {

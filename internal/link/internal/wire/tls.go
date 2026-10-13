@@ -34,9 +34,8 @@ type Accept func(key ed25519.PublicKey) error
 // ClientConfig is the dialing side's TLS: the server's key must pass accept.
 func ClientConfig(cert tls.Certificate, accept Accept) *tls.Config {
 	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS13,
-		// VerifyConnection pins the raw key in place of a chain and names.
+		Certificates:       []tls.Certificate{cert},
+		MinVersion:         tls.VersionTLS13,
 		InsecureSkipVerify: true, //nolint:gosec // the pin check replaces chain verification
 		VerifyConnection:   verify(accept),
 	}

@@ -59,7 +59,6 @@ func (a Addresses) All() []netip.AddrPort { return slices.Clone(a.list[:a.n]) }
 
 func (a Addresses) IsZero() bool { return a.n == 0 }
 
-// families splits the record into its IPv6 and IPv4 addresses.
 func (a Addresses) families() (v6, v4 []netip.AddrPort) {
 	list := a.list[:a.n]
 	i := slices.IndexFunc(list, func(ap netip.AddrPort) bool { return ap.Addr().Is4() })
