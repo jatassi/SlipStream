@@ -11,7 +11,7 @@ export const sessionQuery = queryOptions({
     try {
       return await getSession({ signal });
     } catch (error) {
-      if (isProblem(error, "signed_out")) {
+      if (isProblem(error, "signed_out") || isProblem(error, "worker_node")) {
         return null;
       }
       throw error;

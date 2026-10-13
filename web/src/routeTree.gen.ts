@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AppRouteImport } from "./routes/_app";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
+import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
 
@@ -29,6 +30,11 @@ const SignInRoute = SignInRouteImport.update({
   path: "/sign-in",
   getParentRoute: () => rootRouteImport,
 } as any);
+const WorkerRoute = WorkerRouteImport.update({
+  id: "/worker",
+  path: "/worker",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const AppIndexRoute = AppIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -44,11 +50,13 @@ export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/worker": typeof WorkerRoute;
   "/system": typeof AppSystemRoute;
 }
 export interface FileRoutesByTo {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/worker": typeof WorkerRoute;
   "/system": typeof AppSystemRoute;
   "/": typeof AppIndexRoute;
 }
@@ -57,21 +65,30 @@ export interface FileRoutesById {
   "/_app": typeof AppRouteWithChildren;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/worker": typeof WorkerRoute;
   "/_app/system": typeof AppSystemRoute;
   "/_app/": typeof AppIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/setup" | "/sign-in" | "/system";
+  fullPaths: "/" | "/setup" | "/sign-in" | "/worker" | "/system";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/setup" | "/sign-in" | "/system" | "/";
-  id: "__root__" | "/_app" | "/setup" | "/sign-in" | "/_app/system" | "/_app/";
+  to: "/setup" | "/sign-in" | "/worker" | "/system" | "/";
+  id:
+    | "__root__"
+    | "/_app"
+    | "/setup"
+    | "/sign-in"
+    | "/worker"
+    | "/_app/system"
+    | "/_app/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
+  WorkerRoute: typeof WorkerRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -95,6 +112,13 @@ declare module "@tanstack/react-router" {
       path: "/sign-in";
       fullPath: "/sign-in";
       preLoaderRoute: typeof SignInRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/worker": {
+      id: "/worker";
+      path: "/worker";
+      fullPath: "/worker";
+      preLoaderRoute: typeof WorkerRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/_app/": {
@@ -130,6 +154,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
+  WorkerRoute: WorkerRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

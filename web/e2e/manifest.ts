@@ -2,8 +2,8 @@ import { z } from "zod";
 
 const Node = z.object({
   name: z.string(),
-  setup: z.enum(["none", "controller"]),
-  claim: z.enum(["unclaimed", "controller"]),
+  setup: z.enum(["none", "controller", "join"]),
+  claim: z.enum(["unclaimed", "controller", "worker"]),
   address: z.string(),
   host: z.string(),
   url: z.url(),

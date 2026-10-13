@@ -6,19 +6,27 @@ import { safeRedirect } from "./safe-redirect";
 
 const setup: Entry = { kind: "setup" };
 const signIn: Entry = { kind: "sign-in" };
+const worker: Entry = { kind: "worker" };
 const app: Entry = { kind: "app", account: ada };
 
 describe("redirectFor", () => {
   test.each([
     ["app", setup, "/setup"],
     ["app", signIn, "/sign-in?redirect=%2Fsystem%3Fx%3D1"],
+    ["app", worker, "/worker"],
     ["app", app, null],
     ["sign-in", setup, "/setup"],
     ["sign-in", signIn, null],
+    ["sign-in", worker, "/worker"],
     ["sign-in", app, "/system"],
     ["setup", setup, null],
     ["setup", signIn, "/sign-in"],
+    ["setup", worker, "/worker"],
     ["setup", app, "/"],
+    ["worker", setup, "/setup"],
+    ["worker", signIn, "/sign-in"],
+    ["worker", worker, null],
+    ["worker", app, "/"],
   ] as const)("wanting %s at entry %o goes to %s", (want, entry, target) => {
     expect(redirectFor(entry, want, "/system?x=1", "/system")).toBe(target);
   });
@@ -39,6 +47,10 @@ describe("entryOf", () => {
 
   test("a Controller with Ada enters the app as Ada", () => {
     expect(entryOf({ claim: "controller" }, ada)).toEqual({ kind: "app", account: ada });
+  });
+
+  test("a Worker is managed elsewhere", () => {
+    expect(entryOf({ claim: "worker" }, null)).toEqual({ kind: "worker" });
   });
 });
 
