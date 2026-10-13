@@ -236,6 +236,24 @@ func TestFetchPagesReleaseGroupsAndNumbersTracksAcrossDiscs(t *testing.T) {
 	})
 }
 
+func TestAnAlbumDatedOffTheCalendarHasNoReleaseDate(t *testing.T) {
+	const calendar = "a1000000-0000-4000-8000-000000000006"
+	s := catalog(t)
+	s.Music.Artists = append(s.Music.Artists, scenario.MusicArtist{ID: calendar, Revisions: []scenario.MusicRevision{{Name: "Calendar", SortName: "Calendar", Albums: []scenario.MusicAlbum{{
+		ID: "b6000000-0000-4000-8000-000000000001", Release: "c6000000-0000-4000-8000-000000000001", Title: "Thirteenth", Kind: "Album", FirstRelease: "2001-13",
+		Tracks: []scenario.MusicTrack{{Recording: "d6000000-0000-4000-8000-000000000001", Title: "Only", Disc: 1}},
+	}}}}})
+	got, err := open(faketest.Loopback(t, musicmeta.Fake, s)).Fetch(t.Context(), calendar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"country":"","disambiguation":"","albums":[{"key":"b6000000-0000-4000-8000-000000000001","released":"","primaryType":"Album","release":"c6000000-0000-4000-8000-000000000001",` +
+		`"tracks":[{"key":"b6000000-0000-4000-8000-000000000001/d6000000-0000-4000-8000-000000000001","disc":1,"number":1,"lengthMs":null}]}]}`
+	if string(got.Detail) != want {
+		t.Fatalf("Fetch(calendar) detail = %s, want %s", got.Detail, want)
+	}
+}
+
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}

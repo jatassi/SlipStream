@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"slices"
@@ -71,13 +72,13 @@ func (c *Client) SearchArtists(ctx context.Context, query string) ([]Artist, err
 	var page struct {
 		Artists []Artist `json:"artists"`
 	}
-	err := c.get(ctx, "/artist", url.Values{"query": {query}, "limit": {"25"}}, &page)
+	err := c.get(ctx, "/artist", url.Values{"query": {query}, "limit": {"25"}}, works.ErrUnavailable, &page)
 	return page.Artists, err
 }
 
 func (c *Client) Artist(ctx context.Context, mbid string) (Artist, error) {
 	var a Artist
-	err := c.get(ctx, "/artist/"+url.PathEscape(mbid), nil, &a)
+	err := c.get(ctx, "/artist/"+url.PathEscape(mbid), nil, works.ErrNotFound, &a)
 	return a, err
 }
 
@@ -85,10 +86,13 @@ func (c *Client) Albums(ctx context.Context, artist string) ([]Album, error) {
 	albums, err := browse(ctx, c, "/release-group", url.Values{"artist": {artist}, "type": {"album|ep"}}, func(p *albumPage) ([]Album, int) {
 		return p.ReleaseGroups, p.Count
 	})
+	if err != nil {
+		return nil, err
+	}
 	slices.SortFunc(albums, func(a, b Album) int {
 		return cmp.Or(compareDates(a.FirstRelease, b.FirstRelease), cmp.Compare(a.Title, b.Title), cmp.Compare(a.ID, b.ID))
 	})
-	return albums, err
+	return albums, nil
 }
 
 type albumPage struct {
@@ -143,7 +147,7 @@ func browse[P, T any](ctx context.Context, c *Client, path string, q url.Values,
 	for {
 		q.Set("offset", strconv.Itoa(len(out)))
 		var page P
-		if err := c.get(ctx, path, q, &page); err != nil {
+		if err := c.get(ctx, path, q, works.ErrUnavailable, &page); err != nil {
 			return nil, err
 		}
 		got, total := items(&page)
@@ -154,7 +158,10 @@ func browse[P, T any](ctx context.Context, c *Client, path string, q url.Values,
 	}
 }
 
-func (c *Client) get(ctx context.Context, path string, q url.Values, v any) error {
+// get answers a 404 with notFound: only a lookup by key can tell that the
+// source has no record, while a 404 inside a browse means the source changed
+// between two requests.
+func (c *Client) get(ctx context.Context, path string, q url.Values, notFound error, v any) error {
 	if q == nil {
 		q = url.Values{}
 	}
@@ -173,9 +180,12 @@ func (c *Client) get(ctx context.Context, path string, q url.Values, v any) erro
 		return fmt.Errorf("GET %s: %w: %w", path, err, works.ErrUnavailable)
 	}
 	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, res.Body)
+	}
 	switch {
 	case res.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("GET %s: %s: %w", path, res.Status, works.ErrNotFound)
+		return fmt.Errorf("GET %s: %s: %w", path, res.Status, notFound)
 	case res.StatusCode >= http.StatusInternalServerError:
 		return fmt.Errorf("GET %s: %s: %w", path, res.Status, works.ErrUnavailable)
 	case res.StatusCode != http.StatusOK:

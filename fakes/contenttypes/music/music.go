@@ -1,10 +1,12 @@
 package music
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/db"
@@ -106,14 +108,15 @@ func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 		if !ok {
 			continue
 		}
-		if album.FirstRelease != "" {
-			if _, err := works.ParseDate(album.FirstRelease); err != nil {
-				return works.Fetched{}, fmt.Errorf("album %s: %w: %w", album.ID, err, works.ErrInvalid)
-			}
+		released := album.FirstRelease
+		if _, err := works.ParseDate(released); err != nil {
+			released = ""
 		}
 		level := works.Entry{Key: works.Key(album.ID), Label: album.Title}
-		ad := albumDetail{Key: level.Key, Released: album.FirstRelease, PrimaryType: album.PrimaryType, Release: db.ReleaseID(release.ID)}
+		ad := albumDetail{Key: level.Key, Released: released, PrimaryType: album.PrimaryType, Release: db.ReleaseID(release.ID)}
+		slices.SortFunc(release.Media, func(a, b musicbrainz.Medium) int { return cmp.Compare(a.Position, b.Position) })
 		for _, medium := range release.Media {
+			slices.SortFunc(medium.Tracks, func(a, b musicbrainz.Track) int { return cmp.Compare(a.Position, b.Position) })
 			for _, t := range medium.Tracks {
 				track := works.Entry{Key: works.Key(album.ID + "/" + t.Recording.ID), Label: t.Title}
 				level.Children = append(level.Children, track)
