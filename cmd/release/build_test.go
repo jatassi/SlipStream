@@ -38,11 +38,12 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		}
 	}
 
-	if err := runBuild(t.Context(), nil); err != nil {
+	dist := t.TempDir()
+	if err := runBuild(t.Context(), []string{"-o", dist}); err != nil {
 		t.Fatal(err)
 	}
 
-	bin := filepath.Join(root, "dist", "slipstream")
+	bin := filepath.Join(dist, "slipstream")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}

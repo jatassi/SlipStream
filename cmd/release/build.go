@@ -21,12 +21,17 @@ func init() {
 }
 
 func runBuild(ctx context.Context, args []string) error {
-	if err := flag.NewFlagSet("build", flag.ContinueOnError).Parse(args); err != nil {
+	flags := flag.NewFlagSet("build", flag.ContinueOnError)
+	dist := flags.String("o", "", "output directory (default dist/ in the repository)")
+	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 	root, err := repoRoot(ctx)
 	if err != nil {
 		return err
+	}
+	if *dist == "" {
+		*dist = filepath.Join(root, "dist")
 	}
 	stamp, err := worktree.Stamp(ctx, root)
 	if err != nil {
@@ -52,11 +57,10 @@ func runBuild(ctx context.Context, args []string) error {
 		return err
 	}
 
-	dist := filepath.Join(root, "dist")
-	if err := os.MkdirAll(dist, 0o755); err != nil {
+	if err := os.MkdirAll(*dist, 0o755); err != nil {
 		return fmt.Errorf("create dist: %w", err)
 	}
-	tmp, err := os.CreateTemp(dist, ".slipstream-*.tmp")
+	tmp, err := os.CreateTemp(*dist, ".slipstream-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create build output: %w", err)
 	}
@@ -77,7 +81,7 @@ func runBuild(ctx context.Context, args []string) error {
 	if err := linkage.Check(tmp.Name()); err != nil {
 		return err
 	}
-	out := executable(target, dist, "slipstream")
+	out := executable(target, *dist, "slipstream")
 	if err := os.Rename(tmp.Name(), out); err != nil {
 		return fmt.Errorf("move build output into dist: %w", err)
 	}
