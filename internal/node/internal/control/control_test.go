@@ -57,13 +57,16 @@ func raw(t *testing.T, path, request string) string {
 func rawErr(t *testing.T, path, request string) (string, error) {
 	t.Helper()
 	var d net.Dialer
-	conn, err := d.DialContext(t.Context(), "unix", path)
+	conn, err := d.DialUnix(t.Context(), "unix", nil, &net.UnixAddr{Name: path, Net: "unix"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = conn.Close() }()
 	if _, err := io.WriteString(conn, request); err != nil {
 		return "", fmt.Errorf("write request: %w", err)
+	}
+	if err := conn.CloseWrite(); err != nil {
+		return "", fmt.Errorf("close the write side: %w", err)
 	}
 	out, err := io.ReadAll(conn)
 	if err != nil {
