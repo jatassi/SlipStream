@@ -28,7 +28,7 @@ func TestTheHomeNodeKeepsToTheIndexersHostTimeAndSize(t *testing.T) {
 	})
 	indexer := httptest.NewServer(mux)
 	t.Cleanup(indexer.Close)
-	home := indexers.NewHome(&http.Client{}, indexers.Timings{Request: 50 * time.Millisecond})
+	home := indexers.NewHome(&http.Client{}, indexers.Timings{Request: time.Second})
 	idx := &searchv1.Indexer{Url: indexer.URL + "/torznab", ApiKey: "k"}
 
 	_, err := home.Caps(t.Context(), &searchv1.CapsRequest{Indexer: idx})
