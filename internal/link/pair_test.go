@@ -8,11 +8,14 @@ import (
 	"slices"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
+	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/node/v1/nodev1connect"
 )
 
 var secret = [joincode.SecretSize]byte{0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73}
@@ -137,6 +140,44 @@ func TestAnUnclaimedNodeRefusesEveryHandshake(t *testing.T) {
 		want := []string{"link handshake failed: peer key " + p.Worker.Key.Fingerprint() + " is refused"}
 		if got := log.lines(); !slices.Equal(got, want) {
 			t.Fatalf("the Unclaimed Node logged %q, want %q", got, want)
+		}
+	})
+}
+
+// A key the Controller admits only to Pair reaches no lockstep handler:
+// its request waits for a Welcome that never comes, and the Controller
+// closes the session at its Hello deadline.
+func TestAKeyAdmittedToPairCallsNothingElse(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		calls := make(chan link.Key, 1)
+		p := linktest.New(t, linktest.Side{Lockstep: lockstep(calls)}, linktest.Side{})
+		p.Controller.Trust.Set(p.Worker.Key, link.Pairing{})
+		c, err := p.Worker.UnwelcomedClient(t.Context(), p.Controller.Target())
+		if err != nil {
+			t.Fatal(err)
+		}
+		start := time.Now()
+		stream, err := nodev1connect.NewSyncServiceClient(c).Sync(t.Context())
+		if err == nil {
+			defer func() { _ = stream.Close() }()
+			err = stream.Send(&nodev1.Up{Frame: &nodev1.Up_Open{Open: &nodev1.Open{}}})
+		}
+		if err == nil {
+			_, err = stream.Receive()
+		}
+		if err == nil {
+			t.Fatal("Sync on a session admitted only to Pair answered")
+		}
+		if waited := time.Since(start); waited != 10*time.Second {
+			t.Fatalf("Sync failed after %v with %v, want at the Controller's 10s Hello deadline", waited, err)
+		}
+		select {
+		case <-calls:
+			t.Fatal("the Controller's Sync handler ran")
+		default:
+		}
+		if got := p.Controller.State(p.Worker.Key); got != (link.Down{}) {
+			t.Fatalf("the Controller sees %+v, want Down", got)
 		}
 	})
 }

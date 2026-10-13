@@ -4,6 +4,8 @@ import (
 	"context"
 	"net"
 
+	"connectrpc.com/connect/v2"
+
 	"github.com/jatassi/slipstream/internal/link/internal/wire"
 )
 
@@ -17,4 +19,14 @@ func (l *Link) OpenStream(ctx context.Context, key Key, kind byte) (net.Conn, er
 		return nil, ErrDisconnected
 	}
 	return wire.Open(ctx, s.mux, wire.Kind(kind))
+}
+
+// UnwelcomedClient dials t and calls over that session with no Pair or
+// Hello: what a key the peer admits only to Pair could send.
+func (l *Link) UnwelcomedClient(ctx context.Context, t Target) (*connect.Client, error) {
+	s, err := l.race(ctx, t.Addresses, func(Key) error { return nil })
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewClient(s.rpc), nil
 }
