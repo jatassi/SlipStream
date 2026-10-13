@@ -27,8 +27,5 @@ func Write(path string, data []byte) error {
 	if err != nil {
 		return errors.Join(fmt.Errorf("write %s: %w", path, err), os.Remove(tmp.Name()))
 	}
-	if err := syncDir(filepath.Dir(path)); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
+	return syncDir(filepath.Dir(path))
 }
