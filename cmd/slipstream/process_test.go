@@ -313,7 +313,13 @@ func TestAMalformedNodeKeyExitsWithItsOwnCode(t *testing.T) {
 // joinCode is the SLP1 golden code; no output may hold its text.
 const joinCode = "SLP1-CC6WT-AB6RG-SPD48-JAH4B-QCJV9-XJ6AS-K7D1M-PMTVC-DNQ6Y-W3HE9-SG213-Z0000-58D1S-QG852-G"
 
-func holdsTheCode(out string) bool { return strings.Contains(strings.ToUpper(out), "CC6WT-AB6RG") }
+func holdsTheCode(out string) bool { return holdsCode(out, joinCode) }
+
+// holdsCode is whether out holds code's text past its SLP1 prefix, in any
+// case.
+func holdsCode(out, code string) bool {
+	return strings.Contains(strings.ToUpper(out), strings.ToUpper(code[len("SLP1-"):len("SLP1-")+11]))
+}
 
 func TestAJoinCodeNeverReachesALogOrTheConfigOutput(t *testing.T) {
 	t.Parallel()

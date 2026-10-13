@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -126,20 +127,39 @@ func expectRows(t *testing.T, got []string, want ...string) {
 	}
 }
 
+// TestJoinByEnvironment launches single-machine and starts a second
+// binary with SLIPSTREAM_JOIN_CODE: it joins as a Worker, the code reaches
+// no log, and a restart with the same code changes nothing.
 func TestJoinByEnvironment(t *testing.T) {
 	t.Parallel()
-	h := startHome(t)
-	env := slices.Concat(boxEnv, []string{"SLIPSTREAM_JOIN_CODE=" + h.mint(t)})
+	a := worldtest.NewAPI(worldtest.Context(t), t, http.DefaultClient, worldtest.Launch(t, "single-machine").Manifest())
+	var minted struct {
+		Code string `json:"code"`
+	}
+	if r := a.Admin("home", http.MethodPost, "/api/v1/nodes/join-codes", ""); r.Status != http.StatusCreated || json.Unmarshal([]byte(r.Body), &minted) != nil {
+		t.Fatalf("createJoinCode = %d %s", r.Status, r.Body)
+	}
+	env := slices.Concat(boxEnv, []string{"SLIPSTREAM_JOIN_CODE=" + minted.Code})
 	dir := dataDir(t)
 	box := startNode(t, dir, env...)
-	if r := box.ready(); r.Claim.String() != "unclaimed" {
+	r := box.ready()
+	if r.Claim.String() != "unclaimed" {
 		t.Fatalf("box was ready as %s, want unclaimed until its Join", r.Claim)
+	}
+	if want := (node.Key{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: "env"}); !slices.Contains(r.Overrides, want) {
+		t.Fatalf("overrides = %+v, want %+v among them", r.Overrides, want)
 	}
 	if claimed := box.await("claimed"); claimed["claim"] != "worker" {
 		t.Fatalf("claimed record %v, want claim worker", claimed)
 	}
-	rows, id := h.nodes(t)
-	expectRows(t, rows, "home local", "box up")
+	logged, err := os.ReadFile(filepath.Join(dir, "logs", "slipstream.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if holdsCode(box.output(), minted.Code) || holdsCode(string(logged), minted.Code) {
+		t.Fatalf("a log holds the Join Code:\n%s\n%s", box.output(), logged)
+	}
+	id := expectBoxUp(t, a)
 
 	stopNode(t, box, dir)
 	again := startNode(t, dir, env...)
@@ -147,13 +167,25 @@ func TestJoinByEnvironment(t *testing.T) {
 		t.Fatalf("box restarted as %s, want worker", r.Claim)
 	}
 	again.await("join code ignored: already joined")
-	var res struct {
-		Nodes []listed `json:"nodes"`
+	if after := expectBoxUp(t, a); after != id {
+		t.Fatalf("after the restart box is %s, want %s", after, id)
 	}
-	h.admin(t, http.MethodGet, "/api/v1/nodes", &res)
-	if len(res.Nodes) != 2 || !slices.ContainsFunc(res.Nodes, func(n listed) bool { return n.ID == id }) {
-		t.Fatalf("after the restart listNodes has %+v, want home and box %s alone", res.Nodes, id)
+}
+
+// expectBoxUp checks home lists itself local and box up, and returns box's
+// id.
+func expectBoxUp(t *testing.T, a *worldtest.API) string {
+	t.Helper()
+	var rows []string
+	box := ""
+	for _, n := range a.Nodes("home") {
+		rows = append(rows, n.Name+" "+n.Link.State)
+		if n.Name == "box" {
+			box = n.ID
+		}
 	}
+	expectRows(t, rows, "home local", "box up")
+	return box
 }
 
 func TestJoinOffline(t *testing.T) {
