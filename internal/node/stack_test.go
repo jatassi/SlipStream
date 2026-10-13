@@ -112,3 +112,54 @@ func TestUnwindPastTheDeadlineNamesTheStopStillRunning(t *testing.T) {
 		t.Fatalf("deadline record = %s, want %s", got, want)
 	}
 }
+
+func TestASubStopsWhereItWasMadeWhateverJoinsItLater(t *testing.T) {
+	s := newStack(slog.New(slog.DiscardHandler))
+	r := new(stopRecorder)
+	s.OnStop("lock", r.stop("lock"))
+	claim := s.Sub("claim")
+	s.OnStop("http", r.stop("http"))
+	claim.OnStop("library.db", r.stop("library.db"))
+	claim.OnStop("local.db", r.stop("local.db"))
+	if err := s.unwind(time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"http", "local.db", "library.db", "lock"}; !slices.Equal(r.order, want) {
+		t.Fatalf("stop order = %v, want %v", r.order, want)
+	}
+}
+
+func TestWhatJoinsAnUnwindingStackStopsAtOnce(t *testing.T) {
+	s := newStack(slog.New(slog.DiscardHandler))
+	claim := s.Sub("claim")
+	r := new(stopRecorder)
+	held, release := make(chan struct{}), make(chan struct{})
+	s.OnStop("http", func(context.Context) error {
+		close(held)
+		<-release
+		return nil
+	})
+	unwound := make(chan error)
+	go func() { unwound <- s.unwind(time.Minute) }()
+	<-held
+
+	ran := func(name string) func(context.Context) error {
+		return func(ctx context.Context) error {
+			<-ctx.Done()
+			return r.stop(name)(ctx)
+		}
+	}
+	s.Go("late during the unwind", ran("late during the unwind"))
+	close(release)
+	if err := <-unwound; err != nil {
+		t.Fatal(err)
+	}
+	claim.Go("late into a sub", ran("late into a sub"))
+	s.OnStop("late stop", r.stop("late stop"))
+	if want := []string{"late during the unwind", "late into a sub", "late stop"}; !slices.Equal(r.order, want) {
+		t.Fatalf("ran = %v, want each canceled and stopped before Go or OnStop returned: %v", r.order, want)
+	}
+	if s.Err() != nil {
+		t.Fatalf("a canceled late goroutine failed the stack: %v", s.Err())
+	}
+}
