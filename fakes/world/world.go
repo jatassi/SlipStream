@@ -190,6 +190,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.startNodes,
 		r.checkListeners,
 		r.setUp,
+		r.seedLibrary,
 		r.publish,
 	}
 	for _, step := range steps {
@@ -517,18 +518,37 @@ func (n *nodeRun) checkListener(name, value string) error {
 
 // setUp runs the setup steps over the OS network.
 func (r *Run) setUp(ctx context.Context, _ *unwind) error {
-	ready := make([]node.Ready, len(r.nodes))
-	for i, n := range r.nodes {
-		ready[i] = n.ready
-	}
 	var err error
-	r.claims, err = setup.Steps(ctx, http.DefaultClient, r.scenario, ready)
+	r.claims, err = setup.Steps(ctx, http.DefaultClient, r.scenario, r.ready())
 	if err != nil {
 		return err
 	}
 	r.log.Info("nodes set up")
 	return nil
 }
+
+// seedLibrary creates the Scenario's library on the Controller, its roots'
+// folders under the media dir.
+func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
+	if r.scenario.Library == nil {
+		return nil
+	}
+	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, r.mediaDir()); err != nil {
+		return err
+	}
+	r.log.Info("library seeded")
+	return nil
+}
+
+func (r *Run) ready() []node.Ready {
+	ready := make([]node.Ready, len(r.nodes))
+	for i, n := range r.nodes {
+		ready[i] = n.ready
+	}
+	return ready
+}
+
+func (r *Run) mediaDir() string { return filepath.Join(r.scratchDir, "media") }
 
 func (r *Run) publish(ctx context.Context, undo *unwind) error {
 	var err error
@@ -557,6 +577,9 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Nodes:       []Node{},
 		Fakes:       []Fake{},
 		APIKey:      r.claims.APIKey,
+	}
+	if r.scenario.Library != nil {
+		m.MediaDir = r.mediaDir()
 	}
 	m.Binary.Version = r.nodes[0].ready.Version
 	if a := r.scenario.Admin; a != nil {

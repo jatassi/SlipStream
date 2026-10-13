@@ -21,6 +21,15 @@ func singleMachine() Scenario {
 		Nodes:       []Node{{Name: "home", Setup: SetupController}},
 		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
 		TMDB:        quietOrchard(),
+		Library:     movieLibrary(),
+	}
+}
+
+func movieLibrary() *Library {
+	return &Library{
+		Roots:    []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
+		Targets:  []LibraryTarget{{Name: "1080p", Resolutions: []string{"1080p"}}},
+		Profiles: []LibraryProfile{{Name: "Standard", ContentType: "movie", Targets: []string{"1080p"}}},
 	}
 }
 
@@ -54,6 +63,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 		},
 		Timings: node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
 		TMDB:    quietOrchard(),
+		Library: movieLibrary(),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Load(home) = %+v, want %+v", got, want)
@@ -245,6 +255,19 @@ tmdb:
       title: The Quiet Orchard
       released: "2021-04-16"
       runtime: 1h44m0s
+library:
+  roots:
+    - content_type: movie
+      folder: movies
+  targets:
+    - name: 1080p
+      resolutions:
+        - 1080p
+  profiles:
+    - name: Standard
+      content_type: movie
+      targets:
+        - 1080p
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)

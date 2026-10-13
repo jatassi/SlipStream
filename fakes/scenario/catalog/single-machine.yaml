@@ -20,3 +20,7 @@ tmdb:
       title: The Quiet Orchard
       released: 2021-04-16
       runtime: 104m
+library:
+  roots: [{content_type: movie, folder: movies}]
+  targets: [{name: 1080p, resolutions: [1080p]}]
+  profiles: [{name: Standard, content_type: movie, targets: [1080p]}]

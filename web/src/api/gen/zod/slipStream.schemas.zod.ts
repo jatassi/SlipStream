@@ -8,6 +8,83 @@ export const FieldError = zod.object({
 export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
+export const FilesMissingCell = zod.object({
+  state: zod.enum(["missing"]),
+});
+
+export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
+export type FilesMissingCellOutput = zod.output<typeof FilesMissingCell>;
+
+export const FilesDownloadingCell = zod.object({
+  state: zod.enum(["downloading"]),
+});
+
+export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
+export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
+
+export const FilesFailedCell = zod.object({
+  state: zod.enum(["failed"]),
+});
+
+export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
+export type FilesFailedCellOutput = zod.output<typeof FilesFailedCell>;
+
+export const filesProbeHeightMin = 0;
+
+export const filesProbeWidthMin = 0;
+
+export const FilesProbe = zod.object({
+  height: zod.int().min(filesProbeHeightMin),
+  width: zod.int().min(filesProbeWidthMin),
+});
+
+export type FilesProbe = zod.input<typeof FilesProbe>;
+export type FilesProbeOutput = zod.output<typeof FilesProbe>;
+
+export const filesLibraryFileSizeMin = 0;
+
+export const FilesLibraryFile = zod.object({
+  id: zod.uuid(),
+  path: zod.string().describe("Relative to its root, / separated"),
+  probe: FilesProbe,
+  size: zod.int().min(filesLibraryFileSizeMin),
+});
+
+export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
+export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
+
+export const FilesMetCell = zod.object({
+  file: FilesLibraryFile.describe("The file filling it"),
+  state: zod.enum(["met"]),
+});
+
+export type FilesMetCell = zod.input<typeof FilesMetCell>;
+export type FilesMetCellOutput = zod.output<typeof FilesMetCell>;
+
+export const FilesCell = zod.discriminatedUnion("state", [
+  FilesMissingCell,
+  FilesDownloadingCell,
+  FilesFailedCell,
+  FilesMetCell,
+]);
+
+export type FilesCell = zod.input<typeof FilesCell>;
+export type FilesCellOutput = zod.output<typeof FilesCell>;
+
+export const FilesCellList = zod.object({
+  cells: zod.array(FilesCell).describe("By Item in tree order, then Target in Profile order"),
+});
+
+export type FilesCellList = zod.input<typeof FilesCellList>;
+export type FilesCellListOutput = zod.output<typeof FilesCellList>;
+
+export const FilesChanged = zod.object({
+  workId: zod.uuid(),
+});
+
+export type FilesChanged = zod.input<typeof FilesChanged>;
+export type FilesChangedOutput = zod.output<typeof FilesChanged>;
+
 export const identityAccountDisplayNameMax = 100;
 
 export const identityAccountEmailMax = 254;
@@ -251,6 +328,45 @@ export const Problem = zod.object({
 export type Problem = zod.input<typeof Problem>;
 export type ProblemOutput = zod.output<typeof Problem>;
 
+export const RootsChanged = zod.object({});
+
+export type RootsChanged = zod.input<typeof RootsChanged>;
+export type RootsChangedOutput = zod.output<typeof RootsChanged>;
+
+export const rootsNewRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const rootsNewRootPathMax = 4096;
+
+export const RootsNewRoot = zod.object({
+  contentType: zod.string().regex(rootsNewRootContentTypeRegExp),
+  path: zod
+    .string()
+    .min(1)
+    .max(rootsNewRootPathMax)
+    .describe("An absolute path to an existing folder on the Controller"),
+});
+
+export type RootsNewRoot = zod.input<typeof RootsNewRoot>;
+export type RootsNewRootOutput = zod.output<typeof RootsNewRoot>;
+
+export const rootsRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const RootsRoot = zod.object({
+  contentType: zod.string().regex(rootsRootContentTypeRegExp),
+  id: zod.uuid(),
+  nodeId: zod.uuid().describe("The Node whose disk holds it"),
+  path: zod.string(),
+});
+
+export type RootsRoot = zod.input<typeof RootsRoot>;
+export type RootsRootOutput = zod.output<typeof RootsRoot>;
+
+export const RootsRootList = zod.object({
+  roots: zod.array(RootsRoot).describe("By Content Type"),
+});
+
+export type RootsRootList = zod.input<typeof RootsRootList>;
+export type RootsRootListOutput = zod.output<typeof RootsRootList>;
+
 export const SystemBuild = zod.object({
   commit: zod.string().exactOptional(),
   fingerprint: zod.string().exactOptional(),
@@ -299,6 +415,75 @@ export const SystemStatus = zod.object({
 
 export type SystemStatus = zod.input<typeof SystemStatus>;
 export type SystemStatusOutput = zod.output<typeof SystemStatus>;
+
+export const TargetsChanged = zod.object({});
+
+export type TargetsChanged = zod.input<typeof TargetsChanged>;
+export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
+
+export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const targetsNewProfileNameMax = 100;
+
+export const TargetsNewProfile = zod.object({
+  contentType: zod.string().regex(targetsNewProfileContentTypeRegExp),
+  name: zod.string().min(1).max(targetsNewProfileNameMax),
+  targetIds: zod.array(zod.uuid()).min(1).describe("Highest ranked first"),
+});
+
+export type TargetsNewProfile = zod.input<typeof TargetsNewProfile>;
+export type TargetsNewProfileOutput = zod.output<typeof TargetsNewProfile>;
+
+export const targetsNewTargetNameMax = 100;
+
+export const TargetsNewTarget = zod.object({
+  name: zod.string().min(1).max(targetsNewTargetNameMax),
+  resolutions: zod
+    .array(zod.enum(["2160p", "1080p", "720p", "576p", "480p"]))
+    .min(1)
+    .describe("Highest ranked first"),
+});
+
+export type TargetsNewTarget = zod.input<typeof TargetsNewTarget>;
+export type TargetsNewTargetOutput = zod.output<typeof TargetsNewTarget>;
+
+export const targetsProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const TargetsProfile = zod.object({
+  contentType: zod.string().regex(targetsProfileContentTypeRegExp),
+  default: zod.boolean().describe("Whether the Content Type's Works use it"),
+  id: zod.uuid(),
+  name: zod.string(),
+  targetIds: zod.array(zod.uuid()).describe("Highest ranked first"),
+});
+
+export type TargetsProfile = zod.input<typeof TargetsProfile>;
+export type TargetsProfileOutput = zod.output<typeof TargetsProfile>;
+
+export const TargetsProfileList = zod.object({
+  profiles: zod.array(TargetsProfile).describe("By Content Type, then name"),
+});
+
+export type TargetsProfileList = zod.input<typeof TargetsProfileList>;
+export type TargetsProfileListOutput = zod.output<typeof TargetsProfileList>;
+
+export const TargetsTarget = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+  id: zod.uuid(),
+  name: zod.string(),
+  resolutions: zod
+    .array(zod.enum(["2160p", "1080p", "720p", "576p", "480p"]))
+    .describe("Highest ranked first"),
+});
+
+export type TargetsTarget = zod.input<typeof TargetsTarget>;
+export type TargetsTargetOutput = zod.output<typeof TargetsTarget>;
+
+export const TargetsTargetList = zod.object({
+  targets: zod.array(TargetsTarget).describe("By name"),
+});
+
+export type TargetsTargetList = zod.input<typeof TargetsTargetList>;
+export type TargetsTargetListOutput = zod.output<typeof TargetsTargetList>;
 
 export const WorksTextValue = zod.object({
   key: zod.string(),
@@ -531,6 +716,14 @@ export const WorksWorkList = zod.object({
 export type WorksWorkList = zod.input<typeof WorksWorkList>;
 export type WorksWorkListOutput = zod.output<typeof WorksWorkList>;
 
+export const LiveEventFilesChanged = zod.object({
+  event: zod.enum(["files.changed"]),
+  data: FilesChanged,
+});
+
+export type LiveEventFilesChanged = zod.input<typeof LiveEventFilesChanged>;
+export type LiveEventFilesChangedOutput = zod.output<typeof LiveEventFilesChanged>;
+
 export const LiveEventIdentitySessionsChanged = zod.object({
   event: zod.enum(["identity.sessions-changed"]),
   data: IdentitySessionsChanged,
@@ -565,6 +758,22 @@ export const LiveEventNodesChanged = zod.object({
 export type LiveEventNodesChanged = zod.input<typeof LiveEventNodesChanged>;
 export type LiveEventNodesChangedOutput = zod.output<typeof LiveEventNodesChanged>;
 
+export const LiveEventRootsChanged = zod.object({
+  event: zod.enum(["roots.changed"]),
+  data: RootsChanged,
+});
+
+export type LiveEventRootsChanged = zod.input<typeof LiveEventRootsChanged>;
+export type LiveEventRootsChangedOutput = zod.output<typeof LiveEventRootsChanged>;
+
+export const LiveEventTargetsChanged = zod.object({
+  event: zod.enum(["targets.changed"]),
+  data: TargetsChanged,
+});
+
+export type LiveEventTargetsChanged = zod.input<typeof LiveEventTargetsChanged>;
+export type LiveEventTargetsChangedOutput = zod.output<typeof LiveEventTargetsChanged>;
+
 export const LiveEventWorksChanged = zod.object({
   event: zod.enum(["works.changed"]),
   data: WorksWorkChanged,
@@ -584,10 +793,13 @@ export type LiveEventWorksContentTypesChangedOutput = zod.output<
 >;
 
 export const LiveEvent = zod.discriminatedUnion("event", [
+  LiveEventFilesChanged,
   LiveEventIdentitySessionsChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
   LiveEventNodesChanged,
+  LiveEventRootsChanged,
+  LiveEventTargetsChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
 ]);
