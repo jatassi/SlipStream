@@ -30,6 +30,7 @@ func movieLibrary() *Library {
 		Roots:    []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
 		Targets:  []LibraryTarget{{Name: "1080p", Resolutions: []string{"1080p"}}},
 		Profiles: []LibraryProfile{{Name: "Standard", ContentType: "movie", Targets: []string{"1080p"}}},
+		Indexers: []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
 	}
 }
 
@@ -268,6 +269,9 @@ library:
       content_type: movie
       targets:
         - 1080p
+  indexers:
+    - name: Fixture Site
+      site: fixture-site
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)

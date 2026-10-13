@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/db"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/musicbrainz"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -211,6 +212,11 @@ func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item wor
 
 func (*Music) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Target}"}
+}
+
+// SearchTerms answers indexers' empty answer: music isn't searched.
+func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
 }
 
 func artistFields(country string) []works.FieldValue {

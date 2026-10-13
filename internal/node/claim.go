@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -128,6 +129,14 @@ func (s surfaceNode) Works() (*works.Works, bool) {
 		return nil, false
 	}
 	return h.works, true
+}
+
+func (s surfaceNode) Indexers() (*indexers.Indexers, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.indexers == nil {
+		return nil, false
+	}
+	return h.indexers, true
 }
 
 func (s surfaceNode) Targets() (*targets.Targets, bool) {

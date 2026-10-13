@@ -95,6 +95,35 @@ func (q *Queries) GetNodeByKey(ctx context.Context, publicKey []byte) (NodesNode
 	return i, err
 }
 
+const holdersByPairing = `-- name: HoldersByPairing :many
+SELECT n.id FROM nodes_node n JOIN nodes_role r ON r.node_id = n.id
+WHERE r.role = ?1
+ORDER BY n.paired_at, n.id
+`
+
+func (q *Queries) HoldersByPairing(ctx context.Context, argRole role.Name) ([]role.NodeID, error) {
+	rows, err := q.db.QueryContext(ctx, holdersByPairing, argRole)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []role.NodeID
+	for rows.Next() {
+		var id role.NodeID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertAddress = `-- name: InsertAddress :exec
 INSERT INTO nodes_address (node_id, position, address)
 VALUES (?1, ?2, ?3)

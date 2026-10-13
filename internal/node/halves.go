@@ -7,9 +7,11 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -35,6 +37,7 @@ type half struct {
 	controls *role.Controls
 	cluster  *rpc.Cluster
 	works    *works.Works
+	indexers *indexers.Indexers
 	targets  *targets.Targets
 	roots    *roots.Roots
 	files    *files.Files
@@ -47,9 +50,10 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	client := n.httpClient()
 	tree, err := works.Open(ctx, works.Config{
 		Library:      lib.db,
-		Catalogs:     contenttype.Project(n.openTypes(), func(t contenttype.Type) works.Catalog { return t }),
+		Catalogs:     contenttype.Project(n.openTypes(client), func(t contenttype.Type) works.Catalog { return t }),
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
@@ -80,11 +84,20 @@ func (n *Node) startController(ctx context.Context) error {
 	self := n.key.Public()
 	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
 	cluster := rpc.NewCluster(dispatch, side)
+	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
 	n.setHalf(&half{
 		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree,
+		indexers: indexers.New(indexers.Config{
+			Library: lib.db,
+			Roster:  side,
+			Searching: func(node role.NodeID) searchv1connect.SearchingServiceHandler {
+				return searchv1connect.SearchingService.On(cluster, node)
+			},
+			Changed: indexers.ChangedEvent.Bind(n.hub),
+		}),
 		targets: targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
 		roots:   roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:   files.New(files.Config{Library: lib.db, Works: tree, Grabs: files.NoGrabs{}}),
@@ -94,18 +107,23 @@ func (n *Node) startController(ctx context.Context) error {
 	return nil
 }
 
-func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
+// httpClient is the half's client for every host the Node reaches, dialing
+// through the Node's network and trusting the OS roots.
+func (n *Node) httpClient() *http.Client {
 	transport := &http.Transport{
 		DialContext:         n.env.Net.DialContext,
 		ForceAttemptHTTP2:   true,
 		TLSHandshakeTimeout: 10 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
 	}
-	n.claimed.OnStop("content types", func(context.Context) error {
+	n.claimed.OnStop("http client", func(context.Context) error {
 		transport.CloseIdleConnections()
 		return nil
 	})
-	client := &http.Client{Transport: transport}
+	return &http.Client{Transport: transport}
+}
+
+func (n *Node) openTypes(client *http.Client) map[works.TypeID]contenttype.Type {
 	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
 	source := tmdb.New(client, n.cfg.Endpoints.TMDB, userAgent)
 	types := map[works.TypeID]contenttype.Type{}
@@ -130,6 +148,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 		return err
 	}
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
+	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	n.lockstep.Handle("/", dispatch)
 	n.setHalf(&half{peers: side, dispatch: dispatch})
 	n.link.Keep(controller)

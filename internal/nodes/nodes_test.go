@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -175,6 +176,34 @@ func TestAKnownKeyKeepsItsRoles(t *testing.T) {
 		}
 		if want := []role.Name{role.Searching, role.Downloading}; got.Name != "box" || !slices.Equal(got.Roles, want) {
 			t.Fatalf("after a new code the known key is %q holding %v, want box holding %v", got.Name, got.Roles, want)
+		}
+	})
+}
+
+func TestHoldersByPairingListTheFirstPairedFirst(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		var ids []role.NodeID
+		for i, name := range []string{"box", "crate"} {
+			w := c.worker(t, name, "127.0.0."+strconv.Itoa(3+i))
+			_, id := c.pair(t, w, c.mint(t), name)
+			w.Drop(c.node.Key)
+			synctest.Wait()
+			ids = append(ids, id)
+			time.Sleep(time.Minute)
+		}
+		for _, id := range []role.NodeID{ids[1], ids[0]} {
+			if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Searching}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		holders, err := c.svc.HoldersByPairing(t.Context(), role.Searching)
+		if want := []role.NodeID{c.svc.Self(), ids[0], ids[1]}; err != nil || !slices.Equal(holders, want) {
+			t.Fatalf("searching holders = %v, %v; want the Controller, box, crate %v", holders, err, want)
+		}
+		holders, err = c.svc.HoldersByPairing(t.Context(), role.Downloading)
+		if want := []role.NodeID{c.svc.Self()}; err != nil || !slices.Equal(holders, want) {
+			t.Fatalf("downloading holders = %v, %v; want the Controller alone", holders, err)
 		}
 	})
 }

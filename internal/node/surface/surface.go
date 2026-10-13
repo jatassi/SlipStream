@@ -11,6 +11,8 @@ import (
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexersapi"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/liveapi"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -35,6 +37,7 @@ var Events = []live.Event{
 	works.ContentTypesChangedEvent,
 	targets.ChangedEvent,
 	roots.ChangedEvent,
+	indexers.ChangedEvent,
 	files.ChangedEvent,
 }
 
@@ -49,6 +52,7 @@ type Node interface {
 	worksapi.Shelf
 	targetsapi.Goals
 	rootsapi.Folders
+	indexersapi.Registry
 	filesapi.Library
 }
 
@@ -70,6 +74,7 @@ func Mount(r *api.Router, s Services) {
 	worksapi.Routes(r, s.Node)
 	targetsapi.Routes(r, s.Node)
 	rootsapi.Routes(r, s.Node)
+	indexersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)
 }
 

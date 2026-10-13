@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttypes/movie"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -152,6 +153,22 @@ func TestNamingTokensNameTheMovie(t *testing.T) {
 	}
 	if got, want := folder+"/"+file, "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p"; got != want {
 		t.Fatalf("named %q, want %q", got, want)
+	}
+}
+
+func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
+	m, lib, tree := added(t, "9000001")
+	var terms indexers.Terms
+	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		terms, err = m.SearchTerms(ctx, r, tree.Items[0].ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
+	if !reflect.DeepEqual(terms, want) {
+		t.Fatalf("terms %+v, want %+v", terms, want)
 	}
 }
 

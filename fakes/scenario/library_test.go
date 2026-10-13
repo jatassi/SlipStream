@@ -22,6 +22,10 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "Standard", ContentType: "music", Targets: []string{"1080p", "4k"}},
 			{Name: "Standard", ContentType: "music"},
 		},
+		Indexers: []LibraryIndexer{
+			{Name: "Site", Site: "fixture-site"},
+			{Name: "Site", Site: "other-site"},
+		},
 	}}
 	want := []string{
 		"scenario x: library is set, but no node is controller",
@@ -34,6 +38,8 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		"scenario x: library profile Standard names target 4k, which library.targets does not list",
 		"scenario x: library has two profiles named Standard",
 		"scenario x: library profile Standard has no targets",
+		"scenario x: library has two indexers named Site",
+		`scenario x: library indexer Site is on site "other-site", which no fake serves`,
 	}
 	err := s.Validate()
 	if err == nil {
