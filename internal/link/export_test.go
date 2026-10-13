@@ -3,6 +3,7 @@ package link
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"connectrpc.com/connect/v2"
 
@@ -29,4 +30,12 @@ func (l *Link) UnwelcomedClient(ctx context.Context, t Target) (*connect.Client,
 		return nil, err
 	}
 	return connect.NewClient(s.rpc), nil
+}
+
+// HTTPClient sends raw HTTP over key's live session, as any h2c client on
+// the link could.
+func (l *Link) HTTPClient(key Key) *http.Client {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return &http.Client{Transport: l.live[key].http}
 }

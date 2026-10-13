@@ -47,8 +47,9 @@ func (p pings) Ping(context.Context, *rpctestv1.PingRequest) (*rpctestv1.PingRes
 
 // TestMismatch restarts seedbox on another build. Hello still succeeds,
 // so the link is live but unmatched: a lockstep call is not sent, no Sync
-// stream opens, and seedbox's Probe keeps its last intent as Mismatched,
-// while the frozen services still answer.
+// stream reaches home, and seedbox's Probe keeps its last intent as
+// Mismatched, while the frozen services still answer. The link tier sends
+// the raw Hello POST (TestMismatchedPeersServeOnlyTheFrozenPackage).
 func TestMismatch(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe(), sim.Build("0.0.0-a"))
@@ -64,9 +65,16 @@ func TestMismatch(t *testing.T) {
 		synctest.Wait()
 
 		worker := w.Node("seedbox")
+		syncs := w.Node("home").SyncStreams()
+		if syncs == 0 {
+			t.Fatal("no Sync stream reached home from the matched seedbox")
+		}
 		worker.Stop()
 		worker.Start(func(e *node.Env) { e.Version = "0.0.0-b" })
 		synctest.Wait()
+		if opened := w.Node("home").SyncStreams() - syncs; opened != 0 {
+			t.Fatalf("%d Sync streams reached home from the mismatched seedbox, want none", opened)
+		}
 		homeKey := key(t, w, "home")
 		if live, ok := worker.Half().Link.State(homeKey).(link.Live); !ok || live.Matched || live.Peer.Version != "0.0.0-a" {
 			t.Fatalf("seedbox's link to home is %+v, want live and unmatched with 0.0.0-a", worker.Half().Link.State(homeKey))

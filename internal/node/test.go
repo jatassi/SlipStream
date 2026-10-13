@@ -2,6 +2,7 @@ package node
 
 import (
 	"io"
+	"net/http"
 
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
@@ -26,6 +27,8 @@ type Test struct {
 	Held func(local *storage.DB[storage.Local]) []role.Held
 	// Started sees each half once it runs.
 	Started func(Half)
+	// Lockstep wraps the handler the link serves lockstep requests with.
+	Lockstep func(http.Handler) http.Handler
 }
 
 // Half is a started half as a test reaches it. Library, Controls and
@@ -44,6 +47,13 @@ func (t Test) held(local *storage.DB[storage.Local]) []role.Held {
 		return nil
 	}
 	return t.Held(local)
+}
+
+func (t Test) lockstep(h http.Handler) http.Handler {
+	if t.Lockstep == nil {
+		return h
+	}
+	return t.Lockstep(h)
 }
 
 func (t Test) started(h Half) {

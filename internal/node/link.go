@@ -42,7 +42,7 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 		Net:      n.env.Net,
 		Rand:     streams.Stream("link"),
 		Trust:    peers,
-		Lockstep: n.lockstep,
+		Lockstep: n.env.Test.lockstep(n.lockstep),
 		Pair:     peers.Pair,
 		Log:      n.rootLog.With("subsystem", "link"),
 	})

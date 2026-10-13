@@ -1,8 +1,10 @@
 package link_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/netip"
 	"testing"
@@ -10,11 +12,11 @@ import (
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/link/v1/linkv1connect"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/node/v1/nodev1connect"
 )
@@ -114,15 +116,43 @@ func TestMismatchedPeersServeOnlyTheFrozenPackage(t *testing.T) {
 		default:
 		}
 
-		res, err := linkv1connect.NewLinkServiceClient(p.Worker.Client(p.Controller.Key)).Hello(t.Context(), &linkv1.HelloRequest{Node: &linkv1.NodeInfo{Version: "0.0.0-b"}})
-		if err != nil || res.GetWelcome().GetNode().GetVersion() != "0.0.0-a" {
-			t.Fatalf("Hello between versions = %v, %v", res, err)
+		if res := rawHello(t, p.Worker.Link, p.Controller.Key, "0.0.0-b"); res.GetWelcome().GetNode().GetVersion() != "0.0.0-a" {
+			t.Fatalf("Hello between versions = %v, want the Controller's Welcome", res)
 		}
 		_, err = p.Worker.UpdateClient(p.Controller.Key).GetManifest(t.Context(), &linkv1.GetManifestRequest{})
 		if connect.CodeOf(err) != connect.CodeUnimplemented {
 			t.Fatalf("GetManifest between versions = %v, want it sent and unimplemented", err)
 		}
 	})
+}
+
+// rawHello POSTs a Hello from version to key as plain application/proto
+// over the session, with no connect client.
+func rawHello(t *testing.T, l *link.Link, key link.Key, version string) *linkv1.HelloResponse {
+	t.Helper()
+	body, err := proto.Marshal(&linkv1.HelloRequest{Node: &linkv1.NodeInfo{Version: version}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://"+key.String()+"/slipstream.link.v1.LinkService/Hello", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/proto")
+	resp, err := l.HTTPClient(key).Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	out, err := io.ReadAll(resp.Body)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST Hello = %d %q, %v; want 200", resp.StatusCode, out, err)
+	}
+	var res linkv1.HelloResponse
+	if err := proto.Unmarshal(out, &res); err != nil {
+		t.Fatal(err)
+	}
+	return &res
 }
 
 func TestACallWithNoSessionIsNotSent(t *testing.T) {

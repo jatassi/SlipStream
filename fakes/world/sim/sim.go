@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -72,6 +73,7 @@ type Node struct {
 	dir  node.DataDir
 
 	running *node.Node
+	syncs   atomic.Int64
 
 	mu      sync.Mutex
 	half    node.Half
@@ -253,11 +255,21 @@ func (n *Node) env() node.Env {
 // test is what the world adds to the Node: a view of each half, and the
 // Probe when the world runs it. Each start serves a fresh Probe control.
 func (n *Node) test() node.Test {
-	t := node.Test{Started: func(h node.Half) {
-		n.mu.Lock()
-		defer n.mu.Unlock()
-		n.half = h
-	}}
+	t := node.Test{
+		Started: func(h node.Half) {
+			n.mu.Lock()
+			defer n.mu.Unlock()
+			n.half = h
+		},
+		Lockstep: func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasPrefix(r.URL.Path, "/slipstream.node.v1.SyncService/") {
+					n.syncs.Add(1)
+				}
+				h.ServeHTTP(w, r)
+			})
+		},
+	}
 	if !n.w.opts.probe {
 		return t
 	}
@@ -290,6 +302,10 @@ func (n *Node) Stop() {
 	}
 	n.running = nil
 }
+
+// SyncStreams is how many Sync streams reached the Node's lockstep handler
+// across its starts.
+func (n *Node) SyncStreams() int64 { return n.syncs.Load() }
 
 func (n *Node) Ready() node.Ready { return n.running.Ready() }
 
