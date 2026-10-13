@@ -17,7 +17,15 @@ import (
 )
 
 func init() {
-	register("build", "build cmd/slipstream for the host target into dist/", runBuild)
+	register("build", "build cmd/slipstream, and cmd/slipstream-e2e for test jobs, for the host target into dist/", runBuild)
+}
+
+// mains are the binaries build links with the release flags: slipstream,
+// which ships, and slipstream-e2e, which also registers the test Content
+// Types and only test jobs run.
+var mains = []struct{ pkg, name string }{
+	{"./cmd/slipstream", "slipstream"},
+	{"./cmd/slipstream-e2e", "slipstream-e2e"},
 }
 
 func runBuild(ctx context.Context, args []string) error {
@@ -60,7 +68,21 @@ func runBuild(ctx context.Context, args []string) error {
 	if err := os.MkdirAll(*dist, 0o755); err != nil {
 		return fmt.Errorf("create dist: %w", err)
 	}
-	tmp, err := os.CreateTemp(*dist, ".slipstream-*.tmp")
+	tags := strings.Join(append([]string{"release"}, target.GoTags...), ",")
+	for _, m := range mains {
+		out := executable(target, *dist, m.name)
+		if err := buildMain(ctx, root, out, m.pkg, tags, ldflag, bundle); err != nil {
+			return err
+		}
+		fmt.Println(out)
+	}
+	return nil
+}
+
+// buildMain links pkg into out through a temporary file in out's
+// directory, so a failed build or linkage check leaves no binary there.
+func buildMain(ctx context.Context, root, out, pkg, tags, ldflag string, bundle native.Bundle) error {
+	tmp, err := os.CreateTemp(filepath.Dir(out), ".slipstream-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create build output: %w", err)
 	}
@@ -68,24 +90,21 @@ func runBuild(ctx context.Context, args []string) error {
 		return fmt.Errorf("create build output: %w", err)
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	tags := strings.Join(append([]string{"release"}, target.GoTags...), ",")
 	gobuild := exec.CommandContext(ctx, "go", "build", "-trimpath", "-tags", tags,
 		"-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+ldflag,
-		"-o", tmp.Name(), "./cmd/slipstream")
+		"-o", tmp.Name(), pkg)
 	gobuild.Dir = root
 	gobuild.Stdout, gobuild.Stderr = os.Stderr, os.Stderr
 	gobuild.Env = bundleEnv(bundle)
 	if err := gobuild.Run(); err != nil {
-		return fmt.Errorf("go build: %w", err)
+		return fmt.Errorf("go build %s: %w", pkg, err)
 	}
 	if err := linkage.Check(tmp.Name()); err != nil {
 		return err
 	}
-	out := executable(target, *dist, "slipstream")
 	if err := os.Rename(tmp.Name(), out); err != nil {
 		return fmt.Errorf("move build output into dist: %w", err)
 	}
-	fmt.Println(out)
 	return nil
 }
 

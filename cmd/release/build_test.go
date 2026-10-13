@@ -43,16 +43,18 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bin := filepath.Join(dist, "slipstream")
+	bin, e2e := filepath.Join(dist, "slipstream"), filepath.Join(dist, "slipstream-e2e")
 	if runtime.GOOS == "windows" {
-		bin += ".exe"
+		bin, e2e = bin+".exe", e2e+".exe"
 	}
-	got, err := buildinfo.ReadFile(bin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != want {
-		t.Errorf("stamp in %s = %+v, want %+v", bin, got, want)
+	for _, b := range []string{bin, e2e} {
+		got, err := buildinfo.ReadFile(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Errorf("stamp in %s = %+v, want %+v", b, got, want)
+		}
 	}
 
 	printed, err := exec.CommandContext(t.Context(), bin, "version").Output()
