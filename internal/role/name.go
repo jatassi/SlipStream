@@ -59,10 +59,12 @@ const (
 
 func (s Standing) String() string {
 	switch s {
+	case Unreachable:
+		return "unreachable"
 	case Live:
 		return "live"
 	case Mismatched:
 		return "mismatched"
 	}
-	return "unreachable"
+	return fmt.Sprintf("Standing(%d)", uint8(s))
 }

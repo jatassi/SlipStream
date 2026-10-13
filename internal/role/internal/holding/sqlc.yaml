@@ -1,0 +1,21 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: role_epoch.id
+            go_type:
+              type: Singleton
+          - column: role_epoch.epoch
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
