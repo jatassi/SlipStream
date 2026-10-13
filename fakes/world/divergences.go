@@ -30,6 +30,12 @@ var divergences = []divergence{
 		spec:        "#127",
 	},
 	{
+		id:          "node-name",
+		keyPatterns: []string{"name"},
+		reason:      "Each Node is named as in its Scenario, since every Node of a run shares the host name.",
+		spec:        "#132",
+	},
+	{
 		id:          "timings",
 		keyPatterns: []string{"timings.*"},
 		reason:      "Protocol durations are shortened for the wall-clock tier (boundary 42).",

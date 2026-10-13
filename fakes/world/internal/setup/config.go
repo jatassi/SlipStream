@@ -1,10 +1,11 @@
-package world
+// Package setup is what both worlds, the process world and the simulation
+// tier, do to a Scenario's Nodes: the config.yaml each runs with, the setup
+// steps once they are ready, and each one's manifest entry.
+package setup
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"net"
 	"net/netip"
 	"path"
 	"strings"
@@ -16,7 +17,8 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-func nodeAddress(i int) netip.Addr {
+// Address is Node i's loopback address, 127.0.0.(i+2).
+func Address(i int) netip.Addr {
 	addr := netip.AddrFrom4([4]byte{127, 0, 0, 2})
 	for range i {
 		addr = addr.Next()
@@ -24,28 +26,9 @@ func nodeAddress(i int) netip.Addr {
 	return addr
 }
 
-// CheckAddresses binds and closes the address of each of n Nodes, and
-// returns them. Past the 31 addresses setup-loopback aliases, it refuses
-// without trying.
-func CheckAddresses(ctx context.Context, n int) ([]netip.Addr, error) {
-	addrs := make([]netip.Addr, n)
-	for i := range n {
-		addr := nodeAddress(i)
-		refuse := fmt.Errorf(`%s is not usable on this machine; on macOS run "sudo fakeworld setup-loopback" once`, addr)
-		if i >= scenario.MaxNodes {
-			return nil, refuse
-		}
-		l, err := new(net.ListenConfig).Listen(ctx, "tcp", netip.AddrPortFrom(addr, 0).String())
-		if err != nil {
-			return nil, refuse
-		}
-		_ = l.Close()
-		addrs[i] = addr
-	}
-	return addrs, nil
-}
-
-func listenKeys(probe node.Resolved) []string {
+// ListenKeys is every listen key of the binary's config, from a probe of
+// its keys.
+func ListenKeys(probe node.Resolved) []string {
 	var keys []string
 	for _, k := range probe.Keys {
 		listen, _ := path.Match("*.listen", k.Key)
@@ -56,10 +39,14 @@ func listenKeys(probe node.Resolved) []string {
 	return keys
 }
 
-func nodeConfig(s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) ([]byte, error) {
+// Config is Node i's config.yaml: its seed and name, every listen key on
+// its own address, the timings the Scenario sets and the endpoints the
+// fakes moved.
+func Config(s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) ([]byte, error) {
 	root := &yaml.Node{Kind: yaml.MappingNode}
 	set(root, "seed", s.Seed+"/"+s.Nodes[i].Name)
-	at := netip.AddrPortFrom(nodeAddress(i), 0).String()
+	set(root, "name", s.Nodes[i].Name)
+	at := netip.AddrPortFrom(Address(i), 0).String()
 	for _, key := range listen {
 		set(root, key, at)
 	}
@@ -102,7 +89,7 @@ func set(m *yaml.Node, key, value string) {
 func scalar(v string) *yaml.Node {
 	var n yaml.Node
 	if err := n.Encode(v); err != nil {
-		panic("world: " + err.Error())
+		panic("setup: " + err.Error())
 	}
 	return &n
 }

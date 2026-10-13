@@ -26,7 +26,7 @@ func schema(t *testing.T) []byte {
 		DoNotReference: true,
 		Mapper: func(t reflect.Type) *jsonschema.Schema {
 			if t == reflect.TypeFor[scenario.Setup]() {
-				return &jsonschema.Schema{Type: "string", Enum: []any{scenario.SetupNone.String(), scenario.SetupController.String()}}
+				return &jsonschema.Schema{Type: "string", Enum: []any{scenario.SetupNone.String(), scenario.SetupController.String(), scenario.SetupJoin.String()}}
 			}
 			return nil
 		},

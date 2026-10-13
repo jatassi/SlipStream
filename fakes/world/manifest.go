@@ -6,8 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jatassi/slipstream/fakes/scenario"
-	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 )
 
 const (
@@ -61,31 +60,17 @@ type CAFile struct {
 	File string `json:"file"`
 }
 
-type Node struct {
-	Name       string            `json:"name"`
-	Setup      scenario.Setup    `json:"setup"`
-	Claim      Claim             `json:"claim"`
-	Address    string            `json:"address"`
-	Host       string            `json:"host"`
-	URL        string            `json:"url"`
-	BrowserURL string            `json:"browserUrl"`
-	Listeners  map[string]string `json:"listeners"`
-	DataDir    string            `json:"dataDir"`
-	PID        int               `json:"pid"`
-	Seed       string            `json:"seed"`
-	Log        string            `json:"log"`
-	Overrides  []node.Key        `json:"overrides"`
-}
+// Node is one Node's manifest entry, built where both worlds share it.
+type Node = setup.Node
 
 // Claim is what a Node is once the world has set it up.
-type Claim string
+type Claim = setup.Claim
 
 const (
-	ClaimUnclaimed  Claim = "unclaimed"
-	ClaimController Claim = "controller"
+	ClaimUnclaimed  = setup.ClaimUnclaimed
+	ClaimController = setup.ClaimController
+	ClaimWorker     = setup.ClaimWorker
 )
-
-var claimAfter = [...]Claim{scenario.SetupNone: ClaimUnclaimed, scenario.SetupController: ClaimController}
 
 type Fake struct {
 	Name string `json:"name"`

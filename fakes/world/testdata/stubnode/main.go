@@ -85,6 +85,7 @@ func run(dir string) {
 		DataDir: d.Path(),
 		Version: "stub",
 		Seed:    cfg.Seed,
+		NodeKey: "0000-0000-0000-0000",
 		Listeners: node.Listeners{
 			Control: d.ControlSocket(),
 			Torrent: netip.MustParseAddrPort(cfg.Torrent.Listen),
