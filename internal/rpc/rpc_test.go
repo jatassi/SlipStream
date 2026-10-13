@@ -41,6 +41,7 @@ func (r *recorder) Record(ctx context.Context, req *rpctestv1.RecordRequest) (*r
 	text := req.GetText()
 	req.Text = "mutated by the handler"
 	switch req.GetFail() {
+	case rpctestv1.Fail_FAIL_UNSPECIFIED:
 	case rpctestv1.Fail_FAIL_CODED:
 		return nil, fmt.Errorf("%w: %w", errSentinel, rpc.Errorf(rpc.CodeFailedPrecondition, "x"))
 	case rpctestv1.Fail_FAIL_FORWARD:
@@ -145,40 +146,52 @@ func TestCallsLookTheSameInProcessAndOverTheLink(t *testing.T) {
 				c.Connect(t)
 				d, key := row.caller(c)
 				svc := rpctestv1connect.RecordService.Call(d)
-
-				req := &rpctestv1.RecordRequest{Text: "hello"}
-				res, err := svc.Record(t.Context(), req)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if want := (&rpctestv1.RecordResponse{Text: "hello", Caller: key[:]}); !proto.Equal(res, want) {
-					t.Errorf("response = %v, want %v", res, want)
-				}
-				if req.GetText() != "hello" {
-					t.Errorf("the caller's request reads %q after the call", req.GetText())
-				}
-				c.recorder.last.Text = "changed by the handler later"
-				if res.GetText() != "hello" {
-					t.Errorf("the caller's response reads %q after the handler changed its own", res.GetText())
-				}
-
-				_, err = svc.Record(t.Context(), &rpctestv1.RecordRequest{Fail: rpctestv1.Fail_FAIL_CODED})
-				if rpc.CodeOf(err) != rpc.CodeFailedPrecondition || err.Error() != "failed_precondition: x" {
-					t.Errorf("the handler's error arrived as %v (code %v)", err, rpc.CodeOf(err))
-				}
-				if errors.Is(err, errSentinel) {
-					t.Error("the handler's sentinel reached the caller")
-				}
-				if why, ok := rpc.NotSent(err); ok || rpc.Lost(err) {
-					t.Errorf("a call that ran reads as not sent (%v, %v) or lost (%v)", why, ok, rpc.Lost(err))
-				}
-
-				_, err = svc.Record(t.Context(), &rpctestv1.RecordRequest{Fail: rpctestv1.Fail_FAIL_FORWARD})
-				if why, ok := rpc.NotSent(err); ok || !rpc.Lost(err) || err.Error() != "unavailable: no live link session to the peer" {
-					t.Errorf("a handler passing on a call that never ran = %v, NotSent %v %v; want Lost", err, why, ok)
-				}
+				checkCopies(t, c.recorder, svc, key)
+				checkErrors(t, svc)
 			})
 		})
+	}
+}
+
+// checkCopies calls svc and checks neither side sees the other's later
+// changes to the messages.
+func checkCopies(t *testing.T, r *recorder, svc rpctestv1connect.RecordServiceHandler, caller link.Key) {
+	t.Helper()
+	req := &rpctestv1.RecordRequest{Text: "hello"}
+	res, err := svc.Record(t.Context(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (&rpctestv1.RecordResponse{Text: "hello", Caller: caller[:]}); !proto.Equal(res, want) {
+		t.Errorf("response = %v, want %v", res, want)
+	}
+	if req.GetText() != "hello" {
+		t.Errorf("the caller's request reads %q after the call", req.GetText())
+	}
+	r.last.Text = "changed by the handler later"
+	if res.GetText() != "hello" {
+		t.Errorf("the caller's response reads %q after the handler changed its own", res.GetText())
+	}
+}
+
+// checkErrors checks a handler's error reaches the caller as its code and
+// message only.
+func checkErrors(t *testing.T, svc rpctestv1connect.RecordServiceHandler) {
+	t.Helper()
+	_, err := svc.Record(t.Context(), &rpctestv1.RecordRequest{Fail: rpctestv1.Fail_FAIL_CODED})
+	if rpc.CodeOf(err) != rpc.CodeFailedPrecondition || err.Error() != "failed_precondition: x" {
+		t.Errorf("the handler's error arrived as %v (code %v)", err, rpc.CodeOf(err))
+	}
+	if errors.Is(err, errSentinel) {
+		t.Error("the handler's sentinel reached the caller")
+	}
+	if why, ok := rpc.NotSent(err); ok || rpc.Lost(err) {
+		t.Errorf("a call that ran reads as not sent (%v, %v) or lost (%v)", why, ok, rpc.Lost(err))
+	}
+
+	_, err = svc.Record(t.Context(), &rpctestv1.RecordRequest{Fail: rpctestv1.Fail_FAIL_FORWARD})
+	if why, ok := rpc.NotSent(err); ok || !rpc.Lost(err) || err.Error() != "unavailable: no live link session to the peer" {
+		t.Errorf("a handler passing on a call that never ran = %v, NotSent %v %v; want Lost", err, why, ok)
 	}
 }
 
