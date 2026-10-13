@@ -54,10 +54,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	side, err := n.controllerSide(ctx, lib.db)
-	if err != nil {
-		return err
-	}
+	side := n.controllerSide(ctx, lib.db)
 	controls := role.NewControls(role.ControlsConfig{
 		Library:  lib.db,
 		Nodes:    side,

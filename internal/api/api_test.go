@@ -45,9 +45,9 @@ func newRouterOn(t *testing.T, log *bytes.Buffer) (*Router, *storage.DB[storage.
 		t.Fatal(err)
 	}
 	return NewRouter(Services{
-		Node:     identitytest.Controller{Node: identitytest.Node{Service: svc}},
-		Web:      fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
-		Log:      slog.New(slog.NewTextHandler(log, nil)),
+		Node: identitytest.Controller{Node: identitytest.Node{Service: svc}},
+		Web:  fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
+		Log:  slog.New(slog.NewTextHandler(log, nil)),
 	}), lib
 }
 

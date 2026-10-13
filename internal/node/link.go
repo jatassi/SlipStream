@@ -16,7 +16,7 @@ import (
 type osNetwork struct{}
 
 func (osNetwork) Listen(network, address string) (net.Listener, error) {
-	return net.Listen(network, address) //nolint:wrapcheck // the caller names the listener
+	return new(net.ListenConfig).Listen(context.Background(), network, address) //nolint:wrapcheck // the caller names the listener
 }
 
 func (osNetwork) DialContext(ctx context.Context, network, address string) (net.Conn, error) {

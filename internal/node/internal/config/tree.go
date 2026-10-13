@@ -180,7 +180,7 @@ var (
 	redactedCodec = codec{
 		parse: func(s string, v reflect.Value) error {
 			u, _ := v.Addr().Interface().(encoding.TextUnmarshaler)
-			return u.UnmarshalText([]byte(s)) //nolint:wrapcheck // the leaf's own message, never its value
+			return u.UnmarshalText([]byte(s))
 		},
 		format: func(v reflect.Value) string {
 			r, _ := v.Interface().(redacter)

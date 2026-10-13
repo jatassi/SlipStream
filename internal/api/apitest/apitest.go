@@ -71,7 +71,7 @@ var workerWalk = map[string][]want{
 
 // madeUp are credentials no Node issued, which is all a Worker's caller can
 // hold.
-var madeUp = Credentials{
+var madeUp = Credentials{ //nolint:gosec // credentials no Node issued
 	Member: func() string { return "made-up-member-session" },
 	Admin:  func() string { return "made-up-admin-session" },
 	APIKey: "ssk_made-up",

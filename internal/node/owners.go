@@ -13,8 +13,8 @@ import (
 // controllerSide opens the nodes owner's side of the Controller half. Until
 // the nodes owner exists it is a roster of this Node alone, holding no Role
 // and admitting no peer.
-func (n *Node) controllerSide(context.Context, *storage.DB[storage.Library]) (controllerSide, error) {
-	return selfOnly{id: role.NodeID{UUID: storage.NewUUID()}, key: n.key.Public()}, nil
+func (n *Node) controllerSide(context.Context, *storage.DB[storage.Library]) controllerSide {
+	return selfOnly{id: role.NodeID{UUID: storage.NewUUID()}, key: n.key.Public()}
 }
 
 // workerSide reads the pairing owner's side of the Worker half from
