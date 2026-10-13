@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/atomicfile"
 	"github.com/jatassi/slipstream/internal/secret/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -114,22 +114,7 @@ func readKey(path string) (*Keys, error) {
 func createKey(path string) (*Keys, error) {
 	var k Keys
 	_, _ = rand.Read(k.key[:])
-	tmp, err := os.CreateTemp(filepath.Dir(path), KeyFile+".*")
-	if err != nil {
-		return nil, fmt.Errorf("create %s: %w", KeyFile, err)
-	}
-	_, err = tmp.WriteString(hex.EncodeToString(k.key[:]) + "\n")
-	if err == nil {
-		err = tmp.Sync()
-	}
-	err = errors.Join(err, tmp.Close())
-	if err == nil {
-		err = os.Rename(tmp.Name(), path)
-	}
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("create %s: %w", KeyFile, err), os.Remove(tmp.Name()))
-	}
-	if err := syncDir(filepath.Dir(path)); err != nil {
+	if err := atomicfile.Write(path, []byte(hex.EncodeToString(k.key[:])+"\n")); err != nil {
 		return nil, fmt.Errorf("create %s: %w", KeyFile, err)
 	}
 	return &k, nil

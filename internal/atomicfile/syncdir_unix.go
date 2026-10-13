@@ -1,6 +1,6 @@
 //go:build !windows
 
-package secret
+package atomicfile
 
 import (
 	"errors"
