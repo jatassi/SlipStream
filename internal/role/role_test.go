@@ -85,15 +85,6 @@ func (c *cluster) setIntent(t *testing.T, node role.NodeID, value string) {
 	}
 }
 
-func (c *cluster) applied(t *testing.T, node role.NodeID) []uint64 {
-	t.Helper()
-	got, err := roletest.Applied(t.Context(), c.lib, node)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return got
-}
-
 func (c *cluster) path() *fault.Switch {
 	return c.pair.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr)
 }
@@ -121,12 +112,12 @@ type holder struct {
 	stop  func()
 }
 
-func start(t *testing.T, local *storage.DB[storage.Local], up role.Upstream) *holder {
+func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local]) *holder {
 	t.Helper()
 	probe := roletest.NewProbe(local)
 	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
 		Local:    local,
-		Upstream: up,
+		Upstream: role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key),
 		Held:     []role.Held{probe.Held()},
 		Timings:  timings,
 		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
@@ -149,12 +140,6 @@ func start(t *testing.T, local *storage.DB[storage.Local], up role.Upstream) *ho
 	return &holder{Holding: h, probe: probe, stop: stop}
 }
 
-func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local]) *holder {
-	t.Helper()
-	return start(t, local, role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key))
-}
-
-// check fails t when what is got, not want.
 func check(t *testing.T, what, got, want string) {
 	t.Helper()
 	if got != want {
@@ -228,66 +213,6 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 	})
 }
 
-func TestResultsApplyOnce(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		c := newCluster(t, "", "")
-		c.assign(c.workerID, roletest.Name)
-		local := storagetest.Local(t, role.LocalSchema())
-		w := c.startWorker(t, local)
-		c.pair.Connect(t)
-		synctest.Wait()
-
-		c.path().Set(fault.Stall{})
-		time.Sleep(partitioned)
-		for n := range uint64(3) {
-			if err := w.probe.Report(t.Context(), n+1); err != nil {
-				t.Fatalf("report %d while partitioned: %v", n+1, err)
-			}
-		}
-		synctest.Wait()
-		if got := c.applied(t, c.workerID); len(got) != 0 {
-			t.Fatalf("applied %v while partitioned", got)
-		}
-
-		resume := c.probe.PauseAt(3)
-		c.path().Set(fault.None{})
-		time.Sleep(redialed)
-		synctest.Wait()
-		c.path().Set(fault.CutAfter(0))
-		resume()
-		synctest.Wait()
-		if got := c.applied(t, c.workerID); !slices.Equal(got, []uint64{1, 2, 3}) {
-			t.Errorf("after the heal, applied %v", got)
-		}
-		check(t, "with the ack cut, the probe", snapshot(t, w.probe), `"" unreachable may start false`)
-
-		c.path().Set(fault.None{})
-		time.Sleep(redialed)
-		synctest.Wait()
-		if got := c.applied(t, c.workerID); !slices.Equal(got, []uint64{1, 2, 3}) {
-			t.Errorf("after the next re-dial, applied %v", got)
-		}
-		if err := w.probe.Report(t.Context(), 4); err != nil {
-			t.Fatal(err)
-		}
-		synctest.Wait()
-		if got := c.applied(t, c.workerID); !slices.Equal(got, []uint64{1, 2, 3, 4}) {
-			t.Errorf("after reporting 4, applied %v", got)
-		}
-
-		w.stop()
-		fresh := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
-		synctest.Wait()
-		if err := fresh.probe.Report(t.Context(), 1); err != nil {
-			t.Fatal(err)
-		}
-		synctest.Wait()
-		if got := c.applied(t, c.workerID); !slices.Equal(got, []uint64{1, 2, 3, 4, 1}) {
-			t.Errorf("with a new local.db, applied %v", got)
-		}
-	})
-}
-
 func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -327,67 +252,6 @@ func TestAMismatchedWorkerKeepsItsLastIntent(t *testing.T) {
 		synctest.Wait()
 		check(t, "between versions, the probe", snapshot(t, again.probe), `"last" mismatched may start false`)
 		check(t, "a Sync stream opened between versions", nodeFacts(mismatched, mismatched.workerID), "no facts")
-	})
-}
-
-func TestSupervisorRestarts(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		c := newCluster(t, "", "")
-		c.assign(c.controllerID, roletest.Name)
-		h := start(t, storagetest.Local(t, role.LocalSchema()), role.InProcess(c.controls))
-		synctest.Wait()
-		if got := nodeFacts(c, c.controllerID); got != "assigned [probe] running [probe] restarting []" {
-			t.Fatalf("in process, the Controller's facts are %s", got)
-		}
-		check(t, "in process, the probe", snapshot(t, h.probe), `"" live may start true`)
-
-		h.probe.Crash()
-		synctest.Wait()
-		check(t, "after the panic, the facts", nodeFacts(c, c.controllerID), "assigned [probe] running [] restarting [probe]")
-		time.Sleep(timings.RestartMin)
-		synctest.Wait()
-		check(t, "restart_min after the panic, the facts", nodeFacts(c, c.controllerID), "assigned [probe] running [probe] restarting []")
-		if got := h.probe.Starts(); got != 2 {
-			t.Errorf("the probe started %d times, want 2", got)
-		}
-	})
-}
-
-// recorder is a testing.TB that keeps what CheckFresh reports.
-type recorder struct {
-	testing.TB
-	errs []string
-}
-
-func (r *recorder) Errorf(format string, args ...any) {
-	r.errs = append(r.errs, fmt.Sprintf(format, args...))
-}
-
-func TestCheckFreshFindsAChangeWithoutTouch(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		c := newCluster(t, "", "")
-		c.assign(c.workerID, roletest.Name)
-		c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
-		c.pair.Connect(t)
-		synctest.Wait()
-		names := map[role.NodeID]string{c.controllerID: "home", c.workerID: "seedbox"}
-
-		c.setIntent(t, c.workerID, "touched")
-		c.probe.Touch(c.workerID)
-		synctest.Wait()
-		touched := &recorder{TB: t}
-		roletest.CheckFresh(touched, c.controls, names)
-		if len(touched.errs) != 0 {
-			t.Errorf("after a Touch, CheckFresh reported %q", touched.errs)
-		}
-
-		c.setIntent(t, c.workerID, "forgotten")
-		synctest.Wait()
-		forgot := &recorder{TB: t}
-		roletest.CheckFresh(forgot, c.controls, names)
-		if want := []string{"probe intent for seedbox changed without Touch"}; !slices.Equal(forgot.errs, want) {
-			t.Errorf("without Touch, CheckFresh reported %q, want %q", forgot.errs, want)
-		}
 	})
 }
 

@@ -54,8 +54,8 @@ func report(t *testing.T, w *sim.World, name string, results ...uint64) {
 
 // TestResultsApplyOnce reports results from seedbox's Probe while it is
 // partitioned. home applies each once: after the heal, again after a
-// re-dial that follows an Ack cut on its first byte, and a new epoch's
-// result after seedbox lost its local.db.
+// re-dial that follows an Ack cut on its first byte, with the outbox going
+// on past the cut, and a new epoch's result after seedbox lost its local.db.
 func TestResultsApplyOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe())
@@ -89,6 +89,11 @@ func TestResultsApplyOnce(t *testing.T) {
 		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3}) {
 			t.Fatalf("after the next re-dial, home applied %v, want [1 2 3]", got)
 		}
+		report(t, w, "seedbox", 4)
+		synctest.Wait()
+		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3, 4}) {
+			t.Fatalf("after reporting 4, home applied %v, want [1 2 3 4]", got)
+		}
 
 		box := w.Node("seedbox")
 		box.Stop()
@@ -101,8 +106,8 @@ func TestResultsApplyOnce(t *testing.T) {
 		synctest.Wait()
 		report(t, w, "seedbox", 1)
 		synctest.Wait()
-		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3, 1}) {
-			t.Fatalf("with a new local.db, home applied %v, want [1 2 3 1]", got)
+		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3, 4, 1}) {
+			t.Fatalf("with a new local.db, home applied %v, want [1 2 3 4 1]", got)
 		}
 	})
 }
