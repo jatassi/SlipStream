@@ -310,6 +310,24 @@ func TestAMalformedNodeKeyExitsWithItsOwnCode(t *testing.T) {
 	}
 }
 
+// A node.key the Node cannot read, here a directory on every OS, exits 6
+// at start and in an offline join.
+func TestAnUnreadableNodeKeyExitsWithTheRecordCode(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	if err := os.Mkdir(filepath.Join(dir, "node.key"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
+	if got := startFailed(res.stderr); res.code != node.ExitRecordRefused || !strings.HasPrefix(got, "read node key: ") {
+		t.Fatalf("run: exit %d, start failed with %q; want exit %d with read node key: ...\n%s", res.code, got, node.ExitRecordRefused, res.stderr)
+	}
+	res = slipstream(t, childEnv(), "join", "--data-dir", dir, joinCode)
+	if res.code != node.ExitRecordRefused || !strings.HasPrefix(res.stderr, "slipstream join: read node key: ") {
+		t.Fatalf("join: exit %d, stderr %q; want exit %d with read node key: ...", res.code, res.stderr, node.ExitRecordRefused)
+	}
+}
+
 // joinCode is the SLP1 golden code; no output may hold its text.
 const joinCode = "SLP1-CC6WT-AB6RG-SPD48-JAH4B-QCJV9-XJ6AS-K7D1M-PMTVC-DNQ6Y-W3HE9-SG213-Z0000-58D1S-QG852-G"
 

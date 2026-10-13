@@ -84,6 +84,13 @@ func (e *MalformedKeyError) Error() string {
 	return fmt.Sprintf("node key %s is not 64 hex characters", e.Path)
 }
 
+// UnreadableKeyError is a node.key that exists but cannot be read.
+type UnreadableKeyError struct{ Err error }
+
+func (e *UnreadableKeyError) Error() string { return "read node key: " + e.Err.Error() }
+
+func (e *UnreadableKeyError) Unwrap() error { return e.Err }
+
 // OpenKey reads dir's node.key: 64 hex characters and a newline holding
 // the 32-byte seed. A Node's first start creates it from crypto/rand.
 func OpenKey(dir string) (PrivateKey, error) {
@@ -93,7 +100,7 @@ func OpenKey(dir string) (PrivateKey, error) {
 		return createKey(path)
 	}
 	if err != nil {
-		return PrivateKey{}, fmt.Errorf("read node key: %w", err)
+		return PrivateKey{}, &UnreadableKeyError{Err: err}
 	}
 	seed, err := hex.DecodeString(strings.TrimSpace(string(b)))
 	if err != nil || len(seed) != ed25519.SeedSize {

@@ -102,10 +102,7 @@ func joinOffline(ctx context.Context, env Env, code joincode.Code) (pairing.Join
 	if err != nil {
 		return pairing.Joined{}, err
 	}
-	key, err := link.OpenKey(env.DataDir.Path())
-	if _, malformed := errors.AsType[*link.MalformedKeyError](err); malformed {
-		err = &RecordError{Err: err}
-	}
+	key, err := openKey(env.DataDir)
 	if err != nil {
 		return pairing.Joined{}, err
 	}
@@ -159,4 +156,16 @@ func (offline) Pair(context.Context, link.Key, *linkv1.PairRequest) (*linkv1.Pai
 func exists(elem ...string) bool {
 	_, err := os.Stat(filepath.Join(elem...))
 	return err == nil
+}
+
+// openKey is link.OpenKey with a node.key the Node cannot read or use as a
+// *RecordError.
+func openKey(dir DataDir) (link.PrivateKey, error) {
+	key, err := link.OpenKey(dir.Path())
+	_, malformed := errors.AsType[*link.MalformedKeyError](err)
+	_, unreadable := errors.AsType[*link.UnreadableKeyError](err)
+	if malformed || unreadable {
+		return key, &RecordError{Err: err}
+	}
+	return key, err
 }

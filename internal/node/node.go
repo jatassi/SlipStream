@@ -264,10 +264,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 // claim and, while the Node is Unclaimed, the Setup code.
 func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (system.Claim, string, error) {
 	n.cfg = cfg
-	key, err := link.OpenKey(n.env.DataDir.Path())
-	if _, malformed := errors.AsType[*link.MalformedKeyError](err); malformed {
-		err = &RecordError{Err: err}
-	}
+	key, err := openKey(n.env.DataDir)
 	if err != nil {
 		return 0, "", err
 	}
