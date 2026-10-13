@@ -316,7 +316,7 @@ func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name
 	}
 	now := storage.Now()
 	switch {
-	case !code.UsedBy.IsZero() && known && code.UsedBy == row.ID:
+	case known && code.UsedBy == row.ID:
 		return row, 0, nil
 	case !code.UsedBy.IsZero():
 		return db.NodesNode{}, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED, nil
@@ -680,9 +680,7 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 		Version:   version,
 		Since:     s.opened,
 	}
-	if f, ok := s.controls.NodeFacts(row.ID); ok {
-		n.Facts = f
-	}
+	n.Facts, _ = s.controls.NodeFacts(row.ID)
 	if n.Self {
 		own := s.cfg.Node
 		n.Link, n.Build = Local, &own
