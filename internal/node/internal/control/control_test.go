@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 )
@@ -112,6 +113,33 @@ func TestOneRequestManyReplies(t *testing.T) {
 	}
 	if err := c.Recv(new(int)); !errors.Is(err, io.EOF) {
 		t.Fatalf("after the last reply: %v, want EOF", err)
+	}
+}
+
+// Windows AF_UNIX can leave a pending read blocked after the peer closes,
+// so a few hundred round trips catch a client that waits on that close.
+func TestEveryRoundTripEndsAtEOF(t *testing.T) {
+	path := serve(t, map[string]control.Handler{
+		"ping": func(_ context.Context, _ json.RawMessage, send func(any) error) error { return send("pong") },
+	})
+	for i := range 500 {
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		c, err := control.Dial(ctx, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Send("ping", nil); err != nil {
+			t.Fatal(err)
+		}
+		var reply string
+		if err := c.Recv(&reply); err != nil || reply != "pong" {
+			t.Fatalf("round trip %d: reply %q, %v", i, reply, err)
+		}
+		if err := c.Recv(new(string)); !errors.Is(err, io.EOF) {
+			t.Fatalf("round trip %d: after the reply: %v, want EOF", i, err)
+		}
+		_ = c.Close()
+		cancel()
 	}
 }
 
