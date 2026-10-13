@@ -575,7 +575,7 @@ type Node struct {
 	Key       link.Key
 	Self      bool
 	PairedAt  time.Time
-	Addresses []netip.AddrPort
+	Addresses link.Addresses
 	Roles     []role.Name
 	Version   []byte
 	Link      LinkState
@@ -596,17 +596,17 @@ func (s *Service) List(ctx context.Context) ([]Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	byNode := map[ID][]netip.AddrPort{}
+	byNode := map[ID][]string{}
 	for _, a := range addrs {
-		ap, err := netip.ParseAddrPort(a.Address)
-		if err != nil {
-			return nil, fmt.Errorf("node %s address %d: %w", a.NodeID, a.Position, err)
-		}
-		byNode[a.NodeID] = append(byNode[a.NodeID], ap)
+		byNode[a.NodeID] = append(byNode[a.NodeID], a.Address)
 	}
 	nodes := make([]Node, 0, len(rows))
 	for _, row := range rows {
-		n, err := s.view(ctx, row, byNode[row.ID])
+		addrs, err := addressRecord(row.ID, byNode[row.ID])
+		if err != nil {
+			return nil, err
+		}
+		n, err := s.view(ctx, row, addrs)
 		if err != nil {
 			return nil, err
 		}
@@ -629,16 +629,35 @@ func (s *Service) Get(ctx context.Context, id ID) (Node, error) {
 	if err != nil {
 		return Node{}, err
 	}
-	addrs := make([]netip.AddrPort, len(held))
-	for i, a := range held {
-		if addrs[i], err = netip.ParseAddrPort(a); err != nil {
-			return Node{}, fmt.Errorf("node %s address %d: %w", id, i, err)
-		}
+	addrs, err := addressRecord(id, held)
+	if err != nil {
+		return Node{}, err
 	}
 	return s.view(ctx, row, addrs)
 }
 
-func (s *Service) view(ctx context.Context, row db.NodesNode, addrs []netip.AddrPort) (Node, error) {
+// addressRecord reads a Node's nodes_address rows through the peer
+// address record's parser. No rows is the zero record.
+func addressRecord(node ID, rows []string) (link.Addresses, error) {
+	if len(rows) == 0 {
+		return link.Addresses{}, nil
+	}
+	aps := make([]netip.AddrPort, len(rows))
+	for i, a := range rows {
+		ap, err := netip.ParseAddrPort(a)
+		if err != nil {
+			return link.Addresses{}, fmt.Errorf("node %s address %d: %w", node, i, err)
+		}
+		aps[i] = ap
+	}
+	addrs, err := link.ParseAddresses(aps)
+	if err != nil {
+		return link.Addresses{}, fmt.Errorf("node %s addresses: %w", node, err)
+	}
+	return addrs, nil
+}
+
+func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Addresses) (Node, error) {
 	key, err := link.KeyFromBytes(row.PublicKey)
 	if err != nil {
 		return Node{}, fmt.Errorf("node %s: %w", row.ID, err)
@@ -669,7 +688,7 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs []netip.Addr
 		own := s.cfg.Node
 		n.Link, n.Build = Local, &own
 		if advertised, ok := s.cfg.Link.Advertised(); ok {
-			n.Addresses = advertised.All()
+			n.Addresses = advertised
 		}
 		return n, nil
 	}

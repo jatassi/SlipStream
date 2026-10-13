@@ -92,7 +92,7 @@ func nodeOf(n nodes.Node) node {
 		IntentVersion: hex.EncodeToString(n.Version),
 		Link:          link{State: n.Link.String(), Since: n.Since},
 	}
-	for _, a := range n.Addresses {
+	for _, a := range n.Addresses.All() {
 		out.Addresses = append(out.Addresses, a.String())
 	}
 	for _, r := range n.Roles {

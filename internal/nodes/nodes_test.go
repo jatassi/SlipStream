@@ -234,6 +234,32 @@ func TestTheControllersOwnRow(t *testing.T) {
 	})
 }
 
+// A nodes_address row the peer address record refuses fails the read.
+func TestAZonedAddressRowIsRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		list, err := c.svc.List(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		own := list[0].ID
+		err = c.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, "INSERT INTO nodes_address (node_id, position, address) VALUES (?, 0, '[fe80::1%eth0]:8485')", own)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "node " + own.String() + " addresses: address [fe80::1%eth0]:8485 is not a literal IP and port"
+		if _, err := c.svc.List(t.Context()); err == nil || err.Error() != want {
+			t.Fatalf("List = %v, want %s", err, want)
+		}
+		if _, err := c.svc.Get(t.Context(), own); err == nil || err.Error() != want {
+			t.Fatalf("Get = %v, want %s", err, want)
+		}
+	})
+}
+
 // TestAJoinCodeIsStoredOnlyAsItsSecretsHash mints a code: its one row
 // holds the SHA-256 of the secret, and no value in the nodes set holds
 // the secret, the code's text or its prefix.
