@@ -191,12 +191,24 @@ func protoFrozen(ctx context.Context, w io.Writer, root, dir, base string) error
 	}
 	cmd := exec.CommandContext(ctx, buf, "breaking", "--against", "../.git#tag="+tag+",subdir="+protoDir, "--path", frozenDir)
 	cmd.Dir = filepath.Join(dir, protoDir)
-	cmd.Stdout = w
-	cmd.Stderr = w
-	if err := cmd.Run(); err != nil {
+	out, err := cmd.CombinedOutput()
+	_, _ = io.WriteString(w, slashFindings(string(out)))
+	if err != nil {
 		return fmt.Errorf("slipstream.link.v1 breaks against %s: %w", tag, err)
 	}
 	return nil
+}
+
+// slashFindings rewrites each finding's file path with forward slashes, as
+// buf prints the host's separator.
+func slashFindings(out string) string {
+	lines := strings.SplitAfter(out, "\n")
+	for i, line := range lines {
+		if path, rest, ok := strings.Cut(line, ":"); ok {
+			lines[i] = filepath.ToSlash(path) + ":" + rest
+		}
+	}
+	return strings.Join(lines, "")
 }
 
 var releaseTag = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)$`)
