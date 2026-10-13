@@ -59,6 +59,11 @@ func (e *idleEngine) Close() error {
 // that never rotates. It returns the host to dial the Node from.
 func inMemory(env Env) (Env, *fault.Host) {
 	host := fault.NewNetwork().Host(netip.MustParseAddr("127.0.0.1"))
+	return inMemoryOn(env, host), host
+}
+
+// inMemoryOn runs env on host, one machine of an in-memory network.
+func inMemoryOn(env Env, host *fault.Host) Env {
 	env.Net = host
 	env.Engine = func(c engine.Config) (engine.Engine, error) {
 		return &idleEngine{listen: netip.AddrPortFrom(c.ListenInterface.Addr(), 6881), events: make(chan engine.Event)}, nil
@@ -73,7 +78,7 @@ func inMemory(env Env) (Env, *fault.Host) {
 		}
 		return logs.New(stderr, f), nil
 	}
-	return env, host
+	return env
 }
 
 // startInMemory starts env in memory inside the caller's bubble and returns
@@ -81,6 +86,13 @@ func inMemory(env Env) (Env, *fault.Host) {
 func startInMemory(t *testing.T, env Env) (*Node, client) {
 	t.Helper()
 	env, host := inMemory(env)
+	return startOn(t, env, host)
+}
+
+// startOn starts env, already on host's network, and returns a client of
+// its HTTP listener that dials from host.
+func startOn(t *testing.T, env Env, host *fault.Host) (*Node, client) {
+	t.Helper()
 	n, err := Start(t.Context(), env)
 	if err != nil {
 		t.Fatal(err)
