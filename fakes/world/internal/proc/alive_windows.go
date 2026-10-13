@@ -1,19 +1,16 @@
 package proc
 
-import "syscall"
+import "golang.org/x/sys/windows"
 
-const (
-	processQueryLimitedInformation = 0x1000
-	stillActive                    = 259
-)
-
-// Alive reports whether a process with pid exists and has not exited.
+// Alive reports whether a process with pid exists and its process object is
+// not yet signaled. Its exit code is set before that, while the process
+// still holds its executable.
 func Alive(pid int) bool {
-	h, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(pid)) //nolint:gosec // a PID is positive and fits
+	h, err := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(pid)) //nolint:gosec // a PID is positive and fits
 	if err != nil {
 		return false
 	}
-	defer func() { _ = syscall.CloseHandle(h) }()
-	var code uint32
-	return syscall.GetExitCodeProcess(h, &code) == nil && code == stillActive
+	defer func() { _ = windows.CloseHandle(h) }()
+	event, err := windows.WaitForSingleObject(h, 0)
+	return err == nil && event == uint32(windows.WAIT_TIMEOUT)
 }
