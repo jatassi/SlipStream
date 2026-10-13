@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"errors"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -233,4 +234,48 @@ func TestWalkPanicsOutsideTheLeafSet(t *testing.T) {
 		} `yaml:"odd"`
 	}
 	config.Walk(&bad)
+}
+
+// passphrase is a secret leaf: its text is its value, and Redacted hides it.
+type passphrase struct{ text string }
+
+func (p passphrase) MarshalText() ([]byte, error) { return []byte(p.text), nil }
+
+func (p *passphrase) UnmarshalText(b []byte) error {
+	if len(b) < 8 {
+		return errors.New("the passphrase is too short")
+	}
+	p.text = string(b)
+	return nil
+}
+
+func (p passphrase) Redacted() string {
+	if p.text == "" {
+		return ""
+	}
+	return "[redacted]"
+}
+
+func TestARedactedLeafNeverShowsItsValue(t *testing.T) {
+	var cfg struct {
+		Join struct {
+			Passphrase passphrase `yaml:"passphrase"`
+		} `yaml:"join"`
+	}
+	keys, err := config.Load(&cfg, t.TempDir(), []string{"SLIPSTREAM_JOIN_PASSPHRASE=correct horse"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := config.Key{Key: "join.passphrase", Value: "[redacted]", Default: "", Source: config.SourceEnv}
+	if keys[0] != want || cfg.Join.Passphrase.text != "correct horse" {
+		t.Fatalf("key = %+v holding %q, want %+v holding the passphrase", keys[0], cfg.Join.Passphrase.text, want)
+	}
+
+	dir := t.TempDir()
+	writeFile(t, dir, "config.yaml", "join:\n  passphrase: hunter2\n")
+	_, err = config.Load(&cfg, dir, []string{"SLIPSTREAM_JOIN_PASSPHRASE=letmein"})
+	want2 := "config.yaml:2: join.passphrase: the passphrase is too short\nenv: SLIPSTREAM_JOIN_PASSPHRASE: the passphrase is too short"
+	if err == nil || err.Error() != want2 {
+		t.Fatalf("err = %v, want %q", err, want2)
+	}
 }

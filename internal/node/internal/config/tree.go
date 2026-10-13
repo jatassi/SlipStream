@@ -80,7 +80,8 @@ func (l Leaf) elems() []reflect.Value {
 // Walk returns the leaves of tree, a pointer to a struct, in field order. It
 // panics on a field without a yaml tag or of a type outside the leaf set:
 // strings, booleans, integers, time.Duration, encoding.TextUnmarshaler
-// values and slices of those.
+// values and slices of those. A text leaf with a Redacted method shows only
+// that wherever a value is printed, its parse errors included.
 func Walk(tree any) []Leaf {
 	v := reflect.ValueOf(tree)
 	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
@@ -124,14 +125,22 @@ type codec struct {
 	format func(reflect.Value) string
 }
 
+// redacter is a leaf whose value is a secret.
+type redacter interface {
+	Redacted() string
+}
+
 var (
 	durationType        = reflect.TypeFor[time.Duration]()
 	textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
 	textMarshalerType   = reflect.TypeFor[encoding.TextMarshaler]()
+	redacterType        = reflect.TypeFor[redacter]()
 )
 
 func scalarCodec(t reflect.Type) (codec, bool) {
 	switch {
+	case reflect.PointerTo(t).Implements(textUnmarshalerType) && t.Implements(textMarshalerType) && t.Implements(redacterType):
+		return redactedCodec, true
 	case reflect.PointerTo(t).Implements(textUnmarshalerType) && t.Implements(textMarshalerType):
 		return textCodec, true
 	case t == durationType:
@@ -166,6 +175,16 @@ var (
 				panic(fmt.Sprintf("config: format %s: %v", v.Type(), err))
 			}
 			return string(b)
+		},
+	}
+	redactedCodec = codec{
+		parse: func(s string, v reflect.Value) error {
+			u, _ := v.Addr().Interface().(encoding.TextUnmarshaler)
+			return u.UnmarshalText([]byte(s)) //nolint:wrapcheck // the leaf's own message, never its value
+		},
+		format: func(v reflect.Value) string {
+			r, _ := v.Interface().(redacter)
+			return r.Redacted()
 		},
 	}
 	durationCodec = codec{
