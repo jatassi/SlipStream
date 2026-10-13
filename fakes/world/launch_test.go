@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -375,10 +376,18 @@ func TestLaunchRefusesAScenarioNeedingAContentTypeTheBinaryLacks(t *testing.T) {
 
 func TestTheE2EBinaryCensusListsTheMusicEndpointAtItsDefault(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	out, err := exec.CommandContext(worldtest.Context(t), testbin.E2E(t), "config", "--data-dir", dir).Output()
+	dir, err := os.MkdirTemp("", "ss") //nolint:usetesting // t.TempDir's path is too long for the socket limit on macOS and Windows
 	if err != nil {
 		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	var stderr strings.Builder
+	cmd := exec.CommandContext(worldtest.Context(t), testbin.E2E(t), "config", "--data-dir", dir)
+	cmd.Env = nodeenv.Environ("")
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("slipstream-e2e config: %v\n%s", err, stderr.String())
 	}
 	var resolved node.Resolved
 	if err := json.Unmarshal(out, &resolved); err != nil {
