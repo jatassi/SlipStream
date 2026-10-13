@@ -75,9 +75,7 @@ test("a claim shows the API key once and Continue enters the app", async () => {
   ]);
 
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
-  await expect
-    .element(page.getByRole("heading", { name: "Signed in as Ada Okafor" }))
-    .toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(router.state.location.href).toBe("/");
 });
 

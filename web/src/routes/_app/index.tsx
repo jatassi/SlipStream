@@ -1,40 +1,55 @@
-import { Logout01Icon } from "@hugeicons/core-free-icons";
 import { Link, createFileRoute } from "@tanstack/react-router";
 
-import { useDeleteSession } from "../../api/gen/query/identity/identity";
-import { useAccount } from "../../session/session";
-import { Button } from "../../ui/button";
-import { Icon } from "../../ui/icon";
+import {
+  getListContentTypesSuspenseQueryOptions,
+  getListWorksSuspenseQueryOptions,
+  useListContentTypesSuspense,
+  useListWorksSuspense,
+} from "../../api/gen/query/works/works";
+import { ensureQuery } from "../../api/query-client";
+import { Skeleton } from "../../ui/skeleton";
+import { enabledType, yearOf } from "../../works/fields";
 
 export const Route = createFileRoute("/_app/")({
-  component: Home,
+  loader: ({ context }) =>
+    Promise.all([
+      ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
+      ensureQuery(context.queryClient, getListWorksSuspenseQueryOptions()),
+    ]),
+  pendingComponent: () => <Skeleton label="Loading the Library" />,
+  component: Library,
 });
 
-function Home() {
-  const account = useAccount();
-  const { endSession } = Route.useRouteContext();
-  const signOut = useDeleteSession({
-    mutation: {
-      onSuccess: () => {
-        endSession("signed-out");
-      },
-    },
-  });
+function Library() {
+  const type = enabledType(useListContentTypesSuspense().data.contentTypes);
+  const { works } = useListWorksSuspense().data;
   return (
-    <section className="flex flex-col items-start gap-4">
-      <h1 className="text-2xl font-bold">Signed in as {account.displayName}</h1>
-      <Link to="/system" className="underline">
-        This Node
-      </Link>
-      <Button
-        onClick={() => {
-          signOut.mutate();
-        }}
-        disabled={signOut.isPending}
-      >
-        <Icon icon={Logout01Icon} />
-        Sign out
-      </Button>
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-4">
+        <h1 className="text-2xl font-bold">Library</h1>
+        {type === undefined ? null : (
+          <Link to="/add" className="underline">
+            Add {type.work.one.toLowerCase()}
+          </Link>
+        )}
+      </div>
+      {works.length === 0 ? (
+        <p className="text-ink-3">Nothing in the library yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {works.map((work) => {
+            const year = yearOf(work.fields);
+            return (
+              <li key={work.id}>
+                <Link to="/works/$workId" params={{ workId: work.id }} className="underline">
+                  {work.label}
+                </Link>
+                {year === undefined ? null : <span className="text-ink-3"> {year}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

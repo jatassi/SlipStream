@@ -32,8 +32,9 @@ test("a fresh Node takes a person from the Setup code to the first Admin", async
   await expectAccessible(page);
 
   await page.getByRole("button", { name: "Continue" }).click();
-  const signedIn = page.getByRole("heading", { name: "Signed in as Grace Hopper" });
+  const signedIn = page.getByRole("heading", { name: "Library" });
   await expect(signedIn).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Grace Hopper")).toBeVisible();
   await page.reload();
   await expect(signedIn).toBeVisible();
   await page.goto("/setup");

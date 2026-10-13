@@ -25,6 +25,6 @@ test("a forward navigation starts one push transition and Back one pop", async (
   expect(await transitionTypes()).toEqual([["push"]]);
 
   await page.goBack();
-  await expect(page.getByRole("heading", { name: /^Signed in as /u })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(await transitionTypes()).toEqual([["push"], ["pop"]]);
 });
