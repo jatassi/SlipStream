@@ -102,8 +102,8 @@ func readKey(path string) (*Keys, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", KeyFile, err)
 	}
-	raw, err := hex.DecodeString(strings.TrimSpace(string(b)))
-	if err != nil || len(raw) != keySize {
+	raw, err := hex.DecodeString(strings.TrimSuffix(string(b), "\n"))
+	if err != nil || len(raw) != keySize || hex.EncodeToString(raw)+"\n" != string(b) {
 		return nil, errMalformed
 	}
 	var k Keys

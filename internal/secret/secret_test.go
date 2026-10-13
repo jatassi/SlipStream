@@ -112,20 +112,38 @@ func TestARowWithAForeignFileIsRefused(t *testing.T) {
 	refused(t, err, "library.key does not belong to this library.db; restore the library.key that does")
 }
 
-func TestAKeyWithACRLFEndingIsTheSameKey(t *testing.T) {
-	lib := storagetest.Library(t, secret.Schema())
-	path := keyPath(t)
-	write(t, path, fixedKey)
-	if _, err := secret.Open(t.Context(), lib, path); err != nil {
-		t.Fatal(err)
-	}
-	write(t, path, strings.TrimSuffix(fixedKey, "\n")+"\r\n")
-	keys, err := secret.Open(t.Context(), lib, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
-		t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
+func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
+	text := strings.TrimSuffix(fixedKey, "\n")
+	for _, tc := range []struct {
+		name, content string
+		malformed     bool
+	}{
+		{"exact", fixedKey, false},
+		{"upper-case", strings.ToUpper(text) + "\n", true},
+		{"no newline", text, true},
+		{"trailing space", text + " \n", true},
+		{"CRLF", text + "\r\n", true},
+		{"leading space", " " + fixedKey, true},
+		{"63 characters", text[:63] + "\n", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lib := storagetest.Library(t, secret.Schema())
+			path := keyPath(t)
+			write(t, path, tc.content)
+			keys, err := secret.Open(t.Context(), lib, path)
+			if tc.malformed {
+				if err == nil || err.Error() != "library.key is not 64 hex characters" {
+					t.Fatalf("err = %v, want library.key is not 64 hex characters", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
+				t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
+			}
+		})
 	}
 }
 

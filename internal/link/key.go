@@ -90,8 +90,9 @@ func (e *UnreadableKeyError) Error() string { return "read node key: " + e.Err.E
 
 func (e *UnreadableKeyError) Unwrap() error { return e.Err }
 
-// OpenKey reads dir's node.key: 64 hex characters and a newline holding
-// the 32-byte seed. A Node's first start creates it from crypto/rand.
+// OpenKey reads dir's node.key: exactly 64 lower-case hex characters and
+// one newline, holding the 32-byte seed. A Node's first start creates it
+// from crypto/rand.
 func OpenKey(dir string) (PrivateKey, error) {
 	path := filepath.Join(dir, KeyFile)
 	b, err := os.ReadFile(path) //nolint:gosec // path is the data dir's key file, chosen by the Node
@@ -101,8 +102,8 @@ func OpenKey(dir string) (PrivateKey, error) {
 	if err != nil {
 		return PrivateKey{}, &UnreadableKeyError{Err: err}
 	}
-	seed, err := hex.DecodeString(strings.TrimSpace(string(b)))
-	if err != nil || len(seed) != ed25519.SeedSize {
+	seed, err := hex.DecodeString(strings.TrimSuffix(string(b), "\n"))
+	if err != nil || len(seed) != ed25519.SeedSize || hex.EncodeToString(seed)+"\n" != string(b) {
 		return PrivateKey{}, &MalformedKeyError{Path: path}
 	}
 	return NewPrivateKey([ed25519.SeedSize]byte(seed)), nil

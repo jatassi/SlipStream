@@ -58,14 +58,37 @@ func TestKeyFileRoundTrip(t *testing.T) {
 	}
 }
 
-func TestAMalformedKeyFileIsRefused(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "node.key")
-	if err := os.WriteFile(path, []byte("0123456789"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := link.OpenKey(dir)
-	if want := "node key " + path + " is not 64 hex characters"; err == nil || err.Error() != want {
-		t.Fatalf("OpenKey = %v, want %s", err, want)
+func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
+	const text = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+	for _, tc := range []struct {
+		name, content string
+		malformed     bool
+	}{
+		{"exact", text + "\n", false},
+		{"too short", "0123456789", true},
+		{"upper-case", "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F\n", true},
+		{"no newline", text, true},
+		{"trailing space", text + " \n", true},
+		{"CRLF", text + "\r\n", true},
+		{"leading space", " " + text + "\n", true},
+		{"63 characters", text[:63] + "\n", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "node.key")
+			if err := os.WriteFile(path, []byte(tc.content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			k, err := link.OpenKey(dir)
+			if !tc.malformed {
+				if err != nil || k.Public() != link.NewPrivateKey(sequenceSeed()).Public() {
+					t.Fatalf("OpenKey = %v, %v", k.Public().Fingerprint(), err)
+				}
+				return
+			}
+			if want := "node key " + path + " is not 64 hex characters"; err == nil || err.Error() != want {
+				t.Fatalf("OpenKey = %v, want %s", err, want)
+			}
+		})
 	}
 }
