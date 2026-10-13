@@ -227,3 +227,25 @@ func TestNewerSessionClosesTheOlder(t *testing.T) {
 		}
 	})
 }
+
+// Keeping a Target whose key the peer does not hold dials, finds another
+// key and stays Down, logging why at Debug.
+func TestKeepRefusesAPeerHoldingAnotherKey(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		log := &recordLog{}
+		n := fault.NewNetwork()
+		controller := linktest.Start(t, n, "controller", []netip.Addr{linktest.ControllerAddr}, linktest.Side{})
+		worker := linktest.Start(t, n, "worker", []netip.Addr{linktest.WorkerAddr}, linktest.Side{Log: slog.New(log)})
+		controller.Trust.Set(worker.Key, link.Pinned{})
+		pinned := link.NewPrivateKey([32]byte{9}).Public()
+		worker.Keep(link.Target{Key: pinned, Addresses: controller.Target().Addresses})
+		synctest.Wait()
+		want := []string{"link dial failed: handshake with 127.0.0.2:8485: peer key " + controller.Key.Fingerprint() + " is not the pinned key " + pinned.Fingerprint()}
+		if got := log.lines(); !slices.Equal(got, want) {
+			t.Fatalf("the Worker logged %q, want %q", got, want)
+		}
+		if got := worker.State(pinned); got != (link.Down{}) {
+			t.Fatalf("the Worker sees %+v for the pinned key, want Down", got)
+		}
+	})
+}
