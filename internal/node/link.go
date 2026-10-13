@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 )
 
-// osNetwork is the operating system's network.
 type osNetwork struct{}
 
 func (osNetwork) Listen(network, address string) (net.Listener, error) {

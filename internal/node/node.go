@@ -43,8 +43,7 @@ type Env struct {
 	Version string
 	// Net serves every listener, the control socket's included, and every
 	// link dial.
-	Net link.Network
-	// Engine builds the torrent engine.
+	Net    link.Network
 	Engine func(engine.Config) (engine.Engine, error)
 	// OpenLog opens the log in dir, mirrored to stderr.
 	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)

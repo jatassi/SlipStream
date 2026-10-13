@@ -191,7 +191,6 @@ func (s *Service) load(ctx context.Context) error {
 // Controls is the control half, serving every Role over this roster.
 func (s *Service) Controls() *role.Controls { return s.controls }
 
-// Self is the Controller's own Node.
 func (s *Service) Self() ID { return s.self }
 
 func (s *Service) NodeOf(key link.Key) (ID, bool) {

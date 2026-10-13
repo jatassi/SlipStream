@@ -29,7 +29,6 @@ const nodeScope = "node"
 
 // Nodes is the Controller's roster, as the control half sees it.
 type Nodes interface {
-	// Self is the Controller's own Node.
 	Self() NodeID
 	// NodeOf is the Node holding key, false for a key the Controller does
 	// not know.

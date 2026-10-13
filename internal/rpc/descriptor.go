@@ -48,7 +48,6 @@ func (s ControllerService[H]) Call(d *Dispatch) H {
 	return s.client(d.client(d.controller))
 }
 
-// Mount serves impl on the Controller.
 func (s ControllerService[H]) Mount(c *Cluster, impl H) {
 	c.d.mount(s.name, "", func(srv *connect.Server) { s.register(srv, impl) })
 }
@@ -59,7 +58,6 @@ func (s NodeService[H]) On(c *Cluster, node role.NodeID) H {
 	return s.client(c.client(node, ""))
 }
 
-// Mount serves impl on this Node.
 func (s NodeService[H]) Mount(d *Dispatch, impl H) {
 	d.mount(s.name, "", func(srv *connect.Server) { s.register(srv, impl) })
 }
