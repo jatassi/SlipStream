@@ -17,7 +17,11 @@ const tagMocks = Object.entries(generated).flatMap(([path, module]) => {
     .split(/[^a-z0-9]+/iu)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join("");
-  return module[`get${tag}Mock`]();
+  const handlers = module[`get${tag}Mock`];
+  if (!handlers) {
+    throw new Error(`${path} exports no get${tag}Mock`);
+  }
+  return handlers();
 });
 
 export const ada: IdentityAccount = {
