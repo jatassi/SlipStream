@@ -583,7 +583,11 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 	if r.scenario.Library == nil {
 		return nil
 	}
-	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, r.mediaDir()); err != nil {
+	sites := map[string]fake.Address{}
+	for _, f := range r.fakes {
+		sites[f.spec.Name] = f.at
+	}
+	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, r.mediaDir(), sites); err != nil {
 		return err
 	}
 	r.log.Info("library seeded")

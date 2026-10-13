@@ -1,0 +1,53 @@
+// The Searching Role's wire calls: the Indexer's home Node speaks Torznab
+// for the Controller, which parses every answer (ADR 0017).
+syntax = "proto3";
+
+package slipstream.search.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service SearchingService {
+  option (slipstream.node.v1.served_by) = {role: "searching"};
+  // Caps fetches the Indexer's t=caps document.
+  rpc Caps(CapsRequest) returns (CapsResponse);
+  // Search sends one Torznab query.
+  rpc Search(SearchRequest) returns (SearchResponse);
+  // FetchTorrent downloads a .torrent from the Indexer's own host.
+  rpc FetchTorrent(FetchTorrentRequest) returns (FetchTorrentResponse);
+}
+
+// Indexer is where and how to reach an Indexer. A Worker keeps no durable
+// state, so every call carries it.
+message Indexer {
+  string url = 1;
+  string api_key = 2;
+}
+
+message CapsRequest {
+  Indexer indexer = 1;
+}
+
+message CapsResponse {
+  bytes body = 1;
+  int32 status = 2;
+}
+
+message SearchRequest {
+  Indexer indexer = 1;
+  // params are the query's parameters but apikey, which the home Node adds.
+  map<string, string> params = 2;
+}
+
+message SearchResponse {
+  bytes body = 1;
+  int32 status = 2;
+}
+
+message FetchTorrentRequest {
+  Indexer indexer = 1;
+  string url = 2;
+}
+
+message FetchTorrentResponse {
+  bytes torrent = 1;
+}

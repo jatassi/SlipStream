@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -222,3 +223,9 @@ func (*Fixture) NamingTokens(context.Context, storage.Reader[storage.Library], w
 }
 
 func (*Fixture) DefaultTemplates() naming.Templates { return naming.Templates{} }
+
+// SearchTerms answers indexers' empty answer: the Fixture can't be
+// searched.
+func (*Fixture) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
+}

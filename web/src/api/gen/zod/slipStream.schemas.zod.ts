@@ -150,6 +150,62 @@ export const IdentitySignInBody = zod.object({
 export type IdentitySignInBody = zod.input<typeof IdentitySignInBody>;
 export type IdentitySignInBodyOutput = zod.output<typeof IdentitySignInBody>;
 
+export const IndexersChanged = zod.object({
+  indexerId: zod.uuid(),
+});
+
+export type IndexersChanged = zod.input<typeof IndexersChanged>;
+export type IndexersChangedOutput = zod.output<typeof IndexersChanged>;
+
+export const IndexersSearchMode = zod.object({
+  mode: zod.string().describe("The Torznab t= value"),
+  params: zod.array(zod.string()).describe("In the Indexer's order"),
+});
+
+export type IndexersSearchMode = zod.input<typeof IndexersSearchMode>;
+export type IndexersSearchModeOutput = zod.output<typeof IndexersSearchMode>;
+
+export const IndexersIndexer = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+  homeNodeId: zod.uuid().describe("The Node that reaches the Indexer"),
+  id: zod.uuid(),
+  name: zod.string(),
+  protocol: zod.enum(["torznab"]),
+  searchModes: zod.array(IndexersSearchMode).describe("By mode"),
+  url: zod.string(),
+});
+
+export type IndexersIndexer = zod.input<typeof IndexersIndexer>;
+export type IndexersIndexerOutput = zod.output<typeof IndexersIndexer>;
+
+export const IndexersIndexerList = zod.object({
+  indexers: zod.array(IndexersIndexer).describe("By name"),
+});
+
+export type IndexersIndexerList = zod.input<typeof IndexersIndexerList>;
+export type IndexersIndexerListOutput = zod.output<typeof IndexersIndexerList>;
+
+export const indexersNewIndexerApiKeyMax = 256;
+
+export const indexersNewIndexerNameMax = 100;
+
+export const indexersNewIndexerUrlMax = 2048;
+
+export const indexersNewIndexerUrlRegExp = new RegExp("^https?://[^/?#]+(/[^?#]*)?$");
+
+export const IndexersNewIndexer = zod.object({
+  apiKey: zod.string().max(indexersNewIndexerApiKeyMax),
+  name: zod.string().min(1).max(indexersNewIndexerNameMax),
+  url: zod
+    .string()
+    .max(indexersNewIndexerUrlMax)
+    .regex(indexersNewIndexerUrlRegExp)
+    .describe("The Torznab feed's base; SlipStream adds /api"),
+});
+
+export type IndexersNewIndexer = zod.input<typeof IndexersNewIndexer>;
+export type IndexersNewIndexerOutput = zod.output<typeof IndexersNewIndexer>;
+
 export const LiveResync = zod.object({});
 
 export type LiveResync = zod.input<typeof LiveResync>;
@@ -734,6 +790,14 @@ export type LiveEventIdentitySessionsChangedOutput = zod.output<
   typeof LiveEventIdentitySessionsChanged
 >;
 
+export const LiveEventIndexersChanged = zod.object({
+  event: zod.enum(["indexers.changed"]),
+  data: IndexersChanged,
+});
+
+export type LiveEventIndexersChanged = zod.input<typeof LiveEventIndexersChanged>;
+export type LiveEventIndexersChangedOutput = zod.output<typeof LiveEventIndexersChanged>;
+
 export const LiveEventLiveResync = zod.object({
   event: zod.enum(["live.resync"]),
   data: LiveResync,
@@ -795,6 +859,7 @@ export type LiveEventWorksContentTypesChangedOutput = zod.output<
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
   LiveEventIdentitySessionsChanged,
+  LiveEventIndexersChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
   LiveEventNodesChanged,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttypes/movie/internal/db"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -157,4 +158,25 @@ func (*Movie) NamingTokens(ctx context.Context, r storage.Reader[file], item wor
 
 func (*Movie) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
+}
+
+// SearchTerms searches by the movie's TMDB and IMDb ids, else by its title
+// and year.
+func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item works.ItemID) (indexers.Terms, error) {
+	work, _, err := works.ItemOf(ctx, r, item)
+	if err != nil {
+		return indexers.Terms{}, err
+	}
+	mv, err := db.New(r).GetMovie(ctx, work.ID)
+	if err != nil {
+		return indexers.Terms{}, err
+	}
+	t := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}, Query: mv.Title}
+	if mv.ImdbID != nil {
+		t.IDs["imdbid"] = string(*mv.ImdbID)
+	}
+	if mv.Year != nil {
+		t.Query += " " + strconv.FormatInt(*mv.Year, 10)
+	}
+	return t, nil
 }

@@ -1,5 +1,6 @@
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import { getGetSessionQueryKey } from "../api/gen/query/identity/identity";
+import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
 import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
 import { getListProfilesQueryKey, getListTargetsQueryKey } from "../api/gen/query/targets/targets";
@@ -31,6 +32,9 @@ export const effects = {
   },
   "roots.changed": (_data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListRootsQueryKey() });
+  },
+  "indexers.changed": (_data, { queryClient }) => {
+    void queryClient.invalidateQueries({ queryKey: getListIndexersQueryKey() });
   },
   "files.changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getGetWorkCellsQueryKey(data.workId) });

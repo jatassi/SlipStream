@@ -221,6 +221,11 @@ func (s *Service) Holders(r role.Name) []ID {
 	return ids
 }
 
+// HoldersByPairing is every Node holding r, first paired first.
+func (s *Service) HoldersByPairing(ctx context.Context, r role.Name) ([]ID, error) {
+	return db.New(s.cfg.Library).HoldersByPairing(ctx, r)
+}
+
 // Admit pins every Worker in the roster and lets any other key only Pair.
 func (s *Service) Admit(key link.Key) link.Admission {
 	if key == s.cfg.Key {

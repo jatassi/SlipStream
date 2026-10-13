@@ -13,6 +13,7 @@ type Library struct {
 	Roots    []LibraryRoot    `yaml:"roots,omitempty"`
 	Targets  []LibraryTarget  `yaml:"targets,omitempty"`
 	Profiles []LibraryProfile `yaml:"profiles,omitempty"`
+	Indexers []LibraryIndexer `yaml:"indexers,omitempty"`
 }
 
 // LibraryRoot is a Content Type's root, the folder named Folder under the
@@ -33,12 +34,20 @@ type LibraryProfile struct {
 	Targets     []string `jsonschema:"required,minItems=1,uniqueItems=true"     yaml:"targets"`
 }
 
+// LibraryIndexer is a Torznab Indexer on the named site fake, with the
+// site's URL and API key.
+type LibraryIndexer struct {
+	Name string `jsonschema:"required"                   yaml:"name"`
+	Site string `jsonschema:"required,enum=fixture-site" yaml:"site"`
+}
+
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
 func (l Library) check(add func(format string, args ...any)) {
 	l.checkRoots(add)
 	l.checkTargets(add)
 	l.checkProfiles(add)
+	l.checkIndexers(add)
 }
 
 func (l Library) checkRoots(add func(format string, args ...any)) {
@@ -89,6 +98,19 @@ func (l Library) checkProfiles(add func(format string, args ...any)) {
 			if !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
 				add("library profile %s names target %s, which library.targets does not list", p.Name, t)
 			}
+		}
+	}
+}
+
+func (l Library) checkIndexers(add func(format string, args ...any)) {
+	var names []string
+	for _, ix := range l.Indexers {
+		if slices.Contains(names, ix.Name) {
+			add("library has two indexers named %s", ix.Name)
+		}
+		names = append(names, ix.Name)
+		if ix.Site != "fixture-site" {
+			add("library indexer %s is on site %q, which no fake serves", ix.Name, ix.Site)
 		}
 	}
 }

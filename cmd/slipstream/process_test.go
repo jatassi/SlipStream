@@ -524,6 +524,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default"},
 			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default"},
 			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default"},
+			{Key: "timings.indexers.request", Value: "30s", Default: "30s", Source: "default"},
 		},
 		Census:       []string{"endpoints.tmdb.api"},
 		ContentTypes: []string{"movie"},

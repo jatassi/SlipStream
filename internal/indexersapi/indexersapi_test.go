@@ -1,0 +1,162 @@
+package indexersapi_test
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/site"
+	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexersapi"
+	"github.com/jatassi/slipstream/internal/link"
+	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
+)
+
+type published struct{ ids []string }
+
+func (p *published) Publish(_ context.Context, v indexers.Changed) {
+	p.ids = append(p.ids, v.IndexerID)
+}
+
+type registry struct{ x *indexers.Indexers }
+
+func (r registry) Indexers() (*indexers.Indexers, bool) { return r.x, true }
+
+type roster struct {
+	self    role.NodeID
+	holders []role.NodeID
+}
+
+func (r roster) Self() role.NodeID { return r.self }
+
+func (r roster) HoldersByPairing(context.Context, role.Name) ([]role.NodeID, error) {
+	return r.holders, nil
+}
+
+// disconnected is a home Node whose link is down.
+type disconnected struct {
+	searchv1connect.UnimplementedSearchingServiceHandler
+}
+
+func (disconnected) Caps(context.Context, *searchv1.CapsRequest) (*searchv1.CapsResponse, error) {
+	return nil, link.ErrDisconnected
+}
+
+var (
+	self   = role.NodeID{UUID: storage.NewUUID()}
+	worker = role.NodeID{UUID: storage.NewUUID()}
+)
+
+type served struct {
+	owner   *ownertest.Owner
+	site    faketest.Served
+	key     string
+	changed *published
+	asked   []role.NodeID
+}
+
+// serve serves the operations over a fixture-site every holder reaches but
+// down, whose link is disconnected.
+func serve(t *testing.T, holders []role.NodeID, down role.NodeID) *served {
+	t.Helper()
+	s := scenario.Scenario{Name: "x", Seed: "indexersapi"}
+	srv := &served{key: site.APIKey(s), changed: &published{}}
+	srv.site = faketest.Loopback(t, fake.Spec{Name: site.Fake.Name, TLS: true, New: func(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
+		return fake.HTTP(site.Handler(site.APIKey(s), nil)), nil
+	}}, s)
+	home := indexers.NewHome(srv.site.Client, indexers.Timings{Request: 5 * time.Second})
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema())
+	x := indexers.New(indexers.Config{
+		Library: lib,
+		Roster:  roster{self: self, holders: holders},
+		Searching: func(n role.NodeID) searchv1connect.SearchingServiceHandler {
+			srv.asked = append(srv.asked, n)
+			if n == down {
+				return disconnected{}
+			}
+			return home
+		},
+		Changed: srv.changed,
+	})
+	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { indexersapi.Routes(r, registry{x}) })
+	return srv
+}
+
+func (s *served) body(path, key string) string {
+	return `{"name":"Fixture Site","url":` + strconv.Quote(s.site.Address.URL(path)) + `,"apiKey":"` + key + `"}`
+}
+
+func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		holders []role.NodeID
+		home    role.NodeID
+	}{
+		{"this Node holds Searching", []role.NodeID{worker, self}, self},
+		{"a Worker holds Searching", []role.NodeID{worker}, worker},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := serve(t, tc.holders, role.NodeID{})
+			url := s.site.Address.URL(site.TorznabPath)
+			modes := `"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}]`
+			want := `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2",` + modes + `,"createdAt":"T"}`
+			s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key), http.StatusCreated, want)
+			_, list := s.owner.Call(t, http.MethodGet, "/api/v1/indexers", "")
+			id := ownertest.FirstID(list)
+			if want := `{"indexers":[{"id":"` + id + `","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"` + tc.home.String() + `",` + modes + `,"createdAt":"T"}]}` + "\n"; ownertest.Masked(list) != ownertest.Masked(want) || !strings.Contains(list, `"homeNodeId":"`+tc.home.String()+`"`) {
+				t.Fatalf("listIndexers = %s, want %s", list, want)
+			}
+			if len(s.changed.ids) != 1 || s.changed.ids[0] != id {
+				t.Fatalf("indexers.changed published %v, want [%s]", s.changed.ids, id)
+			}
+			if len(s.asked) != 1 || s.asked[0] != tc.home {
+				t.Fatalf("asked %v for caps, want the home Node %s", s.asked, tc.home)
+			}
+		})
+	}
+}
+
+func TestEachIndexersErrorAnswersItsProblem(t *testing.T) {
+	s := serve(t, []role.NodeID{self}, role.NodeID{})
+	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, "wrong"), http.StatusUnprocessableEntity,
+		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"error 100: Invalid API Key"}`)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("/elsewhere", s.key), http.StatusBadGateway,
+		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't answer","detail":"the Indexer answered status 404"}`)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", `{"name":"Fixture Site","url":"ftp://example.test/torznab","apiKey":"k"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.url","message":"expected string to match pattern ^https?://[^/?#]+(/[^?#]*)?$"}]}`)
+	if code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key)); code != http.StatusCreated {
+		t.Fatalf("createIndexer = %d %s, want 201", code, reply)
+	}
+	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key), http.StatusConflict,
+		`{"status":409,"code":"indexer_name_taken","title":"Another Indexer has that name"}`)
+	if len(s.changed.ids) != 1 {
+		t.Fatalf("indexers.changed published %d times, want once for the one Indexer made", len(s.changed.ids))
+	}
+
+	none := serve(t, nil, role.NodeID{})
+	none.owner.Expect(t, http.MethodPost, "/api/v1/indexers", none.body(site.TorznabPath, none.key), http.StatusConflict,
+		`{"status":409,"code":"no_searching_node","title":"No Node holds Searching. Give one the Searching Role first."}`)
+
+	down := serve(t, []role.NodeID{worker}, worker)
+	down.owner.Expect(t, http.MethodPost, "/api/v1/indexers", down.body(site.TorznabPath, down.key), http.StatusBadGateway,
+		`{"status":502,"code":"indexer_unavailable","title":"The Indexer didn't answer","detail":"no live link session to the peer"}`)
+	for _, x := range []*served{none, down} {
+		if _, list := x.owner.Call(t, http.MethodGet, "/api/v1/indexers", ""); list != `{"indexers":[]}`+"\n" || len(x.changed.ids) != 0 {
+			t.Fatalf("after a failed create the list is %s with %d events, want none", list, len(x.changed.ids))
+		}
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/surface"
@@ -35,6 +36,8 @@ func (worker) ClaimController(context.Context, func(*identity.Service) error) er
 func (worker) Nodes() (*nodes.Service, bool) { return nil, false }
 
 func (worker) Works() (*works.Works, bool) { return nil, false }
+
+func (worker) Indexers() (*indexers.Indexers, bool) { return nil, false }
 
 func (worker) Targets() (*targets.Targets, bool) { return nil, false }
 

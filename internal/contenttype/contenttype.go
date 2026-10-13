@@ -35,6 +35,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -46,6 +47,7 @@ import (
 type Type interface {
 	works.Catalog
 	naming.Facet
+	indexers.Facet
 }
 
 type Deps struct {
