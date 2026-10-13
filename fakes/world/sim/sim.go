@@ -209,7 +209,11 @@ func (w *World) Path(a, b string) *fault.Switch {
 // Client calls the world's Nodes from 127.0.0.1 on its network.
 func (w *World) Client() *http.Client { return w.client }
 
-// Start starts the Node on its data dir, after edit changes its Env.
+// Start starts the Node on its data dir, after edit changes its Env. The
+// test's end does not stop it: the world's cleanup does, one Node at a
+// time, because Windows SQLite closes each WAL index under one
+// process-wide mutex and may sleep holding it, and in the bubble that
+// sleep's fake time never passes while another Node waits on the mutex.
 func (n *Node) Start(edit ...func(*node.Env)) {
 	t := n.w.t
 	t.Helper()
@@ -217,7 +221,7 @@ func (n *Node) Start(edit ...func(*node.Env)) {
 	for _, e := range edit {
 		e(&env)
 	}
-	running, err := node.Start(t.Context(), env)
+	running, err := node.Start(context.WithoutCancel(t.Context()), env)
 	if err != nil {
 		t.Fatalf("start node %s: %v", n.spec.Name, err)
 	}
