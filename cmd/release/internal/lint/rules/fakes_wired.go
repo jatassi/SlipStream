@@ -13,7 +13,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "fakes-wired",
-		Doc:   "every package directly under fakes/ declares one var Fake fake.Spec and fakes/world lists it (spec #130, Lint rules)",
+		Doc:   "every package directly under fakes/, and every fake package beneath fakes/contenttypes/<id>/, declares one var Fake fake.Spec and fakes/world lists it (spec #130, Lint rules; spec #133, Lints and CI checks)",
 		Check: checkFakesWired,
 	})
 }
@@ -79,7 +79,7 @@ func checkFakesWired(repo *lint.Repo) ([]lint.Finding, error) {
 
 func (idx fakesIndex) add(f lint.GoFile) {
 	dir := path.Dir(f.Path)
-	isFake := path.Dir(dir) == fakesTree && !slices.Contains(fakeInfrastructure, path.Base(dir))
+	isFake := isFakePackage(dir)
 	if !isFake && dir != worldTree {
 		return
 	}
@@ -97,6 +97,16 @@ func (idx fakesIndex) add(f lint.GoFile) {
 			idx.addVars(f, isFake, imports, vs)
 		}
 	}
+}
+
+// isFakePackage reports whether dir is a fake: a package directly under
+// fakes/ that is not infrastructure, or a fake package beneath a Content Type
+// under fakes/contenttypes/. Packages nested inside a fake are part of it.
+func isFakePackage(dir string) bool {
+	if _, fake := contentTypeScope(dir); fake != "" {
+		return fake == dir
+	}
+	return path.Dir(dir) == fakesTree && dir != testContentTypes && !slices.Contains(fakeInfrastructure, path.Base(dir))
 }
 
 func (idx fakesIndex) addVars(f lint.GoFile, isFake bool, imports map[string]string, vs *ast.ValueSpec) {

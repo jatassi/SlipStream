@@ -152,6 +152,8 @@ func TestProcessGlobals(t *testing.T) {
 
 func TestConfigSections(t *testing.T) {
 	assertFindings(t, check(t, "config-sections", fixtureRepo(t, "config-sections")), []string{
+		"fakes/contenttypes/music/music.go:9: [config-sections] DefaultTimings is never called by internal/node/config.go; wire the section into node.Config",
+		"internal/contenttypes/tv/tv.go:5: [config-sections] DefaultEndpoints is never called by internal/node/config.go; wire the section into node.Config",
 		"internal/media/media.go:5: [config-sections] DefaultSettings is never called by internal/node/config.go; wire the section into node.Config",
 		"internal/node/timings.go:9: [config-sections] engine.DefaultSettings called outside internal/node/config.go; read the section from the Node's Config",
 		"internal/tmdb/client.go:3: [config-sections] DefaultEndpoints called outside internal/node/config.go; read the section from the Node's Config",
@@ -309,6 +311,8 @@ func TestRoleDefsWired(t *testing.T) {
 
 func TestFakesWired(t *testing.T) {
 	assertFindings(t, check(t, "fakes-wired", fixtureRepo(t, "fakes-wired")), []string{
+		"fakes/contenttypes/movie/moviemeta/moviemeta.go:5: [fakes-wired] fakes/contenttypes/movie/moviemeta.Fake is not listed in fakes/world",
+		"fakes/contenttypes/movie/posters/posters.go:1: [fakes-wired] fakes/contenttypes/movie/posters declares no var Fake fake.Spec",
 		"fakes/tmdb/doc.go:3: [fakes-wired] fakes/tmdb declares no var Fake fake.Spec",
 		"fakes/torznab/torznab.go:7: [fakes-wired] fakes/torznab.Fake is not listed in fakes/world",
 		"fakes/tracker/tracker_windows.go:5: [fakes-wired] fakes/tracker declares var Fake fake.Spec more than once",
