@@ -97,7 +97,7 @@ func (s *Stream) Next(ctx context.Context) (string, error) {
 		}
 		return "", <-s.end
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return "", fmt.Errorf("read the stream: %w", ctx.Err())
 	}
 }
 

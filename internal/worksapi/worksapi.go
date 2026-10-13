@@ -139,7 +139,9 @@ type durationValue struct {
 var valueOf = map[works.FieldKind]func(works.FieldValue) any{
 	works.KindText:   func(v works.FieldValue) any { return textValue{Key: v.Key, Kind: v.Kind.String(), Text: v.Text} },
 	works.KindNumber: func(v works.FieldValue) any { return numberValue{Key: v.Key, Kind: v.Kind.String(), Number: v.Number} },
-	works.KindDate:   func(v works.FieldValue) any { return dateValue{Key: v.Key, Kind: v.Kind.String(), Date: v.Date.String()} },
+	works.KindDate: func(v works.FieldValue) any {
+		return dateValue{Key: v.Key, Kind: v.Kind.String(), Date: v.Date.String()}
+	},
 	works.KindDuration: func(v works.FieldValue) any {
 		return durationValue{Key: v.Key, Kind: v.Kind.String(), Ms: v.Duration.Milliseconds()}
 	},
