@@ -126,8 +126,9 @@ func event(t *testing.T, s *apitest.Stream, name, data string) {
 	t.Helper()
 	named := regexp.MustCompile(`(?m)^event: ` + regexp.QuoteMeta(name) + `$`)
 	want := regexp.MustCompile(`^id: \d+\n(retry: \d+\n)?event: ` + regexp.QuoteMeta(name) + `\ndata: ` + regexp.QuoteMeta(data) + `\n$`)
+	ctx := worldtest.Context(t)
 	for {
-		msg, err := s.Next()
+		msg, err := s.Next(ctx)
 		if err != nil {
 			t.Fatalf("the stream ended before %s: %v", name, err)
 		}

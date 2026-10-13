@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -94,7 +95,10 @@ func (a *API) Signed(name, session, method, path, body string) Reply {
 	return r
 }
 
-// Stream opens the live event stream of the Node named name in session.
+var resync = regexp.MustCompile(`^id: \d+\nretry: \d+\nevent: live\.resync\ndata: \{\}\n$`)
+
+// Stream opens the live event stream of the Node named name in session and
+// reads its live.resync, so the stream is subscribed when Stream returns.
 // The test's cleanup closes it.
 func (a *API) Stream(name, session string) *apitest.Stream {
 	a.t.Helper()
@@ -105,6 +109,9 @@ func (a *API) Stream(name, session string) *apitest.Stream {
 	}
 	s := apitest.NewStream(res.Body)
 	a.t.Cleanup(func() { _ = s.Close() })
+	if msg, err := s.Next(a.ctx); err != nil || !resync.MatchString(msg) {
+		a.t.Fatalf("the stream's first message = %q, %v; want live.resync", msg, err)
+	}
 	return s
 }
 

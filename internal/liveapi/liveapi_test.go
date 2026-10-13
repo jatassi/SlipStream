@@ -104,7 +104,7 @@ func (n *node) stream(session string) *apitest.Stream {
 
 func next(t *testing.T, s *apitest.Stream) string {
 	t.Helper()
-	msg, err := s.Next()
+	msg, err := s.Next(t.Context())
 	if err != nil {
 		t.Fatalf("the stream ended: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestAStreamWhoseSessionExpiresEndsWithExpired(t *testing.T) {
 		if got, want := next(t, s), "event: live.session-ended\ndata: {\"reason\":\"expired\"}\n"; got != want {
 			t.Fatalf("read %q, want %q", got, want)
 		}
-		if msg, err := s.Next(); !errors.Is(err, io.EOF) {
+		if msg, err := s.Next(t.Context()); !errors.Is(err, io.EOF) {
 			t.Fatalf("read %q, %v; want the stream to end", msg, err)
 		}
 		if status := n.status("/api/v1/session", session); status != http.StatusUnauthorized {
@@ -184,7 +184,7 @@ func TestASignOutBetweenAuthenticationAndSubscribeEndsTheStream(t *testing.T) {
 		if got, want := next(t, s), "retry: 3000\nevent: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
 			t.Fatalf("read %q, want %q", got, want)
 		}
-		if msg, err := s.Next(); !errors.Is(err, io.EOF) {
+		if msg, err := s.Next(t.Context()); !errors.Is(err, io.EOF) {
 			t.Fatalf("read %q, %v; want the stream to end", msg, err)
 		}
 	})

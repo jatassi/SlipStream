@@ -189,7 +189,7 @@ func sessionOf(t *testing.T, r reply) string {
 
 func next(t *testing.T, s *apitest.Stream) string {
 	t.Helper()
-	msg, err := s.Next()
+	msg, err := s.Next(t.Context())
 	if err != nil {
 		t.Fatalf("the stream ended: %v", err)
 	}
@@ -311,7 +311,7 @@ func streamAndSignOut(t *testing.T, cn claimedNode, a string) {
 	if got, want := next(t, streamA), "event: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
 		t.Fatalf("after sign-out stream A read %q, want %q", got, want)
 	}
-	if msg, err := streamA.Next(); !errors.Is(err, io.EOF) {
+	if msg, err := streamA.Next(t.Context()); !errors.Is(err, io.EOF) {
 		t.Fatalf("stream A read %q, %v after session-ended; want it closed", msg, err)
 	}
 	gone := c.getSession(a)
