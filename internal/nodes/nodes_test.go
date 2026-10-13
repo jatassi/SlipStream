@@ -1,6 +1,7 @@
 package nodes_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"errors"
@@ -100,7 +101,7 @@ func (c *controller) mint(t *testing.T) nodes.JoinCode {
 	return code
 }
 
-func (c *controller) worker(t *testing.T, name string, addr string) *linktest.Node {
+func (c *controller) worker(t *testing.T, name, addr string) *linktest.Node {
 	t.Helper()
 	return linktest.Start(t, c.net, name, []netip.Addr{netip.MustParseAddr(addr)}, linktest.Side{})
 }
@@ -112,7 +113,20 @@ func refusal(err error) linkv1.RefusedReason {
 	return linkv1.RefusedReason_REFUSED_REASON_UNSPECIFIED
 }
 
-func TestPair(t *testing.T) {
+func (c *controller) pair(t *testing.T, w *linktest.Node, code nodes.JoinCode, name string) (link.Paired, role.NodeID) {
+	t.Helper()
+	paired, err := w.Pair(t.Context(), code.Code, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := storage.UUIDFromBytes(paired.NodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return paired, role.NodeID{UUID: id}
+}
+
+func TestRepeatingAPairReturnsTheSameNode(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startController(t)
 		code := c.mint(t)
@@ -120,56 +134,56 @@ func TestPair(t *testing.T) {
 			t.Fatalf("the code names %v, want %v", got, want)
 		}
 		box := c.worker(t, "box", "127.0.0.3")
-		first, err := box.Pair(t.Context(), code.Code, "box")
-		if err != nil {
-			t.Fatal(err)
-		}
+		first, id := c.pair(t, box, code, "box")
 		if first.Name != "box" || first.ControllerName != "home" || first.Controller != c.node.Key {
 			t.Fatalf("paired as %q with %q (%s), want box with home (%s)", first.Name, first.ControllerName, first.Controller.Fingerprint(), c.node.Key.Fingerprint())
-		}
-		id, err := storage.UUIDFromBytes(first.NodeID)
-		if err != nil {
-			t.Fatal(err)
 		}
 		synctest.Wait()
 		if !c.pub.has(id.String()) {
 			t.Errorf("nodes.changed was not published for %s", id)
 		}
-
-		again, err := box.Pair(t.Context(), code.Code, "box")
-		if err != nil || string(again.NodeID) != string(first.NodeID) {
-			t.Fatalf("pairing again with the same code = %x, %v; want %x", again.NodeID, err, first.NodeID)
+		if again, _ := c.pair(t, box, code, "box"); !bytes.Equal(again.NodeID, first.NodeID) {
+			t.Fatalf("pairing again with the same code gave node %x, want %x", again.NodeID, first.NodeID)
 		}
-
-		other := c.worker(t, "other", "127.0.0.4")
-		_, err = other.Pair(t.Context(), code.Code, "other")
+		_, err := c.worker(t, "other", "127.0.0.4").Pair(t.Context(), code.Code, "other")
 		if got := refusal(err); got != linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED {
 			t.Fatalf("another key with a used code: %v, want REFUSED_REASON_JOIN_CODE_USED", err)
 		}
+	})
+}
 
+func TestAKnownKeyKeepsItsRoles(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		box := c.worker(t, "box", "127.0.0.3")
+		_, id := c.pair(t, box, c.mint(t), "box")
 		box.Drop(c.node.Key)
 		synctest.Wait()
-		node := role.NodeID{UUID: id}
-		if _, err := c.svc.SetRoles(t.Context(), node, []role.Name{role.Downloading, role.Searching, role.Searching}); err != nil {
+		if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Downloading, role.Searching, role.Searching}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := box.Pair(t.Context(), c.mint(t).Code, "renamed"); err != nil {
-			t.Fatal(err)
+		if _, again := c.pair(t, box, c.mint(t), "renamed"); again != id {
+			t.Fatalf("a new code paired the known key as %s, want %s", again, id)
 		}
-		got, err := c.svc.Get(t.Context(), node)
+		got, err := c.svc.Get(t.Context(), id)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if want := []role.Name{role.Searching, role.Downloading}; got.Name != "box" || !slices.Equal(got.Roles, want) {
 			t.Fatalf("after a new code the known key is %q holding %v, want box holding %v", got.Name, got.Roles, want)
 		}
+	})
+}
 
+func TestACodePastItsLifetimeIsRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
 		if err := c.svc.SetJoinCodeLifetime(t.Context(), 10*time.Minute); err != nil {
 			t.Fatal(err)
 		}
-		late := c.mint(t)
+		code := c.mint(t)
 		time.Sleep(10 * time.Minute)
-		_, err = other.Pair(t.Context(), late.Code, "other")
+		_, err := c.worker(t, "box", "127.0.0.3").Pair(t.Context(), code.Code, "box")
 		if got := refusal(err); got != linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED {
 			t.Fatalf("a code past its lifetime: %v, want REFUSED_REASON_JOIN_CODE_EXPIRED", err)
 		}

@@ -246,15 +246,17 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Reason }
 
+// refusedBy is each Pair refusal a Controller can answer a Join with.
+var refusedBy = map[linkv1.RefusedReason]Error{
+	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN: {Kind: CodeUnknown, Reason: "the Controller does not know the Join Code"},
+	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED: {Kind: CodeExpired, Reason: "the Join Code has expired"},
+	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED:    {Kind: CodeUsed, Reason: "the Join Code was already used"},
+}
+
 func refusal(err error) error {
 	if r, ok := errors.AsType[*link.RefusedError](err); ok {
-		switch r.Reason {
-		case linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN:
-			return &Error{Kind: CodeUnknown, Reason: "the Controller does not know the Join Code"}
-		case linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED:
-			return &Error{Kind: CodeExpired, Reason: "the Join Code has expired"}
-		case linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED:
-			return &Error{Kind: CodeUsed, Reason: "the Join Code was already used"}
+		if e, ok := refusedBy[r.Reason]; ok {
+			return &e
 		}
 	}
 	if errors.Is(err, link.ErrKeyMismatch) {

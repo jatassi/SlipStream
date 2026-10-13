@@ -170,6 +170,7 @@ func nodeID(s string) (nodes.ID, error) {
 
 func Routes(r *api.Router, roster Roster) {
 	o := r.Owner("nodes", api.Admin)
+	h := handlers{roster}
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "createJoinCode",
@@ -178,16 +179,7 @@ func Routes(r *api.Router, roster Roster) {
 		Summary: "Mint a Join Code that pairs one Node with this Controller",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{noLinkAddress},
-	}, func(ctx context.Context, _ identity.Admin, _ *struct{}) (*joinCodeOutput, error) {
-		code, err := open(roster).MintJoinCode(ctx)
-		if errors.Is(err, nodes.ErrNoLinkAddress) {
-			return nil, noLinkAddress
-		}
-		if err != nil {
-			return nil, err
-		}
-		return &joinCodeOutput{Body: joinCode{Code: code.Code.String(), ExpiresAt: code.ExpiresAt}}, nil
-	})
+	}, h.createJoinCode)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listNodes",
@@ -195,17 +187,7 @@ func Routes(r *api.Router, roster Roster) {
 		Path:    "/nodes",
 		Summary: "List every Node with its Roles, link and facts",
 		Status:  http.StatusOK,
-	}, func(ctx context.Context, _ identity.Admin, _ *struct{}) (*listOutput, error) {
-		list, err := open(roster).List(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out := nodeList{Nodes: []node{}}
-		for _, n := range list {
-			out.Nodes = append(out.Nodes, nodeOf(n))
-		}
-		return &listOutput{Body: out}, nil
-	})
+	}, h.listNodes)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getNode",
@@ -214,20 +196,7 @@ func Routes(r *api.Router, roster Roster) {
 		Summary: "Get one Node with its Roles, link and facts",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound},
-	}, func(ctx context.Context, _ identity.Admin, in *idInput) (*nodeOutput, error) {
-		id, err := nodeID(in.ID)
-		if err != nil {
-			return nil, err
-		}
-		n, err := open(roster).Get(ctx, id)
-		if errors.Is(err, nodes.ErrNotFound) {
-			return nil, nodeNotFound
-		}
-		if err != nil {
-			return nil, err
-		}
-		return &nodeOutput{Body: nodeOf(n)}, nil
-	})
+	}, h.getNode)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "setNodeRoles",
@@ -236,26 +205,7 @@ func Routes(r *api.Router, roster Roster) {
 		Summary: "Set the Roles a Node holds; a connected Node in step has them when this answers",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound},
-	}, func(ctx context.Context, _ identity.Admin, in *rolesInput) (*nodeOutput, error) {
-		id, err := nodeID(in.ID)
-		if err != nil {
-			return nil, err
-		}
-		names := make([]role.Name, len(in.Body.Roles))
-		for i, s := range in.Body.Roles {
-			if names[i], err = role.ParseName(s); err != nil {
-				return nil, api.Invalid
-			}
-		}
-		n, err := open(roster).SetRoles(ctx, id, names)
-		if errors.Is(err, nodes.ErrNotFound) {
-			return nil, nodeNotFound
-		}
-		if err != nil {
-			return nil, err
-		}
-		return &nodeOutput{Body: nodeOf(n)}, nil
-	})
+	}, h.setNodeRoles)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getNodeSettings",
@@ -273,15 +223,78 @@ func Routes(r *api.Router, roster Roster) {
 		Path:    "/nodes/settings",
 		Summary: "Change the nodes settings",
 		Status:  http.StatusOK,
-	}, func(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
-		s := open(roster)
-		if v := in.Body.JoinCodeLifetimeSeconds; v != nil {
-			if err := s.SetJoinCodeLifetime(ctx, time.Duration(*v)*time.Second); err != nil {
-				return nil, err
-			}
+	}, h.updateNodeSettings)
+}
+
+type handlers struct{ roster Roster }
+
+func (h handlers) createJoinCode(ctx context.Context, _ identity.Admin, _ *struct{}) (*joinCodeOutput, error) {
+	code, err := open(h.roster).MintJoinCode(ctx)
+	if errors.Is(err, nodes.ErrNoLinkAddress) {
+		return nil, noLinkAddress
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &joinCodeOutput{Body: joinCode{Code: code.Code.String(), ExpiresAt: code.ExpiresAt}}, nil
+}
+
+func (h handlers) listNodes(ctx context.Context, _ identity.Admin, _ *struct{}) (*listOutput, error) {
+	list, err := open(h.roster).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := nodeList{Nodes: []node{}}
+	for _, n := range list {
+		out.Nodes = append(out.Nodes, nodeOf(n))
+	}
+	return &listOutput{Body: out}, nil
+}
+
+func (h handlers) getNode(ctx context.Context, _ identity.Admin, in *idInput) (*nodeOutput, error) {
+	id, err := nodeID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	n, err := open(h.roster).Get(ctx, id)
+	if errors.Is(err, nodes.ErrNotFound) {
+		return nil, nodeNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &nodeOutput{Body: nodeOf(n)}, nil
+}
+
+func (h handlers) setNodeRoles(ctx context.Context, _ identity.Admin, in *rolesInput) (*nodeOutput, error) {
+	id, err := nodeID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]role.Name, len(in.Body.Roles))
+	for i, s := range in.Body.Roles {
+		if names[i], err = role.ParseName(s); err != nil {
+			return nil, api.Invalid
 		}
-		return currentSettings(ctx, s)
-	})
+	}
+	n, err := open(h.roster).SetRoles(ctx, id, names)
+	if errors.Is(err, nodes.ErrNotFound) {
+		return nil, nodeNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &nodeOutput{Body: nodeOf(n)}, nil
+}
+
+func (h handlers) updateNodeSettings(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
+	s := open(h.roster)
+	if v := in.Body.JoinCodeLifetimeSeconds; v != nil {
+		if err := s.SetJoinCodeLifetime(ctx, time.Duration(*v)*time.Second); err != nil {
+			return nil, err
+		}
+	}
+	return currentSettings(ctx, s)
 }
 
 func currentSettings(ctx context.Context, s *nodes.Service) (*settingsOutput, error) {

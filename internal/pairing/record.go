@@ -74,7 +74,7 @@ type supersededJSON struct {
 }
 
 func readRecord(path string) (Record, bool, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path is the data dir's pairing record, chosen by the Node
 	if errors.Is(err, fs.ErrNotExist) {
 		return Record{}, false, nil
 	}
@@ -93,7 +93,7 @@ func decode(data []byte) (Record, error) {
 	dec.DisallowUnknownFields()
 	var j recordJSON
 	if err := dec.Decode(&j); err != nil {
-		return Record{}, err
+		return Record{}, fmt.Errorf("decode: %w", err)
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
 		return Record{}, errors.New("data after the record")
@@ -137,7 +137,7 @@ func encode(rec Record) ([]byte, error) {
 	}
 	data, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encode: %w", err)
 	}
 	return append(data, '\n'), nil
 }

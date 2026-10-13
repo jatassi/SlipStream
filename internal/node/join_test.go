@@ -67,6 +67,70 @@ func (c client) admin(apiKey, method, path, body string) reply {
 	return c.do(k)
 }
 
+// claimedHome claims home and mints a Join Code with its API key.
+func claimedHome(t *testing.T, home *Node, hc client) (apiKey, code string) {
+	t.Helper()
+	claimed := decode[struct {
+		APIKey string `json:"apiKey"`
+	}](t, hc.claim(home.Ready().SetupCode, "1234"), http.StatusCreated)
+	minted := decode[struct {
+		Code string `json:"code"`
+	}](t, hc.admin(claimed.APIKey, http.MethodPost, "/api/v1/nodes/join-codes", ""), http.StatusCreated)
+	parsed, err := joincode.Parse(minted.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := parsed.Addresses(), []netip.AddrPort{home.Ready().Listeners.Link}; !slices.Equal(got, want) {
+		t.Fatalf("the Join Code names %v, want the link listener %v", got, want)
+	}
+	return claimed.APIKey, minted.Code
+}
+
+type joinedWorker struct {
+	NodeID     string `json:"nodeId"`
+	Controller struct {
+		Name string `json:"name"`
+		Key  string `json:"key"`
+		Link string `json:"link"`
+	} `json:"controller"`
+}
+
+// joinBox joins box through its Setup gate and checks it is a Worker
+// holding only local.db.
+func joinBox(t *testing.T, box *Node, bc client, boxDir DataDir, code, apiKey string) joinedWorker {
+	t.Helper()
+	join := func() reply {
+		return bc.do(call{method: http.MethodPost, path: "/api/v1/setup/worker", body: strings.NewReader(`{"code":"` + code + `"}`), headers: map[string]string{"X-Setup-Code": box.Ready().SetupCode}})
+	}
+	joined := decode[joinedWorker](t, join(), http.StatusCreated)
+	expect(t, join(), 409, problem(409, "already_claimed", "This Node is already set up"))
+	expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"worker"}`+"\n")
+	expect(t, bc.admin(apiKey, http.MethodGet, "/api/v1/system", ""), 409, problem(409, "worker_node", "This Node is a Worker. Manage it from its Controller."))
+	if !loggedClaimed(t, boxDir, "worker") {
+		t.Fatal("the Worker logged no claimed record with claim worker")
+	}
+	holds := dataDirHolds(t, boxDir)
+	if !slices.Contains(holds, "node.key") || !slices.Contains(holds, "pairing.json") || !slices.Contains(holds, "local.db") || slices.Contains(holds, "library.db") {
+		t.Fatalf("the Worker's data dir holds %v, want node.key, pairing.json and local.db and no library.db", holds)
+	}
+	return joined
+}
+
+// listed is listNodes on hc as home's row and box's.
+func listed(t *testing.T, hc client, apiKey string) (self, worker nodeRow) {
+	t.Helper()
+	list := decode[struct {
+		Nodes []nodeRow `json:"nodes"`
+	}](t, hc.admin(apiKey, http.MethodGet, "/api/v1/nodes", ""), http.StatusOK).Nodes
+	if len(list) != 2 {
+		t.Fatalf("listNodes has %d rows, want home and box", len(list))
+	}
+	if list[0].Self {
+		return list[0], list[1]
+	}
+	return list[1], list[0]
+}
+
 // TestAWorkerJoinsThroughTheSetupGate runs a Controller and an Unclaimed
 // Node on one in-memory network: the Unclaimed one joins with a Join Code
 // through claimWorker, listNodes shows it up, and setNodeRoles answers once
@@ -77,57 +141,15 @@ func TestAWorkerJoinsThroughTheSetupGate(t *testing.T) {
 	boxEnv, boxHost := machine(t, net, "127.0.0.3", "box")
 	synctest.Test(t, func(t *testing.T) {
 		home, hc := startOn(t, homeEnv, homeHost)
-		claimed := decode[struct {
-			APIKey string `json:"apiKey"`
-		}](t, hc.claim(home.Ready().SetupCode, "1234"), http.StatusCreated)
-		minted := decode[struct {
-			Code string `json:"code"`
-		}](t, hc.admin(claimed.APIKey, http.MethodPost, "/api/v1/nodes/join-codes", ""), http.StatusCreated)
-		code, err := joincode.Parse(minted.Code)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got, want := code.Addresses(), []netip.AddrPort{home.Ready().Listeners.Link}; !slices.Equal(got, want) {
-			t.Fatalf("the Join Code names %v, want the link listener %v", got, want)
-		}
-
+		apiKey, code := claimedHome(t, home, hc)
 		box, bc := startOn(t, boxEnv, boxHost)
-		join := func(setupCode string) reply {
-			return bc.do(call{method: http.MethodPost, path: "/api/v1/setup/worker", body: strings.NewReader(`{"code":"` + minted.Code + `"}`), headers: map[string]string{"X-Setup-Code": setupCode}})
-		}
-		joined := decode[struct {
-			NodeID     string `json:"nodeId"`
-			Controller struct {
-				Name string `json:"name"`
-				Key  string `json:"key"`
-				Link string `json:"link"`
-			} `json:"controller"`
-		}](t, join(box.Ready().SetupCode), http.StatusCreated)
+		joined := joinBox(t, box, bc, boxEnv.DataDir, code, apiKey)
 		if joined.Controller.Name != "home" || joined.Controller.Key != home.Ready().NodeKey || joined.Controller.Link != home.Ready().Listeners.Link.String() {
 			t.Fatalf("claimWorker answered controller %+v, want home, %s, %s", joined.Controller, home.Ready().NodeKey, home.Ready().Listeners.Link)
 		}
-		expect(t, join(box.Ready().SetupCode), 409, problem(409, "already_claimed", "This Node is already set up"))
-		expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"worker"}`+"\n")
-		expect(t, bc.admin(claimed.APIKey, http.MethodGet, "/api/v1/system", ""), 409, problem(409, "worker_node", "This Node is a Worker. Manage it from its Controller."))
-		if !loggedClaimed(t, boxEnv.DataDir, "worker") {
-			t.Fatal("the Worker logged no claimed record with claim worker")
-		}
-		holds := dataDirHolds(t, boxEnv.DataDir)
-		if !slices.Contains(holds, "node.key") || !slices.Contains(holds, "pairing.json") || !slices.Contains(holds, "local.db") || slices.Contains(holds, "library.db") {
-			t.Fatalf("the Worker's data dir holds %v, want node.key, pairing.json and local.db and no library.db", holds)
-		}
 
 		synctest.Wait()
-		list := decode[struct {
-			Nodes []nodeRow `json:"nodes"`
-		}](t, hc.admin(claimed.APIKey, http.MethodGet, "/api/v1/nodes", ""), http.StatusOK).Nodes
-		if len(list) != 2 {
-			t.Fatalf("listNodes has %d rows, want home and box", len(list))
-		}
-		self, worker := list[0], list[1]
-		if !self.Self {
-			self, worker = worker, self
-		}
+		self, worker := listed(t, hc, apiKey)
 		if self.Name != "home" || self.Link.State != "local" || worker.Name != "box" || worker.ID != joined.NodeID || worker.Link.State != "up" {
 			t.Fatalf("listNodes rows: %s %s, %s %s %s; want home local and box up as %s", self.Name, self.Link.State, worker.Name, worker.ID, worker.Link.State, joined.NodeID)
 		}
@@ -135,7 +157,7 @@ func TestAWorkerJoinsThroughTheSetupGate(t *testing.T) {
 			t.Fatalf("box's build is not home's: %+v, %+v", worker.Link.Build, self.Link.Build)
 		}
 
-		set := decode[nodeRow](t, hc.admin(claimed.APIKey, http.MethodPut, "/api/v1/nodes/"+worker.ID+"/roles", `{"roles":["searching"]}`), http.StatusOK)
+		set := decode[nodeRow](t, hc.admin(apiKey, http.MethodPut, "/api/v1/nodes/"+worker.ID+"/roles", `{"roles":["searching"]}`), http.StatusOK)
 		if set.Link.State != "up" || set.Facts == nil || !slices.Equal(set.Facts.Assigned, []string{"searching"}) || set.Facts.AppliedVersion != set.IntentVersion {
 			t.Fatalf("setNodeRoles answered %+v with facts %+v, want up with searching applied at %s", set.Link, set.Facts, set.IntentVersion)
 		}

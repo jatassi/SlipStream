@@ -4,6 +4,7 @@
 package nodes
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -271,58 +272,18 @@ func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
 func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	hash := sha256.Sum256(req.GetSecret())
 	var (
-		paired  *linkv1.Paired
-		refused linkv1.RefusedReason
 		row     db.NodesNode
+		refused linkv1.RefusedReason
 	)
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		code, err := q.GetJoinCode(ctx, hash[:])
-		if errors.Is(err, storage.ErrNoRows) {
-			refused = linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		row, err = q.GetNodeByKey(ctx, peer[:])
-		known := err == nil
-		if err != nil && !errors.Is(err, storage.ErrNoRows) {
-			return err
-		}
-		now := storage.Now()
-		switch {
-		case !code.UsedBy.IsZero() && known && code.UsedBy == row.ID:
-			paired = &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name}
-			return nil
-		case !code.UsedBy.IsZero():
-			refused = linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED
-			return nil
-		case code.ExpiresAt.Compare(now) <= 0:
-			refused = linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED
-			return nil
-		}
-		if known {
-			err = q.SetPairedAt(ctx, db.SetPairedAtParams{ID: row.ID, PairedAt: now})
-		} else {
-			row = db.NodesNode{ID: ID{UUID: storage.NewUUID()}, PublicKey: peer[:], PairedAt: now}
-			if row.Name, err = freeName(ctx, q, req.GetName()); err == nil {
-				err = q.InsertNode(ctx, db.InsertNodeParams(row))
-			}
-		}
-		if err != nil {
-			return err
-		}
-		if err := q.UseJoinCode(ctx, db.UseJoinCodeParams{UsedBy: row.ID, UsedAt: now, SecretHash: hash[:]}); err != nil {
-			return err
-		}
-		paired = &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name}
-		return nil
+		var err error
+		row, refused, err = pairIn(ctx, db.New(tx), peer, hash[:], req.GetName())
+		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("pair %s: %w", peer.Fingerprint(), err)
 	}
-	if paired == nil {
+	if refused != linkv1.RefusedReason_REFUSED_REASON_UNSPECIFIED {
 		return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Refused{Refused: &linkv1.Refused{Reason: refused}}}, nil
 	}
 	s.mu.Lock()
@@ -332,8 +293,46 @@ func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReque
 	}
 	s.mu.Unlock()
 	s.changed(row.ID)
-	paired.ControllerName = s.name
-	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Paired{Paired: paired}}, nil
+	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Paired{
+		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: s.name},
+	}}, nil
+}
+
+// pairIn is Pair inside its Write: peer's row, or why the code is refused.
+func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name string) (db.NodesNode, linkv1.RefusedReason, error) {
+	code, err := q.GetJoinCode(ctx, hash)
+	if errors.Is(err, storage.ErrNoRows) {
+		return db.NodesNode{}, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN, nil
+	}
+	if err != nil {
+		return db.NodesNode{}, 0, err
+	}
+	row, err := q.GetNodeByKey(ctx, peer[:])
+	known := err == nil
+	if err != nil && !errors.Is(err, storage.ErrNoRows) {
+		return db.NodesNode{}, 0, err
+	}
+	now := storage.Now()
+	switch {
+	case !code.UsedBy.IsZero() && known && code.UsedBy == row.ID:
+		return row, 0, nil
+	case !code.UsedBy.IsZero():
+		return db.NodesNode{}, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED, nil
+	case code.ExpiresAt.Compare(now) <= 0:
+		return db.NodesNode{}, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED, nil
+	}
+	if known {
+		err = q.SetPairedAt(ctx, db.SetPairedAtParams{ID: row.ID, PairedAt: now})
+	} else {
+		row = db.NodesNode{ID: ID{UUID: storage.NewUUID()}, PublicKey: peer[:], PairedAt: now}
+		if row.Name, err = freeName(ctx, q, name); err == nil {
+			err = q.InsertNode(ctx, db.InsertNodeParams(row))
+		}
+	}
+	if err != nil {
+		return db.NodesNode{}, 0, err
+	}
+	return row, 0, q.UseJoinCode(ctx, db.UseJoinCodeParams{UsedBy: row.ID, UsedAt: now, SecretHash: hash})
 }
 
 // JoinCode is a minted code and when the Controller stops accepting it.
@@ -394,30 +393,7 @@ func (s *Service) SetJoinCodeLifetime(ctx context.Context, d time.Duration) erro
 func (s *Service) SetRoles(ctx context.Context, node ID, roles []role.Name) (Node, error) {
 	want := ordered(slices.Compact(slices.Sorted(slices.Values(roles))))
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		if _, err := q.GetNode(ctx, node); errors.Is(err, storage.ErrNoRows) {
-			return ErrNotFound
-		} else if err != nil {
-			return err
-		}
-		held, err := q.NodeRoles(ctx, node)
-		if err != nil {
-			return err
-		}
-		for _, r := range held {
-			if !slices.Contains(want, r) {
-				if err := q.DeleteRole(ctx, db.DeleteRoleParams{NodeID: node, Role: r}); err != nil {
-					return err
-				}
-			}
-		}
-		now := storage.Now()
-		for _, r := range want {
-			if err := q.InsertRole(ctx, db.InsertRoleParams{NodeID: node, Role: r, AssignedAt: now}); err != nil {
-				return err
-			}
-		}
-		return nil
+		return replaceRoles(ctx, db.New(tx), node, want)
 	})
 	if err != nil {
 		return Node{}, err
@@ -435,6 +411,33 @@ func (s *Service) SetRoles(ctx context.Context, node ID, roles []role.Name) (Nod
 	return s.Get(ctx, node)
 }
 
+func replaceRoles(ctx context.Context, q *db.Queries, node ID, want []role.Name) error {
+	if _, err := q.GetNode(ctx, node); errors.Is(err, storage.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return err
+	}
+	held, err := q.NodeRoles(ctx, node)
+	if err != nil {
+		return err
+	}
+	for _, r := range held {
+		if slices.Contains(want, r) {
+			continue
+		}
+		if err := q.DeleteRole(ctx, db.DeleteRoleParams{NodeID: node, Role: r}); err != nil {
+			return err
+		}
+	}
+	now := storage.Now()
+	for _, r := range want {
+		if err := q.InsertRole(ctx, db.InsertRoleParams{NodeID: node, Role: r, AssignedAt: now}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // awaitDelivery waits while node is in step and its facts lag the node
 // scope the library derives now.
 func (s *Service) awaitDelivery(ctx context.Context, node ID) error {
@@ -447,13 +450,13 @@ func (s *Service) awaitDelivery(ctx context.Context, node ID) error {
 		if err != nil {
 			return err
 		}
-		if f, ok := s.controls.NodeFacts(node); ok && string(f.GetAppliedVersion()) == string(want) {
+		if f, ok := s.controls.NodeFacts(node); ok && bytes.Equal(f.GetAppliedVersion(), want) {
 			return nil
 		}
 		select {
 		case <-woken:
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("await delivery to node %s: %w", node, ctx.Err())
 		}
 	}
 }
@@ -466,8 +469,8 @@ func (s *Service) inStep(node ID) bool {
 	if !ok {
 		return false
 	}
-	live, ok := s.cfg.Link.State(key).(link.Live)
-	return ok && live.Matched
+	up, ok := s.cfg.Link.State(key).(link.Live)
+	return ok && up.Matched
 }
 
 func (s *Service) awaitChange(node ID) <-chan struct{} {
@@ -505,8 +508,8 @@ func (s *Service) Run(ctx context.Context) error {
 		if !known {
 			continue
 		}
-		if live, ok := c.State.(link.Live); ok && !live.Peer.Addresses.IsZero() {
-			if err := s.recordAddresses(ctx, id, live.Peer.Addresses.All()); err != nil && ctx.Err() == nil {
+		if up, ok := c.State.(link.Live); ok && !up.Peer.Addresses.IsZero() {
+			if err := s.recordAddresses(ctx, id, up.Peer.Addresses.All()); err != nil && ctx.Err() == nil {
 				s.cfg.Log.Error("record a Node's addresses", "node", id.String(), "err", err.Error())
 			}
 		}
@@ -672,9 +675,9 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs []netip.Addr
 		n.Since = since
 	}
 	s.mu.Unlock()
-	if live, ok := s.cfg.Link.State(key).(link.Live); ok {
-		n.Link, n.Build = Up, &live.Peer
-		if !live.Matched {
+	if up, ok := s.cfg.Link.State(key).(link.Live); ok {
+		n.Link, n.Build = Up, &up.Peer
+		if !up.Matched {
 			n.Link = Mismatched
 		}
 	}

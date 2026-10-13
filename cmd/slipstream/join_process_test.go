@@ -75,14 +75,12 @@ type listed struct {
 }
 
 // nodes is listNodes as "name state" lines, and box's id.
-func (h home) nodes(t *testing.T) ([]string, string) {
+func (h home) nodes(t *testing.T) (rows []string, box string) {
 	t.Helper()
 	var res struct {
 		Nodes []listed `json:"nodes"`
 	}
 	h.admin(t, http.MethodGet, "/api/v1/nodes", &res)
-	var rows []string
-	var box string
 	for _, n := range res.Nodes {
 		rows = append(rows, n.Name+" "+n.Link.State)
 		if n.Name == "box" {
