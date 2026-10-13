@@ -142,7 +142,6 @@ func codeOfBare(ctx context.Context) connect.Code {
 type Roster interface {
 	// Key is node's link key, false for a node the Controller does not know.
 	Key(node role.NodeID) (link.Key, bool)
-	// Holders is every Node holding r.
 	Holders(r role.Name) []role.NodeID
 }
 
