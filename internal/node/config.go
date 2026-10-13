@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -36,6 +37,7 @@ type Config struct {
 }
 
 type EndpointsBlock struct {
+	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 
@@ -132,6 +134,7 @@ func Defaults(types contenttype.Set) Config {
 		Torrent: engine.DefaultSettings(),
 		HTTP:    api.DefaultSettings(),
 		Endpoints: EndpointsBlock{
+			TMDB:         tmdb.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
 		},
 		Link: link.Settings{

@@ -17,3 +17,10 @@ nodes:
 timings:
   node:
     stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m

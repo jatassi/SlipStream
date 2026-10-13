@@ -20,7 +20,12 @@ func singleMachine() Scenario {
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
 		Nodes:       []Node{{Name: "home", Setup: SetupController}},
 		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		TMDB:        quietOrchard(),
 	}
+}
+
+func quietOrchard() *TMDB {
+	return &TMDB{Movies: []TMDBMovie{{ID: 9000001, IMDbID: "tt9000001", Title: "The Quiet Orchard", Released: "2021-04-16", Runtime: 104 * time.Minute}}}
 }
 
 func TestLoadLeavesUnsetTimingsZero(t *testing.T) {
@@ -48,6 +53,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
 		},
 		Timings: node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		TMDB:    quietOrchard(),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Load(home) = %+v, want %+v", got, want)
@@ -124,6 +130,18 @@ func TestParseRefuses(t *testing.T) {
 			"join without an earlier controller",
 			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnodes: [{name: box, setup: join}, {name: home, setup: controller}]\n",
 			"scenario x: node box is join, so an earlier node must be controller",
+		},
+		{
+			"tmdb movie",
+			"seed: x\nnodes: [{name: home, setup: none}]\ntmdb:\n  movies:\n    - {id: 0, imdb_id: nm1, title: \"\", released: 2021-4-16, runtime: 90s}\n    - {id: 0, imdb_id: tt0000001, title: Again, released: 2021-02-30, runtime: 90m}\n",
+			"scenario x: tmdb movie \"\" has id 0; ids start at 1\n" +
+				"scenario x: tmdb movie 0 imdb_id \"nm1\" is not tt and seven or more digits\n" +
+				"scenario x: tmdb movie 0 has no title\n" +
+				"scenario x: tmdb movie 0 released \"2021-4-16\" is not YYYY-MM-DD\n" +
+				"scenario x: tmdb movie 0 runtime 1m30s is not whole minutes\n" +
+				"scenario x: tmdb movie \"Again\" has id 0; ids start at 1\n" +
+				"scenario x: tmdb movie 0 is listed twice\n" +
+				"scenario x: tmdb movie 0 released \"2021-02-30\" is not YYYY-MM-DD",
 		},
 		{
 			"roles on an Unclaimed node",
@@ -220,6 +238,13 @@ nodes:
 timings:
   node:
     stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: "2021-04-16"
+      runtime: 1h44m0s
 `
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)
@@ -258,7 +283,7 @@ func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
 		t.Fatalf("read back %+v, want %+v", back, s)
 	}
 	want := "timings:\n  node:\n    stop_deadline: 5s\n  live:\n    retry: 2s\n"
-	if got := string(s.YAML()); !strings.HasSuffix(got, want) {
-		t.Fatalf("YAML() =\n%s\nwant it to end\n%s", got, want)
+	if got := string(s.YAML()); !strings.Contains(got, want+"tmdb:\n") {
+		t.Fatalf("YAML() =\n%s\nwant it to hold\n%s", got, want)
 	}
 }

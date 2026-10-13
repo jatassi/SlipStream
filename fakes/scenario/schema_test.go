@@ -133,10 +133,17 @@ func compileSchema(t *testing.T, data []byte) *validator.Schema {
 	return s
 }
 
+// yamlValue reads data as an editor's YAML 1.2 schema does, where an
+// unquoted 2021-04-16 is a string, not a timestamp.
 func yamlValue(t *testing.T, data []byte) any {
 	t.Helper()
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	untime(&doc)
 	var v any
-	if err := yaml.Unmarshal(data, &v); err != nil {
+	if err := doc.Decode(&v); err != nil {
 		t.Fatal(err)
 	}
 	j, err := json.Marshal(v)
@@ -148,4 +155,13 @@ func yamlValue(t *testing.T, data []byte) any {
 		t.Fatal(err)
 	}
 	return out
+}
+
+func untime(n *yaml.Node) {
+	if n.Tag == "!!timestamp" {
+		n.Tag = "!!str"
+	}
+	for _, c := range n.Content {
+		untime(c)
+	}
 }

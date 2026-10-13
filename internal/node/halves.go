@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -93,11 +94,14 @@ func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
 		return nil
 	})
 	client := &http.Client{Transport: transport}
+	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
+	source := tmdb.New(client, n.cfg.Endpoints.TMDB, userAgent)
 	types := map[works.TypeID]contenttype.Type{}
 	for _, t := range n.env.Types.All() {
 		types[t.ID()] = t.Open(contenttype.Deps{
 			HTTP:      client,
-			UserAgent: "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )",
+			UserAgent: userAgent,
+			TMDB:      source,
 			Log:       n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
 		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}

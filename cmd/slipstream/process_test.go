@@ -507,6 +507,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default"},
 			{Key: "link.stream_window", Value: "16777216", Default: "16777216", Source: "default"},
 			{Key: "join.code", Value: "", Default: "", Source: "default"},
+			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
 			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default"},
@@ -523,11 +524,11 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default"},
 			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default"},
 		},
-		Census:       []string{},
-		ContentTypes: []string{},
+		Census:       []string{"endpoints.tmdb.api"},
+		ContentTypes: []string{"movie"},
 	}
-	if !reflect.DeepEqual(got, want) || !strings.Contains(res.stdout, `"contentTypes": []`) {
-		t.Fatalf("config = %+v, want %+v printed with \"contentTypes\": []", got, want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("config = %+v, want %+v", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "run")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("config started a Node: run dir %v", err)

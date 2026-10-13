@@ -145,7 +145,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	expectReply(t, claimController(t, readyAgain, ready.SetupCode), 409, `{"status":409,"code":"already_claimed","title":"This Node is already set up"}`+"\n")
 }
 
-func TestTheReleaseBinaryListsNoContentType(t *testing.T) {
+func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
 	ready := startNode(t, dir).ready()
@@ -155,7 +155,10 @@ func TestTheReleaseBinaryListsNoContentType(t *testing.T) {
 		t.Fatalf("claimController = %d %s, Set-Cookie %q", claimed.status, claimed.body, claimed.header.Get("Set-Cookie"))
 	}
 	r := call(t, ready, http.MethodGet, "/api/v1/content-types", "", map[string]string{"Cookie": "slipstream_session=" + session})
-	expectReply(t, r, http.StatusOK, `{"contentTypes":[]}`+"\n")
+	expectReply(t, r, http.StatusOK, `{"contentTypes":[`+
+		`{"id":"movie","name":"Movies","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},`+
+		`"fields":[{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"released","label":"Released","tier":"work","kind":"date"},`+
+		`{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"}]}]}`+"\n")
 }
 
 func binaryIsStamped(t *testing.T) bool {

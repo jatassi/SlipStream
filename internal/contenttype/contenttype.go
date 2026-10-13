@@ -36,6 +36,7 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -52,7 +53,10 @@ type Deps struct {
 	HTTP *http.Client
 	// UserAgent is sent on every request to a metadata source.
 	UserAgent string
-	Log       *slog.Logger
+	// TMDB is the one TMDB client the Node builds from endpoints.tmdb; a
+	// type that doesn't read TMDB ignores it.
+	TMDB *tmdb.Client
+	Log  *slog.Logger
 }
 
 type Registration interface {

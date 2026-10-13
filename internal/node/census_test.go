@@ -55,8 +55,8 @@ func TestCensusListsEndpointsStillAtADefaultHost(t *testing.T) {
 	}
 }
 
-func TestCensusOfTheDefaultsIsEmpty(t *testing.T) {
-	if got := Census(Defaults(noTypes), noTypes); got == nil || len(got) != 0 {
-		t.Fatalf("census = %#v, want an empty list", got)
+func TestCensusOfTheDefaultsListsTheCoreEndpoints(t *testing.T) {
+	if got, want := Census(Defaults(noTypes), noTypes), []string{"endpoints.tmdb.api"}; !slices.Equal(got, want) {
+		t.Fatalf("census = %#v, want %#v", got, want)
 	}
 }

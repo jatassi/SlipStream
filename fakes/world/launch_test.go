@@ -374,7 +374,7 @@ func TestLaunchRefusesAScenarioNeedingAContentTypeTheBinaryLacks(t *testing.T) {
 	}
 }
 
-func TestTheE2EBinaryCensusListsTheMusicEndpointAtItsDefault(t *testing.T) {
+func TestTheE2EBinaryCensusListsItsEndpointsAtTheirDefaults(t *testing.T) {
 	t.Parallel()
 	dir, err := os.MkdirTemp("", "ss") //nolint:usetesting // t.TempDir's path is too long for the socket limit on macOS and Windows
 	if err != nil {
@@ -393,7 +393,7 @@ func TestTheE2EBinaryCensusListsTheMusicEndpointAtItsDefault(t *testing.T) {
 	if err := json.Unmarshal(out, &resolved); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := fmt.Sprint(resolved.ContentTypes, resolved.Census), "[music] [endpoints.content_types.music.metadata]"; got != want {
+	if got, want := fmt.Sprint(resolved.ContentTypes, resolved.Census), "[movie music] [endpoints.tmdb.api endpoints.content_types.music.metadata]"; got != want {
 		t.Fatalf("contentTypes and census = %s, want %s", got, want)
 	}
 }

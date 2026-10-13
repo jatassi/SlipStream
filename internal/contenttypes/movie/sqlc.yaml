@@ -1,0 +1,26 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: movie_movie.tmdb_id
+            go_type:
+              type: TMDBID
+          - column: movie_movie.imdb_id
+            go_type:
+              type: IMDbID
+              pointer: true
