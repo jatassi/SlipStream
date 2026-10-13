@@ -14,6 +14,7 @@ import {
 import { z } from "zod";
 
 import { type Manifest, type ManifestNode, manifestSchema } from "./manifest.ts";
+import { warmUpWebKit } from "./warm-up.ts";
 
 export { expect };
 
@@ -205,6 +206,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         return;
       }
       const browser = await playwright[browserName].launch({ ...launchOptions, headless });
+      if (browserName === "webkit") {
+        await warmUpWebKit(browser);
+      }
       await use(browser);
       await browser.close();
     },
