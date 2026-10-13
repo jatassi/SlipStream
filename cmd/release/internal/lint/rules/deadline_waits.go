@@ -2,6 +2,7 @@ package rules
 
 import (
 	"go/ast"
+	"maps"
 	"go/token"
 	"slices"
 	"strconv"
@@ -13,7 +14,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "deadline-waits",
-		Doc:   "the end-to-end tier waits on conditions under the test's deadline and skips only with an issue link (spec #130, Lint rules)",
+		Doc:   "the end-to-end tier waits on conditions under the test's deadline and skips only with an issue link; the simulation tier and synctest tests wait on fake time (spec #130, Lint rules; spec #132, Lints and CI checks)",
 		Check: checkDeadlineWaits,
 	})
 }
@@ -22,6 +23,10 @@ var endToEndTrees = []string{"e2e/", "fakes/world/"}
 
 const (
 	untilFile = "fakes/world/worldtest/until.go"
+	// simTree runs inside a testing/synctest bubble, whose waits are fake
+	// time, as is every file importing synctest.
+	simTree = "fakes/world/sim/"
+	synctestPath = "testing/synctest"
 	issueLink = "https://github.com/jatassi/SlipStream/issues/"
 
 	useUntil   = "wait on a condition with worldtest.Until"
@@ -54,10 +59,13 @@ func checkDeadlineWaits(repo *lint.Repo) ([]lint.Finding, error) {
 		findings = append(findings, lint.Finding{Path: f.Path, Line: repo.Fset.Position(n.Pos()).Line, Message: message})
 	}
 	for _, f := range files {
-		if !underAny(f.Path, endToEndTrees) || f.Path == untilFile {
+		if !underAny(f.Path, endToEndTrees) || f.Path == untilFile || strings.HasPrefix(f.Path, simTree) {
 			continue
 		}
 		imports := importNames(f)
+		if slices.Contains(slices.Collect(maps.Values(imports)), synctestPath) {
+			continue
+		}
 		ast.Inspect(f.Syntax, func(n ast.Node) bool {
 			if message, ok := deadlineFinding(imports, n); ok {
 				report(f, n, message)
