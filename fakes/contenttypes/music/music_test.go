@@ -268,7 +268,7 @@ func TestStoreThenFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
 	if err != nil {
 		t.Fatal(err)
 	}

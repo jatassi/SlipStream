@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
@@ -14,8 +16,12 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
 	"github.com/jatassi/slipstream/internal/pairingapi"
+	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/rootsapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
+	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/targetsapi"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -27,6 +33,9 @@ var Events = []live.Event{
 	nodes.ChangedEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
+	targets.ChangedEvent,
+	roots.ChangedEvent,
+	files.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -38,6 +47,9 @@ type Node interface {
 	nodesapi.Roster
 	pairingapi.Joiner
 	worksapi.Shelf
+	targetsapi.Goals
+	rootsapi.Folders
+	filesapi.Library
 }
 
 // Services are what the operations run against. Document passes none.
@@ -56,6 +68,9 @@ func Mount(r *api.Router, s Services) {
 	nodesapi.Routes(r, s.Node)
 	pairingapi.Routes(r, s.Node)
 	worksapi.Routes(r, s.Node)
+	targetsapi.Routes(r, s.Node)
+	rootsapi.Routes(r, s.Node)
+	filesapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -31,6 +34,9 @@ type half struct {
 	controls *role.Controls
 	cluster  *rpc.Cluster
 	works    *works.Works
+	targets  *targets.Targets
+	roots    *roots.Roots
+	files    *files.Files
 }
 
 // startController starts the Controller half: the control half, its own
@@ -75,7 +81,13 @@ func (n *Node) startController(ctx context.Context) error {
 	cluster := rpc.NewCluster(dispatch, side)
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree})
+	types := n.env.Types.IDs()
+	n.setHalf(&half{
+		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree,
+		targets: targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
+		roots:   roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
+		files:   files.New(files.Config{Library: lib.db, Works: tree, Grabs: files.NoGrabs{}}),
+	})
 	n.claimed.Go("nodes", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil

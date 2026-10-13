@@ -6,7 +6,6 @@ import (
 	"context"
 	"embed"
 	"errors"
-	"log/slog"
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -78,7 +77,6 @@ type Config struct {
 	// Types is every Content Type this binary registers.
 	Types   []works.TypeID
 	Changed Publisher
-	Log     *slog.Logger
 }
 
 type Targets struct{ cfg Config }

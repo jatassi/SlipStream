@@ -1,0 +1,46 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: files_file.id
+            go_type:
+              type: FileID
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: "*.item_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID
+          - column: "*.edition"
+            go_type:
+              type: Edition
+          - column: files_file.root_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: files_file.probe
+            go_type:
+              type: Probe
+          - column: files_file.grab_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: files_fill.file_id
+            go_type:
+              type: FileID
+          - column: files_fill.target_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: TargetID
