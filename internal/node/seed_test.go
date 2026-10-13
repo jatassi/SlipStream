@@ -1,8 +1,12 @@
 package node
 
 import (
+	"slices"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/jatassi/slipstream/internal/backoff"
 )
 
 type uint64er interface{ Uint64() uint64 }
@@ -56,4 +60,16 @@ func firstAfter(n int) uint64 {
 		r.Uint64()
 	}
 	return r.Uint64()
+}
+
+func TestRedialDelaysForSeedFixed(t *testing.T) {
+	r := NewStreams("fixed").Stream("link")
+	var got []time.Duration
+	for n := range 5 {
+		got = append(got, backoff.Delay(time.Second, time.Minute, n, r))
+	}
+	want := []time.Duration{616506727, 1275342738, 2398390352, 7826944387, 8637373429}
+	if !slices.Equal(got, want) {
+		t.Fatalf("delays %v, want %v", got, want)
+	}
 }
