@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { env } from "node:process";
 
 import { AxeBuilder } from "@axe-core/playwright";
-import { type BrowserContext, type Page, test as base, expect } from "@playwright/test";
+import {
+  type Browser,
+  type BrowserContext,
+  type Page,
+  test as base,
+  expect,
+} from "@playwright/test";
 import { z } from "zod";
 
 import { type Manifest, type ManifestNode, manifestSchema } from "./manifest.ts";
@@ -32,6 +38,10 @@ type Fixtures = {
   world: World;
   newContext: () => Promise<BrowserContext>;
   adminPage: Page;
+};
+
+type WorkerFixtures = {
+  workerBrowser: Browser | null;
 };
 
 declare global {
@@ -114,7 +124,7 @@ async function guard(context: BrowserContext, origin: string): Promise<() => Pro
   };
 }
 
-export const test = base.extend<Fixtures>({
+export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
 
   manifestPath: [
@@ -185,33 +195,53 @@ export const test = base.extend<Fixtures>({
     });
   },
 
+  // A fresh Firefox on Windows can stall its main thread for seconds while it
+  // starts up, so engines that take nothing from a world at launch share one
+  // browser per worker.
+  workerBrowser: [
+    async ({ playwright, browserName, headless, launchOptions }, use) => {
+      if (browserName === "chromium") {
+        await use(null);
+        return;
+      }
+      const browser = await playwright[browserName].launch({ ...launchOptions, headless });
+      await use(browser);
+      await browser.close();
+    },
+    { scope: "worker" },
+  ],
+
   // Host resolver rules are launch flags and a world's names exist only once
-  // it is up, so each test launches its own browser.
+  // it is up, so Chromium launches a browser per test.
   newContext: async (
-    { playwright, browserName, headless, launchOptions, contextOptions, world },
+    { playwright, headless, launchOptions, contextOptions, world, workerBrowser },
     use,
   ) => {
     const hostRules = world.manifest.nodes
       .map((node) => `MAP ${node.host} ${node.address}`)
       .join(",");
-    const browser = await playwright[browserName].launch({
-      ...launchOptions,
-      headless,
-      ...(browserName === "chromium"
-        ? { args: [...(launchOptions.args ?? []), `--host-resolver-rules=${hostRules}`] }
-        : {}),
-    });
+    const browser =
+      workerBrowser ??
+      (await playwright.chromium.launch({
+        ...launchOptions,
+        headless,
+        args: [...(launchOptions.args ?? []), `--host-resolver-rules=${hostRules}`],
+      }));
     const origin = new URL(world.baseURL).origin;
+    const contexts: BrowserContext[] = [];
     const checks: (() => Promise<void>)[] = [];
     await use(async () => {
       const context = await browser.newContext({ ...contextOptions, baseURL: world.baseURL });
+      contexts.push(context);
       checks.push(await guard(context, origin));
       return context;
     });
     await Promise.all(checks.map((check) => check()));
     // Playwright saves a context's trace when the context closes.
-    await Promise.all(browser.contexts().map((context) => context.close()));
-    await browser.close();
+    await Promise.all(contexts.map((context) => context.close()));
+    if (workerBrowser === null) {
+      await browser.close();
+    }
   },
 
   context: async ({ newContext }, use) => {
