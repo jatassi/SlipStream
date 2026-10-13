@@ -37,6 +37,7 @@ var refusals = map[pairing.Kind]*api.Code{
 	pairing.AlreadyJoined:        api.AlreadyClaimed,
 	pairing.SupersededController: api.AlreadyClaimed,
 	pairing.IsController:         api.AlreadyClaimed,
+	pairing.RestartRequired:      api.AlreadyClaimed,
 }
 
 type joinInput struct {

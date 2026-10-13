@@ -137,13 +137,8 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code) (Joined, error)
 		return Joined{}, &Error{Kind: IsController, Reason: "this Node is a Controller"}
 	}
 	prev := p.rec.Load()
-	if prev != nil {
-		if code.Names(prev.Controller.Key[:]) {
-			return Joined{}, &Error{Kind: AlreadyJoined, Reason: "already joined"}
-		}
-		if slices.ContainsFunc(prev.Superseded, func(s Superseded) bool { return code.Names(s.Key[:]) }) {
-			return Joined{}, &Error{Kind: SupersededController, Reason: "superseded Controller"}
-		}
+	if err := ignored(prev, code); err != nil {
+		return Joined{}, err
 	}
 	paired, err := p.cfg.Link.Pair(ctx, code, p.cfg.Name)
 	if err != nil {
@@ -184,6 +179,27 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code) (Joined, error)
 		joined.Link = live.Remote
 	}
 	return joined, nil
+}
+
+// ignored is the refusal of a code naming rec's pinned or a superseded
+// Controller, nil for any other code or with no record.
+func ignored(rec *Record, code joincode.Code) *Error {
+	switch {
+	case rec == nil:
+		return nil
+	case code.Names(rec.Controller.Key[:]):
+		return &Error{Kind: AlreadyJoined, Reason: "already joined"}
+	case slices.ContainsFunc(rec.Superseded, func(s Superseded) bool { return code.Names(s.Key[:]) }):
+		return &Error{Kind: SupersededController, Reason: "superseded Controller"}
+	}
+	return nil
+}
+
+// Repairs is whether Claim would re-pair this Node with code: it holds a
+// record, and code names neither its pinned nor a superseded Controller.
+func (p *Pairing) Repairs(code joincode.Code) bool {
+	rec := p.rec.Load()
+	return rec != nil && !code.IsZero() && ignored(rec, code) == nil
 }
 
 // Run follows the link until ctx ends, rewriting the Controller's
@@ -232,7 +248,16 @@ const (
 	CodeUsed             Kind = "join_code_used"
 	KeyMismatch          Kind = "controller_key_mismatch"
 	Unreachable          Kind = "controller_unreachable"
+	RestartRequired      Kind = "restart_required"
 )
+
+// ErrRestartRequired refuses a re-pair of a Worker whose half runs. That
+// half stays bound to the Controller it started with, so a Worker re-pairs
+// only before its half starts.
+var ErrRestartRequired = &Error{
+	Kind:   RestartRequired,
+	Reason: "a running Worker re-pairs only at start: stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
+}
 
 // Ignored is whether k left a pairing in place rather than refusing one:
 // the code names the pinned or a superseded Controller.

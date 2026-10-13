@@ -19,21 +19,30 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 )
 
-// join runs pairing.Claim under the claim lock. The first Join starts the
-// Worker half; every Join closes the Setup gate.
+// join runs pairing.Claim under the claim lock. A running Worker half
+// stays bound to its Controller, so a code that would re-pair it is
+// refused. Once Claim ends, a Node holding a record and no half starts the
+// Worker half on it, whether the Join paired it or a re-pair at start was
+// refused. Every Join closes the Setup gate.
 func (n *Node) join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
 	n.claimMu.Lock()
 	defer n.claimMu.Unlock()
-	joined, err := n.pairing.Claim(ctx, code)
-	if err != nil {
-		return pairing.Joined{}, err
+	if n.half.Load() != nil && n.pairing.Repairs(code) {
+		return pairing.Joined{}, pairing.ErrRestartRequired
 	}
-	if n.half.Load() == nil {
+	wasWorker := n.pairing.Paired()
+	joined, err := n.pairing.Claim(ctx, code)
+	if n.half.Load() == nil && n.pairing.Paired() {
 		if err := n.startWorker(context.WithoutCancel(ctx)); err != nil {
 			n.stack.fail(fmt.Errorf("start the Worker half: %w", err))
 			return pairing.Joined{}, err
 		}
-		n.log.Info("claimed", "claim", "worker")
+		if !wasWorker {
+			n.log.Info("claimed", "claim", "worker")
+		}
+	}
+	if err != nil {
+		return pairing.Joined{}, err
 	}
 	n.gate.Close()
 	return joined, nil

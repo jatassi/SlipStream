@@ -317,7 +317,10 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	case system.Controller:
 		err = n.startController(ctx)
 	case system.Worker:
-		err = n.startWorker(ctx)
+		// A join.code that re-pairs starts the half once its Claim ends.
+		if !n.pairing.Repairs(cfg.Join.Code) {
+			err = n.startWorker(ctx)
+		}
 	case system.Unclaimed:
 	}
 	if err != nil {
