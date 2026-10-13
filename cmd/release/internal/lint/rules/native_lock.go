@@ -8,7 +8,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "native-lock",
-		Doc:   "native/lock.json pins the layers the native inputs and recipe build (release deps verify, spec #126)",
+		Doc:   "native/lock.json pins the layers the native inputs and recipe build and the tool archives they list (release deps verify, spec #126)",
 		Check: checkNativeLock,
 	})
 }
@@ -20,7 +20,7 @@ func checkNativeLock(repo *lint.Repo) ([]lint.Finding, error) {
 	}
 	var findings []lint.Finding
 	for _, msg := range stale {
-		findings = append(findings, lint.Finding{Path: native.LockPath, Line: 1, Message: msg + "; " + native.PublishHint})
+		findings = append(findings, lint.Finding{Path: native.LockPath, Line: 1, Message: msg})
 	}
 	return findings, nil
 }

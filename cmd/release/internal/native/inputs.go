@@ -80,10 +80,26 @@ type Toolchain struct {
 
 func (tc Toolchain) Layered() bool { return tc.Xcode == "" }
 
+// Tool is a prebuilt program the release ships beside the binary and runs
+// as a separate process. Each target fetches its own published archive of
+// it, which holds Programs at its root.
+type Tool struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	License string `json:"license"`
+	// Source is where the tool's source for Version is published, for the
+	// notices.
+	Source   string   `json:"source"`
+	Programs []string `json:"programs"`
+	// Archives maps each target name to the URL of its archive.
+	Archives map[string]string `json:"archives"`
+}
+
 type Inputs struct {
 	Targets    []Target    `json:"targets"`
 	Toolchains []Toolchain `json:"toolchains"`
 	Components []Component `json:"components"`
+	Tools      []Tool      `json:"tools"`
 }
 
 func LoadInputs(path string) (Inputs, error) {
@@ -129,7 +145,26 @@ func ParseInputs(data []byte) (Inputs, error) {
 	if err := checkDigests(sources); err != nil {
 		return Inputs{}, err
 	}
+	if err := in.checkTools(); err != nil {
+		return Inputs{}, err
+	}
 	return in, nil
+}
+
+func (in Inputs) checkTools() error {
+	for _, tool := range in.Tools {
+		for _, t := range in.Targets {
+			if _, ok := tool.Archives[t.Name]; !ok {
+				return fmt.Errorf("native inputs: tool %s: no archive for target %s", tool.Name, t.Name)
+			}
+		}
+		for name := range tool.Archives {
+			if _, err := in.Target(name); err != nil {
+				return fmt.Errorf("native inputs: tool %s: archive for %w", tool.Name, err)
+			}
+		}
+	}
+	return nil
 }
 
 func checkDigests(sources []Source) error {

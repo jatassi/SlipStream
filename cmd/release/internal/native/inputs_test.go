@@ -33,6 +33,11 @@ func TestParseInputsRejectsInconsistentInputs(t *testing.T) {
 		{`{"toolchains": [{"name": "musl-cross", "sources": [{"name": "musl", "sha256": "d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"}],
 		   "runtimes": [{"name": "libgcc", "source": "gcc"}]}]}`,
 			`native inputs: toolchain musl-cross: runtime libgcc names no source "gcc"`},
+		{`{"targets": [{"name": "linux-amd64", "gate": "pr", "toolchain": "xcode"}], "toolchains": [{"name": "xcode", "xcode": "16.4"}],
+		  "tools": [{"name": "ffmpeg", "archives": {}}]}`,
+			`native inputs: tool ffmpeg: no archive for target linux-amd64`},
+		{`{"tools": [{"name": "ffmpeg", "archives": {"plan9-amd64": "https://example.test/ffmpeg.zip"}}]}`,
+			`native inputs: tool ffmpeg: archive for unknown target "plan9-amd64"`},
 	} {
 		if _, err := ParseInputs([]byte(tc.inputs)); err == nil || err.Error() != tc.want {
 			t.Errorf("ParseInputs(%s) err = %v, want %s", tc.inputs, err, tc.want)

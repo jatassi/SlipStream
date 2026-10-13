@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 )
 
@@ -26,25 +27,33 @@ type Served struct {
 	Client  *http.Client
 }
 
+// Option edits the Env the fake is built with.
+type Option func(*fake.Env)
+
+// WithReleases hands the fake a release catalog, as the world does.
+func WithReleases(c *releases.Catalog) Option {
+	return func(e *fake.Env) { e.Releases = c }
+}
+
 // Loopback serves spec on 127.0.0.1, behind a leaf from a run CA when
 // spec.TLS is set. It stops when the test ends.
-func Loopback(t testing.TB, spec fake.Spec, s scenario.Scenario) Served {
+func Loopback(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option) Served {
 	t.Helper()
 	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return serve(t, spec, s, l, &http.Transport{}, newCA(t))
+	return serve(t, spec, s, l, &http.Transport{}, newCA(t), opts...)
 }
 
 // InMemory serves spec over an in-memory network, so it runs inside
 // synctest.Test. The client reaches the fake whatever host it dials.
-func InMemory(t testing.TB, spec fake.Spec, s scenario.Scenario) Served {
+func InMemory(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option) Served {
 	t.Helper()
 	l := &pipeListener{conns: make(chan net.Conn), closed: make(chan struct{})}
 	return serve(t, spec, s, l, &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return l.dial(ctx) },
-	}, newCA(t))
+	}, newCA(t), opts...)
 }
 
 func newCA(t testing.TB) *ca.CA {
@@ -56,7 +65,7 @@ func newCA(t testing.TB) *ca.CA {
 	return authority
 }
 
-func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr *http.Transport, authority *ca.CA) Served {
+func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr *http.Transport, authority *ca.CA, opts ...Option) Served {
 	t.Helper()
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
 	if spec.TLS {
@@ -67,7 +76,11 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
 		tr.TLSClientConfig = &tls.Config{RootCAs: authority.Pool(), MinVersion: tls.VersionTLS12}
 	}
-	server, err := spec.New(s, fake.NewEnv(s, spec.Name, slog.New(slog.NewTextHandler(t.Output(), nil))))
+	env := fake.NewEnv(s, spec.Name, slog.New(slog.NewTextHandler(t.Output(), nil)))
+	for _, opt := range opts {
+		opt(&env)
+	}
+	server, err := spec.New(s, env)
 	if err != nil {
 		t.Fatal(err)
 	}

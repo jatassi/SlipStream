@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Fetch makes the layer present in the cache and returns its directory. It
@@ -126,12 +127,15 @@ func download(ctx context.Context, url string, w io.Writer) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// Bundle is a target's fetched layers as the lock pins them for the current
-// inputs and recipe: the libs layer, whose digest names the whole bundle,
-// and the environment that builds against it with the target's toolchain.
+// Bundle is a target's fetched layers and tools as the lock pins them for
+// the current inputs and recipe: the libs layer, whose digest names the
+// whole bundle, the path of every tool program, and the environment that
+// builds against the libs with the target's toolchain and names the
+// programs in ToolsEnv.
 type Bundle struct {
-	Libs Layer
-	Env  []EnvVar
+	Libs  Layer
+	Tools []string
+	Env   []EnvVar
 }
 
 func FetchedBundle(root, cacheRoot string, in Inputs, t Target) (Bundle, error) {
@@ -168,5 +172,28 @@ func FetchedBundle(root, cacheRoot string, in Inputs, t Target) (Bundle, error) 
 	if err != nil {
 		return Bundle{}, err
 	}
-	return Bundle{libs, CgoEnv(libsDir, md, cc, t)}, nil
+	tools, err := fetchedTools(lock, cacheRoot, in, t)
+	if err != nil {
+		return Bundle{}, err
+	}
+	env := append(CgoEnv(libsDir, md, cc, t), EnvVar{ToolsEnv, strings.Join(tools, string(os.PathListSeparator))})
+	return Bundle{libs, tools, env}, nil
+}
+
+func fetchedTools(lock Lock, cacheRoot string, in Inputs, t Target) ([]string, error) {
+	var programs []string
+	for _, tool := range in.Tools {
+		p, err := lock.PinnedTool(ToolArchive{tool.Name, t.Name, tool.Archives[t.Name]})
+		if err != nil {
+			return nil, err
+		}
+		dir := ToolDir(cacheRoot, p)
+		if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("the %s tool for %s is not fetched: run scripts/native-deps fetch -target %s", tool.Name, t.Name, t.Name)
+		}
+		for _, name := range tool.Programs {
+			programs = append(programs, filepath.Join(dir, Program(t, name)))
+		}
+	}
+	return programs, nil
 }

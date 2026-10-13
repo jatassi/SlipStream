@@ -30,7 +30,9 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/channel"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
@@ -66,6 +68,7 @@ type Run struct {
 	caFile    string
 	probe     node.Resolved
 	fakes     []*fakeRun
+	releases  *releases.Catalog
 	endpoints node.EndpointsBlock
 	nodes     []*nodeRun
 	used      map[string]bool
@@ -91,6 +94,7 @@ type nodeRun struct {
 type fakeRun struct {
 	spec   fake.Spec
 	at     fake.Address
+	l      net.Listener
 	cancel context.CancelFunc
 	done   chan error
 }
@@ -185,7 +189,9 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		func(context.Context, *unwind) error { return r.copyBinary(opts.Binary) },
 		r.mintCA,
 		r.probeBinary,
-		func(ctx context.Context, undo *unwind) error { return r.startFakes(ctx, undo, fakes) },
+		func(ctx context.Context, undo *unwind) error { return r.bindFakes(ctx, undo, fakes) },
+		r.buildReleases,
+		r.serveFakes,
 		r.prepareNodes,
 		r.startNodes,
 		r.checkListeners,
@@ -228,6 +234,12 @@ func (r *Run) copyBinary(source string) error {
 	}
 	r.binary = Binary{Source: src, Path: dst, SHA256: sum}
 	r.log.Info("binary copied", "source", src, "path", dst, "sha256", sum)
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		name := tool + filepath.Ext(src)
+		if _, err := CopyExecutable(filepath.Join(filepath.Dir(src), name), filepath.Join(r.runDir, "bin", name)); err != nil {
+			return fmt.Errorf("%s beside the binary: %w", tool, err)
+		}
+	}
 	return nil
 }
 
@@ -281,19 +293,82 @@ func (r *Run) probeBinary(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
-func (r *Run) startFakes(ctx context.Context, undo *unwind, specs []fake.Spec) error {
+// bindFakes binds each fake's listener before any fake is built, since the
+// release catalog names fake-tracker's address and every fake reads the
+// catalog.
+func (r *Run) bindFakes(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	for _, spec := range specs {
 		if spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType) {
 			continue
 		}
-		f, err := r.startFake(ctx, spec)
+		f, err := r.bindFake(ctx, spec)
 		if err != nil {
 			return err
 		}
 		r.fakes = append(r.fakes, f)
+		undo.push(func() { _ = f.l.Close() })
+	}
+	return nil
+}
+
+func (r *Run) bindFake(ctx context.Context, spec fake.Spec) (*fakeRun, error) {
+	l, err := new(net.ListenConfig).Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
+	}
+	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
+	if spec.TLS {
+		leaf, err := r.ca.Leaf("127.0.0.1", spec.Name+".fake.localhost")
+		if err != nil {
+			_ = l.Close()
+			return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
+		}
+		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
+	}
+	return &fakeRun{spec: spec, at: at, l: l}, nil
+}
+
+func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
+	cache, err := releases.CacheDir()
+	if err != nil {
+		return err
+	}
+	cfg := releases.Config{
+		FFmpeg: filepath.Join(r.runDir, "bin", "ffmpeg"+filepath.Ext(r.binary.Path)),
+		Cache:  cache,
+		Dir:    filepath.Join(r.scratchDir, "releases"),
+	}
+	if len(r.scenario.Releases) > 0 {
+		i := slices.IndexFunc(r.fakes, func(f *fakeRun) bool { return f.spec.Name == tracker.Fake.Name })
+		if i < 0 {
+			return fmt.Errorf("scenario %s lists releases, and the world runs no fake-tracker", r.scenario.Name)
+		}
+		cfg.Tracker = r.fakes[i].at.AddrPort
+	}
+	if r.releases, err = releases.Build(ctx, r.scenario, cfg); err != nil {
+		return err
+	}
+	for _, rel := range r.releases.Releases {
+		r.log.Info("release built", "release", rel.Name, "info_hash", rel.InfoHash.String(), "size", rel.Size)
+	}
+	return nil
+}
+
+func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
+	for _, f := range r.fakes {
+		env := fake.NewEnv(r.scenario, f.spec.Name, r.log)
+		env.Releases = r.releases
+		server, err := f.spec.New(r.scenario, env)
+		if err != nil {
+			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
+		}
+		fctx, cancel := context.WithCancel(r.life)
+		f.cancel, f.done = cancel, make(chan error, 1)
+		go func() { f.done <- server.Serve(fctx, f.l) }()
+		r.log.Info("fake started", "fake", f.spec.Name, "url", f.at.URL(""))
 		undo.push(func() {
 			if err := f.stop(); err != nil {
-				r.log.Error("fake stopped", "fake", spec.Name, "err", err.Error())
+				r.log.Error("fake stopped", "fake", f.spec.Name, "err", err.Error())
 			}
 		})
 	}
@@ -311,31 +386,6 @@ func (r *Run) startFakes(ctx context.Context, undo *unwind, specs []fake.Spec) e
 		}
 	}
 	return nil
-}
-
-func (r *Run) startFake(ctx context.Context, spec fake.Spec) (*fakeRun, error) {
-	server, err := spec.New(r.scenario, fake.NewEnv(r.scenario, spec.Name, r.log))
-	if err != nil {
-		return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
-	}
-	l, err := new(net.ListenConfig).Listen(ctx, "tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
-	}
-	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
-	if spec.TLS {
-		leaf, err := r.ca.Leaf("127.0.0.1", spec.Name+".fake.localhost")
-		if err != nil {
-			_ = l.Close()
-			return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
-		}
-		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
-	}
-	fctx, cancel := context.WithCancel(r.life)
-	f := &fakeRun{spec: spec, at: at, cancel: cancel, done: make(chan error, 1)}
-	go func() { f.done <- server.Serve(fctx, l) }()
-	r.log.Info("fake started", "fake", spec.Name, "url", at.URL(""))
-	return f, nil
 }
 
 func (f *fakeRun) stop() error {

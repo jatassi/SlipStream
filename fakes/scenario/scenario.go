@@ -37,6 +37,10 @@ type Scenario struct {
 	Music *Music `yaml:"music,omitempty"`
 	// TMDB is the catalog fake-tmdb serves; nil serves an empty one.
 	TMDB *TMDB `yaml:"tmdb,omitempty"`
+	// Releases are the releases the fakes offer, and Tracker how
+	// fake-tracker answers their announces.
+	Releases []Release `yaml:"releases,omitempty"`
+	Tracker  Tracker   `yaml:"tracker,omitempty"`
 	// Library is what the world creates on the controller Node after
 	// setting it up.
 	Library *Library `yaml:"library,omitempty"`
@@ -132,6 +136,8 @@ func (s Scenario) Validate() error {
 	if s.TMDB != nil {
 		s.TMDB.check(add)
 	}
+	checkReleases(add, s.Releases, s.TMDB)
+	s.Tracker.check(add)
 	if s.Library != nil {
 		if len(controllers) == 0 {
 			add("library is set, but no node is controller")

@@ -28,7 +28,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		paths = append(paths, leaf.Path)
 	}
 	want := []string{
-		"seed", "name", "torrent.listen", "http.listen", "http.trusted_origins", "link.listen", "link.stream_window", "join.code",
+		"seed", "name", "torrent.listen", "torrent.downloads", "http.listen", "http.trusted_origins", "link.listen", "link.stream_window", "join.code",
 		"endpoints.tmdb.api",
 		"timings.node.stop_deadline", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",

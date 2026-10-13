@@ -26,6 +26,11 @@ const fixtureInputs = `{
 	"components": [
 		{"name": "libtorrent-rasterbar", "version": "2.0.15", "url": "https://example.test/lt.tar.gz",
 		 "sha256": "5e2e79129823b7ea48721164c32b5aaf83d3fd733b5502100f6705b29f27bb02", "license": "BSD-3-Clause"}
+	],
+	"tools": [
+		{"name": "ffmpeg", "version": "8.1", "license": "GPL-3.0-or-later", "source": "https://example.test/ffmpeg",
+		 "programs": ["ffmpeg", "ffprobe"],
+		 "archives": {"linux-amd64": "https://example.test/ffmpeg-linux.tar.xz", "darwin-arm64": "https://example.test/ffmpeg-mac.tar.xz"}}
 	]
 }`
 

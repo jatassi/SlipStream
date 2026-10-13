@@ -55,10 +55,36 @@ type Layer struct {
 	SHA256 string `json:"sha256"`
 }
 
-// Lock pins every layer the inputs build to its published asset. Only
-// `release deps pin` writes it.
+// ToolArchive is one tool's published archive for one target.
+type ToolArchive struct {
+	Tool   string `json:"tool"`
+	Target string `json:"target"`
+	URL    string `json:"url"`
+}
+
+// PinnedTool is a tool archive as the lock pins it.
+type PinnedTool struct {
+	ToolArchive
+	SHA256 string `json:"sha256"`
+}
+
+// Lock pins every layer the inputs build to its published asset, and every
+// tool archive the inputs list to its content. Only `release deps pin`
+// writes it.
 type Lock struct {
-	Layers []Layer `json:"layers"`
+	Layers []Layer      `json:"layers"`
+	Tools  []PinnedTool `json:"tools"`
+}
+
+// ToolArchives lists every tool's archive for every target, in input order.
+func (in Inputs) ToolArchives() []ToolArchive {
+	var archives []ToolArchive
+	for _, tool := range in.Tools {
+		for _, t := range in.Targets {
+			archives = append(archives, ToolArchive{tool.Name, t.Name, tool.Archives[t.Name]})
+		}
+	}
+	return archives
 }
 
 // Layers names the layers t ships by the digest of the current inputs and
@@ -138,6 +164,40 @@ func (l Lock) Pinned(id LayerID) (Layer, error) {
 	return Layer{}, fmt.Errorf("%s pins no %s layer %s for %s; %s", LockPath, id.Kind, id.Digest, id.Target, PublishHint)
 }
 
+func (l Lock) PinnedTool(a ToolArchive) (PinnedTool, error) {
+	for _, p := range l.Tools {
+		if p.ToolArchive == a {
+			return p, nil
+		}
+	}
+	return PinnedTool{}, fmt.Errorf("%s pins no %s archive %s for %s; run scripts/native-deps pin", LockPath, a.Tool, a.URL, a.Target)
+}
+
+// StaleTools describes each way the lock's tool archives differ from want.
+func (l Lock) StaleTools(want []ToolArchive) []string {
+	type slot struct{ tool, target string }
+	pinned := map[slot]string{}
+	for _, p := range l.Tools {
+		pinned[slot{p.Tool, p.Target}] = p.URL
+	}
+	var stale []string
+	for _, a := range want {
+		s := slot{a.Tool, a.Target}
+		switch url, ok := pinned[s]; {
+		case !ok:
+			stale = append(stale, fmt.Sprintf("pins no %s archive for %s, inputs list %s", a.Tool, a.Target, a.URL))
+		case url != a.URL:
+			stale = append(stale, fmt.Sprintf("pins %s archive %s for %s, inputs list %s", a.Tool, url, a.Target, a.URL))
+		}
+		delete(pinned, s)
+	}
+	for s, url := range pinned {
+		stale = append(stale, fmt.Sprintf("pins %s archive %s for %s, which %s does not list", s.tool, url, s.target, InputsPath))
+	}
+	slices.Sort(stale)
+	return stale
+}
+
 func (l Lock) Stale(want []LayerID) []string {
 	type slot struct {
 		kind   Kind
@@ -166,9 +226,10 @@ func (l Lock) Stale(want []LayerID) []string {
 }
 
 // StaleLock describes each way the lock in the checkout at root differs from
-// the layers its inputs and recipe build.
+// the layers its inputs and recipe build and the tool archives its inputs
+// list, each with how to bring the lock up to date.
 func StaleLock(root string) ([]string, error) {
-	_, want, err := WantRepo(root)
+	in, want, err := WantRepo(root)
 	if err != nil {
 		return nil, err
 	}
@@ -176,5 +237,12 @@ func StaleLock(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return l.Stale(want), nil
+	var stale []string
+	for _, msg := range l.Stale(want) {
+		stale = append(stale, msg+"; "+PublishHint)
+	}
+	for _, msg := range l.StaleTools(in.ToolArchives()) {
+		stale = append(stale, msg+"; run scripts/native-deps pin")
+	}
+	return stale, nil
 }

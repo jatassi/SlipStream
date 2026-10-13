@@ -21,7 +21,16 @@ func singleMachine() Scenario {
 		Nodes:       []Node{{Name: "home", Setup: SetupController}},
 		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
 		TMDB:        quietOrchard(),
+		Releases:    quietOrchardReleases(),
+		Tracker:     Tracker{Interval: 5 * time.Second},
 		Library:     movieLibrary(),
+	}
+}
+
+func quietOrchardReleases() []Release {
+	return []Release{
+		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40},
 	}
 }
 
@@ -61,9 +70,11 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 			{Name: "home", Setup: SetupController, Roles: []role.Name{role.Storage, role.Converting, role.Subtitles, role.Metadata, role.MediaServerLink, role.Notifying, role.Serving}},
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
 		},
-		Timings: node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
-		TMDB:    quietOrchard(),
-		Library: movieLibrary(),
+		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		TMDB:     quietOrchard(),
+		Releases: quietOrchardReleases(),
+		Tracker:  Tracker{Interval: 5 * time.Second},
+		Library:  movieLibrary(),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Load(home) = %+v, want %+v", got, want)
@@ -255,6 +266,24 @@ tmdb:
       title: The Quiet Orchard
       released: "2021-04-16"
       runtime: 1h44m0s
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video:
+      width: 1920
+      height: 1080
+      seconds: 6
+    seeders: 12
+    seeded: true
+  - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video:
+      width: 1280
+      height: 720
+      seconds: 6
+    seeders: 40
+tracker:
+  interval: 5s
 library:
   roots:
     - content_type: movie

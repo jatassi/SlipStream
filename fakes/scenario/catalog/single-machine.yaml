@@ -20,6 +20,19 @@ tmdb:
       title: The Quiet Orchard
       released: 2021-04-16
       runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+  - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 40
+    seeded: false
+tracker:
+  interval: 5s
 library:
   roots: [{content_type: movie, folder: movies}]
   targets: [{name: 1080p, resolutions: [1080p]}]

@@ -166,6 +166,8 @@ func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
 	for i, id := range want {
 		lock.Layers = append(lock.Layers, Layer{id, id.AssetName(), id.URL("https://example.test"), strings.Repeat(string(rune('a'+i)), 64)})
 	}
+	ffmpeg := PinnedTool{ToolArchive{"ffmpeg", "linux-amd64", "https://example.test/ffmpeg-linux.tar.xz"}, strings.Repeat("f", 64)}
+	lock.Tools = []PinnedTool{ffmpeg}
 	if err := lock.Write(filepath.Join(root, LockPath)); err != nil {
 		t.Fatal(err)
 	}
@@ -188,12 +190,25 @@ func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	_, err = FetchedBundle(root, cache, in, target)
+	if wantErr := "the ffmpeg tool for linux-amd64 is not fetched: run scripts/native-deps fetch -target linux-amd64"; err == nil || err.Error() != wantErr {
+		t.Fatalf("FetchedBundle err = %v, want %s", err, wantErr)
+	}
+
+	tools := ToolDir(cache, ffmpeg)
+	if err := os.MkdirAll(tools, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	b, err := FetchedBundle(root, cache, in, target)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if b.Libs != lock.Layers[1] {
 		t.Errorf("Libs = %+v, want %+v", b.Libs, lock.Layers[1])
+	}
+	programs := []string{filepath.Join(tools, "ffmpeg"), filepath.Join(tools, "ffprobe")}
+	if !slices.Equal(b.Tools, programs) {
+		t.Errorf("Tools = %q, want %q", b.Tools, programs)
 	}
 	cflags := "-O2 -g -DSLIPSTREAM_NATIVE_BUNDLE -I" + filepath.Join(libs, "include")
 	wantEnv := []EnvVar{
@@ -204,6 +219,7 @@ func TestFetchedBundleBuildsWithTheToolchainAndLibsLayers(t *testing.T) {
 		{"CGO_CFLAGS", cflags},
 		{"CGO_CXXFLAGS", cflags},
 		{"CGO_LDFLAGS", filepath.Join(libs, "lib", "libtorrent-rasterbar.a") + " -static -lstdc++"},
+		{ToolsEnv, strings.Join(programs, string(os.PathListSeparator))},
 	}
 	if !slices.Equal(b.Env, wantEnv) {
 		t.Errorf("Env =\n%q\nwant\n%q", b.Env, wantEnv)
@@ -225,7 +241,12 @@ func TestFetchedBundleBuildsWithXcodeAndTheLibsLayer(t *testing.T) {
 		t.Fatal(err)
 	}
 	libs := Layer{ids[0], ids[0].AssetName(), ids[0].URL("https://example.test"), strings.Repeat("c", 64)}
-	if err := (Lock{Layers: []Layer{libs}}).Write(filepath.Join(root, LockPath)); err != nil {
+	ffmpeg := PinnedTool{ToolArchive{"ffmpeg", "darwin-arm64", "https://example.test/ffmpeg-mac.tar.xz"}, strings.Repeat("f", 64)}
+	if err := (Lock{Layers: []Layer{libs}, Tools: []PinnedTool{ffmpeg}}).Write(filepath.Join(root, LockPath)); err != nil {
+		t.Fatal(err)
+	}
+	tools := ToolDir(cache, ffmpeg)
+	if err := os.MkdirAll(tools, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	dir := LayerDir(cache, libs)
@@ -248,6 +269,7 @@ func TestFetchedBundleBuildsWithXcodeAndTheLibsLayer(t *testing.T) {
 		{"CGO_CXXFLAGS", cflags},
 		{"CGO_LDFLAGS", filepath.Join(dir, "lib", "libssl.a") + " -lc++"},
 		{"MACOSX_DEPLOYMENT_TARGET", "13.0"},
+		{ToolsEnv, filepath.Join(tools, "ffmpeg") + string(os.PathListSeparator) + filepath.Join(tools, "ffprobe")},
 	}
 	if b.Libs != libs || !slices.Equal(b.Env, wantEnv) {
 		t.Errorf("FetchedBundle = %+v, %q\nwant %+v, %q", b.Libs, b.Env, libs, wantEnv)
