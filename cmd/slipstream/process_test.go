@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -280,6 +281,22 @@ func TestRefusedLibraryExitsWithItsOwnCode(t *testing.T) {
 	}
 	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
 	want := "library.db holds schema shelf, which this binary does not have"
+	if got := startFailed(res.stderr); res.code != node.ExitLibraryRefused || got != want {
+		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitLibraryRefused, want, res.stderr)
+	}
+}
+
+func TestALibraryTheE2EBinaryClaimedRefusesTheReleaseBinary(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	p := startBinary(t, testbin.E2E(t), dir)
+	ready := p.ready()
+	if claimed := claimController(t, ready, ready.SetupCode); claimed.status != http.StatusCreated {
+		t.Fatalf("claimController on the e2e binary = %d %s", claimed.status, claimed.body)
+	}
+	stopNode(t, p, dir)
+	res := slipstream(t, childEnv(localListeners...), "run", "--data-dir", dir)
+	want := "library.db holds schema music, which this binary does not have"
 	if got := startFailed(res.stderr); res.code != node.ExitLibraryRefused || got != want {
 		t.Fatalf("exit %d, start failed with %q; want exit %d with %q\n%s", res.code, got, node.ExitLibraryRefused, want, res.stderr)
 	}
