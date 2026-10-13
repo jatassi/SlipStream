@@ -21,6 +21,10 @@ type Spec struct {
 	// TLS asks the world to terminate TLS with a leaf from the run CA before
 	// Serve sees a connection.
 	TLS bool
+	// ContentType is the id of the Content Type whose metadata source the
+	// fake serves, empty for a core boundary. The world starts such a fake
+	// only for a binary that registers the type.
+	ContentType string
 	// New builds the fake from the whole Scenario. It does no IO.
 	New func(scenario.Scenario, Env) (Server, error)
 	// Endpoints points every Endpoints entry the fake's boundary owns at

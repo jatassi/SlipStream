@@ -87,12 +87,18 @@ func NewStream(body io.ReadCloser) *Stream {
 }
 
 // Next returns the next message, its lines up to the blank line that ends
-// it, or the error that ended the stream: io.EOF when the server closed it.
-func (s *Stream) Next() (string, error) {
-	if msg, ok := <-s.messages; ok {
-		return msg, nil
+// it, or the error that ended the stream: io.EOF when the server closed it,
+// or ctx's error when ctx ends first.
+func (s *Stream) Next(ctx context.Context) (string, error) {
+	select {
+	case msg, ok := <-s.messages:
+		if ok {
+			return msg, nil
+		}
+		return "", <-s.end
+	case <-ctx.Done():
+		return "", fmt.Errorf("read the stream: %w", ctx.Err())
 	}
-	return "", <-s.end
 }
 
 // Close drops the connection, as a closed browser tab does.

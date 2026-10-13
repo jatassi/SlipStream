@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/channel"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -63,6 +64,7 @@ type Run struct {
 	binary    Binary
 	ca        *ca.CA
 	caFile    string
+	probe     node.Resolved
 	fakes     []*fakeRun
 	endpoints node.EndpointsBlock
 	nodes     []*nodeRun
@@ -182,6 +184,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	steps := []func(context.Context, *unwind) error{
 		func(context.Context, *unwind) error { return r.copyBinary(opts.Binary) },
 		r.mintCA,
+		r.probeBinary,
 		func(ctx context.Context, undo *unwind) error { return r.startFakes(ctx, undo, fakes) },
 		r.prepareNodes,
 		r.startNodes,
@@ -264,8 +267,24 @@ func (r *Run) mintCA(context.Context, *unwind) error {
 	return nil
 }
 
+func (r *Run) probeBinary(ctx context.Context, _ *unwind) error {
+	var err error
+	if r.probe, err = r.resolve(ctx, "", filepath.Join(r.scratchDir, ".probe"), nodeenv.Environ(r.caFile)); err != nil {
+		return err
+	}
+	for _, id := range r.scenario.ContentTypes() {
+		if !slices.Contains(r.probe.ContentTypes, id) {
+			return fmt.Errorf("scenario %s needs Content Type %s, which %s does not register; launch it with worldtest.LaunchE2E", r.scenario.Name, id, filepath.Base(r.binary.Source))
+		}
+	}
+	return nil
+}
+
 func (r *Run) startFakes(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	for _, spec := range specs {
+		if spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType) {
+			continue
+		}
 		f, err := r.startFake(ctx, spec)
 		if err != nil {
 			return err
@@ -277,9 +296,18 @@ func (r *Run) startFakes(ctx context.Context, undo *unwind, specs []fake.Spec) e
 			}
 		})
 	}
-	r.endpoints = node.Defaults().Endpoints
+	listed := map[string]bool{}
+	for _, k := range r.probe.Keys {
+		listed[k.Key] = true
+	}
+	r.endpoints = node.Defaults(contenttype.Set{}).Endpoints
 	for _, f := range r.fakes {
 		f.spec.Endpoints(&r.endpoints, f.at)
+		for _, p := range r.endpoints.ContentTypes.Paths() {
+			if !listed[p] {
+				return fmt.Errorf("fake %s sets %s, which this binary does not list", f.spec.Name, p)
+			}
+		}
 	}
 	return nil
 }
@@ -319,13 +347,10 @@ func (f *fakeRun) stop() error {
 
 func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 	env := nodeenv.Environ(r.caFile)
-	probe, err := r.resolve(ctx, "", filepath.Join(r.scratchDir, ".probe"), env)
-	if err != nil {
-		return err
-	}
-	listen := setup.ListenKeys(probe)
+	listen := setup.ListenKeys(r.probe)
 	for i, n := range r.nodes {
 		name := n.spec.Name
+		var err error
 		n.dataDir, err = node.ParseDataDir(filepath.Join(r.scratchDir, name))
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)

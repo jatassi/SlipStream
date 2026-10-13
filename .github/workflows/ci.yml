@@ -122,6 +122,7 @@ jobs:
       - run: go run ./cmd/release test
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
+          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
       - if: failure()
         uses: actions/upload-artifact@v4

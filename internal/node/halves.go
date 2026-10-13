@@ -2,13 +2,17 @@ package node
 
 import (
 	"context"
+	"net/http"
+	"time"
 
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // peers is how the link treats a peer under the Node's claim: whom it
@@ -23,16 +27,27 @@ type peers interface {
 type half struct {
 	peers    peers
 	dispatch *rpc.Dispatch
-	// nodes, controls and cluster are the Controller's, nil on a Worker.
 	nodes    *nodes.Service
 	controls *role.Controls
 	cluster  *rpc.Cluster
+	works    *works.Works
 }
 
 // startController starts the Controller half: the control half, its own
 // holder half in process, and call dispatch over the roster.
 func (n *Node) startController(ctx context.Context) error {
 	lib, err := n.openLibrary(ctx)
+	if err != nil {
+		return err
+	}
+	tree, err := works.Open(ctx, works.Config{
+		Library:      lib.db,
+		Catalogs:     contenttype.Project(n.openTypes(), func(t contenttype.Type) works.Catalog { return t }),
+		Timings:      n.cfg.Timings.Works,
+		Changed:      works.ChangedEvent.Bind(n.hub),
+		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
+		Log:          n.rootLog.With("subsystem", "works"),
+	})
 	if err != nil {
 		return err
 	}
@@ -60,10 +75,33 @@ func (n *Node) startController(ctx context.Context) error {
 	cluster := rpc.NewCluster(dispatch, side)
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster})
+	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree})
 	n.claimed.Go("nodes", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil
+}
+
+func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
+	transport := &http.Transport{
+		DialContext:         n.env.Net.DialContext,
+		ForceAttemptHTTP2:   true,
+		TLSHandshakeTimeout: 10 * time.Second,
+		IdleConnTimeout:     90 * time.Second,
+	}
+	n.claimed.OnStop("content types", func(context.Context) error {
+		transport.CloseIdleConnections()
+		return nil
+	})
+	client := &http.Client{Transport: transport}
+	types := map[works.TypeID]contenttype.Type{}
+	for _, t := range n.env.Types.All() {
+		types[t.ID()] = t.Open(contenttype.Deps{
+			HTTP:      client,
+			UserAgent: "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )",
+			Log:       n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
+		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
+	}
+	return types
 }
 
 // startWorker starts the Worker half: the holder half over the link to its

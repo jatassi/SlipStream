@@ -433,6 +433,38 @@ func TestReadThroughTheDBInsideWritePanics(t *testing.T) {
 	}
 }
 
+func TestReadSeesOneSnapshot(t *testing.T) {
+	lib := storagetest.Library(t, shelf.Schema())
+	addShelf(t, lib, "Films")
+	var before, after int64
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		if before, err = shelf.Count(ctx, r); err != nil {
+			return err
+		}
+		addShelf(t, lib, "Series")
+		after, err = shelf.Count(ctx, r)
+		return err
+	})
+	if err != nil || before != 1 || after != 1 {
+		t.Errorf("counts inside one Read = %d then %d (%v), want 1 then 1", before, after, err)
+	}
+	if n, err := shelf.Count(t.Context(), lib); err != nil || n != 2 {
+		t.Errorf("count after the Read = %d, %v; want 2", n, err)
+	}
+	assertPanics(t, "storage: read through the Tx inside Write", func() {
+		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
+			return lib.Read(ctx, func(context.Context, storage.Reader[storage.Library]) error { return nil })
+		})
+	})
+	assertPanics(t, "storage: write inside Read; take a *storage.Tx", func() {
+		_ = lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			_, err := r.ExecContext(ctx, "DELETE FROM shelf")
+			return err
+		})
+	})
+}
+
 func TestWriteThroughTheDBPanics(t *testing.T) {
 	lib := storagetest.Library(t, shelf.Schema())
 	assertPanics(t, "storage: write through the DB outside Write; take a *storage.Tx", func() {

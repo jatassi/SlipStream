@@ -132,7 +132,7 @@ func (h *Host) DialContext(ctx context.Context, network, address string) (net.Co
 		return h.dialTCP(ctx, ap)
 	case "unix":
 		addr := &net.UnixAddr{Name: address, Net: network}
-		c, s := pipe(&net.UnixAddr{Net: network}, addr)
+		c, s := Pipe(&net.UnixAddr{Net: network}, addr)
 		return h.net.connect(endpoint{host: h, path: address}, addr, c, s)
 	default:
 		return nil, &net.OpError{Op: "dial", Net: network, Err: net.UnknownNetworkError(network)}
@@ -156,7 +156,7 @@ func (h *Host) dialTCP(ctx context.Context, ap netip.AddrPort) (net.Conn, error)
 	h.net.mu.Lock()
 	local := net.TCPAddrFromAddrPort(netip.AddrPortFrom(h.addrs[i], h.net.ephemeral()))
 	h.net.mu.Unlock()
-	client, server := pipe(local, remote)
+	client, server := Pipe(local, remote)
 	c, s := Wrap(client, sw), Wrap(server, sw)
 	return h.net.connect(endpoint{tcp: ap}, remote, c, s)
 }

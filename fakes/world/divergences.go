@@ -47,6 +47,12 @@ var divergences = []divergence{
 		reason: "Nodes trust the run's CA, so fakes serve real TLS with no product trust setting.",
 		spec:   "#130",
 	},
+	{
+		id:          "fake-endpoints",
+		keyPatterns: []string{"endpoints.*"},
+		reason:      "Each boundary's endpoints point at its fake.",
+		spec:        "#133",
+	},
 }
 
 type setting struct {

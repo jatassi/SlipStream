@@ -4,13 +4,14 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 )
 
 // Census lists every endpoints key whose value still contains a host from
 // its default, the hosts a fake has not replaced.
-func Census(cfg Config) []string {
-	defaults := Defaults()
+func Census(cfg Config, types contenttype.Set) []string {
+	defaults := Defaults(types)
 	return census(&cfg, &defaults)
 }
 
@@ -28,15 +29,22 @@ func census(tree, defaults any) []string {
 	return out
 }
 
+// Resolved is what slipstream config prints: every key, the census, and
+// the ids of the Content Types the binary registers.
 type Resolved struct {
-	Keys   []Key    `json:"keys"`
-	Census []string `json:"census"`
+	Keys         []Key    `json:"keys"`
+	Census       []string `json:"census"`
+	ContentTypes []string `json:"contentTypes"`
 }
 
-func Resolve(dir DataDir, environ []string) (Resolved, error) {
-	cfg, keys, err := LoadConfig(dir, environ)
+func Resolve(env Env) (Resolved, error) {
+	cfg, keys, err := LoadConfig(env.DataDir, env.Environ, env.Types)
 	if err != nil {
 		return Resolved{}, err
 	}
-	return Resolved{Keys: keys, Census: Census(cfg)}, nil
+	ids := []string{}
+	for _, id := range env.Types.IDs() {
+		ids = append(ids, string(id))
+	}
+	return Resolved{Keys: keys, Census: Census(cfg, env.Types), ContentTypes: ids}, nil
 }

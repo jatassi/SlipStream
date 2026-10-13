@@ -152,6 +152,8 @@ func TestProcessGlobals(t *testing.T) {
 
 func TestConfigSections(t *testing.T) {
 	assertFindings(t, check(t, "config-sections", fixtureRepo(t, "config-sections")), []string{
+		"fakes/contenttypes/music/music.go:9: [config-sections] DefaultTimings is never called by internal/node/config.go; wire the section into node.Config",
+		"internal/contenttypes/tv/tv.go:5: [config-sections] DefaultEndpoints is never called by internal/node/config.go; wire the section into node.Config",
 		"internal/media/media.go:5: [config-sections] DefaultSettings is never called by internal/node/config.go; wire the section into node.Config",
 		"internal/node/timings.go:9: [config-sections] engine.DefaultSettings called outside internal/node/config.go; read the section from the Node's Config",
 		"internal/tmdb/client.go:3: [config-sections] DefaultEndpoints called outside internal/node/config.go; read the section from the Node's Config",
@@ -309,6 +311,8 @@ func TestRoleDefsWired(t *testing.T) {
 
 func TestFakesWired(t *testing.T) {
 	assertFindings(t, check(t, "fakes-wired", fixtureRepo(t, "fakes-wired")), []string{
+		"fakes/contenttypes/movie/moviemeta/moviemeta.go:5: [fakes-wired] fakes/contenttypes/movie/moviemeta.Fake is not listed in fakes/world",
+		"fakes/contenttypes/movie/posters/posters.go:1: [fakes-wired] fakes/contenttypes/movie/posters declares no var Fake fake.Spec",
 		"fakes/tmdb/doc.go:3: [fakes-wired] fakes/tmdb declares no var Fake fake.Spec",
 		"fakes/torznab/torznab.go:7: [fakes-wired] fakes/torznab.Fake is not listed in fakes/world",
 		"fakes/tracker/tracker_windows.go:5: [fakes-wired] fakes/tracker declares var Fake fake.Spec more than once",
@@ -357,5 +361,88 @@ func TestWebLayout(t *testing.T) {
 		"web/src/routes/setup.test.ts:1: [web-layout]" + route,
 		"web/src/x.spec.ts:1: [web-layout]" + browser,
 		"web/x.test.tsx:1: [web-layout]" + comp,
+	})
+}
+
+func TestContentTypeConfined(t *testing.T) {
+	const (
+		facet   = "; ask its facet instead"
+		surface = "internal/node/surface/surface.go:6: [content-type-confined] surface depends on internal/contenttype; the API document must not vary with registered Content Types"
+	)
+	assertFindings(t, check(t, "content-type-confined", fixtureRepo(t, "content-type-confined")), []string{
+		"internal/contenttypes/book/book.go:7: [content-type-confined] contenttype.Define takes the Content Type id as a string literal",
+		"internal/contenttypes/tv/tv.go:5: [content-type-confined] Content Type tv imports Content Type movie; Content Types never import each other",
+		"internal/library/types.go:5: [content-type-confined] contenttype.Define outside a Content Type package",
+		surface,
+		"internal/search/plan.go:7: [content-type-confined] core imports fakes/contenttypes/music; reach a Content Type through its facet",
+		"internal/search/plan.go:13: [content-type-confined] identifier music names Content Type music",
+		"internal/works/api.go:3: [content-type-confined] identifier musicTracks names Content Type music",
+		"internal/works/api.go:5: [content-type-confined] identifier HTTPMovieClient names Content Type movie",
+		"internal/works/api.go:7: [content-type-confined] identifier tv_shows names Content Type tv",
+		"internal/works/api.go:9: [content-type-confined] identifier musicTracks names Content Type music",
+		"internal/works/tree.go:5: [content-type-confined] core names Content Type music" + facet,
+		"internal/works/tree.go:7: [content-type-confined] core names Content Type tv" + facet,
+		"internal/works/works_test.go:7: [content-type-confined] core names Content Type tv" + facet,
+		"web/src/works/badge.tsx:4: [content-type-confined] core names Content Type music" + facet,
+		"web/src/works/kinds.ts:4: [content-type-confined] core names Content Type movie" + facet,
+		"web/src/works/kinds.ts:4: [content-type-confined] core names Content Type music" + facet,
+		"web/src/works/kinds.ts:4: [content-type-confined] core names Content Type tv" + facet,
+		"web/src/works/kinds.ts:6: [content-type-confined] core names Content Type movie" + facet,
+		"web/src/works/kinds.ts:6: [content-type-confined] core names Content Type tv" + facet,
+		"web/src/works/kinds.ts:7: [content-type-confined] core names Content Type tv" + facet,
+	})
+}
+
+func TestMainsMatch(t *testing.T) {
+	const extra = "cmd/slipstream-e2e/flags.go:1: [mains-match] a main holds only main.go"
+	cases := []struct {
+		name    string
+		e2eMain string
+		want    []string
+	}{
+		{
+			name: "differs",
+			want: []string{
+				extra,
+				"cmd/slipstream-e2e/main.go:11: [mains-match] differs from cmd/slipstream/main.go beyond registering test Content Types",
+			},
+		},
+		{
+			name: "registers music",
+			e2eMain: "package main\n\nimport (\n\t\"os\"\n\n\tm \"example.com/app/fakes/contenttypes/music\"\n\t\"example.com/app/internal/node\"\n)\n\n" +
+				"func main() {\n\tos.Exit(node.Main(os.Args, m.Def))\n}\n",
+			want: []string{extra},
+		},
+		{
+			name:    "registers nothing",
+			e2eMain: "package main\n\nimport (\n\t\"os\"\n\n\t\"example.com/app/internal/node\"\n)\n\nfunc main() {\n\tos.Exit(node.Main(os.Args))\n}\n",
+			want: []string{
+				extra,
+				"cmd/slipstream-e2e/main.go:1: [mains-match] registers no test Content Type",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := fixtureRepo(t, "mains-match")
+			if tc.e2eMain != "" {
+				if err := os.WriteFile(filepath.Join(repo.Root, "cmd", "slipstream-e2e", "main.go"), []byte(tc.e2eMain), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			assertFindings(t, check(t, "mains-match", repo), tc.want)
+		})
+	}
+}
+
+func TestMainsMatchWithoutE2EMain(t *testing.T) {
+	repo := fixtureRepo(t, "mains-match")
+	cmd := exec.CommandContext(t.Context(), "git", "rm", "-q", "-r", "-f", "cmd/slipstream-e2e")
+	cmd.Dir = repo.Root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git rm: %v\n%s", err, out)
+	}
+	assertFindings(t, check(t, "mains-match", repo), []string{
+		"cmd/slipstream-e2e/main.go:1: [mains-match] does not exist",
 	})
 }

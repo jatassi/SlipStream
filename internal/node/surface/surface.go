@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
+	"github.com/jatassi/slipstream/internal/works"
+	"github.com/jatassi/slipstream/internal/worksapi"
 )
 
 // Events lists every declared event, one line each. The hub, the document
@@ -23,16 +25,19 @@ import (
 var Events = []live.Event{
 	identity.SessionsChangedEvent,
 	nodes.ChangedEvent,
+	works.ChangedEvent,
+	works.ContentTypesChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
-// composition root's one definition of it, its library.db, its roster
-// and its Join.
+// composition root's one definition of it, its library.db, its roster,
+// its Join and its Work tree.
 type Node interface {
 	Claim(context.Context) (system.Claim, error)
 	identityapi.Library
 	nodesapi.Roster
 	pairingapi.Joiner
+	worksapi.Shelf
 }
 
 // Services are what the operations run against. Document passes none.
@@ -50,6 +55,7 @@ func Mount(r *api.Router, s Services) {
 	systemapi.Routes(r, s.System, s.Node)
 	nodesapi.Routes(r, s.Node)
 	pairingapi.Routes(r, s.Node)
+	worksapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

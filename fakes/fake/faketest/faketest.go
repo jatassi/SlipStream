@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/scenario"
 )
@@ -81,7 +82,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	return Served{Address: at, Client: &http.Client{Transport: tr}}
 }
 
-// pipeListener hands each dial's far end of a net.Pipe to Accept. Every
+// pipeListener hands each dial's far end of a fault.Pipe to Accept. Every
 // block is on a channel, so a bubble's goroutines block durably.
 type pipeListener struct {
 	conns  chan net.Conn
@@ -108,7 +109,7 @@ func (l *pipeListener) Addr() net.Addr {
 }
 
 func (l *pipeListener) dial(ctx context.Context) (net.Conn, error) {
-	server, client := net.Pipe()
+	server, client := fault.Pipe(l.Addr(), l.Addr())
 	select {
 	case l.conns <- server:
 		return client, nil

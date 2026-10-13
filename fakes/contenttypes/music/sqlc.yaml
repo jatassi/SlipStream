@@ -1,0 +1,30 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: music_album.level_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: LevelID
+          - column: music_album.release_id
+            go_type:
+              type: ReleaseID
+          - column: music_track.item_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID

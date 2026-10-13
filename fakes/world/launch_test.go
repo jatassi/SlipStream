@@ -10,13 +10,16 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -48,7 +51,7 @@ func (s stub) build(t *testing.T) string {
 	t.Helper()
 	r := s.resolved
 	if r.Keys == nil {
-		r = node.Resolved{Keys: productionKeys(), Census: []string{}}
+		r = node.Resolved{Keys: productionKeys(), Census: []string{}, ContentTypes: []string{}}
 	}
 	resolved, err := json.Marshal(r)
 	if err != nil {
@@ -243,18 +246,25 @@ func TestLaunchRefuses(t *testing.T) {
 		{
 			name: "a census entry",
 			stub: stub{resolved: node.Resolved{
-				Keys:   append(productionKeys(), node.Key{Key: "endpoints.example.api", Value: "https://api.example.org/", Default: "https://api.example.org/", Source: "default"}),
-				Census: []string{"endpoints.example.api"},
+				Keys:         append(productionKeys(), node.Key{Key: "endpoints.example.api", Value: "https://api.example.org/", Default: "https://api.example.org/", Source: "default"}),
+				Census:       []string{"endpoints.example.api"},
+				ContentTypes: []string{},
 			}},
 			want: "node home: endpoints still at real hosts: endpoints.example.api (https://api.example.org/); add its fake to fakes/world",
 		},
 		{
 			name: "a divergence the list does not name",
 			stub: stub{resolved: node.Resolved{
-				Keys:   append(productionKeys(), node.Key{Key: "torrent.dht", Value: "true", Default: "false", Source: "config.yaml"}),
-				Census: []string{},
+				Keys:         append(productionKeys(), node.Key{Key: "torrent.dht", Value: "true", Default: "false", Source: "config.yaml"}),
+				Census:       []string{},
+				ContentTypes: []string{},
 			}},
 			want: "node home sets torrent.dht, which the divergences list in fakes/world does not name",
+		},
+		{
+			name: "a fake setting a key the binary does not list",
+			stub: stub{resolved: node.Resolved{Keys: productionKeys(), Census: []string{}, ContentTypes: []string{"music"}}},
+			want: "fake music-meta sets endpoints.content_types.music.metadata, which this binary does not list",
 		},
 		{
 			name:    "a listener off the Node's address",
@@ -337,6 +347,55 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
 	assertNothingLeft(t, runDir, false)
+}
+
+func TestLaunchRefusesAScenarioNeedingAContentTypeTheBinaryLacks(t *testing.T) {
+	t.Parallel()
+	s, err := scenario.Load("music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runDir := filepath.Join(t.TempDir(), "run")
+	_, err = world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir})
+	want := "scenario music needs Content Type music, which slipstream does not register; launch it with worldtest.LaunchE2E"
+	if runtime.GOOS == "windows" {
+		want = strings.Replace(want, "slipstream", "slipstream.exe", 1)
+	}
+	if err == nil || err.Error() != want {
+		t.Fatalf("Launch = %v\nwant %s", err, want)
+	}
+	assertNothingLeft(t, runDir, false)
+	wl, err := os.ReadFile(filepath.Join(runDir, "world.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(wl), "fake started") {
+		t.Fatalf("world.log records a fake started:\n%s", wl)
+	}
+}
+
+func TestTheE2EBinaryCensusListsTheMusicEndpointAtItsDefault(t *testing.T) {
+	t.Parallel()
+	dir, err := os.MkdirTemp("", "ss") //nolint:usetesting // t.TempDir's path is too long for the socket limit on macOS and Windows
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	var stderr strings.Builder
+	cmd := exec.CommandContext(worldtest.Context(t), testbin.E2E(t), "config", "--data-dir", dir)
+	cmd.Env = nodeenv.Environ("")
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("slipstream-e2e config: %v\n%s", err, stderr.String())
+	}
+	var resolved node.Resolved
+	if err := json.Unmarshal(out, &resolved); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := fmt.Sprint(resolved.ContentTypes, resolved.Census), "[music] [endpoints.content_types.music.metadata]"; got != want {
+		t.Fatalf("contentTypes and census = %s, want %s", got, want)
+	}
 }
 
 func TestAddressCheckRefusesTheThirtyThirdAddress(t *testing.T) {

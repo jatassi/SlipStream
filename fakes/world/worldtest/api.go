@@ -8,12 +8,15 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
+	"github.com/jatassi/slipstream/internal/api/apitest"
+	"github.com/jatassi/slipstream/internal/identity"
 )
 
 // API calls a world's Nodes the way a script does, one request each over
@@ -48,17 +51,71 @@ func (a *API) Node(name string) world.Node {
 // Get calls path on the Node named name with no credential.
 func (a *API) Get(name, path string) Reply {
 	a.t.Helper()
-	return a.do(name, http.MethodGet, path, "", "")
+	r, _ := a.do(name, http.MethodGet, path, "", nil)
+	return r
 }
 
 // Admin calls path on the Node named name with the run's API key, sending
 // body as JSON unless it is empty.
 func (a *API) Admin(name, method, path, body string) Reply {
 	a.t.Helper()
-	return a.do(name, method, path, body, a.m.APIKey)
+	r, _ := a.do(name, method, path, body, map[string]string{"X-Api-Key": a.m.APIKey})
+	return r
 }
 
-func (a *API) do(name, method, path, body, apiKey string) Reply {
+// SignIn signs in to the Node named name as the run's Admin, by email and
+// PIN, and returns the session.
+func (a *API) SignIn(name string) string {
+	a.t.Helper()
+	if a.m.Admin == nil {
+		a.t.Fatal("the run has no Admin to sign in as")
+	}
+	body, err := json.Marshal(struct {
+		Email string `json:"email"`
+		PIN   string `json:"pin"`
+	}{a.m.Admin.Email, a.m.Admin.PIN})
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	reply, cookies := a.do(name, http.MethodPost, "/api/v1/session", string(body), nil)
+	for _, c := range cookies {
+		if c.Name == identity.CookieName && reply.Status == http.StatusOK {
+			return c.Value
+		}
+	}
+	a.t.Fatalf("signIn as %s = %d %s, want 200 with a session cookie", a.m.Admin.Email, reply.Status, reply.Body)
+	return ""
+}
+
+// Signed calls path on the Node named name in session, sending body as
+// JSON unless it is empty.
+func (a *API) Signed(name, session, method, path, body string) Reply {
+	a.t.Helper()
+	r, _ := a.do(name, method, path, body, map[string]string{"Cookie": identity.CookieName + "=" + session})
+	return r
+}
+
+var resync = regexp.MustCompile(`^id: \d+\nretry: \d+\nevent: live\.resync\ndata: \{\}\n$`)
+
+// Stream opens the live event stream of the Node named name in session and
+// reads its live.resync, so the stream is subscribed when Stream returns.
+// The test's cleanup closes it.
+func (a *API) Stream(name, session string) *apitest.Stream {
+	a.t.Helper()
+	res := a.send(name, http.MethodGet, "/api/v1/events", "", map[string]string{"Cookie": identity.CookieName + "=" + session})
+	if res.StatusCode != http.StatusOK {
+		_ = res.Body.Close()
+		a.t.Fatalf("GET /api/v1/events = %d", res.StatusCode)
+	}
+	s := apitest.NewStream(res.Body)
+	a.t.Cleanup(func() { _ = s.Close() })
+	if msg, err := s.Next(a.ctx); err != nil || !resync.MatchString(msg) {
+		a.t.Fatalf("the stream's first message = %q, %v; want live.resync", msg, err)
+	}
+	return s
+}
+
+func (a *API) send(name, method, path, body string, headers map[string]string) *http.Response {
 	a.t.Helper()
 	var r io.Reader = http.NoBody
 	if body != "" {
@@ -71,19 +128,25 @@ func (a *API) do(name, method, path, body, apiKey string) Reply {
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if apiKey != "" {
-		req.Header.Set("X-Api-Key", apiKey)
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	res, err := a.client.Do(req)
 	if err != nil {
 		a.t.Fatal(err)
 	}
+	return res
+}
+
+func (a *API) do(name, method, path, body string, headers map[string]string) (Reply, []*http.Cookie) {
+	a.t.Helper()
+	res := a.send(name, method, path, body, headers)
 	defer func() { _ = res.Body.Close() }()
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		a.t.Fatal(err)
 	}
-	return Reply{res.StatusCode, string(data)}
+	return Reply{res.StatusCode, string(data)}, res.Cookies()
 }
 
 func Expect(t *testing.T, what string, got, want Reply) {

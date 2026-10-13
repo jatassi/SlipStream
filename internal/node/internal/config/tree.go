@@ -77,11 +77,26 @@ func (l Leaf) elems() []reflect.Value {
 	return out
 }
 
+// Sections is a branch whose children are named at run time, such as
+// endpoints.content_types: one section per registered Content Type.
+type Sections interface {
+	ConfigSections() []Section
+}
+
+// Section is one named child of a Sections branch. Tree is a pointer to a
+// struct, walked as <branch>.<Name>.
+type Section struct {
+	Name string
+	Tree any
+}
+
 // Walk returns the leaves of tree, a pointer to a struct, in field order. It
 // panics on a field without a yaml tag or of a type outside the leaf set:
 // strings, booleans, integers, time.Duration, encoding.TextUnmarshaler
-// values and slices of those. A text leaf with a Redacted method shows only
-// that wherever a value is printed, its parse errors included.
+// values and slices of those. A struct field is a branch, and a Sections
+// field a branch of named sections, in the order it lists them. A text leaf
+// with a Redacted method shows only that wherever a value is printed, its
+// parse errors included.
 func Walk(tree any) []Leaf {
 	v := reflect.ValueOf(tree)
 	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
@@ -111,6 +126,12 @@ func walk(v reflect.Value, prefix string, leaves *[]Leaf) {
 				*leaves = append(*leaves, Leaf{Path: path, value: fv, codec: c})
 				continue
 			}
+		}
+		if s, ok := fv.Interface().(Sections); ok {
+			for _, sec := range s.ConfigSections() {
+				walk(reflect.ValueOf(sec.Tree).Elem(), path+"."+sec.Name+".", leaves)
+			}
+			continue
 		}
 		if f.Type.Kind() == reflect.Struct {
 			walk(fv, path+".", leaves)

@@ -14,7 +14,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "config-sections",
-		Doc:   "every section default is called by the composition root and nowhere else (spec #127, Architecture lints)",
+		Doc:   "every section default is called by the composition root, or passed to contenttype.Define, and called nowhere else (spec #127, Architecture lints; spec #133, Lints and CI checks)",
 		Check: checkConfigSections,
 	})
 }
@@ -51,6 +51,9 @@ func checkConfigSections(repo *lint.Repo) ([]lint.Finding, error) {
 			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv == nil && slices.Contains(sectionDefaults, fn.Name.Name) {
 				declared[pkg+"."+fn.Name.Name] = sectionDefault{f.Path, repo.Fset.Position(fn.Pos()).Line}
 			}
+		}
+		for _, target := range definedEndpoints(module, f, pkg) {
+			wired[target] = true
 		}
 		for _, c := range sectionCalls(repo, f, pkg) {
 			if f.Path == compositionRoot {
@@ -89,6 +92,29 @@ func sectionCalls(repo *lint.Repo, f lint.GoFile, pkg string) []sectionCall {
 		return true
 	})
 	return calls
+}
+
+func definedEndpoints(module string, f lint.GoFile, pkg string) []string {
+	imports := importNames(f)
+	var targets []string
+	ast.Inspect(f.Syntax, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok || len(call.Args) < 3 || !isDefineCall(module, imports, call) {
+			return true
+		}
+		switch arg := call.Args[2].(type) {
+		case *ast.Ident:
+			if arg.Name == "DefaultEndpoints" {
+				targets = append(targets, pkg+".DefaultEndpoints")
+			}
+		case *ast.SelectorExpr:
+			if p, name, ok := qualifiedName(imports, arg); ok && name == "DefaultEndpoints" {
+				targets = append(targets, p+".DefaultEndpoints")
+			}
+		}
+		return true
+	})
+	return targets
 }
 
 func sectionDefaultCall(call *ast.CallExpr, pkg string, imports map[string]string) (callee, target string, ok bool) {
