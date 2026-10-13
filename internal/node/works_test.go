@@ -36,7 +36,7 @@ func TestAControllerBuildsItsContentTypesOnce(t *testing.T) {
 	if len(opens) != 1 {
 		t.Fatalf("the Controller built the fixture %d times, want once", len(opens))
 	}
-	if o := opens[0]; o.Endpoints.API.String() != "https://127.0.0.1:9/v1" || o.Deps.UserAgent != "SlipStream/test ( https://github.com/jatassi/SlipStream )" || o.Deps.HTTP == nil {
+	if o := opens[0]; o.Endpoints.API.String() != "https://127.0.0.1:9/v1" || o.Deps.UserAgent != "SlipStream/test ( github.com/jatassi/SlipStream )" || o.Deps.HTTP == nil {
 		t.Fatalf("opened with %+v, want the loaded api, the User-Agent and a client", o)
 	}
 	r := c.do(call{method: http.MethodGet, path: "/api/v1/content-types", session: sessionOf(t, claimed)})

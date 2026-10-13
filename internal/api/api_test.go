@@ -392,7 +392,9 @@ func noTime(_ []string, a slog.Attr) slog.Attr {
 
 type shape struct{}
 
-func (shape) Variants() (string, []any) { return "kind", []any{circle{}, square{}} }
+func (shape) Variants() (discriminator string, variants []any) {
+	return "kind", []any{circle{}, square{}}
+}
 
 type circle struct {
 	Kind   string  `json:"kind" enum:"circle"`

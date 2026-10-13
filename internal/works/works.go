@@ -46,7 +46,7 @@ const maxKey = 200
 
 // ParseKey is s as a key, refused when empty or over 200 bytes.
 func ParseKey(s string) (Key, error) {
-	if len(s) == 0 || len(s) > maxKey {
+	if s == "" || len(s) > maxKey {
 		return "", fmt.Errorf("a key is 1 to %d bytes, not %d", maxKey, len(s))
 	}
 	return Key(s), nil

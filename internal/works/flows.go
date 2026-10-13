@@ -175,8 +175,12 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key) (
 	id := WorkID{UUID: storage.NewUUID()}
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
-		if on, err := Enabled(ctx, tx, t); err != nil || !on {
-			return cmp.Or(err, ErrTypeOff)
+		on, err := Enabled(ctx, tx, t)
+		switch {
+		case err != nil:
+			return err
+		case !on:
+			return ErrTypeOff
 		}
 		row, err := q.GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: key})
 		if err == nil {
@@ -239,8 +243,11 @@ func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
 		return registered{}, ErrNoType
 	}
 	on, err := Enabled(ctx, w.cfg.Library, t)
-	if err != nil || !on {
-		return registered{}, cmp.Or(err, ErrTypeOff)
+	switch {
+	case err != nil:
+		return registered{}, err
+	case !on:
+		return registered{}, ErrTypeOff
 	}
 	return reg, nil
 }

@@ -51,8 +51,9 @@ func TestDefineNamesTheSetByTheID(t *testing.T) {
 
 func TestEndpointsAreFreshPerCall(t *testing.T) {
 	d := contenttypetest.New().Def()
-	a, b := d.Endpoints().(*contenttypetest.Endpoints), d.Endpoints().(*contenttypetest.Endpoints)
-	if a == b || a.API.String() != "https://fixture.invalid/v1" {
+	a, okA := d.Endpoints().(*contenttypetest.Endpoints)
+	b, okB := d.Endpoints().(*contenttypetest.Endpoints)
+	if !okA || !okB || a == b || a.API.String() != "https://fixture.invalid/v1" {
 		t.Fatalf("sections %p %p hold %s; want two sections holding https://fixture.invalid/v1", a, b, a.API)
 	}
 	if got := contenttype.Define[struct{}]("bare", nil, nil, open).Endpoints(); got != nil {

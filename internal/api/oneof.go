@@ -24,7 +24,13 @@ type OneOf[V Variants] struct {
 
 func NewOneOf[V Variants](variant any) OneOf[V] { return OneOf[V]{value: variant} }
 
-func (o OneOf[V]) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+func (o OneOf[V]) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(o.value)
+	if err != nil {
+		return nil, fmt.Errorf("api: encode %T: %w", o.value, err)
+	}
+	return b, nil
+}
 
 func (OneOf[V]) Schema(r huma.Registry) *huma.Schema {
 	name := schemaName(reflect.TypeFor[V](), "")

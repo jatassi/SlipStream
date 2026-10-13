@@ -98,7 +98,7 @@ func serve(t *testing.T) *server {
 	return &server{handler: r.Handler(), fx: fx, apiKey: admin.APIKey, session: admin.Cookie.Value, log: logged}
 }
 
-func (s *server) call(t *testing.T, method, path, body string) (int, string) {
+func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {
 	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	req.Header.Set("X-Api-Key", s.apiKey)
@@ -175,7 +175,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/content-types", http.NoBody)
-	req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: s.session})
+	req.Header.Set("Cookie", identity.CookieName+"="+s.session)
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, req)
 	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +

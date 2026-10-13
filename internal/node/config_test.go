@@ -128,13 +128,10 @@ func TestTheLinkAndRoleSectionsHaveTheirDefaults(t *testing.T) {
 	}
 }
 
-func fixtureTypes() (*contenttypetest.Fixture, contenttype.Set) {
-	f := contenttypetest.New()
-	return f, contenttype.NewSet(f.Def())
-}
+func fixtureTypes() contenttype.Set { return contenttype.NewSet(contenttypetest.New().Def()) }
 
 func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
-	_, types := fixtureTypes()
+	types := fixtureTypes()
 	cfg := Defaults(types)
 	var paths []string
 	for _, leaf := range config.Walk(&cfg) {
@@ -169,13 +166,13 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Endpoints.ContentTypes.section(contenttypetest.ID).(*contenttypetest.Endpoints).API.String(); got != "https://127.0.0.1:8443/v1" {
-		t.Fatalf("loaded section api = %s, want the env value", got)
+	if got, ok := cfg.Endpoints.ContentTypes.section(contenttypetest.ID).(*contenttypetest.Endpoints); !ok || got.API.String() != "https://127.0.0.1:8443/v1" {
+		t.Fatalf("loaded section = %v, want api at the env value", got)
 	}
 }
 
 func TestAnUnregisteredContentTypesKeyIsUnknown(t *testing.T) {
-	_, types := fixtureTypes()
+	types := fixtureTypes()
 	dir := testDataDir(t)
 	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("endpoints:\n  content_types:\n    fixture:\n      api: https://127.0.0.1:1/\n    other:\n      url: https://127.0.0.1:2/\n"), 0o600); err != nil {
 		t.Fatal(err)

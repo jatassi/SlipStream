@@ -119,7 +119,11 @@ func (d Def[E]) Endpoints() any {
 func (d Def[E]) Open(deps Deps, endpoints any) Type {
 	var e E
 	if endpoints != nil {
-		e = *endpoints.(*E)
+		loaded, ok := endpoints.(*E)
+		if !ok {
+			panic(fmt.Sprintf("contenttype: %s opened with endpoints %T, not the *%T its Endpoints returns", d.id, endpoints, e))
+		}
+		e = *loaded
 	}
 	return d.open(deps, e)
 }

@@ -117,7 +117,7 @@ func contentTypeOf(t works.ContentType) contentType {
 // fieldValue is a field value's oneOf, discriminated on kind.
 type fieldValue struct{}
 
-func (fieldValue) Variants() (string, []any) {
+func (fieldValue) Variants() (discriminator string, variants []any) {
 	return "kind", []any{textValue{}, numberValue{}, dateValue{}, durationValue{}}
 }
 

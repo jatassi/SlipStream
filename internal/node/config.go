@@ -41,7 +41,7 @@ type EndpointsBlock struct {
 // ContentTypeEndpoints is endpoints.content_types: one section per
 // registered Content Type that reaches a host, in id order. The Fake world,
 // which links no Content Type, sets a type's keys by path with Set.
-type ContentTypeEndpoints struct {
+type ContentTypeEndpoints struct { //nolint:recvcheck // the walker and yaml hold the value; only Set changes it
 	sections []config.Section
 	set      map[string]map[string]string
 }

@@ -5,6 +5,7 @@ package contenttypetest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -189,7 +190,7 @@ func (f *Fixture) Fetch(ctx context.Context, key works.Key) (works.Fetched, erro
 	}
 	detail, err := json.Marshal(r)
 	if err != nil {
-		return works.Fetched{}, err
+		return works.Fetched{}, fmt.Errorf("encode the record of %s: %w", key, err)
 	}
 	fetched := r.Tree
 	fetched.Detail = detail
@@ -201,7 +202,7 @@ func (f *Fixture) Fetch(ctx context.Context, key works.Key) (works.Fetched, erro
 func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at works.Placed, detail []byte) error {
 	var r Record
 	if err := json.Unmarshal(detail, &r); err != nil {
-		return err
+		return fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()

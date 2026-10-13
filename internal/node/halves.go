@@ -98,7 +98,7 @@ func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
 	for _, t := range n.env.Types.All() {
 		types[t.ID()] = t.Open(contenttype.Deps{
 			HTTP:      client,
-			UserAgent: "SlipStream/" + n.env.Version + " ( https://github.com/jatassi/SlipStream )",
+			UserAgent: "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )",
 			Log:       n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
 		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
