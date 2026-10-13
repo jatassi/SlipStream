@@ -111,15 +111,15 @@ func TestPlanMerge(t *testing.T) {
 	}
 }
 
-var music = Description{
-	Name:   "Music",
+var records = Description{
+	Name:   "Records",
 	Work:   Noun{One: "Artist", Many: "Artists"},
 	Levels: []Noun{{One: "Album", Many: "Albums"}},
 	Item:   Noun{One: "Track", Many: "Tracks"},
 }
 
 func TestParseFetchedPlacesEveryNode(t *testing.T) {
-	got, err := parseFetched(music, "a1", Fetched{
+	got, err := parseFetched(records, "a1", Fetched{
 		Label: "Artist",
 		Children: []Entry{
 			{Key: "b1", Label: "First", Children: []Entry{{Key: "c1", Label: "One"}, {Key: "c2", Label: "Two"}}},
@@ -155,12 +155,12 @@ func TestParseFetchedRefusesATreeThatBreaksARule(t *testing.T) {
 		f    Fetched
 		want string
 	}{
-		{"work label", music, Fetched{}, "artist a1: its label is empty"},
-		{"level label", music, Fetched{Label: "A", Children: []Entry{{Key: "b1"}}}, "album b1: its label is empty"},
-		{"item label", music, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1"}}}}}, "track c1: its label is empty"},
-		{"empty key", music, Fetched{Label: "A", Children: []Entry{{Label: "B"}}}, "artist a1: album 1 has a key of 0 bytes; a key is 1 to 200 bytes"},
-		{"long key", music, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}, {Key: Key(strings.Repeat("k", 201)), Label: "C"}}}}}, "album b1: track 2 has a key of 201 bytes; a key is 1 to 200 bytes"},
-		{"two items", music, Fetched{Label: "A", Children: []Entry{
+		{"work label", records, Fetched{}, "artist a1: its label is empty"},
+		{"level label", records, Fetched{Label: "A", Children: []Entry{{Key: "b1"}}}, "album b1: its label is empty"},
+		{"item label", records, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1"}}}}}, "track c1: its label is empty"},
+		{"empty key", records, Fetched{Label: "A", Children: []Entry{{Label: "B"}}}, "artist a1: album 1 has a key of 0 bytes; a key is 1 to 200 bytes"},
+		{"long key", records, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}, {Key: Key(strings.Repeat("k", 201)), Label: "C"}}}}}, "album b1: track 2 has a key of 201 bytes; a key is 1 to 200 bytes"},
+		{"two items", records, Fetched{Label: "A", Children: []Entry{
 			{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}}},
 			{Key: "b2", Label: "B", Children: []Entry{{Key: "c1", Label: "C"}}},
 		}}, "album b2: two Items have key c1"},
@@ -168,7 +168,7 @@ func TestParseFetchedRefusesATreeThatBreaksARule(t *testing.T) {
 			{Key: "s1", Label: "S", Children: []Entry{{Key: "p1", Label: "P"}}},
 			{Key: "s2", Label: "S", Children: []Entry{{Key: "p1", Label: "P"}}},
 		}}, "season s2: two levels have key p1"},
-		{"item children", music, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C", Children: []Entry{{Key: "d1", Label: "D"}}}}}}}, "track c1: an Item has no children, and it lists 1"},
+		{"item children", records, Fetched{Label: "A", Children: []Entry{{Key: "b1", Label: "B", Children: []Entry{{Key: "c1", Label: "C", Children: []Entry{{Key: "d1", Label: "D"}}}}}}}, "track c1: an Item has no children, and it lists 1"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

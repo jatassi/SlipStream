@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/system"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // library is library.db and what opens with it: library.key's keys and the
@@ -116,6 +117,14 @@ func (s surfaceNode) Nodes() (*nodes.Service, bool) {
 		return nil, false
 	}
 	return h.nodes, true
+}
+
+func (s surfaceNode) Works() (*works.Works, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.works == nil {
+		return nil, false
+	}
+	return h.works, true
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {

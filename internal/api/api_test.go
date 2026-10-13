@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"reflect"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -387,4 +388,60 @@ func noTime(_ []string, a slog.Attr) slog.Attr {
 		return slog.Attr{}
 	}
 	return a
+}
+
+type shape struct{}
+
+func (shape) Variants() (string, []any) { return "kind", []any{circle{}, square{}} }
+
+type circle struct {
+	Kind   string  `json:"kind" enum:"circle"`
+	Radius float64 `json:"radius"`
+}
+
+type square struct {
+	Kind string  `json:"kind" enum:"square"`
+	Side float64 `json:"side"`
+}
+
+type shapes struct {
+	Body struct {
+		Shapes []OneOf[shape] `json:"shapes" nullable:"false"`
+	}
+}
+
+func TestAOneOfIsANamedUnionDiscriminatedOnItsProperty(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	Register(r.Owner("geometry", Public), Public, Op{ID: "listShapes", Method: http.MethodGet, Path: "/shapes", Status: http.StatusOK},
+		func(context.Context, identity.Anyone, *struct{}) (*shapes, error) {
+			out := &shapes{}
+			out.Body.Shapes = []OneOf[shape]{NewOneOf[shape](circle{Kind: "circle", Radius: 2}), NewOneOf[shape](square{Kind: "square", Side: 3})}
+			return out, nil
+		})
+	if w := get(t, r.Handler(), "/api/v1/shapes"); w.Body.String() != `{"shapes":[{"kind":"circle","radius":2},{"kind":"square","side":3}]}`+"\n" {
+		t.Fatalf("listShapes = %d %s", w.Code, w.Body)
+	}
+	want := `"Shape": {
+        "discriminator": {
+          "mapping": {
+            "circle": "#/components/schemas/Circle",
+            "square": "#/components/schemas/Square"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Circle"
+          },
+          {
+            "$ref": "#/components/schemas/Square"
+          }
+        ]
+      }`
+	if doc := string(r.Document()); !strings.Contains(doc, want) || !strings.Contains(doc, `"$ref": "#/components/schemas/Shape"`) {
+		t.Fatalf("document lacks the Shape union:\n%s", doc)
+	}
+	if got := panicOf(func() { discriminatorValue(reflect.TypeFor[shapes](), "kind") }); got != "api: oneOf variant api.shapes needs a string field kind with a one-value enum tag" {
+		t.Fatalf("panic = %q", got)
+	}
 }

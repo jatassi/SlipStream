@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Config is a Node's whole configuration. Every package's Settings sits at
@@ -41,6 +42,7 @@ type TimingsBlock struct {
 	Live    live.Timings    `yaml:"live"`
 	Link    link.Timings    `yaml:"link"`
 	Role    role.Timings    `yaml:"role"`
+	Works   works.Timings   `yaml:"works"`
 }
 
 type Timings struct {
@@ -76,7 +78,8 @@ func Defaults() Config {
 				RedialMax:     time.Minute,
 				FallbackDelay: 300 * time.Millisecond,
 			},
-			Role: role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
+			Role:  role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
+			Works: works.DefaultTimings(),
 		},
 	}
 }

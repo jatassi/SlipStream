@@ -300,6 +300,228 @@ export const SystemStatus = zod.object({
 export type SystemStatus = zod.input<typeof SystemStatus>;
 export type SystemStatusOutput = zod.output<typeof SystemStatus>;
 
+export const WorksTextValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["text"]),
+  text: zod.string(),
+});
+
+export type WorksTextValue = zod.input<typeof WorksTextValue>;
+export type WorksTextValueOutput = zod.output<typeof WorksTextValue>;
+
+export const WorksNumberValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["number"]),
+  number: zod.number(),
+});
+
+export type WorksNumberValue = zod.input<typeof WorksNumberValue>;
+export type WorksNumberValueOutput = zod.output<typeof WorksNumberValue>;
+
+export const worksDateValueDateRegExp = new RegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$");
+
+export const WorksDateValue = zod.object({
+  date: zod.string().regex(worksDateValueDateRegExp).describe("YYYY, YYYY-MM or YYYY-MM-DD"),
+  key: zod.string(),
+  kind: zod.enum(["date"]),
+});
+
+export type WorksDateValue = zod.input<typeof WorksDateValue>;
+export type WorksDateValueOutput = zod.output<typeof WorksDateValue>;
+
+export const worksDurationValueMsMin = 0;
+
+export const WorksDurationValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["duration"]),
+  ms: zod.int().min(worksDurationValueMsMin),
+});
+
+export type WorksDurationValue = zod.input<typeof WorksDurationValue>;
+export type WorksDurationValueOutput = zod.output<typeof WorksDurationValue>;
+
+export const WorksFieldValue = zod.discriminatedUnion("kind", [
+  WorksTextValue,
+  WorksNumberValue,
+  WorksDateValue,
+  WorksDurationValue,
+]);
+
+export type WorksFieldValue = zod.input<typeof WorksFieldValue>;
+export type WorksFieldValueOutput = zod.output<typeof WorksFieldValue>;
+
+export const WorksItem = zod.object({
+  fields: zod.array(WorksFieldValue),
+  id: zod.uuid(),
+  key: zod.string(),
+  label: zod.string(),
+  levelId: zod.uuid().nullable().describe("Null when the Content Type declares no levels"),
+  position: zod.int().min(1),
+  withdrawnAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the source stopped listing it; null while it lists it"),
+});
+
+export type WorksItem = zod.input<typeof WorksItem>;
+export type WorksItemOutput = zod.output<typeof WorksItem>;
+
+export const WorksLevel = zod.object({
+  depth: zod.int().min(1),
+  fields: zod.array(WorksFieldValue),
+  id: zod.uuid(),
+  key: zod.string(),
+  label: zod.string(),
+  parentId: zod.uuid().nullable().describe("Null under the Work"),
+  position: zod.int().min(1),
+  withdrawnAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the source stopped listing it; null while it lists it"),
+});
+
+export type WorksLevel = zod.input<typeof WorksLevel>;
+export type WorksLevelOutput = zod.output<typeof WorksLevel>;
+
+export const WorksTree = zod.object({
+  fields: zod.array(WorksFieldValue),
+  items: zod.array(WorksItem).describe("By their level's order, then position"),
+  levels: zod.array(WorksLevel).describe("By depth, then their parent's order, then position"),
+});
+
+export type WorksTree = zod.input<typeof WorksTree>;
+export type WorksTreeOutput = zod.output<typeof WorksTree>;
+
+export const WorksAdded = zod.object({
+  created: zod.boolean().describe("False when the Work was already in the library"),
+  work: WorksTree,
+});
+
+export type WorksAdded = zod.input<typeof WorksAdded>;
+export type WorksAddedOutput = zod.output<typeof WorksAdded>;
+
+export const WorksCandidate = zod.object({
+  fields: zod.array(WorksFieldValue).describe("The Work's fields"),
+  key: zod.string(),
+  label: zod.string(),
+  workId: zod.uuid().nullable().describe("The Work, once it is in the library"),
+});
+
+export type WorksCandidate = zod.input<typeof WorksCandidate>;
+export type WorksCandidateOutput = zod.output<typeof WorksCandidate>;
+
+export const WorksCandidateList = zod.object({
+  candidates: zod.array(WorksCandidate).describe("Best first"),
+});
+
+export type WorksCandidateList = zod.input<typeof WorksCandidateList>;
+export type WorksCandidateListOutput = zod.output<typeof WorksCandidateList>;
+
+export const WorksFieldSpec = zod.object({
+  depth: zod
+    .int()
+    .min(1)
+    .exactOptional()
+    .describe("The level's depth, 1 for the outermost; present only on tier level"),
+  key: zod.string(),
+  kind: zod.enum(["text", "number", "date", "duration"]),
+  label: zod.string(),
+  tier: zod.enum(["work", "level", "item"]),
+});
+
+export type WorksFieldSpec = zod.input<typeof WorksFieldSpec>;
+export type WorksFieldSpecOutput = zod.output<typeof WorksFieldSpec>;
+
+export const WorksNoun = zod.object({
+  many: zod.string(),
+  one: zod.string(),
+});
+
+export type WorksNoun = zod.input<typeof WorksNoun>;
+export type WorksNounOutput = zod.output<typeof WorksNoun>;
+
+export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksContentType = zod.object({
+  enabled: zod.boolean(),
+  fields: zod.array(WorksFieldSpec),
+  id: zod.string().regex(worksContentTypeIdRegExp),
+  item: WorksNoun,
+  levels: zod.array(WorksNoun).describe("Outermost first; empty when Items hang off the Work"),
+  name: zod.string(),
+  work: WorksNoun,
+});
+
+export type WorksContentType = zod.input<typeof WorksContentType>;
+export type WorksContentTypeOutput = zod.output<typeof WorksContentType>;
+
+export const WorksContentTypeList = zod.object({
+  contentTypes: zod.array(WorksContentType),
+});
+
+export type WorksContentTypeList = zod.input<typeof WorksContentTypeList>;
+export type WorksContentTypeListOutput = zod.output<typeof WorksContentTypeList>;
+
+export const worksContentTypesChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksContentTypesChanged = zod.object({
+  contentType: zod.string().regex(worksContentTypesChangedContentTypeRegExp),
+});
+
+export type WorksContentTypesChanged = zod.input<typeof WorksContentTypesChanged>;
+export type WorksContentTypesChangedOutput = zod.output<typeof WorksContentTypesChanged>;
+
+export const WorksEnabled = zod.object({
+  enabled: zod.boolean(),
+});
+
+export type WorksEnabled = zod.input<typeof WorksEnabled>;
+export type WorksEnabledOutput = zod.output<typeof WorksEnabled>;
+
+export const worksNewWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const worksNewWorkKeyMax = 200;
+
+export const WorksNewWork = zod.object({
+  contentType: zod.string().regex(worksNewWorkContentTypeRegExp),
+  key: zod
+    .string()
+    .min(1)
+    .max(worksNewWorkKeyMax)
+    .describe("The Work's key at its metadata source"),
+});
+
+export type WorksNewWork = zod.input<typeof WorksNewWork>;
+export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
+
+export const worksWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksWork = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  contentType: zod.string().regex(worksWorkContentTypeRegExp),
+  id: zod.uuid(),
+  key: zod.string(),
+  label: zod.string(),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  sortLabel: zod.string(),
+});
+
+export type WorksWork = zod.input<typeof WorksWork>;
+export type WorksWorkOutput = zod.output<typeof WorksWork>;
+
+export const WorksWorkChanged = zod.object({
+  workId: zod.uuid(),
+});
+
+export type WorksWorkChanged = zod.input<typeof WorksWorkChanged>;
+export type WorksWorkChangedOutput = zod.output<typeof WorksWorkChanged>;
+
+export const WorksWorkList = zod.object({
+  works: zod.array(WorksWork).describe("By sort label, then id"),
+});
+
+export type WorksWorkList = zod.input<typeof WorksWorkList>;
+export type WorksWorkListOutput = zod.output<typeof WorksWorkList>;
+
 export const LiveEventIdentitySessionsChanged = zod.object({
   event: zod.enum(["identity.sessions-changed"]),
   data: IdentitySessionsChanged,
@@ -334,11 +556,31 @@ export const LiveEventNodesChanged = zod.object({
 export type LiveEventNodesChanged = zod.input<typeof LiveEventNodesChanged>;
 export type LiveEventNodesChangedOutput = zod.output<typeof LiveEventNodesChanged>;
 
+export const LiveEventWorksChanged = zod.object({
+  event: zod.enum(["works.changed"]),
+  data: WorksWorkChanged,
+});
+
+export type LiveEventWorksChanged = zod.input<typeof LiveEventWorksChanged>;
+export type LiveEventWorksChangedOutput = zod.output<typeof LiveEventWorksChanged>;
+
+export const LiveEventWorksContentTypesChanged = zod.object({
+  event: zod.enum(["works.content-types-changed"]),
+  data: WorksContentTypesChanged,
+});
+
+export type LiveEventWorksContentTypesChanged = zod.input<typeof LiveEventWorksContentTypesChanged>;
+export type LiveEventWorksContentTypesChangedOutput = zod.output<
+  typeof LiveEventWorksContentTypesChanged
+>;
+
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventIdentitySessionsChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
   LiveEventNodesChanged,
+  LiveEventWorksChanged,
+  LiveEventWorksContentTypesChanged,
 ]);
 
 export type LiveEvent = zod.input<typeof LiveEvent>;

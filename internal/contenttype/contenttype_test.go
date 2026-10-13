@@ -27,8 +27,8 @@ func assertPanics(t *testing.T, want string, fn func()) {
 func open(contenttype.Deps, struct{}) contenttype.Type { return contenttypetest.New() }
 
 func TestDefineRefusesABadID(t *testing.T) {
-	assertPanics(t, `contenttype: id "Music" is not ^[a-z][a-z0-9]{1,15}$`, func() {
-		contenttype.Define[struct{}]("Music", nil, nil, open)
+	assertPanics(t, `contenttype: id "Fixture" is not ^[a-z][a-z0-9]{1,15}$`, func() {
+		contenttype.Define[struct{}]("Fixture", nil, nil, open)
 	})
 	assertPanics(t, `contenttype: id "abcdefghijklmnopq" is not ^[a-z][a-z0-9]{1,15}$`, func() {
 		contenttype.Define[struct{}]("abcdefghijklmnopq", nil, nil, open)

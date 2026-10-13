@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // peers is how the link treats a peer under the Node's claim: whom it
@@ -23,16 +24,29 @@ type peers interface {
 type half struct {
 	peers    peers
 	dispatch *rpc.Dispatch
-	// nodes, controls and cluster are the Controller's, nil on a Worker.
+	// nodes, controls, cluster and works are the Controller's, nil on a
+	// Worker.
 	nodes    *nodes.Service
 	controls *role.Controls
 	cluster  *rpc.Cluster
+	works    *works.Works
 }
 
 // startController starts the Controller half: the control half, its own
 // holder half in process, and call dispatch over the roster.
 func (n *Node) startController(ctx context.Context) error {
 	lib, err := n.openLibrary(ctx)
+	if err != nil {
+		return err
+	}
+	tree, err := works.Open(ctx, works.Config{
+		Library:      lib.db,
+		Catalogs:     map[works.TypeID]works.Catalog{},
+		Timings:      n.cfg.Timings.Works,
+		Changed:      works.ChangedEvent.Bind(n.hub),
+		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
+		Log:          n.rootLog.With("subsystem", "works"),
+	})
 	if err != nil {
 		return err
 	}
@@ -60,7 +74,7 @@ func (n *Node) startController(ctx context.Context) error {
 	cluster := rpc.NewCluster(dispatch, side)
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster})
+	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree})
 	n.claimed.Go("nodes", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil
