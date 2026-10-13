@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -425,6 +426,12 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 	}
 	if got := h.types.take(); len(got) != 1 {
 		t.Fatalf("published %v, want one works.content-types-changed", got)
+	}
+	if again, err := h.works.SetEnabled(t.Context(), admin, contenttypetest.ID, true); err != nil || !reflect.DeepEqual(again, on) {
+		t.Fatalf("turn on again = %+v, %v; want %+v", again, err, on)
+	}
+	if got := h.types.take(); len(got) != 0 {
+		t.Fatalf("turning on a type already on published %v", got)
 	}
 	if enabled, err := works.Enabled(t.Context(), h.lib, contenttypetest.ID); err != nil || !enabled {
 		t.Fatalf("Enabled = %t, %v; want true", enabled, err)
