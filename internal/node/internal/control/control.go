@@ -188,14 +188,14 @@ func Decode(data []byte, v any) error {
 }
 
 type Conn struct {
-	conn net.Conn
+	conn *net.UnixConn
 	r    *bufio.Reader
 }
 
 // Dial connects to the socket at path. The connection's deadline is ctx's.
 func Dial(ctx context.Context, path string) (*Conn, error) {
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "unix", path)
+	conn, err := d.DialUnix(ctx, "unix", nil, &net.UnixAddr{Name: path, Net: "unix"})
 	if err != nil {
 		return nil, fmt.Errorf("dial control socket: %w", err)
 	}
@@ -207,6 +207,8 @@ func Dial(ctx context.Context, path string) (*Conn, error) {
 	return &Conn{conn: conn, r: bufio.NewReader(io.LimitReader(conn, maxLine))}, nil
 }
 
+// Send writes the request and then closes the write side, which works
+// around Windows AF_UNIX reads that never see the Node close the connection.
 func (c *Conn) Send(op string, body any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
@@ -217,6 +219,9 @@ func (c *Conn) Send(op string, body any) error {
 		return fmt.Errorf("encode %s request: %w", op, err)
 	}
 	if _, err := c.conn.Write(append(line, '\n')); err != nil {
+		return fmt.Errorf("send %s request: %w", op, err)
+	}
+	if err := c.conn.CloseWrite(); err != nil {
 		return fmt.Errorf("send %s request: %w", op, err)
 	}
 	return nil
