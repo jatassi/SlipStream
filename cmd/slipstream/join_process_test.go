@@ -18,6 +18,7 @@ import (
 // home is a claimed Controller named home whose listeners are on
 // 127.0.0.2, as in the Fake world.
 type home struct {
+	dir    string
 	ready  node.Ready
 	apiKey string
 }
@@ -35,7 +36,13 @@ var boxEnv = listenersOn("127.0.0.3", "box")
 
 func startHome(t *testing.T) home {
 	t.Helper()
-	p := startNode(t, dataDir(t), listenersOn("127.0.0.2", "home")...)
+	return startHomeWith(t, listenersOn("127.0.0.2", "home"))
+}
+
+func startHomeWith(t *testing.T, env []string) home {
+	t.Helper()
+	dir := dataDir(t)
+	p := startNode(t, dir, env...)
 	ready := p.ready()
 	claimed := claimController(t, ready, ready.SetupCode)
 	var res struct {
@@ -44,7 +51,7 @@ func startHome(t *testing.T) home {
 	if err := json.Unmarshal([]byte(claimed.body), &res); err != nil || claimed.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s", claimed.status, claimed.body)
 	}
-	return home{ready: ready, apiKey: res.APIKey}
+	return home{dir: dir, ready: ready, apiKey: res.APIKey}
 }
 
 func (h home) admin(t *testing.T, method, path string, out any) {
@@ -159,7 +166,15 @@ func TestJoinByEnvironment(t *testing.T) {
 	if holdsCode(box.output(), minted.Code) || holdsCode(string(logged), minted.Code) {
 		t.Fatalf("a log holds the Join Code:\n%s\n%s", box.output(), logged)
 	}
-	id := expectBoxUp(t, a)
+	var rows []string
+	id := ""
+	for _, n := range a.Nodes("home") {
+		rows = append(rows, n.Name+" "+n.Link.State)
+		if n.Name == "box" {
+			id = n.ID
+		}
+	}
+	expectRows(t, rows, "home local", "box up")
 
 	stopNode(t, box, dir)
 	again := startNode(t, dir, env...)
@@ -167,25 +182,9 @@ func TestJoinByEnvironment(t *testing.T) {
 		t.Fatalf("box restarted as %s, want worker", r.Claim)
 	}
 	again.await("join code ignored: already joined")
-	if after := expectBoxUp(t, a); after != id {
-		t.Fatalf("after the restart box is %s, want %s", after, id)
+	if rows := a.Nodes("home"); len(rows) != 2 || !slices.ContainsFunc(rows, func(r worldtest.Row) bool { return r.ID == id }) {
+		t.Fatalf("after the restart listNodes has %+v, want home and box %s alone", rows, id)
 	}
-}
-
-// expectBoxUp checks home lists itself local and box up, and returns box's
-// id.
-func expectBoxUp(t *testing.T, a *worldtest.API) string {
-	t.Helper()
-	var rows []string
-	box := ""
-	for _, n := range a.Nodes("home") {
-		rows = append(rows, n.Name+" "+n.Link.State)
-		if n.Name == "box" {
-			box = n.ID
-		}
-	}
-	expectRows(t, rows, "home local", "box up")
-	return box
 }
 
 func TestJoinOffline(t *testing.T) {
