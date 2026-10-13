@@ -33,7 +33,6 @@ type Link interface {
 	Pair(ctx context.Context, code joincode.Code, name string) (link.Paired, error)
 	Keep(t link.Target)
 	Drop(key link.Key)
-	State(key link.Key) link.State
 	Subscribe(ctx context.Context) <-chan link.Change
 }
 
@@ -112,8 +111,8 @@ func (p *Pairing) Pair(context.Context, link.Key, *linkv1.PairRequest) (*linkv1.
 }
 
 // Joined is a Claim that paired: this Node's id and name as the
-// Controller recorded them, the Controller's name and key, and the remote
-// address of the live session.
+// Controller recorded them, the Controller's name and key, and its address
+// on the session the Pair made live.
 type Joined struct {
 	NodeID         role.NodeID
 	Name           string
@@ -174,11 +173,7 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code) (Joined, error)
 		p.cfg.Link.Drop(prev.Controller.Key)
 	}
 	p.cfg.Link.Keep(next.Controller)
-	joined := Joined{NodeID: next.NodeID, Name: paired.Name, ControllerName: paired.ControllerName, Controller: paired.Controller}
-	if live, ok := p.cfg.Link.State(paired.Controller).(link.Live); ok {
-		joined.Link = live.Remote
-	}
-	return joined, nil
+	return Joined{NodeID: next.NodeID, Name: paired.Name, ControllerName: paired.ControllerName, Controller: paired.Controller, Link: paired.Remote}, nil
 }
 
 // ignored is the refusal of a code naming rec's pinned or a superseded

@@ -72,7 +72,7 @@ func TestPairSendsTheSecretThenSaysHello(t *testing.T) {
 		if call.peer != p.Worker.Key || !slices.Equal(call.secret, secret[:]) || call.name != "box" {
 			t.Fatalf("the Controller's Pair handler got %+v", call)
 		}
-		if !slices.Equal(got.NodeID, []byte{0x01, 0x92}) || got.Controller != p.Controller.Key || got.Node.Version != "0.0.0-test" {
+		if !slices.Equal(got.NodeID, []byte{0x01, 0x92}) || got.Controller != p.Controller.Key || got.Node.Version != "0.0.0-test" || got.Remote != netip.MustParseAddrPort("127.0.0.2:8485") {
 			t.Fatalf("Pair returned %+v", got)
 		}
 		if live, ok := p.Controller.State(p.Worker.Key).(link.Live); !ok || !live.Matched {

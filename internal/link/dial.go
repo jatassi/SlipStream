@@ -134,6 +134,8 @@ type Paired struct {
 	Controller     Key
 	// Node is the Controller's, from its Welcome.
 	Node NodeInfo
+	// Remote is the Controller's address on the session Pair made live.
+	Remote netip.AddrPort
 }
 
 // Pair dials code's Controller, checking its key against the code, sends
@@ -168,7 +170,7 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return Paired{NodeID: paired.GetNodeId(), Name: paired.GetName(), ControllerName: paired.GetControllerName(), Controller: s.key, Node: s.peer}, nil
+	return Paired{NodeID: paired.GetNodeId(), Name: paired.GetName(), ControllerName: paired.GetControllerName(), Controller: s.key, Node: s.peer, Remote: s.remote}, nil
 }
 
 func (l *Link) pair(ctx context.Context, s *session, secret [joincode.SecretSize]byte, name string) (*linkv1.Paired, error) {
