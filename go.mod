@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect/v2 v2.0.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/gofrs/flock v0.13.1
+	github.com/hashicorp/yamux v0.1.2
 	github.com/invopop/jsonschema v0.14.0
 	github.com/libp2p/go-yamux/v5 v5.1.0
 	github.com/pressly/goose/v3 v3.29.0
