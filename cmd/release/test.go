@@ -102,11 +102,17 @@ func testGo(ctx context.Context, root string, goArgs []string) error {
 	return nil
 }
 
+// testComponent installs the target's browsers first, because Vitest's
+// browser mode launches the same Chromium the browser tier does.
 func testComponent(ctx context.Context, root string, _ []string) error {
 	if err := installWeb(ctx, root); err != nil {
 		return err
 	}
-	return run(ctx, filepath.Join(root, "web"), nil, "bun", "run", "test")
+	web := filepath.Join(root, "web")
+	if err := run(ctx, web, nil, "bun", "run", "e2e:install"); err != nil {
+		return err
+	}
+	return run(ctx, web, nil, "bun", "run", "test")
 }
 
 func testBrowser(ctx context.Context, root string, _ []string) error {
