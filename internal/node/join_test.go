@@ -2,6 +2,8 @@ package node
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/netip"
 	"os"
@@ -13,6 +15,9 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/link/linktest"
+	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -213,5 +218,52 @@ func TestAPairingRecordOfAnotherSchemaRefusesTheStart(t *testing.T) {
 		if code := ExitCode(err); code != ExitRecordRefused {
 			t.Fatalf("start = %v, exit %d; want exit %d", err, code, ExitRecordRefused)
 		}
+	})
+}
+
+// TestAnUnclaimedNodeRefusesEveryHandshake pairs with an Unclaimed Node
+// using a Join Code that names it: its link refuses the dialer's key
+// during TLS, so no Pair runs, and it stays Unclaimed.
+func TestAnUnclaimedNodeRefusesEveryHandshake(t *testing.T) {
+	net := fault.NewNetwork()
+	boxEnv, boxHost := machine(t, net, "127.0.0.3", "box")
+	open := boxEnv.OpenLog
+	boxEnv.OpenLog = func(dir string, stderr io.Writer) (*logs.Log, error) {
+		l, err := open(dir, stderr)
+		if err == nil {
+			l.Level.Set(slog.LevelDebug)
+		}
+		return l, err
+	}
+	synctest.Test(t, func(t *testing.T) {
+		box, bc := startOn(t, boxEnv, boxHost)
+		boxKey, err := link.OpenKey(boxEnv.DataDir.Path())
+		if err != nil {
+			t.Fatal(err)
+		}
+		key := boxKey.Public()
+		code, err := joincode.New(key[:], [joincode.SecretSize]byte{1}, []netip.AddrPort{box.Ready().Listeners.Link})
+		if err != nil {
+			t.Fatal(err)
+		}
+		dialer := linktest.Start(t, net, "dialer", []netip.Addr{netip.MustParseAddr("127.0.0.4")}, linktest.Side{})
+		if _, err := dialer.Pair(t.Context(), code, "dialer"); err == nil {
+			t.Fatal("Pair with an Unclaimed Node succeeded")
+		}
+		synctest.Wait()
+		logged, err := os.ReadFile(filepath.Join(boxEnv.DataDir.LogsDir(), "slipstream.log"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var refusals []any
+		for _, r := range records(t, string(logged)) {
+			if r["msg"] == "link handshake failed" {
+				refusals = append(refusals, r["err"])
+			}
+		}
+		if want := []any{"peer key " + dialer.Key.Fingerprint() + " is refused"}; !slices.Equal(refusals, want) {
+			t.Fatalf("box logged link handshake failed with %v, want %v", refusals, want)
+		}
+		expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"unclaimed"}`+"\n")
 	})
 }
