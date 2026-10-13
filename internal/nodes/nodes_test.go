@@ -347,3 +347,34 @@ func cells(t *testing.T, lib *storage.DB[storage.Library], query string) [][]byt
 func TestTheNodesSetPassesTheAudit(t *testing.T) {
 	storagetest.AuditLibrary(t, []storage.Schema[storage.Library]{nodes.Schema()})
 }
+
+func TestAwaitInStepReturnsOnceTheNodesLinkIsLive(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		w := c.worker(t, "box", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "box")
+		w.Drop(c.node.Key)
+		synctest.Wait()
+		if err := c.svc.AwaitInStep(t.Context(), c.svc.Self()); err != nil {
+			t.Fatalf("AwaitInStep(self) = %v, want nil at once", err)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+		err := c.svc.AwaitInStep(ctx, id)
+		cancel()
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("AwaitInStep(box) while down = %v, want the deadline", err)
+		}
+		done := make(chan error, 1)
+		go func() { done <- c.svc.AwaitInStep(t.Context(), id) }()
+		synctest.Wait()
+		select {
+		case err := <-done:
+			t.Fatalf("AwaitInStep(box) returned %v before box connected", err)
+		default:
+		}
+		w.Keep(c.node.Target())
+		if err := <-done; err != nil {
+			t.Fatalf("AwaitInStep(box) = %v once box connected, want nil", err)
+		}
+	})
+}

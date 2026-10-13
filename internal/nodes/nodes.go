@@ -468,6 +468,22 @@ func (s *Service) awaitDelivery(ctx context.Context, node ID) error {
 	}
 }
 
+// AwaitInStep returns once node's link is live and matched, at once for
+// this Node, or with ctx's error when it ends first.
+func (s *Service) AwaitInStep(ctx context.Context, node ID) error {
+	for {
+		woken := s.awaitChange(node)
+		if s.inStep(node) {
+			return nil
+		}
+		select {
+		case <-woken:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func (s *Service) inStep(node ID) bool {
 	if node == s.self {
 		return true
