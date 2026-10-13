@@ -119,21 +119,8 @@ func TestARepairSupersedesTheOldController(t *testing.T) {
 		if _, err := p.Claim(t.Context(), second.mint(t)); err != nil {
 			t.Fatal(err)
 		}
-		rec, _ := p.Record()
-		if len(rec.Superseded) != 1 || rec.Superseded[0].Key != first.node.Key || rec.Superseded[0].By != second.node.Key || rec.Controller.Key != second.node.Key {
-			t.Fatalf("record after the re-pair: controller %s, superseded %+v; want %s superseded by %s", rec.Controller.Key.Fingerprint(), rec.Superseded, first.node.Key.Fingerprint(), second.node.Key.Fingerprint())
-		}
 		synctest.Wait()
-		if box.State(first.node.Key) != (link.Down{}) {
-			t.Fatal("the superseded Controller's session is still up")
-		}
-		want := link.Superseded{By: second.node.Key, Addresses: rec.Controller.Addresses}
-		if got := p.Admit(first.node.Key); got != want {
-			t.Fatalf("the superseded key is admitted as %#v, want %#v", got, want)
-		}
-		if p.Admit(second.node.Key) != (link.Pinned{}) || p.Admit(box.Key) != (link.Refused{}) {
-			t.Fatal("the current Controller is not pinned, or an unknown key is not refused")
-		}
+		rec := checkSuperseded(t, p, box, first, second)
 		if _, err := p.Claim(t.Context(), first.mint(t)); kind(err) != pairing.SupersededController || err.Error() != "superseded Controller" {
 			t.Fatalf("a superseded Controller's code: %v, want superseded Controller", err)
 		}
@@ -146,6 +133,27 @@ func TestARepairSupersedesTheOldController(t *testing.T) {
 			t.Fatalf("pairing.json read back as %+v, want %+v", again, rec)
 		}
 	})
+}
+
+// checkSuperseded holds the record and Trust after box re-paired from first
+// to second, and returns the record.
+func checkSuperseded(t *testing.T, p *pairing.Pairing, box *linktest.Node, first, second controller) pairing.Record {
+	t.Helper()
+	rec, _ := p.Record()
+	if len(rec.Superseded) != 1 || rec.Superseded[0].Key != first.node.Key || rec.Superseded[0].By != second.node.Key || rec.Controller.Key != second.node.Key {
+		t.Fatalf("record after the re-pair: controller %s, superseded %+v; want %s superseded by %s", rec.Controller.Key.Fingerprint(), rec.Superseded, first.node.Key.Fingerprint(), second.node.Key.Fingerprint())
+	}
+	if box.State(first.node.Key) != (link.Down{}) {
+		t.Fatal("the superseded Controller's session is still up")
+	}
+	want := link.Superseded{By: second.node.Key, Addresses: rec.Controller.Addresses}
+	if got := p.Admit(first.node.Key); got != want {
+		t.Fatalf("the superseded key is admitted as %#v, want %#v", got, want)
+	}
+	if p.Admit(second.node.Key) != (link.Pinned{}) || p.Admit(box.Key) != (link.Refused{}) {
+		t.Fatal("the current Controller is not pinned, or an unknown key is not refused")
+	}
+	return rec
 }
 
 func TestAControllerRefusesAJoin(t *testing.T) {
