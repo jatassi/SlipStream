@@ -8,8 +8,6 @@ type (
 	ItemID  struct{ storage.UUID }
 )
 
-// TypeID is a Content Type's id as works_work.content_type holds it.
 type TypeID string
 
-// Key is a node's identity at its metadata source.
 type Key string

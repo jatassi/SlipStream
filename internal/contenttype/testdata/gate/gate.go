@@ -1,5 +1,3 @@
-// Package gate grows contenttype.Type by a second facet, as a later spec
-// does, over a type that lacks it.
 package gate
 
 import (

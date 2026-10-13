@@ -12,14 +12,12 @@ import (
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
 
-// ContentType is a registered Content Type as the API lists it.
 type ContentType struct {
 	ID TypeID
 	Description
 	Enabled bool
 }
 
-// Summary is a Work without its tree.
 type Summary struct {
 	ID          WorkID
 	ContentType TypeID
@@ -236,7 +234,6 @@ func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree
 	return w.Get(ctx, by, id)
 }
 
-// open is t's registration, refused when t is unknown or off.
 func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
 	reg, ok := w.types[t]
 	if !ok {
@@ -266,8 +263,6 @@ func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key) (p
 	return p, err
 }
 
-// sourced passes a source's two errors through and marks any other a bug
-// of type t.
 func sourced(t TypeID, op string, err error) error {
 	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrUnavailable) {
 		return err
@@ -275,7 +270,6 @@ func sourced(t TypeID, op string, err error) error {
 	return fmt.Errorf("content type %s: %s: %w", t, op, err)
 }
 
-// converge writes p over Work id's stored tree, then the type's own rows.
 func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p parsed, now storage.Time) error {
 	q := db.New(tx)
 	levels, err := q.ListLevels(ctx, id)
@@ -398,9 +392,6 @@ func (w *Works) read(ctx context.Context, r storage.Reader[file], id WorkID) (Tr
 	return t, nil
 }
 
-// assemble orders a Work's rows into its Tree and attaches each node's
-// fields, checked against the type's specs. levels arrive by depth, then
-// position; items by position.
 func assemble(reg registered, row db.WorksWork, levels []db.WorksLevel, items []db.WorksItem, fs FieldSet) (Tree, error) {
 	t := Tree{Summary: Summary(row)}
 	var err error
@@ -458,8 +449,6 @@ func (r registered) specs(t Tier) []FieldSpec {
 	return out
 }
 
-// ordered is values in specs order, refused when one names no spec of the
-// tier, has another kind, or repeats.
 func ordered(specs []FieldSpec, values []FieldValue) ([]FieldValue, error) {
 	out := make([]FieldValue, 0, len(values))
 	for _, s := range specs {

@@ -1,7 +1,3 @@
-// Package musicmeta is fake-music-meta: a MusicBrainz-shaped web service
-// over HTTPS, serving the Scenario's music catalog to the music Content
-// Type. Each artist answers its revisions in turn, one per lookup, and
-// faults on demand. It serves an empty catalog to a Scenario with no music.
 package musicmeta
 
 import (
@@ -32,8 +28,7 @@ var Fake = fake.Spec{
 const root = "/ws/2"
 
 type server struct {
-	artists map[string]scenario.MusicArtist
-	// artistOf is each album's artist.
+	artists  map[string]scenario.MusicArtist
 	artistOf map[string]string
 
 	mu      sync.Mutex
@@ -117,16 +112,12 @@ type recordingJSON struct {
 	Length *int64 `json:"length"`
 }
 
-// revision is the revision the artist's latest lookup served, the first
-// before any lookup.
 func (s *server) revision(a scenario.MusicArtist) scenario.MusicRevision {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return a.Revisions[min(max(s.lookups[a.ID]-1, 0), len(a.Revisions)-1)]
 }
 
-// search matches a case-folded substring of each artist's name and sort
-// name, scoring 100 for the exact name, 90 for a prefix and 80 otherwise.
 func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	q := strings.ToLower(r.URL.Query().Get("query"))
 	var found []artistJSON
@@ -160,7 +151,6 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	}{len(found), offset, items})
 }
 
-// artist serves the artist's next revision, unless a fault answers first.
 func (s *server) artist(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.artists[r.PathValue("mbid")]
 	if !ok {
@@ -217,8 +207,6 @@ func (s *server) releaseGroups(w http.ResponseWriter, r *http.Request) {
 	}{len(groups), offset, items})
 }
 
-// releases serves an album's one release, which is official,, as the revision its
-// artist's latest lookup served has it.
 func (s *server) releases(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("release-group")
 	a, ok := s.artists[s.artistOf[id]]
@@ -270,8 +258,6 @@ func release(al scenario.MusicAlbum) releaseJSON {
 	return out
 }
 
-// page is the limit and offset a browse or search asks for: 25 by
-// default, at most 100.
 func page[T any](w http.ResponseWriter, r *http.Request, all []T) (items []T, offset int, ok bool) {
 	limit := 25
 	for name, v := range map[string]*int{"limit": &limit, "offset": &offset} {
@@ -292,8 +278,6 @@ func page[T any](w http.ResponseWriter, r *http.Request, all []T) (items []T, of
 	return append([]T{}, all[start:end]...), offset, true
 }
 
-// jsonOnly answers 400 to a request without fmt=json, so a client that
-// drops it fails loudly.
 func jsonOnly(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("fmt") != "json" {

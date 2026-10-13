@@ -70,8 +70,6 @@ type tree struct {
 	Items       []treeNode `json:"items"`
 }
 
-// outline is the tree as a person reads it, one node a line, each node
-// named by the n-th id it has in ids, in order of first sight.
 func (tr tree) outline(ids *[]string) string {
 	name := func(id string) string {
 		for i, seen := range *ids {
@@ -124,8 +122,6 @@ func checkOutline(t *testing.T, what string, tr tree, ids *[]string, want string
 	}
 }
 
-// event reads the stream up to its next event called name, which must
-// carry data, under any id.
 func event(t *testing.T, s *apitest.Stream, name, data string) {
 	t.Helper()
 	named := regexp.MustCompile(`(?m)^event: ` + regexp.QuoteMeta(name) + `$`)
@@ -220,8 +216,6 @@ func TestMusic(t *testing.T) {
 	t.Run("a fresh run with no Works", turnOffAndOn)
 }
 
-// turnOffAndOn is step 7 on a fresh run of a Scenario built in code, which
-// holds no Works.
 func turnOffAndOn(t *testing.T) {
 	s, err := scenario.Load("music")
 	if err != nil {

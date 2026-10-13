@@ -9,7 +9,7 @@ import (
 )
 
 // Census lists every endpoints key whose value still contains a host from
-// its default, the hosts a fake has not replaced. cfg holds keys for types.
+// its default, the hosts a fake has not replaced.
 func Census(cfg Config, types contenttype.Set) []string {
 	defaults := Defaults(types)
 	return census(&cfg, &defaults)

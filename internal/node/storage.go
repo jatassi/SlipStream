@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// LibrarySchemas is the core owners' sets, then each of types' in id order.
 func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 	core := []storage.Schema[storage.Library]{
 		secret.Schema(),

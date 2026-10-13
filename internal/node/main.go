@@ -107,8 +107,6 @@ func nodeEnv(name string, args []string, types contenttype.Set) (Env, error) {
 	return env, nil
 }
 
-// join pairs the Node on the data dir: through the join control op when a
-// Node holds the data dir, else offline.
 func join(args []string, types contenttype.Set) int {
 	fs := flag.NewFlagSet("join", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)

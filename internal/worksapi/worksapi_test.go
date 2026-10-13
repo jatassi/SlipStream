@@ -123,7 +123,6 @@ var (
 	times = regexp.MustCompile(`"\d{4}-\d{2}-\d{2}T[0-9:.]+Z"`)
 )
 
-// masked names each id by its order of first appearance and hides times.
 func masked(body string) string {
 	seen := map[string]string{}
 	body = uuids.ReplaceAllStringFunc(body, func(id string) string {

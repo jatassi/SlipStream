@@ -1,8 +1,3 @@
-// Package music is the test-only music Content Type: an artist is the
-// Work, an album its level and a track an Item, from a MusicBrainz-shaped
-// metadata source. It lives under fakes/ so the release binary never holds
-// it, and it follows every convention a shipped type does: copy it to
-// start a new Content Type.
 package music
 
 import (
@@ -27,9 +22,7 @@ var schemaFiles embed.FS
 
 var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, New)
 
-// Endpoints is endpoints.content_types.music.
 type Endpoints struct {
-	// Metadata is the MusicBrainz web service root.
 	Metadata endpoint.URL `yaml:"metadata"`
 }
 
@@ -73,7 +66,6 @@ func (m *Music) Search(ctx context.Context, query string) ([]works.Candidate, er
 	return out, nil
 }
 
-// detail is the record Fetch hands Store: each node's own facts, by key.
 type detail struct {
 	Country        string        `json:"country"`
 	Disambiguation string        `json:"disambiguation"`
@@ -95,9 +87,6 @@ type trackDetail struct {
 	LengthMs *int64    `json:"lengthMs"`
 }
 
-// Fetch reads the artist, its albums and EPs, and each one's canonical
-// release. An album with no official release is left out, and one whose
-// first release date is no date makes the record invalid.
 func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error) {
 	artist, err := m.source.Artist(ctx, string(key))
 	if err != nil {
@@ -162,8 +151,6 @@ func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, 
 	return nil
 }
 
-// Fields reads one Work with one query per table. A value the source
-// left unknown is no field.
 func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID) (works.FieldSet, error) {
 	q := db.New(r)
 	artist, err := q.GetArtist(ctx, w)

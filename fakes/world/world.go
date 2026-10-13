@@ -267,8 +267,6 @@ func (r *Run) mintCA(context.Context, *unwind) error {
 	return nil
 }
 
-// probeBinary reads the binary's keys and Content Types, and refuses a
-// Scenario that needs a Content Type the binary does not register.
 func (r *Run) probeBinary(ctx context.Context, _ *unwind) error {
 	var err error
 	if r.probe, err = r.resolve(ctx, "", filepath.Join(r.scratchDir, ".probe"), nodeenv.Environ(r.caFile)); err != nil {
@@ -282,9 +280,6 @@ func (r *Run) probeBinary(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
-// startFakes starts every fake but those serving a Content Type the binary
-// does not register, then points the endpoints at them, refusing a fake
-// that sets a key the binary does not list.
 func (r *Run) startFakes(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	for _, spec := range specs {
 		if spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType) {

@@ -32,11 +32,6 @@ const (
 	testContentTypes    = "fakes/contenttypes"
 )
 
-// contentTypeScope is the Content Type scope rule (spec #133, Packages) for
-// the package in dir. id names the Content Type whose tree holds dir, or is
-// empty. fake is the fake package beneath that type holding dir: any
-// directory under fakes/contenttypes/<id>/ other than internal, and its
-// subtree. A Content Type package has an id and no fake.
 func contentTypeScope(dir string) (id, fake string) {
 	for _, root := range []string{shippedContentTypes, testContentTypes} {
 		rest, ok := strings.CutPrefix(dir, root+"/")
@@ -91,8 +86,6 @@ func ownerAPIPackage(f lint.GoFile) bool {
 
 const contentTypePkg = "internal/contenttype"
 
-// isDefineCall reports whether call is contenttype.Define, with or without
-// explicit type arguments.
 func isDefineCall(module string, imports map[string]string, call *ast.CallExpr) bool {
 	fun := call.Fun
 	switch generic := fun.(type) {

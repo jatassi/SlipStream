@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// Music is the catalog fake-music-meta serves, for a binary that registers
-// the music Content Type.
 type Music struct {
 	Artists []MusicArtist `jsonschema:"required,minItems=1" yaml:"artists"`
 	Faults  []MusicFault  `yaml:"faults,omitempty"`
@@ -29,7 +27,6 @@ type MusicRevision struct {
 	Albums         []MusicAlbum `yaml:"albums,omitempty"`
 }
 
-// MusicAlbum is a release group and its one official release.
 type MusicAlbum struct {
 	ID           string       `jsonschema:"required,pattern=^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" yaml:"id"`
 	Release      string       `jsonschema:"required,pattern=^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" yaml:"release"`
@@ -55,8 +52,6 @@ type MusicFault struct {
 	Times  int    `jsonschema:"required,minimum=1"                                yaml:"times"`
 }
 
-// ContentTypes is the id of every Content Type the Scenario needs its
-// binary to register.
 func (s Scenario) ContentTypes() []string {
 	if s.Music != nil {
 		return []string{"music"}
@@ -103,8 +98,6 @@ func (m Music) check(add func(format string, args ...any)) {
 	}
 }
 
-// owners is each album's artist and each release's album, across the
-// catalog.
 type owners struct {
 	artistOf, albumOf map[string]string
 }

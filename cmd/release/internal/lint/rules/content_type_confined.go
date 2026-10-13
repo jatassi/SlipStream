@@ -23,9 +23,6 @@ func init() {
 
 const surfacePkg = "./internal/node/surface"
 
-// coreExempt are the trees outside core besides Content Type packages and
-// testdata: the two mains with their process tests, the lint rules, which
-// necessarily name ids, and the test-only trees.
 var coreExempt = []string{"cmd/slipstream/", "cmd/slipstream-e2e/", "cmd/release/", "fakes/", "e2e/"}
 
 var webScripts = []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx"}
@@ -83,9 +80,6 @@ func (c *contentTypeCheck) reportLine(file string, line int, format string, args
 	c.findings[lint.Finding{Path: file, Line: line, Message: fmt.Sprintf(format, args...)}] = true
 }
 
-// defines collects each Content Type's id from its contenttype.Define call.
-// internal/contenttype and its subtree may call Define too: its own tests
-// and contenttypetest.Fixture, whose id is never a Content Type's.
 func (c *contentTypeCheck) defines(f lint.GoFile) {
 	dir := path.Dir(f.Path)
 	isType := isContentTypePackage(dir)
@@ -160,9 +154,6 @@ func (c *contentTypeCheck) literal(file string, line int, value string) {
 	}
 }
 
-// identWords splits an identifier into its snake_case and camelCase words.
-// A run of capitals is one word, ending before a capital that starts a
-// lowercase word, so HTTPMusic is HTTP and Music.
 func identWords(name string) []string {
 	var words []string
 	for _, part := range strings.Split(name, "_") {
@@ -211,11 +202,8 @@ type scriptString struct {
 	value string
 }
 
-// scriptStrings lexes the string literals of a TypeScript or JavaScript
-// source: quoted strings and template literals without interpolation.
-// Comments are skipped. A quote that does not close on its line (an
-// apostrophe in JSX text) yields nothing, so the lexer resynchronises at the
-// next line.
+// A quote that does not close on its line (an apostrophe in JSX text) yields
+// nothing, so the lexer resynchronises at the next line.
 func scriptStrings(src string) []scriptString {
 	l := scriptLexer{src: src, line: 1}
 	for l.i < len(src) {
@@ -225,11 +213,10 @@ func scriptStrings(src string) []scriptString {
 }
 
 type scriptLexer struct {
-	src   string
-	i     int
-	line  int
-	depth int
-	// templates holds the brace depth of each open template interpolation.
+	src       string
+	i         int
+	line      int
+	depth     int
 	templates []int
 	lits      []scriptString
 }
@@ -272,8 +259,6 @@ func (l *scriptLexer) next() {
 	}
 }
 
-// skipTo moves past the next occurrence of end, keeping it when keep is 0,
-// or to the end of the source.
 func (l *scriptLexer) skipTo(end string, keep int) {
 	n := strings.Index(l.src[l.i:], end)
 	if n < 0 {
@@ -284,7 +269,6 @@ func (l *scriptLexer) skipTo(end string, keep int) {
 	l.i += n + keep
 }
 
-// template scans template text from i, opening an interpolation at ${.
 func (l *scriptLexer) template(i int) (end int, interpolated bool) {
 	end, interpolated = templateEnd(l.src, i, &l.line)
 	if interpolated {
@@ -294,8 +278,6 @@ func (l *scriptLexer) template(i int) (end int, interpolated bool) {
 	return end, interpolated
 }
 
-// quoteEnd is the index of the quote closing a string begun before i, or of
-// the newline or end of source where the string breaks off.
 func quoteEnd(src string, i int, quote byte, line *int) int {
 	for ; i < len(src); i++ {
 		switch src[i] {
@@ -308,8 +290,6 @@ func quoteEnd(src string, i int, quote byte, line *int) int {
 	return i
 }
 
-// escaped steps over the character a backslash at i escapes, counting a
-// line continuation.
 func escaped(src string, i int, line *int) int {
 	if i+1 < len(src) && src[i+1] == '\n' {
 		*line++
@@ -317,9 +297,6 @@ func escaped(src string, i int, line *int) int {
 	return i + 1
 }
 
-// templateEnd scans a template literal's text from i to its closing backtick,
-// or to the ${ that opens an interpolation, returning the index of that
-// backtick or of the interpolation's brace.
 func templateEnd(src string, i int, line *int) (end int, interpolated bool) {
 	for i < len(src) {
 		switch {
@@ -337,8 +314,6 @@ func templateEnd(src string, i int, line *int) (end int, interpolated bool) {
 	return len(src), false
 }
 
-// surface reports the import in internal/node/surface that brings
-// internal/contenttype into its build on any release target.
 func (c *contentTypeCheck) surface() error {
 	for _, t := range releaseTargets {
 		pkgs, err := c.repo.Deps(surfacePkg, t)

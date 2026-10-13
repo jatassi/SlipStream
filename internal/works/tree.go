@@ -7,26 +7,20 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// node is a level or an Item as a merge sees it, by key.
 type node struct {
-	Key Key
-	// Parent is the key of the level the node hangs off, empty under the
-	// Work.
-	Parent Key
-	// Depth is a level's, 1 for the outermost; an Item's is 0.
+	Key         Key
+	Parent      Key
 	Depth       int
 	Label       string
 	Position    int
 	WithdrawnAt storage.Time
 }
 
-// nodes are a tree's levels, each after its parent, and its Items.
 type nodes struct {
 	Levels []node
 	Items  []node
 }
 
-// parsed is a Fetched the core accepted.
 type parsed struct {
 	Label     string
 	SortLabel string
@@ -34,10 +28,6 @@ type parsed struct {
 	Detail []byte
 }
 
-// parseFetched checks f against the tree's rules: every Item at depth
-// len(d.Levels)+1, every label non-empty, every key 1 to 200 bytes and
-// unique among the Work's levels and among its Items. A failure wraps
-// ErrInvalid and names the node.
 func parseFetched(d Description, key Key, f Fetched) (parsed, error) {
 	work := strings.ToLower(d.Work.One) + " " + string(key)
 	if f.Label == "" {
@@ -99,14 +89,11 @@ func invalid(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, args...))
 }
 
-// change is one row a merge writes: inserted when no row has its key, else
-// updated to it.
 type change struct {
 	node
 	Insert bool
 }
 
-// plan is every write converging a Work's stored tree on a fetched one.
 type plan struct {
 	Label       string
 	SortLabel   string
@@ -115,10 +102,6 @@ type plan struct {
 	Items       []change
 }
 
-// planMerge is the only planner of tree writes. A fetched key with no row
-// is inserted; one whose row differs is updated, which also clears its
-// withdrawn_at; a stored key the fetch lacks is withdrawn at now unless it
-// already is. Levels come out each after its parent.
 func planMerge(stored nodes, fetched parsed, now storage.Time) plan {
 	return plan{
 		Label:       fetched.Label,

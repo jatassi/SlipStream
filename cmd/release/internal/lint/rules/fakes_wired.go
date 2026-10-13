@@ -99,9 +99,6 @@ func (idx fakesIndex) add(f lint.GoFile) {
 	}
 }
 
-// isFakePackage reports whether dir is a fake: a package directly under
-// fakes/ that is not infrastructure, or a fake package beneath a Content Type
-// under fakes/contenttypes/. Packages nested inside a fake are part of it.
 func isFakePackage(dir string) bool {
 	if _, fake := contentTypeScope(dir); fake != "" {
 		return fake == dir

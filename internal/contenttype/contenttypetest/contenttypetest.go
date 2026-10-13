@@ -17,10 +17,8 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// ID is the Fixture's Content Type id.
 const ID works.TypeID = "fixture"
 
-// Description is the Fixture's: one level, and a field of each kind.
 var Description = works.Description{
 	Name:   "Fixture",
 	Work:   works.Noun{One: "Shelf", Many: "Shelves"},
@@ -34,13 +32,10 @@ var Description = works.Description{
 	},
 }
 
-// Endpoints is endpoints.content_types.fixture.
 type Endpoints struct {
 	API endpoint.URL `yaml:"api"`
 }
 
-// Record is what the Fixture's source holds for one Work now: its tree
-// and each node's fields, levels and Items keyed by their keys.
 type Record struct {
 	Tree        works.Fetched
 	WorkFields  []works.FieldValue
@@ -48,8 +43,6 @@ type Record struct {
 	ItemFields  map[works.Key][]works.FieldValue
 }
 
-// Fixture is an in-memory Content Type with id fixture and no tables. It
-// keeps the fields Store hands it in memory.
 type Fixture struct {
 	mu        sync.Mutex
 	records   map[works.Key]Record
@@ -61,7 +54,6 @@ type Fixture struct {
 	opened    []Opened
 }
 
-// Opened is one build of the Fixture by its Def.
 type Opened struct {
 	Deps      contenttype.Deps
 	Endpoints Endpoints
@@ -81,8 +73,6 @@ func New() *Fixture {
 	}
 }
 
-// Def registers f, with an api endpoint defaulting to
-// https://fixture.invalid/v1.
 func (f *Fixture) Def() contenttype.Def[Endpoints] {
 	return contenttype.Define(string(ID), nil, func() Endpoints {
 		return Endpoints{API: endpoint.MustParseURL("https://fixture.invalid/v1")}
@@ -94,14 +84,12 @@ func (f *Fixture) Def() contenttype.Def[Endpoints] {
 	})
 }
 
-// Opens lists each build of f by its Def so far.
 func (f *Fixture) Opens() []Opened {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.opened)
 }
 
-// Put sets what the source serves for key from now on.
 func (f *Fixture) Put(key works.Key, r Record) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -122,7 +110,6 @@ func (f *Fixture) FailSearch(err error) {
 	f.searchErr = err
 }
 
-// Fetches counts the Fetches of key so far.
 func (f *Fixture) Fetches(key works.Key) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -32,9 +32,6 @@ const (
 	unknownArt = "ffffffff-0000-4000-8000-000000000000"
 )
 
-// catalog is the music catalog Scenario, plus an artist whose first lookup
-// answers not found, one whose first lookup is slow, and one with 150
-// albums whose last holds 150 tracks on two discs.
 func catalog(t *testing.T) scenario.Scenario {
 	t.Helper()
 	s, err := scenario.Load("music")
@@ -243,9 +240,6 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-// TestStoreThenFields adds The Lanterns through works, which calls Store,
-// then stores the same record again from a fresh fake: the field set is
-// the same both times.
 func TestStoreThenFields(t *testing.T) {
 	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
 	m := open(faketest.Loopback(t, musicmeta.Fake, catalog(t)))

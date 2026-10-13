@@ -1,8 +1,3 @@
-// Package works owns the Work tree: library set works, a Work's levels and
-// Items, the Catalog facet each Content Type implements, adding and
-// refreshing Works, turning Content Types on and off, timings.works and
-// their two live events.
-//
 // The core stores and compares each node's key and never parses it. A
 // refresh keeps every id: a node its source stops listing is withdrawn,
 // with a time, never deleted.
@@ -35,8 +30,7 @@ type (
 	WorkID  = db.WorkID
 	LevelID = db.LevelID
 	ItemID  = db.ItemID
-	// TypeID is a Content Type's id. contenttype.Define checks its shape.
-	TypeID = db.TypeID
+	TypeID  = db.TypeID
 	// Key is a node's identity at its source, 1 to 200 bytes, unique among
 	// one Work's levels and among its Items. A Work's key never changes.
 	Key = db.Key
@@ -44,7 +38,6 @@ type (
 
 const maxKey = 200
 
-// ParseKey is s as a key, refused when empty or over 200 bytes.
 func ParseKey(s string) (Key, error) {
 	if s == "" || len(s) > maxKey {
 		return "", fmt.Errorf("a key is 1 to %d bytes, not %d", maxKey, len(s))
@@ -52,7 +45,6 @@ func ParseKey(s string) (Key, error) {
 	return Key(s), nil
 }
 
-// Timings is the timings.works section.
 type Timings struct {
 	// Fetch bounds one Search or Fetch of a metadata source.
 	Fetch time.Duration `yaml:"fetch"`
@@ -60,12 +52,10 @@ type Timings struct {
 
 func DefaultTimings() Timings { return Timings{Fetch: 30 * time.Second} }
 
-// WorkChanged tells Admins a Work was added or refreshed.
 type WorkChanged struct {
 	WorkID string `json:"workId" format:"uuid"`
 }
 
-// ContentTypesChanged tells everyone a Content Type was turned on or off.
 type ContentTypesChanged struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 }
@@ -75,7 +65,6 @@ var (
 	ContentTypesChangedEvent = live.EveryoneEvent[ContentTypesChanged]("works.content-types-changed")
 )
 
-// Publisher is an event bound to the hub.
 type Publisher[T any] interface {
 	Publish(ctx context.Context, v T)
 }
@@ -85,8 +74,7 @@ var (
 	// source has no record with the key, or didn't answer.
 	ErrNotFound    = errors.New("the metadata source has no record with that key")
 	ErrUnavailable = errors.New("the metadata source didn't answer")
-	// ErrInvalid is a fetched tree that breaks the tree's rules.
-	ErrInvalid = errors.New("the metadata source sent a record SlipStream can't use")
+	ErrInvalid     = errors.New("the metadata source sent a record SlipStream can't use")
 
 	ErrNoType       = errors.New("no Content Type has that id")
 	ErrTypeOff      = errors.New("that Content Type is turned off")
@@ -96,8 +84,7 @@ var (
 )
 
 type Config struct {
-	Library *storage.DB[file]
-	// Catalogs is every registered Content Type's facet.
+	Library      *storage.DB[file]
 	Catalogs     map[TypeID]Catalog
 	Timings      Timings
 	Changed      Publisher[WorkChanged]
@@ -105,7 +92,6 @@ type Config struct {
 	Log          *slog.Logger
 }
 
-// Works is the Controller's Work tree.
 type Works struct {
 	cfg   Config
 	ids   []TypeID
@@ -176,7 +162,6 @@ func validate(d Description) error {
 	return nil
 }
 
-// Enabled reports whether Content Type t is on. No row means on.
 func Enabled(ctx context.Context, r storage.Reader[file], t TypeID) (bool, error) {
 	off, err := db.New(r).IsDisabled(ctx, t)
 	return !off, err

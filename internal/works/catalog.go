@@ -35,8 +35,6 @@ type Catalog interface {
 	Fields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) (FieldSet, error)
 }
 
-// Description is a Content Type as people read it: its nouns and the
-// fields its nodes carry.
 type Description struct {
 	Name string
 	Work Noun
@@ -59,8 +57,6 @@ type FieldSpec struct {
 	Kind  FieldKind
 }
 
-// Tier is where a field sits: on the Work, on the levels at one depth, or
-// on the Items.
 type Tier int
 
 const (
@@ -124,7 +120,6 @@ type Date struct {
 	Year, Month, Day int
 }
 
-// ParseDate reads YYYY, YYYY-MM or YYYY-MM-DD.
 func ParseDate(s string) (Date, error) {
 	parts := strings.Split(s, "-")
 	widths := []int{4, 2, 2}
@@ -168,7 +163,6 @@ func (d Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
-// Fetched is a whole Work as its source has it now.
 type Fetched struct {
 	Label string
 	// SortLabel is empty when it is Label.
@@ -197,14 +191,12 @@ type Candidate struct {
 	WorkID WorkID
 }
 
-// Placed is where Store finds each fetched node's core row.
 type Placed struct {
 	Work   WorkID
 	Levels map[Key]LevelID
 	Items  map[Key]ItemID
 }
 
-// FieldSet is one Work's field values, by node.
 type FieldSet struct {
 	Work   []FieldValue
 	Levels map[LevelID][]FieldValue

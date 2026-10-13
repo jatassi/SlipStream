@@ -85,8 +85,6 @@ func checkMainsMatch(repo *lint.Repo) ([]lint.Finding, error) {
 	return findings, nil
 }
 
-// parseMain parses a private copy, since the comparison rewrites the syntax
-// tree that Repo.GoSyntax shares between rules.
 func parseMain(repo *lint.Repo, file string) (mainFile, error) {
 	src, err := repo.Read(file)
 	if err != nil {
@@ -101,8 +99,6 @@ func parseMain(repo *lint.Repo, file string) (mainFile, error) {
 	return mainFile{file, fset, syntax}, nil
 }
 
-// removeTestContentTypes deletes the imports under fakes/contenttypes/ and
-// their .Def arguments to node.Main, returning how many arguments it removed.
 func removeTestContentTypes(module string, f *ast.File) int {
 	imports := importNames(lint.GoFile{Syntax: f})
 	testTypesPrefix := path.Join(module, testContentTypes) + "/"
@@ -149,8 +145,6 @@ func removeTestContentTypes(module string, f *ast.File) int {
 	return removed
 }
 
-// firstDifference descends into the first pair of children that print
-// differently and returns the e2e node where the two mains part.
 func firstDifference(e2e, release mainFile, a, b ast.Node) ast.Node {
 	if printed(e2e.fset, a) == printed(release.fset, b) {
 		return nil

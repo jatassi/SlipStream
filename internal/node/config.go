@@ -39,9 +39,6 @@ type EndpointsBlock struct {
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 
-// ContentTypeEndpoints is endpoints.content_types: one section per
-// registered Content Type that reaches a host, in id order. The Fake world,
-// which links no Content Type, sets a type's keys by path with Set.
 type ContentTypeEndpoints struct { //nolint:recvcheck // the walker and yaml hold the value; only Set changes it
 	sections []config.Section
 	set      map[string]map[string]string
@@ -59,7 +56,6 @@ func contentTypeEndpoints(types contenttype.Set) ContentTypeEndpoints {
 
 func (c ContentTypeEndpoints) ConfigSections() []config.Section { return c.sections }
 
-// section is id's loaded section, nil when the type reaches no host.
 func (c ContentTypeEndpoints) section(id works.TypeID) any {
 	for _, s := range c.sections {
 		if s.Name == string(id) {
@@ -86,7 +82,6 @@ func (c *ContentTypeEndpoints) Set(id, key, url string) {
 	c.set[id][key] = url
 }
 
-// Paths is every endpoints.content_types key Set has set, sorted.
 func (c ContentTypeEndpoints) Paths() []string {
 	var out []string
 	for id, keys := range c.set {
@@ -98,7 +93,6 @@ func (c ContentTypeEndpoints) Paths() []string {
 	return out
 }
 
-// MarshalYAML is the block as config.yaml nests it.
 func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 	out := map[string]any{}
 	for _, s := range c.sections {
@@ -165,9 +159,8 @@ func Defaults(types contenttype.Set) Config {
 
 type Key = config.Key
 
-// LoadConfig resolves the configuration of the Node on dir, which holds
-// keys for types. An empty seed becomes 16 random bytes in hex, reported
-// with source random.
+// LoadConfig resolves the configuration of the Node on dir. An empty seed
+// becomes 16 random bytes in hex, reported with source random.
 func LoadConfig(dir DataDir, environ []string, types contenttype.Set) (Config, []Key, error) {
 	cfg := Defaults(types)
 	keys, err := config.Load(&cfg, dir.Path(), environ)

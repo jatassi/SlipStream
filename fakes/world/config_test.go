@@ -68,9 +68,6 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	}
 }
 
-// fakeEndpoints is the endpoints block once every fake s runs with has
-// pointed its keys at itself: the core fakes, and those of the Content
-// Types s needs.
 func fakeEndpoints(s scenario.Scenario) node.EndpointsBlock {
 	e := node.Defaults(contenttype.Set{}).Endpoints
 	at := fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:1"), TLS: true}

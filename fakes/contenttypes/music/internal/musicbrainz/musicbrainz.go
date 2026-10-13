@@ -1,6 +1,3 @@
-// Package musicbrainz is the music type's client for a MusicBrainz-shaped
-// web service: artist search and lookup, and the browses that give an
-// artist's albums and each album's canonical release. It never retries.
 package musicbrainz
 
 import (
@@ -70,7 +67,6 @@ type Recording struct {
 	ID string `json:"id"`
 }
 
-// SearchArtists is the source's best 25 artists for query, best first.
 func (c *Client) SearchArtists(ctx context.Context, query string) ([]Artist, error) {
 	var page struct {
 		Artists []Artist `json:"artists"`
@@ -85,8 +81,6 @@ func (c *Client) Artist(ctx context.Context, mbid string) (Artist, error) {
 	return a, err
 }
 
-// Albums is every album and EP of the artist, by first release date, then
-// title, then id. An undated album sorts last.
 func (c *Client) Albums(ctx context.Context, artist string) ([]Album, error) {
 	albums, err := browse(ctx, c, "/release-group", url.Values{"artist": {artist}, "type": {"album|ep"}}, func(p *albumPage) ([]Album, int) {
 		return p.ReleaseGroups, p.Count
@@ -102,9 +96,6 @@ type albumPage struct {
 	Count         int     `json:"release-group-count"`
 }
 
-// Canonical is the album's canonical release: its earliest official
-// release with no disambiguation, else its earliest official release, ties
-// broken by id. It is false when the album has no official release.
 func (c *Client) Canonical(ctx context.Context, album string) (Release, bool, error) {
 	releases, err := browse(ctx, c, "/release", url.Values{"release-group": {album}, "status": {"official"}, "inc": {"recordings media"}}, func(p *releasePage) ([]Release, int) {
 		return p.Releases, p.Count
@@ -136,7 +127,6 @@ func compareDates(a, b string) int {
 	return cmp.Or(compareFirst(a != "", b != ""), cmp.Compare(a, b))
 }
 
-// compareFirst orders the side for which first holds ahead.
 func compareFirst(a, b bool) int {
 	switch {
 	case a == b:

@@ -1,6 +1,3 @@
-// Package worksapi holds the works owner's operations: the Content Types
-// an install has, their catalogs, and the Works an Admin adds, reads and
-// refreshes.
 package worksapi
 
 import (
@@ -15,14 +12,11 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Shelf is the Node's works owner as its operations reach it.
 type Shelf interface {
 	// Works is the Work tree, false unless the Node is a Controller.
 	Works() (*works.Works, bool)
 }
 
-// open is the Work tree of an operation an Account or Admin check
-// admitted, which only a Controller admits.
 func open(s Shelf) *works.Works {
 	w, ok := s.Works()
 	if !ok {
@@ -42,8 +36,6 @@ var (
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
 )
 
-// codes answers each works error. An operation answers only the codes it
-// lists; any other answers 500 internal.
 var codes = []struct {
 	err  error
 	code *api.Code
@@ -114,7 +106,6 @@ func contentTypeOf(t works.ContentType) contentType {
 	return out
 }
 
-// fieldValue is a field value's oneOf, discriminated on kind.
 type fieldValue struct{}
 
 func (fieldValue) Variants() (discriminator string, variants []any) {

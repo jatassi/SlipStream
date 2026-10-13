@@ -94,8 +94,6 @@ func sectionCalls(repo *lint.Repo, f lint.GoFile, pkg string) []sectionCall {
 	return calls
 }
 
-// definedEndpoints are the DefaultEndpoints a Content Type passes to
-// contenttype.Define, which internal/node calls for each registered type.
 func definedEndpoints(module string, f lint.GoFile, pkg string) []string {
 	imports := importNames(f)
 	var targets []string

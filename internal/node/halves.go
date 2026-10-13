@@ -27,8 +27,6 @@ type peers interface {
 type half struct {
 	peers    peers
 	dispatch *rpc.Dispatch
-	// nodes, controls, cluster and works are the Controller's, nil on a
-	// Worker.
 	nodes    *nodes.Service
 	controls *role.Controls
 	cluster  *rpc.Cluster
@@ -83,9 +81,6 @@ func (n *Node) startController(ctx context.Context) error {
 	return nil
 }
 
-// openTypes builds each registered Content Type once, from its loaded
-// endpoints section, with one HTTP client that dials through the Node's
-// network and trusts the OS roots.
 func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
 	transport := &http.Transport{
 		DialContext:         n.env.Net.DialContext,

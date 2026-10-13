@@ -48,9 +48,7 @@ type Env struct {
 	Engine func(engine.Config) (engine.Engine, error)
 	// OpenLog opens the log in dir, mirrored to stderr.
 	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
-	// Types are the Content Types the binary registers, node.Main's
-	// arguments.
-	Types contenttype.Set
+	Types   contenttype.Set
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }

@@ -45,18 +45,14 @@ type Type interface {
 	works.Catalog
 }
 
-// Deps is what a Type gets from the Node that builds it.
 type Deps struct {
 	// HTTP dials through the Node's network, trusting the OS roots.
 	HTTP *http.Client
 	// UserAgent is sent on every request to a metadata source.
 	UserAgent string
-	// Log is the type's own logger.
-	Log *slog.Logger
+	Log       *slog.Logger
 }
 
-// Registration is a Def as the composition root reads it, whatever its
-// Endpoints type.
 type Registration interface {
 	ID() works.TypeID
 	// Schema is the type's library set, false when it keeps no tables.
@@ -69,7 +65,6 @@ type Registration interface {
 	Open(deps Deps, endpoints any) Type
 }
 
-// Def is one Content Type's registration.
 type Def[E any] struct {
 	id               works.TypeID
 	schema           *storage.Schema[storage.Library]
@@ -144,7 +139,6 @@ func NewSet(defs ...Registration) Set {
 	return Set{defs: sorted}
 }
 
-// All is every registration in id order.
 func (s Set) All() []Registration { return slices.Clone(s.defs) }
 
 func (s Set) IDs() []works.TypeID {
@@ -155,7 +149,6 @@ func (s Set) IDs() []works.TypeID {
 	return ids
 }
 
-// Schemas is every type's library set in id order.
 func (s Set) Schemas() []storage.Schema[storage.Library] {
 	var out []storage.Schema[storage.Library]
 	for _, d := range s.defs {
@@ -166,7 +159,6 @@ func (s Set) Schemas() []storage.Schema[storage.Library] {
 	return out
 }
 
-// Project hands a consumer only its facet of each built Type.
 func Project[F any](types map[works.TypeID]Type, pick func(Type) F) map[works.TypeID]F {
 	out := make(map[works.TypeID]F, len(types))
 	for id, t := range types {

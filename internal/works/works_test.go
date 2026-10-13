@@ -83,7 +83,6 @@ func newHarness(t *testing.T) *harness {
 	return h
 }
 
-// shelf is a record with boxes b1 (things c1, c2) and b2 (thing c3).
 func shelf() contenttypetest.Record {
 	return contenttypetest.Record{
 		Tree: works.Fetched{
@@ -103,8 +102,6 @@ func shelf() contenttypetest.Record {
 	}
 }
 
-// render prints a tree with each id replaced by the node's key, so a test
-// can assert it literally.
 func render(tree works.Tree) string {
 	names := map[works.LevelID]string{}
 	for _, l := range tree.Levels {
@@ -145,7 +142,6 @@ func fields(vs []works.FieldValue) string {
 	return b.String()
 }
 
-// ids maps each node's key to its id.
 func ids(tree works.Tree) map[string]storage.UUID {
 	out := map[string]storage.UUID{"work": tree.ID.UUID}
 	for _, l := range tree.Levels {
