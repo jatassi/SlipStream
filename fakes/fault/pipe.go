@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-// pipe is net.Pipe with an unbounded buffer each way. A net.Pipe write
+// Pipe is net.Pipe with an unbounded buffer each way. A net.Pipe write
 // waits for the peer's read, so two peers that both write before reading
 // deadlock, where TCP's buffers let them through.
-func pipe(a, b net.Addr) (atA, atB net.Conn) {
+func Pipe(a, b net.Addr) (atA, atB net.Conn) {
 	ab, ba := &stream{}, &stream{}
 	return &end{in: ba, out: ab, local: a, remote: b}, &end{in: ab, out: ba, local: b, remote: a}
 }
