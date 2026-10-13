@@ -102,6 +102,7 @@ type Row struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
 	Self          bool     `json:"self"`
+	Addresses     []string `json:"addresses"`
 	Roles         []string `json:"roles"`
 	IntentVersion string   `json:"intentVersion"`
 	Link          struct {
