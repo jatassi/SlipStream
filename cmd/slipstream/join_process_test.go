@@ -138,7 +138,7 @@ func TestJoinByEnvironment(t *testing.T) {
 	if claimed := box.await("claimed"); claimed["claim"] != "worker" {
 		t.Fatalf("claimed record %v, want claim worker", claimed)
 	}
-	rows, _ := h.nodes(t)
+	rows, id := h.nodes(t)
 	expectRows(t, rows, "home local", "box up")
 
 	stopNode(t, box, dir)
@@ -147,8 +147,13 @@ func TestJoinByEnvironment(t *testing.T) {
 		t.Fatalf("box restarted as %s, want worker", r.Claim)
 	}
 	again.await("join code ignored: already joined")
-	rows, _ = h.nodes(t)
-	expectRows(t, rows, "home local", "box up")
+	var res struct {
+		Nodes []listed `json:"nodes"`
+	}
+	h.admin(t, http.MethodGet, "/api/v1/nodes", &res)
+	if len(res.Nodes) != 2 || !slices.ContainsFunc(res.Nodes, func(n listed) bool { return n.ID == id }) {
+		t.Fatalf("after the restart listNodes has %+v, want home and box %s alone", res.Nodes, id)
+	}
 }
 
 func TestJoinOffline(t *testing.T) {
