@@ -60,6 +60,9 @@ message PairResponse {
 
 message Paired {
   bytes node_id = 1;
+  // name is the Worker's name as the Controller recorded it.
+  string name = 2;
+  string controller_name = 3;
 }
 
 message HelloRequest {

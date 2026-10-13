@@ -127,8 +127,11 @@ func (l *Link) attempt(ctx context.Context, t Target) (*session, error) {
 
 // Paired is a Pair the Controller accepted, with the session live.
 type Paired struct {
-	NodeID     []byte
-	Controller Key
+	NodeID []byte
+	// Name is this Node's name as the Controller recorded it.
+	Name           string
+	ControllerName string
+	Controller     Key
 	// Node is the Controller's, from its Welcome.
 	Node NodeInfo
 }
@@ -155,7 +158,7 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 	if err != nil {
 		return Paired{}, err
 	}
-	nodeID, err := l.pair(ctx, s, code.Secret(), name)
+	paired, err := l.pair(ctx, s, code.Secret(), name)
 	if err == nil {
 		err = l.hello(ctx, s)
 	}
@@ -165,17 +168,17 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return Paired{NodeID: nodeID, Controller: s.key, Node: s.peer}, nil
+	return Paired{NodeID: paired.GetNodeId(), Name: paired.GetName(), ControllerName: paired.GetControllerName(), Controller: s.key, Node: s.peer}, nil
 }
 
-func (l *Link) pair(ctx context.Context, s *session, secret [joincode.SecretSize]byte, name string) ([]byte, error) {
+func (l *Link) pair(ctx context.Context, s *session, secret [joincode.SecretSize]byte, name string) (*linkv1.Paired, error) {
 	res, err := s.linkService().Pair(ctx, &linkv1.PairRequest{Secret: secret[:], Name: name})
 	if err != nil {
 		return nil, fmt.Errorf("pair: %w", err)
 	}
 	switch o := res.GetOutcome().(type) {
 	case *linkv1.PairResponse_Paired:
-		return o.Paired.GetNodeId(), nil
+		return o.Paired, nil
 	case *linkv1.PairResponse_Refused:
 		return nil, &RefusedError{Reason: o.Refused.GetReason()}
 	}

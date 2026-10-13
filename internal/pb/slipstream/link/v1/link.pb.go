@@ -458,10 +458,13 @@ func (*PairResponse_Paired) isPairResponse_Outcome() {}
 func (*PairResponse_Refused) isPairResponse_Outcome() {}
 
 type Paired struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	NodeId        []byte                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	NodeId []byte                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// name is the Worker's name as the Controller recorded it.
+	Name           string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	ControllerName string `protobuf:"bytes,3,opt,name=controller_name,json=controllerName,proto3" json:"controller_name,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Paired) Reset() {
@@ -499,6 +502,20 @@ func (x *Paired) GetNodeId() []byte {
 		return x.NodeId
 	}
 	return nil
+}
+
+func (x *Paired) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Paired) GetControllerName() string {
+	if x != nil {
+		return x.ControllerName
+	}
+	return ""
 }
 
 type HelloRequest struct {
@@ -1143,9 +1160,11 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\fPairResponse\x124\n" +
 	"\x06paired\x18\x01 \x01(\v2\x1a.slipstream.link.v1.PairedH\x00R\x06paired\x127\n" +
 	"\arefused\x18\x02 \x01(\v2\x1b.slipstream.link.v1.RefusedH\x00R\arefusedB\t\n" +
-	"\aoutcome\"!\n" +
+	"\aoutcome\"^\n" +
 	"\x06Paired\x12\x17\n" +
-	"\anode_id\x18\x01 \x01(\fR\x06nodeId\"\x80\x01\n" +
+	"\anode_id\x18\x01 \x01(\fR\x06nodeId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
+	"\x0fcontroller_name\x18\x03 \x01(\tR\x0econtrollerName\"\x80\x01\n" +
 	"\fHelloRequest\x120\n" +
 	"\x04node\x18\x01 \x01(\v2\x1c.slipstream.link.v1.NodeInfoR\x04node\x12>\n" +
 	"\n" +

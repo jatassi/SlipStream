@@ -41,8 +41,10 @@ type Side struct {
 	Version  string
 	Lockstep http.Handler
 	Pair     link.PairFunc
-	Timings  link.Timings
-	Log      *slog.Logger
+	// Trust replaces the Node's static Trust for its sessions.
+	Trust   link.Trust
+	Timings link.Timings
+	Log     *slog.Logger
 	// Net wraps the Node's Host for its dials, as a recorder does.
 	Net func(*fault.Host) link.Network
 }
@@ -84,6 +86,10 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 	seed := sha256.Sum256([]byte("linktest " + name))
 	key := link.NewPrivateKey(seed)
 	n := &Node{Key: key.Public(), Host: net.Host(addrs...), Trust: &Trust{}}
+	var trust link.Trust = n.Trust
+	if side.Trust != nil {
+		trust = side.Trust
+	}
 	var dialer link.Network = n.Host
 	if side.Net != nil {
 		dialer = side.Net(n.Host)
@@ -95,7 +101,7 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 		Settings: link.Settings{StreamWindow: StreamWindow},
 		Net:      dialer,
 		Rand:     rand.New(&splitmix{x: binary.BigEndian.Uint64(seed[:])}), //nolint:gosec // seeded on purpose so tests replay
-		Trust:    n.Trust,
+		Trust:    trust,
 		Lockstep: side.Lockstep,
 		Pair:     side.Pair,
 		Log:      side.Log,
