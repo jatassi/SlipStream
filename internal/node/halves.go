@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -17,32 +18,13 @@ type peers interface {
 	Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error)
 }
 
-// controllerSide is the nodes owner's part of the Controller half: the
-// roster calls and the control half read, and the peers it admits.
-type controllerSide interface {
-	peers
-	rpc.Roster
-	role.Nodes
-	// Assigned derives the node scope: the Roles assigned to node.
-	Assigned(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) ([]role.Name, error)
-	// Changed hears that node's session or facts changed. It must not
-	// block.
-	Changed(node role.NodeID)
-}
-
-// workerSide is the pairing owner's part of the Worker half.
-type workerSide interface {
-	peers
-	// Controller is the pinned Controller's key and recorded addresses.
-	Controller() link.Target
-}
-
 // half is the claimed part of a running Node. Each Node starts at most one,
 // from Unclaimed or at start, and never restarts it in process.
 type half struct {
 	peers    peers
 	dispatch *rpc.Dispatch
-	// controls and cluster are the Controller's, nil on a Worker.
+	// nodes, controls and cluster are the Controller's, nil on a Worker.
+	nodes    *nodes.Service
 	controls *role.Controls
 	cluster  *rpc.Cluster
 }
@@ -54,14 +36,19 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	side := n.controllerSide(ctx, lib.db)
-	controls := role.NewControls(role.ControlsConfig{
-		Library:  lib.db,
-		Nodes:    side,
-		Assigned: side.Assigned,
-		Changed:  side.Changed,
-		Log:      n.rootLog.With("subsystem", "role"),
+	side, err := nodes.Open(ctx, nodes.Config{
+		Library: lib.db,
+		Key:     n.key.Public(),
+		Name:    n.cfg.Name,
+		Node:    n.info,
+		Link:    n.link,
+		Changed: nodes.ChangedEvent.Bind(n.hub),
+		Log:     n.rootLog.With("subsystem", "nodes"),
 	})
+	if err != nil {
+		return err
+	}
+	controls := side.Controls()
 	holding, err := n.startHolding(ctx, role.InProcess(controls))
 	if err != nil {
 		return err
@@ -70,13 +57,15 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, controls: controls, cluster: rpc.NewCluster(dispatch, side)})
+	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: rpc.NewCluster(dispatch, side)})
+	n.claimed.Go("nodes", side.Run)
 	return nil
 }
 
 // startWorker starts the Worker half: the holder half over the link to its
 // Controller, and call dispatch toward it.
-func (n *Node) startWorker(ctx context.Context, side workerSide) error {
+func (n *Node) startWorker(ctx context.Context) error {
+	side := n.pairing
 	controller := side.Controller()
 	holding, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key))
 	if err != nil {
@@ -86,6 +75,7 @@ func (n *Node) startWorker(ctx context.Context, side workerSide) error {
 	n.lockstep.Handle("/", dispatch)
 	n.setHalf(&half{peers: side, dispatch: dispatch})
 	n.link.Keep(controller)
+	n.claimed.Go("pairing", side.Run)
 	return nil
 }
 

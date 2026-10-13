@@ -10,8 +10,11 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -23,6 +26,12 @@ func (worker) Identity() (*identity.Service, bool)         { return nil, false }
 
 func (worker) ClaimController(context.Context, func(*identity.Service) error) error {
 	panic("a Worker's closed gate admitted claimController")
+}
+
+func (worker) Nodes() (*nodes.Service, bool) { return nil, false }
+
+func (worker) Join(context.Context, joincode.Code) (pairing.Joined, error) {
+	panic("a Worker's closed gate admitted claimWorker")
 }
 
 func TestTheAccessWalkPassesOnAWorker(t *testing.T) {

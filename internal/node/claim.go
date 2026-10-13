@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -88,6 +90,11 @@ func (s surfaceNode) Identity() (*identity.Service, bool) {
 // claim, which inserts the Admin, and starts the Controller half. Opening
 // and the half outlive the request that claimed.
 func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.Service) error) error {
+	s.n.claimMu.Lock()
+	defer s.n.claimMu.Unlock()
+	if s.n.pairing.Paired() {
+		return identity.ErrAlreadyClaimed
+	}
 	lib, err := s.n.openLibrary(context.WithoutCancel(ctx))
 	if err != nil {
 		return err
@@ -101,4 +108,16 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 	}
 	s.n.log.Info("claimed", "claim", "controller")
 	return nil
+}
+
+func (s surfaceNode) Nodes() (*nodes.Service, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.nodes == nil {
+		return nil, false
+	}
+	return h.nodes, true
+}
+
+func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
+	return s.n.join(ctx, code)
 }

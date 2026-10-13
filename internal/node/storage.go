@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -13,6 +14,7 @@ func librarySchemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
 		secret.Schema(),
 		identity.Schema(),
+		nodes.Schema(),
 		role.LibrarySchema(),
 	}
 }

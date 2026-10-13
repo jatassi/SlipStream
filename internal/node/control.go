@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/op"
+	"github.com/jatassi/slipstream/internal/pairing"
 )
 
 type StopRequest struct{}
@@ -98,6 +99,9 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 	}
 	if !n.isReady.Load() {
 		return nil, &control.Error{Code: control.CodeNotReady, Message: fmt.Sprintf("node is starting; it serves only %s until ready", StopOp.Name)}
+	}
+	if name == pairing.JoinOp.Name {
+		return n.serveJoin, nil
 	}
 	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q; node version %s", name, n.env.Version)}
 }

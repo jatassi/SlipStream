@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -98,8 +99,11 @@ type Node struct {
 	// Set during start, before the Node is ready.
 	cfg      Config
 	key      link.PrivateKey
+	info     link.NodeInfo
 	hub      *live.Hub
+	gate     *identity.Gate
 	link     *link.Link
+	pairing  *pairing.Pairing
 	lockstep *http.ServeMux
 	roleRand *rand.Rand
 	// claimed is where library.db and a half push their stops, so they
@@ -109,6 +113,9 @@ type Node struct {
 	libMu sync.Mutex
 	lib   atomic.Pointer[library]
 	half  atomic.Pointer[half]
+	// claimMu serializes claims, so a Controller claim and a Join never
+	// interleave.
+	claimMu sync.Mutex
 
 	stopOnce sync.Once
 	stopping chan struct{}
@@ -276,8 +283,8 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	if err != nil {
 		return 0, "", err
 	}
-	gate, setupCode, err := identity.NewGate(ctx, n.claim, n.rootLog.With("subsystem", "identity"))
-	if err != nil {
+	var setupCode string
+	if n.gate, setupCode, err = identity.NewGate(ctx, n.claim, n.rootLog.With("subsystem", "identity")); err != nil {
 		return 0, "", err
 	}
 	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen})
@@ -291,20 +298,36 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	if err := n.startLink(cfg, streams, l); err != nil {
 		return 0, "", err
 	}
+	n.pairing, err = pairing.Open(pairing.Config{
+		DataDir: n.env.DataDir.Path(),
+		Link:    n.link,
+		Name:    cfg.Name,
+		Claims:  surfaceNode{n},
+		Log:     n.rootLog.With("subsystem", "pairing"),
+	})
+	if _, malformed := errors.AsType[*pairing.RecordError](err); malformed {
+		err = &RecordError{Err: err}
+	}
+	if err != nil {
+		return 0, "", err
+	}
 	switch claim {
 	case system.Controller:
 		err = n.startController(ctx)
 	case system.Worker:
-		var side workerSide
-		if side, err = n.workerSide(); err == nil {
-			err = n.startWorker(ctx, side)
-		}
+		err = n.startWorker(ctx)
 	case system.Unclaimed:
 	}
 	if err != nil {
 		return 0, "", n.stoppedOr(err)
 	}
-	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, gate)
+	if code := cfg.Join.Code; !code.IsZero() {
+		n.stack.Go("join-code", func(ctx context.Context) error {
+			n.joinAtStart(ctx, code)
+			return nil
+		})
+	}
+	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, n.gate)
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.

@@ -33,9 +33,10 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 	l.Link = boundTCP(ln)
 	peers := claimPeers{n}
 	n.lockstep = http.NewServeMux()
+	n.info = nodeInfo(n.env.Version)
 	n.link, err = link.New(link.Config{
 		Key:      n.key,
-		Node:     link.NodeInfo{Version: n.env.Version, OS: runtime.GOOS, Arch: runtime.GOARCH, InstallKind: linkv1.InstallKind_INSTALL_KIND_DEV},
+		Node:     n.info,
 		Timings:  cfg.Timings.Link,
 		Settings: cfg.Link,
 		Net:      n.env.Net,
@@ -52,6 +53,11 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 	n.stack.OnStop("link", func(context.Context) error { return n.link.Close() })
 	n.stack.Go("link-serve", func(ctx context.Context) error { return n.link.Serve(ctx, ln) })
 	return nil
+}
+
+// nodeInfo is this build as the link's Hello carries it.
+func nodeInfo(version string) link.NodeInfo {
+	return link.NodeInfo{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, InstallKind: linkv1.InstallKind_INSTALL_KIND_DEV}
 }
 
 func boundTCP(ln net.Listener) netip.AddrPort {
