@@ -36,6 +36,9 @@ UPDATE works_level SET parent_id = sqlc.arg(parent_id), depth = sqlc.arg(depth),
     position = sqlc.arg(position), withdrawn_at = sqlc.arg(withdrawn_at)
 WHERE id = sqlc.arg(id);
 
+-- name: GetItem :one
+SELECT * FROM works_item WHERE id = sqlc.arg(id);
+
 -- name: ListItems :many
 SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY withdrawn_at IS NOT NULL, position, id;
 

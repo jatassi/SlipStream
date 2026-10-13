@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/db"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/musicbrainz"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -188,6 +190,27 @@ func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID
 		fs.Items[t.ItemID] = values
 	}
 	return fs, nil
+}
+
+func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
+	artist, track, err := works.ItemOf(ctx, r, item)
+	if err != nil {
+		return nil, err
+	}
+	t, err := db.New(r).GetTrack(ctx, item)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		"Artist Name": artist.Label,
+		"Track Title": track.Label,
+		"Disc":        strconv.FormatInt(t.Disc, 10),
+		"Track":       fmt.Sprintf("%02d", t.Number),
+	}, nil
+}
+
+func (*Music) DefaultTemplates() naming.Templates {
+	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Target}"}
 }
 
 func artistFields(country string) []works.FieldValue {

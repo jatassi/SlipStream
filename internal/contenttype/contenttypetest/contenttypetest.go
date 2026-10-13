@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -214,3 +215,10 @@ func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w
 	fs := f.stored[w]
 	return works.FieldSet{Work: fs.Work, Levels: maps.Clone(fs.Levels), Items: maps.Clone(fs.Items)}, nil
 }
+
+// NamingTokens answers naming's empty answer: the Fixture names no files.
+func (*Fixture) NamingTokens(context.Context, storage.Reader[storage.Library], works.ItemID) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+func (*Fixture) DefaultTemplates() naming.Templates { return naming.Templates{} }

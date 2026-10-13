@@ -41,6 +41,26 @@ func (q *Queries) EnableType(ctx context.Context, contentType TypeID) (int64, er
 	return result.RowsAffected()
 }
 
+const getItem = `-- name: GetItem :one
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item WHERE id = ?1
+`
+
+func (q *Queries) GetItem(ctx context.Context, id ItemID) (WorksItem, error) {
+	row := q.db.QueryRowContext(ctx, getItem, id)
+	var i WorksItem
+	err := row.Scan(
+		&i.ID,
+		&i.WorkID,
+		&i.LevelID,
+		&i.Key,
+		&i.Label,
+		&i.Position,
+		&i.WithdrawnAt,
+		&i.Monitored,
+	)
+	return i, err
+}
+
 const getWork = `-- name: GetWork :one
 SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at FROM works_work WHERE id = ?1
 `

@@ -35,6 +35,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -43,6 +44,7 @@ import (
 // each defined by the package that consumes it.
 type Type interface {
 	works.Catalog
+	naming.Facet
 }
 
 type Deps struct {
