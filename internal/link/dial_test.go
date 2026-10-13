@@ -119,7 +119,7 @@ func TestRedialAfterADrop(t *testing.T) {
 		path.Set(fault.None{})
 		linktest.AwaitLive(t, changes, controller.Key)
 		got := dials.seen()
-		if want := []dial{{0, "127.0.0.2:8485"}, {35*time.Second + 760460373, "127.0.0.2:8485"}}; down != 35*time.Second || !slices.Equal(got, want) {
+		if want := []dial{{0, "127.0.0.2:8485"}, {35*time.Second + 580305161, "127.0.0.2:8485"}}; down != 35*time.Second || !slices.Equal(got, want) {
 			t.Fatalf("down at %v, dials %v", down, got)
 		}
 	})
@@ -184,9 +184,9 @@ func TestSupersededHelloBacksOffAtRedialMaxAndLogsOnce(t *testing.T) {
 		}
 		if got := dials.seen(); !slices.Equal(got, []dial{
 			{0, "127.0.0.3:8485"},
-			{44919150123, "127.0.0.3:8485"},
-			{103481912061, "127.0.0.3:8485"},
-			{158508176558, "127.0.0.3:8485"},
+			{52304516711, "127.0.0.3:8485"},
+			{101256348671, "127.0.0.3:8485"},
+			{153521574840, "127.0.0.3:8485"},
 		}) {
 			t.Fatalf("dials %v", got)
 		}

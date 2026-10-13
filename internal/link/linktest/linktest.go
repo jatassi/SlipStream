@@ -5,12 +5,14 @@ package linktest
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"net/netip"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/link"
@@ -19,6 +21,19 @@ import (
 
 // Port is where every test Node listens.
 const Port = 8485
+
+// Timings and StreamWindow are the link's shipped defaults, spelled out:
+// only the Node's composition root reads its defaults.
+var Timings = link.Timings{
+	Handshake:     10 * time.Second,
+	Keepalive:     25 * time.Second,
+	WriteTimeout:  10 * time.Second,
+	RedialMin:     time.Second,
+	RedialMax:     time.Minute,
+	FallbackDelay: 300 * time.Millisecond,
+}
+
+const StreamWindow = 16 << 20
 
 // Side configures one Node. The zero Side runs version "0.0.0-test",
 // answers lockstep calls 404, and answers Pair NOT_A_CONTROLLER.
@@ -61,7 +76,7 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 		side.Pair = notAController
 	}
 	if side.Timings == (link.Timings{}) {
-		side.Timings = link.DefaultTimings()
+		side.Timings = Timings
 	}
 	if side.Log == nil {
 		side.Log = slog.New(slog.DiscardHandler)
@@ -77,9 +92,9 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 		Key:      key,
 		Node:     link.NodeInfo{Version: side.Version, OS: "linux", Arch: "amd64", InstallKind: linkv1.InstallKind_INSTALL_KIND_DEV},
 		Timings:  side.Timings,
-		Settings: link.DefaultSettings(),
+		Settings: link.Settings{StreamWindow: StreamWindow},
 		Net:      dialer,
-		Rand:     rand.New(&lockedSource{src: rand.NewChaCha8(seed)}), //nolint:gosec // seeded on purpose so tests replay
+		Rand:     rand.New(&splitmix{x: binary.BigEndian.Uint64(seed[:])}), //nolint:gosec // seeded on purpose so tests replay
 		Trust:    n.Trust,
 		Lockstep: side.Lockstep,
 		Pair:     side.Pair,
@@ -195,13 +210,19 @@ func notAController(context.Context, link.Key, *linkv1.PairRequest) (*linkv1.Pai
 	}}, nil
 }
 
-type lockedSource struct {
-	mu  sync.Mutex
-	src *rand.ChaCha8
+// splitmix is SplitMix64, a replayable stream for a test Node, which has
+// no Node to hand it one. It is safe for concurrent draws.
+type splitmix struct {
+	mu sync.Mutex
+	x  uint64
 }
 
-func (l *lockedSource) Uint64() uint64 {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.src.Uint64()
+func (s *splitmix) Uint64() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.x += 0x9e3779b97f4a7c15
+	z := s.x
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
+	return z ^ (z >> 31)
 }
