@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -149,14 +150,19 @@ type Config struct {
 	Media     media.Remote
 	// Payloads is this Node's own client, for an import from a local
 	// download.
-	Payloads      Payloads
+	Payloads Payloads
+	// Transfers receives a file from the Node that downloaded it.
+	Transfers     *transfers.Receiver
 	Linker        files.Linker
 	Timings       Timings
 	Rand          *rand.Rand
 	Changed       Publisher[Changed]
 	SearchChanged Publisher[SearchChanged]
 	FilesChanged  Publisher[files.Changed]
-	Log           *slog.Logger
+	// BeforeStep sees each step before it runs: the simulation tier's
+	// hook, nil in production.
+	BeforeStep func(context.Context, Stage)
+	Log        *slog.Logger
 }
 
 type Grabs struct {
@@ -200,6 +206,10 @@ type Plan struct {
 	Path  string
 	Fills []targets.TargetID
 }
+
+// moves reports whether the file goes to a root on another Node than from,
+// the one that downloaded it, so a Transfer brings it first.
+func (p Plan) moves(from role.NodeID) bool { return p.Root.Node != from }
 
 type Failure struct {
 	Stage   Stage

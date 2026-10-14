@@ -1,6 +1,6 @@
 export interface GrabsProgress {
   /**
-   * Bytes downloaded
+   * Bytes downloaded, or received and verified while transferring
    * @minimum 0
    */
   done: number;

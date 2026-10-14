@@ -21,7 +21,7 @@ export interface GrabsGrab {
   itemId: string;
   /** The Node that downloads it: the Indexer's home Node */
   nodeId: string;
-  /** The download's progress, null unless it is downloading and its Node reported it */
+  /** The download's or the Transfer's progress, null unless it is downloading and its Node reported it or it is transferring */
   progress: GrabsProgress;
   /** @minimum 0 */
   releaseSize: number;

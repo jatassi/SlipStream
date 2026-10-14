@@ -156,7 +156,10 @@ export const grabsProgressDoneMin = 0;
 export const grabsProgressTotalMin = 0;
 
 export const GrabsProgress = zod.object({
-  done: zod.int().min(grabsProgressDoneMin).describe("Bytes downloaded"),
+  done: zod
+    .int()
+    .min(grabsProgressDoneMin)
+    .describe("Bytes downloaded, or received and verified while transferring"),
   total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
 });
 
@@ -179,7 +182,7 @@ export const GrabsGrab = zod.object({
   itemId: zod.uuid(),
   nodeId: zod.uuid().describe("The Node that downloads it: the Indexer's home Node"),
   progress: GrabsProgress.describe(
-    "The download's progress, null unless it is downloading and its Node reported it",
+    "The download's or the Transfer's progress, null unless it is downloading and its Node reported it or it is transferring",
   ),
   releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
   releaseTitle: zod.string(),
