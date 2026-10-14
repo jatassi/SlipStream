@@ -105,12 +105,12 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		listing = append(listing, item)
 	}
 	log, faults := slog.New(slog.NewTextHandler(t.Output(), nil)), fault.NewPlan(nil, nil)
-	movies, err := tmdb.Fake.New(s, fake.NewEnv(s, tmdb.Fake.Name, log, faults))
+	movies, err := tmdb.Fake.New(s, fake.NewEnv(s, tmdb.Fake, log, faults, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
 	tmdb.Fake.Endpoints(endpoints, w.serve(ctx, t, local, movies))
-	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake.Name, log, faults), site.Routes(site.APIKey(s), listing)))
+	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing)))
 	return w
 }
 

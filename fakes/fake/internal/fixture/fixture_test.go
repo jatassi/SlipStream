@@ -2,11 +2,16 @@ package fixture_test
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/fake/internal/fixture"
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -72,4 +77,37 @@ func TestWithFaultsPlaysInBothTiers(t *testing.T) {
 	t.Run("in memory", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) { check(t, faketest.InMemory(t, fixture.Fake, s, second)) })
 	})
+}
+
+func TestACaptureRecordsTheOriginAndKeepsItsFiles(t *testing.T) {
+	s, err := scenario.Load("single-machine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := faketest.Loopback(t, fixture.Fake, s, faketest.As("seedbox"))
+	whoami(t, f)
+	recs := f.Records(t)
+	if len(recs) != 1 {
+		t.Fatalf("records = %+v, want one", recs)
+	}
+	r := recs[0]
+	if got := r.Kind + " " + r.Node + " " + string(r.Data); got != `fixture.visit seedbox {"path":"/whoami"}` {
+		t.Fatalf("record = %s", got)
+	}
+	path, ok := r.Files["user-agent.txt"]
+	if !ok || !strings.HasPrefix(path, "captures/visits/") {
+		t.Fatalf("record files = %v, want user-agent.txt under captures/visits/", r.Files)
+	}
+	if got, err := os.ReadFile(filepath.Join(f.RunDir, filepath.FromSlash(path))); err != nil || string(got) != "Go-http-client/1.1" {
+		t.Fatalf("user-agent.txt = %q, %v", got, err)
+	}
+}
+
+func TestEnvCaptureRefusesAnUndeclaredName(t *testing.T) {
+	spec := fixture.Fake
+	spec.Captures = nil
+	_, err := spec.New(scenario.Scenario{}, fake.NewEnv(scenario.Scenario{}, spec, slog.New(slog.DiscardHandler), nil, nil))
+	if want := "fake fixture declares no capture visits"; err == nil || err.Error() != want {
+		t.Fatalf("New = %v, want %s", err, want)
+	}
 }

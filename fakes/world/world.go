@@ -405,7 +405,7 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 
 func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
-		env := fake.NewEnv(r.scenario, f.spec.Name, r.log, r.faults)
+		env := fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
 		env.Releases = r.releases
 		server, err := f.spec.New(r.scenario, env)
 		if err != nil {

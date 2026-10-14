@@ -21,14 +21,14 @@ func TestAddressURL(t *testing.T) {
 
 func TestNewEnvKeysTheFakeUnderTheScenarioSeed(t *testing.T) {
 	var log bytes.Buffer
-	env := fake.NewEnv(scenario.Scenario{Seed: "single-machine"}, "tmdb", slog.New(slog.NewTextHandler(&log, &slog.HandlerOptions{
+	env := fake.NewEnv(scenario.Scenario{Seed: "single-machine"}, fake.Spec{Name: "tmdb"}, slog.New(slog.NewTextHandler(&log, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
 				return slog.Attr{}
 			}
 			return a
 		},
-	})), fault.NewPlan(nil, nil))
+	})), fault.NewPlan(nil, nil), nil)
 	env.Log.Info("served")
 	if got, want := log.String(), "level=INFO msg=served fake=tmdb\n"; got != want {
 		t.Fatalf("log = %q, want %q", got, want)

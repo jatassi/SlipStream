@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -35,6 +36,16 @@ type Spec struct {
 	// Online says whether a suite checks the fake against the real service.
 	// The world refuses the zero value at launch.
 	Online Online
+	// Captures are the record kinds the fake keeps for tests and verify to
+	// read; Env.Capture refuses any other.
+	Captures []CaptureSpec
+}
+
+// CaptureSpec is a capture a fake declares. Name is its fakeworld reader
+// verb, as in fakeworld announces list, and Kind the kind of its records.
+type CaptureSpec struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
 }
 
 // Online is a fake's stance on running against the real service: a
@@ -73,17 +84,52 @@ type Env struct {
 	Releases *releases.Catalog
 	// Faults is the Plan whose HTTP rules play on the fake's routes.
 	Faults *fault.Plan
+	// Fronts is where each origin reaches each target.
+	Fronts Fronts
+	// Files is the run dir a capture's files land under.
+	Files string
+
+	captures []CaptureSpec
+	sink     Sink
+}
+
+// Sink takes the records a fake's captures write: the run's event log.
+type Sink interface {
+	Append(events.Record) (events.Record, error)
 }
 
 // NewEnv keys the fake's random streams under the Scenario's seed, the way
-// a Node's are.
-func NewEnv(s scenario.Scenario, name string, log *slog.Logger, faults *fault.Plan) Env {
+// a Node's are. Its captures write to sink, which is nil for a fake that
+// runs outside any event log.
+func NewEnv(s scenario.Scenario, spec Spec, log *slog.Logger, faults *fault.Plan, sink Sink) Env {
 	return Env{
-		Name:    name,
-		Log:     log.With("fake", name),
-		Streams: node.NewStreams(s.Seed + "/fake/" + name),
-		Faults:  faults,
+		Name:     spec.Name,
+		Log:      log.With("fake", spec.Name),
+		Streams:  node.NewStreams(s.Seed + "/fake/" + spec.Name),
+		Faults:   faults,
+		captures: spec.Captures,
+		sink:     sink,
 	}
+}
+
+// Front is where an origin reaches a target: the address of the world's
+// front for target as Node dials it, "world" for the harness.
+type Front struct {
+	Target  fault.Target
+	Node    string
+	Address Address
+}
+
+type Fronts []Front
+
+// Find is the address of target's front for origin.
+func (fs Fronts) Find(target fault.Target, origin string) (Address, bool) {
+	for _, f := range fs {
+		if f.Target == target && f.Node == origin {
+			return f.Address, true
+		}
+	}
+	return Address{}, false
 }
 
 // Address is where a fake listens, as a Node dials it.

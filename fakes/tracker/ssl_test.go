@@ -79,7 +79,7 @@ func world(t *testing.T, payload []byte) (torrentFile, caFile string, records fu
 		t.Fatal(err)
 	}
 
-	env := fake.NewEnv(s, tracker.Fake.Name, slog.New(slog.NewTextHandler(t.Output(), nil)), fault.NewPlan(nil, nil))
+	env := fake.NewEnv(s, tracker.Fake, slog.New(slog.NewTextHandler(t.Output(), nil)), fault.NewPlan(nil, nil), nil)
 	env.Releases = &releases.Catalog{Passkey: passkey, Releases: []releases.Release{{InfoHash: m.InfoHash}}}
 	server, err := tracker.Fake.New(s, env)
 	if err != nil {
