@@ -275,19 +275,25 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	if err != nil || !won {
 		return err
 	}
+	gr.entered(ctx, g, params.Next)
+	return nil
+}
+
+// entered tells what g entering stage next changes beyond the library:
+// Admins, the downloading Node's intent, and its Transfer once done.
+func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
 	gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
-	if params.Next == Downloading {
+	if next == Downloading {
 		gr.cfg.Downloads.Touch(g.Node)
 	}
-	if params.Next == Imported {
+	if next == Imported {
 		gr.cfg.FilesChanged.Publish(ctx, files.Changed{WorkID: g.WorkID.String()})
 	}
-	if params.Next == Imported || params.Next == Failed {
+	if next == Imported || next == Failed {
 		if err := gr.cfg.Transfers.Forget(ctx, transferOf(g.ID)); err != nil {
 			gr.cfg.Log.Error("forget a Grab's Transfer", "grab", g.ID.String(), "err", err.Error())
 		}
 	}
-	return nil
 }
 
 // advanceParams is the update moving g by o, and o when it advances.
@@ -497,17 +503,17 @@ type Progress struct {
 // progress is g's download progress from the Downloading facts, or its
 // Transfer's verified bytes; nil when neither runs or reported.
 func (gr *Grabs) progress(g Grab) *Progress {
-	switch g.Stage {
-	case Downloading:
+	if g.Stage == Downloading {
 		return gr.downloadProgress(g)
-	case Transferring:
-		verified, size, ok := gr.cfg.Transfers.Progress(transferOf(g.ID))
-		if !ok {
-			return nil
-		}
-		return &Progress{Done: verified, Total: size}
 	}
-	return nil
+	if g.Stage != Transferring {
+		return nil
+	}
+	verified, size, ok := gr.cfg.Transfers.Progress(transferOf(g.ID))
+	if !ok {
+		return nil
+	}
+	return &Progress{Done: verified, Total: size}
 }
 
 func (gr *Grabs) downloadProgress(g Grab) *Progress {

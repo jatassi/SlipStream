@@ -156,7 +156,7 @@ func expectPlaced(t *testing.T, w *sim.World) {
 		}
 		rel, err := filepath.Rel(dir, path)
 		got = append(got, filepath.ToSlash(rel))
-		return err
+		return err //nolint:wrapcheck // the test reports it as is
 	})
 	if err != nil || !slices.Equal(got, []string{placed}) {
 		t.Fatalf("the media dir holds %v, %v; want exactly [%s]", got, err, placed)
@@ -216,7 +216,7 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				reached := make(chan struct{})
 				var held atomic.Bool
-				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
+				w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(_ string, e *node.Env) {
 					e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
 						if s == stage && held.CompareAndSwap(false, true) {
 							close(reached)
@@ -240,9 +240,8 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 // heldFinish is an engine whose Finished events wait for release.
 type heldFinish struct {
 	engine.Engine
-	events   chan engine.Event
-	closed   chan struct{}
-	finished chan struct{}
+	events chan engine.Event
+	closed chan struct{}
 }
 
 func holdFinished(open func(engine.Config) (engine.Engine, error), finished chan<- struct{}, release <-chan struct{}) func(engine.Config) (engine.Engine, error) {
@@ -274,7 +273,7 @@ func (h *heldFinish) Events() <-chan engine.Event { return h.events }
 
 func (h *heldFinish) Close() error {
 	close(h.closed)
-	return h.Engine.Close() //nolint:wrapcheck // the engine's own error
+	return h.Engine.Close()
 }
 
 // TestAResultMadeWhileTheWorkersLinkIsDownLandsOnce finishes seedbox's
@@ -316,7 +315,7 @@ func (a adds) Add(p engine.AddParams) (engine.Handle, error) {
 		*a.hashes = append(*a.hashes, m.InfoHash)
 		a.mu.Unlock()
 	}
-	return a.Engine.Add(p) //nolint:wrapcheck // the engine's own error
+	return a.Engine.Add(p)
 }
 
 // TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing restarts
@@ -390,7 +389,7 @@ func (f faultyChunks) ReadAt(b []byte, off int64) (int, error) {
 	if chunk == f.flip && f.flipDone.CompareAndSwap(false, true) {
 		b[0] ^= 1
 	}
-	return n, err
+	return n, err //nolint:wrapcheck // the source wraps the read error
 }
 
 // TestATransferResumes breaks a Transfer's stream and corrupts a chunk on
