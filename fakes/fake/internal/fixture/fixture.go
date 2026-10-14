@@ -17,6 +17,7 @@ var Fake = fake.Spec{
 		return fake.HTTP(env, fake.Routes{"whoami": {Pattern: "GET /whoami", Handler: whoami}}), nil
 	},
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
+	Online:    fake.NoOnlineRun("a test fixture serves no real service"),
 }
 
 func whoami(w http.ResponseWriter, _ *http.Request) {

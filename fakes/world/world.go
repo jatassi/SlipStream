@@ -145,6 +145,11 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	if err := opts.Scenario.Validate(); err != nil {
 		return nil, err
 	}
+	for _, spec := range fakes {
+		if err := spec.Check(); err != nil {
+			return nil, err
+		}
+	}
 	addrs, err := CheckAddresses(ctx, len(opts.Scenario.Nodes))
 	if err != nil {
 		return nil, err

@@ -23,6 +23,7 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.ContentTypes.Set("music", "metadata", at.URL(root))
 	},
+	Online: fake.OnlineSuite("musicbrainz"),
 }
 
 const root = "/ws/2"
