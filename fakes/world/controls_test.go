@@ -48,7 +48,7 @@ func TestControlsOverTheSocketArmAfterRulesInLogOrder(t *testing.T) {
 	if _, err := remote.EndStep(ctx, 1, world.StepEnd{Exit: 0, Files: map[string]string{"stdout": "journal/1.out"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := remote.SetFault(world.InStep(ctx, 1), fault.Rule{ID: "slow", Target: "echo", Fault: fault.Latency(1)}); err != nil {
+	if _, err := remote.SetFault(world.InStep(ctx, 1), fault.Rule{ID: "gone", Target: "echo", Fault: fault.Status{Code: 404}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := remote.ClearFault(ctx, ""); err != nil {
@@ -60,7 +60,7 @@ func TestControlsOverTheSocketArmAfterRulesInLogOrder(t *testing.T) {
 		`6 step.start world {"n":1,"verb":"exec","args":["--","curl","{fakes.echo.url}"]}`,
 		`7 fault.fired world {"rule":"after-step","target":"echo","fault":"status=503","match":1}`,
 		`8 step.end world {"n":1,"exit":0} map[stdout:journal/1.out]`,
-		`9 fault.set world {"fault":"latency=1ns","id":"slow","step":1,"target":"echo"}`,
+		`9 fault.set world {"fault":"status=404","id":"gone","step":1,"target":"echo"}`,
 		`10 fault.cleared world {"removed":true}`,
 	}
 	if got := logged(t, runDir)[4:]; !reflect.DeepEqual(got, want) {

@@ -152,16 +152,8 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}
-	if err := opts.Scenario.Validate(); err != nil {
+	if err := checkOptions(opts, fakes); err != nil {
 		return nil, err
-	}
-	if opts.Origin.Kind != FromSteps && opts.Origin.Kind != FromTest {
-		return nil, fmt.Errorf("launch %s: the options name no origin", opts.Scenario.Name)
-	}
-	for _, spec := range fakes {
-		if err := spec.Check(); err != nil {
-			return nil, err
-		}
 	}
 	addrs, err := CheckAddresses(ctx, len(opts.Scenario.Nodes))
 	if err != nil {
@@ -236,6 +228,21 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		Manifest string `json:"manifest"`
 	}{manifestFile})
 	return r, nil
+}
+
+func checkOptions(opts Options, fakes []fake.Spec) error {
+	if err := opts.Scenario.Validate(); err != nil {
+		return err
+	}
+	if opts.Origin.Kind != FromSteps && opts.Origin.Kind != FromTest {
+		return fmt.Errorf("launch %s: the options name no origin", opts.Scenario.Name)
+	}
+	for _, spec := range fakes {
+		if err := spec.Check(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func newRunID() string {
