@@ -85,6 +85,7 @@ func (r *Run) stop() {
 			r.report.Problems = append(r.report.Problems, err.Error())
 		}
 	}
+	problem(r.seeders.Close())
 	for _, f := range r.fakes {
 		problem(f.stop())
 	}

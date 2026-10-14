@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
+	"github.com/jatassi/slipstream/fakes/internal/seeders"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/channel"
@@ -69,6 +70,7 @@ type Run struct {
 	probe     node.Resolved
 	fakes     []*fakeRun
 	releases  *releases.Catalog
+	seeders   *seeders.Seeders
 	endpoints node.EndpointsBlock
 	nodes     []*nodeRun
 	used      map[string]bool
@@ -192,6 +194,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		func(ctx context.Context, undo *unwind) error { return r.bindFakes(ctx, undo, fakes) },
 		r.buildReleases,
 		r.serveFakes,
+		r.startSeeders,
 		r.prepareNodes,
 		r.startNodes,
 		r.checkListeners,
@@ -385,6 +388,21 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 			}
 		}
 	}
+	return nil
+}
+
+// startSeeders seeds each seeded release once fake-tracker serves, and
+// returns once the tracker heard each seeder start.
+func (r *Run) startSeeders(ctx context.Context, undo *unwind) error {
+	var err error
+	if r.seeders, err = seeders.Start(ctx, r.releases, r.caFile); err != nil {
+		return err
+	}
+	undo.push(func() {
+		if err := r.seeders.Close(); err != nil {
+			r.log.Error("seeders stopped", "err", err.Error())
+		}
+	})
 	return nil
 }
 
