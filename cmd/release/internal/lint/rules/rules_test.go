@@ -356,9 +356,16 @@ func TestWebLayout(t *testing.T) {
 		route   = " signed-in pages live under web/src/routes/_app/; a public route is listed in web-layout"
 		browser = " browser tests live under web/e2e/"
 		comp    = " component tests live under web/src/; browser tests are web/e2e/*.spec.ts"
+		apart   = " web/harness/ imports nothing from web/src/ or web/e2e/"
 	)
 	assertFindings(t, check(t, "web-layout", fixtureRepo(t, "web-layout")), []string{
 		"web/e2e/x.test.ts:1: [web-layout]" + comp,
+		"web/harness/bin/sign-in.ts:2: [web-layout]" + apart,
+		"web/harness/manifest.ts:4: [web-layout]" + apart,
+		"web/harness/routes/index.ts:1: [web-layout] web/harness/ is a library and holds no routes",
+		"web/harness/sign-in.spec.ts:1: [web-layout]" + browser,
+		"web/harness/sign-in.test.ts:1: [web-layout]" + comp,
+		"web/src/app.tsx:3: [web-layout] the app never imports web/harness/",
 		"web/src/routes/admin/users.tsx:1: [web-layout]" + route,
 		"web/src/routes/movies.tsx:1: [web-layout]" + route,
 		"web/src/routes/setup.test.ts:1: [web-layout]" + route,

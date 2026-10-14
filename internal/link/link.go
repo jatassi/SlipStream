@@ -58,9 +58,10 @@ type Config struct {
 
 // Link holds this Node's sessions, at most one live per peer key.
 type Link struct {
-	cfg  Config
-	cert tls.Certificate
-	mux  mux.Config
+	cfg       Config
+	cert      tls.Certificate
+	mux       mux.Config
+	advertise Addresses
 	// kinds serves an accepted stream by the kind it opens with. A kind
 	// with no entry is reset.
 	kinds map[wire.Kind]func(*session, Stream)
@@ -89,18 +90,25 @@ func New(cfg Config) (*Link, error) {
 	if err != nil {
 		return nil, err
 	}
+	var advertise Addresses
+	if len(cfg.Settings.Advertise) > 0 {
+		if advertise, err = ParseAddresses(cfg.Settings.Advertise); err != nil {
+			return nil, fmt.Errorf("link.advertise: %w", err)
+		}
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	l := &Link{
-		cfg:      cfg,
-		cert:     cert,
-		mux:      mc,
-		rpc:      wire.NewConns(),
-		ctx:      ctx,
-		cancel:   cancel,
-		sessions: map[*session]struct{}{},
-		live:     map[Key]*session{},
-		kept:     map[Key]*keeper{},
-		subs:     map[*subscriber]struct{}{},
+		cfg:       cfg,
+		cert:      cert,
+		mux:       mc,
+		advertise: advertise,
+		rpc:       wire.NewConns(),
+		ctx:       ctx,
+		cancel:    cancel,
+		sessions:  map[*session]struct{}{},
+		live:      map[Key]*session{},
+		kept:      map[Key]*keeper{},
+		subs:      map[*subscriber]struct{}{},
 	}
 	l.kinds = map[wire.Kind]func(*session, Stream){
 		wire.RPC: func(s *session, c Stream) { l.rpc.Push(rpcConn{c, s}) },
@@ -271,16 +279,19 @@ func (l *Link) publish(c Change) {
 	}
 }
 
-// Advertised is the address record this Node gives out: the bound link
-// address, or for an unspecified one every up, non-loopback,
-// non-link-local unicast address it covers. It is false before Serve or
-// with no such address.
+// Advertised is the address record this Node gives out: link.advertise
+// when it is set, else the bound link address, or for an unspecified one
+// every up, non-loopback, non-link-local unicast address it covers. It is
+// false before Serve or with no such address.
 func (l *Link) Advertised() (Addresses, bool) {
 	l.mu.Lock()
 	bound := l.bound
 	l.mu.Unlock()
 	if !bound.IsValid() {
 		return Addresses{}, false
+	}
+	if !l.advertise.IsZero() {
+		return l.advertise, true
 	}
 	var host []netip.Addr
 	if bound.Addr().IsUnspecified() {

@@ -198,6 +198,15 @@ func LoadConfig(dir DataDir, environ []string, types contenttype.Set) (Config, [
 	return cfg, keys, nil
 }
 
+// CheckConfig holds the rules no leaf type carries.
+func (c *Config) CheckConfig(fail func(key string, err error)) {
+	if len(c.Link.Advertise) > 0 {
+		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
+			fail("link.advertise", err)
+		}
+	}
+}
+
 // overrides are the keys a layer set to something other than the default.
 func overrides(keys []Key) []Key {
 	var out []Key
