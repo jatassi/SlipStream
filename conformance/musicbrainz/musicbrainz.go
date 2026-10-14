@@ -91,7 +91,6 @@ func Run(t *testing.T, tgt Target) {
 	shape.Verify(t, rec.Bodies(), shapeJSON, tgt.Record)
 }
 
-// route names an answer in shape.json by the call that asked for it.
 func route(p string) string {
 	if path.Base(path.Dir(p)) == "artist" {
 		return "artist"
@@ -107,7 +106,7 @@ func route(p string) string {
 	return p
 }
 
-// spaced starts each request at least every after the last one ended.
+// spaced starts each request no sooner than every after the last one ended.
 type spaced struct {
 	next  http.RoundTripper
 	every time.Duration

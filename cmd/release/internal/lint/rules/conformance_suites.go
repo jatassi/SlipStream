@@ -25,7 +25,6 @@ const (
 	onlineTag       = "online"
 )
 
-// onlineSuite is one fake.OnlineSuite call in a fake.Spec literal.
 type onlineSuite struct {
 	file  string
 	line  int
@@ -70,7 +69,7 @@ func checkConformanceSuites(repo *lint.Repo) ([]lint.Finding, error) {
 		})
 	}
 	for _, s := range suites {
-		for _, problem := range suiteProblems(repo, files, module, s) {
+		for _, problem := range suiteProblems(files, module, s) {
 			findings = append(findings, lint.Finding{Path: s.file, Line: s.line, Message: problem})
 		}
 	}
@@ -109,7 +108,7 @@ func stringArg(call *ast.CallExpr) (string, bool) {
 	return s, err == nil && s != ""
 }
 
-func suiteProblems(repo *lint.Repo, files []lint.GoFile, module string, s onlineSuite) []string {
+func suiteProblems(files []lint.GoFile, module string, s onlineSuite) []string {
 	dir := path.Join(conformanceTree, s.suite)
 	suitePkg := path.Join(module, dir)
 	var hasRun, hasOnline, called bool
@@ -168,12 +167,10 @@ func callsFunc(f lint.GoFile, pkg, name string) bool {
 	imports := importNames(f)
 	found := false
 	ast.Inspect(f.Syntax, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok || found {
-			return !found
-		}
-		if p, fn, ok := qualifiedName(imports, call.Fun); ok && p == pkg && fn == name {
-			found = true
+		if call, ok := n.(*ast.CallExpr); ok {
+			if p, fn, ok := qualifiedName(imports, call.Fun); ok && p == pkg && fn == name {
+				found = true
+			}
 		}
 		return !found
 	})

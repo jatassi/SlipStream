@@ -96,7 +96,6 @@ func Run(t *testing.T, tgt Target) {
 	shape.Verify(t, rec.Bodies(), shapeJSON, tgt.Record)
 }
 
-// route names an answer in shape.json by the call that asked for it.
 func route(p string) string {
 	switch path.Dir(p) {
 	case "/3/search":

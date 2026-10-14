@@ -197,7 +197,7 @@ func Write(path string, bodies []Body) error {
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

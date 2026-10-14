@@ -16,7 +16,6 @@ import (
 
 var update = flag.Bool("update", false, "rewrite shape.json from api.themoviedb.org's answers")
 
-// fightClub is a pinned public movie.
 var fightClub = conformance.Known{ID: 550, Title: "Fight Club", IMDbID: "tt0137523"}
 
 func TestTMDBConforms(t *testing.T) {
