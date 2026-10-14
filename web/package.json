@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "gen": "orval && tsr generate",
-    "build": "orval && vite build && tsc --noEmit && tsc --noEmit -p e2e",
+    "build": "orval && vite build && tsc --noEmit && tsc --noEmit -p e2e && tsc --noEmit -p harness",
     "test": "vitest run",
     "e2e:install": "node e2e/install.ts",
     "e2e": "playwright test -c e2e",

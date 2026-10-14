@@ -334,7 +334,7 @@
       }
     },
     {
-      "files": ["e2e/**"],
+      "files": ["e2e/**", "harness/**"],
       "rules": {
         "no-restricted-imports": [
           "error",

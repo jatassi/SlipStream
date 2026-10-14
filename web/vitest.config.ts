@@ -2,7 +2,7 @@ import { playwright } from "@vitest/browser-playwright";
 import { msw } from "msw/vite";
 import { defineConfig, mergeConfig } from "vitest/config";
 
-import presets from "./e2e/presets.json" with { type: "json" };
+import presets from "./harness/presets.json" with { type: "json" };
 import viteConfig from "./vite.config.ts";
 
 export default defineConfig((env) =>

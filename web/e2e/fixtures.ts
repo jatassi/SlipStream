@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
 import { env } from "node:process";
 
 import { AxeBuilder } from "@axe-core/playwright";
@@ -13,7 +12,8 @@ import {
 } from "@playwright/test";
 import { z } from "zod";
 
-import { type Manifest, type ManifestNode, manifestSchema } from "./manifest.ts";
+import { type Manifest, type ManifestNode, hostResolverRules, read } from "../harness/manifest.ts";
+import { signIn } from "../harness/sign-in.ts";
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
 export { expect };
@@ -35,7 +35,7 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
-  manifestPath: string;
+  runDir: string;
   world: World;
   newContext: () => Promise<BrowserContext>;
   adminPage: Page;
@@ -128,7 +128,7 @@ async function guard(context: BrowserContext, origin: string): Promise<() => Pro
 export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
 
-  manifestPath: [
+  runDir: [
     async ({ scenario }, use, testInfo) => {
       const runDir = testInfo.outputPath("run");
       const start = await fakeworld([
@@ -145,7 +145,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       if (!start.ok) {
         throw new Error(`fakeworld start: ${start.stderr}`);
       }
-      await use(start.stdout.trim());
+      await use(runDir);
       const stop = await fakeworld(["stop", runDir, "--timeout", `${launchTimeout}s`]);
       await testInfo.attach("fakeworld stop", {
         body: stop.stdout,
@@ -162,9 +162,12 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { timeout: (launchTimeout + 10) * 1000 },
   ],
 
-  world: async ({ manifestPath, scenario, browserName }, use) => {
-    const manifest = manifestSchema.parse(JSON.parse(await readFile(manifestPath, "utf8")));
+  world: async ({ runDir, scenario, browserName }, use) => {
+    const manifest = await read(runDir);
     const [node] = manifest.nodes;
+    if (node === undefined) {
+      throw new Error(`the manifest of ${runDir} has no Nodes`);
+    }
     const app = await fetch(node.url);
     if (!app.ok) {
       throw new Error("TEST_SLIPSTREAM_BINARY has no embedded web app; run release build");
@@ -219,15 +222,15 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { playwright, headless, launchOptions, contextOptions, world, workerBrowser },
     use,
   ) => {
-    const hostRules = world.manifest.nodes
-      .map((node) => `MAP ${node.host} ${node.address}`)
-      .join(",");
     const browser =
       workerBrowser ??
       (await playwright.chromium.launch({
         ...launchOptions,
         headless,
-        args: [...(launchOptions.args ?? []), `--host-resolver-rules=${hostRules}`],
+        args: [
+          ...(launchOptions.args ?? []),
+          `--host-resolver-rules=${hostResolverRules(world.manifest)}`,
+        ],
       }));
     const origin = new URL(world.baseURL).origin;
     const contexts: BrowserContext[] = [];
@@ -251,12 +254,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   },
 
   adminPage: async ({ page, world }, use) => {
-    const admin = world.admin();
-    await page.goto("/sign-in");
-    await page.getByLabel("Email").fill(admin.email);
-    await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially(admin.pin);
-    await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-    await page.context().storageState({ path: join(world.manifest.runDir, "admin.json") });
+    await signIn(page, world.admin());
     await use(page);
   },
 });
