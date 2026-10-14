@@ -423,7 +423,7 @@ func TestLaunchRefusesAFakeWithoutAnOnlineStance(t *testing.T) {
 	bare := echo
 	bare.Online = fake.Online{}
 	runDir := filepath.Join(t.TempDir(), "run")
-	_, err := world.LaunchWith(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir}, []fake.Spec{bare})
+	_, err := world.LaunchWith(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)}, []fake.Spec{bare})
 	if want := "fake echo declares no Online stance; set fake.OnlineSuite(suite) or fake.NoOnlineRun(reason)"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
