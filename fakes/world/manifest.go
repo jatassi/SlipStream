@@ -77,7 +77,6 @@ type CAFile struct {
 // Node is one Node's manifest entry, built where both worlds share it.
 type Node = setup.Node
 
-// NodeState is where a Node is in its lifecycle.
 type NodeState = lifecycle.State
 
 const (

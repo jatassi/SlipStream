@@ -107,9 +107,9 @@ func readLaunch(runDir string) (Supervisor, []Spawn, error) {
 	return Supervisor{PID: l.PID, Log: filepath.Join(runDir, worldLogFile), Control: l.Control}, spawns, nil
 }
 
-// record appends a record of kind about node.
-func (r *Run) record(kind, node string, v any) {
-	r.appendRecord(events.Record{Kind: kind, Node: node, Data: data(v)})
+// record appends a record of kind about the world.
+func (r *Run) record(kind string, v any) {
+	r.appendRecord(events.Record{Kind: kind, Node: events.World, Data: data(v)})
 }
 
 // appendRecord appends rec. A run whose log fails keeps running;

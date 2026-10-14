@@ -7,7 +7,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 )
 
-// nodeCommand runs a Node action: fakeworld node <action> <run-dir> <node>.
 func nodeCommand(args []string) int {
 	if len(args) != 3 {
 		return usage(errors.New("node: takes an action, a run dir and a Node name"))

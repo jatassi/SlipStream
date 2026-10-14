@@ -9,8 +9,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 )
 
-// cueCommand plays a cue: fakeworld cue <run-dir> <name> [<args>], where
-// args is the JSON object the cue's arguments decode from.
 func cueCommand(args []string) int {
 	if len(args) < 2 || len(args) > 3 {
 		return usage(errors.New("cue: takes a run dir, a cue name and at most one JSON object of arguments"))

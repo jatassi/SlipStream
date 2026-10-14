@@ -29,25 +29,6 @@ func TestNodeActionsRewriteTheManifest(t *testing.T) {
 		t.Fatalf("home launched %s with PID %d, want running with its PID", launched.State, launched.PID)
 	}
 
-	act := func(a world.NodeAction, state world.NodeState) world.Node {
-		t.Helper()
-		entry, err := run.Node(ctx, "home", a)
-		if err != nil {
-			t.Fatalf("%s: %v", a, err)
-		}
-		if entry.State != state || (state == world.NodeRunning) != (entry.PID != 0) {
-			t.Fatalf("%s left home %s with PID %d, want %s", a, entry.State, entry.PID, state)
-		}
-		m, err := world.ReadManifest(runDir)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(m.Nodes[0], entry) {
-			t.Fatalf("after %s manifest.json holds %+v, want %+v", a, m.Nodes[0], entry)
-		}
-		return entry
-	}
-
 	code, stdout, stderr := fakeworld(t, "node", "kill", runDir, "home")
 	var killed world.Node
 	if err := json.Unmarshal([]byte(stdout), &killed); code != 0 || err != nil || stderr != "" || killed.State != world.NodeKilled || killed.PID != 0 {
@@ -56,17 +37,57 @@ func TestNodeActionsRewriteTheManifest(t *testing.T) {
 	if !worldtest.ProcessGone(launched.PID) {
 		t.Fatalf("home (PID %d) still runs after the kill", launched.PID)
 	}
-	restarted := act(world.StartNode, world.NodeRunning)
+	restarted := actOnHome(t, run, world.StartNode, world.NodeRunning)
 	if restarted.PID == launched.PID || !reflect.DeepEqual(restarted.Listeners, launched.Listeners) {
 		t.Fatalf("home restarted with PID %d on %v, want a new PID on %v", restarted.PID, restarted.Listeners, launched.Listeners)
 	}
-	act(world.StopNode, world.NodeStopped)
-	act(world.WipeNode, world.NodeStopped)
+	actOnHome(t, run, world.StopNode, world.NodeStopped)
+	actOnHome(t, run, world.WipeNode, world.NodeStopped)
 	if entries, err := os.ReadDir(launched.DataDir); err != nil || len(entries) != 1 || entries[0].Name() != "config.yaml" {
 		t.Fatalf("home's wiped data dir holds %v, %v; want only config.yaml", entries, err)
 	}
-	act(world.StartNode, world.NodeRunning)
+	actOnHome(t, run, world.StartNode, world.NodeRunning)
+	checkNodeActionRefusals(t, run)
 
+	want := []string{
+		"node.spawned home", "node.ready home",
+		"step.start world", "node.exited home", "node.killed home", "step.end world",
+		"node.spawned home", "node.ready home",
+		"node.exited home", "node.stopped home",
+		"node.wiped home",
+		"node.spawned home", "node.ready home",
+	}
+	if kinds := nodeAndStepKinds(t, runDir); !reflect.DeepEqual(kinds, want) {
+		t.Fatalf("events.jsonl's Node and step records are\n%s\nwant\n%s", strings.Join(kinds, "\n"), strings.Join(want, "\n"))
+	}
+	if rec := fmt.Sprintf(`node.killed home {"pid":%d,"step":1}`, launched.PID); !slices.Contains(besideFronts(t, runDir), rec) {
+		t.Errorf("events.jsonl has no %s", rec)
+	}
+}
+
+// actOnHome runs a on the stub world's home and checks the entry it
+// answers is the one manifest.json now holds.
+func actOnHome(t *testing.T, run *world.Run, a world.NodeAction, state world.NodeState) world.Node {
+	t.Helper()
+	entry, err := run.Node(worldtest.Context(t), "home", a)
+	if err != nil {
+		t.Fatalf("%s: %v", a, err)
+	}
+	if entry.State != state || (state == world.NodeRunning) != (entry.PID != 0) {
+		t.Fatalf("%s left home %s with PID %d, want %s", a, entry.State, entry.PID, state)
+	}
+	m, err := world.ReadManifest(run.Manifest().RunDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(m.Nodes[0], entry) {
+		t.Fatalf("after %s manifest.json holds %+v, want %+v", a, m.Nodes[0], entry)
+	}
+	return entry
+}
+
+func checkNodeActionRefusals(t *testing.T, run *world.Run) {
+	t.Helper()
 	for _, c := range []struct {
 		node string
 		a    world.NodeAction
@@ -76,14 +97,20 @@ func TestNodeActionsRewriteTheManifest(t *testing.T) {
 		{"home", world.WipeNode, "node home is running; wipe needs it stopped"},
 		{"nope", world.StopNode, "the run has no node nope"},
 	} {
-		if _, err := run.Node(ctx, c.node, c.a); err == nil || err.Error() != c.want {
+		if _, err := run.Node(worldtest.Context(t), c.node, c.a); err == nil || err.Error() != c.want {
 			t.Errorf("%s %s: %v, want %s", c.a, c.node, err, c.want)
 		}
 	}
-	if code, _, stderr := fakeworld(t, "node", "pause", runDir, "home"); code != 3 || !strings.HasPrefix(stderr, `fakeworld: "pause" is not a Node action: stop, kill, start or wipe`+"\n") {
-		t.Errorf("fakeworld node pause = %d %q, want exit 3 naming the actions", code, stderr)
+	code, _, stderr := fakeworld(t, "node", "pause", run.Manifest().RunDir, "home")
+	if want := `fakeworld: "pause" is not a Node action: stop, kill, start or wipe` + "\n"; code != 3 || !strings.HasPrefix(stderr, want) {
+		t.Errorf("fakeworld node pause = %d %q, want exit 3 starting %q", code, stderr, want)
 	}
+}
 
+// nodeAndStepKinds is the kind and Node of each record in the run's event
+// log but node.error that is about a Node or a step.
+func nodeAndStepKinds(t *testing.T, runDir string) []string {
+	t.Helper()
 	var kinds []string
 	for _, line := range besideFronts(t, runDir) {
 		kind, rest, _ := strings.Cut(line, " ")
@@ -92,19 +119,5 @@ func TestNodeActionsRewriteTheManifest(t *testing.T) {
 			kinds = append(kinds, kind+" "+node)
 		}
 	}
-	want := []string{
-		"node.spawned home", "node.ready home",
-		"step.start world", "node.exited home", "node.killed home", "step.end world",
-		"node.spawned home", "node.ready home",
-		"node.exited home", "node.stopped home",
-		"node.wiped home",
-		"node.spawned home", "node.ready home",
-	}
-	if !reflect.DeepEqual(kinds, want) {
-		t.Fatalf("events.jsonl's Node and step records are\n%s\nwant\n%s", strings.Join(kinds, "\n"), strings.Join(want, "\n"))
-	}
-	killedRec := fmt.Sprintf(`node.killed home {"pid":%d,"step":1}`, launched.PID)
-	if !slices.Contains(besideFronts(t, runDir), killedRec) {
-		t.Errorf("events.jsonl has no %s", killedRec)
-	}
+	return kinds
 }

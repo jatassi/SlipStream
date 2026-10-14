@@ -124,13 +124,7 @@ func Check(r Rule, fronts []Front) error {
 		}
 	}
 	if len(covered) == 0 {
-		if !slices.ContainsFunc(fronts, func(f Front) bool { return r.Target.covers(f.Target) }) {
-			return fmt.Errorf("no target %s", r.Target)
-		}
-		if !slices.ContainsFunc(fronts, func(f Front) bool { return r.Target.covers(f.Target) && f.Origin != "" }) {
-			return fmt.Errorf("%s is the one front every peer dials, so a rule can't pick %s's connections; per-pair link faults stay in the simulation tier", r.Target, r.Origin)
-		}
-		return fmt.Errorf("%s has no front for %s", r.Target, r.Origin)
+		return uncovered(r, fronts)
 	}
 	for _, f := range covered {
 		if f.Layers&layer == 0 {
@@ -140,32 +134,15 @@ func Check(r Rule, fronts []Front) error {
 	return nil
 }
 
-// checkRouteLocked refuses a rule whose Route no fake serving its target
-// declared, or whose Params name a path value no such route has.
-func (p *Plan) checkRouteLocked(r Rule) error {
-	if r.Route == "" && len(r.Params) == 0 {
-		return nil
+// uncovered says why no front covers r.
+func uncovered(r Rule, fronts []Front) error {
+	if !slices.ContainsFunc(fronts, func(f Front) bool { return r.Target.covers(f.Target) }) {
+		return fmt.Errorf("no target %s", r.Target)
 	}
-	var routes []Route
-	for t, rs := range p.routes {
-		if r.Target.covers(t) {
-			routes = append(routes, rs...)
-		}
+	if !slices.ContainsFunc(fronts, func(f Front) bool { return r.Target.covers(f.Target) && f.Origin != "" }) {
+		return fmt.Errorf("%s is the one front every peer dials, so a rule can't pick %s's connections; per-pair link faults stay in the simulation tier", r.Target, r.Origin)
 	}
-	missing := "no route of %[1]s has a path value %[3]s"
-	if r.Route != "" {
-		routes = slices.DeleteFunc(routes, func(rt Route) bool { return rt.Name != r.Route })
-		if len(routes) == 0 {
-			return fmt.Errorf("%s serves no route %s", r.Target, r.Route)
-		}
-		missing = "route %[2]s of %[1]s has no path value %[3]s"
-	}
-	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
-		if !slices.ContainsFunc(routes, func(rt Route) bool { return slices.Contains(rt.Params, k) }) {
-			return fmt.Errorf(missing, r.Target, r.Route, k)
-		}
-	}
-	return nil
+	return fmt.Errorf("%s has no front for %s", r.Target, r.Origin)
 }
 
 // Firing is one occurrence a rule played.
@@ -197,6 +174,34 @@ type entry struct {
 	Rule
 	armed   bool
 	matched int
+}
+
+// checkRouteLocked refuses a rule whose Route no fake serving its target
+// declared, or whose Params name a path value no such route has.
+func (p *Plan) checkRouteLocked(r Rule) error {
+	if r.Route == "" && len(r.Params) == 0 {
+		return nil
+	}
+	var routes []Route
+	for t, rs := range p.routes {
+		if r.Target.covers(t) {
+			routes = append(routes, rs...)
+		}
+	}
+	missing := "no route of %[1]s has a path value %[3]s"
+	if r.Route != "" {
+		routes = slices.DeleteFunc(routes, func(rt Route) bool { return rt.Name != r.Route })
+		if len(routes) == 0 {
+			return fmt.Errorf("%s serves no route %s", r.Target, r.Route)
+		}
+		missing = "route %[2]s of %[1]s has no path value %[3]s"
+	}
+	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
+		if !slices.ContainsFunc(routes, func(rt Route) bool { return slices.Contains(rt.Params, k) }) {
+			return fmt.Errorf(missing, r.Target, r.Route, k)
+		}
+	}
+	return nil
 }
 
 func (e *entry) done() bool { return e.Times > 0 && e.matched >= e.Skip+e.Times }

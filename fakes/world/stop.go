@@ -75,7 +75,7 @@ func (r *Run) Stop(context.Context) (StopReport, error) {
 func (r *Run) Done() <-chan struct{} { return r.control.Done() }
 
 func (r *Run) stop() {
-	r.record(events.RunStopping, events.World, struct{}{})
+	r.record(events.RunStopping, struct{}{})
 	r.manifestMu.Lock()
 	r.published = false
 	r.manifestMu.Unlock()
@@ -100,7 +100,7 @@ func (r *Run) stop() {
 	problem(os.Rename(filepath.Join(r.runDir, manifestFile), filepath.Join(r.runDir, stoppedManifestFile)))
 	problem(os.RemoveAll(r.scratchDir))
 	problem(writeAtomically(filepath.Join(r.runDir, stopReportFile), marshal(r.report)))
-	r.record(events.RunStopped, events.World, stopped{Clean: r.report.Err() == nil})
+	r.record(events.RunStopped, stopped{Clean: r.report.Err() == nil})
 	r.control.Close()
 	_ = r.events.Close()
 	_ = r.logFile.Close()

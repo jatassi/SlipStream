@@ -38,7 +38,6 @@ var Fake = fake.Spec{
 // Greet changes what whoami answers from now on.
 var Greet = fake.CueSpec{Name: "fixture-greet"}
 
-// GreetArgs are Greet's arguments.
 type GreetArgs struct {
 	Text string `json:"text"`
 }

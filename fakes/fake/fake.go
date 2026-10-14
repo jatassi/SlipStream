@@ -179,7 +179,7 @@ func HTTP(env Env, routes Routes) Server {
 }
 
 // wildcard is a path value in an http.ServeMux pattern.
-var wildcard = regexp.MustCompile(`\{([^{}.]+)(?:\.\.\.)?\}`)
+var wildcard = regexp.MustCompile(`\{([^{}.]+)(?:\.{3})?\}`)
 
 type originKey struct{}
 

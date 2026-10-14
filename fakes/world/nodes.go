@@ -10,7 +10,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 )
 
-// NodeAction is what fakeworld node does to a Node.
 type NodeAction = lifecycle.Action
 
 const (

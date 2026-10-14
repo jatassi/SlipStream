@@ -334,7 +334,7 @@ func send[Out any](ctx context.Context, c *Remote, method, path string, in any) 
 }
 
 func (c *Remote) call(ctx context.Context, method, path string, in, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, "http://fakeworld"+path, bytes.NewReader(marshal(in)))
+	req, err := http.NewRequestWithContext(ctx, method, "http://fakeworld"+path, bytes.NewReader(marshal(in))) //nolint:gosec // control.Do sends it down the run's own control socket, whatever its path
 	if err != nil {
 		return fmt.Errorf("control %s %s: %w", method, path, err)
 	}

@@ -186,13 +186,13 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		_ = r.logFile.Close()
 		return nil, err
 	}
-	r.record(events.RunLaunched, events.World, launched{RunID: r.id, PID: os.Getpid(), Control: r.socket, ScratchDir: r.scratchDir, Scenario: opts.Scenario.Name, Origin: opts.Origin})
+	r.record(events.RunLaunched, launched{RunID: r.id, PID: os.Getpid(), Control: r.socket, ScratchDir: r.scratchDir, Scenario: opts.Scenario.Name, Origin: opts.Origin})
 
 	var undo unwind
 	defer func() {
 		if err != nil {
 			undo.run()
-			r.record(events.RunStopped, events.World, stopped{Error: err.Error()})
+			r.record(events.RunStopped, stopped{Error: err.Error()})
 			_ = r.events.Close()
 			_ = r.logFile.Close()
 		}
@@ -230,7 +230,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 			return nil, err
 		}
 	}
-	r.record(events.RunReady, events.World, struct {
+	r.record(events.RunReady, struct {
 		Manifest string `json:"manifest"`
 	}{manifestFile})
 	return r, nil
@@ -440,7 +440,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		}
 		n.env = env
 		n.log = filepath.Join(r.runDir, "nodes", name+".log")
-		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor, Exited: func() { r.nodeExited(i) }})
+		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor, Append: r.appendRecord, Exited: func() { r.nodeExited(i) }})
 		resolved, err := r.resolve(ctx, name, n.dataDir.Path(), env)
 		if err != nil {
 			return err

@@ -60,9 +60,11 @@ type Config struct {
 	DataDir node.DataDir
 	Env     []string
 	Log     string
-	// Record appends a record. ctx is the action's, carrying its step,
-	// for the action's own records, and context.Background otherwise.
+	// Record appends a record an action writes, ctx carrying its step.
 	Record func(ctx context.Context, rec events.Record)
+	// Append appends a record no action asked for: node.error and
+	// node.exited.
+	Append func(rec events.Record)
 	// Exited hears a Node that left running with no action asking it to.
 	Exited func()
 }
@@ -139,7 +141,6 @@ func (n *Node) Live() (node.Ready, error) {
 	return n.ready, nil
 }
 
-// Do runs action a.
 func (n *Node) Do(ctx context.Context, a Action) error {
 	switch a {
 	case Start:
@@ -186,7 +187,7 @@ func (n *Node) Start(ctx context.Context) error {
 	found := false
 	watch := func(line []byte) {
 		if errorLine(line) {
-			n.cfg.Record(context.Background(), events.Record{Kind: events.NodeError, Node: name, Data: line})
+			n.cfg.Append(events.Record{Kind: events.NodeError, Node: name, Data: line})
 		}
 		if found {
 			return
@@ -228,7 +229,7 @@ func (n *Node) Start(ctx context.Context) error {
 func (n *Node) await(p *proc.Process, logFile *os.File, gone chan struct{}) {
 	<-p.Exited()
 	_ = logFile.Close()
-	n.cfg.Record(context.Background(), events.Record{Kind: events.NodeExited, Node: n.cfg.Name, Data: data(exited{PID: p.PID, Code: p.ExitCode()})})
+	n.cfg.Append(events.Record{Kind: events.NodeExited, Node: n.cfg.Name, Data: data(exited{PID: p.PID, Code: p.ExitCode()})})
 	n.mu.Lock()
 	to := n.leaving
 	if to == "" {
@@ -237,14 +238,14 @@ func (n *Node) await(p *proc.Process, logFile *os.File, gone chan struct{}) {
 	n.state, n.leaving = to, ""
 	n.mu.Unlock()
 	close(gone)
-	if to == Exited && n.cfg.Exited != nil {
+	if to == Exited {
 		n.cfg.Exited()
 	}
 }
 
 // leave marks the running Node as leaving for to and returns its process
 // and the channel closed once it is gone.
-func (n *Node) leave(to State) (*proc.Process, <-chan struct{}) {
+func (n *Node) leave(to State) (p *proc.Process, gone <-chan struct{}) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.leaving = to
@@ -378,7 +379,6 @@ func errorLine(line []byte) bool {
 	return json.Unmarshal(line, &rec) == nil && rec.Level == slog.LevelError.String()
 }
 
-// ParseAction reads an action's name.
 func ParseAction(s string) (Action, error) {
 	if a := Action(s); slices.Contains(Actions, a) {
 		return a, nil
