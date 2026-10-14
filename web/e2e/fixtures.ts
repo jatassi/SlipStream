@@ -7,6 +7,7 @@ import {
   type Browser,
   type BrowserContext,
   type Page,
+  type TestInfo,
   test as base,
   expect,
 } from "@playwright/test";
@@ -84,6 +85,16 @@ async function readSetupCode(log: string): Promise<string> {
   throw new Error(`${log} has no setup code record`);
 }
 
+// testCommand runs the test again from the repo root, as a Go test's
+// recorded command does, so a failed run's bundle replays by it.
+function testCommand(testInfo: TestInfo): string {
+  const [file] = testInfo.titlePath;
+  if (file === undefined) {
+    throw new Error(`test ${testInfo.title} has no file in its title path`);
+  }
+  return `bun run --cwd web e2e ${file.replaceAll("\\", "/")}:${testInfo.line} --project ${testInfo.project.name}`;
+}
+
 export async function expectAccessible(page: Page): Promise<void> {
   const { violations } = await new AxeBuilder({ page }).withTags(wcag).analyze();
   const found = violations.map(
@@ -141,6 +152,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         runDir,
         "--timeout",
         `${launchTimeout}s`,
+        "--test-command",
+        testCommand(testInfo),
       ]);
       if (!start.ok) {
         throw new Error(`fakeworld start: ${start.stderr}`);
