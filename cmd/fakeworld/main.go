@@ -53,6 +53,9 @@ const usageText = `usage: fakeworld <command>
       worktree's, its cluster is its Scenario's, every fake answers, every
       address an Admin entered is a fake's front, and its API key works;
       exit 1 when any fails, and list the fault rules still set
+  summary <run-dir>
+      write the run's summary.md, text for a PR's Verify section, from its
+      files alone, and print its path
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -91,12 +94,13 @@ var verbs = map[string]func(args []string) int{
 		}
 		return execStep(f)
 	},
-	"fault":  faultCommand,
-	"cue":    cueCommand,
-	"node":   nodeCommand,
-	"fs":     fsCommand,
-	"sse":    captureCommand(sseReader),
-	"doctor": doctor,
+	"fault":   faultCommand,
+	"cue":     cueCommand,
+	"node":    nodeCommand,
+	"fs":      fsCommand,
+	"sse":     captureCommand(sseReader),
+	"doctor":  doctor,
+	"summary": summary,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {
