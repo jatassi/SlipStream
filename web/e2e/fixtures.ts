@@ -12,7 +12,7 @@ import {
 } from "@playwright/test";
 import { z } from "zod";
 
-import { type Manifest, type ManifestNode, hostResolverRules, read } from "../harness/manifest.ts";
+import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
@@ -229,7 +229,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         headless,
         args: [
           ...(launchOptions.args ?? []),
-          `--host-resolver-rules=${hostResolverRules(world.manifest)}`,
+          `--host-resolver-rules=${world.manifest.browser.hostResolverRules}`,
         ],
       }));
     const origin = new URL(world.baseURL).origin;

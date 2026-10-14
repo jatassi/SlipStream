@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
+	"github.com/jatassi/slipstream/web"
 )
 
 const (
@@ -43,6 +44,7 @@ type Manifest struct {
 	// and every peer dials.
 	Links    map[string]string `json:"links"`
 	Releases []Release         `json:"releases"`
+	Browser  Browser           `json:"browser"`
 	Admin    *Admin            `json:"admin,omitempty"`
 	APIKey   string            `json:"apiKey,omitempty"`
 }
@@ -120,6 +122,16 @@ type Release struct {
 	InfoHash string `json:"infoHash"`
 	Size     int64  `json:"size"`
 	BLAKE3   string `json:"blake3"`
+}
+
+// Browser is what a browser driving the run needs: Chromium's host
+// resolver rules for every Node's name, the playwright cli config
+// fakeworld browser writes for each shell, relative to the run dir, and
+// each shell's preset.
+type Browser struct {
+	HostResolverRules string                `json:"hostResolverRules"`
+	Config            map[string]string     `json:"config"`
+	Presets           map[string]web.Preset `json:"presets"`
 }
 
 type Admin struct {

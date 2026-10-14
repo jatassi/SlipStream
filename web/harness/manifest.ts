@@ -22,7 +22,3 @@ export function node(m: Manifest, name: string): ManifestNode {
   }
   return found;
 }
-
-export function hostResolverRules(m: Manifest): string {
-  return m.nodes.map((n) => `MAP ${n.host} ${n.address}`).join(",");
-}

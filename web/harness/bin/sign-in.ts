@@ -4,8 +4,7 @@ import { argv, stdout } from "node:process";
 
 import { chromium } from "playwright";
 
-import { hostResolverRules, read } from "../manifest.ts";
-import presets from "../presets.json" with { type: "json" };
+import { read } from "../manifest.ts";
 import { signIn } from "../sign-in.ts";
 
 const usage = "usage: bun web/harness/bin/sign-in.ts <run> <identity> <shell>";
@@ -14,13 +13,13 @@ const [run, identity, shell, ...rest] = argv.slice(2);
 if (run === undefined || identity === undefined || shell === undefined || rest.length > 0) {
   throw new Error(usage);
 }
-const isShell = (name: string): name is keyof typeof presets => Object.hasOwn(presets, name);
-if (!isShell(shell)) {
+const manifest = await read(run);
+const { presets, hostResolverRules } = manifest.browser;
+const preset = presets[shell];
+if (preset === undefined) {
   throw new Error(`shell ${shell} is not one of ${Object.keys(presets).join(", ")}`);
 }
-const { width, height, ...device } = presets[shell];
-
-const manifest = await read(run);
+const { width, height, ...device } = preset;
 if (identity !== "admin" || manifest.admin === undefined) {
   throw new Error(`the manifest of ${run} names no identity ${identity}`);
 }
@@ -30,7 +29,7 @@ if (controller === undefined) {
 }
 
 const browser = await chromium.launch({
-  args: [`--host-resolver-rules=${hostResolverRules(manifest)}`],
+  args: [`--host-resolver-rules=${hostResolverRules}`],
 });
 try {
   const context = await browser.newContext({

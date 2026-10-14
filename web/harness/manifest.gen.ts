@@ -91,6 +91,20 @@ export const manifestSchema = z.strictObject({
       blake3: z.string(),
     }),
   ),
+  browser: z.strictObject({
+    hostResolverRules: z.string(),
+    config: z.record(z.string(), z.string()),
+    presets: z.record(
+      z.string(),
+      z.strictObject({
+        width: z.int(),
+        height: z.int(),
+        deviceScaleFactor: z.number(),
+        isMobile: z.boolean(),
+        hasTouch: z.boolean(),
+      }),
+    ),
+  }),
   admin: z.optional(
     z.strictObject({
       email: z.string(),
