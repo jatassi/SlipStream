@@ -20,7 +20,11 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 )
 
-const captureUsage = `  <capture> list <run-dir> [--node n] [--where k=v]... [--after seq]
+const captureUsage = `  sse list|wait <run-dir> [--as admin] [--event e] [--node n] [--where k=v]...
+            [--after seq] [--timeout 2m]
+      read the event streams the run captured from launch, as sse.message
+      records; wait waits for one after the last step's start
+  <capture> list <run-dir> [--node n] [--where k=v]... [--after seq]
       print the capture's records
   <capture> wait <run-dir> [--node n] [--where k=v]... [--after seq] [--timeout 2m]
       wait for a record of the capture after the last step's start
@@ -33,7 +37,7 @@ const captureUsage = `  <capture> list <run-dir> [--node n] [--where k=v]... [--
 func withCaptures(static map[string]func(args []string) int) map[string]func(args []string) int {
 	out := maps.Clone(static)
 	for _, c := range world.Captures() {
-		out[c.Name] = captureCommand(c)
+		out[c.Name] = captureCommand(reader{CaptureSpec: c})
 	}
 	return out
 }
@@ -46,8 +50,19 @@ func captureNames() string {
 	return strings.Join(names, ", ")
 }
 
-func captureCommand(c fake.CaptureSpec) func(args []string) int {
-	verbs := map[string]func(c fake.CaptureSpec, runDir string, args []string) int{
+// sseReader reads the event streams the run captured. --as and --event
+// are its --where as= and --where event=.
+var sseReader = reader{CaptureSpec: fake.CaptureSpec{Name: "sse", Kind: events.SSEMessage}, fields: []string{"as", "event"}}
+
+// reader is a capture's reader verb. Each of fields is a flag that
+// matches the record's data field of that name.
+type reader struct {
+	fake.CaptureSpec
+	fields []string
+}
+
+func captureCommand(c reader) func(args []string) int {
+	verbs := map[string]func(c reader, runDir string, args []string) int{
 		"list": captureList,
 		"wait": captureWait,
 		"open": captureOpen,
@@ -64,11 +79,17 @@ func captureCommand(c fake.CaptureSpec) func(args []string) int {
 	}
 }
 
-func parseCaptureQuery(c fake.CaptureSpec, verb string, args []string, timeout *time.Duration) (events.Query, error) {
+func parseCaptureQuery(c reader, verb string, args []string, timeout *time.Duration) (events.Query, error) {
 	fs := newFlagSet(c.Name + " " + verb)
 	q := events.Query{Kind: c.Kind, Match: params{}}
 	fs.StringVar(&q.Node, "node", "", "")
 	fs.Var(params(q.Match), "where", "")
+	for _, field := range c.fields {
+		fs.Func(field, "", func(v string) error {
+			q.Match[field] = v
+			return nil
+		})
+	}
 	fs.Uint64Var(&q.After, "after", 0, "")
 	if timeout != nil {
 		fs.DurationVar(timeout, "timeout", defaultTimeout, "")
@@ -85,7 +106,7 @@ func parseCaptureQuery(c fake.CaptureSpec, verb string, args []string, timeout *
 	return q, nil
 }
 
-func captureList(c fake.CaptureSpec, runDir string, args []string) int {
+func captureList(c reader, runDir string, args []string) int {
 	q, err := parseCaptureQuery(c, "list", args, nil)
 	if err != nil {
 		return usage(err)
@@ -107,7 +128,7 @@ func captureList(c fake.CaptureSpec, runDir string, args []string) int {
 
 // captureWait waits for a record of the capture. Unless --after says
 // otherwise, it waits for one after the last step's start.
-func captureWait(c fake.CaptureSpec, runDir string, args []string) int {
+func captureWait(c reader, runDir string, args []string) int {
 	var timeout time.Duration
 	q, err := parseCaptureQuery(c, "wait", args, &timeout)
 	if err != nil {
@@ -147,7 +168,7 @@ func captureWait(c fake.CaptureSpec, runDir string, args []string) int {
 
 // captureOpen prints the paths of the files of the record at seq, copied
 // into the proof dir when --proof names one.
-func captureOpen(c fake.CaptureSpec, runDir string, args []string) int {
+func captureOpen(c reader, runDir string, args []string) int {
 	verb := c.Name + " open"
 	fs := newFlagSet(verb)
 	var proof string

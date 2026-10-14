@@ -31,9 +31,19 @@ func TestReadersWorkOnAStoppedRun(t *testing.T) {
 		t.Fatalf("announces list = %+v, want the announce wait printed", list)
 	}
 
+	resync := fakeworld(t, "sse", "list", runDir, "--as", "admin", "--event", "live.resync")
+	var first events.Record
+	if err := json.Unmarshal([]byte(resync.stdout), &first); resync.code != 0 || err != nil || first.Kind != "sse.message" || first.Node != "home" ||
+		!strings.HasPrefix(string(first.Data), `{"as":"admin","node":"home","id":"`) || !strings.HasSuffix(string(first.Data), `","event":"live.resync","data":"{}"}`) {
+		t.Fatalf("sse list = %+v, want the Admin's live.resync on home", resync)
+	}
+
 	fakeworld(t, "stop", runDir)
 	if stopped := fakeworld(t, "announces", "list", runDir, "--node", "world", "--where", "left=5"); stopped != list {
 		t.Fatalf("announces list on the stopped run = %+v, want %+v", stopped, list)
+	}
+	if stopped := fakeworld(t, "sse", "list", runDir, "--as", "admin", "--event", "live.resync"); stopped != resync {
+		t.Fatalf("sse list on the stopped run = %+v, want %+v", stopped, resync)
 	}
 	missing := fakeworld(t, "announces", "wait", runDir, "--where", "left=6")
 	if wantErr := "fakeworld announces wait: no record matches kind tracker.announce, left=6, after seq "; missing.code != 1 || !strings.HasPrefix(missing.stderr, wantErr) || !strings.Contains(missing.stderr, "\nthe last announces records:\n") {

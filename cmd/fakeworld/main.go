@@ -90,6 +90,7 @@ var verbs = map[string]func(args []string) int{
 	"cue":   cueCommand,
 	"node":  nodeCommand,
 	"fs":    fsCommand,
+	"sse":   captureCommand(sseReader),
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {

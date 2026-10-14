@@ -32,6 +32,9 @@ type Controls interface {
 	// Node runs action a on the Node name and answers its manifest entry
 	// as the action left it.
 	Node(ctx context.Context, name string, a NodeAction) (Node, error)
+	// CaptureSSE captures the event stream identity as opens on the Node
+	// node into the event log until the run stops.
+	CaptureSSE(ctx context.Context, as, node string) (events.Record, error)
 	StartStep(ctx context.Context, s StepStart) (Step, error)
 	EndStep(ctx context.Context, n int, e StepEnd) (events.Record, error)
 	Stop(ctx context.Context) (StopReport, error)
@@ -76,6 +79,11 @@ type stepEnded struct {
 type cleared struct {
 	ID      string `json:"id,omitempty"`
 	Removed bool   `json:"removed"`
+}
+
+type sseCapture struct {
+	As   string `json:"as"`
+	Node string `json:"node"`
 }
 
 type stepKey struct{}
@@ -134,7 +142,7 @@ func (r *Run) ClearFault(ctx context.Context, id string) (events.Record, error) 
 
 type cued struct {
 	Name   string          `json:"name"`
-	Fake   string          `json:"fake"`
+	Fake   string          `json:"fake,omitempty"`
 	Args   json.RawMessage `json:"args,omitempty"`
 	Result any             `json:"result,omitempty"`
 }
@@ -215,6 +223,9 @@ func controlHandler(c Controls) http.Handler {
 			return Node{}, err
 		}
 		return c.Node(ctx, r.PathValue("name"), a)
+	}))
+	mux.Handle("POST /v1/sse", route(func(ctx context.Context, _ *http.Request, in sseCapture) (events.Record, error) {
+		return c.CaptureSSE(ctx, in.As, in.Node)
 	}))
 	mux.Handle("POST /v1/steps", route(func(ctx context.Context, _ *http.Request, s StepStart) (Step, error) {
 		return c.StartStep(ctx, s)
@@ -309,6 +320,10 @@ func (c *Remote) Cue(ctx context.Context, name string, args json.RawMessage) (ev
 
 func (c *Remote) Node(ctx context.Context, name string, a NodeAction) (Node, error) {
 	return send[Node](ctx, c, http.MethodPost, "/v1/nodes/"+url.PathEscape(name)+"/"+url.PathEscape(string(a)), struct{}{})
+}
+
+func (c *Remote) CaptureSSE(ctx context.Context, as, node string) (events.Record, error) {
+	return send[events.Record](ctx, c, http.MethodPost, "/v1/sse", sseCapture{as, node})
 }
 
 func (c *Remote) StartStep(ctx context.Context, s StepStart) (Step, error) {

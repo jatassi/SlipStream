@@ -17,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/api/apitest"
 )
 
 const (
@@ -68,7 +67,7 @@ type walked struct {
 func walk(t *testing.T, name string) walked {
 	t.Helper()
 	w := begin(t, name)
-	stream := w.a.Stream("home", w.a.SignIn("home"))
+	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
 	search := w.search(t)
 	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
 	w.ended(t, grabChanged(t, stream, w.work))
@@ -131,27 +130,18 @@ func (w *walked) ended(t *testing.T, id string) {
 	})
 }
 
-var grabChangedData = regexp.MustCompile(`(?m)^event: grabs\.changed\ndata: \{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
+var grabChangedData = regexp.MustCompile(`^\{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
 
 // grabChanged reads the stream to the next grabs.changed and returns its
 // Grab, which must be work's.
-func grabChanged(t *testing.T, s *apitest.Stream, work string) string {
+func grabChanged(t *testing.T, s *worldtest.Messages, work string) string {
 	t.Helper()
-	ctx := worldtest.Context(t)
-	for {
-		msg, err := s.Next(ctx)
-		if err != nil {
-			t.Fatalf("the stream ended before grabs.changed: %v", err)
-		}
-		m := grabChangedData.FindStringSubmatch(msg)
-		if m == nil {
-			continue
-		}
-		if m[2] != work {
-			t.Fatalf("the stream read %q, want grabs.changed for Work %s", msg, work)
-		}
-		return m[1]
+	data := s.Next("grabs.changed")
+	m := grabChangedData.FindStringSubmatch(data)
+	if m == nil || m[2] != work {
+		t.Fatalf("grabs.changed carried %s, want a Grab of Work %s", data, work)
 	}
+	return m[1]
 }
 
 type cellList struct {

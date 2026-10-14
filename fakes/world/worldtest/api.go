@@ -8,14 +8,12 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
-	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
@@ -148,29 +146,6 @@ func (a *API) Signed(name, session, method, path, body string) Reply {
 	a.t.Helper()
 	r, _ := a.do(request{node: name, method: method, path: path, body: body, bodyArg: world.Literal(body), headers: []header{cookie(session)}})
 	return r
-}
-
-var resync = regexp.MustCompile(`^id: \d+\nretry: \d+\nevent: live\.resync\ndata: \{\}\n$`)
-
-// Stream opens the live event stream of the Node named name in session and
-// reads its live.resync, so the stream is subscribed when Stream returns.
-// The test's cleanup closes it.
-func (a *API) Stream(name, session string) *apitest.Stream {
-	a.t.Helper()
-	q := request{node: name, method: http.MethodGet, path: "/api/v1/events", headers: []header{cookie(session)}}
-	end := a.step(q)
-	res := a.send(q)
-	end(0, nil)
-	if res.StatusCode != http.StatusOK {
-		_ = res.Body.Close()
-		a.t.Fatalf("GET /api/v1/events = %d", res.StatusCode)
-	}
-	s := apitest.NewStream(res.Body)
-	a.t.Cleanup(func() { _ = s.Close() })
-	if msg, err := s.Next(a.ctx); err != nil || !resync.MatchString(msg) {
-		a.t.Fatalf("the stream's first message = %q, %v; want live.resync", msg, err)
-	}
-	return s
 }
 
 func (a *API) send(q request) *http.Response {
