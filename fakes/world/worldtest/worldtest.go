@@ -139,7 +139,7 @@ func stopBudget(s scenario.Scenario) time.Duration {
 func checkStop(t *testing.T, run *world.Run) {
 	t.Helper()
 	m := run.Manifest()
-	if _, err := run.Stop(); err != nil {
+	if _, err := run.Stop(Context(t)); err != nil {
 		t.Errorf("the run did not stop cleanly:\n%v", err)
 	}
 	for _, n := range m.Nodes {

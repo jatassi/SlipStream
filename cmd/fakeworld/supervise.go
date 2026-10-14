@@ -21,7 +21,7 @@ func supervise(f superviseFlags) int {
 	}
 	writeReport(report{OK: true})
 	<-run.Done()
-	if _, err := run.Stop(); err != nil {
+	if _, err := run.Stop(ctx); err != nil {
 		return exitFailed
 	}
 	return exitOK

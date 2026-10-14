@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/jatassi/slipstream/fakes/events"
-	"github.com/jatassi/slipstream/fakes/world/internal/channel"
+	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 )
 
@@ -56,16 +57,16 @@ func (r StopReport) Err() error {
 
 // Stop stops every Node in reverse Scenario order, then the fakes, renames
 // the manifest to manifest.stopped.json, deletes the scratch dir, writes
-// stopped.json and closes the stop channel. The first caller does the
-// work; every caller gets the same report.
-func (r *Run) Stop() (StopReport, error) {
+// stopped.json and closes the control socket. The first caller does the
+// work, which always runs to its end; every caller gets the same report.
+func (r *Run) Stop(context.Context) (StopReport, error) {
 	r.stopOnce.Do(r.stop)
 	return r.report, r.report.Err()
 }
 
-// Done is closed once the run has stopped and the stop channel has answered
-// every request it took.
-func (r *Run) Done() <-chan struct{} { return r.channel.Done() }
+// Done is closed once the run has stopped and the control socket has
+// answered every request it took.
+func (r *Run) Done() <-chan struct{} { return r.control.Done() }
 
 func (r *Run) stop() {
 	r.record(events.RunStopping, "", struct{}{})
@@ -94,7 +95,7 @@ func (r *Run) stop() {
 	problem(os.RemoveAll(r.scratchDir))
 	problem(writeAtomically(filepath.Join(r.runDir, stopReportFile), marshal(r.report)))
 	r.record(events.RunStopped, "", stopped{Clean: r.report.Err() == nil})
-	r.channel.Close()
+	r.control.Close()
 	_ = r.events.Close()
 	_ = r.logFile.Close()
 }
@@ -124,12 +125,7 @@ func (r *Run) stopNode(n *nodeRun, unasked bool) NodeStop {
 	return ns
 }
 
-func (r *Run) stopAnswer() []byte {
-	report, _ := r.Stop()
-	return marshal(report)
-}
-
-// SupervisorGoneError is a run whose stop channel does not answer. It
+// SupervisorGoneError is a run whose control socket does not answer. It
 // names the command that stops each Node the event log says was spawned.
 type SupervisorGoneError struct {
 	PID    int
@@ -145,39 +141,33 @@ func (e *SupervisorGoneError) Error() string {
 	return b.String()
 }
 
-// StopRun stops the run in runDir through its supervisor's stop channel
-// and returns the report once the work is done and a supervisor in another
-// process has exited. A run that already stopped returns its stopped.json.
-// It never stops a Node itself: when the supervisor is gone it returns a
-// *SupervisorGoneError.
+// StopRun stops the run in runDir through its supervisor's control
+// socket and returns the report once the work is done and a supervisor in
+// another process has exited. A run that already stopped returns its
+// stopped.json. It never stops a Node itself: when the supervisor is gone
+// it returns a *SupervisorGoneError.
 func StopRun(ctx context.Context, runDir string) (StopReport, error) {
 	supervisor, spawns, err := readLaunch(runDir)
 	if err != nil {
 		return StopReport{}, err
 	}
-	data, err := os.ReadFile(filepath.Join(runDir, stopReportFile))
-	if err != nil {
-		data, err = channel.Stop(ctx, supervisor.Control)
+	var report StopReport
+	if data, rerr := os.ReadFile(filepath.Join(runDir, stopReportFile)); rerr == nil {
+		err = json.Unmarshal(data, &report)
+	} else {
+		err = (&Remote{socket: supervisor.Control}).call(ctx, http.MethodPost, "/v1/stop", struct{}{}, &report)
 	}
-	if errors.Is(err, channel.ErrNoAnswer) {
+	if errors.Is(err, control.ErrNoAnswer) {
 		return StopReport{}, &SupervisorGoneError{PID: supervisor.PID, Spawns: spawns}
 	}
 	if err != nil {
-		return StopReport{}, err
+		return StopReport{}, fmt.Errorf("stop report: %w", err)
 	}
-	report, err := decodeReport(data)
+	err = report.Err()
 	if supervisor.PID != os.Getpid() {
 		if werr := proc.WaitExit(ctx, supervisor.PID); werr != nil {
 			return report, errors.Join(err, fmt.Errorf("the supervisor: %w", werr))
 		}
 	}
 	return report, err
-}
-
-func decodeReport(data []byte) (StopReport, error) {
-	var report StopReport
-	if err := json.Unmarshal(data, &report); err != nil {
-		return StopReport{}, fmt.Errorf("stop report: %w", err)
-	}
-	return report, report.Err()
 }

@@ -118,7 +118,7 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 		t.Fatalf("StopRun = %+v, want %+v", report, want)
 	}
 	<-run.Done()
-	if again, err := run.Stop(); err != nil || !reflect.DeepEqual(again, want) {
+	if again, err := run.Stop(worldtest.Context(t)); err != nil || !reflect.DeepEqual(again, want) {
 		t.Fatalf("Stop after StopRun = %+v, %v; want %+v", again, err, want)
 	}
 	if again, err := world.StopRun(ctx, runDir); err != nil || !reflect.DeepEqual(again, want) {
@@ -197,6 +197,9 @@ func logged(t *testing.T, runDir string) []string {
 	out := make([]string, len(recs))
 	for i, r := range recs {
 		out[i] = fmt.Sprintf("%d %s %s %s", r.Seq, r.Kind, r.Node, r.Data)
+		if r.Files != nil {
+			out[i] += fmt.Sprint(" ", r.Files)
+		}
 	}
 	return out
 }
@@ -264,7 +267,7 @@ func TestANodeThatExitsMidRunIsReported(t *testing.T) {
 	if _, err := events.Wait(worldtest.Context(t), runDir, events.Query{Kind: events.NodeExited, Node: "home"}); err != nil {
 		t.Fatal(err)
 	}
-	report, err := run.Stop()
+	report, err := run.Stop(worldtest.Context(t))
 	if len(report.Nodes) != 1 || !report.Nodes[0].ExitedUnasked || report.Nodes[0].ExitCode == 0 {
 		t.Fatalf("Stop = %+v, want home exited unasked and non-zero", report)
 	}

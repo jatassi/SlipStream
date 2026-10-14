@@ -36,7 +36,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/seeders"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
-	"github.com/jatassi/slipstream/fakes/world/internal/channel"
+	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -80,8 +80,12 @@ type Run struct {
 	nodes     []*nodeRun
 	used      map[string]bool
 	claims    setup.Claims
-	channel   *channel.Server
+	control   *control.Server
 	manifest  Manifest
+
+	// lastStep and openSteps change only under the event log's lock.
+	lastStep  int
+	openSteps map[int]bool
 
 	stopOnce sync.Once
 	report   StopReport
@@ -166,7 +170,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 			return nil, err
 		}
 	}
-	r := &Run{scenario: opts.Scenario, id: newRunID(), runDir: runDir, life: context.WithoutCancel(ctx), used: map[string]bool{}}
+	r := &Run{scenario: opts.Scenario, id: newRunID(), runDir: runDir, life: context.WithoutCancel(ctx), used: map[string]bool{}, openSteps: map[int]bool{}}
 	for i, n := range opts.Scenario.Nodes {
 		r.nodes = append(r.nodes, &nodeRun{spec: n, addr: addrs[i]})
 	}
@@ -662,10 +666,10 @@ func (r *Run) mediaDir() string { return filepath.Join(r.scratchDir, "media") }
 
 func (r *Run) publish(ctx context.Context, undo *unwind) error {
 	var err error
-	if r.channel, err = channel.Serve(ctx, r.socket, r.stopAnswer); err != nil {
+	if r.control, err = control.Serve(ctx, r.socket, controlHandler(r)); err != nil {
 		return err
 	}
-	undo.push(r.channel.Close)
+	undo.push(r.control.Close)
 	r.manifest, err = r.buildManifest()
 	if err != nil {
 		return err
