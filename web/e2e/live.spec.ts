@@ -59,4 +59,10 @@ test("live updates reconnect when the Node restarts on its address", async ({
   const restarted = await world.fw.node("start", world.node.name);
   expect(restarted.listeners["http"]).toBe(world.node.listeners["http"]);
   await expect(status).toHaveText("Live updates: on");
+  const { checks } = await world.fw.doctor();
+  expect(checks.find((check) => check.n === 3)).toEqual({
+    n: 3,
+    name: "the cluster matches the Scenario",
+    ok: true,
+  });
 });

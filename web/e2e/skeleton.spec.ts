@@ -29,4 +29,6 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
 
   const completed = await world.fw.capture("announces").list({ where: { event: "completed" } });
   expect(completed.map((record) => record.node)).toEqual(["seedbox"]);
+  const changed = await world.fw.sse("admin").list({ where: { event: "grabs.changed" } });
+  expect(new Set(changed.map((record) => record.node))).toEqual(new Set(["home"]));
 });
