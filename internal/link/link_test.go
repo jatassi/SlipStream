@@ -109,6 +109,7 @@ func TestHelloAndWelcomeCarryTheAdvertisedRecord(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				p := linktest.New(t, linktest.Side{Advertise: tc.controller}, linktest.Side{Advertise: tc.worker})
+				synctest.Wait()
 				p.Connect(t)
 				welcome, _ := p.Worker.State(p.Controller.Key).(link.Live)
 				if want := addresses(t, tc.atWorker); welcome.Peer.Addresses != want {
