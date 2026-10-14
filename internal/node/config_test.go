@@ -33,7 +33,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.node.stop_deadline", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay",
-		"timings.role.restart_min", "timings.role.restart_max", "timings.works.fetch", "timings.indexers.request",
+		"timings.role.restart_min", "timings.role.restart_max", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)

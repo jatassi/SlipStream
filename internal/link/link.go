@@ -63,7 +63,7 @@ type Link struct {
 	mux  mux.Config
 	// kinds serves an accepted stream by the kind it opens with. A kind
 	// with no entry is reset.
-	kinds map[wire.Kind]func(*session, net.Conn)
+	kinds map[wire.Kind]func(*session, Stream)
 	rpc   *wire.Conns
 	http  *http.Server
 
@@ -102,8 +102,8 @@ func New(cfg Config) (*Link, error) {
 		kept:     map[Key]*keeper{},
 		subs:     map[*subscriber]struct{}{},
 	}
-	l.kinds = map[wire.Kind]func(*session, net.Conn){
-		wire.RPC: func(s *session, c net.Conn) { l.rpc.Push(rpcConn{c, s}) },
+	l.kinds = map[wire.Kind]func(*session, Stream){
+		wire.RPC: func(s *session, c Stream) { l.rpc.Push(rpcConn{c, s}) },
 	}
 	l.http = wire.Server(cfg.Settings.StreamWindow, l.routes(), withSession, cfg.Log)
 	l.wg.Go(func() { _ = l.http.Serve(l.rpc) })

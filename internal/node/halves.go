@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -18,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -41,6 +43,10 @@ type half struct {
 	targets  *targets.Targets
 	roots    *roots.Roots
 	files    *files.Files
+	// transfers receives files on the Controller, and source serves them
+	// on a Worker.
+	transfers *transfers.Receiver
+	source    *transfers.Source
 }
 
 // startController starts the Controller half: the control half, its own
@@ -101,6 +107,9 @@ func (n *Node) startController(ctx context.Context) error {
 		targets: targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
 		roots:   roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:   files.New(files.Config{Library: lib.db, Works: tree, Grabs: files.NoGrabs{}}),
+		transfers: transfers.NewReceiver(transfers.Config{
+			Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers,
+		}),
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
@@ -150,7 +159,12 @@ func (n *Node) startWorker(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch})
+	n.setHalf(&half{peers: side, dispatch: dispatch, source: transfers.NewSource(transfers.SourceConfig{
+		Payloads:   noPayloads{},
+		Controller: controller.Key,
+		Hooks:      n.env.Test.Transfers,
+		Log:        n.rootLog.With("subsystem", "transfers"),
+	})})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local})
@@ -205,6 +219,24 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 	}
 	return notAController(), nil
 }
+
+// claimStreams serves Transfer streams with the Worker half's source, and
+// resets them on any other Node.
+type claimStreams struct{ n *Node }
+
+func (c claimStreams) transfer(peer link.Key, s link.Stream) {
+	if h := c.n.half.Load(); h != nil && h.source != nil {
+		h.source.Serve(peer, s)
+		return
+	}
+	_ = s.Reset()
+}
+
+// noPayloads is the Worker's Payloads until the downloading Client
+// replaces it: it holds no torrent's files.
+type noPayloads struct{}
+
+func (noPayloads) Path(bencode.InfoHash, int) (string, error) { return "", transfers.ErrNotPresent }
 
 func notAController() *linkv1.PairResponse {
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Refused{Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_NOT_A_CONTROLLER}}}

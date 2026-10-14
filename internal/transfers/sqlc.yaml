@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: transfers_transfer.id
+            go_type:
+              type: TransferID
+          - column: transfers_chunk.transfer_id
+            go_type:
+              type: TransferID
+          - column: transfers_transfer.source_node
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
