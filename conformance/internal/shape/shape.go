@@ -5,6 +5,7 @@ package shape
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"maps"
@@ -16,6 +17,11 @@ import (
 	"sync"
 	"testing"
 )
+
+// Update is go test's -update, defined here so every package under
+// ./conformance/... accepts it: each suite then rewrites its shape.json from
+// the real service's answers.
+var Update = flag.Bool("update", false, "rewrite shape.json from the real service's answers")
 
 // Shape is shape.json. For each answer a suite records, keyed "<route>
 // <status>", it maps every key path in the answer's bodies, such as

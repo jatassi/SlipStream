@@ -111,7 +111,7 @@ func testGo(ctx context.Context, root string, goArgs []string) error {
 // checks. TEST_ONLINE_TMDB_KEY carries TMDB's key; -update rewrites each
 // suite's shape.json.
 func testOnline(ctx context.Context, root string, goArgs []string) error {
-	args := append(append([]string{"test", "-tags", "online", "-count=1"}, goArgs...), "./conformance/...")
+	args := append([]string{"test", "-tags", "online", "-count=1", "./conformance/..."}, goArgs...)
 	gotest := exec.CommandContext(ctx, "go", args...)
 	gotest.Dir = root
 	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr

@@ -3,7 +3,6 @@
 package musicbrainz_test
 
 import (
-	"flag"
 	"net/http"
 	"testing"
 	"time"
@@ -13,8 +12,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
-
-var update = flag.Bool("update", false, "rewrite shape.json from musicbrainz.org's answers")
 
 // boardsOfCanada is a pinned public artist with a short discography, which
 // keeps a fetch to a few dozen requests at one a second.
@@ -28,11 +25,11 @@ func TestMusicBrainzConforms(t *testing.T) {
 		Spacing:   time.Second,
 		Known:     boardsOfCanada,
 	}
-	if *update {
+	if *shape.Update {
 		tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 	}
 	conformance.Run(t, tgt)
-	if *update && !t.Failed() {
+	if *shape.Update && !t.Failed() {
 		if err := shape.Write("shape.json", bodies); err != nil {
 			t.Fatal(err)
 		}

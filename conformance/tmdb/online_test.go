@@ -3,7 +3,6 @@
 package tmdb_test
 
 import (
-	"flag"
 	"net/http"
 	"os"
 	"testing"
@@ -14,8 +13,6 @@ import (
 	provider "github.com/jatassi/slipstream/internal/providers/tmdb"
 )
 
-var update = flag.Bool("update", false, "rewrite shape.json from api.themoviedb.org's answers")
-
 var fightClub = conformance.Known{ID: 550, Title: "Fight Club", IMDbID: "tt0137523"}
 
 func TestTMDBConforms(t *testing.T) {
@@ -25,11 +22,11 @@ func TestTMDBConforms(t *testing.T) {
 	}
 	var bodies []shape.Body
 	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Known: fightClub}
-	if *update {
+	if *shape.Update {
 		tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 	}
 	conformance.Run(t, tgt)
-	if *update && !t.Failed() {
+	if *shape.Update && !t.Failed() {
 		if err := shape.Write("shape.json", bodies); err != nil {
 			t.Fatal(err)
 		}
