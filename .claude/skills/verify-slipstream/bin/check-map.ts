@@ -73,8 +73,6 @@ function checkIndex(files: readonly string[]): void {
   }
 }
 
-// checkFeature checks one feature file's shape and returns its sub-feature
-// ids, each with the parity rows its bullet cites and its line.
 function checkFeature(path: string): { id: string; cites: string[]; line: number }[] {
   const lines = linesOf(path);
   if (lines[0]?.startsWith("# ") !== true) {
@@ -97,10 +95,10 @@ function checkFeature(path: string): { id: string; cites: string[]; line: number
     problem(path, (h2s[0]?.i ?? 0) + 1, `has H2s ${titles.join(", ")}; want ${shape}`);
   }
   const subStart = h2s.find((h) => h.title === "Sub-features")?.i;
-  const subEnd = h2s.find((h) => subStart !== undefined && h.i > subStart)?.i ?? lines.length;
   if (subStart === undefined) {
     return [];
   }
+  const subEnd = h2s.find((h) => h.i > subStart)?.i ?? lines.length;
   const subs = lines.slice(subStart + 1, subEnd).flatMap((line, i) => {
     if (!line.startsWith("- ")) {
       return [];

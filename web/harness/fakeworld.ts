@@ -65,7 +65,6 @@ export type Fakeworld = ReturnType<typeof fw>;
 
 const maxOutput = 64 << 20;
 
-// run resolves with fakeworld's stdout when it exits with one of exits.
 function run(
   runDir: string,
   args: readonly string[],
@@ -136,8 +135,6 @@ function queryArgs(q: CaptureQuery): string[] {
   ];
 }
 
-// reader is a reader verb of the run's event log, each call with fixed
-// flags first.
 function reader(runDir: string, verb: string, fixed: readonly string[] = []) {
   return {
     list: async (q: CaptureQuery = {}) =>
@@ -194,8 +191,6 @@ export function fw(runDir: string) {
     node: async (action: NodeAction, name: string): Promise<ManifestNode> =>
       manifestNode.parse(JSON.parse(await run(runDir, ["node", action, runDir, name]))),
     capture: (name: string) => reader(runDir, name),
-    // sse reads the event stream the run captured for the identity as,
-    // whose records carry the event's name in data.event.
     sse: (as: string) => reader(runDir, "sse", ["--as", as]),
     // doctor resolves with the report of a run that fails a check too.
     doctor: async (): Promise<DoctorReport> =>
