@@ -10,6 +10,9 @@ import (
 type Settings struct {
 	// Listen is bound by every Node, in internal/node.
 	Listen netip.AddrPort `yaml:"listen"`
+	// Advertise replaces the bound address in Join Codes and Hello, for a Node
+	// reached through a forwarded port or a proxy. Empty advertises what Listen binds.
+	Advertise []netip.AddrPort `yaml:"advertise"`
 	// StreamWindow is the largest receive window one mux or HTTP/2 stream
 	// grows to, in bytes.
 	StreamWindow uint32 `yaml:"stream_window"`

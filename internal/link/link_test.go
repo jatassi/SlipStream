@@ -97,6 +97,32 @@ func TestLockstepCallsRunBothWays(t *testing.T) {
 	})
 }
 
+func TestHelloAndWelcomeCarryTheAdvertisedRecord(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		controller, worker     []netip.AddrPort
+		atWorker, atController string
+	}{
+		{"link.advertise", []netip.AddrPort{netip.MustParseAddrPort("192.0.2.2:443")}, []netip.AddrPort{netip.MustParseAddrPort("192.0.2.3:443")}, "192.0.2.2:443", "192.0.2.3:443"},
+		{"empty", nil, nil, "127.0.0.2:8485", "127.0.0.3:8485"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				p := linktest.New(t, linktest.Side{Advertise: tc.controller}, linktest.Side{Advertise: tc.worker})
+				p.Connect(t)
+				welcome, _ := p.Worker.State(p.Controller.Key).(link.Live)
+				if want := addresses(t, tc.atWorker); welcome.Peer.Addresses != want {
+					t.Errorf("the Controller's Welcome carried %v, want %v", welcome.Peer.Addresses.All(), want.All())
+				}
+				hello, _ := p.Controller.State(p.Worker.Key).(link.Live)
+				if want := addresses(t, tc.atController); hello.Peer.Addresses != want {
+					t.Errorf("the Worker's Hello carried %v, want %v", hello.Peer.Addresses.All(), want.All())
+				}
+			})
+		})
+	}
+}
+
 func TestMismatchedPeersServeOnlyTheFrozenPackage(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		calls := make(chan link.Key, 1)

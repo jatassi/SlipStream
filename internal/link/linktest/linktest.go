@@ -41,9 +41,10 @@ type Side struct {
 	Lockstep http.Handler
 	Pair     link.PairFunc
 	// Trust replaces the Node's static Trust for its sessions.
-	Trust   link.Trust
-	Timings link.Timings
-	Log     *slog.Logger
+	Trust     link.Trust
+	Timings   link.Timings
+	Advertise []netip.AddrPort
+	Log       *slog.Logger
 	// Net wraps the Node's Host for its dials, as a recorder does.
 	Net func(*fault.Host) link.Network
 	// Streams serves stream kinds beside the link's own.
@@ -97,7 +98,7 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 		Key:      key,
 		Node:     link.NodeInfo{Version: side.Version, OS: "linux", Arch: "amd64", InstallKind: linkv1.InstallKind_INSTALL_KIND_DEV},
 		Timings:  side.Timings,
-		Settings: link.Settings{StreamWindow: StreamWindow},
+		Settings: link.Settings{Advertise: side.Advertise, StreamWindow: StreamWindow},
 		Net:      dialer,
 		Rand:     rand.New(&splitmix{x: binary.BigEndian.Uint64(seed[:])}), //nolint:gosec // seeded on purpose so tests replay
 		Trust:    trust,
