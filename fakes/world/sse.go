@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +30,11 @@ type captures struct {
 
 	mu      sync.Mutex
 	running map[string]bool
+}
+
+func newCaptures(life context.Context) *captures {
+	ctx, cancel := context.WithCancel(life)
+	return &captures{ctx: ctx, cancel: cancel, running: map[string]bool{}}
 }
 
 // sseMessage is an sse.message record's data: one message of the stream
@@ -64,6 +70,9 @@ func (r *Run) captureSSE(ctx context.Context, admin Admin, n Node) (events.Recor
 	key := AdminIdentity + "@" + n.Name
 	r.captures.mu.Lock()
 	defer r.captures.mu.Unlock()
+	if r.captures.ctx.Err() != nil {
+		return events.Record{}, errors.New("the run is stopping")
+	}
 	if r.captures.running[key] {
 		return events.Record{}, fmt.Errorf("the run already captures %s's stream on %s", AdminIdentity, n.Name)
 	}
@@ -87,7 +96,9 @@ func (r *Run) captureSSE(ctx context.Context, admin Admin, n Node) (events.Recor
 
 // stopCaptures ends every capture and returns once none can append.
 func (r *Run) stopCaptures() {
+	r.captures.mu.Lock()
 	r.captures.cancel()
+	r.captures.mu.Unlock()
 	r.captures.wg.Wait()
 }
 

@@ -82,7 +82,7 @@ type Run struct {
 	used      map[string]bool
 	claims    setup.Claims
 	control   *control.Server
-	captures  captures
+	captures  *captures
 
 	// manifestMu guards the manifest and whether manifest.json holds it.
 	manifestMu sync.Mutex
@@ -174,8 +174,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		}
 	}
 	r := &Run{scenario: opts.Scenario, id: newRunID(), runDir: runDir, life: context.WithoutCancel(ctx), used: map[string]bool{}, openSteps: map[int]bool{}}
-	r.captures.ctx, r.captures.cancel = context.WithCancel(r.life)
-	r.captures.running = map[string]bool{}
+	r.captures = newCaptures(r.life)
 	for i, n := range opts.Scenario.Nodes {
 		r.nodes = append(r.nodes, &nodeRun{spec: n, addr: addrs[i]})
 	}
