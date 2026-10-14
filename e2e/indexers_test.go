@@ -12,8 +12,8 @@ func TestHomeSeedsTheFixtureSiteIndexerOnTheSeedbox(t *testing.T) {
 	run := worldtest.Launch(t, "home")
 	m := run.Manifest()
 	var site string
-	for _, f := range m.Fakes {
-		if f.Name == "fixture-site" {
+	for _, f := range m.Fronts {
+		if f.Target == "fixture-site" && f.Node == "seedbox" {
 			site = f.URL
 		}
 	}

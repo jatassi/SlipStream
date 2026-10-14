@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/base32"
 	"encoding/hex"
 	"encoding/json"
@@ -17,7 +16,6 @@ import (
 	"io"
 	"log/slog"
 	"maps"
-	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -31,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
+	"github.com/jatassi/slipstream/fakes/internal/front"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/internal/seeders"
@@ -39,7 +38,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
-	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -74,9 +72,11 @@ type Run struct {
 	probe     node.Resolved
 	fakes     []*fakeRun
 	faults    *fault.Plan
+	fronts    *front.Set
+	listeners []*front.Front
+	table     fake.Fronts
 	releases  *releases.Catalog
 	seeders   *seeders.Seeders
-	endpoints node.EndpointsBlock
 	nodes     []*nodeRun
 	used      map[string]bool
 	claims    setup.Claims
@@ -104,10 +104,12 @@ type nodeRun struct {
 	recorded chan struct{}
 }
 
+// fakeRun is a fake the world hosts: the address of its world front, and
+// the inbox each of its fronts pushes connections into.
 type fakeRun struct {
 	spec   fake.Spec
 	at     fake.Address
-	l      net.Listener
+	inbox  *front.Inbox
 	cancel context.CancelFunc
 	done   chan error
 }
@@ -208,13 +210,14 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		func(context.Context, *unwind) error { return r.copyBinary(opts.Binary) },
 		r.mintCA,
 		r.probeBinary,
-		func(ctx context.Context, undo *unwind) error { return r.bindFakes(ctx, undo, fakes) },
+		func(ctx context.Context, undo *unwind) error { return r.bindFronts(ctx, undo, fakes) },
 		r.buildReleases,
 		r.serveFakes,
 		r.startSeeders,
 		r.prepareNodes,
 		r.startNodes,
 		r.checkListeners,
+		r.pinPorts,
 		r.setUp,
 		r.seedLibrary,
 		r.publish,
@@ -330,53 +333,6 @@ func (r *Run) probeBinary(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
-// bindFakes binds each fake's listener before any fake is built, since the
-// release catalog names fake-tracker's address and every fake reads the
-// catalog.
-func (r *Run) bindFakes(ctx context.Context, undo *unwind, specs []fake.Spec) error {
-	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
-		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
-	})
-	fronts := make([]fault.Front, len(specs))
-	for i, spec := range specs {
-		fronts[i] = worldFront(spec)
-	}
-	r.faults = fault.NewPlan(fronts, r.fired)
-	for _, spec := range specs {
-		f, err := r.bindFake(ctx, spec)
-		if err != nil {
-			return err
-		}
-		r.fakes = append(r.fakes, f)
-		undo.push(func() { _ = f.l.Close() })
-	}
-	return nil
-}
-
-// worldFront is the one front each fake has until per-Node fronts arrive.
-// TLS faults wait for a front that picks its leaf.
-func worldFront(spec fake.Spec) fault.Front {
-	return fault.Front{Target: fault.Target(spec.Name), Origin: "world", Layers: fault.Conn | fault.HTTP}
-}
-
-func (r *Run) bindFake(ctx context.Context, spec fake.Spec) (*fakeRun, error) {
-	l, err := new(net.ListenConfig).Listen(ctx, "tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
-	}
-	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
-	l = r.faults.Listener(l, worldFront(spec))
-	if spec.TLS {
-		leaf, err := r.ca.Leaf("127.0.0.1", spec.Name+".fake.localhost")
-		if err != nil {
-			_ = l.Close()
-			return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
-		}
-		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
-	}
-	return &fakeRun{spec: spec, at: at, l: l}, nil
-}
-
 func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 	cache, err := releases.CacheDir()
 	if err != nil {
@@ -406,33 +362,23 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
 		env := fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
-		env.Releases = r.releases
+		env.Releases, env.Fronts, env.Files = r.releases, r.table, r.runDir
 		server, err := f.spec.New(r.scenario, env)
 		if err != nil {
 			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
 		}
+		if err := r.serveFronts(f); err != nil {
+			return err
+		}
 		fctx, cancel := context.WithCancel(r.life)
 		f.cancel, f.done = cancel, make(chan error, 1)
-		go func() { f.done <- server.Serve(fctx, f.l) }()
+		go func() { f.done <- server.Serve(fctx, f.inbox) }()
 		r.log.Info("fake started", "fake", f.spec.Name, "url", f.at.URL(""))
 		undo.push(func() {
 			if err := f.stop(); err != nil {
 				r.log.Error("fake stopped", "fake", f.spec.Name, "err", err.Error())
 			}
 		})
-	}
-	listed := map[string]bool{}
-	for _, k := range r.probe.Keys {
-		listed[k.Key] = true
-	}
-	r.endpoints = node.Defaults(contenttype.Set{}).Endpoints
-	for _, f := range r.fakes {
-		f.spec.Endpoints(&r.endpoints, f.at)
-		for _, p := range r.endpoints.ContentTypes.Paths() {
-			if !listed[p] {
-				return fmt.Errorf("fake %s sets %s, which this binary does not list", f.spec.Name, p)
-			}
-		}
 	}
 	return nil
 }
@@ -449,6 +395,7 @@ func (r *Run) startSeeders(ctx context.Context, undo *unwind) error {
 			r.log.Error("seeders stopped", "err", err.Error())
 		}
 	})
+	r.serveSeederFronts()
 	return nil
 }
 
@@ -473,7 +420,11 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err := os.Mkdir(n.dataDir.Path(), 0o700); err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
-		config, err := setup.Config(r.scenario, i, listen, r.endpoints)
+		endpoints, err := r.endpoints(name)
+		if err != nil {
+			return err
+		}
+		config, err := setup.Config(r.scenario, i, listen, endpoints)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
@@ -637,6 +588,38 @@ func (n *nodeRun) checkListener(name, value string) error {
 	return nil
 }
 
+// pinPorts rewrites each Node's config.yaml with every listen key at the
+// port it bound, so a Node started again returns on its first address and
+// ports, then runs slipstream config on it again as the check.
+func (r *Run) pinPorts(ctx context.Context, _ *unwind) error {
+	for _, n := range r.nodes {
+		name := n.spec.Name
+		path := filepath.Join(n.dataDir.Path(), "config.yaml")
+		config, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("node %s: %w", name, err)
+		}
+		listeners, err := setup.Listeners(n.ready.Listeners)
+		if err != nil {
+			return fmt.Errorf("node %s: %w", name, err)
+		}
+		if config, err = setup.Pin(config, listeners); err != nil {
+			return fmt.Errorf("node %s: %w", name, err)
+		}
+		if err := os.WriteFile(path, config, 0o600); err != nil {
+			return fmt.Errorf("node %s: %w", name, err)
+		}
+		resolved, err := r.resolve(ctx, name, n.dataDir.Path(), n.env)
+		if err != nil {
+			return err
+		}
+		if err := r.admit(name, resolved, nodeenv.World(r.caFile)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // setUp runs the setup steps over the OS network.
 func (r *Run) setUp(ctx context.Context, _ *unwind) error {
 	var err error
@@ -649,14 +632,15 @@ func (r *Run) setUp(ctx context.Context, _ *unwind) error {
 }
 
 // seedLibrary creates the Scenario's library on the Controller, its roots'
-// folders under the media dir.
+// folders under the media dir and its Indexers at the site fronts of the
+// Node that holds Searching, which searches from them.
 func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 	if r.scenario.Library == nil {
 		return nil
 	}
 	sites := map[string]fake.Address{}
 	for _, f := range r.fakes {
-		sites[f.spec.Name] = f.at
+		sites[f.spec.Name], _ = r.table.Find(fault.Target(f.spec.Name), r.scenario.Searching())
 	}
 	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, r.mediaDir(), sites); err != nil {
 		return err
@@ -702,6 +686,8 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Divergences: usedIDs(r.used),
 		Nodes:       []Node{},
 		Fakes:       []Fake{},
+		Fronts:      []Front{},
+		Releases:    []Release{},
 		APIKey:      r.claims.APIKey,
 	}
 	if r.scenario.Library != nil {
@@ -712,7 +698,17 @@ func (r *Run) buildManifest() (Manifest, error) {
 		m.Admin = &Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
 	for _, f := range r.fakes {
-		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL("")})
+		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL(""), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...)})
+	}
+	for _, f := range r.table {
+		entry := Front{Target: string(f.Target), Node: f.Node, Address: f.Address.AddrPort.String()}
+		if slices.ContainsFunc(r.fakes, func(fr *fakeRun) bool { return fault.Target(fr.spec.Name) == f.Target }) {
+			entry.URL = f.Address.URL("")
+		}
+		m.Fronts = append(m.Fronts, entry)
+	}
+	for _, rel := range r.releases.Releases {
+		m.Releases = append(m.Releases, Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:])})
 	}
 	for i, n := range r.nodes {
 		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.ready, DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])

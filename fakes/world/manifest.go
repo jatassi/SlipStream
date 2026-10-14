@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 )
 
@@ -34,8 +35,12 @@ type Manifest struct {
 	Divergences []string `json:"divergences"`
 	Nodes       []Node   `json:"nodes"`
 	Fakes       []Fake   `json:"fakes"`
-	Admin       *Admin   `json:"admin,omitempty"`
-	APIKey      string   `json:"apiKey,omitempty"`
+	// Fronts is every front: where each Node, and the world, reaches each
+	// target.
+	Fronts   []Front   `json:"fronts"`
+	Releases []Release `json:"releases"`
+	Admin    *Admin    `json:"admin,omitempty"`
+	APIKey   string    `json:"apiKey,omitempty"`
 }
 
 type ScenarioRef struct {
@@ -77,9 +82,29 @@ const (
 	ClaimWorker     = setup.ClaimWorker
 )
 
+// Fake is a fake the world hosts. URL is its world front.
 type Fake struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	Name     string             `json:"name"`
+	URL      string             `json:"url"`
+	Captures []fake.CaptureSpec `json:"captures"`
+}
+
+// Front is one front: target as Node reaches it, Node "world" for the
+// harness. URL is absent for a target that speaks no HTTP.
+type Front struct {
+	Target  string `json:"target"`
+	Node    string `json:"node"`
+	Address string `json:"address"`
+	URL     string `json:"url,omitempty"`
+}
+
+// Release is a catalog release: its payload's size and BLAKE3, and its
+// torrent's info hash, all in hex.
+type Release struct {
+	Name     string `json:"name"`
+	InfoHash string `json:"infoHash"`
+	Size     int64  `json:"size"`
+	BLAKE3   string `json:"blake3"`
 }
 
 type Admin struct {

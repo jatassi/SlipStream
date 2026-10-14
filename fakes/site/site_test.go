@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,8 +14,10 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
@@ -26,10 +29,14 @@ import (
 const (
 	hash1080 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	hash720  = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	torrent  = "d4:infod6:lengthi6e4:name5:a.mkv12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"
+	info     = "d6:lengthi6e4:name5:a.mkv12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaae"
+	torrent  = "d4:info" + info + "e"
+	announce = "https://127.0.0.1:7000/announce/k"
+	// rewritten is torrent as the site serves it, announcing to announce.
+	rewritten = "d8:announce33:" + announce + "4:info" + info + "e"
 )
 
-var releases = []site.Release{
+var listing = []site.Release{
 	{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", Size: 6000, InfoHash: hash1080, TMDBID: 9000001, IMDbID: "tt9000001", Seeders: 12, Torrent: []byte(torrent)},
 	{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", Size: 3000, InfoHash: hash720, TMDBID: 9000001, IMDbID: "tt9000001", Seeders: 40, Torrent: []byte("d4:infod4:name1:bee")},
 	{Name: "Orchard.Road.2019.1080p.WEB-DL.H264-FKW", Size: 5000, InfoHash: strings.Repeat("c", 40), TMDBID: 9000002, IMDbID: "tt9000002", Seeders: 1, Torrent: []byte("d4:infod4:name1:cee")},
@@ -39,7 +46,7 @@ func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", 
 
 func spec(rels []site.Release) fake.Spec {
 	return fake.Spec{Name: site.Fake.Name, TLS: true, Online: site.Fake.Online, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-		return fake.HTTP(env, site.Routes(site.APIKey(s), rels)), nil
+		return fake.HTTP(env, site.Routes(site.APIKey(s), rels, func(string) (string, error) { return announce, nil })), nil
 	}}
 }
 
@@ -100,16 +107,16 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 		origin := f.Address.URL("")
 		api := site.TorznabPath + "/api?apikey=" + key
 		for _, e := range []struct{ path, want string }{
-			{api + "&t=movie&tmdbid=9000001", feed(item(origin, releases[0]), item(origin, releases[1]))},
-			{api + "&t=movie&imdbid=tt9000002", feed(item(origin, releases[2]))},
+			{api + "&t=movie&tmdbid=9000001", feed(item(origin, listing[0]), item(origin, listing[1]))},
+			{api + "&t=movie&imdbid=tt9000002", feed(item(origin, listing[2]))},
 			{api + "&t=movie&tmdbid=9000003", feed()},
-			{api + "&t=search&q=quiet+ORCHARD+2021", feed(item(origin, releases[0]), item(origin, releases[1]))},
-			{api + "&t=search&q=orchard+1080p", feed(item(origin, releases[0]), item(origin, releases[2]))},
+			{api + "&t=search&q=quiet+ORCHARD+2021", feed(item(origin, listing[0]), item(origin, listing[1]))},
+			{api + "&t=search&q=orchard+1080p", feed(item(origin, listing[0]), item(origin, listing[2]))},
 			{api + "&t=search&q=orch", feed()},
 			{api + "&t=tvsearch&q=orchard", errorDoc("202", "No such function")},
 			{site.TorznabPath + "/api?apikey=wrong&t=caps", errorDoc("100", "Invalid API Key")},
 			{site.TorznabPath + "/api?t=caps", errorDoc("100", "Invalid API Key")},
-			{"/download/" + hash1080 + ".torrent", "200 OK " + torrent},
+			{"/download/" + hash1080 + ".torrent", "200 OK " + rewritten},
 			{"/download/" + strings.Repeat("d", 40) + ".torrent", "404 Not Found 404 page not found\n"},
 		} {
 			if got := get(t, f, e.path); got != e.want {
@@ -117,9 +124,9 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 			}
 		}
 	}
-	t.Run("loopback", func(t *testing.T) { check(t, faketest.Loopback(t, spec(releases), s)) })
+	t.Run("loopback", func(t *testing.T) { check(t, faketest.Loopback(t, spec(listing), s)) })
 	t.Run("in memory", func(t *testing.T) {
-		synctest.Test(t, func(t *testing.T) { check(t, faketest.InMemory(t, spec(releases), s)) })
+		synctest.Test(t, func(t *testing.T) { check(t, faketest.InMemory(t, spec(listing), s)) })
 	})
 }
 
@@ -144,7 +151,7 @@ func (discard) Publish(context.Context, indexers.Changed) {}
 
 func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 	s := scenarioWithSeed()
-	f := faketest.Loopback(t, spec(releases), s)
+	f := faketest.Loopback(t, spec(listing), s)
 	home := indexers.NewHome(f.Client, indexers.Timings{Request: 5 * time.Second})
 	x := indexers.New(indexers.Config{
 		Library:   storagetest.Library(t, indexers.Schema()),
@@ -177,8 +184,8 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 	}
 
 	b, err := x.FetchTorrent(t.Context(), idx, items[0].Link)
-	if err != nil || string(b) != torrent {
-		t.Fatalf("FetchTorrent = %q, %v, want %q", b, err, torrent)
+	if err != nil || string(b) != rewritten {
+		t.Fatalf("FetchTorrent = %q, %v, want %q", b, err, rewritten)
 	}
 	_, err = x.FetchTorrent(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
 	var unavailable *indexers.UnavailableError
@@ -195,5 +202,33 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 	var refused *indexers.RefusedError
 	if !errors.As(err, &refused) || err.Error() != "the Indexer refused: error 100: Invalid API Key" {
 		t.Fatalf("a wrong key = %v, want refused 100", err)
+	}
+}
+
+func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
+	s := scenarioWithSeed()
+	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := &releases.Catalog{Passkey: "p4ss", Releases: []releases.Release{{Release: scenario.Release{Name: "orchard"}, Metainfo: meta, InfoHash: hash}}}
+	fronts := fake.Fronts{
+		{Target: "tracker", Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7001"), TLS: true}},
+		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
+	}
+	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
+	status, body, _ := strings.Cut(get(t, f, "/download/"+hash.String()+".torrent"), " OK ")
+	if status != "200" {
+		t.Fatalf("GET the .torrent = %s %s", status, body)
+	}
+	served, err := bencode.DecodeMetainfo([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "https://127.0.0.1:7002/announce/p4ss"; served.Announce != want {
+		t.Fatalf("the .torrent announces to %s, want seedbox's tracker front %s", served.Announce, want)
+	}
+	if served.InfoHash != hash {
+		t.Fatalf("the served info hash is %s, want the catalog's %s", served.InfoHash, hash)
 	}
 }

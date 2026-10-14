@@ -55,7 +55,8 @@ func (r StopReport) Err() error {
 	return errors.New(strings.Join(problems, "\n"))
 }
 
-// Stop stops every Node in reverse Scenario order, then the fakes, renames
+// Stop stops every Node in reverse Scenario order, then the fakes and their
+// fronts, renames
 // the manifest to manifest.stopped.json, deletes the scratch dir, writes
 // stopped.json and closes the control socket. The first caller does the
 // work, which always runs to its end; every caller gets the same report.
@@ -91,6 +92,7 @@ func (r *Run) stop() {
 	for _, f := range r.fakes {
 		problem(f.stop())
 	}
+	r.fronts.Close()
 	problem(os.Rename(filepath.Join(r.runDir, manifestFile), filepath.Join(r.runDir, stoppedManifestFile)))
 	problem(os.RemoveAll(r.scratchDir))
 	problem(writeAtomically(filepath.Join(r.runDir, stopReportFile), marshal(r.report)))

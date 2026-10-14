@@ -13,7 +13,10 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/tracker"
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -34,16 +37,24 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		}
 	}
 	var listed []Release
-	if env.Releases == nil {
-		return fake.HTTP(env, Routes(APIKey(s), nil)), nil
+	passkey := ""
+	if env.Releases != nil {
+		passkey = env.Releases.Passkey
+		for _, r := range env.Releases.Releases {
+			listed = append(listed, Release{
+				Name: r.Name, Size: r.Size, InfoHash: r.InfoHash.String(),
+				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo,
+			})
+		}
 	}
-	for _, r := range env.Releases.Releases {
-		listed = append(listed, Release{
-			Name: r.Name, Size: r.Size, InfoHash: r.InfoHash.String(),
-			TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo,
-		})
+	announce := func(origin string) (string, error) {
+		at, ok := env.Fronts.Find(fault.Target(tracker.Fake.Name), origin)
+		if !ok {
+			return "", fmt.Errorf("no tracker front for %q", origin)
+		}
+		return at.URL("/announce/" + passkey), nil
 	}
-	return fake.HTTP(env, Routes(APIKey(s), listed)), nil
+	return fake.HTTP(env, Routes(APIKey(s), listed, announce)), nil
 }
 
 // Release is one item the site lists, and its .torrent.
@@ -74,11 +85,17 @@ func URL(at fake.Address) string { return at.URL(TorznabPath) }
 type site struct {
 	apiKey   string
 	releases []Release
+	announce Announce
 }
 
-// Routes serve releases behind apiKey.
-func Routes(apiKey string, releases []Release) fake.Routes {
-	s := &site{apiKey: apiKey, releases: releases}
+// Announce is the tracker URL a .torrent announces to when origin fetches
+// it.
+type Announce func(origin string) (string, error)
+
+// Routes serve releases behind apiKey. Each .torrent announces to the
+// URL announce gives its downloader.
+func Routes(apiKey string, releases []Release, announce Announce) fake.Routes {
+	s := &site{apiKey: apiKey, releases: releases, announce: announce}
 	return fake.Routes{
 		"torznab":  {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
 		"download": {Pattern: "GET /download/{file}", Handler: s.download},
@@ -172,16 +189,28 @@ func esc(s string) string {
 	return b.String()
 }
 
+// download serves a release's .torrent announcing to the downloader's
+// own tracker URL. It copies the info dictionary's bytes verbatim, so the
+// info hash is the catalog's.
 func (s *site) download(w http.ResponseWriter, r *http.Request) {
 	hash, ok := strings.CutSuffix(r.PathValue("file"), ".torrent")
-	for _, rel := range s.releases {
-		if ok && rel.InfoHash == hash {
-			w.Header().Set("Content-Type", "application/x-bittorrent")
-			_, _ = w.Write(rel.Torrent)
-			return
-		}
+	i := slices.IndexFunc(s.releases, func(rel Release) bool { return ok && rel.InfoHash == hash })
+	if i < 0 {
+		http.NotFound(w, r)
+		return
 	}
-	http.NotFound(w, r)
+	meta, err := bencode.DecodeMetainfo(s.releases[i].Torrent)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	announce, err := s.announce(fake.OriginOf(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-bittorrent")
+	_, _ = w.Write(fmt.Appendf(nil, "d8:announce%d:%s4:info%se", len(announce), announce, meta.RawInfo))
 }
 
 func torznabError(w http.ResponseWriter, code int, description string) {

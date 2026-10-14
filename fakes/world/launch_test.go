@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -109,6 +112,30 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	if got := getFake(ctx, t, m); got != "echo to world\n" {
 		t.Fatalf("GET the echo fake = %q", got)
 	}
+	if _, err := events.Wait(ctx, runDir, events.Query{Kind: "front.close", Node: "world"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := get(ctx, t, m, m.Fronts[0].URL+"/"); got != "echo to home\n" {
+		t.Fatalf("GET the echo fake through home's front = %q", got)
+	}
+	if _, err := events.Wait(ctx, runDir, events.Query{Kind: "front.close", Node: "home"}); err != nil {
+		t.Fatal(err)
+	}
+	var fronts []string
+	for _, l := range logged(t, runDir)[4:] {
+		var d struct {
+			Conn  int
+			Cause string
+		}
+		f := strings.SplitN(l, " ", 4)
+		if err := json.Unmarshal([]byte(f[3]), &d); err != nil {
+			t.Fatal(err)
+		}
+		fronts = append(fronts, fmt.Sprintf("%s %s %d %s", f[1], f[2], d.Conn, d.Cause))
+	}
+	if want := []string{"front.open world 1 ", "front.close world 1 closed", "front.open home 2 ", "front.close home 2 closed"}; !slices.Equal(fronts, want) {
+		t.Fatalf("front records = %q, want %q", fronts, want)
+	}
 
 	report, err := world.StopRun(ctx, runDir)
 	if err != nil {
@@ -125,12 +152,12 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	if again, err := world.StopRun(ctx, runDir); err != nil || !reflect.DeepEqual(again, want) {
 		t.Fatalf("StopRun on a stopped run = %+v, %v; want %+v", again, err, want)
 	}
-	launched := logged(t, runDir)[:4]
+	launched := logged(t, runDir)[:8]
 	wantStopped := slices.Concat(launched, []string{
-		`5 run.stopping world {}`,
-		`6 node.error home {"level":"ERROR","msg":"stub node told to stop","detail":"logged verbatim"}`,
-		fmt.Sprintf(`7 node.exited home {"pid":%d,"code":0}`, m.Nodes[0].PID),
-		`8 run.stopped world {"clean":true}`,
+		`9 run.stopping world {}`,
+		`10 node.error home {"level":"ERROR","msg":"stub node told to stop","detail":"logged verbatim"}`,
+		fmt.Sprintf(`11 node.exited home {"pid":%d,"code":0}`, m.Nodes[0].PID),
+		`12 run.stopped world {"clean":true}`,
 	})
 	if got := logged(t, runDir); !reflect.DeepEqual(got, wantStopped) {
 		t.Fatalf("events.jsonl after stop holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(wantStopped, "\n"))
@@ -158,16 +185,33 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 
 	home := m.Nodes[0]
 	scratch := filepath.Join(os.TempDir(), "ssfw", m.RunID)
+	pinned := pinnedListeners(t, filepath.Join(home.DataDir, "config.yaml"))
+	httpPort := netip.MustParseAddrPort(pinned["http"]).Port()
 	wantHome := world.Node{
 		Name: "home", Setup: scenario.SetupNone, Claim: world.ClaimUnclaimed,
 		Address: "127.0.0.2", Host: "home.localhost",
-		URL: "http://127.0.0.2:0", BrowserURL: "http://home.localhost:0",
-		Listeners: map[string]string{"control": filepath.Join(scratch, "home", "run", "control.sock"), "http": "127.0.0.2:0", "link": "127.0.0.2:0", "torrent": "127.0.0.2:0"},
+		URL: fmt.Sprintf("http://127.0.0.2:%d", httpPort), BrowserURL: fmt.Sprintf("http://home.localhost:%d", httpPort),
+		Listeners: map[string]string{"control": filepath.Join(scratch, "home", "run", "control.sock"), "http": pinned["http"], "link": pinned["link"], "torrent": pinned["torrent"]},
 		DataDir:   filepath.Join(scratch, "home"), PID: home.PID, Seed: "stub/home",
 		Log: filepath.Join(runDir, "nodes", "home.log"), Overrides: []node.Key{}, NodeKey: "0000-0000-0000-0000",
 	}
 	if !reflect.DeepEqual(home, wantHome) {
 		t.Fatalf("manifest node = %+v\nwant %+v", home, wantHome)
+	}
+	for name, addr := range pinned {
+		if ap := netip.MustParseAddrPort(addr); ap.Addr() != netip.MustParseAddr("127.0.0.2") || ap.Port() == 0 {
+			t.Fatalf("config.yaml pins %s.listen at %s, want the port it bound on 127.0.0.2", name, addr)
+		}
+	}
+	wantFronts := []world.Front{
+		{Target: "echo", Node: "home", Address: strings.TrimPrefix(m.Fronts[0].URL, "https://"), URL: m.Fronts[0].URL},
+		{Target: "echo", Node: "world", Address: strings.TrimPrefix(m.Fakes[0].URL, "https://"), URL: m.Fakes[0].URL},
+	}
+	if !reflect.DeepEqual(m.Fronts, wantFronts) || m.Fronts[0].Address == m.Fronts[1].Address || !strings.HasPrefix(m.Fronts[0].Address, "127.0.0.1:") {
+		t.Fatalf("fronts = %+v, want echo's for home and the world on two ports of 127.0.0.1", m.Fronts)
+	}
+	if want := []world.Fake{{Name: "echo", URL: m.Fronts[1].URL, Captures: []fake.CaptureSpec{}}}; !reflect.DeepEqual(m.Fakes, want) || len(m.Releases) != 0 {
+		t.Fatalf("fakes = %+v and releases %+v, want %+v and none", m.Fakes, m.Releases, want)
 	}
 	if want := []string{"loopback-listen", "seed", "timings", "test-ca"}; !reflect.DeepEqual(m.Divergences, want) {
 		t.Fatalf("divergences = %v, want %v", m.Divergences, want)
@@ -205,7 +249,29 @@ func logged(t *testing.T, runDir string) []string {
 	return out
 }
 
+// besideFronts is the run's records, but its fronts', as "kind node data".
+func besideFronts(t *testing.T, runDir string) []string {
+	t.Helper()
+	var out []string
+	for _, line := range logged(t, runDir) {
+		_, rest, _ := strings.Cut(line, " ")
+		if !strings.HasPrefix(rest, "front.") {
+			out = append(out, rest)
+		}
+	}
+	return out
+}
+
 func getFake(ctx context.Context, t *testing.T, m world.Manifest) string {
+	t.Helper()
+	if len(m.Fakes) != 1 || m.Fakes[0].Name != "echo" || !strings.HasPrefix(m.Fakes[0].URL, "https://127.0.0.1:") {
+		t.Fatalf("fakes = %+v", m.Fakes)
+	}
+	return get(ctx, t, m, m.Fakes[0].URL+"/")
+}
+
+// get GETs url trusting the run's CA, and closes the connection.
+func get(ctx context.Context, t *testing.T, m world.Manifest, url string) string {
 	t.Helper()
 	pem, err := os.ReadFile(m.CA.File)
 	if err != nil {
@@ -215,10 +281,7 @@ func getFake(ctx context.Context, t *testing.T, m world.Manifest) string {
 	roots.AppendCertsFromPEM(pem)
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}
 	defer client.CloseIdleConnections()
-	if len(m.Fakes) != 1 || m.Fakes[0].Name != "echo" || !strings.HasPrefix(m.Fakes[0].URL, "https://127.0.0.1:") {
-		t.Fatalf("fakes = %+v", m.Fakes)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.Fakes[0].URL+"/", http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -515,4 +578,24 @@ func TestStopRunWithoutASupervisorNamesEachNode(t *testing.T) {
 	if _, gone := errors.AsType[*world.SupervisorGoneError](err); !gone || err.Error() != want {
 		t.Fatalf("StopRun = %v, want %s", err, want)
 	}
+}
+
+// pinnedListeners reads the listen keys of a Node's config.yaml, by
+// listener name.
+func pinnedListeners(t *testing.T, path string) map[string]string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]string{}
+	for _, name := range []string{"http", "link", "torrent"} {
+		block, _ := config[name].(map[string]any)
+		out[name], _ = block["listen"].(string)
+	}
+	return out
 }

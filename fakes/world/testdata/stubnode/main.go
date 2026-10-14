@@ -89,9 +89,9 @@ func run(dir string) {
 		NodeKey: "0000-0000-0000-0000",
 		Listeners: node.Listeners{
 			Control: d.ControlSocket(),
-			Torrent: netip.MustParseAddrPort(cfg.Torrent.Listen),
-			HTTP:    netip.MustParseAddrPort(cfg.HTTP.Listen),
-			Link:    netip.MustParseAddrPort(cfg.Link.Listen),
+			Torrent: bind(cfg.Torrent.Listen),
+			HTTP:    bind(cfg.HTTP.Listen),
+			Link:    bind(cfg.Link.Listen),
 		},
 	}
 	line, err := json.Marshal(struct {
@@ -108,6 +108,22 @@ func run(dir string) {
 	_ = conn.Close()
 	_ = control.Close()
 }
+
+// bind binds a listen address on port 0 and reports the port it took, as
+// a Node does. It reports any other address as given.
+func bind(listen string) netip.AddrPort {
+	ap := netip.MustParseAddrPort(listen)
+	if ap.Port() != 0 {
+		return ap
+	}
+	l, err := net.Listen("tcp", listen)
+	fail(err)
+	bound = append(bound, l)
+	return netip.MustParseAddrPort(l.Addr().String())
+}
+
+// bound keeps each listener open while the stub runs.
+var bound []net.Listener
 
 func stop(dir string) {
 	d, err := node.ParseDataDir(dir)

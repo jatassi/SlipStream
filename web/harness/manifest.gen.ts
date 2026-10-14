@@ -60,6 +60,28 @@ export const manifestSchema = z.strictObject({
     z.strictObject({
       name: z.string(),
       url: z.string(),
+      captures: z.array(
+        z.strictObject({
+          name: z.string(),
+          kind: z.string(),
+        }),
+      ),
+    }),
+  ),
+  fronts: z.array(
+    z.strictObject({
+      target: z.string(),
+      node: z.string(),
+      address: z.string(),
+      url: z.optional(z.string()),
+    }),
+  ),
+  releases: z.array(
+    z.strictObject({
+      name: z.string(),
+      infoHash: z.string(),
+      size: z.int(),
+      blake3: z.string(),
     }),
   ),
   admin: z.optional(

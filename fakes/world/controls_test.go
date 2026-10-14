@@ -56,14 +56,14 @@ func TestControlsOverTheSocketArmAfterRulesInLogOrder(t *testing.T) {
 	}
 
 	want := []string{
-		`5 fault.set world {"id":"after-step","target":"echo","times":1,"after":{"kind":"step.start"},"fault":"status=503"}`,
-		`6 step.start world {"n":1,"verb":"exec","args":["--","curl","{fakes.echo.url}"]}`,
-		`7 fault.fired world {"rule":"after-step","target":"echo","fault":"status=503","match":1}`,
-		`8 step.end world {"n":1,"exit":0} map[stdout:journal/1.out]`,
-		`9 fault.set world {"fault":"status=404","id":"gone","step":1,"target":"echo"}`,
-		`10 fault.cleared world {"removed":true}`,
+		`fault.set world {"id":"after-step","target":"echo","times":1,"after":{"kind":"step.start"},"fault":"status=503"}`,
+		`step.start world {"n":1,"verb":"exec","args":["--","curl","{fakes.echo.url}"]}`,
+		`fault.fired world {"rule":"after-step","target":"echo","fault":"status=503","match":1}`,
+		`step.end world {"n":1,"exit":0} map[stdout:journal/1.out]`,
+		`fault.set world {"fault":"status=404","id":"gone","step":1,"target":"echo"}`,
+		`fault.cleared world {"removed":true}`,
 	}
-	if got := logged(t, runDir)[4:]; !reflect.DeepEqual(got, want) {
+	if got := besideFronts(t, runDir)[4:]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("events.jsonl holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
@@ -85,10 +85,10 @@ func TestControlsRefuse(t *testing.T) {
 		err  func() error
 		want string
 	}{
-		{"a fault the front can't play", func() error {
-			_, err := remote.SetFault(ctx, fault.Rule{ID: "x", Target: "echo", Fault: fault.BadTLS(fault.Expired)})
+		{"an origin with no front", func() error {
+			_, err := remote.SetFault(ctx, fault.Rule{ID: "x", Target: "echo", Origin: "seedbox", Fault: fault.BadTLS(fault.Expired)})
 			return err
-		}, "tls=expired is a TLS fault and echo carries no TLS"},
+		}, "echo has no front for seedbox"},
 		{"a rule without an id", func() error {
 			_, err := remote.SetFault(ctx, fault.Rule{Target: "echo", Fault: fault.Hang{}})
 			return err

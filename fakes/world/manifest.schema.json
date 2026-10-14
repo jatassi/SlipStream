@@ -222,13 +222,86 @@
           },
           "url": {
             "type": "string"
+          },
+          "captures": {
+            "items": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name",
+                "kind"
+              ]
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
-          "url"
+          "url",
+          "captures"
+        ]
+      },
+      "type": "array"
+    },
+    "fronts": {
+      "items": {
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target",
+          "node",
+          "address"
+        ]
+      },
+      "type": "array"
+    },
+    "releases": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "infoHash": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "blake3": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "infoHash",
+          "size",
+          "blake3"
         ]
       },
       "type": "array"
@@ -271,6 +344,8 @@
     "events",
     "divergences",
     "nodes",
-    "fakes"
+    "fakes",
+    "fronts",
+    "releases"
   ]
 }

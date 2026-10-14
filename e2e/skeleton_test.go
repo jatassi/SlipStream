@@ -1,14 +1,11 @@
 package e2e
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +15,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -159,7 +157,7 @@ func cells(t *testing.T, a *worldtest.API, work string) *cellList {
 func TestSkeletonHome(t *testing.T) {
 	t.Parallel()
 	w := walk(t, "home")
-	home, seedbox := w.m.Nodes[0], w.m.Nodes[1]
+	seedbox := w.m.Nodes[1]
 	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
@@ -170,7 +168,7 @@ func TestSkeletonHome(t *testing.T) {
 	if entries, err := os.ReadDir(filepath.Join(w.m.MediaDir, "movies", ".slipstream-staging")); err != nil || len(entries) != 0 {
 		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
 	}
-	checkAnnounces(t, w, seedbox, home)
+	checkAnnounces(t, w, seedbox)
 	checkMet(t, w)
 }
 
@@ -221,22 +219,28 @@ func checkMet(t *testing.T, w walked) {
 	})
 }
 
-// checkAnnounces checks the tracker heard the downloader announce the
-// grabbed release with the Scenario's passkey: started, then completed
-// with left=0, and left=0 on any later announce while it seeds.
-// libtorrent's min_announce_interval holds the next regular announce
-// 5 minutes past the tracker's 5s interval, so the test does not wait for
-// one. No other Node announced, and nobody announced any release but the
-// grabbed one, so the 720p decoy was never fetched.
-func checkAnnounces(t *testing.T, w walked, downloader world.Node, others ...world.Node) {
+// checkAnnounces checks the announces capture holds the downloader
+// announcing the grabbed release with the Scenario's passkey: started,
+// then completed with left=0, and left=0 on any later announce while it
+// seeds. libtorrent's min_announce_interval holds the next regular
+// announce 5 minutes past the tracker's 5s interval, so the test does not
+// wait for one. Every other announce is a seeder's, from the world, so no
+// other Node announced, and every announce names the grabbed release, so
+// the 720p decoy was never fetched.
+func checkAnnounces(t *testing.T, w walked, downloader world.Node) {
 	t.Helper()
-	port := torrentPort(t, downloader)
+	var all []events.Record
 	var ours []tracker.Announce
-	var all []tracker.Announce
-	worldtest.Until(t, "the tracker hears the downloader complete", func() (bool, error) {
-		all = records(t, w.m)
-		ours = slices.DeleteFunc(slices.Clone(all), func(an tracker.Announce) bool { return an.Port != port })
-		return slices.ContainsFunc(ours, func(an tracker.Announce) bool { return an.Event == "completed" }), nil
+	worldtest.Until(t, "the downloader's completed announce is captured", func() (bool, error) {
+		var err error
+		all, err = events.Select(w.m.RunDir, events.Query{Kind: tracker.Announces.Kind})
+		ours = nil
+		for _, r := range all {
+			if r.Node == downloader.Name {
+				ours = append(ours, announce(t, r))
+			}
+		}
+		return slices.ContainsFunc(ours, func(an tracker.Announce) bool { return an.Event == "completed" }), err
 	})
 	if ours[0].Event != "started" {
 		t.Fatalf("the downloader's first announce = %+v, want started", ours[0])
@@ -252,29 +256,23 @@ func checkAnnounces(t *testing.T, w walked, downloader world.Node, others ...wor
 			t.Fatalf("the downloader announced %+v at or after completed, want left=0", an)
 		}
 	}
-	for _, an := range all {
-		if an.InfoHash != w.grab.InfoHash {
+	for _, r := range all {
+		if r.Node != downloader.Name && r.Node != events.World {
+			t.Fatalf("the tracker heard %s from %s, a Node that downloads nothing", r.Data, r.Node)
+		}
+		if an := announce(t, r); an.InfoHash != w.grab.InfoHash {
 			t.Fatalf("the tracker heard %+v, want only the grabbed release %s", an, w.grab.InfoHash)
-		}
-	}
-	for _, other := range others {
-		other := torrentPort(t, other)
-		if other == port {
-			t.Fatalf("two Nodes listen for torrents on port %d, so their announces can't be told apart", port)
-		}
-		if i := slices.IndexFunc(all, func(an tracker.Announce) bool { return an.Port == other }); i >= 0 {
-			t.Fatalf("the tracker heard %+v from a Node that downloads nothing", all[i])
 		}
 	}
 }
 
-func torrentPort(t *testing.T, n world.Node) uint16 {
+func announce(t *testing.T, r events.Record) tracker.Announce {
 	t.Helper()
-	ap, err := netip.ParseAddrPort(n.Listeners["torrent"])
-	if err != nil {
-		t.Fatalf("node %s's torrent listener: %v", n.Name, err)
+	var an tracker.Announce
+	if err := json.Unmarshal(r.Data, &an); err != nil {
+		t.Fatalf("announce record %d: %v", r.Seq, err)
 	}
-	return ap.Port()
+	return an
 }
 
 func filesUnder(t *testing.T, dir string) []string {
@@ -311,32 +309,4 @@ func sum(t *testing.T, path string) [32]byte {
 	var out [32]byte
 	copy(out[:], h.Sum(nil))
 	return out
-}
-
-// records reads fake-tracker's announce records over the run CA.
-func records(t *testing.T, m world.Manifest) []tracker.Announce {
-	t.Helper()
-	pem, err := os.ReadFile(m.CA.File)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roots := x509.NewCertPool()
-	roots.AppendCertsFromPEM(pem)
-	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}
-	defer client.CloseIdleConnections()
-	i := slices.IndexFunc(m.Fakes, func(f world.Fake) bool { return f.Name == tracker.Fake.Name })
-	req, err := http.NewRequestWithContext(worldtest.Context(t), http.MethodGet, m.Fakes[i].URL+"/records", http.NoBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = res.Body.Close() }()
-	var got []tracker.Announce
-	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
-		t.Fatal(err)
-	}
-	return got
 }

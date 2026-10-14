@@ -110,7 +110,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		t.Fatal(err)
 	}
 	tmdb.Fake.Endpoints(endpoints, w.serve(ctx, t, local, movies))
-	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing)))
+	w.site = w.serve(ctx, t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(site.APIKey(s), listing, func(string) (string, error) { return announce, nil })))
 	return w
 }
 

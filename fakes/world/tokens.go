@@ -13,9 +13,11 @@ var tokens = regexp.MustCompile(`\{\{|\{[A-Za-z][\w.-]*\}`)
 
 // Expand replaces each {path} in args with the manifest value at path,
 // and each {{ with a literal {. A path walks the manifest's JSON by its
-// keys and a list by its entries' names, as in {apiKey},
-// {nodes.home.url} and {fakes.tmdb.url}. A path that names nothing, or
-// names an object or a list, is refused.
+// keys, and a list by the name, target or node of its entries, as in
+// {apiKey}, {nodes.home.url}, {fakes.tmdb.url},
+// {fronts.tmdb.seedbox.url} and {releases.<name>.blake3}, where a name may
+// hold dots. A path that names nothing, or names an object or a list, is
+// refused.
 func Expand(m Manifest, args []string) ([]string, error) {
 	var tree any
 	if err := json.Unmarshal(marshal(m), &tree); err != nil {
@@ -42,19 +44,9 @@ func Expand(m Manifest, args []string) ([]string, error) {
 }
 
 func lookup(tree any, path string) (string, error) {
-	at := tree
-	for _, key := range strings.Split(path, ".") {
-		switch node := at.(type) {
-		case map[string]any:
-			at = node[key]
-		case []any:
-			at = named(node, key)
-		default:
-			at = nil
-		}
-		if at == nil {
-			return "", fmt.Errorf("{%s} names nothing in the manifest", path)
-		}
+	at, ok := walk(tree, strings.Split(path, "."))
+	if !ok {
+		return "", fmt.Errorf("{%s} names nothing in the manifest", path)
 	}
 	switch v := at.(type) {
 	case string:
@@ -68,13 +60,46 @@ func lookup(tree any, path string) (string, error) {
 	}
 }
 
-func named(list []any, name string) any {
-	for _, e := range list {
-		if entry, ok := e.(map[string]any); ok && entry["name"] == name {
-			return entry
+// walk follows keys from at. In a list it tries the longest run of keys
+// that, joined with dots, picks entries, since a release's name holds
+// dots.
+func walk(at any, keys []string) (any, bool) {
+	if len(keys) == 0 {
+		return at, at != nil
+	}
+	switch node := at.(type) {
+	case map[string]any:
+		return walk(node[keys[0]], keys[1:])
+	case []any:
+		for n := len(keys); n > 0; n-- {
+			if picked := pick(node, strings.Join(keys[:n], ".")); picked != nil {
+				if v, ok := walk(picked, keys[n:]); ok {
+					return v, true
+				}
+			}
 		}
 	}
-	return nil
+	return nil, false
+}
+
+// pick is the one entry of list whose name, target or node is key, the
+// entries when several are, or nil.
+func pick(list []any, key string) any {
+	var out []any
+	for _, e := range list {
+		entry, ok := e.(map[string]any)
+		if ok && (entry["name"] == key || entry["target"] == key || entry["node"] == key) {
+			out = append(out, entry)
+		}
+	}
+	switch len(out) {
+	case 0:
+		return nil
+	case 1:
+		return out[0]
+	default:
+		return out
+	}
 }
 
 // braces are what Literal escapes: a run of braces, which Expand halves,
