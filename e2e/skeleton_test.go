@@ -33,7 +33,11 @@ type grabView struct {
 	NodeID   string `json:"nodeId"`
 	InfoHash string `json:"infoHash"`
 	Stage    string `json:"stage"`
-	Failure  *struct {
+	Progress *struct {
+		Done  int64 `json:"done"`
+		Total int64 `json:"total"`
+	} `json:"progress"`
+	Failure *struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"failure"`
@@ -54,6 +58,7 @@ func (g grabView) stages() []string {
 // file.
 type walked struct {
 	s    scenario.Scenario
+	run  *world.Run
 	m    world.Manifest
 	a    *worldtest.API
 	work string
@@ -65,13 +70,27 @@ type walked struct {
 // stages until it is imported.
 func walk(t *testing.T, name string) walked {
 	t.Helper()
+	w := begin(t, name)
+	stream := w.a.Stream("home", w.a.SignIn("home"))
+	search := w.search(t)
+	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
+	w.ended(t, grabChanged(t, stream, w.work))
+	if w.grab.Stage != "imported" {
+		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
+	}
+	return w
+}
+
+// begin launches the catalog Scenario name, and its Admin finds the
+// catalog movie and adds it monitored.
+func begin(t *testing.T, name string) walked {
+	t.Helper()
 	s, err := scenario.Load(name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	run := worldtest.Launch(t, name)
-	w := walked{s: s, m: run.Manifest(), a: api(t, run)}
-	stream := w.a.Stream("home", w.a.SignIn("home"))
+	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
 
 	worldtest.Expect(t, "searchCatalog", w.a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", ""), worldtest.Reply{
 		Status: 200,
@@ -89,7 +108,12 @@ func walk(t *testing.T, name string) walked {
 		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"standard","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
 			`"state":"missing"}]}` + "\n",
 	})
+	return w
+}
 
+// search starts a search of w's Work and returns its run's id.
+func (w *walked) search(t *testing.T) string {
+	t.Helper()
 	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", "")
 	var started struct {
 		SearchIDs []string `json:"searchIds"`
@@ -98,17 +122,16 @@ func walk(t *testing.T, name string) walked {
 		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
 	}
 	worldtest.Expect(t, "searchWork", reply, worldtest.Reply{Status: http.StatusAccepted, Body: `{"searchIds":["` + started.SearchIDs[0] + `"]}` + "\n"})
-	event(t, stream, "grabs.search-changed", `{"searchId":"`+started.SearchIDs[0]+`","workId":"`+w.work+`"}`)
-	id := grabChanged(t, stream, w.work)
+	return started.SearchIDs[0]
+}
 
+// ended reads the Grab id until it is imported or failed.
+func (w *walked) ended(t *testing.T, id string) {
+	t.Helper()
 	worldtest.Until(t, "the Grab is imported or failed", func() (bool, error) {
 		w.grab = *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+id, ""), &grabView{})
 		return w.grab.Stage == "imported" || w.grab.Stage == "failed", nil
 	})
-	if w.grab.Stage != "imported" {
-		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
-	}
-	return w
 }
 
 var grabChangedData = regexp.MustCompile(`(?m)^event: grabs\.changed\ndata: \{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
