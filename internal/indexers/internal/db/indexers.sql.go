@@ -12,6 +12,26 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const getIndexer = `-- name: GetIndexer :one
+SELECT id, name, protocol, url, api_key, home_node_id, caps, created_at FROM indexers_indexer WHERE id = ?1
+`
+
+func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer, error) {
+	row := q.db.QueryRowContext(ctx, getIndexer, id)
+	var i IndexersIndexer
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Protocol,
+		&i.Url,
+		&i.ApiKey,
+		&i.HomeNodeID,
+		&i.Caps,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertIndexer = `-- name: InsertIndexer :exec
 INSERT INTO indexers_indexer (id, name, protocol, url, api_key, home_node_id, caps, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)

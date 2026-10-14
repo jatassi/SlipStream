@@ -48,6 +48,7 @@ type Publisher interface {
 var (
 	ErrNoType = errors.New("no Content Type has that id")
 	ErrExists = errors.New("the Content Type already has a root")
+	ErrNoRoot = errors.New("the Content Type has no root")
 )
 
 // UnusableError is a folder that can't be a root, and why.
@@ -139,4 +140,25 @@ func (r *Roots) List(ctx context.Context, _ identity.Admin) ([]Root, error) {
 		out[i] = Root{ID: row.ID, ContentType: row.ContentType, Node: row.NodeID, Path: row.Path}
 	}
 	return out, nil
+}
+
+// Of reads t's root in r, ErrNoRoot when it has none.
+func Of(ctx context.Context, r storage.Reader[file], t works.TypeID) (Root, error) {
+	row, err := db.New(r).GetRootOf(ctx, t)
+	if errors.Is(err, storage.ErrNoRows) {
+		return Root{}, ErrNoRoot
+	}
+	if err != nil {
+		return Root{}, err
+	}
+	return Root{ID: row.ID, ContentType: row.ContentType, Node: row.NodeID, Path: row.Path}, nil
+}
+
+// Get reads root id in r.
+func Get(ctx context.Context, r storage.Reader[file], id ID) (Root, error) {
+	row, err := db.New(r).GetRoot(ctx, id)
+	if err != nil {
+		return Root{}, err
+	}
+	return Root{ID: row.ID, ContentType: row.ContentType, Node: row.NodeID, Path: row.Path}, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -40,7 +41,7 @@ type library struct {
 
 func open(t *testing.T) *library {
 	t.Helper()
-	lib := storagetest.Library(t, works.Schema(), targets.Schema(), roots.Schema(), files.Schema())
+	lib := storagetest.Library(t, works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,

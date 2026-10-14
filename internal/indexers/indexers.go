@@ -181,18 +181,39 @@ func (x *Indexers) home(ctx context.Context) (role.NodeID, error) {
 
 // List lists every Indexer by name.
 func (x *Indexers) List(ctx context.Context, _ identity.Admin) ([]Indexer, error) {
-	rows, err := db.New(x.cfg.Library).ListIndexers(ctx)
+	return All(ctx, x.cfg.Library)
+}
+
+// All reads every Indexer in r, by name.
+func All(ctx context.Context, r storage.Reader[file]) ([]Indexer, error) {
+	rows, err := db.New(r).ListIndexers(ctx)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]Indexer, len(rows))
 	for i, row := range rows {
-		out[i] = Indexer{ID: row.ID, Name: row.Name, Protocol: row.Protocol, URL: row.Url, APIKey: row.ApiKey, HomeNode: row.HomeNodeID, CreatedAt: row.CreatedAt.Time()}
-		if err := json.Unmarshal([]byte(row.Caps), &out[i].Caps); err != nil {
-			return nil, fmt.Errorf("indexer %s: decode the caps: %w", row.ID, err)
+		if out[i], err = indexer(row); err != nil {
+			return nil, err
 		}
 	}
 	return out, nil
+}
+
+// Get reads Indexer id in r.
+func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
+	row, err := db.New(r).GetIndexer(ctx, id)
+	if err != nil {
+		return Indexer{}, err
+	}
+	return indexer(row)
+}
+
+func indexer(row db.IndexersIndexer) (Indexer, error) {
+	idx := Indexer{ID: row.ID, Name: row.Name, Protocol: row.Protocol, URL: row.Url, APIKey: row.ApiKey, HomeNode: row.HomeNodeID, CreatedAt: row.CreatedAt.Time()}
+	if err := json.Unmarshal([]byte(row.Caps), &idx.Caps); err != nil {
+		return Indexer{}, fmt.Errorf("indexer %s: decode the caps: %w", row.ID, err)
+	}
+	return idx, nil
 }
 
 func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {

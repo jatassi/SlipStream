@@ -7,3 +7,6 @@ VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(protocol), sqlc.arg(url), sqlc.ar
 
 -- name: ListIndexers :many
 SELECT * FROM indexers_indexer ORDER BY name;
+
+-- name: GetIndexer :one
+SELECT * FROM indexers_indexer WHERE id = sqlc.arg(id);

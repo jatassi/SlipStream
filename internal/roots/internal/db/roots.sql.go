@@ -12,6 +12,38 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const getRoot = `-- name: GetRoot :one
+SELECT id, content_type, node_id, path FROM roots_root WHERE id = ?1
+`
+
+func (q *Queries) GetRoot(ctx context.Context, id RootID) (RootsRoot, error) {
+	row := q.db.QueryRowContext(ctx, getRoot, id)
+	var i RootsRoot
+	err := row.Scan(
+		&i.ID,
+		&i.ContentType,
+		&i.NodeID,
+		&i.Path,
+	)
+	return i, err
+}
+
+const getRootOf = `-- name: GetRootOf :one
+SELECT id, content_type, node_id, path FROM roots_root WHERE content_type = ?1
+`
+
+func (q *Queries) GetRootOf(ctx context.Context, contentType works.TypeID) (RootsRoot, error) {
+	row := q.db.QueryRowContext(ctx, getRootOf, contentType)
+	var i RootsRoot
+	err := row.Scan(
+		&i.ID,
+		&i.ContentType,
+		&i.NodeID,
+		&i.Path,
+	)
+	return i, err
+}
+
 const hasRoot = `-- name: HasRoot :one
 SELECT EXISTS (SELECT 1 FROM roots_root WHERE content_type = ?1)
 `

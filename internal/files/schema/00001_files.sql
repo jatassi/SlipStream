@@ -8,7 +8,7 @@ CREATE TABLE files_file (
     path TEXT NOT NULL CHECK (path <> ''),
     size INTEGER NOT NULL CHECK (size >= 0),
     probe TEXT NOT NULL,
-    grab_id BLOB,
+    grab_id BLOB REFERENCES grabs_grab (id),
     UNIQUE (root_id, path)
 ) STRICT;
 

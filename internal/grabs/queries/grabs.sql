@@ -40,9 +40,6 @@ SELECT * FROM grabs_grab ORDER BY created_at DESC, id DESC;
 -- name: ListOpenGrabs :many
 SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
--- name: ListGrabsOfWork :many
-SELECT * FROM grabs_grab WHERE work_id = sqlc.arg(work_id) ORDER BY created_at, id;
-
 -- name: GetGrab :one
 SELECT * FROM grabs_grab WHERE id = sqlc.arg(id);
 
@@ -64,7 +61,7 @@ ORDER BY info_hash, id;
 INSERT INTO grabs_search (id, work_id, item_id, indexer_id, started_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(indexer_id), sqlc.arg(started_at));
 
--- name: FinishSearch :execrows
+-- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = sqlc.arg(finished_at), outcome = sqlc.arg(outcome), candidates = sqlc.arg(candidates),
     grab_id = sqlc.narg(grab_id)
 WHERE id = sqlc.arg(id) AND finished_at IS NULL;
@@ -74,3 +71,9 @@ SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
 
 -- name: ListSearchesOfWork :many
 SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) ORDER BY started_at DESC, id DESC;
+
+-- name: ListTargetsOfWork :many
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+WHERE grabs_grab.work_id = sqlc.arg(work_id)
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
