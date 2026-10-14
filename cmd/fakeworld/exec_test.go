@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -231,11 +232,12 @@ func TestTokens(t *testing.T) {
 
 // TestReplayTarget is the test whose command the bundle in
 // TestReplayRunsTheRecordedTest records. Run by that replay, it writes
-// the binary it was handed to TEST_REPLAY_OUT.
+// the binaries and the runs dir it was handed to TEST_REPLAY_OUT.
 func TestReplayTarget(t *testing.T) {
 	t.Parallel()
 	if out := os.Getenv("TEST_REPLAY_OUT"); out != "" {
-		if err := os.WriteFile(out, []byte(os.Getenv("TEST_SLIPSTREAM_BINARY")), 0o600); err != nil {
+		handed := strings.Join([]string{os.Getenv("TEST_SLIPSTREAM_BINARY"), os.Getenv("TEST_FAKEWORLD_BINARY"), os.Getenv("TEST_FAKEWORLD_RUNS")}, "\n")
+		if err := os.WriteFile(out, []byte(handed), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -257,13 +259,30 @@ func TestReplayRunsTheRecordedTest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out := filepath.Join(t.TempDir(), "binary")
+	out := filepath.Join(t.TempDir(), "handed")
 	cmd := exec.CommandContext(ctx, testbin.Fakeworld(t), "replay", runDir)
-	cmd.Env = append(os.Environ(), "TEST_REPLAY_OUT="+out)
+	unset := func(kv string) bool { return strings.HasPrefix(kv, "TEST_FAKEWORLD_BINARY=") }
+	cmd.Env = append(slices.DeleteFunc(os.Environ(), unset), "TEST_REPLAY_OUT="+out)
 	if b, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("replay of a test bundle: %v\n%s", err, b)
 	}
-	if got, want := readFile(t, out), filepath.Join(runDir, "bin", filepath.Base(run.Manifest().Binary.Path)); got != want {
-		t.Fatalf("the replayed test ran against %q, want the bundle's %q", got, want)
+	handed := strings.Split(readFile(t, out), "\n")
+	if len(handed) != 3 {
+		t.Fatalf("the replayed test was handed %q, want three paths", handed)
 	}
+	// os.Executable resolves symlinks on Linux only.
+	handed[1] = resolved(t, handed[1])
+	want := []string{filepath.Join(runDir, "bin", filepath.Base(run.Manifest().Binary.Path)), resolved(t, testbin.Fakeworld(t)), runDir + "-replay-1"}
+	if !slices.Equal(handed, want) {
+		t.Fatalf("the replayed test was handed %q, want the bundle's binary, the replaying fakeworld and the replay dir %q", handed, want)
+	}
+}
+
+func resolved(t *testing.T, path string) string {
+	t.Helper()
+	p, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
 }

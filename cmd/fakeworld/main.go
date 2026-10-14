@@ -45,11 +45,9 @@ const usageText = `usage: fakeworld <command>
       stop the Node with slipstream stop, kill its process, start it again
       on the same config.yaml, or empty a stopped Node's data dir but its
       config.yaml, and print its manifest entry
-<<<<<<< HEAD
   browser <run-dir>
       write the playwright cli config of each shell the manifest's browser
       block names and print their paths
-=======
   fs stat <run-dir> <path>
       print the file's path, size, link count and BLAKE3
   fs match <run-dir> <path> --release <name>
@@ -68,9 +66,9 @@ const usageText = `usage: fakeworld <command>
       check the bundle's scenario.yaml and binary against its manifest, then
       for a run fakeworld start launched, start a fresh world from its
       Scenario and run its steps 1 to N again, stopping at the first whose
-      exit differs from the one recorded; for a run a Go test launched, run
-      the test again against the binary
->>>>>>> s10/doctor-replay
+      exit differs from the one recorded; for a run a Go or browser test
+      launched, run the test again against the binary and this fakeworld,
+      keeping the test's runs in the replay dir
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
