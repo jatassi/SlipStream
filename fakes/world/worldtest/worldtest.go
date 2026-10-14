@@ -80,6 +80,7 @@ func launch(t *testing.T, s scenario.Scenario, binary string) *world.Run {
 	if err != nil {
 		t.Fatalf("launch %s: %v", s.Name, err)
 	}
+	journalInto(t, run)
 	return run
 }
 

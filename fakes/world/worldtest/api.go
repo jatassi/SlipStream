@@ -22,16 +22,71 @@ import (
 // API calls a world's Nodes the way a script does, one request each over
 // one client, with the run's API key on Admin calls. Both tiers use it:
 // the end-to-end tier over the OS network, the simulation tier over its
-// in-memory one.
+// in-memory one. On a run t launched, each call journals as an
+// exec -- curl step whose tokens name the run's values.
 type API struct {
-	ctx    context.Context
-	t      *testing.T
-	client *http.Client
-	m      world.Manifest
+	ctx     context.Context
+	t       *testing.T
+	client  *http.Client
+	m       world.Manifest
+	journal *world.Run
 }
 
 func NewAPI(ctx context.Context, t *testing.T, client *http.Client, m world.Manifest) *API {
-	return &API{ctx: ctx, t: t, client: client, m: m}
+	a := &API{ctx: ctx, t: t, client: client, m: m}
+	for _, run := range launchedBy(t) {
+		if run.Manifest().RunDir == m.RunDir {
+			a.journal = run
+		}
+	}
+	return a
+}
+
+// request is one call to a Node.
+type request struct {
+	node, method, path string
+	body               string
+	// bodyArg is body as the journal writes it.
+	bodyArg string
+	headers []header
+}
+
+type header struct {
+	name, value string
+	// arg is value as the journal writes it.
+	arg string
+}
+
+func apiKey(key string) header { return header{"X-Api-Key", key, "{apiKey}"} }
+
+func cookie(session string) header {
+	v := identity.CookieName + "=" + session
+	return header{"Cookie", v, world.Literal(v)}
+}
+
+// curl is q as the command that sends it from a shell.
+func (q request) curl() []string {
+	args := []string{"curl", "-sS"}
+	if q.method != http.MethodGet {
+		args = append(args, "-X", q.method)
+	}
+	for _, h := range q.headers {
+		args = append(args, "-H", h.name+": "+h.arg)
+	}
+	if q.body != "" {
+		args = append(args, "-H", "Content-Type: application/json", "--data-binary", q.bodyArg)
+	}
+	return append(args, "{nodes."+q.node+".url}"+world.Literal(q.path))
+}
+
+// step journals q, unless the API's run is not one t launched or q is an
+// Until's polling, and returns what ends the step.
+func (a *API) step(q request) func(exit int, stdout []byte) {
+	a.t.Helper()
+	if a.journal == nil || waiting(a.t) {
+		return func(int, []byte) {}
+	}
+	return startStep(a.t, a.journal, world.StepStart{Verb: "exec", Args: append([]string{"--"}, q.curl()...)})
 }
 
 type Reply struct {
@@ -51,7 +106,7 @@ func (a *API) Node(name string) world.Node {
 // Get calls path on the Node named name with no credential.
 func (a *API) Get(name, path string) Reply {
 	a.t.Helper()
-	r, _ := a.do(name, http.MethodGet, path, "", nil)
+	r, _ := a.do(request{node: name, method: http.MethodGet, path: path})
 	return r
 }
 
@@ -59,7 +114,7 @@ func (a *API) Get(name, path string) Reply {
 // body as JSON unless it is empty.
 func (a *API) Admin(name, method, path, body string) Reply {
 	a.t.Helper()
-	r, _ := a.do(name, method, path, body, map[string]string{"X-Api-Key": a.m.APIKey})
+	r, _ := a.do(request{node: name, method: method, path: path, body: body, bodyArg: world.Literal(body), headers: []header{apiKey(a.m.APIKey)}})
 	return r
 }
 
@@ -77,7 +132,7 @@ func (a *API) SignIn(name string) string {
 	if err != nil {
 		a.t.Fatal(err)
 	}
-	reply, cookies := a.do(name, http.MethodPost, "/api/v1/session", string(body), nil)
+	reply, cookies := a.do(request{node: name, method: http.MethodPost, path: "/api/v1/session", body: string(body), bodyArg: `{"email":"{admin.email}","pin":"{admin.pin}"}`})
 	for _, c := range cookies {
 		if c.Name == identity.CookieName && reply.Status == http.StatusOK {
 			return c.Value
@@ -91,7 +146,7 @@ func (a *API) SignIn(name string) string {
 // JSON unless it is empty.
 func (a *API) Signed(name, session, method, path, body string) Reply {
 	a.t.Helper()
-	r, _ := a.do(name, method, path, body, map[string]string{"Cookie": identity.CookieName + "=" + session})
+	r, _ := a.do(request{node: name, method: method, path: path, body: body, bodyArg: world.Literal(body), headers: []header{cookie(session)}})
 	return r
 }
 
@@ -102,7 +157,10 @@ var resync = regexp.MustCompile(`^id: \d+\nretry: \d+\nevent: live\.resync\ndata
 // The test's cleanup closes it.
 func (a *API) Stream(name, session string) *apitest.Stream {
 	a.t.Helper()
-	res := a.send(name, http.MethodGet, "/api/v1/events", "", map[string]string{"Cookie": identity.CookieName + "=" + session})
+	q := request{node: name, method: http.MethodGet, path: "/api/v1/events", headers: []header{cookie(session)}}
+	end := a.step(q)
+	res := a.send(q)
+	end(0, nil)
 	if res.StatusCode != http.StatusOK {
 		_ = res.Body.Close()
 		a.t.Fatalf("GET /api/v1/events = %d", res.StatusCode)
@@ -115,21 +173,21 @@ func (a *API) Stream(name, session string) *apitest.Stream {
 	return s
 }
 
-func (a *API) send(name, method, path, body string, headers map[string]string) *http.Response {
+func (a *API) send(q request) *http.Response {
 	a.t.Helper()
 	var r io.Reader = http.NoBody
-	if body != "" {
-		r = strings.NewReader(body)
+	if q.body != "" {
+		r = strings.NewReader(q.body)
 	}
-	req, err := http.NewRequestWithContext(a.ctx, method, a.Node(name).URL+path, r)
+	req, err := http.NewRequestWithContext(a.ctx, q.method, a.Node(q.node).URL+q.path, r)
 	if err != nil {
 		a.t.Fatal(err)
 	}
-	if body != "" {
+	if q.body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
+	for _, h := range q.headers {
+		req.Header.Set(h.name, h.value)
 	}
 	res, err := a.client.Do(req)
 	if err != nil {
@@ -138,14 +196,16 @@ func (a *API) send(name, method, path, body string, headers map[string]string) *
 	return res
 }
 
-func (a *API) do(name, method, path, body string, headers map[string]string) (Reply, []*http.Cookie) {
+func (a *API) do(q request) (Reply, []*http.Cookie) {
 	a.t.Helper()
-	res := a.send(name, method, path, body, headers)
+	end := a.step(q)
+	res := a.send(q)
 	defer func() { _ = res.Body.Close() }()
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		a.t.Fatal(err)
 	}
+	end(0, data)
 	return Reply{res.StatusCode, string(data)}, res.Cookies()
 }
 

@@ -1,7 +1,6 @@
 package world
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -109,14 +108,16 @@ func readLaunch(runDir string) (Supervisor, []Spawn, error) {
 	return Supervisor{PID: l.PID, Log: filepath.Join(runDir, worldLogFile), Control: l.Control}, spawns, nil
 }
 
-// record appends a record about node, or the world for "". A run whose
-// log fails keeps running; world.log says why its record is missing.
+// record appends a record of kind about node.
 func (r *Run) record(kind, node string, v any) {
-	if node == "" {
-		node = events.World
-	}
-	if _, err := r.events.Append(events.Record{Kind: kind, Node: node, Data: data(v)}); err != nil {
-		r.log.Error("event log", "kind", kind, "err", err.Error())
+	r.appendRecord(events.Record{Kind: kind, Node: node, Data: data(v)})
+}
+
+// appendRecord appends rec. A run whose log fails keeps running;
+// world.log says why its record is missing.
+func (r *Run) appendRecord(rec events.Record) {
+	if _, err := r.events.Append(rec); err != nil {
+		r.log.Error("event log", "kind", rec.Kind, "err", err.Error())
 	}
 }
 
@@ -129,11 +130,7 @@ func (r *Run) observe(rec events.Record) []events.Record {
 	return firedRecords(r.faults.Observe(rec))
 }
 
-func (r *Run) fired(f fault.Firing) {
-	if _, err := r.events.Append(firedRecords([]fault.Firing{f})[0]); err != nil {
-		r.log.Error("event log", "kind", events.FaultFired, "err", err.Error())
-	}
-}
+func (r *Run) fired(f fault.Firing) { r.appendRecord(firedRecords([]fault.Firing{f})[0]) }
 
 func firedRecords(fs []fault.Firing) []events.Record {
 	recs := make([]events.Record, len(fs))
@@ -152,7 +149,7 @@ func errorLine(line []byte) bool {
 	var rec struct {
 		Level string `json:"level"`
 	}
-	return bytes.HasPrefix(line, []byte("{")) && json.Unmarshal(line, &rec) == nil && rec.Level == slog.LevelError.String()
+	return json.Unmarshal(line, &rec) == nil && rec.Level == slog.LevelError.String()
 }
 
 func data(v any) json.RawMessage {

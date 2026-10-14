@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
 
 	"github.com/jatassi/slipstream/fakes/world"
 )
@@ -41,9 +39,6 @@ func journalOn(ctx context.Context, c world.Controls, verb string, args []string
 func read(ctx context.Context, runDir, verb string, args []string, body func(ctx context.Context) int) int {
 	c, err := world.Dial(runDir)
 	if errors.Is(err, world.ErrNotLive) {
-		if _, serr := os.Stat(runDir); serr != nil {
-			return failed(verb, fmt.Errorf("run dir: %w", serr))
-		}
 		return body(ctx)
 	}
 	if err != nil {

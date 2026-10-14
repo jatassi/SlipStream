@@ -53,8 +53,8 @@ type Binary struct {
 	Version string `json:"version"`
 }
 
-// Supervisor is the process that launched the run and stops it through
-// its stop channel, Control.
+// Supervisor is the process that launched the run and serves its control
+// socket, Control.
 type Supervisor struct {
 	PID     int    `json:"pid"`
 	Log     string `json:"log"`

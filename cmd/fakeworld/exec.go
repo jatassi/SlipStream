@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -68,14 +67,7 @@ func execStep(f execFlags) int {
 	ctx, stop := interrupted()
 	defer stop()
 	return journal(ctx, f.runDir, "exec", f.args, func(ctx context.Context, _ world.Controls, s world.Step) (int, map[string]string) {
-		dir := "journal"
-		if f.proof != "" {
-			dir = filepath.Join("proof", filepath.FromSlash(f.proof))
-		}
-		files := map[string]string{
-			"stdout": filepath.ToSlash(filepath.Join(dir, strconv.Itoa(s.N)+".out")),
-			"stderr": filepath.ToSlash(filepath.Join(dir, strconv.Itoa(s.N)+".err")),
-		}
+		files := world.StepOutputs(s.N, f.proof)
 		exit, err := runCommand(ctx, f.runDir, files, path, argv[1:])
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "fakeworld exec: %v\n", err)

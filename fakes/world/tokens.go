@@ -76,3 +76,31 @@ func named(list []any, name string) any {
 	}
 	return nil
 }
+
+// braces are what Literal escapes: a run of braces, which Expand halves,
+// and a single brace that starts a {path}.
+var braces = regexp.MustCompile(`\{\{+|\{[A-Za-z][\w.-]*\}`)
+
+// Literal escapes s so that Expand gives it back unchanged.
+func Literal(s string) string {
+	return braces.ReplaceAllStringFunc(s, func(m string) string {
+		if strings.HasPrefix(m, "{{") {
+			return m + m
+		}
+		return "{" + m
+	})
+}
+
+// StepOutputs are where a step's stdout and stderr are kept, relative to
+// the run dir: journal/<n>.out and .err, or the same names under
+// proof/<feature>/<sub> for a step with a proof dir.
+func StepOutputs(n int, proof string) map[string]string {
+	dir := "journal"
+	if proof != "" {
+		dir = "proof/" + proof
+	}
+	return map[string]string{
+		"stdout": fmt.Sprintf("%s/%d.out", dir, n),
+		"stderr": fmt.Sprintf("%s/%d.err", dir, n),
+	}
+}

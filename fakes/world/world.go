@@ -141,8 +141,9 @@ func CreateRunDir(dir string) error {
 
 // Launch starts the world opts describes and returns once it is ready and
 // its manifest is written. ctx bounds only the launch. A failed launch
-// leaves no process running and writes no manifest; world.log and the
-// Node logs stay as evidence.
+// leaves no process running and writes no manifest; the event log, ending
+// in a run.stopped that names the failure, world.log and the Node logs
+// stay as evidence.
 func Launch(ctx context.Context, opts Options) (*Run, error) {
 	return launch(ctx, opts, fakes)
 }
@@ -184,13 +185,13 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		_ = r.logFile.Close()
 		return nil, err
 	}
-	r.record(events.RunLaunched, "", launched{RunID: r.id, PID: os.Getpid(), Control: r.socket, ScratchDir: r.scratchDir, Scenario: opts.Scenario.Name, Origin: opts.Origin})
+	r.record(events.RunLaunched, events.World, launched{RunID: r.id, PID: os.Getpid(), Control: r.socket, ScratchDir: r.scratchDir, Scenario: opts.Scenario.Name, Origin: opts.Origin})
 
 	var undo unwind
 	defer func() {
 		if err != nil {
 			undo.run()
-			r.record(events.RunStopped, "", stopped{Error: err.Error()})
+			r.record(events.RunStopped, events.World, stopped{Error: err.Error()})
 			_ = r.events.Close()
 			_ = r.logFile.Close()
 		}
@@ -226,7 +227,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 			return nil, err
 		}
 	}
-	r.record(events.RunReady, "", struct {
+	r.record(events.RunReady, events.World, struct {
 		Manifest string `json:"manifest"`
 	}{manifestFile})
 	return r, nil
@@ -560,9 +561,7 @@ func (r *Run) startNode(ctx context.Context, undo *unwind, n *nodeRun) error {
 	found := false
 	watch := func(line []byte) {
 		if errorLine(line) {
-			if _, err := r.events.Append(events.Record{Kind: events.NodeError, Node: name, Data: line}); err != nil {
-				r.log.Error("event log", "kind", events.NodeError, "err", err.Error())
-			}
+			r.appendRecord(events.Record{Kind: events.NodeError, Node: name, Data: line})
 		}
 		if found {
 			return

@@ -31,3 +31,12 @@ func TestExpand(t *testing.T) {
 		}
 	}
 }
+
+func TestLiteralExpandsToItself(t *testing.T) {
+	m := world.Manifest{APIKey: "ssk_x"}
+	for _, s := range []string{`{"contentType":"movie"}`, "{apiKey}", "{{apiKey}", "{{", "{{{", "{{{apiKey}", "{ apiKey }", "{nodes.home.url}/x"} {
+		if got, err := world.Expand(m, []string{world.Literal(s)}); err != nil || got[0] != s {
+			t.Errorf("Expand(Literal(%q)) = %q, %v", s, got, err)
+		}
+	}
+}
