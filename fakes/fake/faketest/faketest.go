@@ -21,18 +21,30 @@ import (
 )
 
 // Served is a running fake and a client that reaches it, trusting its
-// certificate when it serves TLS.
+// certificate when it serves TLS. Faults plays on every connection and
+// request, and a test may set and clear its rules as it goes.
 type Served struct {
 	Address fake.Address
 	Client  *http.Client
+	Faults  *fault.Plan
 }
 
-// Option edits the Env the fake is built with.
-type Option func(*fake.Env)
+type options struct {
+	releases *releases.Catalog
+	rules    []fault.Rule
+}
+
+type Option func(*options)
 
 // WithReleases hands the fake a release catalog, as the world does.
 func WithReleases(c *releases.Catalog) Option {
-	return func(e *fake.Env) { e.Releases = c }
+	return func(o *options) { o.releases = c }
+}
+
+// WithFaults sets rules before the fake serves. Their Target is the
+// fake's name, and its one front carries connections and HTTP.
+func WithFaults(rules ...fault.Rule) Option {
+	return func(o *options) { o.rules = append(o.rules, rules...) }
 }
 
 // Loopback serves spec on 127.0.0.1, behind a leaf from a run CA when
@@ -67,7 +79,19 @@ func newCA(t testing.TB) *ca.CA {
 
 func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr *http.Transport, authority *ca.CA, opts ...Option) Served {
 	t.Helper()
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	front := fault.Front{Target: fault.Target(spec.Name), Layers: fault.Conn | fault.HTTP}
+	plan := fault.NewPlan([]fault.Front{front}, nil)
+	for _, r := range o.rules {
+		if err := plan.Set(r); err != nil {
+			t.Fatal(err)
+		}
+	}
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
+	l = plan.Listener(l, front)
 	if spec.TLS {
 		leaf, err := authority.Leaf("127.0.0.1", spec.Name+".fake.localhost")
 		if err != nil {
@@ -76,10 +100,8 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
 		tr.TLSClientConfig = &tls.Config{RootCAs: authority.Pool(), MinVersion: tls.VersionTLS12}
 	}
-	env := fake.NewEnv(s, spec.Name, slog.New(slog.NewTextHandler(t.Output(), nil)))
-	for _, opt := range opts {
-		opt(&env)
-	}
+	env := fake.NewEnv(s, spec.Name, slog.New(slog.NewTextHandler(t.Output(), nil)), plan)
+	env.Releases = o.releases
 	server, err := spec.New(s, env)
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +114,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 			t.Errorf("fake %s: %v", spec.Name, err)
 		}
 	})
-	return Served{Address: at, Client: &http.Client{Transport: tr}}
+	return Served{Address: at, Client: &http.Client{Transport: tr}, Faults: plan}
 }
 
 // pipeListener hands each dial's far end of a fault.Pipe to Accept. Every

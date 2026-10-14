@@ -89,10 +89,10 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			srv.torrents[r.InfoHash] = true
 		}
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /announce/{passkey}", srv.announce)
-	mux.HandleFunc("GET /records", srv.list)
-	return fake.HTTP(mux), nil
+	return fake.HTTP(env, fake.Routes{
+		"announce": {Pattern: "GET /announce/{passkey}", Handler: srv.announce},
+		"records":  {Pattern: "GET /records", Handler: srv.list},
+	}), nil
 }
 
 func (s *server) announce(w http.ResponseWriter, r *http.Request) {

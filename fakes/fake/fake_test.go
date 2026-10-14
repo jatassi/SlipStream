@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 )
 
@@ -27,7 +28,7 @@ func TestNewEnvKeysTheFakeUnderTheScenarioSeed(t *testing.T) {
 			}
 			return a
 		},
-	})))
+	})), fault.NewPlan(nil, nil))
 	env.Log.Info("served")
 	if got, want := log.String(), "level=INFO msg=served fake=tmdb\n"; got != want {
 		t.Fatalf("log = %q, want %q", got, want)

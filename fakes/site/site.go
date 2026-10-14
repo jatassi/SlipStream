@@ -34,7 +34,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	}
 	var listed []Release
 	if env.Releases == nil {
-		return fake.HTTP(Handler(APIKey(s), nil)), nil
+		return fake.HTTP(env, Routes(APIKey(s), nil)), nil
 	}
 	for _, r := range env.Releases.Releases {
 		listed = append(listed, Release{
@@ -42,7 +42,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo,
 		})
 	}
-	return fake.HTTP(Handler(APIKey(s), listed)), nil
+	return fake.HTTP(env, Routes(APIKey(s), listed)), nil
 }
 
 // Release is one item the site lists, and its .torrent.
@@ -75,13 +75,13 @@ type site struct {
 	releases []Release
 }
 
-// Handler serves releases behind apiKey.
-func Handler(apiKey string, releases []Release) http.Handler {
+// Routes serve releases behind apiKey.
+func Routes(apiKey string, releases []Release) fake.Routes {
 	s := &site{apiKey: apiKey, releases: releases}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+TorznabPath+"/api", s.api)
-	mux.HandleFunc("GET /download/{file}", s.download)
-	return mux
+	return fake.Routes{
+		"torznab":  {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
+		"download": {Pattern: "GET /download/{file}", Handler: s.download},
+	}
 }
 
 func (s *site) api(w http.ResponseWriter, r *http.Request) {

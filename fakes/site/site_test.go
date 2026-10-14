@@ -38,8 +38,8 @@ var releases = []site.Release{
 func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", Seed: "site-test"} }
 
 func spec(rels []site.Release) fake.Spec {
-	return fake.Spec{Name: site.Fake.Name, TLS: true, New: func(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
-		return fake.HTTP(site.Handler(site.APIKey(s), rels)), nil
+	return fake.Spec{Name: site.Fake.Name, TLS: true, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+		return fake.HTTP(env, site.Routes(site.APIKey(s), rels)), nil
 	}}
 }
 

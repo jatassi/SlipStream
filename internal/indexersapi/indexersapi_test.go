@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
@@ -75,9 +74,7 @@ func serve(t *testing.T, holders []role.NodeID, down role.NodeID) *served {
 	t.Helper()
 	s := scenario.Scenario{Name: "x", Seed: "indexersapi"}
 	srv := &served{key: site.APIKey(s), changed: &published{}}
-	srv.site = faketest.Loopback(t, fake.Spec{Name: site.Fake.Name, TLS: true, New: func(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
-		return fake.HTTP(site.Handler(site.APIKey(s), nil)), nil
-	}}, s)
+	srv.site = faketest.Loopback(t, site.Fake, s)
 	home := indexers.NewHome(srv.site.Client, indexers.Timings{Request: 5 * time.Second})
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema())
 	x := indexers.New(indexers.Config{

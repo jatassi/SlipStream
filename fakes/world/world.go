@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
@@ -69,6 +70,7 @@ type Run struct {
 	caFile    string
 	probe     node.Resolved
 	fakes     []*fakeRun
+	faults    *fault.Plan
 	releases  *releases.Catalog
 	seeders   *seeders.Seeders
 	endpoints node.EndpointsBlock
@@ -300,10 +302,15 @@ func (r *Run) probeBinary(ctx context.Context, _ *unwind) error {
 // release catalog names fake-tracker's address and every fake reads the
 // catalog.
 func (r *Run) bindFakes(ctx context.Context, undo *unwind, specs []fake.Spec) error {
+	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
+		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
+	})
+	fronts := make([]fault.Front, len(specs))
+	for i, spec := range specs {
+		fronts[i] = worldFront(spec)
+	}
+	r.faults = fault.NewPlan(fronts, nil)
 	for _, spec := range specs {
-		if spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType) {
-			continue
-		}
 		f, err := r.bindFake(ctx, spec)
 		if err != nil {
 			return err
@@ -314,12 +321,19 @@ func (r *Run) bindFakes(ctx context.Context, undo *unwind, specs []fake.Spec) er
 	return nil
 }
 
+// worldFront is the one front each fake has until per-Node fronts arrive.
+// TLS faults wait for a front that picks its leaf.
+func worldFront(spec fake.Spec) fault.Front {
+	return fault.Front{Target: fault.Target(spec.Name), Origin: "world", Layers: fault.Conn | fault.HTTP}
+}
+
 func (r *Run) bindFake(ctx context.Context, spec fake.Spec) (*fakeRun, error) {
 	l, err := new(net.ListenConfig).Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("fake %s: %w", spec.Name, err)
 	}
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
+	l = r.faults.Listener(l, worldFront(spec))
 	if spec.TLS {
 		leaf, err := r.ca.Leaf("127.0.0.1", spec.Name+".fake.localhost")
 		if err != nil {
@@ -359,7 +373,7 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 
 func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
-		env := fake.NewEnv(r.scenario, f.spec.Name, r.log)
+		env := fake.NewEnv(r.scenario, f.spec.Name, r.log, r.faults)
 		env.Releases = r.releases
 		server, err := f.spec.New(r.scenario, env)
 		if err != nil {

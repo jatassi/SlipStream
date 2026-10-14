@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
@@ -78,7 +79,7 @@ func world(t *testing.T, payload []byte) (torrentFile, caFile string, records fu
 		t.Fatal(err)
 	}
 
-	env := fake.NewEnv(s, tracker.Fake.Name, slog.New(slog.NewTextHandler(t.Output(), nil)))
+	env := fake.NewEnv(s, tracker.Fake.Name, slog.New(slog.NewTextHandler(t.Output(), nil)), fault.NewPlan(nil, nil))
 	env.Releases = &releases.Catalog{Passkey: passkey, Releases: []releases.Release{{InfoHash: m.InfoHash}}}
 	server, err := tracker.Fake.New(s, env)
 	if err != nil {

@@ -2,11 +2,15 @@ package tmdb_test
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -14,7 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-func inEachTier(t *testing.T, test func(t *testing.T, c *tmdb.Client)) {
+func inEachTier(t *testing.T, test func(t *testing.T, c *tmdb.Client), opts ...faketest.Option) {
 	s, err := scenario.Load("single-machine")
 	if err != nil {
 		t.Fatal(err)
@@ -22,9 +26,9 @@ func inEachTier(t *testing.T, test func(t *testing.T, c *tmdb.Client)) {
 	client := func(f faketest.Served) *tmdb.Client {
 		return tmdb.New(f.Client, tmdb.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3"))}, "SlipStream/test")
 	}
-	t.Run("loopback", func(t *testing.T) { test(t, client(faketest.Loopback(t, faketmdb.Fake, s))) })
+	t.Run("loopback", func(t *testing.T) { test(t, client(faketest.Loopback(t, faketmdb.Fake, s, opts...))) })
 	t.Run("in memory", func(t *testing.T) {
-		synctest.Test(t, func(t *testing.T) { test(t, client(faketest.InMemory(t, faketmdb.Fake, s))) })
+		synctest.Test(t, func(t *testing.T) { test(t, client(faketest.InMemory(t, faketmdb.Fake, s, opts...))) })
 	})
 }
 
@@ -77,4 +81,26 @@ func TestReleasedIsTheEarliestTheatricalOrDigitalDate(t *testing.T) {
 			t.Errorf("Released of %+v = %q, want %q", c.results, got, c.want)
 		}
 	}
+}
+
+func TestAFaultedAnswerIsUnavailable(t *testing.T) {
+	inEachTier(t, func(t *testing.T, c *tmdb.Client) {
+		var got []string
+		for range 3 {
+			_, err := c.Movie(t.Context(), "9000001")
+			got = append(got, fmt.Sprintf("%v %t", err, errors.Is(err, works.ErrUnavailable)))
+		}
+		want := []string{
+			"GET /movie/9000001: 503 Service Unavailable: the metadata source didn't answer true",
+			"GET /movie/9000001: decode: invalid character '\\x00' looking for beginning of value: the metadata source didn't answer true",
+			"<nil> false",
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("three lookups gave\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+		}
+	},
+		faketest.WithFaults(
+			fault.Rule{ID: "down", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 503}, Times: 1},
+			fault.Rule{ID: "garbled", Target: "tmdb", Route: "movie", Params: map[string]string{"id": "9000001"}, Fault: fault.Malformed{}, Times: 1},
+		))
 }

@@ -13,16 +13,12 @@ import (
 var Fake = fake.Spec{
 	Name: "fixture",
 	TLS:  true,
-	New: func(_ scenario.Scenario, _ fake.Env) (fake.Server, error) {
-		return fake.HTTP(handler()), nil
+	New: func(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
+		return fake.HTTP(env, fake.Routes{"whoami": {Pattern: "GET /whoami", Handler: whoami}}), nil
 	},
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 }
 
-func handler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /whoami", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("fixture"))
-	})
-	return mux
+func whoami(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte("fixture"))
 }

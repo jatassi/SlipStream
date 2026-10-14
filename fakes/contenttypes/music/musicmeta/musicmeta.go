@@ -41,7 +41,7 @@ type fault struct {
 	left   int
 }
 
-func newServer(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	srv := &server{artists: map[string]scenario.MusicArtist{}, artistOf: map[string]string{}, lookups: map[string]int{}, faults: map[string]*fault{}}
 	if s.Music != nil {
 		for _, a := range s.Music.Artists {
@@ -56,13 +56,13 @@ func newServer(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
 			srv.faults[f.Artist] = &fault{answer: f.Answer, left: f.Times}
 		}
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+root+"/artist", jsonOnly(srv.search))
-	mux.HandleFunc("GET "+root+"/artist/{mbid}", jsonOnly(srv.artist))
-	mux.HandleFunc("GET "+root+"/release-group", jsonOnly(srv.releaseGroups))
-	mux.HandleFunc("GET "+root+"/release", jsonOnly(srv.releases))
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { notFound(w) })
-	return fake.HTTP(mux), nil
+	return fake.HTTP(env, fake.Routes{
+		"search":         {Pattern: "GET " + root + "/artist", Handler: jsonOnly(srv.search)},
+		"artist":         {Pattern: "GET " + root + "/artist/{mbid}", Handler: jsonOnly(srv.artist)},
+		"release-groups": {Pattern: "GET " + root + "/release-group", Handler: jsonOnly(srv.releaseGroups)},
+		"releases":       {Pattern: "GET " + root + "/release", Handler: jsonOnly(srv.releases)},
+		"not-found":      {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
+	}), nil
 }
 
 type artistJSON struct {

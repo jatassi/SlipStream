@@ -84,8 +84,10 @@ func stubScenario() scenario.Scenario {
 var echo = fake.Spec{
 	Name: "echo",
 	TLS:  true,
-	New: func(scenario.Scenario, fake.Env) (fake.Server, error) {
-		return fake.HTTP(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "echo\n") })), nil
+	New: func(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
+		return fake.HTTP(env, fake.Routes{"echo": {Pattern: "/", Handler: func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.WriteString(w, "echo to "+fake.OriginOf(r.Context())+"\n")
+		}}}), nil
 	},
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 }
@@ -101,7 +103,7 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	}
 	m := run.Manifest()
 	checkLaunched(t, m, runDir, bin)
-	if got := getFake(ctx, t, m); got != "echo\n" {
+	if got := getFake(ctx, t, m); got != "echo to world\n" {
 		t.Fatalf("GET the echo fake = %q", got)
 	}
 
