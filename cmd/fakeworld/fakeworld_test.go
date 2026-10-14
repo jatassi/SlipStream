@@ -130,6 +130,29 @@ func TestStartStop(t *testing.T) {
 	}
 }
 
+func TestStartRecordsTheTestCommand(t *testing.T) {
+	t.Parallel()
+	runDir := worldtest.RunDir(t)
+	command := "bun run --cwd web e2e skeleton.spec.ts:6 --project chromium-desk"
+	if got := start(t, runDir, "--test-command", command); got.code != 0 {
+		t.Fatalf("start = %+v, want exit 0", got)
+	}
+	t.Cleanup(func() { fakeworld(t, "stop", runDir) })
+	launched, err := events.Select(runDir, events.Query{Kind: events.RunLaunched})
+	if err != nil || len(launched) != 1 {
+		t.Fatalf("run.launched records = %+v, %v; want one", launched, err)
+	}
+	var data struct {
+		Origin world.Origin `json:"origin"`
+	}
+	if err := json.Unmarshal(launched[0].Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	if want := (world.Origin{Kind: world.FromTest, Command: command}); data.Origin != want {
+		t.Fatalf("run.launched origin = %+v, want %+v", data.Origin, want)
+	}
+}
+
 func TestStartTimeout(t *testing.T) {
 	t.Parallel()
 	runDir := worldtest.RunDir(t)

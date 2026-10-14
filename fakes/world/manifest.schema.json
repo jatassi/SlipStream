@@ -338,6 +338,57 @@
       },
       "type": "array"
     },
+    "browser": {
+      "properties": {
+        "hostResolverRules": {
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "presets": {
+          "additionalProperties": {
+            "properties": {
+              "width": {
+                "type": "integer"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "deviceScaleFactor": {
+                "type": "number"
+              },
+              "isMobile": {
+                "type": "boolean"
+              },
+              "hasTouch": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "width",
+              "height",
+              "deviceScaleFactor",
+              "isMobile",
+              "hasTouch"
+            ]
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "hostResolverRules",
+        "config",
+        "presets"
+      ]
+    },
     "admin": {
       "properties": {
         "email": {
@@ -379,6 +430,7 @@
     "fakes",
     "fronts",
     "links",
-    "releases"
+    "releases",
+    "browser"
   ]
 }

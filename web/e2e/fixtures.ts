@@ -7,12 +7,14 @@ import {
   type Browser,
   type BrowserContext,
   type Page,
+  type TestInfo,
   test as base,
   expect,
 } from "@playwright/test";
 import { z } from "zod";
 
-import { type Manifest, type ManifestNode, hostResolverRules, read } from "../harness/manifest.ts";
+import { type Fakeworld, fw } from "../harness/fakeworld.ts";
+import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
@@ -23,6 +25,7 @@ export type Scenario = "single-machine" | "first-run" | "home";
 export type World = {
   manifest: Manifest;
   node: ManifestNode;
+  fw: Fakeworld;
   baseURL: string;
   admin: () => NonNullable<Manifest["admin"]>;
   setupCode: () => Promise<string>;
@@ -84,6 +87,16 @@ async function readSetupCode(log: string): Promise<string> {
   throw new Error(`${log} has no setup code record`);
 }
 
+// testCommand runs the test again from the repo root, as a Go test's
+// recorded command does, so a failed run's bundle replays by it.
+function testCommand(testInfo: TestInfo): string {
+  const [file] = testInfo.titlePath;
+  if (file === undefined) {
+    throw new Error(`test ${testInfo.title} has no file in its title path`);
+  }
+  return `bun run --cwd web e2e ${file.replaceAll("\\", "/")}:${testInfo.line} --project ${testInfo.project.name}`;
+}
+
 export async function expectAccessible(page: Page): Promise<void> {
   const { violations } = await new AxeBuilder({ page }).withTags(wcag).analyze();
   const found = violations.map(
@@ -141,6 +154,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         runDir,
         "--timeout",
         `${launchTimeout}s`,
+        "--test-command",
+        testCommand(testInfo),
       ]);
       if (!start.ok) {
         throw new Error(`fakeworld start: ${start.stderr}`);
@@ -175,6 +190,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     await use({
       manifest,
       node,
+      fw: fw(runDir),
       baseURL: browserName === "chromium" ? node.browserUrl : node.url,
       admin: () => {
         if (manifest.admin === undefined) {
@@ -229,7 +245,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         headless,
         args: [
           ...(launchOptions.args ?? []),
-          `--host-resolver-rules=${hostResolverRules(world.manifest)}`,
+          `--host-resolver-rules=${world.manifest.browser.hostResolverRules}`,
         ],
       }));
     const origin = new URL(world.baseURL).origin;

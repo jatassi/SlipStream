@@ -40,6 +40,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/web"
 )
 
 type Options struct {
@@ -695,5 +696,20 @@ func (r *Run) buildManifest() (Manifest, error) {
 		}
 		m.Nodes = append(m.Nodes, entry)
 	}
+	m.Browser = browserFor(m.Nodes)
 	return m, nil
+}
+
+// browserFor maps every Node's name to its address, since a browser
+// reaches a Node by name and no resolver knows the names.
+func browserFor(nodes []Node) Browser {
+	rules := make([]string, len(nodes))
+	for i, n := range nodes {
+		rules[i] = "MAP " + n.Host + " " + n.Address
+	}
+	b := Browser{HostResolverRules: strings.Join(rules, ","), Config: map[string]string{}, Presets: web.Presets()}
+	for shell := range b.Presets {
+		b.Config[shell] = "browser/" + shell + "/playwright-cli.json"
+	}
+	return b
 }

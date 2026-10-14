@@ -37,7 +37,14 @@ func launch(ctx context.Context, f superviseFlags) (*world.Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	return world.Launch(ctx, world.Options{Binary: f.binary, Scenario: s, RunDir: f.runDir, RunDirCreated: true, Origin: world.Origin{Kind: world.FromSteps}})
+	return world.Launch(ctx, world.Options{Binary: f.binary, Scenario: s, RunDir: f.runDir, RunDirCreated: true, Origin: originOf(f.testCommand)})
+}
+
+func originOf(testCommand string) world.Origin {
+	if testCommand == "" {
+		return world.Origin{Kind: world.FromSteps}
+	}
+	return world.Origin{Kind: world.FromTest, Command: testCommand}
 }
 
 func writeReport(r report) {

@@ -18,8 +18,10 @@ import (
 
 const usageText = `usage: fakeworld <command>
   start --binary <path> --scenario <name> --run-dir <dir> [--timeout 2m]
+        [--test-command <command>]
       launch the catalog Scenario against the binary and print the manifest's
-      path once the world is ready
+      path once the world is ready; --test-command records the command that
+      runs the test launching it, which its bundle replays by
   stop <run-dir> [--timeout 2m]
       stop the run and wait until every process of it has exited
   exec <run-dir> [--proof <feature>/<sub>] -- <command> [<arg>...]
@@ -43,6 +45,9 @@ const usageText = `usage: fakeworld <command>
       stop the Node with slipstream stop, kill its process, start it again
       on the same config.yaml, or empty a stopped Node's data dir but its
       config.yaml, and print its manifest entry
+  browser <run-dir>
+      write the playwright cli config of each shell the manifest's browser
+      block names and print their paths
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -98,6 +103,7 @@ var verbs = map[string]func(args []string) int{
 		}
 		return supervise(f)
 	},
+	"browser": browserCommand,
 }
 
 var commands = withCaptures(verbs)
@@ -177,6 +183,7 @@ type startFlags struct {
 	binary, runDir string
 	scenario       scenario.Scenario
 	timeout        time.Duration
+	testCommand    string
 }
 
 func parseStart(args []string) (startFlags, error) {
@@ -187,6 +194,7 @@ func parseStart(args []string) (startFlags, error) {
 	fs.StringVar(&name, "scenario", "", "")
 	fs.StringVar(&f.runDir, "run-dir", "", "")
 	fs.DurationVar(&f.timeout, "timeout", defaultTimeout, "")
+	fs.StringVar(&f.testCommand, "test-command", "", "")
 	if err := noArguments(fs, args); err != nil {
 		return startFlags{}, err
 	}
@@ -229,6 +237,7 @@ func parseSetupLoopback(args []string) (bool, error) {
 
 type superviseFlags struct {
 	binary, scenario, runDir string
+	testCommand              string
 }
 
 func parseSupervise(args []string) (superviseFlags, error) {
@@ -237,6 +246,7 @@ func parseSupervise(args []string) (superviseFlags, error) {
 	fs.StringVar(&f.binary, "binary", "", "")
 	fs.StringVar(&f.scenario, "scenario", "", "")
 	fs.StringVar(&f.runDir, "run-dir", "", "")
+	fs.StringVar(&f.testCommand, "test-command", "", "")
 	if err := noArguments(fs, args); err != nil {
 		return superviseFlags{}, err
 	}

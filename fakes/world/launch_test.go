@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/web"
 )
 
 func TestMain(m *testing.M) {
@@ -217,6 +218,14 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 	}
 	if want := []world.Fake{{Name: "echo", URL: m.Fronts[1].URL, Captures: []fake.CaptureSpec{}, Cues: []fake.CueSpec{}}}; !reflect.DeepEqual(m.Fakes, want) || len(m.Releases) != 0 {
 		t.Fatalf("fakes = %+v and releases %+v, want %+v and none", m.Fakes, m.Releases, want)
+	}
+	wantBrowser := world.Browser{
+		HostResolverRules: "MAP home.localhost 127.0.0.2",
+		Config:            map[string]string{"desk": "browser/desk/playwright-cli.json", "phone": "browser/phone/playwright-cli.json"},
+		Presets:           web.Presets(),
+	}
+	if !reflect.DeepEqual(m.Browser, wantBrowser) {
+		t.Fatalf("browser = %+v, want %+v", m.Browser, wantBrowser)
 	}
 	if want := []string{"loopback-listen", "seed", "timings", "test-ca"}; !reflect.DeepEqual(m.Divergences, want) {
 		t.Fatalf("divergences = %v, want %v", m.Divergences, want)
