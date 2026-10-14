@@ -17,6 +17,30 @@ const eventRecord = z.strictObject({
 
 export type EventRecord = z.infer<typeof eventRecord>;
 
+const doctorReport = z.strictObject({
+  ok: z.boolean(),
+  checks: z.array(
+    z.strictObject({
+      n: z.int(),
+      name: z.string(),
+      ok: z.boolean(),
+      failures: z.optional(z.array(z.string())),
+      notes: z.optional(z.array(z.string())),
+    }),
+  ),
+  activeFaults: z.array(
+    z.strictObject({
+      seq: z.int(),
+      id: z.string(),
+      target: z.string(),
+      origin: z.optional(z.string()),
+      fault: z.string(),
+    }),
+  ),
+});
+
+export type DoctorReport = z.infer<typeof doctorReport>;
+
 export type FaultRule = {
   id: string;
   target: string;
@@ -41,11 +65,15 @@ export type Fakeworld = ReturnType<typeof fw>;
 
 const maxOutput = 64 << 20;
 
-function run(runDir: string, args: readonly string[]): Promise<string> {
+function run(
+  runDir: string,
+  args: readonly string[],
+  exits: readonly number[] = [0],
+): Promise<string> {
   const exe = join(runDir, "bin", platform === "win32" ? "fakeworld.exe" : "fakeworld");
   return new Promise((resolve, reject) => {
     execFile(exe, args, { maxBuffer: maxOutput }, (error, stdout, stderr) => {
-      if (error === null) {
+      if (error === null || (typeof error.code === "number" && exits.includes(error.code))) {
         resolve(stdout);
         return;
       }
@@ -107,6 +135,26 @@ function queryArgs(q: CaptureQuery): string[] {
   ];
 }
 
+function reader(runDir: string, verb: string, fixed: readonly string[] = []) {
+  return {
+    list: async (q: CaptureQuery = {}) =>
+      records(await run(runDir, [verb, "list", runDir, ...fixed, ...queryArgs(q)])),
+    wait: async (q: CaptureQuery & { timeout?: number } = {}) =>
+      one(
+        await run(runDir, [
+          verb,
+          "wait",
+          runDir,
+          ...fixed,
+          ...queryArgs(q),
+          ...timeoutFlag(q.timeout),
+        ]),
+      ),
+    open: async (seq: number, proof?: string) =>
+      lines(await run(runDir, [verb, "open", runDir, String(seq), ...optional("--proof", proof)])),
+  };
+}
+
 // fw drives the run in runDir through the run's own fakeworld copy, so it
 // needs no client for the run's control socket. Each call is a journaled
 // step of the run.
@@ -142,15 +190,10 @@ export function fw(runDir: string) {
       ),
     node: async (action: NodeAction, name: string): Promise<ManifestNode> =>
       manifestNode.parse(JSON.parse(await run(runDir, ["node", action, runDir, name]))),
-    capture: (name: string) => ({
-      list: async (q: CaptureQuery = {}) =>
-        records(await run(runDir, [name, "list", runDir, ...queryArgs(q)])),
-      wait: async (q: CaptureQuery & { timeout?: number } = {}) =>
-        one(await run(runDir, [name, "wait", runDir, ...queryArgs(q), ...timeoutFlag(q.timeout)])),
-      open: async (seq: number, proof?: string) =>
-        lines(
-          await run(runDir, [name, "open", runDir, String(seq), ...optional("--proof", proof)]),
-        ),
-    }),
+    capture: (name: string) => reader(runDir, name),
+    sse: (as: string) => reader(runDir, "sse", ["--as", as]),
+    // doctor resolves with the report of a run that fails a check too.
+    doctor: async (): Promise<DoctorReport> =>
+      doctorReport.parse(JSON.parse(await run(runDir, ["doctor", runDir, "--json"], [0, 1]))),
   };
 }

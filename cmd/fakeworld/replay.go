@@ -56,10 +56,10 @@ func replay(args []string) int {
 		return failed("replay", err)
 	}
 	if b.Origin.Kind == world.FromTest {
-		if f.to > 0 || f.runDir != "" || f.stop {
-			return usage(errors.New("replay: a test bundle replays by its command and takes no --to, --run-dir or --stop"))
+		if f.to > 0 || f.stop {
+			return usage(errors.New("replay: a test bundle replays by its command and takes no --to or --stop"))
 		}
-		return replayTest(b)
+		return replayTest(f, b)
 	}
 	return replaySteps(f, b)
 }
@@ -130,8 +130,11 @@ func replayDir(f replayFlags) (string, error) {
 }
 
 // replayTest runs the bundle's recorded test command from the root of the
-// worktree that holds the current directory, against the bundle's binary.
-func replayTest(b world.Bundle) int {
+// worktree that holds the current directory, against the bundle's binary
+// and this fakeworld, which a browser test launches its world with. The
+// test keeps its runs in the replay dir, since Playwright empties its
+// output dir, which may hold the bundle, when it starts.
+func replayTest(f replayFlags, b world.Bundle) int {
 	argv, err := splitCommand(b.Origin.Command)
 	if err != nil {
 		return failed("replay", err)
@@ -150,10 +153,21 @@ func replayTest(b world.Bundle) int {
 	if err != nil {
 		return failed("replay", err)
 	}
+	fakeworld, err := os.Executable()
+	if err != nil {
+		return failed("replay", err)
+	}
+	runs, err := replayDir(f)
+	if err != nil {
+		return failed("replay", err)
+	}
+	if runs, err = filepath.Abs(runs); err != nil {
+		return failed("replay", err)
+	}
 	warnOnCommit(ctx, root, binary)
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), variable+"="+binary)
+	cmd.Env = append(os.Environ(), variable+"="+binary, "TEST_FAKEWORLD_BINARY="+fakeworld, "TEST_FAKEWORLD_RUNS="+runs)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	err = cmd.Run()
 	if _, exited := errors.AsType[*exec.ExitError](err); err != nil && !exited {
