@@ -94,7 +94,8 @@ func (s surfaceNode) Identity() (*identity.Service, bool) {
 
 // ClaimController creates and migrates library.db and library.key, runs
 // claim, which inserts the Admin, and starts the Controller half. Opening
-// and the half outlive the request that claimed.
+// and the half outlive the request that claimed. It returns once the
+// Controller's own holder half holds the Roles its new row assigns.
 func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.Service) error) error {
 	s.n.claimMu.Lock()
 	defer s.n.claimMu.Unlock()
@@ -113,7 +114,8 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 		return err
 	}
 	s.n.log.Info("claimed", "claim", "controller")
-	return nil
+	side := s.n.half.Load().nodes
+	return side.AwaitDelivery(ctx, side.Self())
 }
 
 func (s surfaceNode) Nodes() (*nodes.Service, bool) {

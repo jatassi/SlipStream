@@ -70,7 +70,6 @@ func TestAClaimedSingleMachineNodeReachesLive(t *testing.T) {
 		if claimed.status != http.StatusCreated {
 			t.Fatalf("claimController = %d %s", claimed.status, claimed.body)
 		}
-		synctest.Wait()
 		if !caughtUp(t, n) {
 			t.Fatal("the claimed Node's holder half has not caught up with its control half")
 		}

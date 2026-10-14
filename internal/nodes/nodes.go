@@ -412,7 +412,7 @@ func (s *Service) SetRoles(ctx context.Context, node ID, roles []role.Name) (Nod
 	s.mu.Unlock()
 	s.controls.Touch(node)
 	s.changed(node)
-	if err := s.awaitDelivery(ctx, node); err != nil {
+	if err := s.AwaitDelivery(ctx, node); err != nil {
 		return Node{}, err
 	}
 	return s.Get(ctx, node)
@@ -445,9 +445,9 @@ func replaceRoles(ctx context.Context, q *db.Queries, node ID, want []role.Name)
 	return nil
 }
 
-// awaitDelivery waits while node is in step and its facts lag the node
+// AwaitDelivery waits while node is in step and its facts lag the node
 // scope the library derives now.
-func (s *Service) awaitDelivery(ctx context.Context, node ID) error {
+func (s *Service) AwaitDelivery(ctx context.Context, node ID) error {
 	for {
 		woken := s.awaitChange(node)
 		if !s.inStep(node) {
