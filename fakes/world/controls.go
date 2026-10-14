@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/jatassi/slipstream/fakes/events"
+	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 )
@@ -25,6 +26,9 @@ type Controls interface {
 	SetFault(ctx context.Context, r fault.Rule) (events.Record, error)
 	// ClearFault removes the rule with id, or every rule for "".
 	ClearFault(ctx context.Context, id string) (events.Record, error)
+	// Cue plays the cue name a fake declares, with args decoded strictly
+	// into the cue's own arguments.
+	Cue(ctx context.Context, name string, args json.RawMessage) (events.Record, error)
 	StartStep(ctx context.Context, s StepStart) (Step, error)
 	EndStep(ctx context.Context, n int, e StepEnd) (events.Record, error)
 	Stop(ctx context.Context) (StopReport, error)
@@ -125,6 +129,31 @@ func (r *Run) ClearFault(ctx context.Context, id string) (events.Record, error) 
 	})
 }
 
+type cued struct {
+	Name   string          `json:"name"`
+	Fake   string          `json:"fake"`
+	Args   json.RawMessage `json:"args,omitempty"`
+	Result any             `json:"result,omitempty"`
+}
+
+func (r *Run) Cue(ctx context.Context, name string, args json.RawMessage) (events.Record, error) {
+	i := slices.IndexFunc(r.fakes, func(f *fakeRun) bool {
+		return slices.ContainsFunc(f.spec.Cues, func(c fake.CueSpec) bool { return c.Name == name })
+	})
+	if i < 0 {
+		return events.Record{}, fmt.Errorf("no fake declares cue %s", name)
+	}
+	f := r.fakes[i]
+	result, err := f.env.Cue(ctx, name, args)
+	if err != nil {
+		return events.Record{}, err
+	}
+	if string(args) == "null" {
+		args = nil
+	}
+	return r.events.Append(events.Record{Kind: events.Cue, Node: events.World, Data: stepData(ctx, cued{Name: name, Fake: f.spec.Name, Args: args, Result: result})})
+}
+
 func (r *Run) StartStep(_ context.Context, s StepStart) (Step, error) {
 	if (s.Verb == "") == (s.Note == "") || (s.Note != "" && len(s.Args) > 0) {
 		return Step{}, errors.New("a step is a verb with its arguments or a note")
@@ -173,6 +202,9 @@ func controlHandler(c Controls) http.Handler {
 			id = ""
 		}
 		return c.ClearFault(ctx, id)
+	}))
+	mux.Handle("POST /v1/cues/{name}", route(func(ctx context.Context, r *http.Request, args json.RawMessage) (events.Record, error) {
+		return c.Cue(ctx, r.PathValue("name"), args)
 	}))
 	mux.Handle("POST /v1/steps", route(func(ctx context.Context, _ *http.Request, s StepStart) (Step, error) {
 		return c.StartStep(ctx, s)
@@ -259,6 +291,10 @@ func (c *Remote) ClearFault(ctx context.Context, id string) (events.Record, erro
 		id = allRules
 	}
 	return send[events.Record](ctx, c, http.MethodDelete, "/v1/faults/"+url.PathEscape(id), struct{}{})
+}
+
+func (c *Remote) Cue(ctx context.Context, name string, args json.RawMessage) (events.Record, error) {
+	return send[events.Record](ctx, c, http.MethodPost, "/v1/cues/"+url.PathEscape(name), args)
 }
 
 func (c *Remote) StartStep(ctx context.Context, s StepStart) (Step, error) {

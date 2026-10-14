@@ -241,6 +241,21 @@
               ]
             },
             "type": "array"
+          },
+          "cues": {
+            "items": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name"
+              ]
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
@@ -248,7 +263,8 @@
         "required": [
           "name",
           "url",
-          "captures"
+          "captures",
+          "cues"
         ]
       },
       "type": "array"

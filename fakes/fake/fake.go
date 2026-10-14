@@ -40,6 +40,8 @@ type Spec struct {
 	// Captures are the record kinds the fake keeps for tests and verify to
 	// read; Env.Capture refuses any other.
 	Captures []CaptureSpec
+	// Cues are the cues the fake plays; OnCue refuses any other.
+	Cues []CueSpec
 }
 
 // CaptureSpec is a capture a fake declares. Name is its fakeworld reader
@@ -92,6 +94,8 @@ type Env struct {
 
 	captures []CaptureSpec
 	sink     Sink
+	cueSpecs []CueSpec
+	cues     *cues
 }
 
 // Sink takes the records a fake's captures write: the run's event log.
@@ -110,6 +114,8 @@ func NewEnv(s scenario.Scenario, spec Spec, log *slog.Logger, faults *fault.Plan
 		Faults:   faults,
 		captures: spec.Captures,
 		sink:     sink,
+		cueSpecs: spec.Cues,
+		cues:     &cues{play: map[string]cueFunc{}},
 	}
 }
 

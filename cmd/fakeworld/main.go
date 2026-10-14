@@ -37,6 +37,8 @@ const usageText = `usage: fakeworld <command>
       print the fault.set record of each rule still set
   fault wait <run-dir> [--rule id] [--node n] [--after seq] [--timeout 2m]
       wait for a fault.fired record after the last step's start
+  cue <run-dir> <name> [<args>]
+      play a cue a fake declares, its arguments one JSON object
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -52,7 +54,8 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
-var commands = withCaptures(map[string]func(args []string) int{
+// verbs are fakeworld's static commands, before the capture readers.
+var verbs = map[string]func(args []string) int{
 	"start": func(args []string) int {
 		f, err := parseStart(args)
 		if err != nil {
@@ -75,6 +78,7 @@ var commands = withCaptures(map[string]func(args []string) int{
 		return execStep(f)
 	},
 	"fault": faultCommand,
+	"cue":   cueCommand,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {
@@ -89,7 +93,9 @@ var commands = withCaptures(map[string]func(args []string) int{
 		}
 		return supervise(f)
 	},
-})
+}
+
+var commands = withCaptures(verbs)
 
 func run(args []string) int {
 	if len(args) == 0 {

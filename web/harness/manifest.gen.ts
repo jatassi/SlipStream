@@ -66,6 +66,11 @@ export const manifestSchema = z.strictObject({
           kind: z.string(),
         }),
       ),
+      cues: z.array(
+        z.strictObject({
+          name: z.string(),
+        }),
+      ),
     }),
   ),
   fronts: z.array(

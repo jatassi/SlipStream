@@ -105,6 +105,7 @@ type nodeRun struct {
 // the inbox each of its fronts pushes connections into.
 type fakeRun struct {
 	spec   fake.Spec
+	env    fake.Env
 	at     fake.Address
 	inbox  *front.Inbox
 	cancel context.CancelFunc
@@ -359,9 +360,9 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 
 func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
-		env := fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
-		env.Releases, env.Fronts, env.Files = r.releases, r.table, r.runDir
-		server, err := f.spec.New(r.scenario, env)
+		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
+		f.env.Releases, f.env.Fronts, f.env.Files = r.releases, r.table, r.runDir
+		server, err := f.spec.New(r.scenario, f.env)
 		if err != nil {
 			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
 		}
@@ -658,7 +659,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		m.Admin = &Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
 	for _, f := range r.fakes {
-		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL(""), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...)})
+		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL(""), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...), Cues: append([]fake.CueSpec{}, f.spec.Cues...)})
 	}
 	for _, f := range r.table {
 		entry := Front{Target: string(f.Target), Node: f.Node, Address: f.Address.AddrPort.String()}

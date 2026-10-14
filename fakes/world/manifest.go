@@ -90,6 +90,7 @@ type Fake struct {
 	Name     string             `json:"name"`
 	URL      string             `json:"url"`
 	Captures []fake.CaptureSpec `json:"captures"`
+	Cues     []fake.CueSpec     `json:"cues"`
 }
 
 // Front is one front: target as Node reaches it, Node "world" for the

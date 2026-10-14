@@ -10,6 +10,16 @@ import (
 
 var fakes = []fake.Spec{musicmeta.Fake, tmdb.Fake, tracker.Fake, site.Fake}
 
+// Cues are the cues the world's fakes declare, each a name fakeworld cue
+// takes.
+func Cues() []fake.CueSpec {
+	var out []fake.CueSpec
+	for _, f := range fakes {
+		out = append(out, f.Cues...)
+	}
+	return out
+}
+
 // Captures are the captures the world's fakes declare, each the name of a
 // fakeworld reader verb.
 func Captures() []fake.CaptureSpec {

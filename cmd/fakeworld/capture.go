@@ -28,16 +28,14 @@ const captureUsage = `  <capture> list <run-dir> [--node n] [--where k=v]... [--
       copy the record's files into the proof dir and print their paths
   captures: `
 
-// withCaptures adds one reader verb for each capture the world's fakes
-// declare to the static verbs.
+// withCaptures is the static verbs and one reader verb for each capture
+// the world's fakes declare.
 func withCaptures(static map[string]func(args []string) int) map[string]func(args []string) int {
+	out := maps.Clone(static)
 	for _, c := range world.Captures() {
-		if _, taken := static[c.Name]; taken {
-			panic(fmt.Sprintf("fakeworld: capture %s shadows a verb or another capture", c.Name))
-		}
-		static[c.Name] = captureCommand(c)
+		out[c.Name] = captureCommand(c)
 	}
-	return static
+	return out
 }
 
 func captureNames() string {

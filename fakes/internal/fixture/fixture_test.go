@@ -11,10 +11,11 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
-	"github.com/jatassi/slipstream/fakes/fake/internal/fixture"
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/internal/fixture"
 	"github.com/jatassi/slipstream/fakes/scenario"
 )
 
@@ -102,6 +103,19 @@ func TestACaptureRecordsTheOriginAndKeepsItsFiles(t *testing.T) {
 		t.Fatalf("user-agent.txt = %q, %v", got, err)
 	}
 }
+
+func TestOnCueRefusesAnUndeclaredName(t *testing.T) {
+	spec := fixture.Fake
+	spec.Cues = nil
+	_, err := spec.New(scenario.Scenario{}, fake.NewEnv(scenario.Scenario{}, spec, slog.New(slog.DiscardHandler), nil, discard{}))
+	if want := "fake fixture declares no cue fixture-greet"; err == nil || err.Error() != want {
+		t.Fatalf("New = %v, want %s", err, want)
+	}
+}
+
+type discard struct{}
+
+func (discard) Append(rec events.Record) (events.Record, error) { return rec, nil }
 
 func TestEnvCaptureRefusesAnUndeclaredName(t *testing.T) {
 	spec := fixture.Fake

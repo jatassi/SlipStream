@@ -31,6 +31,10 @@ const (
 	FaultSet     = "fault.set"
 	FaultCleared = "fault.cleared"
 	FaultFired   = "fault.fired"
+	Cue          = "cue"
+	NodeStopped  = "node.stopped"
+	NodeKilled   = "node.killed"
+	NodeWiped    = "node.wiped"
 	StepStart    = "step.start"
 	StepEnd      = "step.end"
 )

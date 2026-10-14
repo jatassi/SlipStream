@@ -215,7 +215,7 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 	if advertised := advertisedLink(t, filepath.Join(home.DataDir, "config.yaml")); len(m.Links) != 1 || !strings.HasPrefix(m.Links["home"], "127.0.0.1:") || !slices.Equal(advertised, []string{m.Links["home"]}) {
 		t.Fatalf("links = %v and home's config.yaml advertises %v, want home's link front advertised", m.Links, advertised)
 	}
-	if want := []world.Fake{{Name: "echo", URL: m.Fronts[1].URL, Captures: []fake.CaptureSpec{}}}; !reflect.DeepEqual(m.Fakes, want) || len(m.Releases) != 0 {
+	if want := []world.Fake{{Name: "echo", URL: m.Fronts[1].URL, Captures: []fake.CaptureSpec{}, Cues: []fake.CueSpec{}}}; !reflect.DeepEqual(m.Fakes, want) || len(m.Releases) != 0 {
 		t.Fatalf("fakes = %+v and releases %+v, want %+v and none", m.Fakes, m.Releases, want)
 	}
 	if want := []string{"loopback-listen", "seed", "timings", "test-ca"}; !reflect.DeepEqual(m.Divergences, want) {
