@@ -119,6 +119,12 @@ jobs:
       - if: runner.os == 'Linux'
         working-directory: web
         run: bun run e2e:install --with-deps
+      # Windows runners keep TEMP on C:, which is far slower than D:, and the
+      # Nodes' data dirs live under TEMP.
+      - if: runner.os == 'Windows'
+        run: |
+          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - run: go run ./cmd/release test
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
