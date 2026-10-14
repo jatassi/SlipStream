@@ -9,3 +9,13 @@ import (
 )
 
 var fakes = []fake.Spec{musicmeta.Fake, tmdb.Fake, tracker.Fake, site.Fake}
+
+// Captures are the captures the world's fakes declare, each the name of a
+// fakeworld reader verb.
+func Captures() []fake.CaptureSpec {
+	var out []fake.CaptureSpec
+	for _, f := range fakes {
+		out = append(out, f.Captures...)
+	}
+	return out
+}

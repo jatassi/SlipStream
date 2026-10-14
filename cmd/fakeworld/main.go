@@ -52,7 +52,7 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
-var commands = map[string]func(args []string) int{
+var commands = withCaptures(map[string]func(args []string) int{
 	"start": func(args []string) int {
 		f, err := parseStart(args)
 		if err != nil {
@@ -89,7 +89,7 @@ var commands = map[string]func(args []string) int{
 		}
 		return supervise(f)
 	},
-}
+})
 
 func run(args []string) int {
 	if len(args) == 0 {
@@ -111,7 +111,7 @@ func failed(name string, err error) int {
 }
 
 func usage(err error) int {
-	_, _ = fmt.Fprintf(os.Stderr, "fakeworld: %v\n%s\n", err, usageText)
+	_, _ = fmt.Fprintf(os.Stderr, "fakeworld: %v\n%s\n%s%s\n", err, usageText, captureUsage, captureNames())
 	return exitUsage
 }
 
