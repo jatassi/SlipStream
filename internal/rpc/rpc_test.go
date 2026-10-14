@@ -278,7 +278,11 @@ func TestACallWhoseLinkDiesIsLost(t *testing.T) {
 			done <- err
 		}()
 		synctest.Wait()
-		c.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Reset{})
+		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
+			if _, err := c.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+				t.Fatal(err)
+			}
+		}
 		err := <-done
 		close(release)
 		if _, notSent := rpc.NotSent(err); notSent || !rpc.Lost(err) {

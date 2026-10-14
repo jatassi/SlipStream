@@ -71,6 +71,12 @@ type origin struct {
 	line   int
 }
 
+// Checker is a tree with rules no leaf type holds. CheckConfig calls fail
+// with each key that breaks one.
+type Checker interface {
+	CheckConfig(fail func(key string, err error))
+}
+
 type loader struct {
 	leaves   []Leaf
 	byPath   map[string]Leaf
@@ -113,6 +119,7 @@ func Load(tree any, dir string, environ []string) ([]Key, error) {
 		l.applyVar(SourceEnv, v)
 	}
 	l.validate()
+	l.check(tree)
 	if len(l.problems) > 0 {
 		return nil, &Error{Problems: l.problems}
 	}
@@ -301,6 +308,20 @@ func (l *loader) validate() {
 			}
 		}
 	}
+}
+
+func (l *loader) check(tree any) {
+	c, ok := tree.(Checker)
+	if !ok {
+		return
+	}
+	c.CheckConfig(func(key string, err error) {
+		o, ok := l.origins[key]
+		if !ok {
+			o.source = SourceDefault
+		}
+		l.problem(o.source, o.line, key, "%v", err)
+	})
 }
 
 func isEndpointList(leaf Leaf) bool {

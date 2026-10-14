@@ -97,3 +97,23 @@ func TestUnmarshalText(t *testing.T) {
 		t.Error("UnmarshalText(all) succeeded")
 	}
 }
+
+func TestOnline(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		changes []nativetouch.Change
+		want    bool
+	}{
+		{"no changes", nil, false},
+		{"elsewhere", []nativetouch.Change{modified("internal/works/works.go"), modified("fakes/site/site.go")}, false},
+		{"fake-tmdb", []nativetouch.Change{modified("fakes/tmdb/tmdb.go")}, true},
+		{"the music client", []nativetouch.Change{modified("fakes/contenttypes/music/internal/musicbrainz/musicbrainz.go")}, true},
+		{"the TMDB client", []nativetouch.Change{added("internal/providers/tmdb/tv.go")}, true},
+		{"a suite", []nativetouch.Change{modified("conformance/tmdb/shape.json")}, true},
+		{"a rename out of a suite", []nativetouch.Change{{Old: nativetouch.Side{Path: "conformance/tmdb/x.go"}, New: nativetouch.Side{Path: "internal/x.go"}}}, true},
+	} {
+		if got := Online(c.changes); got != c.want {
+			t.Errorf("%s: Online = %t, want %t", c.name, got, c.want)
+		}
+	}
+}

@@ -3,10 +3,12 @@ package pairing_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"testing/synctest"
 
@@ -43,10 +45,10 @@ type controller struct {
 	svc  *nodes.Service
 }
 
-func startController(t *testing.T, net *fault.Network, name, addr string) controller {
+func startController(t *testing.T, net *fault.Network, name, addr string, advertise []netip.AddrPort) controller {
 	t.Helper()
 	l := &lazy{}
-	node := linktest.Start(t, net, name, []netip.Addr{netip.MustParseAddr(addr)}, linktest.Side{Trust: l, Pair: l.Pair})
+	node := linktest.Start(t, net, name, []netip.Addr{netip.MustParseAddr(addr)}, linktest.Side{Trust: l, Pair: l.Pair, Advertise: advertise})
 	hub := live.NewHub([]live.Event{nodes.ChangedEvent})
 	t.Cleanup(hub.Close)
 	svc, err := nodes.Open(t.Context(), nodes.Config{
@@ -101,8 +103,8 @@ func TestARepairSupersedesTheOldController(t *testing.T) {
 	dir := t.TempDir()
 	synctest.Test(t, func(t *testing.T) {
 		net := fault.NewNetwork()
-		first := startController(t, net, "home", "127.0.0.2")
-		second := startController(t, net, "restored", "127.0.0.4")
+		first := startController(t, net, "home", "127.0.0.2", nil)
+		second := startController(t, net, "restored", "127.0.0.4", nil)
 		box, p := worker(t, net, dir, system.Unclaimed)
 
 		joined, err := p.Claim(t.Context(), first.mint(t))
@@ -156,10 +158,75 @@ func checkSuperseded(t *testing.T, p *pairing.Pairing, box *linktest.Node, first
 	return rec
 }
 
+// forward is a port forward on its own Host: every connection to at is
+// copied both ways to upstream until the test ends.
+func forward(t *testing.T, net *fault.Network, at, upstream netip.AddrPort) {
+	t.Helper()
+	h := net.Host(at.Addr())
+	ln, err := h.Listen("tcp", at.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	context.AfterFunc(t.Context(), func() { _ = ln.Close() })
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			u, err := h.DialContext(t.Context(), "tcp", upstream.String())
+			if err != nil {
+				_ = c.Close()
+				continue
+			}
+			context.AfterFunc(t.Context(), func() { _ = c.Close(); _ = u.Close() })
+			go func() { _, _ = io.Copy(u, c); _ = u.Close() }()
+			go func() { _, _ = io.Copy(c, u); _ = c.Close() }()
+		}
+	}()
+}
+
+func TestARepairReachesAControllerThroughItsAdvertisedAddress(t *testing.T) {
+	dir := t.TempDir()
+	synctest.Test(t, func(t *testing.T) {
+		net := fault.NewNetwork()
+		forwarded := netip.MustParseAddrPort("127.0.0.9:443")
+		first := startController(t, net, "home", "127.0.0.2", nil)
+		second := startController(t, net, "restored", "127.0.0.4", []netip.AddrPort{forwarded})
+		forward(t, net, forwarded, netip.MustParseAddrPort("127.0.0.4:8485"))
+		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
+			if _, err := net.Path(linktest.WorkerAddr, netip.MustParseAddr("127.0.0.4")).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		box, p := worker(t, net, dir, system.Unclaimed)
+		if _, err := p.Claim(t.Context(), first.mint(t)); err != nil {
+			t.Fatal(err)
+		}
+
+		code := second.mint(t)
+		if got := code.Addresses(); !slices.Equal(got, []netip.AddrPort{forwarded}) {
+			t.Fatalf("the Join Code names %v, want [%s]", got, forwarded)
+		}
+		joined, err := p.Claim(t.Context(), code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := joined.String(); got != "joined restored as box (node "+joined.NodeID.String()+"); link up to 127.0.0.9:443" {
+			t.Fatalf("joined line %q", got)
+		}
+		synctest.Wait()
+		rec := checkSuperseded(t, p, box, first, second)
+		if got := rec.Controller.Addresses.All(); !slices.Equal(got, []netip.AddrPort{forwarded}) {
+			t.Fatalf("the record dials the Controller at %v, want [%s]", got, forwarded)
+		}
+	})
+}
+
 func TestAControllerRefusesAJoin(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		net := fault.NewNetwork()
-		home := startController(t, net, "home", "127.0.0.2")
+		home := startController(t, net, "home", "127.0.0.2", nil)
 		_, p := worker(t, net, t.TempDir(), system.Controller)
 		if _, err := p.Claim(t.Context(), home.mint(t)); kind(err) != pairing.IsController || err.Error() != "this Node is a Controller" {
 			t.Fatalf("a Controller's Join: %v, want this Node is a Controller", err)
@@ -170,9 +237,13 @@ func TestAControllerRefusesAJoin(t *testing.T) {
 func TestAnUnreachableControllerIsNamed(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		net := fault.NewNetwork()
-		home := startController(t, net, "home", "127.0.0.2")
+		home := startController(t, net, "home", "127.0.0.2", nil)
 		code := home.mint(t)
-		net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Reset{})
+		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
+			if _, err := net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+				t.Fatal(err)
+			}
+		}
 		_, p := worker(t, net, t.TempDir(), system.Unclaimed)
 		if _, err := p.Claim(t.Context(), code); kind(err) != pairing.Unreachable {
 			t.Fatalf("a Join over a reset path: %v, want controller_unreachable", err)

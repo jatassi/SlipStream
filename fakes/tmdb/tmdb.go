@@ -23,6 +23,7 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.TMDB.API = endpoint.MustParseURL(at.URL(root))
 	},
+	Online: fake.OnlineSuite("tmdb"),
 }
 
 const root = "/3"
@@ -31,16 +32,16 @@ type server struct {
 	movies []scenario.TMDBMovie
 }
 
-func newServer(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	srv := &server{}
 	if s.TMDB != nil {
 		srv.movies = slices.SortedFunc(slices.Values(s.TMDB.Movies), func(a, b scenario.TMDBMovie) int { return cmp.Compare(a.ID, b.ID) })
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+root+"/search/movie", srv.search)
-	mux.HandleFunc("GET "+root+"/movie/{id}", srv.movie)
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { notFound(w) })
-	return fake.HTTP(mux), nil
+	return fake.HTTP(env, fake.Routes{
+		"search":    {Pattern: "GET " + root + "/search/movie", Handler: srv.search},
+		"movie":     {Pattern: "GET " + root + "/movie/{id}", Handler: srv.movie},
+		"not-found": {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
+	}), nil
 }
 
 type resultJSON struct {

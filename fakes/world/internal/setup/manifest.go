@@ -6,6 +6,7 @@ import (
 	"net/netip"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -19,10 +20,12 @@ type Node struct {
 	BrowserURL string            `json:"browserUrl"`
 	Listeners  map[string]string `json:"listeners"`
 	DataDir    string            `json:"dataDir"`
-	PID        int               `json:"pid"`
-	Seed       string            `json:"seed"`
-	Log        string            `json:"log"`
-	Overrides  []node.Key        `json:"overrides"`
+	State      lifecycle.State   `json:"state"`
+	// PID is the running Node's process, 0 while none runs.
+	PID       int        `json:"pid"`
+	Seed      string     `json:"seed"`
+	Log       string     `json:"log"`
+	Overrides []node.Key `json:"overrides"`
 	// NodeKey is node.key's fingerprint. NodeID and Roles are the Node's
 	// row on the Controller, absent while it is Unclaimed.
 	NodeKey string   `json:"nodeKey"`
@@ -45,6 +48,7 @@ var claimAfter = [...]Claim{scenario.SetupNone: ClaimUnclaimed, scenario.SetupCo
 type Ran struct {
 	Spec    scenario.Node
 	Address netip.Addr
+	State   lifecycle.State
 	Ready   node.Ready
 	DataDir string
 	Log     string
@@ -67,6 +71,7 @@ func Entry(n Ran, m Member) (Node, error) {
 		BrowserURL: fmt.Sprintf("http://%s:%d", host, n.Ready.Listeners.HTTP.Port()),
 		Listeners:  listeners,
 		DataDir:    n.DataDir,
+		State:      n.State,
 		PID:        n.Ready.PID,
 		Seed:       n.Ready.Seed,
 		Log:        n.Log,

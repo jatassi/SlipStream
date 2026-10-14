@@ -23,6 +23,7 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.ContentTypes.Set("music", "metadata", at.URL(root))
 	},
+	Online: fake.OnlineSuite("musicbrainz"),
 }
 
 const root = "/ws/2"
@@ -33,16 +34,10 @@ type server struct {
 
 	mu      sync.Mutex
 	lookups map[string]int
-	faults  map[string]*fault
 }
 
-type fault struct {
-	answer string
-	left   int
-}
-
-func newServer(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
-	srv := &server{artists: map[string]scenario.MusicArtist{}, artistOf: map[string]string{}, lookups: map[string]int{}, faults: map[string]*fault{}}
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	srv := &server{artists: map[string]scenario.MusicArtist{}, artistOf: map[string]string{}, lookups: map[string]int{}}
 	if s.Music != nil {
 		for _, a := range s.Music.Artists {
 			srv.artists[a.ID] = a
@@ -52,17 +47,14 @@ func newServer(s scenario.Scenario, _ fake.Env) (fake.Server, error) {
 				}
 			}
 		}
-		for _, f := range s.Music.Faults {
-			srv.faults[f.Artist] = &fault{answer: f.Answer, left: f.Times}
-		}
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+root+"/artist", jsonOnly(srv.search))
-	mux.HandleFunc("GET "+root+"/artist/{mbid}", jsonOnly(srv.artist))
-	mux.HandleFunc("GET "+root+"/release-group", jsonOnly(srv.releaseGroups))
-	mux.HandleFunc("GET "+root+"/release", jsonOnly(srv.releases))
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { notFound(w) })
-	return fake.HTTP(mux), nil
+	return fake.HTTP(env, fake.Routes{
+		"search":         {Pattern: "GET " + root + "/artist", Handler: jsonOnly(srv.search)},
+		"artist":         {Pattern: "GET " + root + "/artist/{mbid}", Handler: jsonOnly(srv.artist)},
+		"release-groups": {Pattern: "GET " + root + "/release-group", Handler: jsonOnly(srv.releaseGroups)},
+		"releases":       {Pattern: "GET " + root + "/release", Handler: jsonOnly(srv.releases)},
+		"not-found":      {Pattern: "/", Handler: func(w http.ResponseWriter, _ *http.Request) { notFound(w) }},
+	}), nil
 }
 
 type artistJSON struct {
@@ -162,29 +154,10 @@ func (s *server) artist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	f := s.faults[a.ID]
-	faulted := f != nil && f.left > 0
-	if faulted {
-		f.left--
-	} else {
-		s.lookups[a.ID]++
-	}
+	s.lookups[a.ID]++
 	s.mu.Unlock()
-	if faulted {
-		answers[f.answer](w, r)
-		return
-	}
 	rev := s.revision(a)
 	reply(w, artistJSON{ID: a.ID, Name: rev.Name, SortName: rev.SortName, Country: rev.Country, Disambiguation: rev.Disambiguation})
-}
-
-var answers = map[string]http.HandlerFunc{
-	scenario.AnswerNotFound: func(w http.ResponseWriter, _ *http.Request) { notFound(w) },
-	scenario.AnswerUnavailable: func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Retry-After", "1")
-		errorReply(w, http.StatusServiceUnavailable)
-	},
-	scenario.AnswerSlow: func(_ http.ResponseWriter, r *http.Request) { <-r.Context().Done() },
 }
 
 func (s *server) releaseGroups(w http.ResponseWriter, r *http.Request) {

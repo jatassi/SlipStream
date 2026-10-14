@@ -322,13 +322,27 @@ func TestFakesWired(t *testing.T) {
 	})
 }
 
+func TestConformanceSuites(t *testing.T) {
+	assertFindings(t, check(t, "conformance-suites", fixtureRepo(t, "conformance-suites")), []string{
+		"fakes/music/music.go:7: [conformance-suites] conformance/musicbrainz declares no func Run",
+		"fakes/music/music.go:7: [conformance-suites] conformance/musicbrainz/online_test.go is missing or not built only under //go:build online",
+		"fakes/music/music.go:7: [conformance-suites] no test in fakes/music calls conformance/musicbrainz.Run",
+		"fakes/other/other.go:7: [conformance-suites] fake.OnlineSuite takes a string literal naming its suite under conformance/",
+		"fakes/radarr/radarr.go:5: [conformance-suites] conformance/radarr declares no func Run",
+		"fakes/radarr/radarr.go:5: [conformance-suites] conformance/radarr/online_test.go is missing or not built only under //go:build online",
+		"fakes/radarr/radarr.go:5: [conformance-suites] no test in fakes/radarr calls conformance/radarr.Run",
+	})
+}
+
 func TestDeadlineWaits(t *testing.T) {
 	const (
-		until    = " in the end-to-end tier; wait on a condition with worldtest.Until"
+		until    = " in the end-to-end tier; wait on a condition with worldtest.Until or on a record with events.Wait"
 		context  = " in the end-to-end tier; take the context from worldtest.Context"
 		unlinked = " without an issue link; a flaky test gets an issue first"
 	)
 	assertFindings(t, check(t, "deadline-waits", fixtureRepo(t, "deadline-waits")), []string{
+		"cmd/fakeworld/fakeworld_test.go:9: [deadline-waits] time.Sleep" + until,
+		"conformance/tmdb/online_test.go:8: [deadline-waits] t.Skip" + unlinked,
 		"e2e/first_run_test.go:10: [deadline-waits] time.Sleep" + until,
 		"e2e/first_run_test.go:11: [deadline-waits] time.After" + until,
 		"e2e/first_run_test.go:12: [deadline-waits] context.Background" + context,
@@ -344,6 +358,7 @@ func TestDeadlineWaits(t *testing.T) {
 		"e2e/helpers.go:10: [deadline-waits] time.NewTicker" + until,
 		"e2e/helpers.go:13: [deadline-waits] (*testing.T).Context" + context,
 		"e2e/helpers.go:14: [deadline-waits] time.Tick" + until,
+		"fakes/events/log.go:5: [deadline-waits] time.Sleep" + until,
 		"fakes/world/world.go:9: [deadline-waits] time.NewTimer" + until,
 		"fakes/world/world.go:10: [deadline-waits] time.AfterFunc" + until,
 		"fakes/world/world.go:12: [deadline-waits] context.Background" + context,
@@ -356,9 +371,16 @@ func TestWebLayout(t *testing.T) {
 		route   = " signed-in pages live under web/src/routes/_app/; a public route is listed in web-layout"
 		browser = " browser tests live under web/e2e/"
 		comp    = " component tests live under web/src/; browser tests are web/e2e/*.spec.ts"
+		apart   = " web/harness/ imports nothing from web/src/ or web/e2e/"
 	)
 	assertFindings(t, check(t, "web-layout", fixtureRepo(t, "web-layout")), []string{
 		"web/e2e/x.test.ts:1: [web-layout]" + comp,
+		"web/harness/bin/sign-in.ts:2: [web-layout]" + apart,
+		"web/harness/manifest.ts:4: [web-layout]" + apart,
+		"web/harness/routes/index.ts:1: [web-layout] web/harness/ is a library and holds no routes",
+		"web/harness/sign-in.spec.ts:1: [web-layout]" + browser,
+		"web/harness/sign-in.test.ts:1: [web-layout]" + comp,
+		"web/src/app.tsx:3: [web-layout] the app never imports web/harness/",
 		"web/src/routes/admin/users.tsx:1: [web-layout]" + route,
 		"web/src/routes/movies.tsx:1: [web-layout]" + route,
 		"web/src/routes/setup.test.ts:1: [web-layout]" + route,

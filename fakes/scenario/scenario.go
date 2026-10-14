@@ -18,6 +18,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/yamltree"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/role"
@@ -44,6 +45,9 @@ type Scenario struct {
 	// Library is what the world creates on the controller Node after
 	// setting it up.
 	Library *Library `yaml:"library,omitempty"`
+	// Faults are the fault rules the world sets at launch, before any Node
+	// starts, as fakeworld fault set would.
+	Faults []fault.Rule `yaml:"faults,omitempty"`
 }
 
 // Admin is the first Admin a controller Node is set up with.
@@ -79,7 +83,7 @@ func Load(name string) (Scenario, error) {
 	if err != nil {
 		return Scenario{}, fmt.Errorf("scenario %s: %w", name, err)
 	}
-	return parse(name, data)
+	return Parse(name, data)
 }
 
 // Catalog is the name of every catalog Scenario.
@@ -92,7 +96,9 @@ func Catalog() []string {
 	return out
 }
 
-func parse(name string, data []byte) (Scenario, error) {
+// Parse reads data as the Scenario name, strictly, and validates it, as a
+// run dir's scenario.yaml is read back for replay.
+func Parse(name string, data []byte) (Scenario, error) {
 	s := Scenario{Name: name}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
@@ -143,11 +149,35 @@ func (s Scenario) Validate() error {
 			add("library is set, but no node is controller")
 		}
 		s.Library.check(add)
+		switch holders := s.searching(); {
+		case len(s.Library.Indexers) == 0:
+		case len(holders) == 0:
+			add("library has indexers, and no node holds searching")
+		case len(holders) > 1:
+			add("library has indexers, and nodes %s all hold searching; exactly one does", strings.Join(holders, ", "))
+		}
 	}
+	checkFaults(add, s.Faults)
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))
 	}
 	return nil
+}
+
+// checkFaults checks what a rule needs before any front exists: an id of
+// its own and a fault. The world checks the rest when it sets the rules.
+func checkFaults(add func(format string, args ...any), rules []fault.Rule) {
+	for i, r := range rules {
+		switch {
+		case r.ID == "":
+			add("fault %d has no id", i+1)
+		case slices.ContainsFunc(rules[:i], func(o fault.Rule) bool { return o.ID == r.ID }):
+			add("fault id %s is used twice", r.ID)
+		}
+		if r.Fault == nil {
+			add("fault %s names no fault", r.ID)
+		}
+	}
 }
 
 // checkNodes checks each Node and the rules across them, and returns the
@@ -254,4 +284,27 @@ func (s Scenario) document() *yaml.Node {
 		break
 	}
 	return &doc
+}
+
+// Searching is the Node that holds Searching, whose front the world enters
+// as each Indexer's URL. Validate makes it exactly one when the library has
+// Indexers.
+func (s Scenario) Searching() string {
+	if holders := s.searching(); len(holders) == 1 {
+		return holders[0]
+	}
+	return ""
+}
+
+// searching names each Node that holds Searching once set up: a join or
+// controller Node listing it, and a controller Node that lists no Roles,
+// which keeps every Role but Relaying.
+func (s Scenario) searching() []string {
+	var holders []string
+	for _, n := range s.Nodes {
+		if (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching)) {
+			holders = append(holders, n.Name)
+		}
+	}
+	return holders
 }

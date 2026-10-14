@@ -70,7 +70,7 @@ func start(f startFlags) error {
 		return fmt.Errorf("open world.log: %w", err)
 	}
 	defer func() { _ = log.Close() }()
-	cmd, err := supervisorCommand(runDir, binary, f.scenario.Name, log)
+	cmd, err := supervisorCommand(runDir, binary, f, log)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func start(f startFlags) error {
 	return h.err(f.timeout, cmd.ProcessState.ExitCode(), filepath.Join(runDir, "world.log"))
 }
 
-func supervisorCommand(runDir, binary, scenario string, log *os.File) (*exec.Cmd, error) {
+func supervisorCommand(runDir, binary string, f startFlags, log *os.File) (*exec.Cmd, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("supervisor: %w", err)
@@ -113,7 +113,11 @@ func supervisorCommand(runDir, binary, scenario string, log *os.File) (*exec.Cmd
 	if _, err := world.CopyExecutable(self, supervisor); err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(context.Background(), supervisor, "supervise", "--binary", binary, "--scenario", scenario, "--run-dir", runDir)
+	args := []string{"supervise", "--binary", binary, "--scenario", f.scenario.Name, "--run-dir", runDir, "--test-command", f.testCommand}
+	if f.scenarioFile != "" {
+		args = append(args, "--scenario-file", f.scenarioFile)
+	}
+	cmd := exec.CommandContext(context.Background(), supervisor, args...)
 	cmd.Stderr = log
 	cmd.SysProcAttr = detached()
 	return cmd, nil

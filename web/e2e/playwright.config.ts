@@ -3,7 +3,7 @@ import { arch, env, platform } from "node:process";
 
 import { type Project, defineConfig } from "@playwright/test";
 
-import presets from "./presets.json" with { type: "json" };
+import presets from "../harness/presets.json" with { type: "json" };
 
 type Engine = "chromium" | "firefox" | "webkit";
 

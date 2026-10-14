@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/jatassi/slipstream/fakes/world/internal/channel"
+	"github.com/jatassi/slipstream/fakes/events"
+	"github.com/jatassi/slipstream/fakes/world/internal/control"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 )
 
@@ -25,8 +28,12 @@ type StopReport struct {
 type NodeStop struct {
 	Name     string `json:"name"`
 	ExitCode int    `json:"exitCode"`
-	// ExitedUnasked is a Node that exited before the run was stopping.
+	// ExitedUnasked is a Node that exited before the run was stopping
+	// with no Node action asking it to.
 	ExitedUnasked bool `json:"exitedUnasked"`
+	// Killed is a Node a kill action left down, whose exit code says
+	// nothing.
+	Killed bool `json:"killed,omitempty"`
 	// StopFailed is slipstream stop's failure when it did not see the Node
 	// release its data dir; the world then killed the Node.
 	StopFailed string `json:"stopFailed,omitempty"`
@@ -42,7 +49,7 @@ func (r StopReport) Err() error {
 			problems = append(problems, fmt.Sprintf("node %s exited with code %d before it was asked to stop", n.Name, n.ExitCode))
 		case n.StopFailed != "":
 			problems = append(problems, fmt.Sprintf("node %s did not stop: %s", n.Name, n.StopFailed))
-		case n.ExitCode != 0:
+		case n.ExitCode != 0 && !n.Killed:
 			problems = append(problems, fmt.Sprintf("node %s exited with code %d", n.Name, n.ExitCode))
 		}
 	}
@@ -53,28 +60,29 @@ func (r StopReport) Err() error {
 	return errors.New(strings.Join(problems, "\n"))
 }
 
-// Stop stops every Node in reverse Scenario order, then the fakes, renames
+// Stop stops every Node in reverse Scenario order, then the fakes and their
+// fronts, renames
 // the manifest to manifest.stopped.json, deletes the scratch dir, writes
-// stopped.json and closes the stop channel. The first caller does the
-// work; every caller gets the same report.
-func (r *Run) Stop() (StopReport, error) {
+// stopped.json and closes the control socket. The first caller does the
+// work, which always runs to its end; every caller gets the same report.
+func (r *Run) Stop(context.Context) (StopReport, error) {
 	r.stopOnce.Do(r.stop)
 	return r.report, r.report.Err()
 }
 
-// Done is closed once the run has stopped and the stop channel has answered
-// every request it took.
-func (r *Run) Done() <-chan struct{} { return r.channel.Done() }
+// Done is closed once the run has stopped and the control socket has
+// answered every request it took.
+func (r *Run) Done() <-chan struct{} { return r.control.Done() }
 
 func (r *Run) stop() {
-	r.log.Info("stopping")
+	r.record(events.RunStopping, struct{}{})
+	r.stopCaptures()
+	r.manifestMu.Lock()
+	r.published = false
+	r.manifestMu.Unlock()
 	unasked := make([]bool, len(r.nodes))
 	for i, n := range r.nodes {
-		select {
-		case <-n.proc.Exited():
-			unasked[i] = true
-		default:
-		}
+		unasked[i] = n.life.State() == lifecycle.Exited
 	}
 	r.report.Nodes = make([]NodeStop, len(r.nodes))
 	for i := len(r.nodes) - 1; i >= 0; i-- {
@@ -89,46 +97,25 @@ func (r *Run) stop() {
 	for _, f := range r.fakes {
 		problem(f.stop())
 	}
+	r.fronts.Close()
 	problem(os.Rename(filepath.Join(r.runDir, manifestFile), filepath.Join(r.runDir, stoppedManifestFile)))
 	problem(os.RemoveAll(r.scratchDir))
 	problem(writeAtomically(filepath.Join(r.runDir, stopReportFile), marshal(r.report)))
-	r.log.Info("stopped", "clean", r.report.Err() == nil)
-	r.channel.Close()
+	r.record(events.RunStopped, stopped{Clean: r.report.Err() == nil})
+	r.control.Close()
+	_ = r.events.Close()
 	_ = r.logFile.Close()
 }
 
 func (r *Run) stopNode(n *nodeRun, unasked bool) NodeStop {
-	ns := NodeStop{Name: n.spec.Name, ExitedUnasked: unasked}
-	select {
-	case <-n.proc.Exited():
-	default:
-		res, err := proc.Run(r.life, r.binary.Path, []string{"stop", "--data-dir", n.dataDir.Path()}, n.env)
-		switch {
-		case err != nil:
-			ns.StopFailed = err.Error()
-		case res.Code != 0:
-			ns.StopFailed = fmt.Sprintf("slipstream stop exited with code %d: %s", res.Code, strings.TrimSpace(string(res.Stderr)))
-		}
-		if ns.StopFailed != "" {
-			if err := n.proc.Kill(); err != nil {
-				ns.StopFailed += "; " + err.Error()
-			}
-		}
-	}
-	<-n.proc.Exited()
-	ns.ExitCode = n.proc.ExitCode()
-	_ = n.logFile.Close()
-	r.log.Info("node stopped", "node", ns.Name, "code", ns.ExitCode, "unasked", ns.ExitedUnasked, "stop_failed", ns.StopFailed)
+	e := n.life.End(r.life)
+	ns := NodeStop{Name: n.spec.Name, ExitCode: e.ExitCode, ExitedUnasked: unasked, Killed: e.Killed, StopFailed: e.StopFailed}
+	r.log.Info("node stopped", "node", ns.Name, "code", ns.ExitCode, "unasked", ns.ExitedUnasked, "killed", ns.Killed, "stop_failed", ns.StopFailed)
 	return ns
 }
 
-func (r *Run) stopAnswer() []byte {
-	report, _ := r.Stop()
-	return marshal(report)
-}
-
-// SupervisorGoneError is a run whose stop channel does not answer. It
-// names the command that stops each Node world.log recorded.
+// SupervisorGoneError is a run whose control socket does not answer. It
+// names the command that stops each Node the event log says was spawned.
 type SupervisorGoneError struct {
 	PID    int
 	Spawns []Spawn
@@ -143,39 +130,33 @@ func (e *SupervisorGoneError) Error() string {
 	return b.String()
 }
 
-// StopRun stops the run in runDir through its supervisor's stop channel
-// and returns the report once the work is done and a supervisor in another
-// process has exited. A run that already stopped returns its stopped.json.
-// It never stops a Node itself: when the supervisor is gone it returns a
-// *SupervisorGoneError.
+// StopRun stops the run in runDir through its supervisor's control
+// socket and returns the report once the work is done and a supervisor in
+// another process has exited. A run that already stopped returns its
+// stopped.json. It never stops a Node itself: when the supervisor is gone
+// it returns a *SupervisorGoneError.
 func StopRun(ctx context.Context, runDir string) (StopReport, error) {
-	wl, err := ReadWorldLog(runDir)
+	supervisor, spawns, err := readLaunch(runDir)
 	if err != nil {
 		return StopReport{}, err
 	}
-	data, err := os.ReadFile(filepath.Join(runDir, stopReportFile))
+	var report StopReport
+	if data, rerr := os.ReadFile(filepath.Join(runDir, stopReportFile)); rerr == nil {
+		err = json.Unmarshal(data, &report)
+	} else {
+		err = (&Remote{socket: supervisor.Control}).call(ctx, http.MethodPost, "/v1/stop", struct{}{}, &report)
+	}
+	if errors.Is(err, control.ErrNoAnswer) {
+		return StopReport{}, &SupervisorGoneError{PID: supervisor.PID, Spawns: spawns}
+	}
 	if err != nil {
-		data, err = channel.Stop(ctx, wl.Supervisor.Control)
+		return StopReport{}, fmt.Errorf("stop report: %w", err)
 	}
-	if errors.Is(err, channel.ErrNoAnswer) {
-		return StopReport{}, &SupervisorGoneError{PID: wl.Supervisor.PID, Spawns: wl.Spawns}
-	}
-	if err != nil {
-		return StopReport{}, err
-	}
-	report, err := decodeReport(data)
-	if wl.Supervisor.PID != os.Getpid() {
-		if werr := proc.WaitExit(ctx, wl.Supervisor.PID); werr != nil {
+	err = report.Err()
+	if supervisor.PID != os.Getpid() {
+		if werr := proc.WaitExit(ctx, supervisor.PID); werr != nil {
 			return report, errors.Join(err, fmt.Errorf("the supervisor: %w", werr))
 		}
 	}
 	return report, err
-}
-
-func decodeReport(data []byte) (StopReport, error) {
-	var report StopReport
-	if err := json.Unmarshal(data, &report); err != nil {
-		return StopReport{}, fmt.Errorf("stop report: %w", err)
-	}
-	return report, report.Err()
 }

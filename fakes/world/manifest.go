@@ -6,13 +6,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
+	"github.com/jatassi/slipstream/web"
 )
 
 const (
 	manifestFile        = "manifest.json"
 	stoppedManifestFile = "manifest.stopped.json"
-	manifestSchema      = 1
+	manifestSchema      = 2
 )
 
 // Manifest describes a ready world. It exists only while the world is
@@ -24,16 +27,26 @@ type Manifest struct {
 	ScratchDir string `json:"scratchDir"`
 	// MediaDir holds the library roots' folders, beside the Nodes' data
 	// dirs; absent for a Scenario without a library.
-	MediaDir    string      `json:"mediaDir,omitempty"`
-	Scenario    ScenarioRef `json:"scenario"`
-	Binary      Binary      `json:"binary"`
-	Supervisor  Supervisor  `json:"supervisor"`
-	CA          CAFile      `json:"ca"`
-	Divergences []string    `json:"divergences"`
-	Nodes       []Node      `json:"nodes"`
-	Fakes       []Fake      `json:"fakes"`
-	Admin       *Admin      `json:"admin,omitempty"`
-	APIKey      string      `json:"apiKey,omitempty"`
+	MediaDir   string      `json:"mediaDir,omitempty"`
+	Scenario   ScenarioRef `json:"scenario"`
+	Binary     Binary      `json:"binary"`
+	Supervisor Supervisor  `json:"supervisor"`
+	CA         CAFile      `json:"ca"`
+	// Events is the event log's path relative to the run dir.
+	Events      string   `json:"events"`
+	Divergences []string `json:"divergences"`
+	Nodes       []Node   `json:"nodes"`
+	Fakes       []Fake   `json:"fakes"`
+	// Fronts is every front: where each Node, and the world, reaches each
+	// target.
+	Fronts []Front `json:"fronts"`
+	// Links maps each Node to its link front, the address it advertises
+	// and every peer dials.
+	Links    map[string]string `json:"links"`
+	Releases []Release         `json:"releases"`
+	Browser  Browser           `json:"browser"`
+	Admin    *Admin            `json:"admin,omitempty"`
+	APIKey   string            `json:"apiKey,omitempty"`
 }
 
 type ScenarioRef struct {
@@ -51,8 +64,8 @@ type Binary struct {
 	Version string `json:"version"`
 }
 
-// Supervisor is the process that launched the run and stops it through
-// its stop channel, Control.
+// Supervisor is the process that launched the run and serves its control
+// socket, Control.
 type Supervisor struct {
 	PID     int    `json:"pid"`
 	Log     string `json:"log"`
@@ -66,6 +79,15 @@ type CAFile struct {
 // Node is one Node's manifest entry, built where both worlds share it.
 type Node = setup.Node
 
+type NodeState = lifecycle.State
+
+const (
+	NodeRunning = lifecycle.Running
+	NodeStopped = lifecycle.Stopped
+	NodeKilled  = lifecycle.Killed
+	NodeExited  = lifecycle.Exited
+)
+
 // Claim is what a Node is once the world has set it up.
 type Claim = setup.Claim
 
@@ -75,9 +97,41 @@ const (
 	ClaimWorker     = setup.ClaimWorker
 )
 
+// Fake is a fake the world hosts. URL is its world front.
 type Fake struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	Name     string             `json:"name"`
+	URL      string             `json:"url"`
+	Captures []fake.CaptureSpec `json:"captures"`
+	Cues     []fake.CueSpec     `json:"cues"`
+}
+
+// Front is one front: target as Node reaches it, Node "world" for the
+// harness and "" for a link front, which every peer dials. URL is absent
+// for a target that speaks no HTTP.
+type Front struct {
+	Target  string `json:"target"`
+	Node    string `json:"node"`
+	Address string `json:"address"`
+	URL     string `json:"url,omitempty"`
+}
+
+// Release is a catalog release: its payload's size and BLAKE3, and its
+// torrent's info hash, all in hex.
+type Release struct {
+	Name     string `json:"name"`
+	InfoHash string `json:"infoHash"`
+	Size     int64  `json:"size"`
+	BLAKE3   string `json:"blake3"`
+}
+
+// Browser is what a browser driving the run needs: Chromium's host
+// resolver rules for every Node's name, the playwright cli config
+// fakeworld browser writes for each shell, relative to the run dir, and
+// each shell's preset.
+type Browser struct {
+	HostResolverRules string                `json:"hostResolverRules"`
+	Config            map[string]string     `json:"config"`
+	Presets           map[string]web.Preset `json:"presets"`
 }
 
 type Admin struct {
@@ -86,20 +140,40 @@ type Admin struct {
 	PIN         string `json:"pin"`
 }
 
+// ReadManifest and writeAtomically go through os.Root because on Windows it
+// opens files sharing delete access and renames with POSIX semantics, so a
+// reader holding manifest.json open neither blocks the supervisor replacing
+// it nor sees the name missing mid-replace. os.ReadFile and os.Rename do
+// neither.
 func ReadManifest(runDir string) (Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(runDir, manifestFile))
+	return readManifestFile(runDir, manifestFile)
+}
+
+func readManifestFile(runDir, name string) (Manifest, error) {
+	root, err := os.OpenRoot(runDir)
 	if err != nil {
 		return Manifest{}, fmt.Errorf("read manifest: %w", err)
 	}
+	defer func() { _ = root.Close() }()
+	data, err := root.ReadFile(name)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("read manifest in %s: %w", runDir, err)
+	}
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
-		return Manifest{}, fmt.Errorf("read manifest %s: %w", filepath.Join(runDir, manifestFile), err)
+		return Manifest{}, fmt.Errorf("read manifest %s: %w", filepath.Join(runDir, name), err)
 	}
 	return m, nil
 }
 
 func writeAtomically(path string, data []byte) error {
-	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	dir, name := filepath.Dir(path), filepath.Base(path)
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	defer func() { _ = root.Close() }()
+	f, err := os.CreateTemp(dir, "."+name+".*")
 	if err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
@@ -110,7 +184,7 @@ func writeAtomically(path string, data []byte) error {
 		_ = os.Remove(f.Name())
 		return fmt.Errorf("write %s: %w", path, err)
 	}
-	if err := os.Rename(f.Name(), path); err != nil {
+	if err := root.Rename(filepath.Base(f.Name()), name); err != nil {
 		_ = os.Remove(f.Name())
 		return fmt.Errorf("write %s: %w", path, err)
 	}

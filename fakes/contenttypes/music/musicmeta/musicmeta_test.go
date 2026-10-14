@@ -6,9 +6,12 @@ import (
 	"testing"
 	"testing/synctest"
 
+	conformance "github.com/jatassi/slipstream/conformance/musicbrainz"
+	"github.com/jatassi/slipstream/fakes/contenttypes/music"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/musicmeta"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
 type exchange struct {
@@ -57,7 +60,7 @@ func TestTheFakeAnswersAsMusicBrainzDoes(t *testing.T) {
 	inBothTiers(t, s, []exchange{
 		{"/ws/2/artist/a1000000-0000-4000-8000-000000000001", "400 Bad Request Retry-After= {\"error\":\"Bad Request\"}\n"},
 		{"/ws/2/elsewhere?fmt=json", "404 Not Found Retry-After= {\"error\":\"Not Found\"}\n"},
-		{"/ws/2/artist/a1000000-0000-4000-8000-000000000002?fmt=json", "503 Service Unavailable Retry-After=1 {\"error\":\"Service Unavailable\"}\n"},
+		{"/ws/2/artist/a1000000-0000-4000-8000-000000000002?fmt=json", "503 Service Unavailable Retry-After=1 Service Unavailable\n"},
 		{"/ws/2/artist/a1000000-0000-4000-8000-000000000002?fmt=json", `200 OK Retry-After= {"id":"a1000000-0000-4000-8000-000000000002","name":"Marrow Bay","sort-name":"Marrow Bay","country":"NZ","disambiguation":""}` + "\n"},
 		{"/ws/2/artist?query=bay&fmt=json", `200 OK Retry-After= {"count":1,"offset":0,"artists":[{"id":"a1000000-0000-4000-8000-000000000002","name":"Marrow Bay","sort-name":"Marrow Bay","country":"NZ","disambiguation":"","score":80}]}` + "\n"},
 		{"/ws/2/release-group?artist=a1000000-0000-4000-8000-000000000002&type=album|ep&fmt=json", `200 OK Retry-After= {"release-group-count":1,"release-group-offset":0,"release-groups":[{"id":"b2000000-0000-4000-8000-000000000001","title":"Saltgrass","primary-type":"Album","secondary-types":[],"first-release-date":"2019-11"}]}` + "\n"},
@@ -73,5 +76,23 @@ func TestAScenarioWithoutMusicServesAnEmptyCatalog(t *testing.T) {
 	inBothTiers(t, s, []exchange{
 		{"/ws/2/artist?query=a&fmt=json", "200 OK Retry-After= {\"count\":0,\"offset\":0,\"artists\":[]}\n"},
 		{"/ws/2/artist/a1000000-0000-4000-8000-000000000001?fmt=json", "404 Not Found Retry-After= {\"error\":\"Not Found\"}\n"},
+	})
+}
+
+func TestTheFakeConforms(t *testing.T) {
+	s, err := scenario.Load("music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func(t *testing.T, f faketest.Served) {
+		conformance.Run(t, conformance.Target{
+			Endpoints: music.Endpoints{Metadata: endpoint.MustParseURL(f.Address.URL("/ws/2"))},
+			Client:    f.Client,
+			Known:     conformance.Known{MBID: "a1000000-0000-4000-8000-000000000001", Name: "The Lanterns"},
+		})
+	}
+	t.Run("loopback", func(t *testing.T) { run(t, faketest.Loopback(t, musicmeta.Fake, s)) })
+	t.Run("in memory", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) { run(t, faketest.InMemory(t, musicmeta.Fake, s)) })
 	})
 }

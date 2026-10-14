@@ -48,6 +48,18 @@ var divergences = []divergence{
 		spec:   "#130",
 	},
 	{
+		id:          "link-front",
+		keyPatterns: []string{"link.advertise"},
+		reason:      "Each Node advertises its link front, so the Node link crosses a front the fault rules play on.",
+		spec:        "#135",
+	},
+	{
+		id:          "tcp-peers",
+		keyPatterns: []string{"torrent.outgoing_utp"},
+		reason:      "Nodes dial peers over TCP only, since seeder fronts carry no uTP and a uTP attempt at one costs a leecher about 4 s before it falls back.",
+		spec:        "#135",
+	},
+	{
 		id:          "fake-endpoints",
 		keyPatterns: []string{"endpoints.*"},
 		reason:      "Each boundary's endpoints point at its fake.",

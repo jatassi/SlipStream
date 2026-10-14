@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 
@@ -21,7 +22,7 @@ func supervise(f superviseFlags) int {
 	}
 	writeReport(report{OK: true})
 	<-run.Done()
-	if _, err := run.Stop(); err != nil {
+	if _, err := run.Stop(ctx); err != nil {
 		return exitFailed
 	}
 	return exitOK
@@ -33,11 +34,31 @@ func abandonOnStdinEOF(stdin io.Reader, abandon context.CancelFunc) {
 }
 
 func launch(ctx context.Context, f superviseFlags) (*world.Run, error) {
-	s, err := scenario.Load(f.scenario)
+	s, err := loadScenario(f.scenario, f.scenarioFile)
 	if err != nil {
 		return nil, err
 	}
-	return world.Launch(ctx, world.Options{Binary: f.binary, Scenario: s, RunDir: f.runDir, RunDirCreated: true})
+	return world.Launch(ctx, world.Options{Binary: f.binary, Scenario: s, RunDir: f.runDir, RunDirCreated: true, Origin: originOf(f.testCommand)})
+}
+
+func originOf(testCommand string) world.Origin {
+	if testCommand == "" {
+		return world.Origin{Kind: world.FromSteps}
+	}
+	return world.Origin{Kind: world.FromTest, Command: testCommand}
+}
+
+// loadScenario is the catalog Scenario name, or the Scenario name the
+// file holds.
+func loadScenario(name, file string) (scenario.Scenario, error) {
+	if file == "" {
+		return scenario.Load(name)
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return scenario.Scenario{}, fmt.Errorf("scenario %s: %w", name, err)
+	}
+	return scenario.Parse(name, data)
 }
 
 func writeReport(r report) {

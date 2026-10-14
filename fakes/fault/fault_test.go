@@ -62,106 +62,120 @@ func write(t *testing.T, c net.Conn, s string) {
 	}
 }
 
-func TestStallDropsWritesUntilNone(t *testing.T) {
+// set plays f on every connection p covers, as the simulation tier's
+// one-call flip.
+func set(t *testing.T, p *fault.Plan, f fault.Fault) {
+	t.Helper()
+	if _, err := p.Set(fault.Rule{Fault: f}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStallDropsWritesAndHoldsReadsUntilCleared(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := fault.NewNetwork()
 		client, server := pair(t, n)
-		got := readAsync(server)
-		n.Path(home, seedbox).Set(fault.Stall{})
-		write(t, client, "lost")
+		atServer, atClient := readAsync(server), readAsync(client)
+		set(t, n.Path(home, seedbox), fault.Stall{})
+		write(t, server, "lost")
+		write(t, client, "held")
 		synctest.Wait()
 		select {
-		case r := <-got:
+		case r := <-atServer:
+			t.Fatalf("a read under Stall returned: %+v", r)
+		case r := <-atClient:
 			t.Fatalf("a write under Stall arrived: %+v", r)
 		default:
 		}
-		n.Path(seedbox, home).Set(fault.None{})
-		write(t, client, "after")
-		if r := <-got; r != (read{"after", nil}) {
-			t.Fatalf("read %+v, want after", r)
+		n.Path(seedbox, home).Clear("")
+		if r := <-atServer; r != (read{"held", nil}) {
+			t.Fatalf("after the clear the server read %+v, want held", r)
+		}
+		write(t, server, "after")
+		if r := <-atClient; r != (read{"after", nil}) {
+			t.Fatalf("after the clear the client read %+v, want after", r)
 		}
 	})
 }
 
-func TestStallHoldsReadsUntilTheSwitchChanges(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		raw, peer := net.Pipe()
-		var sw fault.Switch
-		c := fault.Wrap(raw, &sw)
-		t.Cleanup(func() { _ = c.Close() })
-		t.Cleanup(func() { _ = peer.Close() })
-		sw.Set(fault.Stall{})
-		got := readAsync(c)
-		write(t, peer, "held")
-		synctest.Wait()
-		select {
-		case r := <-got:
-			t.Fatalf("a read under Stall returned: %+v", r)
-		default:
-		}
-		sw.Set(fault.None{})
-		if r := <-got; r != (read{"held", nil}) {
-			t.Fatalf("read %+v, want held", r)
-		}
-	})
-}
-
-func TestResetKillsBothEndsAndRefusesDials(t *testing.T) {
+func TestResetKillsBothEndsAndLaterDials(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := fault.NewNetwork()
 		client, server := pair(t, n)
 		got := readAsync(server)
-		n.Path(home, seedbox).Set(fault.Reset{})
+		set(t, n.Path(home, seedbox), fault.Reset{})
 		if r := <-got; !errors.Is(r.err, fault.ErrReset) {
 			t.Fatalf("server read %+v, want ErrReset", r)
 		}
 		if _, err := client.Write([]byte("x")); !errors.Is(err, fault.ErrReset) {
 			t.Fatalf("client write: %v, want ErrReset", err)
 		}
-		_, err := n.Host(home).DialContext(t.Context(), "tcp", "127.0.0.3:8485")
-		if err == nil || err.Error() != "dial tcp 127.0.0.3:8485: connection refused" {
+		again, err := n.Host(home).DialContext(t.Context(), "tcp", "127.0.0.3:8485")
+		if err != nil {
 			t.Fatalf("dial under Reset: %v", err)
 		}
-		n.Path(home, seedbox).Set(fault.None{})
-		if _, err := client.Write([]byte("x")); !errors.Is(err, fault.ErrReset) {
-			t.Fatalf("a reset conn wrote after None: %v", err)
+		t.Cleanup(func() { _ = again.Close() })
+		if _, err := again.Read(make([]byte, 1)); !errors.Is(err, fault.ErrReset) {
+			t.Fatalf("a connection dialed under Reset read %v, want ErrReset", err)
 		}
+		n.Path(home, seedbox).Clear("")
+		if _, err := client.Write([]byte("x")); !errors.Is(err, fault.ErrReset) {
+			t.Fatalf("a reset conn wrote after the clear: %v", err)
+		}
+	})
+}
+
+func TestRefuseRefusesDialsUntilCleared(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := fault.NewNetwork()
+		client, server := pair(t, n)
+		set(t, n.Path(home, seedbox), fault.Refuse{})
+		_, err := n.Host(home).DialContext(t.Context(), "tcp", "127.0.0.3:8485")
+		if err == nil || err.Error() != "dial tcp 127.0.0.3:8485: connection refused" {
+			t.Fatalf("dial under Refuse: %v", err)
+		}
+		got := readAsync(server)
+		write(t, client, "open")
+		if r := <-got; r != (read{"open", nil}) {
+			t.Fatalf("a connection open before Refuse read %+v", r)
+		}
+		n.Path(home, seedbox).Clear("")
 		c, err := n.Host(home).DialContext(t.Context(), "tcp", "127.0.0.3:8485")
 		if err != nil {
-			t.Fatalf("dial after None: %v", err)
+			t.Fatalf("dial after the clear: %v", err)
 		}
 		_ = c.Close()
 	})
 }
 
-func TestCutAfterDeliversExactlyNBytes(t *testing.T) {
+func TestCutPassesExactlyNBytes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := fault.NewNetwork()
 		client, server := pair(t, n)
-		n.Path(home, seedbox).Set(fault.CutAfter(5))
+		set(t, n.Path(home, seedbox), fault.Cut(5))
 		got := make(chan string, 1)
 		go func() {
-			b, _ := io.ReadAll(server)
+			b, _ := io.ReadAll(client)
 			got <- string(b)
 		}()
-		write(t, client, "hel")
-		if n, err := client.Write([]byte("lo world")); n != 2 || !errors.Is(err, fault.ErrCut) {
+		write(t, server, "hel")
+		if n, err := server.Write([]byte("lo world")); n != 2 || !errors.Is(err, fault.ErrCut) {
 			t.Fatalf("Write = %d, %v; want 2, ErrCut", n, err)
 		}
 		if s := <-got; s != "hello" {
 			t.Fatalf("delivered %q, want hello", s)
 		}
-		if _, err := client.Write([]byte("x")); !errors.Is(err, fault.ErrCut) {
+		if _, err := server.Write([]byte("x")); !errors.Is(err, fault.ErrCut) {
 			t.Fatalf("write after the cut: %v", err)
 		}
 	})
 }
 
-func TestLatencyDelaysEachWriteOneWay(t *testing.T) {
+func TestLatencyDelaysEachWayOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := fault.NewNetwork()
 		client, server := pair(t, n)
-		n.Path(home, seedbox).Set(fault.Latency(100 * time.Millisecond))
+		set(t, n.Path(home, seedbox), fault.Latency(100*time.Millisecond))
 		start := time.Now()
 		got := readAsync(server)
 		write(t, client, "ping")
@@ -195,7 +209,7 @@ func TestStalledDialReturnsTheContextError(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = l.Close() })
-		n.Path(home, seedbox).Set(fault.Stall{})
+		set(t, n.Path(home, seedbox), fault.Stall{})
 		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 		defer cancel()
 		start := time.Now()
@@ -221,7 +235,7 @@ func TestEachFamilyHasItsOwnPath(t *testing.T) {
 		if got := l.Addr().String(); got != "[::]:8485" {
 			t.Fatalf("listener at %s", got)
 		}
-		n.Path(home6, seedbox6).Set(fault.Stall{})
+		set(t, n.Path(home6, seedbox6), fault.Stall{})
 		dialer := n.Host(home6, home)
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()

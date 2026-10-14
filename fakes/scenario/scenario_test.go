@@ -196,6 +196,24 @@ func TestParseRefuses(t *testing.T) {
 			"scenario x: has 0 nodes; a Scenario has 1 to 31",
 		},
 		{
+			"an unknown key in a fault rule and its query",
+			"seed: x\nnodes: [{name: home}]\nfaults:\n  - id: a\n    target: tmdb\n    fault: hang\n    count: 2\n    after: {kind: cue, nodes: home}\n",
+			"scenario x: line 7: field count not found in type fault.Rule\n" +
+				"scenario x: line 8: field nodes not found in type events.Query",
+		},
+		{
+			"a fault the grammar refuses",
+			"seed: x\nnodes: [{name: home}]\nfaults:\n  - {id: a, target: tmdb, fault: throttle=fast}\n",
+			`scenario x: line 4: rule "a": fault throttle=fast: rate "fast" needs /s`,
+		},
+		{
+			"fault rules without an id, twice the same or without a fault",
+			"seed: x\nnodes: [{name: home}]\nfaults:\n  - {target: tmdb, fault: hang}\n  - {id: a, target: tmdb, fault: reset}\n  - {id: a, target: tmdb}\n",
+			"scenario x: fault 1 has no id\n" +
+				"scenario x: fault id a is used twice\n" +
+				"scenario x: fault a names no fault",
+		},
+		{
 			"two problems at once",
 			"seed: x\nnodes: [{name: Home}, {name: Home}]\n",
 			"scenario x: node name \"Home\" does not match ^[a-z][a-z0-9-]{0,15}$\n" +
@@ -205,7 +223,7 @@ func TestParseRefuses(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := parse("x", []byte(c.yaml))
+			_, err := Parse("x", []byte(c.yaml))
 			if err == nil || err.Error() != c.want {
 				t.Fatalf("err = %v, want %s", err, c.want)
 			}
@@ -305,7 +323,7 @@ library:
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)
 	}
-	back, err := parse("single-machine", s.YAML())
+	back, err := Parse("single-machine", s.YAML())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +334,7 @@ library:
 
 func TestAScenarioWithoutTimingsHashesLikeTheFileWithout(t *testing.T) {
 	built := Scenario{Name: "bare", Seed: "bare", Nodes: []Node{{Name: "home"}}}
-	read, err := parse("bare", []byte("seed: bare\nnodes: [{name: home, setup: none}]\n"))
+	read, err := Parse("bare", []byte("seed: bare\nnodes: [{name: home, setup: none}]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +349,7 @@ func TestAScenarioWithoutTimingsHashesLikeTheFileWithout(t *testing.T) {
 func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
 	s := singleMachine()
 	s.Timings.Live = live.Timings{Retry: 2 * time.Second}
-	back, err := parse(s.Name, s.YAML())
+	back, err := Parse(s.Name, s.YAML())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,5 +359,39 @@ func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
 	want := "timings:\n  node:\n    stop_deadline: 5s\n  live:\n    retry: 2s\n"
 	if got := string(s.YAML()); !strings.Contains(got, want+"tmdb:\n") {
 		t.Fatalf("YAML() =\n%s\nwant it to hold\n%s", got, want)
+	}
+}
+
+// TestFaultsLiveOnlyInTheFaultsBlock keeps every fault in the one
+// vocabulary: no key beneath the Scenario but its faults block names one.
+func TestFaultsLiveOnlyInTheFaultsBlock(t *testing.T) {
+	var private []string
+	var walk func(t reflect.Type, path string)
+	walk = func(t reflect.Type, path string) {
+		for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice || t.Kind() == reflect.Map {
+			t = t.Elem()
+		}
+		if t.Kind() != reflect.Struct {
+			return
+		}
+		for i := range t.NumField() {
+			f := t.Field(i)
+			name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+			if name == "" || name == "-" {
+				continue
+			}
+			key := strings.TrimPrefix(path+"."+name, ".")
+			if key == "faults" {
+				continue
+			}
+			if strings.Contains(name, "fault") {
+				private = append(private, key)
+			}
+			walk(f.Type, key)
+		}
+	}
+	walk(reflect.TypeFor[Scenario](), "")
+	if private != nil {
+		t.Fatalf("scenario keys %v name faults outside the faults block; write them as fault rules", private)
 	}
 }

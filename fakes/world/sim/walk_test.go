@@ -286,14 +286,14 @@ func TestAResultMadeWhileTheWorkersLinkIsDownLandsOnce(t *testing.T) {
 		search(t, w, addOrchard(t, w))
 		<-finished
 		path := w.Path("home", "seedbox")
-		path.Set(fault.Stall{})
+		flip(t, path, fault.Stall{})
 		time.Sleep(partitioned)
 		close(release)
 		synctest.Wait()
 		if gs := grabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
 			t.Fatalf("while partitioned the Grabs are %+v, want one downloading", gs)
 		}
-		path.Set(fault.None{})
+		path.Clear("")
 		expectImported(t, await(t, w))
 		if got := watermarks(t, w); !slices.Equal(got, []int64{1}) {
 			t.Fatalf("home applied seedbox's results through %v, want [1]: one result, applied once", got)
@@ -341,7 +341,7 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		}
 
 		path := w.Path("home", "seedbox")
-		path.Set(fault.Stall{})
+		flip(t, path, fault.Stall{})
 		time.Sleep(partitioned)
 		box := w.Node("seedbox")
 		box.Stop()
@@ -357,7 +357,7 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		}
 		mu.Unlock()
 
-		path.Set(fault.None{})
+		path.Clear("")
 		time.Sleep(redialed)
 		synctest.Wait()
 		if got := watermarks(t, w); !slices.Equal(got, []int64{2}) {
@@ -441,7 +441,7 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk())
 		work := addOrchard(t, w)
-		w.Path("home", "seedbox").Set(fault.Stall{})
+		flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		time.Sleep(partitioned)
 		run := search(t, w, work)
 		time.Sleep(time.Minute)

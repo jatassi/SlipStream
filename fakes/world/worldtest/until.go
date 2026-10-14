@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jatassi/slipstream/fakes/world"
 )
 
 var budgets struct {
@@ -53,25 +55,44 @@ func Context(t *testing.T) context.Context {
 
 const tick = 25 * time.Millisecond
 
-// Until is the tier's only polling wait. It checks cond every 25 ms until
-// it holds, failing the test at once when cond returns an error and when
-// Context's deadline passes first.
+// Until is the tier's polling wait on a condition. It checks cond every
+// 25 ms until it holds, failing the test at once when cond returns an
+// error and when Context's deadline passes first. It journals one note
+// into each run t launched, and the API calls cond makes journal only as
+// that note.
 func Until(t *testing.T, what string, cond func() (bool, error)) {
 	t.Helper()
-	ctx := Context(t)
+	var ends []func(int, []byte)
+	for _, run := range launchedBy(t) {
+		ends = append(ends, startStep(t, run, world.StepStart{Note: "until " + what}))
+	}
+	exit := 1
+	defer func() {
+		for _, end := range ends {
+			end(exit, nil)
+		}
+	}()
+	wait(t, 1)
+	defer wait(t, -1)
+	if err := poll(Context(t), cond); err != nil {
+		t.Fatalf("waiting until %s: %v", what, err)
+	}
+	exit = 0
+}
+
+// poll checks cond every 25 ms until it holds, returning cond's error, or
+// ctx's when ctx ends first.
+func poll(ctx context.Context, cond func() (bool, error)) error {
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 	for {
 		ok, err := cond()
-		if err != nil {
-			t.Fatalf("waiting until %s: %v", what, err)
-		}
-		if ok {
-			return
+		if err != nil || ok {
+			return err
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatalf("waiting until %s: %v", what, ctx.Err())
+			return ctx.Err() //nolint:wrapcheck // Until names what it waited for
 		case <-ticker.C:
 		}
 	}

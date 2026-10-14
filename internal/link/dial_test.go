@@ -64,7 +64,9 @@ func dualStack(t *testing.T) (n *fault.Network, controller, worker *linktest.Nod
 func TestStalledIPv6FallsBackToIPv4AfterFallbackDelay(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n, controller, worker, dials := dualStack(t)
-		n.Path(worker6, controller6).Set(fault.Stall{})
+		if _, err := n.Path(worker6, controller6).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
 		changes := worker.Subscribe(t.Context())
 		worker.Keep(controller.Target())
 		live := linktest.AwaitLive(t, changes, controller.Key)
@@ -111,12 +113,14 @@ func TestRedialAfterADrop(t *testing.T) {
 		linktest.AwaitLive(t, changes, controller.Key)
 
 		path := n.Path(linktest.WorkerAddr, linktest.ControllerAddr)
-		path.Set(fault.Stall{})
+		if _, err := path.Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
 		if c := <-changes; c.State != (link.Down{}) {
 			t.Fatalf("after the stall the Worker saw %+v", c)
 		}
 		down := time.Since(dials.start)
-		path.Set(fault.None{})
+		path.Clear("")
 		linktest.AwaitLive(t, changes, controller.Key)
 		got := dials.seen()
 		if want := []dial{{0, "127.0.0.2:8485"}, {35*time.Second + 580305161, "127.0.0.2:8485"}}; down != 35*time.Second || !slices.Equal(got, want) {
@@ -204,7 +208,9 @@ func TestNewerSessionClosesTheOlder(t *testing.T) {
 		p := linktest.New(t, linktest.Side{}, linktest.Side{})
 		changes := p.Controller.Subscribe(t.Context())
 		p.Connect(t)
-		p.Net.Path(linktest.WorkerAddr, linktest.ControllerAddr).Set(fault.Stall{})
+		if _, err := p.Net.Path(linktest.WorkerAddr, linktest.ControllerAddr).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
 
 		again := linktest.Start(t, p.Net, "worker", []netip.Addr{netip.MustParseAddr("127.0.0.4")}, linktest.Side{})
 		again.Trust.Set(p.Controller.Key, link.Pinned{})

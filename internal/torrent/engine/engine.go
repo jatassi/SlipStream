@@ -26,6 +26,8 @@ type Engine interface {
 type Config struct {
 	ListenInterface netip.AddrPort
 	Discovery       Discovery
+	// OutgoingUTP lets the engine dial peers over uTP as well as TCP.
+	OutgoingUTP bool
 	// Rand draws the ports an engine tries when ListenInterface's port is 0.
 	Rand *rand.Rand
 }
@@ -36,10 +38,13 @@ type Settings struct {
 	// Downloads is the folder torrents download into. Its consumer resolves
 	// a relative path against the data dir.
 	Downloads string `yaml:"downloads"`
+	// OutgoingUTP dials peers over uTP as well as TCP. Off, the engine
+	// dials TCP only and still accepts uTP.
+	OutgoingUTP bool `yaml:"outgoing_utp"`
 }
 
 func DefaultSettings() Settings {
-	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads"}
+	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads", OutgoingUTP: true}
 }
 
 // Discovery selects the peer discovery services. Its zero value turns

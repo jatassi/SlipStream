@@ -351,35 +351,6 @@
           },
           "type": "array",
           "minItems": 1
-        },
-        "faults": {
-          "items": {
-            "properties": {
-              "artist": {
-                "type": "string"
-              },
-              "answer": {
-                "type": "string",
-                "enum": [
-                  "not_found",
-                  "unavailable",
-                  "slow"
-                ]
-              },
-              "times": {
-                "type": "integer",
-                "minimum": 1
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "artist",
-              "answer",
-              "times"
-            ]
-          },
-          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -608,6 +579,70 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "faults": {
+      "items": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "fault": {
+            "type": "string"
+          },
+          "skip": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "times": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "after": {
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "node": {
+                "type": "string"
+              },
+              "match": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "after": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "target",
+          "fault"
+        ]
+      },
+      "type": "array"
     }
   },
   "additionalProperties": false,

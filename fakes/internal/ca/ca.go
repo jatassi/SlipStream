@@ -72,6 +72,16 @@ func (c *CA) Pool() *x509.CertPool {
 // name. It is verified against the CA before it is returned, so a name the
 // constraints refuse fails here instead of at a client.
 func (c *CA) Leaf(names ...string) (tls.Certificate, error) {
+	return c.leaf(c.cert.NotBefore, c.cert.NotAfter, names)
+}
+
+// ExpiredLeaf is Leaf with a validity that ended an hour ago, for a front
+// playing tls=expired.
+func (c *CA) ExpiredLeaf(names ...string) (tls.Certificate, error) {
+	return c.leaf(c.cert.NotBefore, time.Now().Add(-time.Hour), names)
+}
+
+func (c *CA) leaf(notBefore, notAfter time.Time, names []string) (tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("leaf for %s: %w", strings.Join(names, ", "), err)
@@ -79,8 +89,8 @@ func (c *CA) Leaf(names ...string) (tls.Certificate, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: serial(),
 		Subject:      pkix.Name{CommonName: names[0]},
-		NotBefore:    c.cert.NotBefore,
-		NotAfter:     c.cert.NotAfter,
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
@@ -99,7 +109,7 @@ func (c *CA) Leaf(names ...string) (tls.Certificate, error) {
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("leaf for %s: %w", strings.Join(names, ", "), err)
 	}
-	if _, err := leaf.Verify(x509.VerifyOptions{Roots: c.Pool()}); err != nil {
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: c.Pool(), CurrentTime: notBefore}); err != nil {
 		return tls.Certificate{}, fmt.Errorf("leaf for %s: %w", strings.Join(names, ", "), err)
 	}
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key, Leaf: leaf}, nil

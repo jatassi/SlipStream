@@ -65,7 +65,7 @@ func Open(cfg engine.Config) (*Session, error) {
 		ports = dynamicPorts(cfg.Rand, anyPortTries)
 	}
 	s, err := firstListening(ports, func(port uint16) (*Session, error) {
-		return openListening(netip.AddrPortFrom(cfg.ListenInterface.Addr(), port), cfg.Discovery)
+		return openListening(netip.AddrPortFrom(cfg.ListenInterface.Addr(), port), cfg)
 	})
 	if err != nil {
 		return nil, err
@@ -99,11 +99,11 @@ func dynamicPorts(r *rand.Rand, n int) []uint16 {
 
 // openListening runs before the pump starts, so it reads the session's
 // alerts itself to say why a session that does not listen was refused.
-func openListening(ap netip.AddrPort, d engine.Discovery) (*Session, error) {
+func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	addr := C.CString(ap.Addr().String())
 	defer C.free(unsafe.Pointer(addr))
 	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(d), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), cBool(cfg.OutgoingUTP), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}

@@ -14,22 +14,30 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "deadline-waits",
-		Doc:   "the end-to-end tier waits on conditions under the test's deadline and skips only with an issue link; the simulation tier and synctest tests wait on fake time (spec #130, Lint rules; spec #132, Lints and CI checks)",
+		Doc:   "the end-to-end tier waits on conditions under the test's deadline and skips only with an issue link; the simulation tier and synctest tests wait on fake time (spec #130, Lint rules; spec #132, Lints and CI checks; spec #135, Guards)",
 		Check: checkDeadlineWaits,
 	})
 }
 
-var endToEndTrees = []string{"e2e/", "fakes/world/"}
+var endToEndTrees = []string{"e2e/", "fakes/world/", "fakes/events/"}
+
+// pollingWaits are the tier's two polling waits, each under its context's
+// deadline: worldtest.Until on a condition and events.Wait on a record.
+var pollingWaits = []string{"fakes/world/worldtest/until.go", "fakes/events/wait.go"}
+
+// endToEndTestTrees are in the tier only in their tests: cmd/fakeworld's
+// other files are a process that roots its own contexts, and conformance's
+// suites also run inside synctest bubbles, where worldtest.Context panics.
+var endToEndTestTrees = []string{"cmd/fakeworld/", "conformance/"}
 
 const (
-	untilFile = "fakes/world/worldtest/until.go"
 	// simTree runs inside a testing/synctest bubble, whose waits are fake
 	// time, as is every file importing synctest.
 	simTree      = "fakes/world/sim/"
 	synctestPath = "testing/synctest"
 	issueLink    = "https://github.com/jatassi/SlipStream/issues/"
 
-	useUntil   = "wait on a condition with worldtest.Until"
+	useUntil   = "wait on a condition with worldtest.Until or on a record with events.Wait"
 	useContext = "take the context from worldtest.Context"
 )
 
@@ -59,7 +67,8 @@ func checkDeadlineWaits(repo *lint.Repo) ([]lint.Finding, error) {
 		findings = append(findings, lint.Finding{Path: f.Path, Line: repo.Fset.Position(n.Pos()).Line, Message: message})
 	}
 	for _, f := range files {
-		if !underAny(f.Path, endToEndTrees) || f.Path == untilFile || strings.HasPrefix(f.Path, simTree) {
+		inTier := underAny(f.Path, endToEndTrees) || (underAny(f.Path, endToEndTestTrees) && strings.HasSuffix(f.Path, "_test.go"))
+		if !inTier || slices.Contains(pollingWaits, f.Path) || strings.HasPrefix(f.Path, simTree) {
 			continue
 		}
 		imports := importNames(f)

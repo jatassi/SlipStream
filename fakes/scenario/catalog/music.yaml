@@ -90,5 +90,10 @@ music:
               first_release: "2019-11"
               tracks:
                 - {recording: d2000000-0000-4000-8000-000000000001, title: Saltgrass, disc: 1}
-  faults:
-    - {artist: a1000000-0000-4000-8000-000000000002, answer: unavailable, times: 1}
+faults:
+  - id: marrow-bay-unavailable
+    target: music-meta
+    route: artist
+    params: {mbid: a1000000-0000-4000-8000-000000000002}
+    fault: status=503,retry-after=1s
+    times: 1

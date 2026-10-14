@@ -10,9 +10,11 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
@@ -21,18 +23,55 @@ import (
 )
 
 // Served is a running fake and a client that reaches it, trusting its
-// certificate when it serves TLS.
+// certificate when it serves TLS. Faults plays on every connection and
+// request, and a test may set and clear its rules as it goes. RunDir holds
+// the event log its captures write.
 type Served struct {
 	Address fake.Address
 	Client  *http.Client
+	Faults  *fault.Plan
+	RunDir  string
 }
 
-// Option edits the Env the fake is built with.
-type Option func(*fake.Env)
+// Records are the records the fake's captures wrote so far.
+func (s Served) Records(t testing.TB) []events.Record {
+	t.Helper()
+	recs, err := events.Read(s.RunDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return recs
+}
+
+type options struct {
+	releases *releases.Catalog
+	rules    []fault.Rule
+	fronts   fake.Fronts
+	origin   string
+}
+
+type Option func(*options)
 
 // WithReleases hands the fake a release catalog, as the world does.
 func WithReleases(c *releases.Catalog) Option {
-	return func(e *fake.Env) { e.Releases = c }
+	return func(o *options) { o.releases = c }
+}
+
+// WithFronts hands the fake the world's fronts, as the world does.
+func WithFronts(fronts fake.Fronts) Option {
+	return func(o *options) { o.fronts = fronts }
+}
+
+// As has every request arrive from origin, as through that Node's front.
+func As(origin string) Option {
+	return func(o *options) { o.origin = origin }
+}
+
+// WithFaults sets rules before the fake serves, after the Scenario's own
+// rules for the fake. Their Target is the fake's name, and its one front
+// carries connections and HTTP.
+func WithFaults(rules ...fault.Rule) Option {
+	return func(o *options) { o.rules = append(o.rules, rules...) }
 }
 
 // Loopback serves spec on 127.0.0.1, behind a leaf from a run CA when
@@ -67,7 +106,14 @@ func newCA(t testing.TB) *ca.CA {
 
 func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr *http.Transport, authority *ca.CA, opts ...Option) Served {
 	t.Helper()
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	front := fault.Front{Target: fault.Target(spec.Name), Origin: o.origin, Layers: fault.Conn | fault.HTTP}
+	plan := fault.NewPlan([]fault.Front{front}, nil)
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
+	l = plan.Listener(l, front)
 	if spec.TLS {
 		leaf, err := authority.Leaf("127.0.0.1", spec.Name+".fake.localhost")
 		if err != nil {
@@ -76,13 +122,22 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
 		tr.TLSClientConfig = &tls.Config{RootCAs: authority.Pool(), MinVersion: tls.VersionTLS12}
 	}
-	env := fake.NewEnv(s, spec.Name, slog.New(slog.NewTextHandler(t.Output(), nil)))
-	for _, opt := range opts {
-		opt(&env)
+	runDir := t.TempDir()
+	log, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
+	if err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = log.Close() })
+	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
+	env.Releases, env.Fronts, env.Files = o.releases, o.fronts, runDir
 	server, err := spec.New(s, env)
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, r := range slices.Concat(ownRules(s, spec), o.rules) {
+		if _, err := plan.Set(r); err != nil {
+			t.Fatal(err)
+		}
 	}
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(t.Context(), l) }()
@@ -92,7 +147,19 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 			t.Errorf("fake %s: %v", spec.Name, err)
 		}
 	})
-	return Served{Address: at, Client: &http.Client{Transport: tr}}
+	return Served{Address: at, Client: &http.Client{Transport: tr}, Faults: plan, RunDir: runDir}
+}
+
+// ownRules are the Scenario's fault rules whose Target is spec's fake, as
+// the world sets them at launch.
+func ownRules(s scenario.Scenario, spec fake.Spec) []fault.Rule {
+	var out []fault.Rule
+	for _, r := range s.Faults {
+		if r.Target == fault.Target(spec.Name) {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // pipeListener hands each dial's far end of a fault.Pipe to Accept. Every

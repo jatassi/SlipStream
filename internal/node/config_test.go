@@ -28,7 +28,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		paths = append(paths, leaf.Path)
 	}
 	want := []string{
-		"seed", "name", "torrent.listen", "torrent.downloads", "http.listen", "http.trusted_origins", "link.listen", "link.stream_window", "join.code",
+		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.outgoing_utp", "http.listen", "http.trusted_origins", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"endpoints.tmdb.api",
 		"timings.node.stop_deadline", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
@@ -122,11 +122,37 @@ func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
 func TestTheLinkAndRoleSectionsHaveTheirDefaults(t *testing.T) {
 	cfg := Defaults(noTypes)
 	got := fmt.Sprint(cfg.Link, cfg.Timings.Link, cfg.Timings.Role)
-	if want := "{[::]:8485 16777216} {10s 25s 10s 1s 1m0s 300ms} {1s 1m0s}"; got != want {
+	if want := "{[::]:8485 [] 16777216} {10s 25s 10s 1s 1m0s 300ms} {1s 1m0s}"; got != want {
 		t.Fatalf("link, timings.link, timings.role = %s, want %s", got, want)
 	}
 	if host, _ := os.Hostname(); cfg.Name != host {
 		t.Fatalf("name = %q, want the host name %q", cfg.Name, host)
+	}
+}
+
+func TestLinkAdvertiseIsAPeerAddressRecord(t *testing.T) {
+	cfg, keys, err := LoadConfig(testDataDir(t), []string{"SLIPSTREAM_LINK_ADVERTISE=203.0.113.5:443,[2001:db8::5]:443"}, noTypes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Key{{Key: "link.advertise", Value: "203.0.113.5:443,[2001:db8::5]:443", Default: "", Source: config.SourceEnv}}
+	if got := fmt.Sprint(cfg.Link.Advertise); got != "[203.0.113.5:443 [2001:db8::5]:443]" || !slices.Equal(overrides(keys), want) {
+		t.Fatalf("link.advertise = %s, overrides %v; want both addresses and %v", got, overrides(keys), want)
+	}
+
+	dir := testDataDir(t)
+	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("link:\n  advertise:\n    - 203.0.113.5:0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = LoadConfig(dir, nil, noTypes)
+	if want := "config.yaml:2: link.advertise: address 203.0.113.5:0 is not a literal IP and port"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
+		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
+	}
+
+	nine := "SLIPSTREAM_LINK_ADVERTISE=192.0.2.1:1,192.0.2.2:1,192.0.2.3:1,192.0.2.4:1,192.0.2.5:1,192.0.2.6:1,192.0.2.7:1,192.0.2.8:1,192.0.2.9:1"
+	_, _, err = LoadConfig(testDataDir(t), []string{nine}, noTypes)
+	if want := "env: link.advertise: a peer address record holds 1 to 8 addresses, not 9"; err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %q", err, want)
 	}
 }
 

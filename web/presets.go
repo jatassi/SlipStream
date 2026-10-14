@@ -14,14 +14,14 @@ type Preset struct {
 	HasTouch          bool    `json:"hasTouch"`
 }
 
-//go:embed e2e/presets.json
+//go:embed harness/presets.json
 var presets []byte
 
-// Presets returns e2e/presets.json by preset name.
+// Presets returns harness/presets.json by preset name.
 func Presets() map[string]Preset {
 	var p map[string]Preset
 	if err := json.Unmarshal(presets, &p); err != nil {
-		panic("web: e2e/presets.json: " + err.Error())
+		panic("web: harness/presets.json: " + err.Error())
 	}
 	return p
 }

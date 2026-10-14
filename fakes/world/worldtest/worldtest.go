@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -75,11 +76,31 @@ func launch(t *testing.T, s scenario.Scenario, binary string) *world.Run {
 			logNodeLogs(t, runDir)
 		}
 	})
-	run, err := world.Launch(Context(t), world.Options{Binary: binary, Scenario: s, RunDir: runDir})
+	run, err := world.Launch(Context(t), world.Options{Binary: binary, Scenario: s, RunDir: runDir, Origin: Origin(t)})
 	if err != nil {
 		t.Fatalf("launch %s: %v", s.Name, err)
 	}
+	journalInto(t, run)
 	return run
+}
+
+// Origin is the origin of a run t launches: the command that runs t
+// again, from the module root.
+func Origin(t *testing.T) world.Origin {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := filepath.Rel(testbin.ModuleRoot(t), wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := strings.Split(t.Name(), "/")
+	for i, n := range names {
+		names[i] = "^" + regexp.QuoteMeta(n) + "$"
+	}
+	return world.Origin{Kind: world.FromTest, Command: fmt.Sprintf("go test ./%s -run '%s' -count=1", filepath.ToSlash(pkg), strings.Join(names, "/"))}
 }
 
 // RunDir is a run dir that does not exist yet: under TEST_FAKEWORLD_RUNS,
@@ -100,7 +121,7 @@ func RunDir(t *testing.T) string {
 	}
 	t.Cleanup(func() {
 		if !t.Failed() {
-			if err := os.RemoveAll(dir); err != nil {
+			if err := removeAll(Context(t), dir); err != nil {
 				t.Error(err)
 			}
 		}
@@ -119,11 +140,11 @@ func stopBudget(s scenario.Scenario) time.Duration {
 func checkStop(t *testing.T, run *world.Run) {
 	t.Helper()
 	m := run.Manifest()
-	if _, err := run.Stop(); err != nil {
+	if _, err := run.Stop(Context(t)); err != nil {
 		t.Errorf("the run did not stop cleanly:\n%v", err)
 	}
 	for _, n := range m.Nodes {
-		if !ProcessGone(n.PID) {
+		if n.PID != 0 && !ProcessGone(n.PID) {
 			t.Errorf("node %s (PID %d) is still running after stop", n.Name, n.PID)
 		}
 	}
@@ -191,7 +212,14 @@ func SetupCode(t *testing.T, run *world.Run, name string) string {
 	if ready != logged || !setupCodeShape.MatchString(ready) {
 		t.Fatalf("node %s: the readiness record's setup_code is %q and the setup code record's code is %q, want one code matching %s", name, ready, logged, setupCodeShape)
 	}
-	manifest, err := os.ReadFile(filepath.Join(m.RunDir, "manifest.json"))
+	// os.Root, as world.ReadManifest says, lets the supervisor replace the
+	// manifest while it is read.
+	root, err := os.OpenRoot(m.RunDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	manifest, err := root.ReadFile("manifest.json")
 	if err != nil {
 		t.Fatal(err)
 	}

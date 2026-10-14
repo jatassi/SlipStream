@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jatassi/slipstream/fakes/fake/internal/fixture"
+	"github.com/jatassi/slipstream/fakes/internal/fixture"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/testbin"

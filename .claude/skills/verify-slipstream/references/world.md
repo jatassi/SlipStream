@@ -1,0 +1,86 @@
+# The Fake world
+
+`fakeworld start` launches the Scenario's Nodes from the run's binary copy and the fakes every boundary needs, and writes `manifest.json`: every Node's addresses, data dir, PID and state, every front, the releases with their sizes and BLAKE3 hashes, the browser block, the Admin and the API key. Read it before guessing any address. `$FW` with no arguments prints every verb.
+
+## Isolation
+
+A real SlipStream instance is out of reach as long as a run holds to four rules:
+
+1. Type and dial only addresses the manifest names: `{nodes.<n>.url}`, `{nodes.<n>.browserUrl}` and the fronts. Every address an Admin enters in a recipe is a fake's front.
+2. Touch only data dirs the manifest names. They sit in the run's scratch dir.
+3. Drive only the fresh Chromium that `playwright cli` launches from the run's config; never your own browser, Claude in Chrome or a desktop browser pane.
+4. Stop and kill only through `fakeworld stop` and `fakeworld node`, which act on the manifest's PIDs. Never kill by process name.
+
+A production log or database is off limits. Doctor's checks 1 and 5 catch a run that slipped.
+
+## Fronts
+
+Each Node reaches each fake through its own front, a listener on `127.0.0.1` that the supervisor owns, so the world knows which Node dialled and a fault can hit one Node's traffic alone. The manifest's `fronts` list names each by `target` and `node` (`world` is the harness's own). Targets on `home`:
+
+| Target | What crosses it |
+|---|---|
+| `tmdb` | metadata lookups (routes `search`, `movie`) |
+| `fixture-site` | the Torznab Indexer (routes `torznab`, `download`) |
+| `tracker` | announces (route `announce`) |
+| `seeders` or `seeders/<release>` | every swarm byte from the fake seeders, TCP only |
+| `link/<node>` | the Node link to the Node that listens, for example `link/home` |
+
+The Indexer was entered with the URL of the seedbox's fixture-site front, because the seedbox holds Searching.
+
+## Faults
+
+```text
+fakeworld fault set <run> <id> <target>[@<node>] <fault> [--route r] [--param k=v]... [--skip n] [--times n] [--after <kind>[,k=v...]]
+fakeworld fault clear <run> [<id>]
+fakeworld fault list <run>
+fakeworld fault wait <run> [--rule id] [--node n] [--after seq] [--timeout d]
+```
+
+The grammar of `<fault>`, one per rule:
+
+```text
+refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
+status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+```
+
+- The first six and `tls=` are connection faults; the rest are HTTP faults and need a fake that speaks HTTP. A rule the front can't play is refused when set, naming the layer.
+- `@<node>` limits a rule to the traffic of that Node; without it the rule holds every origin.
+- `--skip 2 --times 1` plays the third match only. `--times 0`, the default, plays until cleared. A rule that has played its times still shows in `fault list` and in doctor's active faults until `fault clear`.
+- `--after <kind>,k=v` arms the rule on the first matching event-log record, never on a timer.
+- Setting an id again replaces the rule. `fault clear` without an id clears every rule, the Scenario's included.
+- `fault set` prints the `fault.set` record, and every firing logs `fault.fired` with its match count.
+
+"Complete this torrent now" is `fault clear` on a throttle over `seeders`: the live connection speeds up, and the Node's libtorrent still downloads and hashes every piece. "Drop the Node link" is `fault set link-down link/home stall`, or `reset`.
+
+## Cues
+
+`fakeworld cue <run> <name> [<json args>]` plays a cue a fake declares. No product fake on `home` declares one yet; the manifest's `fakes[].cues` lists them. A cue changes only the world outside every Node.
+
+## Captures and the event log
+
+`events.jsonl` in the run dir is the one ordered log of the run: launch, Node lifecycle, `node.error` lines, front opens and closes with bytes each way, faults, cues, steps, SSE messages and captures. Readers read the file, so they work on a live run, a stopped one and a downloaded CI bundle.
+
+```sh
+$FW announces list $RUN --node seedbox
+$FW announces wait $RUN --node seedbox --where event=completed --after <seq> --timeout 60s
+$FW announces open $RUN <seq> --proof <f>/<s>
+```
+
+- `announces` is the tracker's capture: one `tracker.announce` record per announce, attributed to the Node by the front it came through. `data.event` is `started`, `completed` or empty for a regular announce, which libtorrent spaces five minutes apart; wait on `started` and `completed` only.
+- `wait` takes the first match after `--after`, by default after the previous step's start. When the awaited record can arrive during an earlier step, pass `--after` the seq of a record printed before that step, such as a `fault.set` or `fault.fired`.
+- `open` copies a record's files into the proof dir.
+
+## fs
+
+```sh
+$FW fs stat $RUN <path>
+$FW exec $RUN --proof <f>/<s> -- $FW fs match {runDir} '{mediaDir}/movies/<folder>/<file>' --release <release>
+```
+
+`stat` prints `{path, size, links, blake3}`. `match` exits 0 when the file's size and BLAKE3 equal the manifest's release, which proves a placed file from the receiving side. Both refuse a path outside the run dir and the scratch dir. Tokens expand only inside `exec`, hence the second form.
+
+## Summary and replay
+
+- `fakeworld summary <run>` writes `summary.md`: the build stamp, the Scenario, the last doctor result, every step with its exit and proof dir, the fault and cue timeline, every `node.error` with its step, and the proof file list. Text only, from the run dir alone.
+- `fakeworld replay <run> [--to N] [--stop]` checks the bundle's `scenario.yaml` and binary against its manifest, starts a fresh world from the same Scenario, and runs the journaled steps 1 to N again, stopping at the first whose exit differs from the recorded one. A CI bundle replays its recorded test command instead; pass `--binary` with the uploaded `slipstream-<target>`.
+- A bug verify finds gets a regression test built from the run's journal in the PR that fixes it.

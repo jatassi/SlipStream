@@ -3,14 +3,13 @@ package tracker_test
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha1" //nolint:gosec // v1 piece hashes are SHA-1 by the protocol
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"math/rand/v2"
-	"net"
-	"net/http"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -20,8 +19,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
+	"github.com/jatassi/slipstream/fakes/internal/front"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -30,10 +32,39 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 )
 
-// world serves fake-tracker behind a leaf from a run CA, as the world does,
-// for one torrent of payload, and returns the torrent file, the CA file and
-// a client that reads the tracker's records.
-func world(t *testing.T, payload []byte) (torrentFile, caFile string, records func() []tracker.Announce) {
+// writeTorrent writes payload.torrent announcing to announce for payload
+// into dir.
+func writeTorrent(t *testing.T, dir, announce string, payload []byte) (string, bencode.InfoHash) {
+	t.Helper()
+	var pieces []byte
+	for off := 0; off < len(payload); off += releases.PieceLength {
+		sum := sha1.Sum(payload[off:min(off+releases.PieceLength, len(payload))]) //nolint:gosec // v1 piece hashes
+		pieces = append(pieces, sum[:]...)
+	}
+	meta, err := bencode.Encode(map[string]any{
+		"announce": announce,
+		"info":     map[string]any{"length": len(payload), "name": "payload.mkv", "piece length": releases.PieceLength, "pieces": pieces, "private": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := bencode.DecodeMetainfo(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "payload.torrent")
+	if err := os.WriteFile(path, meta, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path, m.InfoHash
+}
+
+// world serves fake-tracker behind a front with a leaf from a run CA, as
+// the world does, for one torrent of payload, and a forwarded seeder front
+// the tracker hands a leecher, which reaches the peer that announced
+// left=0. It returns the torrent file, the CA file and a reader of the
+// tracker's announces capture.
+func world(t *testing.T, payload []byte) (torrentFile, caFile string, records func() []events.Record) {
 	t.Helper()
 	authority, err := ca.New("ssl")
 	if err != nil {
@@ -44,72 +75,72 @@ func world(t *testing.T, payload []byte) (torrentFile, caFile string, records fu
 	if err := os.WriteFile(caFile, authority.PEM(), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	runDir := t.TempDir()
+	log, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
-	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: true}
-	leaf, err := authority.Leaf("127.0.0.1", "tracker.fake.localhost")
+	t.Cleanup(func() { _ = log.Close() })
+	logger := slog.New(slog.NewTextHandler(t.Output(), nil))
+	trackerFront := fault.Front{Target: fault.Target(tracker.Fake.Name), Origin: "peer", Layers: fault.Conn | fault.TLS | fault.HTTP}
+	seedFront := fault.Front{Target: tracker.SeedersTarget("payload"), Origin: "peer", Layers: fault.Conn}
+	plan := fault.NewPlan([]fault.Front{trackerFront, seedFront}, nil)
+	set := front.NewSet(plan, func(r events.Record) { _, _ = log.Append(r) }, logger)
+	tf, err := set.Listen(t.Context(), trackerFront)
 	if err != nil {
 		t.Fatal(err)
 	}
-	l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
+	sf, err := set.Listen(t.Context(), seedFront)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := fake.Address{AddrPort: tf.Addr(), TLS: true}
 
-	var pieces []byte
-	for off := 0; off < len(payload); off += releases.PieceLength {
-		sum := sha1.Sum(payload[off:min(off+releases.PieceLength, len(payload))]) //nolint:gosec // v1 piece hashes
-		pieces = append(pieces, sum[:]...)
-	}
 	s := scenario.Scenario{Seed: "ssl"}
 	passkey := releases.Passkey(s)
-	meta, err := bencode.Encode(map[string]any{
-		"announce": at.URL("/announce/" + passkey),
-		"info":     map[string]any{"length": len(payload), "name": "payload.mkv", "piece length": releases.PieceLength, "pieces": pieces, "private": 1},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := bencode.DecodeMetainfo(meta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	torrentFile = filepath.Join(dir, "payload.torrent")
-	if err := os.WriteFile(torrentFile, meta, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	torrentFile, hash := writeTorrent(t, dir, at.URL("/announce/"+passkey), payload)
 
-	env := fake.NewEnv(s, tracker.Fake.Name, slog.New(slog.NewTextHandler(t.Output(), nil)))
-	env.Releases = &releases.Catalog{Passkey: passkey, Releases: []releases.Release{{InfoHash: m.InfoHash}}}
+	env := fake.NewEnv(s, tracker.Fake, logger, plan, log)
+	env.Releases = &releases.Catalog{Passkey: passkey, Releases: []releases.Release{{Release: scenario.Release{Name: "payload"}, InfoHash: hash}}}
+	env.Fronts = fake.Fronts{{Target: seedFront.Target, Node: seedFront.Origin, Address: fake.Address{AddrPort: sf.Addr()}}}
 	server, err := tracker.Fake.New(s, env)
 	if err != nil {
 		t.Fatal(err)
 	}
+	leaf, err := authority.Leaf("127.0.0.1", "tracker.fake.localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := front.NewInbox(tf.Addr())
+	tf.Serve(front.Served(in, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}))
+	records = func() []events.Record {
+		t.Helper()
+		recs, err := events.Select(runDir, events.Query{Kind: tracker.Announces.Kind})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return recs
+	}
+	sf.Serve(front.Forward(func() (netip.AddrPort, error) {
+		for _, r := range records() {
+			var a tracker.Announce
+			if err := json.Unmarshal(r.Data, &a); err == nil && a.Left == 0 {
+				return netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), a.Port), nil
+			}
+		}
+		return netip.AddrPort{}, errors.New("no seeder announced")
+	}))
+	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- server.Serve(t.Context(), l) }()
+	go func() { done <- server.Serve(ctx, in) }()
 	t.Cleanup(func() {
+		cancel()
 		if err := <-done; err != nil {
 			t.Errorf("fake-tracker: %v", err)
 		}
+		set.Close()
 	})
-	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: authority.Pool(), MinVersion: tls.VersionTLS12}}}
-	t.Cleanup(client.CloseIdleConnections)
-	return torrentFile, caFile, func() []tracker.Announce {
-		t.Helper()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, at.URL("/records"), http.NoBody)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res, err := client.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = res.Body.Close() }()
-		var got []tracker.Announce
-		if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
-			t.Fatal(err)
-		}
-		return got
-	}
+	return torrentFile, caFile, records
 }
 
 func withoutCertFile(env []string) []string {
@@ -135,8 +166,8 @@ func run(t *testing.T, probe string, env []string, args ...string) string {
 // TestLibtorrentTrustsTheRunCAThroughSSLCertFile settles the spec's fact:
 // libtorrent's OpenSSL verifies an HTTPS tracker's leaf, with the run CA's
 // name constraints and an IP address host, against SSL_CERT_FILE. A peer
-// listening on 127.0.0.3 then downloads from a seeder on 127.0.0.1 that the
-// tracker named.
+// listening on 127.0.0.3 then downloads from a seeder on 127.0.0.1 through
+// the forwarded front the tracker named.
 func TestLibtorrentTrustsTheRunCAThroughSSLCertFile(t *testing.T) {
 	payload := make([]byte, 3*releases.PieceLength+1000)
 	_, _ = rand.NewChaCha8([32]byte{'s', 's', 'l'}).Read(payload)
@@ -181,18 +212,22 @@ func TestLibtorrentTrustsTheRunCAThroughSSLCertFile(t *testing.T) {
 		t.Fatalf("the leecher's payload is %d bytes, %v; want the seeder's %d", len(got), err, len(payload))
 	}
 	var announces []string
-	for _, a := range records() {
+	for _, r := range records() {
+		var a tracker.Announce
+		if err := json.Unmarshal(r.Data, &a); err != nil {
+			t.Fatal(err)
+		}
 		// The leecher's stopped announce leaves as it exits, so it may
 		// reach the tracker after this read.
 		if a.Event == "stopped" {
 			continue
 		}
-		announces = append(announces, a.Source+" "+a.Event+" left="+strconv.FormatInt(a.Left, 10))
+		announces = append(announces, r.Node+" "+a.Event+" left="+strconv.FormatInt(a.Left, 10))
 	}
 	want := []string{
-		"127.0.0.1 started left=0",
-		"127.0.0.3 started left=" + strconv.Itoa(len(payload)),
-		"127.0.0.3 completed left=0",
+		"peer started left=0",
+		"peer started left=" + strconv.Itoa(len(payload)),
+		"peer completed left=0",
 	}
 	if !slices.Equal(announces, want) {
 		t.Fatalf("the tracker recorded %q, want %q", announces, want)

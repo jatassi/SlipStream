@@ -1,5 +1,5 @@
 // Package seeders seeds a world's seeded releases: one libtorrent session
-// apiece on 127.0.0.1, which fake-tracker hands to a Node as its peer.
+// apiece on 127.0.0.1, which a Node reaches through its seeder front.
 package seeders
 
 import (
@@ -16,9 +16,9 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
-// Seeders is the running sessions.
+// Seeders is the running sessions, by release name.
 type Seeders struct {
-	sessions []engine.Engine
+	sessions map[string]engine.Engine
 }
 
 // certFile guards SSL_CERT_FILE around a session's start: libtorrent reads
@@ -29,7 +29,7 @@ var certFile sync.Mutex
 // Start seeds each seeded release of c and returns once each seeder's
 // started announce reached the tracker, which trusts caFile.
 func Start(ctx context.Context, c *releases.Catalog, caFile string) (*Seeders, error) {
-	s := &Seeders{}
+	s := &Seeders{sessions: map[string]engine.Engine{}}
 	for _, r := range c.Releases {
 		if !r.Seeded {
 			continue
@@ -38,7 +38,7 @@ func Start(ctx context.Context, c *releases.Catalog, caFile string) (*Seeders, e
 		if err != nil {
 			return nil, errors.Join(fmt.Errorf("seeder %s: %w", r.Name, err), s.Close())
 		}
-		s.sessions = append(s.sessions, ses)
+		s.sessions[r.Name] = ses
 		if err := seed(ctx, ses, r); err != nil {
 			return nil, errors.Join(fmt.Errorf("seeder %s: %w", r.Name, err), s.Close())
 		}
@@ -101,6 +101,19 @@ func announced(ev engine.Event, h engine.Handle) (bool, error) {
 		return ev.Torrent == h, fmt.Errorf("seed: %w", ev.Err)
 	}
 	return false, nil
+}
+
+// Addr is where the seeder of release listens.
+func (s *Seeders) Addr(release string) (netip.AddrPort, error) {
+	ses, ok := s.sessions[release]
+	if !ok {
+		return netip.AddrPort{}, fmt.Errorf("no seeder seeds %s", release)
+	}
+	addr, err := ses.ListenAddr()
+	if err != nil {
+		return netip.AddrPort{}, fmt.Errorf("seeder %s: %w", release, err)
+	}
+	return addr, nil
 }
 
 // Close stops every session.

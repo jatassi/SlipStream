@@ -92,6 +92,9 @@
         "file"
       ]
     },
+    "events": {
+      "type": "string"
+    },
     "divergences": {
       "items": {
         "type": "string"
@@ -113,7 +116,12 @@
             ]
           },
           "claim": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "unclaimed",
+              "controller",
+              "worker"
+            ]
           },
           "address": {
             "type": "string"
@@ -135,6 +143,15 @@
           },
           "dataDir": {
             "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "running",
+              "stopped",
+              "killed",
+              "exited"
+            ]
           },
           "pid": {
             "type": "integer"
@@ -197,6 +214,7 @@
           "browserUrl",
           "listeners",
           "dataDir",
+          "state",
           "pid",
           "seed",
           "log",
@@ -214,16 +232,162 @@
           },
           "url": {
             "type": "string"
+          },
+          "captures": {
+            "items": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name",
+                "kind"
+              ]
+            },
+            "type": "array"
+          },
+          "cues": {
+            "items": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name"
+              ]
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
-          "url"
+          "url",
+          "captures",
+          "cues"
         ]
       },
       "type": "array"
+    },
+    "fronts": {
+      "items": {
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target",
+          "node",
+          "address"
+        ]
+      },
+      "type": "array"
+    },
+    "links": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "releases": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "infoHash": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "blake3": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "infoHash",
+          "size",
+          "blake3"
+        ]
+      },
+      "type": "array"
+    },
+    "browser": {
+      "properties": {
+        "hostResolverRules": {
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "presets": {
+          "additionalProperties": {
+            "properties": {
+              "width": {
+                "type": "integer"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "deviceScaleFactor": {
+                "type": "number"
+              },
+              "isMobile": {
+                "type": "boolean"
+              },
+              "hasTouch": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "width",
+              "height",
+              "deviceScaleFactor",
+              "isMobile",
+              "hasTouch"
+            ]
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "hostResolverRules",
+        "config",
+        "presets"
+      ]
     },
     "admin": {
       "properties": {
@@ -260,8 +424,13 @@
     "binary",
     "supervisor",
     "ca",
+    "events",
     "divergences",
     "nodes",
-    "fakes"
+    "fakes",
+    "fronts",
+    "links",
+    "releases",
+    "browser"
   ]
 }

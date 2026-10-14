@@ -14,6 +14,7 @@ import (
 	validator "github.com/santhosh-tekuri/jsonschema/v6"
 	"go.yaml.in/yaml/v3"
 
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/role"
 )
 
@@ -49,6 +50,8 @@ func schema(t *testing.T) []byte {
 				return &jsonschema.Schema{Type: "string", Enum: setups}
 			case reflect.TypeFor[role.Name]():
 				return &jsonschema.Schema{Type: "string", Enum: roles}
+			case reflect.TypeFor[fault.Fault]():
+				return &jsonschema.Schema{Type: "string"}
 			}
 			return nil
 		},

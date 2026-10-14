@@ -431,3 +431,29 @@ func TestTheAccessWalkPassesOnAStartedNode(t *testing.T) {
 		t.Fatalf("breaches:\n%s", strings.Join(breaches, "\n"))
 	}
 }
+
+// TestAConnectionWithNoRequestYetDoesNotHoldStop holds a connection open the
+// way a browser holds a spare one, without a request. net/http's Shutdown
+// waits five seconds on it, longer than this Node's stop deadline.
+func TestAConnectionWithNoRequestYetDoesNotHoldStop(t *testing.T) {
+	env, _ := testEnv(t)
+	env.Environ = append(env.Environ, "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE=1s")
+	synctest.Test(t, func(t *testing.T) {
+		env, host := inMemory(env)
+		n, err := Start(t.Context(), env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		spare, err := host.DialContext(t.Context(), "tcp", n.Ready().Listeners.HTTP.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = spare.Close() }()
+		synctest.Wait()
+		n.Stop()
+		<-n.Done()
+		if n.Err() != nil {
+			t.Fatalf("the Node stopped with %v, want a clean stop", n.Err())
+		}
+	})
+}

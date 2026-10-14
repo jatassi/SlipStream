@@ -8,6 +8,12 @@ on:
     - cron: "23 4 * * *"
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      update-shapes:
+        description: Rewrite each conformance suite's shape.json from the real services and upload them
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,6 +34,7 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       build: ${{ steps.plan.outputs.build }}
+      online: ${{ steps.scope.outputs.online }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -125,17 +132,28 @@ jobs:
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - run: go run ./cmd/release test
+      - id: test
+        run: go run ./cmd/release test
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      # Each failed run dir is a replay bundle. The run's copies of the
+      # binaries stay out of it; the release binary goes up once per job,
+      # for fakeworld replay --binary.
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: fakeworld-runs-${{ matrix.target }}
-          path: ${{ runner.temp }}/fakeworld-runs
+          path: |
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
+      - if: failure() && steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-${{ matrix.target }}
+          path: dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
       # Lint runs on every target so gofmt, line endings and the cgo type
       # check are proven on each OS, and runs even when a test fails.
       - if: ${{ !cancelled() }}
@@ -199,6 +217,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+
+  # The conformance suites against the real TMDB and MusicBrainz (spec #135,
+  # Online runs): nightly, by hand, on a published release, and on pull
+  # requests whose scope touches a fake, client or suite the job checks. It
+  # is not a required check. A fork's pull request gets no secrets, so it
+  # never runs the job, and a run without the key fails rather than skips.
+  online:
+    needs: plan
+    if: >-
+      ${{ !cancelled() && (
+        github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'release' ||
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.plan.outputs.online == 'true')
+      ) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/go
+        with:
+          cache: go-plan
+      - run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
+        env:
+          TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+      - if: inputs.update-shapes
+        uses: actions/upload-artifact@v4
+        with:
+          name: shapes
+          path: conformance/*/shape.json
 
   native-gate:
     if: always()

@@ -27,9 +27,9 @@ func TestTestRefusesGoArgumentsOutsideTheGoTier(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"-run", "Foo"}, `go test arguments ["-run" "Foo"] need -tier go`},
-		{[]string{"-tier", "component", "./..."}, `go test arguments ["./..."] need -tier go`},
-		{[]string{"-tier", "e2e"}, `-tier "e2e" is not one of go, component, browser, all`},
+		{[]string{"-run", "Foo"}, `go test arguments ["-run" "Foo"] need -tier go or -tier online`},
+		{[]string{"-tier", "component", "./..."}, `go test arguments ["./..."] need -tier go or -tier online`},
+		{[]string{"-tier", "e2e"}, `-tier "e2e" is not one of go, component, browser, online, all`},
 	} {
 		if err := runTest(t.Context(), c.args); err == nil || err.Error() != c.want {
 			t.Errorf("runTest(%q) = %v, want %s", c.args, err, c.want)

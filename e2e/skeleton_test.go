@@ -1,14 +1,10 @@
 package e2e
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,13 +12,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/zeebo/blake3"
-
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/api/apitest"
 )
 
 const (
@@ -35,7 +29,11 @@ type grabView struct {
 	NodeID   string `json:"nodeId"`
 	InfoHash string `json:"infoHash"`
 	Stage    string `json:"stage"`
-	Failure  *struct {
+	Progress *struct {
+		Done  int64 `json:"done"`
+		Total int64 `json:"total"`
+	} `json:"progress"`
+	Failure *struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"failure"`
@@ -56,6 +54,7 @@ func (g grabView) stages() []string {
 // file.
 type walked struct {
 	s    scenario.Scenario
+	run  *world.Run
 	m    world.Manifest
 	a    *worldtest.API
 	work string
@@ -67,13 +66,27 @@ type walked struct {
 // stages until it is imported.
 func walk(t *testing.T, name string) walked {
 	t.Helper()
+	w := begin(t, name)
+	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
+	search := w.search(t)
+	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
+	w.ended(t, grabChanged(t, stream, w.work))
+	if w.grab.Stage != "imported" {
+		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
+	}
+	return w
+}
+
+// begin launches the catalog Scenario name, and its Admin finds the
+// catalog movie and adds it monitored.
+func begin(t *testing.T, name string) walked {
+	t.Helper()
 	s, err := scenario.Load(name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	run := worldtest.Launch(t, name)
-	w := walked{s: s, m: run.Manifest(), a: api(t, run)}
-	stream := w.a.Stream("home", w.a.SignIn("home"))
+	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
 
 	worldtest.Expect(t, "searchCatalog", w.a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", ""), worldtest.Reply{
 		Status: 200,
@@ -91,7 +104,12 @@ func walk(t *testing.T, name string) walked {
 		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"standard","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
 			`"state":"missing"}]}` + "\n",
 	})
+	return w
+}
 
+// search starts a search of w's Work and returns its run's id.
+func (w *walked) search(t *testing.T) string {
+	t.Helper()
 	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", "")
 	var started struct {
 		SearchIDs []string `json:"searchIds"`
@@ -100,40 +118,30 @@ func walk(t *testing.T, name string) walked {
 		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
 	}
 	worldtest.Expect(t, "searchWork", reply, worldtest.Reply{Status: http.StatusAccepted, Body: `{"searchIds":["` + started.SearchIDs[0] + `"]}` + "\n"})
-	event(t, stream, "grabs.search-changed", `{"searchId":"`+started.SearchIDs[0]+`","workId":"`+w.work+`"}`)
-	id := grabChanged(t, stream, w.work)
+	return started.SearchIDs[0]
+}
 
+// ended reads the Grab id until it is imported or failed.
+func (w *walked) ended(t *testing.T, id string) {
+	t.Helper()
 	worldtest.Until(t, "the Grab is imported or failed", func() (bool, error) {
 		w.grab = *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+id, ""), &grabView{})
 		return w.grab.Stage == "imported" || w.grab.Stage == "failed", nil
 	})
-	if w.grab.Stage != "imported" {
-		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
-	}
-	return w
 }
 
-var grabChangedData = regexp.MustCompile(`(?m)^event: grabs\.changed\ndata: \{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
+var grabChangedData = regexp.MustCompile(`^\{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
 
 // grabChanged reads the stream to the next grabs.changed and returns its
 // Grab, which must be work's.
-func grabChanged(t *testing.T, s *apitest.Stream, work string) string {
+func grabChanged(t *testing.T, s *worldtest.Messages, work string) string {
 	t.Helper()
-	ctx := worldtest.Context(t)
-	for {
-		msg, err := s.Next(ctx)
-		if err != nil {
-			t.Fatalf("the stream ended before grabs.changed: %v", err)
-		}
-		m := grabChangedData.FindStringSubmatch(msg)
-		if m == nil {
-			continue
-		}
-		if m[2] != work {
-			t.Fatalf("the stream read %q, want grabs.changed for Work %s", msg, work)
-		}
-		return m[1]
+	data := s.Next("grabs.changed")
+	m := grabChangedData.FindStringSubmatch(data)
+	if len(m) != 3 || m[2] != work {
+		t.Fatalf("grabs.changed carried %s, want a Grab of Work %s", data, work)
 	}
+	return m[1]
 }
 
 type cellList struct {
@@ -159,7 +167,7 @@ func cells(t *testing.T, a *worldtest.API, work string) *cellList {
 func TestSkeletonHome(t *testing.T) {
 	t.Parallel()
 	w := walk(t, "home")
-	home, seedbox := w.m.Nodes[0], w.m.Nodes[1]
+	seedbox := w.m.Nodes[1]
 	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
@@ -170,7 +178,7 @@ func TestSkeletonHome(t *testing.T) {
 	if entries, err := os.ReadDir(filepath.Join(w.m.MediaDir, "movies", ".slipstream-staging")); err != nil || len(entries) != 0 {
 		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
 	}
-	checkAnnounces(t, w, seedbox, home)
+	checkAnnounces(t, w, seedbox)
 	checkMet(t, w)
 }
 
@@ -198,12 +206,12 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	if got := filesUnder(t, m.MediaDir); !slices.Equal(got, []string{placed}) {
 		t.Fatalf("the media dir holds %v, want exactly [%s]", got, placed)
 	}
-	file := filepath.Join(m.MediaDir, filepath.FromSlash(placed))
-	if got, want := sum(t, file), sum(t, filepath.Join(m.ScratchDir, "releases", release+".mkv")); got != want {
-		t.Fatalf("the placed file's BLAKE3 is %x, want the catalog payload's %x", got, want)
+	info, err := world.MatchRelease(m, filepath.Join(m.MediaDir, filepath.FromSlash(placed)), release)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if n := linkCount(t, file); n != links {
-		t.Fatalf("the placed file has %d links, want %d", n, links)
+	if info.Links != links {
+		t.Fatalf("the placed file has %d links, want %d", info.Links, links)
 	}
 }
 
@@ -221,22 +229,28 @@ func checkMet(t *testing.T, w walked) {
 	})
 }
 
-// checkAnnounces checks the tracker heard the downloader announce the
-// grabbed release with the Scenario's passkey: started, then completed
-// with left=0, and left=0 on any later announce while it seeds.
-// libtorrent's min_announce_interval holds the next regular announce
-// 5 minutes past the tracker's 5s interval, so the test does not wait for
-// one. No other Node announced, and nobody announced any release but the
-// grabbed one, so the 720p decoy was never fetched.
-func checkAnnounces(t *testing.T, w walked, downloader world.Node, others ...world.Node) {
+// checkAnnounces checks the announces capture holds the downloader
+// announcing the grabbed release with the Scenario's passkey: started,
+// then completed with left=0, and left=0 on any later announce while it
+// seeds. libtorrent's min_announce_interval holds the next regular
+// announce 5 minutes past the tracker's 5s interval, so the test does not
+// wait for one. Every other announce is a seeder's, from the world, so no
+// other Node announced, and every announce names the grabbed release, so
+// the 720p decoy was never fetched.
+func checkAnnounces(t *testing.T, w walked, downloader world.Node) {
 	t.Helper()
-	port := torrentPort(t, downloader)
+	var all []events.Record
 	var ours []tracker.Announce
-	var all []tracker.Announce
-	worldtest.Until(t, "the tracker hears the downloader complete", func() (bool, error) {
-		all = records(t, w.m)
-		ours = slices.DeleteFunc(slices.Clone(all), func(an tracker.Announce) bool { return an.Port != port })
-		return slices.ContainsFunc(ours, func(an tracker.Announce) bool { return an.Event == "completed" }), nil
+	worldtest.Until(t, "the downloader's completed announce is captured", func() (bool, error) {
+		var err error
+		all, err = events.Select(w.m.RunDir, events.Query{Kind: tracker.Announces.Kind})
+		ours = nil
+		for _, r := range all {
+			if r.Node == downloader.Name {
+				ours = append(ours, announce(t, r))
+			}
+		}
+		return slices.ContainsFunc(ours, func(an tracker.Announce) bool { return an.Event == "completed" }), err
 	})
 	if ours[0].Event != "started" {
 		t.Fatalf("the downloader's first announce = %+v, want started", ours[0])
@@ -252,29 +266,23 @@ func checkAnnounces(t *testing.T, w walked, downloader world.Node, others ...wor
 			t.Fatalf("the downloader announced %+v at or after completed, want left=0", an)
 		}
 	}
-	for _, an := range all {
-		if an.InfoHash != w.grab.InfoHash {
+	for _, r := range all {
+		if r.Node != downloader.Name && r.Node != events.World {
+			t.Fatalf("the tracker heard %s from %s, a Node that downloads nothing", r.Data, r.Node)
+		}
+		if an := announce(t, r); an.InfoHash != w.grab.InfoHash {
 			t.Fatalf("the tracker heard %+v, want only the grabbed release %s", an, w.grab.InfoHash)
-		}
-	}
-	for _, other := range others {
-		other := torrentPort(t, other)
-		if other == port {
-			t.Fatalf("two Nodes listen for torrents on port %d, so their announces can't be told apart", port)
-		}
-		if i := slices.IndexFunc(all, func(an tracker.Announce) bool { return an.Port == other }); i >= 0 {
-			t.Fatalf("the tracker heard %+v from a Node that downloads nothing", all[i])
 		}
 	}
 }
 
-func torrentPort(t *testing.T, n world.Node) uint16 {
+func announce(t *testing.T, r events.Record) tracker.Announce {
 	t.Helper()
-	ap, err := netip.ParseAddrPort(n.Listeners["torrent"])
-	if err != nil {
-		t.Fatalf("node %s's torrent listener: %v", n.Name, err)
+	var an tracker.Announce
+	if err := json.Unmarshal(r.Data, &an); err != nil {
+		t.Fatalf("announce record %d: %v", r.Seq, err)
 	}
-	return ap.Port()
+	return an
 }
 
 func filesUnder(t *testing.T, dir string) []string {
@@ -295,48 +303,4 @@ func filesUnder(t *testing.T, dir string) []string {
 		t.Fatal(err)
 	}
 	return out
-}
-
-func sum(t *testing.T, path string) [32]byte {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-	h := blake3.New()
-	if _, err := io.Copy(h, f); err != nil {
-		t.Fatal(err)
-	}
-	var out [32]byte
-	copy(out[:], h.Sum(nil))
-	return out
-}
-
-// records reads fake-tracker's announce records over the run CA.
-func records(t *testing.T, m world.Manifest) []tracker.Announce {
-	t.Helper()
-	pem, err := os.ReadFile(m.CA.File)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roots := x509.NewCertPool()
-	roots.AppendCertsFromPEM(pem)
-	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}
-	defer client.CloseIdleConnections()
-	i := slices.IndexFunc(m.Fakes, func(f world.Fake) bool { return f.Name == tracker.Fake.Name })
-	req, err := http.NewRequestWithContext(worldtest.Context(t), http.MethodGet, m.Fakes[i].URL+"/records", http.NoBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = res.Body.Close() }()
-	var got []tracker.Announce
-	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
-		t.Fatal(err)
-	}
-	return got
 }

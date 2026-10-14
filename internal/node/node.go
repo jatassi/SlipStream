@@ -342,7 +342,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 // startTorrent opens the torrent engine and the Node's built-in client,
 // which reads its events from now on, claimed or not.
 func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
-	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen, Rand: ports})
+	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen, OutgoingUTP: cfg.Torrent.OutgoingUTP, Rand: ports})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}

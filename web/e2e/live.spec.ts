@@ -45,3 +45,24 @@ test("a sign-in from another browser refreshes this tab's session once", async (
   await expect(elsewhere.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect.poll(() => sessionReads.length).toBe(3);
 });
+
+test("live updates reconnect when the Node restarts on its address", async ({
+  adminPage,
+  world,
+}) => {
+  const status = adminPage.getByText(/^Live updates: /u);
+  await expect(status).toHaveText("Live updates: on");
+
+  await world.fw.node("kill", world.node.name);
+  await expect(status).toHaveText("Live updates: reconnecting");
+
+  const restarted = await world.fw.node("start", world.node.name);
+  expect(restarted.listeners["http"]).toBe(world.node.listeners["http"]);
+  await expect(status).toHaveText("Live updates: on");
+  const { checks } = await world.fw.doctor();
+  expect(checks.find((check) => check.n === 3)).toEqual({
+    n: 3,
+    name: "the cluster matches the Scenario",
+    ok: true,
+  });
+});

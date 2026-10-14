@@ -9,7 +9,6 @@ import (
 
 type Music struct {
 	Artists []MusicArtist `jsonschema:"required,minItems=1" yaml:"artists"`
-	Faults  []MusicFault  `yaml:"faults,omitempty"`
 }
 
 // MusicArtist is one artist as its source has it at each lookup: the k-th
@@ -45,13 +44,6 @@ type MusicTrack struct {
 	Disc      int           `jsonschema:"required,minimum=1"                                                              yaml:"disc"`
 }
 
-// MusicFault makes the first Times lookups of an artist answer Answer.
-type MusicFault struct {
-	Artist string `jsonschema:"required"                                          yaml:"artist"`
-	Answer string `jsonschema:"required,enum=not_found,enum=unavailable,enum=slow" yaml:"answer"`
-	Times  int    `jsonschema:"required,minimum=1"                                yaml:"times"`
-}
-
 // ContentTypes is every Content Type the Scenario needs the binary to
 // register, in id order.
 func (s Scenario) ContentTypes() []string {
@@ -66,19 +58,10 @@ func (s Scenario) ContentTypes() []string {
 	return slices.Compact(out)
 }
 
-const (
-	// AnswerNotFound answers 404, AnswerUnavailable 503 with Retry-After: 1,
-	// and AnswerSlow holds the response until the client gives up.
-	AnswerNotFound    = "not_found"
-	AnswerUnavailable = "unavailable"
-	AnswerSlow        = "slow"
-)
-
 var (
-	mbid         = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-	partialDate  = regexp.MustCompile(`^\d{4}(-\d{2}(-\d{2})?)?$`)
-	musicKinds   = []string{"Album", "EP", "Single"}
-	musicAnswers = []string{AnswerNotFound, AnswerUnavailable, AnswerSlow}
+	mbid        = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	partialDate = regexp.MustCompile(`^\d{4}(-\d{2}(-\d{2})?)?$`)
+	musicKinds  = []string{"Album", "EP", "Single"}
 )
 
 func (m Music) check(add func(format string, args ...any)) {
@@ -99,9 +82,6 @@ func (m Music) check(add func(format string, args ...any)) {
 		for r, rev := range a.Revisions {
 			owners.check(add, a.ID, "music artist "+a.ID+" revision "+strconv.Itoa(r), rev.Albums)
 		}
-	}
-	for i, f := range m.Faults {
-		f.check(add, m.Artists, m.Faults[:i])
 	}
 }
 
@@ -125,21 +105,6 @@ func (o owners) check(add func(format string, args ...any), artist, at string, a
 			add("music release %s belongs to albums %s and %s", al.Release, other, al.ID)
 		}
 		o.albumOf[al.Release] = al.ID
-	}
-}
-
-func (f MusicFault) check(add func(format string, args ...any), artists []MusicArtist, earlier []MusicFault) {
-	if !slices.ContainsFunc(artists, func(a MusicArtist) bool { return a.ID == f.Artist }) {
-		add("music fault names artist %s, which the catalog does not list", f.Artist)
-	}
-	if slices.ContainsFunc(earlier, func(g MusicFault) bool { return g.Artist == f.Artist }) {
-		add("music faults name artist %s twice", f.Artist)
-	}
-	if !slices.Contains(musicAnswers, f.Answer) {
-		add("music fault answer %q is not one of not_found, unavailable, slow", f.Answer)
-	}
-	if f.Times < 1 {
-		add("music fault for artist %s has times %d; it is at least 1", f.Artist, f.Times)
 	}
 }
 

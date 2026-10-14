@@ -1,0 +1,67 @@
+# Sign-in
+
+A person signs in on the Controller with their email and four-digit PIN. A wrong PIN says so and clears the PIN, a sign-in from a deep link returns to the page asked for, and Sign out ends the session in every tab.
+
+## Sub-features
+
+- `sign-in-redirect` an anonymous visit to `/system` lands on `/sign-in?redirect=%2Fsystem`, and signing in returns to This Node.
+- `sign-in-wrong-pin` a wrong PIN shows the alert `The email or PIN is wrong` and empties the PIN.
+- `sign-in-pin` the right email and PIN sign in; the email is matched without case or surrounding spaces.
+- `sign-in-saved-state` `bin/sign-in.ts` signs in through the real page, and its saved state opens a signed-in session.
+- `sign-out` `Sign out` lands on `/sign-in?reason=signed-out` with the status `You signed out.`
+
+## How to get to it (user POV)
+
+- Desk and phone: any page of a signed-out browser on the Controller redirects to `/sign-in`, headed `Sign in to SlipStream`.
+- Desk and phone: the `Sign out` button in the header.
+- API: `POST /api/v1/session` with email and PIN; `DELETE /api/v1/session`.
+
+## Driving it with fakeworld and playwright cli
+
+Preconditions:
+
+- A `home` run with doctor passing, and `$FW browser $RUN` run once.
+- A session with no saved state, named for the person signing in: `{runId}-admin-desk` before `state-load`, or a second one such as `{runId}-ada-desk`.
+
+Steps:
+
+- **Deep link signed out.** Open `/system`. The page reads `Sign in to SlipStream` at `/sign-in?redirect=%2Fsystem`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk open --config={runDir}/browser/desk/playwright-cli.json '{nodes.home.browserUrl}/system'
+  ```
+
+- **Wrong PIN.** Enter `ada@example.test` and PIN `1357`. The PIN submits itself on the fourth digit, the alert reads `The email or PIN is wrong`, and the PIN boxes are empty.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk fill 'getByRole("textbox", { name: "Email" })' "ada@example.test"
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk click 'getByRole("textbox", { name: "PIN", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk type 1357
+  $FW exec $RUN --proof sign-in/sign-in-wrong-pin -- $PW cli -s={runId}-ada-desk snapshot --filename={runDir}/proof/sign-in/sign-in-wrong-pin/form.aria.yml
+  ```
+
+- **Right PIN.** Type the manifest's PIN, `2468`. This Node opens at `/system`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk click 'getByRole("textbox", { name: "PIN", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk type 2468
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk run-code 'async page => { await page.getByRole("heading", { name: "This Node" }).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof sign-in/sign-in-redirect -- $PW cli -s={runId}-ada-desk screenshot --filename={runDir}/proof/sign-in/sign-in-redirect/this-node.png
+  ```
+
+- **Sign out.** Choose `Sign out`. The page reads `Sign in to SlipStream` with the status `You signed out.` at `/sign-in?reason=signed-out`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk click 'getByRole("button", { name: "Sign out" })'
+  $FW exec $RUN --proof sign-in/sign-out -- $PW cli -s={runId}-ada-desk snapshot --filename={runDir}/proof/sign-in/sign-out/sign-in.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desk close
+  ```
+
+- **Saved state.** Run the skill's Drive block for `admin desk`. `goto {nodes.home.browserUrl}/` shows the Library heading and `Ada Okafor` in the header without a sign-in page.
+
+## Gotchas
+
+- The PIN field submits on its fourth digit; there is no need to choose `Sign in`.
+- The PIN is four digit boxes named `PIN`, `PIN digit 2 of 4` and so on. Click the first and `type` the digits, as a person does.
+- Every sign-in comes from loopback, and sign-in is rate limited per IP. Sign each identity in once per run and reuse the saved state.
+- A session loaded from `auth/admin-desk.json` carries the same server session as the saved file, so signing out there ends the saved state too. Sign out from a separate session, as above, or run `bin/sign-in.ts` again afterwards.

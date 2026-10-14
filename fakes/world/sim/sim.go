@@ -154,7 +154,7 @@ func dataDir(t *testing.T, s scenario.Scenario, i int, listen []string, endpoint
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := setup.Config(s, i, listen, endpoints)
+	config, err := setup.Config(s, i, listen, netip.AddrPort{}, endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func (w *World) Manifest() world.Manifest {
 		m.Admin = &world.Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
 	for i, n := range w.nodes {
-		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.Ready(), DataDir: n.dir.Path(), Log: n.logFile()}, w.claims.Members[i])
+		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, State: world.NodeRunning, Ready: n.Ready(), DataDir: n.dir.Path(), Log: n.logFile()}, w.claims.Members[i])
 		if err != nil {
 			w.t.Fatal(err)
 		}
@@ -222,8 +222,8 @@ func (w *World) Node(name string) *Node {
 	return w.nodes[i]
 }
 
-// Path is the Switch of the path between the Nodes named a and b.
-func (w *World) Path(a, b string) *fault.Switch {
+// Path is the Plan of the path between the Nodes named a and b.
+func (w *World) Path(a, b string) *fault.Plan {
 	return w.net.Path(w.Node(a).addr, w.Node(b).addr)
 }
 
