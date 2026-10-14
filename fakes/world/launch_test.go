@@ -505,7 +505,7 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 	s.Timings.Node.StopDeadline = -time.Second
 	runDir := filepath.Join(t.TempDir(), "run")
 	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)})
-	if want := "node home: config.yaml:13: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
+	if want := "node home: config.yaml:14: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
 	assertNothingLeft(t, runDir, false)

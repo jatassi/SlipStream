@@ -504,6 +504,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "name", Value: host, Default: host, Source: "default"},
 			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
 			{Key: "torrent.downloads", Value: "downloads", Default: "downloads", Source: "default"},
+			{Key: "torrent.outgoing_utp", Value: "true", Default: "true", Source: "default"},
 			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default"},
 			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default"},
 			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default"},

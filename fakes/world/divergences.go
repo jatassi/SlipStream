@@ -54,6 +54,12 @@ var divergences = []divergence{
 		spec:        "#135",
 	},
 	{
+		id:          "tcp-peers",
+		keyPatterns: []string{"torrent.outgoing_utp"},
+		reason:      "Nodes dial peers over TCP only, since seeder fronts carry no uTP and a uTP attempt at one costs a leecher about 4 s before it falls back.",
+		spec:        "#135",
+	},
+	{
 		id:          "fake-endpoints",
 		keyPatterns: []string{"endpoints.*"},
 		reason:      "Each boundary's endpoints point at its fake.",

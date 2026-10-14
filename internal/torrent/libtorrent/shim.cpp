@@ -229,7 +229,7 @@ std::string listen_interface(lt::address const& addr, uint16_t port) {
 
 extern "C" {
 
-lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int outgoing_utp, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
 		lt::address addr = lt::make_address(address);
@@ -240,6 +240,7 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, lt
 		p.set_bool(sp::enable_lsd, discovery & LTS_DISCOVERY_LSD);
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
+		p.set_bool(sp::enable_outgoing_utp, outgoing_utp != 0);
 		p.set_str(sp::listen_interfaces, listen_interface(addr, port));
 		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::tracker)));
 		s = new lts_session(lt::session_params(std::move(p)));
