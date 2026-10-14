@@ -85,7 +85,7 @@ func (c *cluster) setIntent(t *testing.T, node role.NodeID, value string) {
 	}
 }
 
-func (c *cluster) path() *fault.Switch {
+func (c *cluster) path() *fault.Plan {
 	return c.pair.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr)
 }
 
@@ -191,7 +191,9 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 			t.Fatalf("after Touch the probe sees %s", got)
 		}
 
-		c.path().Set(fault.Stall{})
+		if err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
 		time.Sleep(partitioned)
 		synctest.Wait()
 		check(t, "partitioned, the probe", snapshot(t, w.probe), `"second" unreachable may start false`)
@@ -199,7 +201,7 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 
 		c.setIntent(t, c.workerID, "third")
 		c.probe.Touch(c.workerID)
-		c.path().Set(fault.None{})
+		c.path().Clear("")
 		time.Sleep(redialed)
 		synctest.Wait()
 		check(t, "back in step, the probe", snapshot(t, w.probe), `"third" live may start true`)
@@ -223,7 +225,9 @@ func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 		c.pair.Connect(t)
 		synctest.Wait()
 
-		c.path().Set(fault.Stall{})
+		if err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
 		time.Sleep(partitioned)
 		w.stop()
 		again := c.startWorker(t, local)

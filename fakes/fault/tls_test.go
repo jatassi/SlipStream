@@ -36,7 +36,7 @@ func TestMutualTLSThenEcho(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := fault.NewNetwork()
 		client, server := pair(t, n)
-		n.Path(home, seedbox).Set(fault.Latency(10 * time.Millisecond))
+		set(t, n.Path(home, seedbox), fault.Latency(10*time.Millisecond))
 		cfg := &tls.Config{
 			Certificates:       []tls.Certificate{certificate(t)},
 			MinVersion:         tls.VersionTLS13,

@@ -222,8 +222,8 @@ func (w *World) Node(name string) *Node {
 	return w.nodes[i]
 }
 
-// Path is the Switch of the path between the Nodes named a and b.
-func (w *World) Path(a, b string) *fault.Switch {
+// Path is the Plan of the path between the Nodes named a and b.
+func (w *World) Path(a, b string) *fault.Plan {
 	return w.net.Path(w.Node(a).addr, w.Node(b).addr)
 }
 

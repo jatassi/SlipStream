@@ -17,11 +17,11 @@ var (
 	errInUse       = errors.New("address already in use")
 )
 
-// Network is an in-memory network of Hosts. Each dial is a pipe pair, both
-// ends wrapped with the Switch of the path between the two addresses.
+// Network is an in-memory network of Hosts. Each dial is a pipe pair whose
+// accepting end plays the Plan of the path between the two addresses.
 type Network struct {
 	mu        sync.Mutex
-	paths     map[[2]netip.Addr]*Switch
+	paths     map[[2]netip.Addr]*Plan
 	listeners map[endpoint]*listener
 	issued    uint16
 }
@@ -35,23 +35,27 @@ type endpoint struct {
 }
 
 func NewNetwork() *Network {
-	return &Network{paths: map[[2]netip.Addr]*Switch{}, listeners: map[endpoint]*listener{}}
+	return &Network{paths: map[[2]netip.Addr]*Plan{}, listeners: map[endpoint]*listener{}}
 }
 
-// Path returns the Switch for the path between a and b, either way round.
-func (n *Network) Path(a, b netip.Addr) *Switch {
+// path is the one front of a path's Plan. A rule with no Target covers it.
+var path = Front{Layers: Conn}
+
+// Path returns the Plan of the path between a and b, either way round.
+// It plays connection faults only, and Refuse refuses dials.
+func (n *Network) Path(a, b netip.Addr) *Plan {
 	if b.Less(a) {
 		a, b = b, a
 	}
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	key := [2]netip.Addr{a, b}
-	sw := n.paths[key]
-	if sw == nil {
-		sw = &Switch{}
-		n.paths[key] = sw
+	p := n.paths[key]
+	if p == nil {
+		p = NewPlan([]Front{path}, nil)
+		n.paths[key] = p
 	}
-	return sw
+	return p
 }
 
 // Host is one machine on the Network, holding addrs. A dial leaves from
@@ -145,20 +149,19 @@ func (h *Host) dialTCP(ctx context.Context, ap netip.AddrPort) (net.Conn, error)
 	if i < 0 {
 		return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: remote, Err: errUnreachable}
 	}
-	sw := h.net.Path(h.addrs[i], ap.Addr())
-	switch f, _ := sw.state(); f.(type) {
-	case Stall:
+	plan := h.net.Path(h.addrs[i], ap.Addr())
+	switch plan.dialing() {
+	case Refuse{}:
+		return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: remote, Err: ErrRefused}
+	case Stall{}:
 		<-ctx.Done()
 		return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: remote, Err: ctx.Err()}
-	case Reset:
-		return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: remote, Err: ErrRefused}
 	}
 	h.net.mu.Lock()
 	local := net.TCPAddrFromAddrPort(netip.AddrPortFrom(h.addrs[i], h.net.ephemeral()))
 	h.net.mu.Unlock()
 	client, server := Pipe(local, remote)
-	c, s := Wrap(client, sw), Wrap(server, sw)
-	return h.net.connect(endpoint{tcp: ap}, remote, c, s)
+	return h.net.connect(endpoint{tcp: ap}, remote, client, plan.Conn(server, path))
 }
 
 // connect queues s on the listener at e and returns c, or refuses at once

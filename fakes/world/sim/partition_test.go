@@ -64,7 +64,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		a := w.API()
 		synctest.Wait()
 		stalled := time.Now()
-		w.Path("home", "seedbox").Set(fault.Stall{})
+		flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
@@ -83,7 +83,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		}
 		heal := down.Add(time.Minute)
 		time.Sleep(time.Until(heal))
-		w.Path("home", "seedbox").Set(fault.None{})
+		w.Path("home", "seedbox").Clear("")
 		redial := redialAt("home/seedbox", down, heal)
 		if want := "2000-01-01T00:01:38.400755643Z"; redial.Format(time.RFC3339Nano) != want {
 			t.Fatalf("seedbox's link stream re-dials at %s, want %s", redial.Format(time.RFC3339Nano), want)
@@ -106,4 +106,12 @@ func TestPartitionThenRedial(t *testing.T) {
 			t.Fatalf("seedbox's Probe stands %s after the re-dial, want live", got)
 		}
 	})
+}
+
+// flip plays f on every connection of path from now until it is cleared.
+func flip(t *testing.T, path *fault.Plan, f fault.Fault) {
+	t.Helper()
+	if err := path.Set(fault.Rule{Fault: f}); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -61,7 +61,7 @@ func TestResultsApplyOnce(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe())
 		path := w.Path("home", "seedbox")
 		synctest.Wait()
-		path.Set(fault.Stall{})
+		flip(t, path, fault.Stall{})
 		time.Sleep(partitioned)
 		report(t, w, "seedbox", 1, 2, 3)
 		synctest.Wait()
@@ -70,10 +70,10 @@ func TestResultsApplyOnce(t *testing.T) {
 		}
 
 		resume := w.Node("home").Control().PauseAt(3)
-		path.Set(fault.None{})
+		path.Clear("")
 		time.Sleep(redialed)
 		synctest.Wait()
-		path.Set(fault.CutAfter(0))
+		flip(t, path, fault.Cut(0))
 		resume()
 		synctest.Wait()
 		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3}) {
@@ -83,7 +83,7 @@ func TestResultsApplyOnce(t *testing.T) {
 			t.Fatalf("with the Ack cut, seedbox's Probe stands %s, want unreachable", got)
 		}
 
-		path.Set(fault.None{})
+		path.Clear("")
 		time.Sleep(redialed)
 		synctest.Wait()
 		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3}) {

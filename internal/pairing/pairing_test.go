@@ -172,7 +172,11 @@ func TestAnUnreachableControllerIsNamed(t *testing.T) {
 		net := fault.NewNetwork()
 		home := startController(t, net, "home", "127.0.0.2")
 		code := home.mint(t)
-		net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Reset{})
+		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
+			if err := net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+				t.Fatal(err)
+			}
+		}
 		_, p := worker(t, net, t.TempDir(), system.Unclaimed)
 		if _, err := p.Claim(t.Context(), code); kind(err) != pairing.Unreachable {
 			t.Fatalf("a Join over a reset path: %v, want controller_unreachable", err)

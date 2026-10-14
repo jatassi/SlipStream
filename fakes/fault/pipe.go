@@ -20,8 +20,9 @@ func Pipe(a, b net.Addr) (atA, atB net.Conn) {
 type stream struct {
 	mu       sync.Mutex
 	buf      []byte
-	eof      bool // the writing end closed
-	shut     bool // the reading end closed
+	eof      bool  // the writing end closed
+	shut     bool  // the reading end closed
+	err      error // set by an abort, failing both ends at once
 	deadline time.Time
 	timer    *time.Timer
 	wake     chan struct{}
@@ -40,6 +41,8 @@ func (s *stream) read(b []byte) (int, error) {
 	defer s.mu.Unlock()
 	for {
 		switch {
+		case s.err != nil:
+			return 0, s.err
 		case s.shut:
 			return 0, net.ErrClosed
 		case len(s.buf) > 0:
@@ -65,6 +68,8 @@ func (s *stream) write(b []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	switch {
+	case s.err != nil:
+		return 0, s.err
 	case s.eof:
 		return 0, net.ErrClosed
 	case s.shut:
@@ -107,6 +112,17 @@ func (s *stream) close(reading bool) {
 	s.changed()
 }
 
+func (s *stream) fail(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.err = err
+	s.buf = nil
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+	s.changed()
+}
+
 type end struct {
 	in, out       *stream
 	local, remote net.Addr
@@ -132,6 +148,13 @@ func (e *end) Close() error {
 	e.in.close(true)
 	e.out.close(false)
 	return nil
+}
+
+// abort fails both ends with err and drops what is buffered, as a TCP
+// reset does.
+func (e *end) abort(err error) {
+	e.in.fail(err)
+	e.out.fail(err)
 }
 
 // CloseWrite ends what this end writes; the peer reads io.EOF after the

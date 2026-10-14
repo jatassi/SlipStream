@@ -81,7 +81,9 @@ func TestKeepaliveEndsAStalledSession(t *testing.T) {
 		client, server := sessions(t, n)
 		synctest.Wait()
 		start := time.Now()
-		n.Path(home, seedbox).Set(fault.Stall{})
+		if err := n.Path(home, seedbox).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
 		<-client.Done()
 		if got := time.Since(start); got != 35*time.Second {
 			t.Fatalf("the stalled session ended after %v, want keepalive + write timeout = 35s", got)
