@@ -64,7 +64,7 @@ func dualStack(t *testing.T) (n *fault.Network, controller, worker *linktest.Nod
 func TestStalledIPv6FallsBackToIPv4AfterFallbackDelay(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n, controller, worker, dials := dualStack(t)
-		if err := n.Path(worker6, controller6).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+		if _, err := n.Path(worker6, controller6).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
 			t.Fatal(err)
 		}
 		changes := worker.Subscribe(t.Context())
@@ -113,7 +113,7 @@ func TestRedialAfterADrop(t *testing.T) {
 		linktest.AwaitLive(t, changes, controller.Key)
 
 		path := n.Path(linktest.WorkerAddr, linktest.ControllerAddr)
-		if err := path.Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+		if _, err := path.Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
 			t.Fatal(err)
 		}
 		if c := <-changes; c.State != (link.Down{}) {
@@ -208,7 +208,7 @@ func TestNewerSessionClosesTheOlder(t *testing.T) {
 		p := linktest.New(t, linktest.Side{}, linktest.Side{})
 		changes := p.Controller.Subscribe(t.Context())
 		p.Connect(t)
-		if err := p.Net.Path(linktest.WorkerAddr, linktest.ControllerAddr).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+		if _, err := p.Net.Path(linktest.WorkerAddr, linktest.ControllerAddr).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
 			t.Fatal(err)
 		}
 

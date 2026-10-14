@@ -195,7 +195,7 @@ func TestARepairReachesAControllerThroughItsAdvertisedAddress(t *testing.T) {
 		second := startController(t, net, "restored", "127.0.0.4", []netip.AddrPort{forwarded})
 		forward(t, net, forwarded, netip.MustParseAddrPort("127.0.0.4:8485"))
 		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
-			if err := net.Path(linktest.WorkerAddr, netip.MustParseAddr("127.0.0.4")).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+			if _, err := net.Path(linktest.WorkerAddr, netip.MustParseAddr("127.0.0.4")).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -240,7 +240,7 @@ func TestAnUnreachableControllerIsNamed(t *testing.T) {
 		home := startController(t, net, "home", "127.0.0.2", nil)
 		code := home.mint(t)
 		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
-			if err := net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+			if _, err := net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
 				t.Fatal(err)
 			}
 		}

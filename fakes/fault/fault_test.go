@@ -66,7 +66,7 @@ func write(t *testing.T, c net.Conn, s string) {
 // one-call flip.
 func set(t *testing.T, p *fault.Plan, f fault.Fault) {
 	t.Helper()
-	if err := p.Set(fault.Rule{Fault: f}); err != nil {
+	if _, err := p.Set(fault.Rule{Fault: f}); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -86,7 +86,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	front := fault.Front{Target: fault.Target(spec.Name), Layers: fault.Conn | fault.HTTP}
 	plan := fault.NewPlan([]fault.Front{front}, nil)
 	for _, r := range o.rules {
-		if err := plan.Set(r); err != nil {
+		if _, err := plan.Set(r); err != nil {
 			t.Fatal(err)
 		}
 	}

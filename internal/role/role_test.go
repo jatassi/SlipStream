@@ -191,7 +191,7 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 			t.Fatalf("after Touch the probe sees %s", got)
 		}
 
-		if err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+		if _, err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(partitioned)
@@ -225,7 +225,7 @@ func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 		c.pair.Connect(t)
 		synctest.Wait()
 
-		if err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+		if _, err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(partitioned)

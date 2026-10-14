@@ -111,7 +111,7 @@ func TestPartitionThenRedial(t *testing.T) {
 // flip plays f on every connection of path from now until it is cleared.
 func flip(t *testing.T, path *fault.Plan, f fault.Fault) {
 	t.Helper()
-	if err := path.Set(fault.Rule{Fault: f}); err != nil {
+	if _, err := path.Set(fault.Rule{Fault: f}); err != nil {
 		t.Fatal(err)
 	}
 }

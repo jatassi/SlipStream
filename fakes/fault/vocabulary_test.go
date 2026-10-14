@@ -146,7 +146,7 @@ func TestARuleAFrontCantPlayIsRefused(t *testing.T) {
 		{fault.Rule{ID: "x", Target: "tmdb", Fault: fault.Hang{}, Skip: -1}, `rule "x": skip and times can't be negative`},
 		{fault.Rule{ID: "x", Target: "tmdb"}, `rule "x" has no fault`},
 	} {
-		if err := fault.NewPlan(fronts, nil).Set(c.rule); err == nil || err.Error() != c.want {
+		if _, err := fault.NewPlan(fronts, nil).Set(c.rule); err == nil || err.Error() != c.want {
 			t.Errorf("Set(%+v) = %v, want %q", c.rule, err, c.want)
 		}
 	}
@@ -163,7 +163,7 @@ func TestARuleAFrontCantPlayIsRefused(t *testing.T) {
 
 func arm(t *testing.T, p *fault.Plan, r fault.Rule) {
 	t.Helper()
-	if err := p.Set(r); err != nil {
+	if _, err := p.Set(r); err != nil {
 		t.Fatal(err)
 	}
 }

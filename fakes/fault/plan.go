@@ -1,6 +1,8 @@
 package fault
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -30,25 +32,66 @@ type Front struct {
 	Layers Layer
 }
 
+// Rule is one fault and where and when it plays. Its JSON, the form the
+// control API and the event log carry, writes Fault as its canonical text.
 type Rule struct {
-	ID     string
-	Target Target
+	ID     string `json:"id"`
+	Target Target `json:"target"`
 	// Origin is the dialing Node; "" is every origin.
-	Origin string
+	Origin string `json:"origin,omitempty"`
 	// Route is, for an HTTP fault, a route name the fake declares in
 	// fake.Routes; "" is every route.
-	Route string
+	Route string `json:"route,omitempty"`
 	// Params are, for an HTTP fault, path values the request must carry.
-	Params map[string]string
-	Fault  Fault
+	Params map[string]string `json:"params,omitempty"`
+	Fault  Fault             `json:"fault"`
 	// Skip is the matches let through first: the 3rd request is Skip 2,
 	// Times 1.
-	Skip int
+	Skip int `json:"skip,omitempty"`
 	// Times is the matches played; 0 plays until cleared.
-	Times int
+	Times int `json:"times,omitempty"`
 	// After arms the rule on the first matching record observed after it
 	// is set. nil arms it at once.
-	After *events.Query
+	After *events.Query `json:"after,omitempty"`
+}
+
+// ruleFields is Rule without the methods below, so they can encode its
+// other fields the default way.
+type ruleFields Rule
+
+func (r Rule) MarshalJSON() ([]byte, error) {
+	text := ""
+	if r.Fault != nil {
+		text = r.Fault.String()
+	}
+	data, err := json.Marshal(struct {
+		ruleFields
+		Fault string `json:"fault"`
+	}{ruleFields(r), text})
+	if err != nil {
+		return nil, fmt.Errorf("rule %q: %w", r.ID, err)
+	}
+	return data, nil
+}
+
+// UnmarshalJSON refuses a field Rule lacks and a fault Parse refuses.
+func (r *Rule) UnmarshalJSON(data []byte) error {
+	var v struct {
+		*ruleFields
+		Fault string `json:"fault"`
+	}
+	v.ruleFields = (*ruleFields)(r)
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&v); err != nil {
+		return fmt.Errorf("rule: %w", err)
+	}
+	f, err := Parse(v.Fault)
+	if err != nil {
+		return fmt.Errorf("rule %q: %w", r.ID, err)
+	}
+	r.Fault = f
+	return nil
 }
 
 func (r Rule) covers(f Front) bool {
@@ -125,18 +168,22 @@ type entry struct {
 func (e *entry) done() bool { return e.Times > 0 && e.matched >= e.Skip+e.Times }
 
 // NewPlan plays rules on fronts. fired, which may be nil, hears each
-// occurrence a rule plays, outside the Plan's lock, except those arming
-// takes in Observe, which returns them.
+// occurrence traffic plays, outside the Plan's lock. The occurrences that
+// arming plays on open connections are returned by Set and Observe
+// instead, so the event log can append them after the record that armed
+// the rule.
 func NewPlan(fronts []Front, fired func(Firing)) *Plan {
 	return &Plan{fronts: fronts, fired: fired}
 }
 
-// Set checks r and arms it, replacing the rule with its ID.
-func (p *Plan) Set(r Rule) error {
+// Set checks r and arms it, replacing the rule with its ID, and returns
+// the occurrences arming played.
+func (p *Plan) Set(r Rule) ([]Firing, error) {
 	if err := Check(r, p.fronts); err != nil {
-		return err
+		return nil, err
 	}
 	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.removeLocked(r.ID)
 	e := &entry{Rule: r}
 	p.rules = append(p.rules, e)
@@ -145,9 +192,7 @@ func (p *Plan) Set(r Rule) error {
 		fired = p.armLocked(e)
 	}
 	p.signalLocked()
-	p.mu.Unlock()
-	p.report(fired)
-	return nil
+	return fired, nil
 }
 
 // Clear removes the rule with id, or every rule for "", and reports

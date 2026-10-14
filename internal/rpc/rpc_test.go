@@ -279,7 +279,7 @@ func TestACallWhoseLinkDiesIsLost(t *testing.T) {
 		}()
 		synctest.Wait()
 		for _, f := range []fault.Fault{fault.Reset{}, fault.Refuse{}} {
-			if err := c.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
+			if _, err := c.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr).Set(fault.Rule{ID: f.String(), Fault: f}); err != nil {
 				t.Fatal(err)
 			}
 		}

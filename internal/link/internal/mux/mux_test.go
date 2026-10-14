@@ -81,7 +81,7 @@ func TestKeepaliveEndsAStalledSession(t *testing.T) {
 		client, server := sessions(t, n)
 		synctest.Wait()
 		start := time.Now()
-		if err := n.Path(home, seedbox).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+		if _, err := n.Path(home, seedbox).Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
 			t.Fatal(err)
 		}
 		<-client.Done()
