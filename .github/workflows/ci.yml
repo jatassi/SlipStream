@@ -127,17 +127,28 @@ jobs:
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - run: go run ./cmd/release test
+      - id: test
+        run: go run ./cmd/release test
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      # Each failed run dir is a replay bundle. The run's copies of the
+      # binaries stay out of it; the release binary goes up once per job,
+      # for fakeworld replay --binary.
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: fakeworld-runs-${{ matrix.target }}
-          path: ${{ runner.temp }}/fakeworld-runs
+          path: |
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
+      - if: failure() && steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-${{ matrix.target }}
+          path: dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
       # Lint runs on every target so gofmt, line endings and the cgo type
       # check are proven on each OS, and runs even when a test fails.
       - if: ${{ !cancelled() }}
