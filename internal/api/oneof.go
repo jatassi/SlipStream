@@ -40,6 +40,7 @@ func (OneOf[V]) Schema(r huma.Registry) *huma.Schema {
 		union := &huma.Schema{Discriminator: &huma.Discriminator{PropertyName: property, Mapping: map[string]string{}}}
 		for _, variant := range variants {
 			t := reflect.TypeOf(variant)
+			mustDocumentEmbedded(t, map[reflect.Type]bool{})
 			ref := r.Schema(t, true, "")
 			union.OneOf = append(union.OneOf, ref)
 			union.Discriminator.Mapping[discriminatorValue(t, property)] = ref.Ref

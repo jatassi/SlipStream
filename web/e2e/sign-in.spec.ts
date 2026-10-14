@@ -39,9 +39,9 @@ test("sign-in returns to the page asked for and sign-out ends the session", asyn
 });
 
 test("sign-in ignores a redirect to another site", async ({ page, world }) => {
-  const { email, pin, displayName } = world.admin();
+  const { email, pin } = world.admin();
   await page.goto("/sign-in?redirect=//evil.example");
   await signIn(page, email, pin);
-  await expect(page.getByRole("heading", { name: `Signed in as ${displayName}` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/`);
 });

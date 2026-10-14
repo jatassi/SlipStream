@@ -114,6 +114,28 @@ func TestRegisterRefusesWhatWouldCollideOrHaveNoLimit(t *testing.T) {
 	}
 }
 
+type stamped struct {
+	At string `json:"at"`
+}
+
+type entry struct {
+	stamped
+	Name string `json:"name"`
+}
+
+func TestRegisterRefusesAnOutputEmbeddingAnUnexportedStruct(t *testing.T) {
+	o := NewRouter(Services{}).Owner("fixture", Public)
+	got := panicOf(func() {
+		Register(o, Public, Op{ID: "listEntries", Method: http.MethodGet, Path: "/entries"},
+			func(context.Context, identity.Anyone, *struct{}) (*struct{ Body struct{ Entries []entry } }, error) {
+				return nil, nil
+			})
+	})
+	if want := "api: api.entry embeds unexported api.stamped, whose fields the document would leave out; export it"; got != want {
+		t.Fatalf("panic = %q, want %q", got, want)
+	}
+}
+
 var fixtureGone = NewCode(http.StatusGone, "fixture_gone", "The fixture is gone")
 
 func TestAnUndeclaredCodeAnswersInternal(t *testing.T) {

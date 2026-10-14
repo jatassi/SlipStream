@@ -9,21 +9,36 @@ export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
 export const FilesMissingCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
   state: zod.enum(["missing"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
 export type FilesMissingCellOutput = zod.output<typeof FilesMissingCell>;
 
 export const FilesDownloadingCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
   state: zod.enum(["downloading"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
 export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
 
 export const FilesFailedCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
   state: zod.enum(["failed"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
@@ -54,8 +69,13 @@ export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
 
 export const FilesMetCell = zod.object({
+  edition: zod.enum(["standard"]),
   file: FilesLibraryFile.describe("The file filling it"),
+  itemId: zod.uuid(),
   state: zod.enum(["met"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesMetCell = zod.input<typeof FilesMetCell>;
@@ -625,14 +645,23 @@ export const WorksLevel = zod.object({
 export type WorksLevel = zod.input<typeof WorksLevel>;
 export type WorksLevelOutput = zod.output<typeof WorksLevel>;
 
+export const worksTreeContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
 export const WorksTree = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  contentType: zod.string().regex(worksTreeContentTypeRegExp),
   fields: zod.array(WorksFieldValue),
+  id: zod.uuid(),
   items: zod
     .array(WorksItem)
     .describe("By their level's order, live before withdrawn, then position"),
+  key: zod.string(),
+  label: zod.string(),
   levels: zod
     .array(WorksLevel)
     .describe("By depth, then their parent's order, live before withdrawn, then position"),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  sortLabel: zod.string(),
 });
 
 export type WorksTree = zod.input<typeof WorksTree>;
@@ -724,6 +753,22 @@ export const WorksEnabled = zod.object({
 export type WorksEnabled = zod.input<typeof WorksEnabled>;
 export type WorksEnabledOutput = zod.output<typeof WorksEnabled>;
 
+export const worksListedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksListedWork = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  contentType: zod.string().regex(worksListedWorkContentTypeRegExp),
+  fields: zod.array(WorksFieldValue).describe("The Work's own fields"),
+  id: zod.uuid(),
+  key: zod.string(),
+  label: zod.string(),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  sortLabel: zod.string(),
+});
+
+export type WorksListedWork = zod.input<typeof WorksListedWork>;
+export type WorksListedWorkOutput = zod.output<typeof WorksListedWork>;
+
 export const worksNewWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const worksNewWorkKeyMax = 200;
 
@@ -743,21 +788,6 @@ export const WorksNewWork = zod.object({
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
 
-export const worksWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-
-export const WorksWork = zod.object({
-  addedAt: zod.iso.datetime({ offset: true }),
-  contentType: zod.string().regex(worksWorkContentTypeRegExp),
-  id: zod.uuid(),
-  key: zod.string(),
-  label: zod.string(),
-  refreshedAt: zod.iso.datetime({ offset: true }),
-  sortLabel: zod.string(),
-});
-
-export type WorksWork = zod.input<typeof WorksWork>;
-export type WorksWorkOutput = zod.output<typeof WorksWork>;
-
 export const WorksWorkChanged = zod.object({
   workId: zod.uuid(),
 });
@@ -766,7 +796,7 @@ export type WorksWorkChanged = zod.input<typeof WorksWorkChanged>;
 export type WorksWorkChangedOutput = zod.output<typeof WorksWorkChanged>;
 
 export const WorksWorkList = zod.object({
-  works: zod.array(WorksWork).describe("By sort label, then id"),
+  works: zod.array(WorksListedWork).describe("By sort label, then id"),
 });
 
 export type WorksWorkList = zod.input<typeof WorksWorkList>;
