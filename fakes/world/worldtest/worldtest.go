@@ -121,7 +121,7 @@ func RunDir(t *testing.T) string {
 	}
 	t.Cleanup(func() {
 		if !t.Failed() {
-			if err := os.RemoveAll(dir); err != nil {
+			if err := removeAll(dir); err != nil {
 				t.Error(err)
 			}
 		}
