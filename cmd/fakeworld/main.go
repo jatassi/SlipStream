@@ -48,6 +48,11 @@ const usageText = `usage: fakeworld <command>
   fs match <run-dir> <path> --release <name>
       exit 0 when the file's size and BLAKE3 are the release's; a path
       outside the run dir and its scratch dir is refused
+  doctor <run-dir> [--json] [--worktree <dir>] [--timeout 2m]
+      run six read-only checks on the live run: it is ours, its build is the
+      worktree's, its cluster is its Scenario's, every fake answers, every
+      address an Admin entered is a fake's front, and its API key works;
+      exit 1 when any fails, and list the fault rules still set
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -86,11 +91,12 @@ var verbs = map[string]func(args []string) int{
 		}
 		return execStep(f)
 	},
-	"fault": faultCommand,
-	"cue":   cueCommand,
-	"node":  nodeCommand,
-	"fs":    fsCommand,
-	"sse":   captureCommand(sseReader),
+	"fault":  faultCommand,
+	"cue":    cueCommand,
+	"node":   nodeCommand,
+	"fs":     fsCommand,
+	"sse":    captureCommand(sseReader),
+	"doctor": doctor,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {

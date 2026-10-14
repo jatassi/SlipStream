@@ -5,6 +5,7 @@ package site
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -27,6 +28,31 @@ var Fake = fake.Spec{
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
+	Entered:   indexers,
+}
+
+// indexers are the Indexers an Admin added, each dialed from its home
+// Node.
+func indexers(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
+	body, err := get("/api/v1/indexers")
+	if err != nil {
+		return nil, err
+	}
+	var list struct {
+		Indexers []struct {
+			Name       string `json:"name"`
+			URL        string `json:"url"`
+			HomeNodeID string `json:"homeNodeId"`
+		} `json:"indexers"`
+	}
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, fmt.Errorf("listIndexers: %w", err)
+	}
+	out := make([]fake.Entered, len(list.Indexers))
+	for i, ix := range list.Indexers {
+		out[i] = fake.Entered{What: "Indexer " + ix.Name, URL: ix.URL, NodeID: ix.HomeNodeID}
+	}
+	return out, nil
 }
 
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {

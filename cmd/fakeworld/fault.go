@@ -226,9 +226,13 @@ func printed(verb string, call func() (any, error)) int {
 }
 
 func printJSON(v any) {
+	fmt.Print(string(jsonLine(v)))
+}
+
+func jsonLine(v any) []byte {
 	line, err := json.Marshal(v)
 	if err != nil {
 		panic("fakeworld: " + err.Error())
 	}
-	fmt.Println(string(line))
+	return append(line, '\n')
 }
