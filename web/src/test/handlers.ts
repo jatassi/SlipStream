@@ -65,7 +65,7 @@ export function pendingForever(): RequestHandler[] {
     resyncStream,
     http.all("*/api/v1/*", async () => {
       await released;
-      return HttpResponse.error();
+      return problem(503, "unavailable", "Released at the end of the test");
     }),
   ];
 }
