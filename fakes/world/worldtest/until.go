@@ -74,21 +74,25 @@ func Until(t *testing.T, what string, cond func() (bool, error)) {
 	}()
 	wait(t, 1)
 	defer wait(t, -1)
-	ctx := Context(t)
+	if err := poll(Context(t), cond); err != nil {
+		t.Fatalf("waiting until %s: %v", what, err)
+	}
+	exit = 0
+}
+
+// poll checks cond every 25 ms until it holds, returning cond's error, or
+// ctx's when ctx ends first.
+func poll(ctx context.Context, cond func() (bool, error)) error {
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 	for {
 		ok, err := cond()
-		if err != nil {
-			t.Fatalf("waiting until %s: %v", what, err)
-		}
-		if ok {
-			exit = 0
-			return
+		if err != nil || ok {
+			return err
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatalf("waiting until %s: %v", what, ctx.Err())
+			return ctx.Err() //nolint:wrapcheck // Until names what it waited for
 		case <-ticker.C:
 		}
 	}
