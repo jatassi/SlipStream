@@ -15,7 +15,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -218,7 +217,7 @@ func TestARefusedFrontBindsItsPortAgainWhenCleared(t *testing.T) {
 		if err == nil {
 			_ = c.Close()
 		}
-		return errors.Is(err, syscall.ECONNREFUSED)
+		return errors.Is(err, connRefused)
 	})
 	plan.Clear("down")
 	until(t, "the front listens again", func() bool {
