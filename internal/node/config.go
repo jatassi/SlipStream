@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -108,14 +109,15 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 }
 
 type TimingsBlock struct {
-	Node     Timings          `yaml:"node"`
-	Storage  storage.Timings  `yaml:"storage"`
-	HTTP     api.Timings      `yaml:"http"`
-	Live     live.Timings     `yaml:"live"`
-	Link     link.Timings     `yaml:"link"`
-	Role     role.Timings     `yaml:"role"`
-	Works    works.Timings    `yaml:"works"`
-	Indexers indexers.Timings `yaml:"indexers"`
+	Node      Timings           `yaml:"node"`
+	Storage   storage.Timings   `yaml:"storage"`
+	HTTP      api.Timings       `yaml:"http"`
+	Live      live.Timings      `yaml:"live"`
+	Link      link.Timings      `yaml:"link"`
+	Role      role.Timings      `yaml:"role"`
+	Works     works.Timings     `yaml:"works"`
+	Indexers  indexers.Timings  `yaml:"indexers"`
+	Transfers transfers.Timings `yaml:"transfers"`
 }
 
 type Timings struct {
@@ -156,9 +158,10 @@ func Defaults(types contenttype.Set) Config {
 				RedialMax:     time.Minute,
 				FallbackDelay: 300 * time.Millisecond,
 			},
-			Role:     role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
-			Works:    works.DefaultTimings(),
-			Indexers: indexers.DefaultTimings(),
+			Role:      role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
+			Works:     works.DefaultTimings(),
+			Indexers:  indexers.DefaultTimings(),
+			Transfers: transfers.DefaultTimings(),
 		},
 	}
 }

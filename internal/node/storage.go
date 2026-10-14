@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -34,6 +35,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 func localSchemas() []storage.Schema[storage.Local] {
 	return []storage.Schema[storage.Local]{
 		role.LocalSchema(),
+		transfers.Schema(),
 	}
 }
 
