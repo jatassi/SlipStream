@@ -13,6 +13,7 @@ import {
 } from "@playwright/test";
 import { z } from "zod";
 
+import { type Fakeworld, fw } from "../harness/fakeworld.ts";
 import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
@@ -24,6 +25,7 @@ export type Scenario = "single-machine" | "first-run" | "home";
 export type World = {
   manifest: Manifest;
   node: ManifestNode;
+  fw: Fakeworld;
   baseURL: string;
   admin: () => NonNullable<Manifest["admin"]>;
   setupCode: () => Promise<string>;
@@ -188,6 +190,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     await use({
       manifest,
       node,
+      fw: fw(runDir),
       baseURL: browserName === "chromium" ? node.browserUrl : node.url,
       admin: () => {
         if (manifest.admin === undefined) {
