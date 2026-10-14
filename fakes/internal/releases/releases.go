@@ -159,6 +159,11 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 		return "", fmt.Errorf("ffmpeg: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
 	}
 	if err := os.Rename(tmp.Name(), path); err != nil {
+		// Concurrent worlds encode the same bytes. On Windows a rename onto a
+		// payload another process has open fails, and that payload is this one.
+		if _, statErr := os.Stat(path); statErr == nil {
+			return path, nil
+		}
 		return "", fmt.Errorf("cache the payload: %w", err)
 	}
 	return path, nil
