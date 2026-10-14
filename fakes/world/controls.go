@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -228,12 +229,16 @@ type Remote struct {
 	socket string
 }
 
+// ErrNotLive is a run dir with no manifest.json: a run stopped, not yet
+// ready, or a downloaded bundle.
+var ErrNotLive = errors.New("no run is live")
+
 // Dial reaches the live run in runDir through the socket its manifest
 // names.
 func Dial(runDir string) (*Remote, error) {
 	m, err := ReadManifest(runDir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("no run is live in %s: it has no manifest.json", runDir)
+		return nil, fmt.Errorf("%w in %s: it has no manifest.json", ErrNotLive, runDir)
 	}
 	if err != nil {
 		return nil, err
@@ -298,4 +303,40 @@ func (c *Remote) call(ctx context.Context, method, path string, in, out any) err
 		return fmt.Errorf("control %s %s: %w", method, path, err)
 	}
 	return nil
+}
+
+// LiveFaults reads the run in runDir's event log for the fault.set
+// records of the rules still set, in the order they were set. A rule
+// that finished its Times stays set until it is cleared.
+func LiveFaults(runDir string) ([]events.Record, error) {
+	recs, err := events.Read(runDir)
+	if err != nil {
+		return nil, err
+	}
+	type set struct {
+		id  string
+		rec events.Record
+	}
+	var live []set
+	for _, rec := range recs {
+		if rec.Kind != events.FaultSet && rec.Kind != events.FaultCleared {
+			continue
+		}
+		var d struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(rec.Data, &d); err != nil {
+			return nil, fmt.Errorf("%s %d: %w", rec.Kind, rec.Seq, err)
+		}
+		all := rec.Kind == events.FaultCleared && d.ID == ""
+		live = slices.DeleteFunc(live, func(s set) bool { return all || s.id == d.ID })
+		if rec.Kind == events.FaultSet {
+			live = append(live, set{d.ID, rec})
+		}
+	}
+	out := make([]events.Record, len(live))
+	for i, s := range live {
+		out[i] = s.rec
+	}
+	return out, nil
 }

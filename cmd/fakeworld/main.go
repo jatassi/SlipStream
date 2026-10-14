@@ -22,6 +22,21 @@ const usageText = `usage: fakeworld <command>
       path once the world is ready
   stop <run-dir> [--timeout 2m]
       stop the run and wait until every process of it has exited
+  exec <run-dir> [--proof <feature>/<sub>] -- <command> [<arg>...]
+      run the command as a journaled step, its {path} tokens filled from the
+      manifest ({{ is a literal brace), and exit with its exit code
+  fault set <run-dir> <id> <target>[@<node>] <fault> [--route r] [--param k=v]...
+            [--skip n] [--times n] [--after <kind>[,k=v...]]
+      set a fault rule, replacing the one with its id; <fault> is one of
+      refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB |
+      tls=untrusted|expired|wrong-name | status=<code>[,retry-after=<dur>]
+      [,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+  fault clear <run-dir> [<id>]
+      clear the rule with id, or every rule
+  fault list <run-dir>
+      print the fault.set record of each rule still set
+  fault wait <run-dir> [--rule id] [--node n] [--after seq] [--timeout 2m]
+      wait for a fault.fired record after the last step's start
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -52,6 +67,14 @@ var commands = map[string]func(args []string) int{
 		}
 		return failed("stop", stop(f))
 	},
+	"exec": func(args []string) int {
+		f, err := parseExec(args)
+		if err != nil {
+			return usage(err)
+		}
+		return execStep(f)
+	},
+	"fault": faultCommand,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {
