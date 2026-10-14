@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jatassi/slipstream/cmd/release/internal/worktree"
+	"github.com/jatassi/slipstream/internal/worktree"
 )
 
 func run(t *testing.T, dir string, args ...string) string {

@@ -13,8 +13,8 @@ import (
 
 	"github.com/jatassi/slipstream/cmd/release/internal/linkage"
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
-	"github.com/jatassi/slipstream/cmd/release/internal/worktree"
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/worktree"
 )
 
 func init() {
@@ -159,11 +159,7 @@ func run(ctx context.Context, dir string, env []string, name string, args ...str
 }
 
 func repoRoot(ctx context.Context) (string, error) {
-	top, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return "", fmt.Errorf("git rev-parse: %w", err)
-	}
-	return strings.TrimSpace(string(top)), nil
+	return worktree.Root(ctx, ".")
 }
 
 func installWeb(ctx context.Context, root string) error {

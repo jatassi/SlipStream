@@ -18,6 +18,15 @@ import (
 	"github.com/jatassi/slipstream/internal/buildinfo"
 )
 
+// Root is the top directory of the git worktree that holds dir.
+func Root(ctx context.Context, dir string) (string, error) {
+	top, err := git(ctx, dir, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", err
+	}
+	return filepath.FromSlash(strings.TrimSpace(string(top))), nil
+}
+
 // CleanFingerprint is the fingerprint of a worktree with nothing changed or untracked.
 const CleanFingerprint = "clean"
 

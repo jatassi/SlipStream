@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
-	"github.com/jatassi/slipstream/cmd/release/internal/worktree"
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/worktree"
 )
 
 func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
