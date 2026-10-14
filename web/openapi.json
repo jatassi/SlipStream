@@ -388,7 +388,7 @@
           },
           "failure": {
             "$ref": "#/components/schemas/GrabsFailure",
-            "description": "Why it failed, null unless it did"
+            "description": "Why it failed, absent unless it did"
           },
           "history": {
             "description": "Each stage it entered, oldest first",
@@ -423,7 +423,7 @@
           },
           "progress": {
             "$ref": "#/components/schemas/GrabsProgress",
-            "description": "The download's or the Transfer's progress, null unless it is downloading and its Node reported it or it is transferring"
+            "description": "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"
           },
           "releaseSize": {
             "format": "int64",
@@ -469,9 +469,7 @@
           "nodeId",
           "infoHash",
           "stage",
-          "failure",
           "history",
-          "progress",
           "createdAt"
         ],
         "type": "object"

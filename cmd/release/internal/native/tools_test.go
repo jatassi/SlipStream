@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -109,6 +110,10 @@ func TestFetchToolExtractsEachArchiveKind(t *testing.T) {
 				t.Errorf("%s/%s = %q, %v; want %q", tc.target.Name, name, got, err, content)
 			}
 		}
+	}
+	// Windows has no execute bit: os.Stat reports 0666 for every writable file.
+	if runtime.GOOS == "windows" {
+		return
 	}
 	info, err := os.Stat(filepath.Join(cache, "tool", "linux-amd64", sha(linux), "ffprobe"))
 	if err != nil || info.Mode().Perm()&0o100 == 0 {

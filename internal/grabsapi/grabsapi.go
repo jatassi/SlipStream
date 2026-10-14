@@ -124,9 +124,9 @@ type grab struct {
 	NodeID       string    `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node"`
 	InfoHash     *string   `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
 	Stage        string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
-	Failure      *failure  `json:"failure" doc:"Why it failed, null unless it did"`
+	Failure      *failure  `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
 	History      []entered `json:"history" nullable:"false" doc:"Each stage it entered, oldest first"`
-	Progress     *progress `json:"progress" doc:"The download's or the Transfer's progress, null unless it is downloading and its Node reported it or it is transferring"`
+	Progress     *progress `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 

@@ -7,8 +7,8 @@ import type { GrabsProgress } from "./grabsProgress.ts";
 export interface GrabsGrab {
   createdAt: string;
   edition: GrabsGrabEdition;
-  /** Why it failed, null unless it did */
-  failure: GrabsFailure;
+  /** Why it failed, absent unless it did */
+  failure?: GrabsFailure;
   /** Each stage it entered, oldest first */
   history: GrabsEntered[];
   id: string;
@@ -21,8 +21,8 @@ export interface GrabsGrab {
   itemId: string;
   /** The Node that downloads it: the Indexer's home Node */
   nodeId: string;
-  /** The download's or the Transfer's progress, null unless it is downloading and its Node reported it or it is transferring */
-  progress: GrabsProgress;
+  /** The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring */
+  progress?: GrabsProgress;
   /** @minimum 0 */
   releaseSize: number;
   releaseTitle: string;
