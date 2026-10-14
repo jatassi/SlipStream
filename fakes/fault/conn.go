@@ -58,16 +58,19 @@ func (p *Plan) Conn(c net.Conn, f Front) net.Conn {
 }
 
 // FrontOf is the front a connection Plan.Conn wrapped was reached
-// through, looking beneath a TLS connection.
+// through, looking beneath every wrapper that names the connection it
+// wraps with NetConn, as a TLS connection does.
 func FrontOf(c net.Conn) (Front, bool) {
-	if t, ok := c.(interface{ NetConn() net.Conn }); ok {
+	for {
+		if w, ok := c.(*conn); ok {
+			return w.front, true
+		}
+		t, ok := c.(interface{ NetConn() net.Conn })
+		if !ok {
+			return Front{}, false
+		}
 		c = t.NetConn()
 	}
-	w, ok := c.(*conn)
-	if !ok {
-		return Front{}, false
-	}
-	return w.front, true
 }
 
 // Listener wraps each connection l accepts with p.Conn.
