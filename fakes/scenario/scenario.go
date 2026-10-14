@@ -143,6 +143,13 @@ func (s Scenario) Validate() error {
 			add("library is set, but no node is controller")
 		}
 		s.Library.check(add)
+		switch holders := s.searching(); {
+		case len(s.Library.Indexers) == 0:
+		case len(holders) == 0:
+			add("library has indexers, and no node holds searching")
+		case len(holders) > 1:
+			add("library has indexers, and nodes %s all hold searching; exactly one does", strings.Join(holders, ", "))
+		}
 	}
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))
@@ -254,4 +261,27 @@ func (s Scenario) document() *yaml.Node {
 		break
 	}
 	return &doc
+}
+
+// Searching is the Node that holds Searching, whose front the world enters
+// as each Indexer's URL. Validate makes it exactly one when the library has
+// Indexers.
+func (s Scenario) Searching() string {
+	if holders := s.searching(); len(holders) == 1 {
+		return holders[0]
+	}
+	return ""
+}
+
+// searching names each Node that holds Searching once set up: a join or
+// controller Node listing it, and a controller Node that lists no Roles,
+// which keeps every Role but Relaying.
+func (s Scenario) searching() []string {
+	var holders []string
+	for _, n := range s.Nodes {
+		if (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching)) {
+			holders = append(holders, n.Name)
+		}
+	}
+	return holders
 }

@@ -40,6 +40,7 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		"scenario x: library profile Standard has no targets",
 		"scenario x: library has two indexers named Site",
 		`scenario x: library indexer Site is on site "other-site", which no fake serves`,
+		"scenario x: library has indexers, and no node holds searching",
 	}
 	err := s.Validate()
 	if err == nil {
@@ -50,5 +51,20 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 	}
 	if got := s.ContentTypes(); !reflect.DeepEqual(got, []string{"fixture", "music"}) {
 		t.Fatalf("ContentTypes = %v, want [fixture music]", got)
+	}
+}
+
+func TestValidateRefusesTwoSearchingHoldersForIndexers(t *testing.T) {
+	s, err := Load("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Searching(); got != "seedbox" {
+		t.Fatalf("home's Searching holder = %q, want seedbox", got)
+	}
+	s.Nodes[0].Roles = nil
+	want := "scenario home: library has indexers, and nodes home, seedbox all hold searching; exactly one does"
+	if err := s.Validate(); err == nil || err.Error() != want {
+		t.Fatalf("Validate = %v, want %s", err, want)
 	}
 }
