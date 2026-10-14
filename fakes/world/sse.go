@@ -66,32 +66,48 @@ func (r *Run) CaptureSSE(ctx context.Context, as, node string) (events.Record, e
 	return r.captureSSE(ctx, *m.Admin, m.Nodes[i])
 }
 
+// captureSSE returns once the stream's first message is in the event log,
+// so a capture started at launch holds the Node's opening live.resync
+// before run.ready.
 func (r *Run) captureSSE(ctx context.Context, admin Admin, n Node) (events.Record, error) {
+	rec, first, err := r.openCapture(ctx, admin, n)
+	if err != nil {
+		return events.Record{}, err
+	}
+	select {
+	case <-first:
+		return rec, nil
+	case <-ctx.Done():
+		return events.Record{}, fmt.Errorf("capture %s's stream on %s: %w", AdminIdentity, n.Name, ctx.Err())
+	}
+}
+
+func (r *Run) openCapture(ctx context.Context, admin Admin, n Node) (events.Record, <-chan struct{}, error) {
 	key := AdminIdentity + "@" + n.Name
 	r.captures.mu.Lock()
 	defer r.captures.mu.Unlock()
 	if r.captures.ctx.Err() != nil {
-		return events.Record{}, errors.New("the run is stopping")
+		return events.Record{}, nil, errors.New("the run is stopping")
 	}
 	if r.captures.running[key] {
-		return events.Record{}, fmt.Errorf("the run already captures %s's stream on %s", AdminIdentity, n.Name)
+		return events.Record{}, nil, fmt.Errorf("the run already captures %s's stream on %s", AdminIdentity, n.Name)
 	}
-	s := &sseStream{run: r, as: AdminIdentity, node: n.Name, url: n.URL}
+	s := &sseStream{run: r, as: AdminIdentity, node: n.Name, url: n.URL, first: make(chan struct{})}
 	if err := s.signIn(ctx, admin); err != nil {
-		return events.Record{}, err
+		return events.Record{}, nil, err
 	}
 	body, err := s.open()
 	if err != nil {
-		return events.Record{}, err
+		return events.Record{}, nil, err
 	}
 	rec, err := r.events.Append(events.Record{Kind: events.Cue, Node: events.World, Data: stepData(ctx, cued{Name: "sse", Args: data(sseCapture{AdminIdentity, n.Name})})})
 	if err != nil {
 		_ = body.Close()
-		return events.Record{}, err
+		return events.Record{}, nil, err
 	}
 	r.captures.running[key] = true
 	r.captures.wg.Go(func() { s.read(body, rec.Seq) })
-	return rec, nil
+	return rec, s.first, nil
 }
 
 // stopCaptures ends every capture and returns once none can append.
@@ -106,6 +122,10 @@ type sseStream struct {
 	run            *Run
 	as, node, url  string
 	cookie, lastID string
+	// first closes once the stream's first message is appended, or when
+	// the capture ends before one arrives.
+	first     chan struct{}
+	firstOnce sync.Once
 }
 
 func (s *sseStream) signIn(ctx context.Context, admin Admin) error {
@@ -163,6 +183,7 @@ func (s *sseStream) open() (io.ReadCloser, error) {
 // stops.
 func (s *sseStream) read(body io.ReadCloser, since uint64) {
 	ctx := s.run.captures.ctx
+	defer s.firstOnce.Do(func() { close(s.first) })
 	for {
 		ended := s.drain(body)
 		_ = body.Close()
@@ -200,6 +221,7 @@ func (s *sseStream) drain(body io.Reader) bool {
 			s.lastID = msg.ID
 		}
 		s.run.appendRecord(events.Record{Kind: events.SSEMessage, Node: s.node, Data: data(msg)})
+		s.firstOnce.Do(func() { close(s.first) })
 		if msg.Event == sessionEnded {
 			return true
 		}
