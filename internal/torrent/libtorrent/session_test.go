@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,6 +106,14 @@ func TestEngineRoundTrip(t *testing.T) {
 		if err := side.e.Close(); err != nil {
 			t.Fatalf("%s close: %v", side.name, err)
 		}
+	}
+}
+
+func TestEngineSaysWhyAFixedPortDoesNotListen(t *testing.T) {
+	_, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("192.0.2.1:6881")})
+	const want = "shim error 3: not listening on 192.0.2.1:6881: system error "
+	if err == nil || !strings.HasPrefix(err.Error(), want) {
+		t.Fatalf("open on an address the host does not have: err = %v, want it to start %q", err, want)
 	}
 }
 
