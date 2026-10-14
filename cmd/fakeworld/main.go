@@ -43,6 +43,11 @@ const usageText = `usage: fakeworld <command>
       stop the Node with slipstream stop, kill its process, start it again
       on the same config.yaml, or empty a stopped Node's data dir but its
       config.yaml, and print its manifest entry
+  fs stat <run-dir> <path>
+      print the file's path, size, link count and BLAKE3
+  fs match <run-dir> <path> --release <name>
+      exit 0 when the file's size and BLAKE3 are the release's; a path
+      outside the run dir and its scratch dir is refused
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -84,6 +89,7 @@ var verbs = map[string]func(args []string) int{
 	"fault": faultCommand,
 	"cue":   cueCommand,
 	"node":  nodeCommand,
+	"fs":    fsCommand,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {

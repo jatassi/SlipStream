@@ -129,13 +129,17 @@ type Admin struct {
 }
 
 func ReadManifest(runDir string) (Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(runDir, manifestFile))
+	return readManifestFile(runDir, manifestFile)
+}
+
+func readManifestFile(runDir, name string) (Manifest, error) {
+	data, err := os.ReadFile(filepath.Join(runDir, name))
 	if err != nil {
 		return Manifest{}, fmt.Errorf("read manifest: %w", err)
 	}
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
-		return Manifest{}, fmt.Errorf("read manifest %s: %w", filepath.Join(runDir, manifestFile), err)
+		return Manifest{}, fmt.Errorf("read manifest %s: %w", filepath.Join(runDir, name), err)
 	}
 	return m, nil
 }

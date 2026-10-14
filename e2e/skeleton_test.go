@@ -3,7 +3,6 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -12,8 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"testing"
-
-	"github.com/zeebo/blake3"
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -219,12 +216,12 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	if got := filesUnder(t, m.MediaDir); !slices.Equal(got, []string{placed}) {
 		t.Fatalf("the media dir holds %v, want exactly [%s]", got, placed)
 	}
-	file := filepath.Join(m.MediaDir, filepath.FromSlash(placed))
-	if got, want := sum(t, file), sum(t, filepath.Join(m.ScratchDir, "releases", release+".mkv")); got != want {
-		t.Fatalf("the placed file's BLAKE3 is %x, want the catalog payload's %x", got, want)
+	info, err := world.MatchRelease(m, filepath.Join(m.MediaDir, filepath.FromSlash(placed)), release)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if n := linkCount(t, file); n != links {
-		t.Fatalf("the placed file has %d links, want %d", n, links)
+	if info.Links != links {
+		t.Fatalf("the placed file has %d links, want %d", info.Links, links)
 	}
 }
 
@@ -315,21 +312,5 @@ func filesUnder(t *testing.T, dir string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return out
-}
-
-func sum(t *testing.T, path string) [32]byte {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-	h := blake3.New()
-	if _, err := io.Copy(h, f); err != nil {
-		t.Fatal(err)
-	}
-	var out [32]byte
-	copy(out[:], h.Sum(nil))
 	return out
 }
