@@ -195,9 +195,6 @@ func (n *Node) Start(ctx context.Context) error {
 		}
 		if rec, err := node.ParseReady(line); err == nil {
 			found = true
-			n.cfg.Record(ctx, events.Record{Kind: events.NodeReady, Node: name, Data: data(struct {
-				PID int `json:"pid"`
-			}{rec.PID})})
 			readies <- rec
 		}
 	}
@@ -214,6 +211,9 @@ func (n *Node) Start(ctx context.Context) error {
 	go n.await(p, logFile, gone)
 	select {
 	case ready := <-readies:
+		n.cfg.Record(ctx, events.Record{Kind: events.NodeReady, Node: name, Data: data(struct {
+			PID int `json:"pid"`
+		}{ready.PID})})
 		n.mu.Lock()
 		n.ready = ready
 		n.mu.Unlock()
