@@ -113,7 +113,12 @@
             ]
           },
           "claim": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "unclaimed",
+              "controller",
+              "worker"
+            ]
           },
           "address": {
             "type": "string"
