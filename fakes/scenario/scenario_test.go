@@ -223,7 +223,7 @@ func TestParseRefuses(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := parse("x", []byte(c.yaml))
+			_, err := Parse("x", []byte(c.yaml))
 			if err == nil || err.Error() != c.want {
 				t.Fatalf("err = %v, want %s", err, c.want)
 			}
@@ -323,7 +323,7 @@ library:
 	if got := string(s.YAML()); got != want {
 		t.Fatalf("YAML() =\n%s\nwant\n%s", got, want)
 	}
-	back, err := parse("single-machine", s.YAML())
+	back, err := Parse("single-machine", s.YAML())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ library:
 
 func TestAScenarioWithoutTimingsHashesLikeTheFileWithout(t *testing.T) {
 	built := Scenario{Name: "bare", Seed: "bare", Nodes: []Node{{Name: "home"}}}
-	read, err := parse("bare", []byte("seed: bare\nnodes: [{name: home, setup: none}]\n"))
+	read, err := Parse("bare", []byte("seed: bare\nnodes: [{name: home, setup: none}]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +349,7 @@ func TestAScenarioWithoutTimingsHashesLikeTheFileWithout(t *testing.T) {
 func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
 	s := singleMachine()
 	s.Timings.Live = live.Timings{Retry: 2 * time.Second}
-	back, err := parse(s.Name, s.YAML())
+	back, err := Parse(s.Name, s.YAML())
 	if err != nil {
 		t.Fatal(err)
 	}

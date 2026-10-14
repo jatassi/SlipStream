@@ -18,8 +18,9 @@ import (
 // SummaryFile is the summary fakeworld summary writes into a run dir.
 const SummaryFile = "summary.md"
 
-// journaled is one step as the event log tells it.
-type journaled struct {
+// JournaledStep is one step as the event log tells it. Exit is nil for a
+// step that never ended.
+type JournaledStep struct {
 	StepStart
 	N     int
 	Seq   uint64
@@ -29,7 +30,7 @@ type journaled struct {
 
 // Command is the step as a shell line: the fakeworld verb and its
 // arguments after the run dir, or a Go test's note.
-func (s journaled) Command() string {
+func (s JournaledStep) Command() string {
 	if s.Note != "" {
 		return "note: " + s.Note
 	}
@@ -47,9 +48,9 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// steps reads each step of a run's journal from its records, in order.
-func steps(recs []events.Record) ([]journaled, error) {
-	var out []journaled
+// readSteps reads each step of a run's journal from its records, in order.
+func readSteps(recs []events.Record) ([]JournaledStep, error) {
+	var out []JournaledStep
 	for _, r := range recs {
 		switch r.Kind {
 		case events.StepStart:
@@ -57,13 +58,13 @@ func steps(recs []events.Record) ([]journaled, error) {
 			if err := json.Unmarshal(r.Data, &s); err != nil {
 				return nil, fmt.Errorf("%s %d: %w", r.Kind, r.Seq, err)
 			}
-			out = append(out, journaled{StepStart: s.StepStart, N: s.N, Seq: r.Seq})
+			out = append(out, JournaledStep{StepStart: s.StepStart, N: s.N, Seq: r.Seq})
 		case events.StepEnd:
 			var e stepEnded
 			if err := json.Unmarshal(r.Data, &e); err != nil {
 				return nil, fmt.Errorf("%s %d: %w", r.Kind, r.Seq, err)
 			}
-			if i := slices.IndexFunc(out, func(s journaled) bool { return s.N == e.N }); i >= 0 {
+			if i := slices.IndexFunc(out, func(s JournaledStep) bool { return s.N == e.N }); i >= 0 {
 				out[i].Exit, out[i].Files = &e.Exit, r.Files
 			}
 		}
@@ -84,7 +85,7 @@ func Summary(runDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	journal, err := steps(recs)
+	journal, err := readSteps(recs)
 	if err != nil {
 		return "", err
 	}
@@ -144,8 +145,8 @@ func originLine(recs []events.Record) string {
 	return string(l.Origin.Kind)
 }
 
-func writeDoctor(b *strings.Builder, runDir string, journal []journaled) {
-	var last *journaled
+func writeDoctor(b *strings.Builder, runDir string, journal []JournaledStep) {
+	var last *JournaledStep
 	for k := len(journal) - 1; k >= 0 && last == nil; k-- {
 		if journal[k].Verb == "doctor" {
 			last = &journal[k]
@@ -171,7 +172,7 @@ func exitText(exit *int) string {
 	return fmt.Sprint(*exit)
 }
 
-func writeSteps(b *strings.Builder, journal []journaled) {
+func writeSteps(b *strings.Builder, journal []JournaledStep) {
 	if len(journal) == 0 {
 		b.WriteString("None.\n")
 		return

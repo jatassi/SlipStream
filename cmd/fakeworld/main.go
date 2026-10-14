@@ -56,6 +56,13 @@ const usageText = `usage: fakeworld <command>
   summary <run-dir>
       write the run's summary.md, text for a PR's Verify section, from its
       files alone, and print its path
+  replay <bundle> [--binary <path>] [--run-dir <dir>] [--to N] [--stop]
+         [--timeout 2m]
+      check the bundle's scenario.yaml and binary against its manifest, then
+      for a run fakeworld start launched, start a fresh world from its
+      Scenario and run its steps 1 to N again, stopping at the first whose
+      exit differs from the one recorded; for a run a Go test launched, run
+      the test again against the binary
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -101,6 +108,7 @@ var verbs = map[string]func(args []string) int{
 	"sse":     captureCommand(sseReader),
 	"doctor":  doctor,
 	"summary": summary,
+	"replay":  replay,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {
@@ -117,7 +125,10 @@ var verbs = map[string]func(args []string) int{
 	},
 }
 
-var commands = withCaptures(verbs)
+// commands are set in init, since replay dispatches through them.
+var commands map[string]func(args []string) int
+
+func init() { commands = withCaptures(verbs) }
 
 func run(args []string) int {
 	if len(args) == 0 {
@@ -193,7 +204,10 @@ func required(fs *flag.FlagSet, names ...string) error {
 type startFlags struct {
 	binary, runDir string
 	scenario       scenario.Scenario
-	timeout        time.Duration
+	// scenarioFile holds the Scenario when it is not the catalog's, as
+	// for a replay.
+	scenarioFile string
+	timeout      time.Duration
 }
 
 func parseStart(args []string) (startFlags, error) {
@@ -245,7 +259,7 @@ func parseSetupLoopback(args []string) (bool, error) {
 }
 
 type superviseFlags struct {
-	binary, scenario, runDir string
+	binary, scenario, scenarioFile, runDir string
 }
 
 func parseSupervise(args []string) (superviseFlags, error) {
@@ -253,6 +267,7 @@ func parseSupervise(args []string) (superviseFlags, error) {
 	var f superviseFlags
 	fs.StringVar(&f.binary, "binary", "", "")
 	fs.StringVar(&f.scenario, "scenario", "", "")
+	fs.StringVar(&f.scenarioFile, "scenario-file", "", "")
 	fs.StringVar(&f.runDir, "run-dir", "", "")
 	if err := noArguments(fs, args); err != nil {
 		return superviseFlags{}, err

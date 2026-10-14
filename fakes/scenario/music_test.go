@@ -48,7 +48,7 @@ func TestTheMusicScenarioReadsBackAsItself(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	read, err := parse("music", s.YAML())
+	read, err := Parse("music", s.YAML())
 	if err != nil {
 		t.Fatal(err)
 	}

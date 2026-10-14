@@ -28,6 +28,7 @@ func TestMain(m *testing.M) {
 //
 //	echo exit=<n> <arg>...   print each arg and a line on stderr, exit n
 //	touch <path>             create path
+//	read <path>              print path's content, exit 1 if it is missing
 //	get <ca file> <url>      GET url trusting the CA, print the status
 func command(mode string, args []string) int {
 	switch mode {
@@ -43,6 +44,14 @@ func command(mode string, args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
+		return 0
+	case "read":
+		data, err := os.ReadFile(args[0])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Print(string(data))
 		return 0
 	case "get":
 		pem, err := os.ReadFile(args[0])
