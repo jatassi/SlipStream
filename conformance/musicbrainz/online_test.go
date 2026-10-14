@@ -24,7 +24,7 @@ func TestMusicBrainzConforms(t *testing.T) {
 	var bodies []shape.Body
 	tgt := conformance.Target{
 		Endpoints: music.Endpoints{Metadata: endpoint.MustParseURL("https://musicbrainz.org/ws/2")},
-		Client:    &http.Client{Timeout: time.Minute},
+		Client:    &http.Client{Timeout: 5 * time.Minute, Transport: conformance.RetryRateLimited(http.DefaultTransport)},
 		Spacing:   time.Second,
 		Known:     boardsOfCanada,
 	}
