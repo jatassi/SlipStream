@@ -23,7 +23,7 @@ const (
 	worldTree = "fakes/world"
 )
 
-var fakeInfrastructure = []string{"fake", "scenario", "world", "testbin", "fault"}
+var fakeInfrastructure = []string{"fake", "scenario", "world", "testbin", "fault", "events"}
 
 type fakesIndex struct {
 	repo     *lint.Repo
