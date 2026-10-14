@@ -19,10 +19,7 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the web app and the release binary")
 	}
-	root, err := repoRoot(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
+	root := cloneRepo(t)
 	want, err := worktree.Stamp(t.Context(), root)
 	if err != nil {
 		t.Fatal(err)
@@ -86,6 +83,23 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	if !bytes.Contains(binary, index) {
 		t.Errorf("%s does not embed web/dist/index.html", bin)
 	}
+}
+
+// cloneRepo gives the build its own checkout. The web build regenerates
+// web/src/api/gen in place, which would dirty the shared checkout for every
+// test running beside this one.
+func cloneRepo(t *testing.T) string {
+	t.Helper()
+	src, err := repoRoot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if _, err := gitOutput(t.Context(), dir, nil, "clone", "-q", src, "."); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	return dir
 }
 
 func checkTools(t *testing.T, dist string) {
