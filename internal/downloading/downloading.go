@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"google.golang.org/protobuf/proto"
 )
 
 var Def = role.Def[*dlv1.Intent, *dlv1.Facts, *dlv1.Result]{Name: role.Downloading}
@@ -140,14 +141,20 @@ func (c *Client) Run(local *storage.DB[storage.Local]) func(context.Context, Hol
 		defer facts.Stop()
 		reported := map[storage.UUID]bool{}
 		var now role.Snapshot[*dlv1.Intent]
+		sent := &dlv1.Facts{}
 		for {
 			select {
 			case s := <-snapshots:
 				now = s
 			case <-c.poke:
 			case <-facts.C:
-				if now.Intent != nil {
-					h.SetFacts(c.facts(now.Intent))
+				if now.Intent == nil {
+					continue
+				}
+				// Each send tells Admins the Node changed, so only a change is sent.
+				if f := c.facts(now.Intent); !proto.Equal(f, sent) {
+					h.SetFacts(f)
+					sent = f
 				}
 				continue
 			case <-ctx.Done():

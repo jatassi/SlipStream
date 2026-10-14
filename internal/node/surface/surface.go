@@ -9,6 +9,8 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/filesapi"
+	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -39,6 +41,8 @@ var Events = []live.Event{
 	roots.ChangedEvent,
 	indexers.ChangedEvent,
 	files.ChangedEvent,
+	grabs.ChangedEvent,
+	grabs.SearchChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -54,6 +58,7 @@ type Node interface {
 	rootsapi.Folders
 	indexersapi.Registry
 	filesapi.Library
+	grabsapi.Pipeline
 }
 
 // Services are what the operations run against. Document passes none.
@@ -76,6 +81,7 @@ func Mount(r *api.Router, s Services) {
 	rootsapi.Routes(r, s.Node)
 	indexersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)
+	grabsapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

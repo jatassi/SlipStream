@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
@@ -44,6 +45,8 @@ func (worker) Targets() (*targets.Targets, bool) { return nil, false }
 func (worker) Roots() (*roots.Roots, bool) { return nil, false }
 
 func (worker) Files() (*files.Files, bool) { return nil, false }
+
+func (worker) Grabs() (*grabs.Grabs, bool) { return nil, false }
 
 func (worker) Join(context.Context, joincode.Code) (pairing.Joined, error) {
 	panic("a Worker's closed gate admitted claimWorker")

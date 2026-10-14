@@ -20,6 +20,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
@@ -105,15 +106,18 @@ type Node struct {
 	isReady atomic.Bool
 
 	// Set during start, before the Node is ready.
-	cfg      Config
-	key      link.PrivateKey
-	info     link.NodeInfo
-	hub      *live.Hub
-	gate     *identity.Gate
-	link     *link.Link
-	pairing  *pairing.Pairing
-	lockstep *http.ServeMux
-	roleRand *rand.Rand
+	cfg       Config
+	key       link.PrivateKey
+	info      link.NodeInfo
+	hub       *live.Hub
+	gate      *identity.Gate
+	link      *link.Link
+	pairing   *pairing.Pairing
+	lockstep  *http.ServeMux
+	roleRand  *rand.Rand
+	grabsRand *rand.Rand
+	// downloads is the Node's built-in torrent client.
+	downloads *downloading.Client
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
 	claimed *Stack
@@ -278,6 +282,11 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	streams := NewStreams(cfg.Seed)
 	n.roleRand = streams.Stream("role")
 	n.hub = live.NewHub(surface.Events)
+	n.grabsRand = streams.Stream("grabs")
+	if err := n.startTorrent(cfg, l); err != nil {
+		return 0, "", err
+	}
+	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
 		if _, err := n.openLibrary(ctx); err != nil {
@@ -291,14 +300,6 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	var setupCode string
 	if n.gate, setupCode, err = identity.NewGate(ctx, n.claim, n.rootLog.With("subsystem", "identity")); err != nil {
 		return 0, "", err
-	}
-	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen})
-	if err != nil {
-		return 0, "", fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
-	}
-	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
-	if l.Torrent, err = torrent.ListenAddr(); err != nil {
-		return 0, "", fmt.Errorf("torrent listen address: %w", err)
 	}
 	if err := n.startLink(cfg, streams, l); err != nil {
 		return 0, "", err
@@ -336,6 +337,27 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		})
 	}
 	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, n.gate)
+}
+
+// startTorrent opens the torrent engine and the Node's built-in client,
+// which reads its events from now on, claimed or not.
+func (n *Node) startTorrent(cfg Config, l *Listeners) error {
+	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen})
+	if err != nil {
+		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
+	}
+	n.downloads = downloading.NewClient(downloading.Config{
+		Engine:  torrent,
+		Dir:     n.env.DataDir.Resolve(cfg.Torrent.Downloads),
+		Timings: cfg.Timings.Downloading,
+		Log:     n.rootLog.With("subsystem", "downloading"),
+	})
+	n.stack.Go("torrent events", n.downloads.Drain)
+	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
+	if l.Torrent, err = torrent.ListenAddr(); err != nil {
+		return fmt.Errorf("torrent listen address: %w", err)
+	}
+	return nil
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.

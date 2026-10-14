@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/role"
@@ -250,6 +251,7 @@ func (n *Node) env() node.Env {
 		Net:     n.host,
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
+		Media:   mediatest.Prober{},
 		Test:    n.test(),
 	}
 }

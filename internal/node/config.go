@@ -10,9 +10,12 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloading"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
@@ -108,14 +111,17 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 }
 
 type TimingsBlock struct {
-	Node     Timings          `yaml:"node"`
-	Storage  storage.Timings  `yaml:"storage"`
-	HTTP     api.Timings      `yaml:"http"`
-	Live     live.Timings     `yaml:"live"`
-	Link     link.Timings     `yaml:"link"`
-	Role     role.Timings     `yaml:"role"`
-	Works    works.Timings    `yaml:"works"`
-	Indexers indexers.Timings `yaml:"indexers"`
+	Node        Timings             `yaml:"node"`
+	Storage     storage.Timings     `yaml:"storage"`
+	HTTP        api.Timings         `yaml:"http"`
+	Live        live.Timings        `yaml:"live"`
+	Link        link.Timings        `yaml:"link"`
+	Role        role.Timings        `yaml:"role"`
+	Works       works.Timings       `yaml:"works"`
+	Indexers    indexers.Timings    `yaml:"indexers"`
+	Grabs       grabs.Timings       `yaml:"grabs"`
+	Downloading downloading.Timings `yaml:"downloading"`
+	Media       media.Timings       `yaml:"media"`
 }
 
 type Timings struct {
@@ -156,9 +162,12 @@ func Defaults(types contenttype.Set) Config {
 				RedialMax:     time.Minute,
 				FallbackDelay: 300 * time.Millisecond,
 			},
-			Role:     role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
-			Works:    works.DefaultTimings(),
-			Indexers: indexers.DefaultTimings(),
+			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
+			Works:       works.DefaultTimings(),
+			Indexers:    indexers.DefaultTimings(),
+			Grabs:       grabs.DefaultTimings(),
+			Downloading: downloading.DefaultTimings(),
+			Media:       media.DefaultTimings(),
 		},
 	}
 }

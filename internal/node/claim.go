@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
@@ -161,6 +162,14 @@ func (s surfaceNode) Files() (*files.Files, bool) {
 		return nil, false
 	}
 	return h.files, true
+}
+
+func (s surfaceNode) Grabs() (*grabs.Grabs, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.grabs == nil {
+		return nil, false
+	}
+	return h.grabs, true
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
