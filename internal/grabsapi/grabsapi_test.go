@@ -194,7 +194,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"standard","targetIds":["` + hd.ID.String() + `"],` +
 		`"releaseTitle":"The.Attic.1080p.WEB","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"no_download_client","message":"the Indexer's home Node doesn't hold Downloading"},` +
-		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"progress":null,"createdAt":"T"}`
+		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
 }
