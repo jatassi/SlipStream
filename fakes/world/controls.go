@@ -29,6 +29,9 @@ type Controls interface {
 	// Cue plays the cue name a fake declares, with args decoded strictly
 	// into the cue's own arguments.
 	Cue(ctx context.Context, name string, args json.RawMessage) (events.Record, error)
+	// Node runs action a on the Node name and answers its manifest entry
+	// as the action left it.
+	Node(ctx context.Context, name string, a NodeAction) (Node, error)
 	StartStep(ctx context.Context, s StepStart) (Step, error)
 	EndStep(ctx context.Context, n int, e StepEnd) (events.Record, error)
 	Stop(ctx context.Context) (StopReport, error)
@@ -206,6 +209,13 @@ func controlHandler(c Controls) http.Handler {
 	mux.Handle("POST /v1/cues/{name}", route(func(ctx context.Context, r *http.Request, args json.RawMessage) (events.Record, error) {
 		return c.Cue(ctx, r.PathValue("name"), args)
 	}))
+	mux.Handle("POST /v1/nodes/{name}/{action}", route(func(ctx context.Context, r *http.Request, _ struct{}) (Node, error) {
+		a, err := ParseNodeAction(r.PathValue("action"))
+		if err != nil {
+			return Node{}, err
+		}
+		return c.Node(ctx, r.PathValue("name"), a)
+	}))
 	mux.Handle("POST /v1/steps", route(func(ctx context.Context, _ *http.Request, s StepStart) (Step, error) {
 		return c.StartStep(ctx, s)
 	}))
@@ -295,6 +305,10 @@ func (c *Remote) ClearFault(ctx context.Context, id string) (events.Record, erro
 
 func (c *Remote) Cue(ctx context.Context, name string, args json.RawMessage) (events.Record, error) {
 	return send[events.Record](ctx, c, http.MethodPost, "/v1/cues/"+url.PathEscape(name), args)
+}
+
+func (c *Remote) Node(ctx context.Context, name string, a NodeAction) (Node, error) {
+	return send[Node](ctx, c, http.MethodPost, "/v1/nodes/"+url.PathEscape(name)+"/"+url.PathEscape(string(a)), struct{}{})
 }
 
 func (c *Remote) StartStep(ctx context.Context, s StepStart) (Step, error) {

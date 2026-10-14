@@ -77,6 +77,10 @@ func run(dir string) {
 	d, err := node.ParseDataDir(dir)
 	fail(err)
 	fail(os.MkdirAll(d.RunDir(), 0o700))
+	// A killed stub leaves its socket behind, which a Node removes.
+	if err := os.Remove(d.ControlSocket()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		fail(err)
+	}
 	control, err := net.Listen("unix", d.ControlSocket())
 	fail(err)
 

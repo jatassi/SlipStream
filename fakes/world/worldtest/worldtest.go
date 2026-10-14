@@ -144,7 +144,7 @@ func checkStop(t *testing.T, run *world.Run) {
 		t.Errorf("the run did not stop cleanly:\n%v", err)
 	}
 	for _, n := range m.Nodes {
-		if !ProcessGone(n.PID) {
+		if n.PID != 0 && !ProcessGone(n.PID) {
 			t.Errorf("node %s (PID %d) is still running after stop", n.Name, n.PID)
 		}
 	}

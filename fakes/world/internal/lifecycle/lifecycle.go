@@ -61,7 +61,7 @@ type Config struct {
 	Env     []string
 	Log     string
 	// Record appends a record. ctx is the action's, carrying its step,
-	// for node.spawned and node.ready, and context.Background otherwise.
+	// for the action's own records, and context.Background otherwise.
 	Record func(ctx context.Context, rec events.Record)
 	// Exited hears a Node that left running with no action asking it to.
 	Exited func()
@@ -71,6 +71,10 @@ type Config struct {
 type Spawned struct {
 	PID     int    `json:"pid"`
 	DataDir string `json:"dataDir"`
+}
+
+type pid struct {
+	PID int `json:"pid"`
 }
 
 type exited struct {
@@ -83,6 +87,8 @@ type Node struct {
 
 	// act serializes actions, each of which runs to its end under it.
 	act sync.Mutex
+	// ended is a Node its world stopped, which takes no more actions.
+	ended bool
 
 	mu    sync.Mutex
 	state State
@@ -113,6 +119,16 @@ func (n *Node) Ready() node.Ready {
 	return n.ready
 }
 
+// PID is the running Node's process ID, or 0 while no process runs.
+func (n *Node) PID() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.state != Running {
+		return 0
+	}
+	return n.proc.PID
+}
+
 // Live is the readiness record of the running Node.
 func (n *Node) Live() (node.Ready, error) {
 	n.mu.Lock()
@@ -131,15 +147,18 @@ func (n *Node) Do(ctx context.Context, a Action) error {
 	case Stop:
 		return n.Stop(ctx)
 	case Kill:
-		return n.Kill()
+		return n.Kill(ctx)
 	case Wipe:
-		return n.Wipe()
+		return n.Wipe(ctx)
 	default:
 		return fmt.Errorf("%q is not a Node action", a)
 	}
 }
 
 func (n *Node) may(a Action) error {
+	if n.ended {
+		return fmt.Errorf("node %s's world has stopped", n.cfg.Name)
+	}
 	if st := n.State(); !slices.Contains(from[a], st) {
 		names := make([]string, len(from[a]))
 		for i, s := range from[a] {
@@ -249,12 +268,13 @@ func (n *Node) Stop(ctx context.Context) error {
 	if err := n.may(Stop); err != nil {
 		return err
 	}
-	_, gone := n.leave(Stopped)
+	p, gone := n.leave(Stopped)
 	if err := n.stop(ctx); err != nil {
 		n.stay()
 		return err
 	}
 	<-gone
+	n.cfg.Record(ctx, events.Record{Kind: events.NodeStopped, Node: n.cfg.Name, Data: data(pid{p.PID})})
 	return nil
 }
 
@@ -270,7 +290,7 @@ func (n *Node) stop(ctx context.Context) error {
 }
 
 // Kill kills the Node's process and returns once it has exited.
-func (n *Node) Kill() error {
+func (n *Node) Kill(ctx context.Context) error {
 	n.act.Lock()
 	defer n.act.Unlock()
 	if err := n.may(Kill); err != nil {
@@ -282,12 +302,13 @@ func (n *Node) Kill() error {
 		return fmt.Errorf("node %s: %w", n.cfg.Name, err)
 	}
 	<-gone
+	n.cfg.Record(ctx, events.Record{Kind: events.NodeKilled, Node: n.cfg.Name, Data: data(pid{p.PID})})
 	return nil
 }
 
 // Wipe empties the stopped Node's data dir but its config.yaml, so it
 // starts again Unclaimed on the same addresses.
-func (n *Node) Wipe() error {
+func (n *Node) Wipe(ctx context.Context) error {
 	n.act.Lock()
 	defer n.act.Unlock()
 	if err := n.may(Wipe); err != nil {
@@ -306,6 +327,9 @@ func (n *Node) Wipe() error {
 			return fmt.Errorf("node %s: %w", n.cfg.Name, err)
 		}
 	}
+	n.cfg.Record(ctx, events.Record{Kind: events.NodeWiped, Node: n.cfg.Name, Data: data(struct {
+		DataDir string `json:"dataDir"`
+	}{dir})})
 	return nil
 }
 
@@ -325,6 +349,7 @@ type Ending struct {
 func (n *Node) End(ctx context.Context) Ending {
 	n.act.Lock()
 	defer n.act.Unlock()
+	n.ended = true
 	var e Ending
 	if n.State() == Running {
 		p, gone := n.leave(Stopped)

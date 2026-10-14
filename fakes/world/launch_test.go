@@ -193,7 +193,7 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 		Address: "127.0.0.2", Host: "home.localhost",
 		URL: fmt.Sprintf("http://127.0.0.2:%d", httpPort), BrowserURL: fmt.Sprintf("http://home.localhost:%d", httpPort),
 		Listeners: map[string]string{"control": filepath.Join(scratch, "home", "run", "control.sock"), "http": pinned["http"], "link": pinned["link"], "torrent": pinned["torrent"]},
-		DataDir:   filepath.Join(scratch, "home"), PID: home.PID, Seed: "stub/home",
+		DataDir:   filepath.Join(scratch, "home"), State: world.NodeRunning, PID: home.PID, Seed: "stub/home",
 		Log: filepath.Join(runDir, "nodes", "home.log"), Overrides: []node.Key{}, NodeKey: "0000-0000-0000-0000",
 	}
 	if !reflect.DeepEqual(home, wantHome) {
@@ -305,7 +305,7 @@ func get(ctx context.Context, t *testing.T, m world.Manifest, url string) string
 func assertStopped(t *testing.T, m world.Manifest) {
 	t.Helper()
 	for _, n := range m.Nodes {
-		if !worldtest.ProcessGone(n.PID) {
+		if n.PID != 0 && !worldtest.ProcessGone(n.PID) {
 			t.Errorf("node %s (PID %d) still runs", n.Name, n.PID)
 		}
 	}
@@ -333,9 +333,10 @@ func TestANodeThatExitsMidRunIsReported(t *testing.T) {
 	if err := home.Kill(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := events.Wait(worldtest.Context(t), runDir, events.Query{Kind: events.NodeExited, Node: "home"}); err != nil {
-		t.Fatal(err)
-	}
+	worldtest.Until(t, "the manifest says home exited", func() (bool, error) {
+		m, err := world.ReadManifest(runDir)
+		return m.Nodes[0].State == world.NodeExited && m.Nodes[0].PID == 0, err
+	})
 	report, err := run.Stop(worldtest.Context(t))
 	if len(report.Nodes) != 1 || !report.Nodes[0].ExitedUnasked || report.Nodes[0].ExitCode == 0 {
 		t.Fatalf("Stop = %+v, want home exited unasked and non-zero", report)

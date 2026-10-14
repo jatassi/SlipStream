@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 )
 
@@ -75,6 +76,16 @@ type CAFile struct {
 
 // Node is one Node's manifest entry, built where both worlds share it.
 type Node = setup.Node
+
+// NodeState is where a Node is in its lifecycle.
+type NodeState = lifecycle.State
+
+const (
+	NodeRunning = lifecycle.Running
+	NodeStopped = lifecycle.Stopped
+	NodeKilled  = lifecycle.Killed
+	NodeExited  = lifecycle.Exited
+)
 
 // Claim is what a Node is once the world has set it up.
 type Claim = setup.Claim

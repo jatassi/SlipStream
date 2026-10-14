@@ -82,7 +82,11 @@ type Run struct {
 	used      map[string]bool
 	claims    setup.Claims
 	control   *control.Server
-	manifest  Manifest
+
+	// manifestMu guards the manifest and whether manifest.json holds it.
+	manifestMu sync.Mutex
+	manifest   Manifest
+	published  bool
 
 	// lastStep and openSteps change only under the event log's lock.
 	lastStep  int
@@ -253,7 +257,11 @@ func newRunID() string {
 	return base32.NewEncoding("0123456789abcdefghjkmnpqrstvwxyz").WithPadding(base32.NoPadding).EncodeToString(b)
 }
 
-func (r *Run) Manifest() Manifest { return r.manifest }
+func (r *Run) Manifest() Manifest {
+	r.manifestMu.Lock()
+	defer r.manifestMu.Unlock()
+	return r.manifest
+}
 
 func (r *Run) removeScratch() {
 	if err := os.RemoveAll(r.scratchDir); err != nil {
@@ -432,7 +440,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		}
 		n.env = env
 		n.log = filepath.Join(r.runDir, "nodes", name+".log")
-		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor})
+		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor, Exited: func() { r.nodeExited(i) }})
 		resolved, err := r.resolve(ctx, name, n.dataDir.Path(), env)
 		if err != nil {
 			return err
@@ -625,11 +633,17 @@ func (r *Run) publish(ctx context.Context, undo *unwind) error {
 		return err
 	}
 	undo.push(r.control.Close)
+	r.manifestMu.Lock()
+	defer r.manifestMu.Unlock()
 	r.manifest, err = r.buildManifest()
 	if err != nil {
 		return err
 	}
-	return writeAtomically(filepath.Join(r.runDir, manifestFile), marshal(r.manifest))
+	if err := writeAtomically(filepath.Join(r.runDir, manifestFile), marshal(r.manifest)); err != nil {
+		return err
+	}
+	r.published = true
+	return nil
 }
 
 func (r *Run) buildManifest() (Manifest, error) {
@@ -675,7 +689,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		m.Releases = append(m.Releases, Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:])})
 	}
 	for i, n := range r.nodes {
-		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.life.Ready(), DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
+		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, State: n.life.State(), Ready: n.life.Ready(), DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
 		if err != nil {
 			return Manifest{}, err
 		}

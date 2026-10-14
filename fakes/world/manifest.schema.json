@@ -144,6 +144,15 @@
           "dataDir": {
             "type": "string"
           },
+          "state": {
+            "type": "string",
+            "enum": [
+              "running",
+              "stopped",
+              "killed",
+              "exited"
+            ]
+          },
           "pid": {
             "type": "integer"
           },
@@ -205,6 +214,7 @@
           "browserUrl",
           "listeners",
           "dataDir",
+          "state",
           "pid",
           "seed",
           "log",

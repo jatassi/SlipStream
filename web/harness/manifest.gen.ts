@@ -40,6 +40,7 @@ export const manifestSchema = z.strictObject({
       browserUrl: z.string(),
       listeners: z.record(z.string(), z.string()),
       dataDir: z.string(),
+      state: z.enum(["running", "stopped", "killed", "exited"]),
       pid: z.int(),
       seed: z.string(),
       log: z.string(),

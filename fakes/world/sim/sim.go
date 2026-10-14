@@ -199,7 +199,7 @@ func (w *World) Manifest() world.Manifest {
 		m.Admin = &world.Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
 	for i, n := range w.nodes {
-		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.Ready(), DataDir: n.dir.Path(), Log: n.logFile()}, w.claims.Members[i])
+		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, State: world.NodeRunning, Ready: n.Ready(), DataDir: n.dir.Path(), Log: n.logFile()}, w.claims.Members[i])
 		if err != nil {
 			w.t.Fatal(err)
 		}

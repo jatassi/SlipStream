@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -73,7 +74,8 @@ type Spawn struct {
 }
 
 // readLaunch reads the supervisor and the Nodes it spawned from the event
-// log of the run in runDir.
+// log of the run in runDir, each Node's latest spawn in the order the
+// Nodes first spawned.
 func readLaunch(runDir string) (Supervisor, []Spawn, error) {
 	recs, err := events.Read(runDir)
 	if err != nil {
@@ -95,7 +97,12 @@ func readLaunch(runDir string) (Supervisor, []Spawn, error) {
 		if err := json.Unmarshal(rec.Data, &s); err != nil {
 			return Supervisor{}, nil, fmt.Errorf("%s: %w", events.NodeSpawned, err)
 		}
-		spawns = append(spawns, Spawn{Node: rec.Node, PID: s.PID, DataDir: s.DataDir})
+		spawn := Spawn{Node: rec.Node, PID: s.PID, DataDir: s.DataDir}
+		if i := slices.IndexFunc(spawns, func(s Spawn) bool { return s.Node == rec.Node }); i >= 0 {
+			spawns[i] = spawn
+		} else {
+			spawns = append(spawns, spawn)
+		}
 	}
 	return Supervisor{PID: l.PID, Log: filepath.Join(runDir, worldLogFile), Control: l.Control}, spawns, nil
 }

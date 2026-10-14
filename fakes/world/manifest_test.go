@@ -32,6 +32,8 @@ func schema(t *testing.T) (jsonSchema, zod []byte) {
 			switch t {
 			case reflect.TypeFor[scenario.Setup]():
 				return &jsonschema.Schema{Type: "string", Enum: []any{scenario.SetupNone.String(), scenario.SetupController.String(), scenario.SetupJoin.String()}}
+			case reflect.TypeFor[world.NodeState]():
+				return &jsonschema.Schema{Type: "string", Enum: []any{string(world.NodeRunning), string(world.NodeStopped), string(world.NodeKilled), string(world.NodeExited)}}
 			case reflect.TypeFor[world.Claim]():
 				return &jsonschema.Schema{Type: "string", Enum: []any{string(world.ClaimUnclaimed), string(world.ClaimController), string(world.ClaimWorker)}}
 			}

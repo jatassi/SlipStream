@@ -39,6 +39,10 @@ const usageText = `usage: fakeworld <command>
       wait for a fault.fired record after the last step's start
   cue <run-dir> <name> [<args>]
       play a cue a fake declares, its arguments one JSON object
+  node stop|kill|start|wipe <run-dir> <node>
+      stop the Node with slipstream stop, kill its process, start it again
+      on the same config.yaml, or empty a stopped Node's data dir but its
+      config.yaml, and print its manifest entry
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -79,6 +83,7 @@ var verbs = map[string]func(args []string) int{
 	},
 	"fault": faultCommand,
 	"cue":   cueCommand,
+	"node":  nodeCommand,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {

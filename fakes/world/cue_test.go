@@ -31,18 +31,7 @@ func TestFakeworldCuePlaysAFakesCueInItsStep(t *testing.T) {
 	}
 	whoami := m.Fakes[0].URL + "/whoami"
 
-	fakeworld := func(args ...string) (int, string, string) {
-		cmd := exec.CommandContext(ctx, testbin.Fakeworld(t), args...)
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		if err := cmd.Run(); err != nil {
-			if _, exited := errors.AsType[*exec.ExitError](err); !exited {
-				t.Fatal(err)
-			}
-		}
-		return cmd.ProcessState.ExitCode(), stdout.String(), stderr.String()
-	}
-	code, stdout, stderr := fakeworld("cue", runDir, "fixture-greet", `{"text":"hi"}`)
+	code, stdout, stderr := fakeworld(t, "cue", runDir, "fixture-greet", `{"text":"hi"}`)
 	const record = `"kind":"cue","node":"world","data":{"args":{"text":"hi"},"fake":"fixture","name":"fixture-greet","result":{"was":"fixture"},"step":1}}`
 	if code != 0 || !strings.HasSuffix(strings.TrimSpace(stdout), record) || stderr != "" {
 		t.Fatalf("fakeworld cue = %d %q %q, want the record ending %s", code, stdout, stderr, record)
@@ -51,11 +40,11 @@ func TestFakeworldCuePlaysAFakesCueInItsStep(t *testing.T) {
 		t.Fatalf("after the cue whoami answered %q, want hi", got)
 	}
 
-	code, _, stderr = fakeworld("cue", runDir, "fixture-greet", `{"txt":"hi"}`)
+	code, _, stderr = fakeworld(t, "cue", runDir, "fixture-greet", `{"txt":"hi"}`)
 	if want := "fakeworld cue: cue fixture-greet: json: unknown field \"txt\"\n"; code != 1 || stderr != want {
 		t.Fatalf("fakeworld cue with an unknown argument = %d %q, want exit 1 with %q", code, stderr, want)
 	}
-	code, _, stderr = fakeworld("cue", runDir, "nope")
+	code, _, stderr = fakeworld(t, "cue", runDir, "nope")
 	if want := "fakeworld cue: no fake declares cue nope\n"; code != 1 || stderr != want {
 		t.Fatalf("fakeworld cue nope = %d %q, want exit 1 with %q", code, stderr, want)
 	}
@@ -78,4 +67,17 @@ func TestFakeworldCuePlaysAFakesCueInItsStep(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("events.jsonl's steps and cues are\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
+}
+
+func fakeworld(t *testing.T, args ...string) (code int, stdout, stderr string) {
+	t.Helper()
+	cmd := exec.CommandContext(worldtest.Context(t), testbin.Fakeworld(t), args...)
+	var out, errOut bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errOut
+	if err := cmd.Run(); err != nil {
+		if _, exited := errors.AsType[*exec.ExitError](err); !exited {
+			t.Fatal(err)
+		}
+	}
+	return cmd.ProcessState.ExitCode(), out.String(), errOut.String()
 }

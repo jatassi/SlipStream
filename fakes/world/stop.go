@@ -76,6 +76,9 @@ func (r *Run) Done() <-chan struct{} { return r.control.Done() }
 
 func (r *Run) stop() {
 	r.record(events.RunStopping, events.World, struct{}{})
+	r.manifestMu.Lock()
+	r.published = false
+	r.manifestMu.Unlock()
 	unasked := make([]bool, len(r.nodes))
 	for i, n := range r.nodes {
 		unasked[i] = n.life.State() == lifecycle.Exited

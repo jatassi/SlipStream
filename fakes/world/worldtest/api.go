@@ -266,6 +266,27 @@ func (a *API) SetRoles(name, id string, roles ...string) Row {
 	return row
 }
 
+// Join joins the Unclaimed Node named name as a Worker of the Controller
+// named controller, through the Node's setupCode and a Join Code the
+// Controller mints, and returns the id the Controller gave it.
+func (a *API) Join(controller, name, setupCode string) string {
+	a.t.Helper()
+	var minted struct {
+		Code string `json:"code"`
+	}
+	a.decode(a.Admin(controller, http.MethodPost, "/api/v1/nodes/join-codes", ""), http.StatusCreated, &minted)
+	body := `{"code":"` + minted.Code + `"}`
+	reply, _ := a.do(request{
+		node: name, method: http.MethodPost, path: "/api/v1/setup/worker", body: body, bodyArg: world.Literal(body),
+		headers: []header{{"X-Setup-Code", setupCode, world.Literal(setupCode)}},
+	})
+	var joined struct {
+		NodeID string `json:"nodeId"`
+	}
+	a.decode(reply, http.StatusCreated, &joined)
+	return joined.NodeID
+}
+
 func (a *API) decode(r Reply, status int, v any) {
 	a.t.Helper()
 	if r.Status != status {
