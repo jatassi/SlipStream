@@ -113,7 +113,7 @@ func TestDoctorCatchesARealIndexerURL(t *testing.T) {
 		Fakes:  []world.Fake{{Name: "fixture-site"}},
 		Fronts: []world.Front{{Target: "fixture-site", Node: "home", Address: "127.0.0.1:1"}},
 	}
-	data, err := json.Marshal(m)
+	data, err := json.Marshal(m) //nolint:gosec // a stand-in run's manifest
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -95,9 +95,9 @@ type systemReply struct {
 }
 
 // Doctor runs six read-only checks on the live run in runDir against the
-// git worktree that holds the dir worktree. It never signs in.
-func Doctor(ctx context.Context, runDir, worktree string) Report {
-	d := &doctor{ctx: ctx, worktree: worktree}
+// git worktree that holds dir. It never signs in.
+func Doctor(ctx context.Context, runDir, dir string) Report {
+	d := &doctor{ctx: ctx, worktree: dir}
 	r := Report{OK: true, Checks: []CheckResult{}, ActiveFaults: []ActiveFault{}}
 	err := d.load(runDir)
 	if err == nil {
@@ -168,24 +168,24 @@ func (d *doctor) controller() (Node, bool) {
 	return d.m.Nodes[i], true
 }
 
-func (d *doctor) get(url, apiKey string) (int, []byte, error) {
+func (d *doctor) get(target, apiKey string) (status int, body []byte, err error) {
 	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, http.NoBody)
 	if err != nil {
-		return 0, nil, fmt.Errorf("GET %s: %w", url, err)
+		return 0, nil, fmt.Errorf("GET %s: %w", target, err)
 	}
 	if apiKey != "" {
 		req.Header.Set("X-Api-Key", apiKey)
 	}
 	res, err := d.client.Do(req)
 	if err != nil {
-		return 0, nil, fmt.Errorf("GET %s: %w", url, err)
+		return 0, nil, fmt.Errorf("GET %s: %w", target, err)
 	}
 	defer func() { _ = res.Body.Close() }()
-	body, err := io.ReadAll(res.Body)
+	body, err = io.ReadAll(res.Body)
 	if err != nil {
-		return 0, nil, fmt.Errorf("GET %s: %w", url, err)
+		return 0, nil, fmt.Errorf("GET %s: %w", target, err)
 	}
 	return res.StatusCode, body, nil
 }

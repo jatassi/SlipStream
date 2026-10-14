@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -135,14 +136,14 @@ func buildLine(runDir string, m Manifest) string {
 }
 
 func originLine(recs []events.Record) string {
-	var l launched
-	if len(recs) == 0 || recs[0].Kind != events.RunLaunched || json.Unmarshal(recs[0].Data, &l) != nil {
+	o, ok := originOf(recs)
+	switch {
+	case !ok:
 		return "unknown"
+	case o.Kind == FromTest:
+		return "test, `" + o.Command + "`"
 	}
-	if l.Origin.Kind == FromTest {
-		return "test, `" + l.Origin.Command + "`"
-	}
-	return string(l.Origin.Kind)
+	return string(o.Kind)
 }
 
 func writeDoctor(b *strings.Builder, runDir string, journal []JournaledStep) {
@@ -169,7 +170,7 @@ func exitText(exit *int) string {
 	if exit == nil {
 		return "none (it never ended)"
 	}
-	return fmt.Sprint(*exit)
+	return strconv.Itoa(*exit)
 }
 
 func writeSteps(b *strings.Builder, journal []JournaledStep) {
@@ -204,7 +205,8 @@ func writeTimeline(b *strings.Builder, recs []events.Record) {
 		if r.Kind != events.Cue && !strings.HasPrefix(r.Kind, "fault.") {
 			continue
 		}
-		if n++; n == 1 {
+		n++
+		if n == 1 {
 			b.WriteString("| seq | kind | node | data |\n|---|---|---|---|\n")
 		}
 		fmt.Fprintf(b, "| %d | %s | %s | %s |\n", r.Seq, r.Kind, r.Node, cell(string(r.Data)))

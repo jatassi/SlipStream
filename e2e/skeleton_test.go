@@ -138,7 +138,7 @@ func grabChanged(t *testing.T, s *worldtest.Messages, work string) string {
 	t.Helper()
 	data := s.Next("grabs.changed")
 	m := grabChangedData.FindStringSubmatch(data)
-	if m == nil || m[2] != work {
+	if len(m) != 3 || m[2] != work {
 		t.Fatalf("grabs.changed carried %s, want a Grab of Work %s", data, work)
 	}
 	return m[1]

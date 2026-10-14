@@ -29,7 +29,7 @@ func TestSummary(t *testing.T) {
 		Scenario: world.ScenarioRef{Name: "home", SHA256: "2d69", Seed: "home"},
 		Binary:   world.Binary{Path: "/runs/k3v9x2qa/bin/slipstream", SHA256: "3ebb", Version: "v0.1.0"},
 	}
-	data, err := json.Marshal(m)
+	data, err := json.Marshal(m) //nolint:gosec // a stand-in run's manifest
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -151,7 +151,7 @@ func replayTest(b world.Bundle) int {
 		return failed("replay", err)
 	}
 	warnOnCommit(ctx, root, binary)
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // the command is the one the bundle's test recorded, run as the person replaying it asked
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), variable+"="+binary)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr

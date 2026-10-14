@@ -21,7 +21,7 @@ func summary(args []string) int {
 		return failed("summary", err)
 	}
 	path := filepath.Join(args[0], world.SummaryFile)
-	if err := os.WriteFile(path, []byte(text), 0o644); err != nil { //nolint:gosec // summary.md is evidence anyone on the machine may read
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		return failed("summary", err)
 	}
 	fmt.Println(path)

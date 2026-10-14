@@ -133,32 +133,7 @@ func TestExecJournalsAndReplays(t *testing.T) {
 		t.Fatalf("fault list = %+v, want the tmdb-503 fault.set at seq %d", list, setRec.Seq)
 	}
 
-	replayed := runDir + "-replay-1"
-	t.Cleanup(func() { fakeworld(t, "stop", replayed) })
-	if got := fakeworld(t, "replay", runDir, "--to", "2"); got.code != 0 || got.stderr != "" {
-		t.Fatalf("replay --to 2 = %+v, want exit 0", got)
-	}
-	again, err := world.ReadManifest(replayed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmdb, err := world.Expand(m, []string{"{fakes.tmdb.url}"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmdbAgain, err := world.Expand(again, []string{"{fakes.tmdb.url}"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if again.Nodes[0].URL == m.Nodes[0].URL || tmdbAgain[0] == tmdb[0] {
-		t.Fatalf("the replay's home at %s and tmdb at %s, want ports other than the run's %s and %s", again.Nodes[0].URL, tmdbAgain[0], m.Nodes[0].URL, tmdb[0])
-	}
-	if got := journal(t, replayed); !reflect.DeepEqual(got, want[:5]) {
-		t.Fatalf("the replay's journal holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want[:5], "\n"))
-	}
-	if got := readFile(t, filepath.Join(replayed, "proof", "search-and-grab", "held", "2.out")); got != "503\n" {
-		t.Fatalf("the replayed step 2 printed %q, want the run's 503", got)
-	}
+	checkReplayTo2(t, runDir, m, want[:5])
 
 	if err := os.Remove(kept); err != nil {
 		t.Fatal(err)
@@ -175,6 +150,39 @@ func TestExecJournalsAndReplays(t *testing.T) {
 	if stopped := fakeworld(t, "fault", "list", runDir); stopped != list {
 		t.Fatalf("fault list on the stopped run = %+v, want %+v", stopped, list)
 	}
+}
+
+// checkReplayTo2 replays the run's first two steps on a fresh world and
+// checks it journals them as the run did, on ports of its own.
+func checkReplayTo2(t *testing.T, runDir string, m world.Manifest, want []string) {
+	t.Helper()
+	replayed := runDir + "-replay-1"
+	t.Cleanup(func() { fakeworld(t, "stop", replayed) })
+	if got := fakeworld(t, "replay", runDir, "--to", "2"); got.code != 0 || got.stderr != "" {
+		t.Fatalf("replay --to 2 = %+v, want exit 0", got)
+	}
+	again, err := world.ReadManifest(replayed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tmdb, tmdbAgain := tmdbURL(t, m), tmdbURL(t, again); again.Nodes[0].URL == m.Nodes[0].URL || tmdbAgain == tmdb {
+		t.Fatalf("the replay's home at %s and tmdb at %s, want ports other than the run's %s and %s", again.Nodes[0].URL, tmdbAgain, m.Nodes[0].URL, tmdb)
+	}
+	if got := journal(t, replayed); !reflect.DeepEqual(got, want) {
+		t.Fatalf("the replay's journal holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if got := readFile(t, filepath.Join(replayed, "proof", "search-and-grab", "held", "2.out")); got != "503\n" {
+		t.Fatalf("the replayed step 2 printed %q, want the run's 503", got)
+	}
+}
+
+func tmdbURL(t *testing.T, m world.Manifest) string {
+	t.Helper()
+	urls, err := world.Expand(m, []string{"{fakes.tmdb.url}"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return urls[0]
 }
 
 func TestReplayRefusesAnotherBinary(t *testing.T) {

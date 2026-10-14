@@ -58,13 +58,21 @@ func ReadBundle(dir, binary string) (Bundle, error) {
 	if err != nil {
 		return Bundle{}, err
 	}
-	var l launched
-	if len(recs) == 0 || recs[0].Kind != events.RunLaunched || json.Unmarshal(recs[0].Data, &l) != nil {
+	var ok bool
+	if b.Origin, ok = originOf(recs); !ok {
 		return Bundle{}, fmt.Errorf("%s does not start with a %s that names its origin", filepath.Join(dir, events.File), events.RunLaunched)
 	}
-	b.Origin = l.Origin
 	if b.Steps, err = readSteps(recs); err != nil {
 		return Bundle{}, err
 	}
 	return b, nil
+}
+
+// originOf is the origin the run.launched that starts recs names.
+func originOf(recs []events.Record) (Origin, bool) {
+	var l launched
+	if len(recs) == 0 || recs[0].Kind != events.RunLaunched || json.Unmarshal(recs[0].Data, &l) != nil || l.Origin.Kind == "" {
+		return Origin{}, false
+	}
+	return l.Origin, true
 }
