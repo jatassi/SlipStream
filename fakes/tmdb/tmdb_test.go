@@ -6,9 +6,12 @@ import (
 	"testing"
 	"testing/synctest"
 
+	conformance "github.com/jatassi/slipstream/conformance/tmdb"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tmdb"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
+	provider "github.com/jatassi/slipstream/internal/providers/tmdb"
 )
 
 type exchange struct {
@@ -83,5 +86,23 @@ func TestAScenarioWithoutTMDBServesAnEmptyCatalog(t *testing.T) {
 	inBothTiers(t, s, []exchange{
 		{"/3/search/movie?query=orchard", none},
 		{"/3/movie/9000001", notFound},
+	})
+}
+
+func TestTheFakeConforms(t *testing.T) {
+	s, err := scenario.Load("single-machine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func(t *testing.T, f faketest.Served) {
+		conformance.Run(t, conformance.Target{
+			Endpoints: provider.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3"))},
+			Client:    f.Client,
+			Known:     conformance.Known{ID: 9000001, Title: "The Quiet Orchard", IMDbID: "tt9000001"},
+		})
+	}
+	t.Run("loopback", func(t *testing.T) { run(t, faketest.Loopback(t, tmdb.Fake, s)) })
+	t.Run("in memory", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) { run(t, faketest.InMemory(t, tmdb.Fake, s)) })
 	})
 }
