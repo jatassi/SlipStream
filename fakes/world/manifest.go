@@ -12,7 +12,7 @@ import (
 const (
 	manifestFile        = "manifest.json"
 	stoppedManifestFile = "manifest.stopped.json"
-	manifestSchema      = 1
+	manifestSchema      = 2
 )
 
 // Manifest describes a ready world. It exists only while the world is
@@ -24,16 +24,18 @@ type Manifest struct {
 	ScratchDir string `json:"scratchDir"`
 	// MediaDir holds the library roots' folders, beside the Nodes' data
 	// dirs; absent for a Scenario without a library.
-	MediaDir    string      `json:"mediaDir,omitempty"`
-	Scenario    ScenarioRef `json:"scenario"`
-	Binary      Binary      `json:"binary"`
-	Supervisor  Supervisor  `json:"supervisor"`
-	CA          CAFile      `json:"ca"`
-	Divergences []string    `json:"divergences"`
-	Nodes       []Node      `json:"nodes"`
-	Fakes       []Fake      `json:"fakes"`
-	Admin       *Admin      `json:"admin,omitempty"`
-	APIKey      string      `json:"apiKey,omitempty"`
+	MediaDir   string      `json:"mediaDir,omitempty"`
+	Scenario   ScenarioRef `json:"scenario"`
+	Binary     Binary      `json:"binary"`
+	Supervisor Supervisor  `json:"supervisor"`
+	CA         CAFile      `json:"ca"`
+	// Events is the event log's path relative to the run dir.
+	Events      string   `json:"events"`
+	Divergences []string `json:"divergences"`
+	Nodes       []Node   `json:"nodes"`
+	Fakes       []Fake   `json:"fakes"`
+	Admin       *Admin   `json:"admin,omitempty"`
+	APIKey      string   `json:"apiKey,omitempty"`
 }
 
 type ScenarioRef struct {

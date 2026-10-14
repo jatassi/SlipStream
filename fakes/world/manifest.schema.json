@@ -92,6 +92,9 @@
         "file"
       ]
     },
+    "events": {
+      "type": "string"
+    },
     "divergences": {
       "items": {
         "type": "string"
@@ -265,6 +268,7 @@
     "binary",
     "supervisor",
     "ca",
+    "events",
     "divergences",
     "nodes",
     "fakes"

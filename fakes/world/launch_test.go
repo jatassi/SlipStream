@@ -15,10 +15,12 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -97,7 +99,7 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	bin := stub{}.build(t)
 	runDir := filepath.Join(t.TempDir(), "run")
 	ctx := worldtest.Context(t)
-	run, err := world.LaunchWith(ctx, world.Options{Binary: bin, Scenario: stubScenario(), RunDir: runDir}, []fake.Spec{echo})
+	run, err := world.LaunchWith(ctx, world.Options{Binary: bin, Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)}, []fake.Spec{echo})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,6 +123,16 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	}
 	if again, err := world.StopRun(ctx, runDir); err != nil || !reflect.DeepEqual(again, want) {
 		t.Fatalf("StopRun on a stopped run = %+v, %v; want %+v", again, err, want)
+	}
+	launched := logged(t, runDir)[:4]
+	wantStopped := slices.Concat(launched, []string{
+		`5 run.stopping world {}`,
+		`6 node.error home {"level":"ERROR","msg":"stub node told to stop","detail":"logged verbatim"}`,
+		fmt.Sprintf(`7 node.exited home {"pid":%d,"code":0}`, m.Nodes[0].PID),
+		`8 run.stopped world {"clean":true}`,
+	})
+	if got := logged(t, runDir); !reflect.DeepEqual(got, wantStopped) {
+		t.Fatalf("events.jsonl after stop holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(wantStopped, "\n"))
 	}
 	stopped, err := os.ReadFile(filepath.Join(runDir, "stopped.json"))
 	if err != nil {
@@ -165,13 +177,28 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 	if written, err := os.ReadFile(filepath.Join(runDir, "scenario.yaml")); err != nil || string(written) != "description: \"\"\nseed: stub\nnodes:\n  - name: home\n    setup: none\ntimings:\n  node:\n    stop_deadline: 5s\n" {
 		t.Fatalf("scenario.yaml = %q, %v", written, err)
 	}
-	wl, err := world.ReadWorldLog(runDir)
+	want := []string{
+		fmt.Sprintf(`1 run.launched world {"runId":%q,"pid":%d,"control":%q,"scratchDir":%q,"scenario":"stub","origin":{"kind":"test","command":"go test ./fakes/world -run '^TestLaunchAndStopOnTheStub$' -count=1"}}`, m.RunID, os.Getpid(), m.Supervisor.Control, m.ScratchDir),
+		fmt.Sprintf(`2 node.spawned home {"pid":%d,"dataDir":%q}`, home.PID, home.DataDir),
+		fmt.Sprintf(`3 node.ready home {"pid":%d}`, home.PID),
+		`4 run.ready world {"manifest":"manifest.json"}`,
+	}
+	if got := logged(t, runDir); !reflect.DeepEqual(got, want) {
+		t.Fatalf("events.jsonl holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func logged(t *testing.T, runDir string) []string {
+	t.Helper()
+	recs, err := events.Read(runDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []world.Spawn{{Node: "home", PID: home.PID, DataDir: home.DataDir}}; !reflect.DeepEqual(wl.Spawns, want) || wl.Supervisor != m.Supervisor {
-		t.Fatalf("world.log records %+v, want spawns %+v and supervisor %+v", wl, want, m.Supervisor)
+	out := make([]string, len(recs))
+	for i, r := range recs {
+		out[i] = fmt.Sprintf("%d %s %s %s", r.Seq, r.Kind, r.Node, r.Data)
 	}
+	return out
 }
 
 func getFake(ctx context.Context, t *testing.T, m world.Manifest) string {
@@ -223,7 +250,7 @@ func assertStopped(t *testing.T, m world.Manifest) {
 func TestANodeThatExitsMidRunIsReported(t *testing.T) {
 	t.Parallel()
 	runDir := filepath.Join(t.TempDir(), "run")
-	run, err := world.Launch(worldtest.Context(t), world.Options{Binary: stub{}.build(t), Scenario: stubScenario(), RunDir: runDir})
+	run, err := world.Launch(worldtest.Context(t), world.Options{Binary: stub{}.build(t), Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,10 +261,9 @@ func TestANodeThatExitsMidRunIsReported(t *testing.T) {
 	if err := home.Kill(); err != nil {
 		t.Fatal(err)
 	}
-	worldtest.Until(t, "world.log records home's exit", func() (bool, error) {
-		data, err := os.ReadFile(filepath.Join(runDir, "world.log"))
-		return strings.Contains(string(data), `"msg":"node exited"`), err
-	})
+	if _, err := events.Wait(worldtest.Context(t), runDir, events.Query{Kind: events.NodeExited, Node: "home"}); err != nil {
+		t.Fatal(err)
+	}
 	report, err := run.Stop()
 	if len(report.Nodes) != 1 || !report.Nodes[0].ExitedUnasked || report.Nodes[0].ExitCode == 0 {
 		t.Fatalf("Stop = %+v, want home exited unasked and non-zero", report)
@@ -296,11 +322,18 @@ func TestLaunchRefuses(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			runDir := filepath.Join(t.TempDir(), "run")
-			_, err := world.Launch(worldtest.Context(t), world.Options{Binary: c.stub.build(t), Scenario: stubScenario(), RunDir: runDir})
+			_, err := world.Launch(worldtest.Context(t), world.Options{Binary: c.stub.build(t), Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
 			if err == nil || err.Error() != c.want {
 				t.Fatalf("Launch = %v\nwant %s", err, c.want)
 			}
 			assertNothingLeft(t, runDir, c.spawned)
+			stops, err := events.Select(runDir, events.Query{Kind: events.RunStopped})
+			if wantData := data(t, struct {
+				Clean bool   `json:"clean"`
+				Error string `json:"error"`
+			}{false, c.want}); err != nil || len(stops) != 1 || string(stops[0].Data) != wantData {
+				t.Fatalf("run.stopped records %+v, %v; want one with %s", stops, err, wantData)
+			}
 		})
 	}
 }
@@ -308,29 +341,50 @@ func TestLaunchRefuses(t *testing.T) {
 func TestLaunchRefusesABinaryWithoutItsTools(t *testing.T) {
 	t.Parallel()
 	runDir := filepath.Join(t.TempDir(), "run")
-	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: stub{noTools: true}.build(t), Scenario: stubScenario(), RunDir: runDir})
+	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: stub{noTools: true}.build(t), Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
 	if err == nil || !errors.Is(err, fs.ErrNotExist) || !strings.HasPrefix(err.Error(), "ffmpeg beside the binary: ") {
 		t.Fatalf("Launch = %v, want ffmpeg beside the binary not found", err)
 	}
 	assertNothingLeft(t, runDir, false)
 }
 
-func assertNothingLeft(t *testing.T, runDir string, spawned bool) {
+func data(t *testing.T, v any) string {
 	t.Helper()
-	wl, err := world.ReadWorldLog(runDir)
+	b, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spawned != (len(wl.Spawns) > 0) {
-		t.Fatalf("world.log spawns = %+v, want spawned %t", wl.Spawns, spawned)
+	return string(b)
+}
+
+func assertNothingLeft(t *testing.T, runDir string, spawned bool) {
+	t.Helper()
+	spawns, err := events.Select(runDir, events.Query{Kind: events.NodeSpawned})
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, s := range wl.Spawns {
-		if !worldtest.ProcessGone(s.PID) {
-			t.Errorf("node %s (PID %d) still runs", s.Node, s.PID)
+	if spawned != (len(spawns) > 0) {
+		t.Fatalf("node.spawned records = %+v, want spawned %t", spawns, spawned)
+	}
+	for _, s := range spawns {
+		var d struct{ PID int }
+		if err := json.Unmarshal(s.Data, &d); err != nil {
+			t.Fatal(err)
+		}
+		if !worldtest.ProcessGone(d.PID) {
+			t.Errorf("node %s (PID %d) still runs", s.Node, d.PID)
 		}
 	}
-	scratch := strings.TrimSuffix(wl.Supervisor.Control, ".sock")
-	for _, path := range []string{filepath.Join(runDir, "manifest.json"), scratch, wl.Supervisor.Control} {
+	launched, err := events.Select(runDir, events.Query{Kind: events.RunLaunched})
+	if err != nil || len(launched) != 1 {
+		t.Fatalf("run.launched records = %+v, %v; want one", launched, err)
+	}
+	var l struct{ Control string }
+	if err := json.Unmarshal(launched[0].Data, &l); err != nil {
+		t.Fatal(err)
+	}
+	scratch := strings.TrimSuffix(l.Control, ".sock")
+	for _, path := range []string{filepath.Join(runDir, "manifest.json"), scratch, l.Control} {
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s after a failed launch: %v, want it absent", path, err)
 		}
@@ -342,7 +396,7 @@ func TestLaunchUnderAnExpiredContextLeavesNothing(t *testing.T) {
 	ctx, cancel := context.WithDeadline(worldtest.Context(t), time.Now().Add(-time.Second))
 	defer cancel()
 	runDir := filepath.Join(t.TempDir(), "run")
-	_, err := world.Launch(ctx, world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir})
+	_, err := world.Launch(ctx, world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
 	if err == nil || err.Error() != "context deadline exceeded" {
 		t.Fatalf("Launch = %v, want context deadline exceeded", err)
 	}
@@ -354,7 +408,7 @@ func TestLaunchUnderAnExpiredContextLeavesNothing(t *testing.T) {
 func TestLaunchRefusesAnExistingRunDir(t *testing.T) {
 	t.Parallel()
 	runDir := t.TempDir()
-	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir})
+	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
 	if want := "run dir " + runDir + " already exists"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v, want %s", err, want)
 	}
@@ -365,7 +419,7 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 	s := stubScenario()
 	s.Timings.Node.StopDeadline = -time.Second
 	runDir := filepath.Join(t.TempDir(), "run")
-	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir})
+	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)})
 	if want := "node home: config.yaml:11: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
@@ -379,7 +433,7 @@ func TestLaunchRefusesAScenarioNeedingAContentTypeTheBinaryLacks(t *testing.T) {
 		t.Fatal(err)
 	}
 	runDir := filepath.Join(t.TempDir(), "run")
-	_, err = world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir})
+	_, err = world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)})
 	want := "scenario music needs Content Type music, which slipstream does not register; launch it with worldtest.LaunchE2E"
 	if runtime.GOOS == "windows" {
 		want = strings.Replace(want, "slipstream", "slipstream.exe", 1)
@@ -432,11 +486,10 @@ func TestAddressCheckRefusesTheThirtyThirdAddress(t *testing.T) {
 func TestStopRunWithoutASupervisorNamesEachNode(t *testing.T) {
 	t.Parallel()
 	runDir := t.TempDir()
-	log := `{"msg":"launch","pid":4242,"control":"` + filepath.ToSlash(filepath.Join(runDir, "gone.sock")) + `"}
-panic: a line that is not JSON
-{"msg":"node spawned","node":"home","pid":4250,"data_dir":"/tmp/ssfw/k3v9x2qa/home"}
+	log := `{"seq":1,"at":"2026-10-14T00:00:00Z","kind":"run.launched","node":"world","data":{"pid":4242,"control":"` + filepath.ToSlash(filepath.Join(runDir, "gone.sock")) + `"}}
+{"seq":2,"at":"2026-10-14T00:00:01Z","kind":"node.spawned","node":"home","data":{"pid":4250,"dataDir":"/tmp/ssfw/k3v9x2qa/home"}}
 `
-	if err := os.WriteFile(filepath.Join(runDir, "world.log"), []byte(log), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(runDir, "events.jsonl"), []byte(log), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := world.StopRun(worldtest.Context(t), runDir)

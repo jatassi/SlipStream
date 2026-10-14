@@ -27,6 +27,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
@@ -52,6 +53,7 @@ type Options struct {
 	// RunDirCreated says the caller already made RunDir with CreateRunDir,
 	// as fakeworld start does before it spawns its supervisor there.
 	RunDirCreated bool
+	Origin        Origin
 }
 
 // Run is a launched world. It lives until Stop.
@@ -64,6 +66,7 @@ type Run struct {
 	life       context.Context
 	log        *slog.Logger
 	logFile    *os.File
+	events     *events.Log
 
 	binary    Binary
 	ca        *ca.CA
@@ -93,6 +96,8 @@ type nodeRun struct {
 	logFile *os.File
 	proc    *proc.Process
 	ready   node.Ready
+	// recorded is closed once the Node's node.exited record is logged.
+	recorded chan struct{}
 }
 
 type fakeRun struct {
@@ -145,6 +150,9 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	if err := opts.Scenario.Validate(); err != nil {
 		return nil, err
 	}
+	if opts.Origin.Kind != FromSteps && opts.Origin.Kind != FromTest {
+		return nil, fmt.Errorf("launch %s: the options name no origin", opts.Scenario.Name)
+	}
 	addrs, err := CheckAddresses(ctx, len(opts.Scenario.Nodes))
 	if err != nil {
 		return nil, err
@@ -168,13 +176,18 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	if r.log, r.logFile, err = openWorldLog(runDir); err != nil {
 		return nil, err
 	}
-	r.log.Info(launchRecord, "run_id", r.id, "pid", os.Getpid(), "control", r.socket, "scratch_dir", r.scratchDir, "scenario", opts.Scenario.Name)
+	if r.events, err = events.Create(runDir, r.observe); err != nil {
+		_ = r.logFile.Close()
+		return nil, err
+	}
+	r.record(events.RunLaunched, "", launched{RunID: r.id, PID: os.Getpid(), Control: r.socket, ScratchDir: r.scratchDir, Scenario: opts.Scenario.Name, Origin: opts.Origin})
 
 	var undo unwind
 	defer func() {
 		if err != nil {
-			r.log.Error("launch failed", "err", err.Error())
 			undo.run()
+			r.record(events.RunStopped, "", stopped{Error: err.Error()})
+			_ = r.events.Close()
 			_ = r.logFile.Close()
 		}
 	}()
@@ -209,7 +222,9 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 			return nil, err
 		}
 	}
-	r.log.Info("ready", "manifest", filepath.Join(runDir, manifestFile))
+	r.record(events.RunReady, "", struct {
+		Manifest string `json:"manifest"`
+	}{manifestFile})
 	return r, nil
 }
 
@@ -309,7 +324,7 @@ func (r *Run) bindFakes(ctx context.Context, undo *unwind, specs []fake.Spec) er
 	for i, spec := range specs {
 		fronts[i] = worldFront(spec)
 	}
-	r.faults = fault.NewPlan(fronts, nil)
+	r.faults = fault.NewPlan(fronts, r.fired)
 	for _, spec := range specs {
 		f, err := r.bindFake(ctx, spec)
 		if err != nil {
@@ -540,11 +555,19 @@ func (r *Run) startNode(ctx context.Context, undo *unwind, n *nodeRun) error {
 	ready := make(chan node.Ready, 1)
 	found := false
 	watch := func(line []byte) {
+		if errorLine(line) {
+			if _, err := r.events.Append(events.Record{Kind: events.NodeError, Node: name, Data: line}); err != nil {
+				r.log.Error("event log", "kind", events.NodeError, "err", err.Error())
+			}
+		}
 		if found {
 			return
 		}
 		if rec, err := node.ParseReady(line); err == nil {
 			found = true
+			r.record(events.NodeReady, name, struct {
+				PID int `json:"pid"`
+			}{rec.PID})
 			ready <- rec
 		}
 	}
@@ -553,15 +576,16 @@ func (r *Run) startNode(ctx context.Context, undo *unwind, n *nodeRun) error {
 		_ = n.logFile.Close()
 		return fmt.Errorf("node %s: %w", name, err)
 	}
-	r.log.Info(spawnRecord, "node", name, "pid", n.proc.PID, "data_dir", n.dataDir.Path())
+	r.record(events.NodeSpawned, name, spawned{PID: n.proc.PID, DataDir: n.dataDir.Path()})
+	n.recorded = make(chan struct{})
 	undo.push(func() { r.stopNode(n, false) })
 	go func() {
 		<-n.proc.Exited()
-		r.log.Info("node exited", "node", name, "pid", n.proc.PID, "code", n.proc.ExitCode())
+		r.record(events.NodeExited, name, exited{PID: n.proc.PID, Code: n.proc.ExitCode()})
+		close(n.recorded)
 	}()
 	select {
 	case n.ready = <-ready:
-		r.log.Info("node ready", "node", name, "pid", n.ready.PID)
 		return nil
 	case <-n.proc.Exited():
 		return fmt.Errorf("node %s exited with code %d before it was ready\n%s", name, n.proc.ExitCode(), strings.Join(n.proc.Tail(), "\n"))
@@ -659,6 +683,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Binary:      r.binary,
 		Supervisor:  Supervisor{PID: os.Getpid(), Log: filepath.Join(r.runDir, worldLogFile), Control: r.socket},
 		CA:          CAFile{File: r.caFile},
+		Events:      events.File,
 		Divergences: usedIDs(r.used),
 		Nodes:       []Node{},
 		Fakes:       []Fake{},

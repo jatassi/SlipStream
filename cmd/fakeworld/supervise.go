@@ -37,7 +37,7 @@ func launch(ctx context.Context, f superviseFlags) (*world.Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	return world.Launch(ctx, world.Options{Binary: f.binary, Scenario: s, RunDir: f.runDir, RunDirCreated: true})
+	return world.Launch(ctx, world.Options{Binary: f.binary, Scenario: s, RunDir: f.runDir, RunDirCreated: true, Origin: world.Origin{Kind: world.FromSteps}})
 }
 
 func writeReport(r report) {

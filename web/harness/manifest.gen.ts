@@ -27,6 +27,7 @@ export const manifestSchema = z.strictObject({
   ca: z.strictObject({
     file: z.string(),
   }),
+  events: z.string(),
   divergences: z.array(z.string()),
   nodes: z.array(
     z.strictObject({

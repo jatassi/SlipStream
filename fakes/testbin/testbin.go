@@ -197,6 +197,16 @@ var root struct {
 	err  error
 }
 
+// ModuleRoot is the directory of the go.mod the test runs under.
+func ModuleRoot(t testing.TB) string {
+	t.Helper()
+	dir, err := moduleRoot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func moduleRoot(ctx context.Context) (string, error) {
 	root.once.Do(func() {
 		out, err := exec.CommandContext(ctx, "go", "env", "GOMOD").Output()

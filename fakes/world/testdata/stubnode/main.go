@@ -103,6 +103,7 @@ func run(dir string) {
 
 	conn, err := control.Accept()
 	fail(err)
+	fmt.Fprintln(os.Stderr, `{"level":"ERROR","msg":"stub node told to stop","detail":"logged verbatim"}`)
 	fmt.Fprintln(os.Stderr, `{"msg":"stopped"}`)
 	_ = conn.Close()
 	_ = control.Close()

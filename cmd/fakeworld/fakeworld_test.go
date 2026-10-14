@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
@@ -119,7 +121,7 @@ func TestStartStop(t *testing.T) {
 	if string(stopped) != cleanReport {
 		t.Errorf("stopped.json =\n%s\nwant\n%s", stopped, cleanReport)
 	}
-	want := []string{"bin", "ca.pem", "manifest.stopped.json", "nodes", "scenario.yaml", "stopped.json", "world.log"}
+	want := []string{"bin", "ca.pem", "events.jsonl", "manifest.stopped.json", "nodes", "scenario.yaml", "stopped.json", "world.log"}
 	if got := names(t, runDir); !slices.Equal(got, want) {
 		t.Errorf("run dir holds %v, want %v", got, want)
 	}
@@ -137,24 +139,27 @@ func TestStartTimeout(t *testing.T) {
 	assertGone(t, filepath.Join(runDir, "manifest.json"))
 	for _, pid := range loggedPIDs(t, runDir) {
 		if !worldtest.ProcessGone(pid) {
-			t.Errorf("PID %d from world.log is still running after a failed start", pid)
+			t.Errorf("PID %d from the event log is still running after a failed start", pid)
 		}
 	}
 }
 
 func loggedPIDs(t *testing.T, runDir string) []int {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(runDir, "world.log"))
+	recs, err := events.Read(runDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pids []int
-	for line := range bytes.Lines(data) {
-		var rec struct {
+	for _, r := range recs {
+		var d struct {
 			PID int `json:"pid"`
 		}
-		if json.Unmarshal(line, &rec) == nil && rec.PID != 0 {
-			pids = append(pids, rec.PID)
+		if json.Unmarshal(r.Data, &d) == nil && d.PID != 0 {
+			pids = append(pids, d.PID)
 		}
 	}
 	return pids

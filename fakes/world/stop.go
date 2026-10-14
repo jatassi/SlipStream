@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/world/internal/channel"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 )
@@ -67,7 +68,7 @@ func (r *Run) Stop() (StopReport, error) {
 func (r *Run) Done() <-chan struct{} { return r.channel.Done() }
 
 func (r *Run) stop() {
-	r.log.Info("stopping")
+	r.record(events.RunStopping, "", struct{}{})
 	unasked := make([]bool, len(r.nodes))
 	for i, n := range r.nodes {
 		select {
@@ -92,8 +93,9 @@ func (r *Run) stop() {
 	problem(os.Rename(filepath.Join(r.runDir, manifestFile), filepath.Join(r.runDir, stoppedManifestFile)))
 	problem(os.RemoveAll(r.scratchDir))
 	problem(writeAtomically(filepath.Join(r.runDir, stopReportFile), marshal(r.report)))
-	r.log.Info("stopped", "clean", r.report.Err() == nil)
+	r.record(events.RunStopped, "", stopped{Clean: r.report.Err() == nil})
 	r.channel.Close()
+	_ = r.events.Close()
 	_ = r.logFile.Close()
 }
 
@@ -115,7 +117,7 @@ func (r *Run) stopNode(n *nodeRun, unasked bool) NodeStop {
 			}
 		}
 	}
-	<-n.proc.Exited()
+	<-n.recorded
 	ns.ExitCode = n.proc.ExitCode()
 	_ = n.logFile.Close()
 	r.log.Info("node stopped", "node", ns.Name, "code", ns.ExitCode, "unasked", ns.ExitedUnasked, "stop_failed", ns.StopFailed)
@@ -128,7 +130,7 @@ func (r *Run) stopAnswer() []byte {
 }
 
 // SupervisorGoneError is a run whose stop channel does not answer. It
-// names the command that stops each Node world.log recorded.
+// names the command that stops each Node the event log says was spawned.
 type SupervisorGoneError struct {
 	PID    int
 	Spawns []Spawn
@@ -149,23 +151,23 @@ func (e *SupervisorGoneError) Error() string {
 // It never stops a Node itself: when the supervisor is gone it returns a
 // *SupervisorGoneError.
 func StopRun(ctx context.Context, runDir string) (StopReport, error) {
-	wl, err := ReadWorldLog(runDir)
+	supervisor, spawns, err := readLaunch(runDir)
 	if err != nil {
 		return StopReport{}, err
 	}
 	data, err := os.ReadFile(filepath.Join(runDir, stopReportFile))
 	if err != nil {
-		data, err = channel.Stop(ctx, wl.Supervisor.Control)
+		data, err = channel.Stop(ctx, supervisor.Control)
 	}
 	if errors.Is(err, channel.ErrNoAnswer) {
-		return StopReport{}, &SupervisorGoneError{PID: wl.Supervisor.PID, Spawns: wl.Spawns}
+		return StopReport{}, &SupervisorGoneError{PID: supervisor.PID, Spawns: spawns}
 	}
 	if err != nil {
 		return StopReport{}, err
 	}
 	report, err := decodeReport(data)
-	if wl.Supervisor.PID != os.Getpid() {
-		if werr := proc.WaitExit(ctx, wl.Supervisor.PID); werr != nil {
+	if supervisor.PID != os.Getpid() {
+		if werr := proc.WaitExit(ctx, supervisor.PID); werr != nil {
 			return report, errors.Join(err, fmt.Errorf("the supervisor: %w", werr))
 		}
 	}

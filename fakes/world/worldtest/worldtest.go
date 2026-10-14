@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -75,11 +76,30 @@ func launch(t *testing.T, s scenario.Scenario, binary string) *world.Run {
 			logNodeLogs(t, runDir)
 		}
 	})
-	run, err := world.Launch(Context(t), world.Options{Binary: binary, Scenario: s, RunDir: runDir})
+	run, err := world.Launch(Context(t), world.Options{Binary: binary, Scenario: s, RunDir: runDir, Origin: Origin(t)})
 	if err != nil {
 		t.Fatalf("launch %s: %v", s.Name, err)
 	}
 	return run
+}
+
+// Origin is the origin of a run t launches: the command that runs t
+// again, from the module root.
+func Origin(t *testing.T) world.Origin {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := filepath.Rel(testbin.ModuleRoot(t), wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := strings.Split(t.Name(), "/")
+	for i, n := range names {
+		names[i] = "^" + regexp.QuoteMeta(n) + "$"
+	}
+	return world.Origin{Kind: world.FromTest, Command: fmt.Sprintf("go test ./%s -run '%s' -count=1", filepath.ToSlash(pkg), strings.Join(names, "/"))}
 }
 
 // RunDir is a run dir that does not exist yet: under TEST_FAKEWORLD_RUNS,
