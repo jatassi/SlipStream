@@ -14,21 +14,42 @@ import type {
 export const getGetWorkCellsResponseFilesMissingCellMock = (
   overrideResponse: Partial<FilesMissingCell> = {},
 ): FilesMissingCell => ({
-  ...{ state: faker.helpers.arrayElement(["missing"] as const) },
+  ...{
+    edition: faker.helpers.arrayElement(["standard"] as const),
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["missing"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
   ...overrideResponse,
 });
 
 export const getGetWorkCellsResponseFilesDownloadingCellMock = (
   overrideResponse: Partial<FilesDownloadingCell> = {},
 ): FilesDownloadingCell => ({
-  ...{ state: faker.helpers.arrayElement(["downloading"] as const) },
+  ...{
+    edition: faker.helpers.arrayElement(["standard"] as const),
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["downloading"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
   ...overrideResponse,
 });
 
 export const getGetWorkCellsResponseFilesFailedCellMock = (
   overrideResponse: Partial<FilesFailedCell> = {},
 ): FilesFailedCell => ({
-  ...{ state: faker.helpers.arrayElement(["failed"] as const) },
+  ...{
+    edition: faker.helpers.arrayElement(["standard"] as const),
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["failed"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
   ...overrideResponse,
 });
 
@@ -36,13 +57,18 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
   overrideResponse: Partial<FilesMetCell> = {},
 ): FilesMetCell => ({
   ...{
+    edition: faker.helpers.arrayElement(["standard"] as const),
     file: {
       id: faker.string.uuid(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),
       probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
       size: faker.number.int({ min: 0 }),
     },
+    itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["met"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });

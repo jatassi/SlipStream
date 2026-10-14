@@ -1,4 +1,6 @@
 import type { LiveEventFilesChanged } from "./liveEventFilesChanged.ts";
+import type { LiveEventGrabsChanged } from "./liveEventGrabsChanged.ts";
+import type { LiveEventGrabsSearchChanged } from "./liveEventGrabsSearchChanged.ts";
 import type { LiveEventIdentitySessionsChanged } from "./liveEventIdentitySessionsChanged.ts";
 import type { LiveEventIndexersChanged } from "./liveEventIndexersChanged.ts";
 import type { LiveEventLiveResync } from "./liveEventLiveResync.ts";
@@ -11,6 +13,8 @@ import type { LiveEventWorksContentTypesChanged } from "./liveEventWorksContentT
 
 export type LiveEvent =
   | LiveEventFilesChanged
+  | LiveEventGrabsChanged
+  | LiveEventGrabsSearchChanged
   | LiveEventIdentitySessionsChanged
   | LiveEventIndexersChanged
   | LiveEventLiveResync

@@ -46,6 +46,8 @@ type Side struct {
 	Log     *slog.Logger
 	// Net wraps the Node's Host for its dials, as a recorder does.
 	Net func(*fault.Host) link.Network
+	// Streams serves stream kinds beside the link's own.
+	Streams map[link.Kind]func(peer link.Key, s link.Stream)
 }
 
 type Node struct {
@@ -105,6 +107,9 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	for kind, h := range side.Streams {
+		l.HandleStream(kind, h)
 	}
 	n.Link = l
 	ctx, cancel := context.WithCancel(context.Background())

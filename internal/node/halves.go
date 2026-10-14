@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -47,6 +48,10 @@ type half struct {
 	roots    *roots.Roots
 	files    *files.Files
 	grabs    *grabs.Grabs
+	// transfers receives files on the Controller, and source serves them
+	// on a Worker.
+	transfers *transfers.Receiver
+	source    *transfers.Source
 }
 
 // startController starts the Controller half: the control half, its own
@@ -133,6 +138,9 @@ func (n *Node) startController(ctx context.Context) error {
 		roots:   roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:   shelf,
 		grabs:   pipeline,
+		transfers: transfers.NewReceiver(transfers.Config{
+			Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers,
+		}),
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("grabs", pipeline.Run)
@@ -184,7 +192,12 @@ func (n *Node) startWorker(ctx context.Context) error {
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch})
+	n.setHalf(&half{peers: side, dispatch: dispatch, source: transfers.NewSource(transfers.SourceConfig{
+		Payloads:   n.downloads,
+		Controller: controller.Key,
+		Hooks:      n.env.Test.Transfers,
+		Log:        n.rootLog.With("subsystem", "transfers"),
+	})})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local})
@@ -240,6 +253,18 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 		return h.peers.Pair(ctx, peer, req)
 	}
 	return notAController(), nil
+}
+
+// claimStreams serves Transfer streams with the Worker half's source, and
+// resets them on any other Node.
+type claimStreams struct{ n *Node }
+
+func (c claimStreams) transfer(peer link.Key, s link.Stream) {
+	if h := c.n.half.Load(); h != nil && h.source != nil {
+		h.source.Serve(peer, s)
+		return
+	}
+	_ = s.Reset()
 }
 
 func notAController() *linkv1.PairResponse {

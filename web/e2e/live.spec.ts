@@ -37,13 +37,11 @@ test("a sign-in from another browser refreshes this tab's session once", async (
   // The guard reads the session, and the stream's opening resync refetches it.
   await expect.poll(() => sessionReads.length).toBe(2);
 
-  const { email, pin, displayName } = world.admin();
+  const { email, pin } = world.admin();
   const elsewhere = await (await newContext()).newPage();
   await elsewhere.goto("/sign-in");
   await elsewhere.getByLabel("Email").fill(email);
   await elsewhere.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially(pin);
-  await expect(
-    elsewhere.getByRole("heading", { name: `Signed in as ${displayName}` }),
-  ).toBeVisible();
+  await expect(elsewhere.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect.poll(() => sessionReads.length).toBe(3);
 });

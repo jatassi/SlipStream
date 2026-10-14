@@ -45,9 +45,7 @@ test("a wrong PIN shows the server's title and clears the PIN, and the right one
   await expect.element(page.getByRole("textbox", { name: "PIN", exact: true })).toHaveValue("");
 
   await typePin("1234");
-  await expect
-    .element(page.getByRole("heading", { name: "Signed in as Ada Okafor" }))
-    .toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(router.state.location.href).toBe("/");
 });
 

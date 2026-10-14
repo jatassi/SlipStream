@@ -257,9 +257,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(admin.email);
     await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially(admin.pin);
-    await expect(
-      page.getByRole("heading", { name: `Signed in as ${admin.displayName}` }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
     await page.context().storageState({ path: join(world.manifest.runDir, "admin.json") });
     await use(page);
   },

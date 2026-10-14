@@ -9,21 +9,36 @@ export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
 export const FilesMissingCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
   state: zod.enum(["missing"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
 export type FilesMissingCellOutput = zod.output<typeof FilesMissingCell>;
 
 export const FilesDownloadingCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
   state: zod.enum(["downloading"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
 export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
 
 export const FilesFailedCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
   state: zod.enum(["failed"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
@@ -54,8 +69,13 @@ export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
 
 export const FilesMetCell = zod.object({
+  edition: zod.enum(["standard"]),
   file: FilesLibraryFile.describe("The file filling it"),
+  itemId: zod.uuid(),
   state: zod.enum(["met"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
 });
 
 export type FilesMetCell = zod.input<typeof FilesMetCell>;
@@ -84,6 +104,154 @@ export const FilesChanged = zod.object({
 
 export type FilesChanged = zod.input<typeof FilesChanged>;
 export type FilesChangedOutput = zod.output<typeof FilesChanged>;
+
+export const GrabsChanged = zod.object({
+  grabId: zod.uuid(),
+  workId: zod.uuid(),
+});
+
+export type GrabsChanged = zod.input<typeof GrabsChanged>;
+export type GrabsChangedOutput = zod.output<typeof GrabsChanged>;
+
+export const GrabsEntered = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  stage: zod.enum([
+    "fetching",
+    "downloading",
+    "probing",
+    "transferring",
+    "importing",
+    "imported",
+    "failed",
+  ]),
+});
+
+export type GrabsEntered = zod.input<typeof GrabsEntered>;
+export type GrabsEnteredOutput = zod.output<typeof GrabsEntered>;
+
+export const GrabsFailure = zod.object({
+  code: zod.enum([
+    "indexer_unavailable",
+    "torrent_unreachable",
+    "torrent_invalid",
+    "infohash_mismatch",
+    "torrent_v2_only",
+    "no_download_client",
+    "download_failed",
+    "no_video_file",
+    "probe_failed",
+    "fills_nothing",
+    "transfer_failed",
+    "import_failed",
+  ]),
+  message: zod.string(),
+  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+});
+
+export type GrabsFailure = zod.input<typeof GrabsFailure>;
+export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
+
+export const grabsProgressDoneMin = 0;
+
+export const grabsProgressTotalMin = 0;
+
+export const GrabsProgress = zod.object({
+  done: zod.int().min(grabsProgressDoneMin).describe("Bytes downloaded"),
+  total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
+});
+
+export type GrabsProgress = zod.input<typeof GrabsProgress>;
+export type GrabsProgressOutput = zod.output<typeof GrabsProgress>;
+
+export const grabsGrabReleaseSizeMin = 0;
+
+export const GrabsGrab = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+  edition: zod.enum(["standard"]),
+  failure: GrabsFailure.describe("Why it failed, null unless it did"),
+  history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
+  id: zod.uuid(),
+  indexerId: zod.uuid(),
+  infoHash: zod
+    .string()
+    .nullable()
+    .describe("The v1 info hash in hex, null until the .torrent is fetched"),
+  itemId: zod.uuid(),
+  nodeId: zod.uuid().describe("The Node that downloads it: the Indexer's home Node"),
+  progress: GrabsProgress.describe(
+    "The download's progress, null unless it is downloading and its Node reported it",
+  ),
+  releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
+  releaseTitle: zod.string(),
+  stage: zod.enum([
+    "fetching",
+    "downloading",
+    "probing",
+    "transferring",
+    "importing",
+    "imported",
+    "failed",
+  ]),
+  targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
+  workId: zod.uuid(),
+});
+
+export type GrabsGrab = zod.input<typeof GrabsGrab>;
+export type GrabsGrabOutput = zod.output<typeof GrabsGrab>;
+
+export const GrabsGrabList = zod.object({
+  grabs: zod.array(GrabsGrab).describe("Newest first"),
+});
+
+export type GrabsGrabList = zod.input<typeof GrabsGrabList>;
+export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
+
+export const grabsSearchCandidatesMin = 0;
+
+export const GrabsSearch = zod.object({
+  candidates: zod.int().min(grabsSearchCandidatesMin).describe("The releases the Indexer answered"),
+  finishedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while the run searches"),
+  grabId: zod.uuid().nullable().describe("The Grab the run made, null when none"),
+  id: zod.uuid(),
+  indexerId: zod.uuid(),
+  itemId: zod.uuid(),
+  outcome: zod
+    .union([
+      zod.literal("grabbed"),
+      zod.literal("nothing_acceptable"),
+      zod.literal("indexer_unavailable"),
+      zod.literal("indexer_refused"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null while the run searches"),
+  startedAt: zod.iso.datetime({ offset: true }),
+});
+
+export type GrabsSearch = zod.input<typeof GrabsSearch>;
+export type GrabsSearchOutput = zod.output<typeof GrabsSearch>;
+
+export const GrabsSearchChanged = zod.object({
+  searchId: zod.uuid(),
+  workId: zod.uuid(),
+});
+
+export type GrabsSearchChanged = zod.input<typeof GrabsSearchChanged>;
+export type GrabsSearchChangedOutput = zod.output<typeof GrabsSearchChanged>;
+
+export const GrabsSearchList = zod.object({
+  searches: zod.array(GrabsSearch).describe("Newest first"),
+});
+
+export type GrabsSearchList = zod.input<typeof GrabsSearchList>;
+export type GrabsSearchListOutput = zod.output<typeof GrabsSearchList>;
+
+export const GrabsSearchStarted = zod.object({
+  searchIds: zod.array(zod.string()).describe("One run per Item with a wanted cell"),
+});
+
+export type GrabsSearchStarted = zod.input<typeof GrabsSearchStarted>;
+export type GrabsSearchStartedOutput = zod.output<typeof GrabsSearchStarted>;
 
 export const identityAccountDisplayNameMax = 100;
 
@@ -625,14 +793,23 @@ export const WorksLevel = zod.object({
 export type WorksLevel = zod.input<typeof WorksLevel>;
 export type WorksLevelOutput = zod.output<typeof WorksLevel>;
 
+export const worksTreeContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
 export const WorksTree = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  contentType: zod.string().regex(worksTreeContentTypeRegExp),
   fields: zod.array(WorksFieldValue),
+  id: zod.uuid(),
   items: zod
     .array(WorksItem)
     .describe("By their level's order, live before withdrawn, then position"),
+  key: zod.string(),
+  label: zod.string(),
   levels: zod
     .array(WorksLevel)
     .describe("By depth, then their parent's order, live before withdrawn, then position"),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  sortLabel: zod.string(),
 });
 
 export type WorksTree = zod.input<typeof WorksTree>;
@@ -724,6 +901,22 @@ export const WorksEnabled = zod.object({
 export type WorksEnabled = zod.input<typeof WorksEnabled>;
 export type WorksEnabledOutput = zod.output<typeof WorksEnabled>;
 
+export const worksListedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksListedWork = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  contentType: zod.string().regex(worksListedWorkContentTypeRegExp),
+  fields: zod.array(WorksFieldValue).describe("The Work's own fields"),
+  id: zod.uuid(),
+  key: zod.string(),
+  label: zod.string(),
+  refreshedAt: zod.iso.datetime({ offset: true }),
+  sortLabel: zod.string(),
+});
+
+export type WorksListedWork = zod.input<typeof WorksListedWork>;
+export type WorksListedWorkOutput = zod.output<typeof WorksListedWork>;
+
 export const worksNewWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const worksNewWorkKeyMax = 200;
 
@@ -743,21 +936,6 @@ export const WorksNewWork = zod.object({
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
 
-export const worksWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-
-export const WorksWork = zod.object({
-  addedAt: zod.iso.datetime({ offset: true }),
-  contentType: zod.string().regex(worksWorkContentTypeRegExp),
-  id: zod.uuid(),
-  key: zod.string(),
-  label: zod.string(),
-  refreshedAt: zod.iso.datetime({ offset: true }),
-  sortLabel: zod.string(),
-});
-
-export type WorksWork = zod.input<typeof WorksWork>;
-export type WorksWorkOutput = zod.output<typeof WorksWork>;
-
 export const WorksWorkChanged = zod.object({
   workId: zod.uuid(),
 });
@@ -766,7 +944,7 @@ export type WorksWorkChanged = zod.input<typeof WorksWorkChanged>;
 export type WorksWorkChangedOutput = zod.output<typeof WorksWorkChanged>;
 
 export const WorksWorkList = zod.object({
-  works: zod.array(WorksWork).describe("By sort label, then id"),
+  works: zod.array(WorksListedWork).describe("By sort label, then id"),
 });
 
 export type WorksWorkList = zod.input<typeof WorksWorkList>;
@@ -779,6 +957,22 @@ export const LiveEventFilesChanged = zod.object({
 
 export type LiveEventFilesChanged = zod.input<typeof LiveEventFilesChanged>;
 export type LiveEventFilesChangedOutput = zod.output<typeof LiveEventFilesChanged>;
+
+export const LiveEventGrabsChanged = zod.object({
+  event: zod.enum(["grabs.changed"]),
+  data: GrabsChanged,
+});
+
+export type LiveEventGrabsChanged = zod.input<typeof LiveEventGrabsChanged>;
+export type LiveEventGrabsChangedOutput = zod.output<typeof LiveEventGrabsChanged>;
+
+export const LiveEventGrabsSearchChanged = zod.object({
+  event: zod.enum(["grabs.search-changed"]),
+  data: GrabsSearchChanged,
+});
+
+export type LiveEventGrabsSearchChanged = zod.input<typeof LiveEventGrabsSearchChanged>;
+export type LiveEventGrabsSearchChangedOutput = zod.output<typeof LiveEventGrabsSearchChanged>;
 
 export const LiveEventIdentitySessionsChanged = zod.object({
   event: zod.enum(["identity.sessions-changed"]),
@@ -858,6 +1052,8 @@ export type LiveEventWorksContentTypesChangedOutput = zod.output<
 
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
+  LiveEventGrabsChanged,
+  LiveEventGrabsSearchChanged,
   LiveEventIdentitySessionsChanged,
   LiveEventIndexersChanged,
   LiveEventLiveResync,

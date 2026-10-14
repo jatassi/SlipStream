@@ -162,7 +162,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
 	}
 	code, list := s.call(t, http.MethodGet, "/api/v1/works?contentType=fixture", "")
-	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T"}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
+	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","fields":[{"key":"origin","kind":"text","text":"Grandma"}]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
 		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")

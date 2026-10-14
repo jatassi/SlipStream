@@ -19,6 +19,7 @@ import (
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/node/v1/nodev1connect"
+	"github.com/jatassi/slipstream/internal/rpc"
 )
 
 // syncer is a lockstep SyncService that acks one frame with the caller's
@@ -183,15 +184,100 @@ func TestAStreamOfAnUnknownKindIsReset(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := linktest.New(t, linktest.Side{Lockstep: lockstep(make(chan link.Key, 1))}, linktest.Side{})
 		p.Connect(t)
-		st, err := p.Worker.OpenStream(t.Context(), p.Controller.Key, 2)
+		st, err := p.Worker.OpenStream(t.Context(), p.Controller.Key, 3)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err := st.Read(make([]byte, 1)); err == nil || err.Error() != "stream reset by remote, error code: 0" {
-			t.Fatalf("reading a kind-2 stream = %v", err)
+			t.Fatalf("reading a kind-3 stream = %v", err)
 		}
 		if seq, err := syncOnce(t.Context(), p.Worker.Link, p.Controller.Key); err != nil || seq != 1 {
 			t.Fatalf("a call after the reset = %d, %v", seq, err)
 		}
 	})
+}
+
+// record serves a stream by reporting its peer and closing it.
+func record(peers chan link.Key) map[link.Kind]func(link.Key, link.Stream) {
+	return map[link.Kind]func(link.Key, link.Stream){
+		link.KindTransfer: func(peer link.Key, s link.Stream) {
+			peers <- peer
+			_ = s.Close()
+		},
+	}
+}
+
+func TestATransferStreamReachesItsHandler(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		peers := make(chan link.Key, 1)
+		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: record(peers)})
+		p.Connect(t)
+		st, err := p.Controller.OpenStream(t.Context(), p.Worker.Key, link.KindTransfer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+			t.Fatalf("reading a stream its handler closed = %v", err)
+		}
+		if peer := <-peers; peer != p.Controller.Key {
+			t.Fatalf("the handler saw %s, want the Controller", peer.Fingerprint())
+		}
+	})
+}
+
+func TestATransferStreamWithNoSessionIsNotSent(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: record(make(chan link.Key, 1))})
+		_, err := p.Controller.OpenStream(t.Context(), p.Worker.Key, link.KindTransfer)
+		if why, ok := rpc.NotSent(err); !ok || why != rpc.Disconnected {
+			t.Fatalf("opening with no session = %v, want it not sent as disconnected", err)
+		}
+	})
+}
+
+// Each side refuses: the opener before sending, and the acceptor for a
+// peer that opened anyway.
+func TestATransferStreamBetweenVersionsIsRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		peers := make(chan link.Key, 1)
+		p := linktest.New(t, linktest.Side{Version: "0.0.0-a"}, linktest.Side{Version: "0.0.0-b", Streams: record(peers)})
+		p.Connect(t)
+		_, err := p.Controller.OpenStream(t.Context(), p.Worker.Key, link.KindTransfer)
+		if why, ok := rpc.NotSent(err); !ok || why != rpc.Mismatched {
+			t.Fatalf("opening between versions = %v, want it not sent as mismatched", err)
+		}
+		st, err := p.Controller.RawStream(t.Context(), p.Worker.Key, link.KindTransfer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.Read(make([]byte, 1)); err == nil || err.Error() != "stream reset by remote, error code: 0" {
+			t.Fatalf("reading a stream opened between versions = %v", err)
+		}
+		expectNoPeer(t, peers)
+	})
+}
+
+func TestATransferStreamOnAnUnwelcomedSessionIsRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		peers := make(chan link.Key, 1)
+		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: record(peers)})
+		st, err := p.Controller.UnwelcomedStream(t.Context(), p.Worker.Target(), link.KindTransfer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.Read(make([]byte, 1)); err == nil {
+			t.Fatal("a stream on a session with no Hello was served")
+		}
+		expectNoPeer(t, peers)
+	})
+}
+
+func expectNoPeer(t *testing.T, peers chan link.Key) {
+	t.Helper()
+	synctest.Wait()
+	select {
+	case peer := <-peers:
+		t.Fatalf("the handler served %s", peer.Fingerprint())
+	default:
+	}
 }

@@ -17,7 +17,7 @@ type Kind byte
 // relay forwards.
 const RPC Kind = 1
 
-func Open(ctx context.Context, s *mux.Session, k Kind) (net.Conn, error) {
+func Open(ctx context.Context, s *mux.Session, k Kind) (mux.Stream, error) {
 	st, err := s.Open(ctx)
 	if err != nil {
 		return nil, err

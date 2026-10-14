@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -119,6 +120,7 @@ type TimingsBlock struct {
 	Role        role.Timings        `yaml:"role"`
 	Works       works.Timings       `yaml:"works"`
 	Indexers    indexers.Timings    `yaml:"indexers"`
+	Transfers   transfers.Timings   `yaml:"transfers"`
 	Grabs       grabs.Timings       `yaml:"grabs"`
 	Downloading downloading.Timings `yaml:"downloading"`
 	Media       media.Timings       `yaml:"media"`
@@ -165,6 +167,7 @@ func Defaults(types contenttype.Set) Config {
 			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
 			Works:       works.DefaultTimings(),
 			Indexers:    indexers.DefaultTimings(),
+			Transfers:   transfers.DefaultTimings(),
 			Grabs:       grabs.DefaultTimings(),
 			Downloading: downloading.DefaultTimings(),
 			Media:       media.DefaultTimings(),

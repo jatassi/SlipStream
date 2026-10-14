@@ -5,7 +5,6 @@ package downloading
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -20,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -34,7 +34,8 @@ type Timings struct {
 
 func DefaultTimings() Timings { return Timings{Facts: time.Second} }
 
-var ErrNotPresent = errors.New("the torrent is not in this Node's client")
+// ErrNotPresent is a torrent this Node's client hasn't finished.
+var ErrNotPresent = transfers.ErrNotPresent
 
 type Config struct {
 	Engine engine.Engine
@@ -109,12 +110,12 @@ func (c *Client) note(ev engine.Event) {
 }
 
 // Path is where file index of torrent h lies on this Node, ErrNotPresent
-// while the client doesn't hold h.
+// until the client finished h.
 func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 	c.mu.Lock()
-	handle, ok := c.byHash[h]
+	handle, finished := c.byHash[h], c.finished[h]
 	c.mu.Unlock()
-	if !ok {
+	if !finished {
 		return "", ErrNotPresent
 	}
 	files, err := c.cfg.Engine.Files(handle)
