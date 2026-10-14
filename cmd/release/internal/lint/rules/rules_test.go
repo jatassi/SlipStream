@@ -324,7 +324,7 @@ func TestFakesWired(t *testing.T) {
 
 func TestDeadlineWaits(t *testing.T) {
 	const (
-		until    = " in the end-to-end tier; wait on a condition with worldtest.Until"
+		until    = " in the end-to-end tier; wait on a condition with worldtest.Until or on a record with events.Wait"
 		context  = " in the end-to-end tier; take the context from worldtest.Context"
 		unlinked = " without an issue link; a flaky test gets an issue first"
 	)
@@ -344,6 +344,7 @@ func TestDeadlineWaits(t *testing.T) {
 		"e2e/helpers.go:10: [deadline-waits] time.NewTicker" + until,
 		"e2e/helpers.go:13: [deadline-waits] (*testing.T).Context" + context,
 		"e2e/helpers.go:14: [deadline-waits] time.Tick" + until,
+		"fakes/events/log.go:5: [deadline-waits] time.Sleep" + until,
 		"fakes/world/world.go:9: [deadline-waits] time.NewTimer" + until,
 		"fakes/world/world.go:10: [deadline-waits] time.AfterFunc" + until,
 		"fakes/world/world.go:12: [deadline-waits] context.Background" + context,

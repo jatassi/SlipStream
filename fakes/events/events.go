@@ -1,14 +1,42 @@
-// Package events is the shape of a run's event log, events.jsonl: one
-// Record per line, in the order its one writer appended them, and the
-// Query that readers and fault triggers select records with.
+// Package events is a run's event log, events.jsonl: one Record per line,
+// in the order its one writer, Log, appended them. Readers, fault triggers
+// and the journal are all reads of that file, so they work the same on a
+// live run, a stopped run and a downloaded bundle.
 package events
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"maps"
 	"path"
+	"slices"
+	"strings"
 	"time"
 )
+
+// File is the event log's name in a run dir.
+const File = "events.jsonl"
+
+// The kinds the world writes.
+const (
+	RunLaunched  = "run.launched"
+	RunReady     = "run.ready"
+	RunStopping  = "run.stopping"
+	RunStopped   = "run.stopped"
+	NodeSpawned  = "node.spawned"
+	NodeReady    = "node.ready"
+	NodeExited   = "node.exited"
+	NodeError    = "node.error"
+	FaultSet     = "fault.set"
+	FaultCleared = "fault.cleared"
+	FaultFired   = "fault.fired"
+	StepStart    = "step.start"
+	StepEnd      = "step.end"
+)
+
+// World is the Node of a record the harness itself wrote.
+const World = "world"
 
 type Record struct {
 	// Seq is 1, 2, 3 … with no gaps within a run.
@@ -70,4 +98,25 @@ func text(raw json.RawMessage) string {
 	var b bytes.Buffer
 	_ = json.Compact(&b, raw) // raw is a field of an object that decoded, so it is valid JSON
 	return b.String()
+}
+
+// String is q as a reader's flags would write it, for messages.
+func (q Query) String() string {
+	var parts []string
+	if q.Kind != "" {
+		parts = append(parts, "kind "+q.Kind)
+	}
+	if q.Node != "" {
+		parts = append(parts, "node "+q.Node)
+	}
+	for _, k := range slices.Sorted(maps.Keys(q.Match)) {
+		parts = append(parts, k+"="+q.Match[k])
+	}
+	if q.After > 0 {
+		parts = append(parts, fmt.Sprintf("after seq %d", q.After))
+	}
+	if len(parts) == 0 {
+		return "any record"
+	}
+	return strings.Join(parts, ", ")
 }
