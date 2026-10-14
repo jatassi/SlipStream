@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -70,13 +72,55 @@ func (o Origin) MarshalText() ([]byte, error) { return []byte(o.origin), nil }
 
 func (o Origin) String() string { return o.origin }
 
-// NewServer is the Node's one http.Server. WriteTimeout stays zero because
-// streams are long-lived; Huma bounds each operation's body read.
-func NewServer(h http.Handler, t Timings, log *slog.Logger) *http.Server {
-	return &http.Server{
+// Server is the Node's one http.Server. Its Shutdown also closes each
+// connection that has not begun a request, which net/http would otherwise
+// wait five seconds on: a browser opens such spare connections and may never
+// use them.
+type Server struct {
+	*http.Server
+
+	mu       sync.Mutex
+	fresh    map[net.Conn]struct{}
+	stopping bool
+}
+
+// NewServer builds the Server. WriteTimeout stays zero because streams are
+// long-lived; Huma bounds each operation's body read.
+func NewServer(h http.Handler, t Timings, log *slog.Logger) *Server {
+	s := &Server{fresh: make(map[net.Conn]struct{})}
+	s.Server = &http.Server{
 		Handler:           h,
 		ReadHeaderTimeout: t.ReadHeader,
 		IdleTimeout:       t.Idle,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
+		ConnState:         s.track,
 	}
+	return s
+}
+
+func (s *Server) track(c net.Conn, state http.ConnState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch {
+	case state != http.StateNew:
+		delete(s.fresh, c)
+	case s.stopping:
+		_ = c.Close()
+	default:
+		s.fresh[c] = struct{}{}
+	}
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.mu.Lock()
+	s.stopping = true
+	for c := range s.fresh {
+		_ = c.Close()
+	}
+	clear(s.fresh)
+	s.mu.Unlock()
+	if err := s.Server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("shut down HTTP: %w", err)
+	}
+	return nil
 }
