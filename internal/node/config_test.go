@@ -28,11 +28,13 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		paths = append(paths, leaf.Path)
 	}
 	want := []string{
-		"seed", "name", "torrent.listen", "http.listen", "http.trusted_origins", "link.listen", "link.stream_window", "join.code",
+		"seed", "name", "torrent.listen", "torrent.downloads", "http.listen", "http.trusted_origins", "link.listen", "link.stream_window", "join.code",
+		"endpoints.tmdb.api",
 		"timings.node.stop_deadline", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay",
-		"timings.role.restart_min", "timings.role.restart_max", "timings.works.fetch",
+		"timings.role.restart_min", "timings.role.restart_max", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
+		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.downloading.facts", "timings.media.probe",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
@@ -135,7 +137,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 	cfg := Defaults(types)
 	var paths []string
 	for _, leaf := range config.Walk(&cfg) {
-		if strings.HasPrefix(leaf.Path, "endpoints.") {
+		if strings.HasPrefix(leaf.Path, "endpoints.content_types.") {
 			paths = append(paths, leaf.Path+" "+leaf.Env())
 		}
 	}
@@ -149,7 +151,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
 		t.Fatalf("resolved = %+v; want %+v, the key in the census and contentTypes [fixture]", resolved, key)
 	}
 
@@ -159,8 +161,8 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv}
-	if !slices.Contains(resolved.Keys, key) || len(resolved.Census) != 0 {
-		t.Fatalf("resolved = %+v; want %+v and an empty census", resolved, key)
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api"}) {
+		t.Fatalf("resolved = %+v; want %+v and only endpoints.tmdb.api in the census", resolved, key)
 	}
 	cfg, _, err = LoadConfig(env.DataDir, env.Environ, types)
 	if err != nil {
@@ -183,7 +185,7 @@ func TestAnUnregisteredContentTypesKeyIsUnknown(t *testing.T) {
 		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
 	}
 	_, _, err = LoadConfig(dir, nil, noTypes)
-	if want := "config.yaml:1: endpoints: unknown key"; err == nil || err.Error() != want {
+	if want := "config.yaml:2: endpoints.content_types: unknown key"; err == nil || err.Error() != want {
 		t.Fatalf("with no types, err = %v, want %q", err, want)
 	}
 }

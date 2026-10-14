@@ -176,6 +176,64 @@
           },
           "additionalProperties": false,
           "type": "object"
+        },
+        "indexers": {
+          "properties": {
+            "request": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "transfers": {
+          "properties": {
+            "chunk": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "grabs": {
+          "properties": {
+            "retry_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "progress": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "downloading": {
+          "properties": {
+            "facts": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "media": {
+          "properties": {
+            "probe": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -329,6 +387,227 @@
       "required": [
         "artists"
       ]
+    },
+    "tmdb": {
+      "properties": {
+        "movies": {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "imdb_id": {
+                "type": "string",
+                "pattern": "^tt[0-9]{7,}$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "released": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "runtime": {
+                "type": "string",
+                "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "imdb_id",
+              "title",
+              "released",
+              "runtime"
+            ]
+          },
+          "type": "array",
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "movies"
+      ]
+    },
+    "releases": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "tmdb_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "video": {
+            "properties": {
+              "width": {
+                "type": "integer",
+                "multipleOf": 2,
+                "maximum": 7680,
+                "minimum": 2
+              },
+              "height": {
+                "type": "integer",
+                "multipleOf": 2,
+                "maximum": 4320,
+                "minimum": 2
+              },
+              "seconds": {
+                "type": "integer",
+                "maximum": 60,
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "width",
+              "height",
+              "seconds"
+            ]
+          },
+          "seeders": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "seeded": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "tmdb_id",
+          "video"
+        ]
+      },
+      "type": "array"
+    },
+    "tracker": {
+      "properties": {
+        "interval": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "library": {
+      "properties": {
+        "roots": {
+          "items": {
+            "properties": {
+              "content_type": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]{1,15}$"
+              },
+              "folder": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "content_type",
+              "folder"
+            ]
+          },
+          "type": "array"
+        },
+        "targets": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "resolutions": {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "2160p",
+                    "1080p",
+                    "720p",
+                    "576p",
+                    "480p"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "resolutions"
+            ]
+          },
+          "type": "array"
+        },
+        "profiles": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "content_type": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]{1,15}$"
+              },
+              "targets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "content_type",
+              "targets"
+            ]
+          },
+          "type": "array"
+        },
+        "indexers": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "site": {
+                "type": "string",
+                "enum": [
+                  "fixture-site"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "site"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     }
   },
   "additionalProperties": false,

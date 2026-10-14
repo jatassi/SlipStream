@@ -1,5 +1,6 @@
 // Package testbin finds a binary under test: the path a test variable
-// names, or one build per test process. The variables carry no SLIPSTREAM_
+// names, or one build per test process with the bundled tool programs
+// beside it, as a release places them. The variables carry no SLIPSTREAM_
 // prefix, so they never reach a Node's strict loader.
 package testbin
 
@@ -7,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -14,6 +16,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 )
 
@@ -31,7 +34,15 @@ var (
 	e2e        = &binary{variable: "TEST_SLIPSTREAM_E2E_BINARY", pkg: "./cmd/slipstream-e2e"}
 
 	buildDir string
+	tools    struct {
+		once sync.Once
+		err  error
+	}
 )
+
+// toolsVariable is the variable go run ./cmd/release test and deps env set
+// to the path of every tool program the native bundle ships.
+const toolsVariable = "SLIPSTREAM_NATIVE_TOOLS"
 
 // Run runs the package's tests and then removes the binaries this process
 // built. A package whose tests call Slipstream, E2E or Fakeworld calls it
@@ -78,6 +89,10 @@ func (b *binary) find(t testing.TB) string {
 		}
 		if buildDir == "" {
 			b.err = fmt.Errorf("%s is unset and nothing can build %s: call testbin.Run from TestMain", b.variable, b.pkg)
+			return
+		}
+		tools.once.Do(func() { tools.err = placeTools(buildDir) })
+		if b.err = tools.err; b.err != nil {
 			return
 		}
 		b.path, b.err = build(t.Context(), buildDir, b.pkg)
@@ -129,6 +144,51 @@ func build(ctx context.Context, dir, pkg string, flags ...string) (string, error
 		return "", fmt.Errorf("go build %s: %w\n%s", pkg, err, b)
 	}
 	return out, nil
+}
+
+// PlaceTools copies the native bundle's tool programs into dir, beside a
+// slipstream Build put there, which refuses to run without them.
+func PlaceTools(t testing.TB, dir string) {
+	t.Helper()
+	if err := placeTools(dir); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// placeTools copies the native bundle's tool programs into dir.
+func placeTools(dir string) error {
+	list, ok := os.LookupEnv(toolsVariable)
+	if !ok {
+		return fmt.Errorf("%s is unset: run the tests with go run ./cmd/release test, or eval \"$(go run ./cmd/release deps env)\" first", toolsVariable)
+	}
+	for _, src := range filepath.SplitList(list) {
+		if err := copyProgram(src, filepath.Join(dir, filepath.Base(src))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyProgram(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("%s: %w", toolsVariable, err)
+	}
+	defer func() { _ = in.Close() }()
+	syscall.ForkLock.RLock()
+	defer syscall.ForkLock.RUnlock()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o755) //nolint:gosec // a tool program must be executable
+	if err != nil {
+		return fmt.Errorf("place %s: %w", filepath.Base(src), err)
+	}
+	_, err = io.Copy(out, in)
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fmt.Errorf("place %s: %w", filepath.Base(src), err)
+	}
+	return nil
 }
 
 var root struct {

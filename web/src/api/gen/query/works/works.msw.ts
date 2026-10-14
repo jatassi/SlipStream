@@ -150,12 +150,64 @@ export const getSetContentTypeEnabledResponseMock = (
   ...overrideResponse,
 });
 
+export const getListWorksResponseWorksTextValueMock = (
+  overrideResponse: Partial<WorksTextValue> = {},
+): WorksTextValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["text"] as const),
+    text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getListWorksResponseWorksNumberValueMock = (
+  overrideResponse: Partial<WorksNumberValue> = {},
+): WorksNumberValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["number"] as const),
+    number: faker.number.float({ fractionDigits: 2 }),
+  },
+  ...overrideResponse,
+});
+
+export const getListWorksResponseWorksDateValueMock = (
+  overrideResponse: Partial<WorksDateValue> = {},
+): WorksDateValue => ({
+  ...{
+    date: faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["date"] as const),
+  },
+  ...overrideResponse,
+});
+
+export const getListWorksResponseWorksDurationValueMock = (
+  overrideResponse: Partial<WorksDurationValue> = {},
+): WorksDurationValue => ({
+  ...{
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    ms: faker.number.int({ min: 0 }),
+  },
+  ...overrideResponse,
+});
+
 export const getListWorksResponseMock = (
   overrideResponse: Partial<Extract<WorksWorkList, object>> = {},
 ): WorksWorkList => ({
   works: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+    fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.helpers.arrayElement([
+        { ...getListWorksResponseWorksTextValueMock() },
+        { ...getListWorksResponseWorksNumberValueMock() },
+        { ...getListWorksResponseWorksDateValueMock() },
+        { ...getListWorksResponseWorksDurationValueMock() },
+      ]),
+    ),
     id: faker.string.uuid(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -214,6 +266,8 @@ export const getAddWorkResponseMock = (
 ): WorksAdded => ({
   created: faker.datatype.boolean(),
   work: {
+    addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
         { ...getAddWorkResponseWorksTextValueMock() },
@@ -222,6 +276,7 @@ export const getAddWorkResponseMock = (
         { ...getAddWorkResponseWorksDurationValueMock() },
       ]),
     ),
+    id: faker.string.uuid(),
     items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -237,6 +292,7 @@ export const getAddWorkResponseMock = (
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        monitored: faker.datatype.boolean(),
         position: faker.number.int({ min: 1 }),
         withdrawnAt: faker.helpers.arrayElement([
           faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -244,6 +300,8 @@ export const getAddWorkResponseMock = (
         ]),
       }),
     ),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         depth: faker.number.int({ min: 1 }),
@@ -267,6 +325,8 @@ export const getAddWorkResponseMock = (
         ]),
       }),
     ),
+    refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   ...overrideResponse,
 });
@@ -318,6 +378,8 @@ export const getGetWorkResponseWorksDurationValueMock = (
 export const getGetWorkResponseMock = (
   overrideResponse: Partial<Extract<WorksTree, object>> = {},
 ): WorksTree => ({
+  addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getGetWorkResponseWorksTextValueMock() },
@@ -326,6 +388,7 @@ export const getGetWorkResponseMock = (
       { ...getGetWorkResponseWorksDurationValueMock() },
     ]),
   ),
+  id: faker.string.uuid(),
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
@@ -339,12 +402,15 @@ export const getGetWorkResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    monitored: faker.datatype.boolean(),
     position: faker.number.int({ min: 1 }),
     withdrawnAt: faker.helpers.arrayElement([
       faker.date.past().toISOString().slice(0, 19) + "Z",
       null,
     ]),
   })),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  label: faker.string.alpha({ length: { min: 10, max: 20 } }),
   levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       depth: faker.number.int({ min: 1 }),
@@ -368,6 +434,8 @@ export const getGetWorkResponseMock = (
       ]),
     }),
   ),
+  refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
 
@@ -418,6 +486,8 @@ export const getRefreshWorkResponseWorksDurationValueMock = (
 export const getRefreshWorkResponseMock = (
   overrideResponse: Partial<Extract<WorksTree, object>> = {},
 ): WorksTree => ({
+  addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getRefreshWorkResponseWorksTextValueMock() },
@@ -426,6 +496,7 @@ export const getRefreshWorkResponseMock = (
       { ...getRefreshWorkResponseWorksDurationValueMock() },
     ]),
   ),
+  id: faker.string.uuid(),
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.helpers.arrayElement([
@@ -439,12 +510,15 @@ export const getRefreshWorkResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     levelId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    monitored: faker.datatype.boolean(),
     position: faker.number.int({ min: 1 }),
     withdrawnAt: faker.helpers.arrayElement([
       faker.date.past().toISOString().slice(0, 19) + "Z",
       null,
     ]),
   })),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  label: faker.string.alpha({ length: { min: 10, max: 20 } }),
   levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       depth: faker.number.int({ min: 1 }),
@@ -468,6 +542,8 @@ export const getRefreshWorkResponseMock = (
       ]),
     }),
   ),
+  refreshedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
 

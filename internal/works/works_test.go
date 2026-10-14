@@ -167,7 +167,7 @@ func sameIDs(t *testing.T, before, after works.Tree) {
 func TestAddTwiceFetchesOnce(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Put("w1", shelf())
-	tree, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	tree, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err != nil || !created {
 		t.Fatalf("first add: created %t, %v; want a new Work", created, err)
 	}
@@ -185,7 +185,7 @@ func TestAddTwiceFetchesOnce(t *testing.T) {
 		t.Fatalf("published %v, want one works.changed for %s", got, tree.ID)
 	}
 
-	again, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	again, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err != nil || created || render(again) != want || again.ID != tree.ID {
 		t.Fatalf("second add: created %t, %v, tree\n%s; want the same Work, not created", created, err, render(again))
 	}
@@ -210,7 +210,7 @@ func TestRacingAddsMakeOneWork(t *testing.T) {
 	results := make(chan result, 2)
 	for range 2 {
 		go func() {
-			tree, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+			tree, created, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 			results <- result{tree, created, err}
 		}()
 	}
@@ -229,7 +229,7 @@ func TestRacingAddsMakeOneWork(t *testing.T) {
 func TestRefreshKeepsEveryID(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Put("w1", shelf())
-	first, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	first, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func encode(t *testing.T, v any) string {
 func TestRefreshOfAWorkTheSourceLostChangesNothing(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Put("w1", shelf())
-	tree, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	tree, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ func TestAnInvalidTreeIsRefusedWhole(t *testing.T) {
 	r := shelf()
 	r.Tree.Children[1].Children = append(r.Tree.Children[1].Children, works.Entry{Key: "c1", Label: "Scarf again"})
 	h.fx.Put("w1", r)
-	_, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	_, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if want := "the metadata source sent a record SlipStream can't use: box b2: two Items have key c1"; err == nil || err.Error() != want || !errors.Is(err, works.ErrInvalid) {
 		t.Fatalf("add = %v, want %q", err, want)
 	}
@@ -349,12 +349,12 @@ func TestAnInvalidTreeIsRefusedWhole(t *testing.T) {
 func TestASourceErrorOutsideTheTwoIsABugOfTheType(t *testing.T) {
 	h := newHarness(t)
 	h.fx.Fail("w1", errors.New("disk on fire"))
-	_, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	_, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if want := "content type fixture: fetch w1: disk on fire"; err == nil || err.Error() != want {
 		t.Fatalf("add = %v, want %q", err, want)
 	}
 	h.fx.Fail("w1", nil)
-	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1"); !errors.Is(err, works.ErrNotFound) {
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false); !errors.Is(err, works.ErrNotFound) {
 		t.Fatalf("add of a key the source lacks = %v, want ErrNotFound", err)
 	}
 }
@@ -364,7 +364,7 @@ func TestAFieldOfTheWrongKindIsABug(t *testing.T) {
 	r := shelf()
 	r.ItemFields["c3"] = []works.FieldValue{works.TextField("count", "one")}
 	h.fx.Put("w1", r)
-	_, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	_, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err == nil || !strings.HasSuffix(err.Error(), ": item c3: field count is text; its spec says number") {
 		t.Fatalf("add = %v, want the mismatched field named", err)
 	}
@@ -376,7 +376,7 @@ func TestSearchMarksWorksAlreadyAdded(t *testing.T) {
 	other := shelf()
 	other.Tree.Label = "The Attic Annex"
 	h.fx.Put("w2", other)
-	tree, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	tree, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 	if _, err := h.works.Search(t.Context(), admin, contenttypetest.ID, "attic"); !errors.Is(err, works.ErrTypeOff) {
 		t.Fatalf("search of an off type = %v, want ErrTypeOff", err)
 	}
-	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1"); !errors.Is(err, works.ErrTypeOff) {
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false); !errors.Is(err, works.ErrTypeOff) {
 		t.Fatalf("add to an off type = %v, want ErrTypeOff", err)
 	}
 	on, err := h.works.SetEnabled(t.Context(), admin, contenttypetest.ID, true)
@@ -437,7 +437,7 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 		t.Fatalf("Enabled = %t, %v; want true", enabled, err)
 	}
 
-	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1"); err != nil {
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := h.works.SetEnabled(t.Context(), admin, contenttypetest.ID, false); !errors.Is(err, works.ErrTypeInUse) {
@@ -451,7 +451,7 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 func TestAnUnregisteredTypeIsNotFound(t *testing.T) {
 	h := newHarness(t)
 	ghost := works.TypeID("ghost")
-	if _, _, err := h.works.Add(t.Context(), admin, ghost, "w1"); !errors.Is(err, works.ErrNoType) {
+	if _, _, err := h.works.Add(t.Context(), admin, ghost, "w1", false); !errors.Is(err, works.ErrNoType) {
 		t.Errorf("add = %v, want ErrNoType", err)
 	}
 	if _, err := h.works.Search(t.Context(), admin, ghost, "x"); !errors.Is(err, works.ErrNoType) {
@@ -482,7 +482,7 @@ func TestARestartReadsTheSameTree(t *testing.T) {
 	fx.Put("w1", shelf())
 	lib := openAt(t, path)
 	w, _ := open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
-	tree, _, err := w.Add(t.Context(), admin, contenttypetest.ID, "w1")
+	tree, _, err := w.Add(t.Context(), admin, contenttypetest.ID, "w1", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -503,7 +503,7 @@ func TestOpenRefusesWorksOfAnUnregisteredType(t *testing.T) {
 	fx := contenttypetest.New()
 	fx.Put("w1", shelf())
 	ghost, _ := open(t, lib, map[works.TypeID]works.Catalog{"ghost": fx})
-	if _, _, err := ghost.Add(t.Context(), admin, "ghost", "w1"); err != nil {
+	if _, _, err := ghost.Add(t.Context(), admin, "ghost", "w1", false); err != nil {
 		t.Fatal(err)
 	}
 	_, err := works.Open(t.Context(), works.Config{Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}})

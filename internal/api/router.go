@@ -132,10 +132,12 @@ type principalKey struct{}
 // Register adds an operation. Its handler receives the principal its
 // level admits. Register panics at start on an id that is not
 // lowerCamelCase or is taken, a level below the owner's floor, an unlimited
-// or overflowing body limit, or a GET or HEAD with a request body.
+// or overflowing body limit, a GET or HEAD with a request body, or an
+// output embedding an unexported struct.
 func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context.Context, P, *I) (*O, error)) {
 	r := o.router
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
+	mustDocumentEmbedded(reflect.TypeFor[O](), map[reflect.Type]bool{})
 	huma.Register(r.huma, hop, func(ctx context.Context, in *I) (out *O, err error) {
 		p := principal[P](ctx, op)
 		defer func() {
@@ -281,9 +283,15 @@ func (r *Router) refusedByClaim(ctx context.Context, a *access) error {
 func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error) error {
 	attrs := []any{"method", op.Method, "path", Prefix + op.Path}
 	code, isCode := err.(*Code) //nolint:errorlint // a handler returns its code itself, never wrapped
+	detail := ""
+	if e, ok := err.(*explained); ok { //nolint:errorlint // as for a bare code
+		code, isCode, detail = e.code, true, e.detail
+	}
 	switch {
 	case isCode && slices.Contains(declared, code):
-		return code.problem()
+		p := code.problem()
+		p.Detail = detail
+		return p
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
 	default:

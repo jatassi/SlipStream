@@ -14,11 +14,11 @@ import {
 import { z } from "zod";
 
 import { type Manifest, type ManifestNode, manifestSchema } from "./manifest.ts";
-import { warmUpWebKit } from "./warm-up.ts";
+import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
 export { expect };
 
-export type Scenario = "single-machine" | "first-run";
+export type Scenario = "single-machine" | "first-run" | "home";
 
 export type World = {
   manifest: Manifest;
@@ -196,8 +196,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     });
   },
 
-  // A fresh Firefox on Windows can stall its main thread for seconds while it
-  // starts up, so engines that take nothing from a world at launch share one
+  // A fresh Firefox on Windows can stall for seconds in its first page, so
+  // engines that take nothing from a world at launch share one warmed-up
   // browser per worker.
   workerBrowser: [
     async ({ playwright, browserName, headless, launchOptions }, use) => {
@@ -206,13 +206,11 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         return;
       }
       const browser = await playwright[browserName].launch({ ...launchOptions, headless });
-      if (browserName === "webkit") {
-        await warmUpWebKit(browser);
-      }
+      await (browserName === "webkit" ? warmUpWebKit : warmUpFirefox)(browser);
       await use(browser);
       await browser.close();
     },
-    { scope: "worker" },
+    { scope: "worker", timeout: 60_000 },
   ],
 
   // Host resolver rules are launch flags and a world's names exist only once
@@ -257,9 +255,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(admin.email);
     await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially(admin.pin);
-    await expect(
-      page.getByRole("heading", { name: `Signed in as ${admin.displayName}` }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
     await page.context().storageState({ path: join(world.manifest.runDir, "admin.json") });
     await use(page);
   },

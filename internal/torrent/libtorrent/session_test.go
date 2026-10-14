@@ -7,6 +7,8 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,15 +18,15 @@ import (
 
 const payloadSize = 8 << 20
 
-func open(t *testing.T, addr string) engine.Engine {
+func open(t *testing.T) engine.Engine {
 	t.Helper()
-	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort(addr)})
+	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
 	if err != nil {
-		t.Fatalf("open %s: %v", addr, err)
+		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := e.Close(); err != nil && !errors.Is(err, engine.ErrClosed) {
-			t.Errorf("close %s: %v", addr, err)
+			t.Errorf("close: %v", err)
 		}
 	})
 	return e
@@ -49,15 +51,15 @@ func waitFor[E engine.Event](t *testing.T, events <-chan engine.Event, match fun
 func TestEngineRoundTrip(t *testing.T) {
 	payload := make([]byte, payloadSize)
 	_, _ = rand.NewChaCha8([32]byte{'s', 'l', 'i', 'p'}).Read(payload)
-	meta := singleFileTorrent("payload.bin", payload, 256<<10)
+	meta := singleFileTorrent(t, "payload.bin", payload, 256<<10)
 
 	seedDir, leechDir := t.TempDir(), t.TempDir()
 	if err := os.WriteFile(filepath.Join(seedDir, "payload.bin"), payload, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	seeder := open(t, "127.0.0.1:0")
-	leecher := open(t, "127.0.0.1:0")
+	seeder := open(t)
+	leecher := open(t)
 
 	seedHandle, err := seeder.Add(engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
 	if err != nil {
@@ -107,8 +109,16 @@ func TestEngineRoundTrip(t *testing.T) {
 	}
 }
 
+func TestEngineSaysWhyAFixedPortDoesNotListen(t *testing.T) {
+	_, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("192.0.2.1:6881")})
+	const want = "shim error 3: not listening on 192.0.2.1:6881: system error "
+	if err == nil || !strings.HasPrefix(err.Error(), want) {
+		t.Fatalf("open on an address the host does not have: err = %v, want it to start %q", err, want)
+	}
+}
+
 func TestEngineRejectsBadInput(t *testing.T) {
-	e := open(t, "127.0.0.1:0")
+	e := open(t)
 
 	_, err := e.Add(engine.AddParams{Metainfo: []byte("d4:infoi1e"), SavePath: t.TempDir()})
 	if !errors.Is(err, engine.CategoryBdecode) {
@@ -148,5 +158,35 @@ func TestEngineRejectsBadInput(t *testing.T) {
 	case <-drained:
 	case <-time.After(5 * time.Second):
 		t.Fatal("events channel still open after close")
+	}
+}
+
+func TestFilesListThePathsLibtorrentSanitized(t *testing.T) {
+	data := make([]byte, 3000)
+	meta := torrent(t, map[string]any{
+		"name": "Orchard",
+		"files": []any{
+			map[string]any{"length": 1000, "path": []any{"Extras", "..", "trailer.mkv"}},
+			map[string]any{"length": 2000, "path": []any{"feature.mkv"}},
+		},
+	}, data, 16<<10)
+	e := open(t)
+	h, err := e.Add(engine.AddParams{Metainfo: meta, SavePath: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.Files(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []engine.File{
+		{Index: 0, Path: "Orchard/Extras/_/trailer.mkv", Size: 1000},
+		{Index: 1, Path: "Orchard/feature.mkv", Size: 2000},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Files = %+v, want %+v", got, want)
+	}
+	if _, err := e.Files(h + 1); !errors.Is(err, engine.ErrUnknownTorrent) {
+		t.Fatalf("Files of an unknown torrent err = %v", err)
 	}
 }

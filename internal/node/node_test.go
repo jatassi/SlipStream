@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -46,6 +47,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 		Net:     osNetwork{},
 		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog: logs.Open,
+		Media:   mediatest.Prober{},
 	}, stderr
 }
 

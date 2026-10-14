@@ -21,11 +21,13 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/role"
@@ -43,6 +45,9 @@ const logLinesOnFailure = 50
 type options struct {
 	version string
 	probe   bool
+	walk    bool
+	listed  func(*site.Release)
+	edits   []func(name string, e *node.Env)
 }
 
 type Option func(*options)
@@ -62,6 +67,7 @@ type World struct {
 	opts     options
 	nodes    []*Node
 	claims   setup.Claims
+	walk     *walk
 }
 
 type Node struct {
@@ -89,22 +95,27 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 		t.Fatal(err)
 	}
 	net := fault.NewNetwork()
+	local := net.Host(netip.MustParseAddr("127.0.0.1"))
 	w := &World{
 		t:        t,
 		scenario: s,
 		net:      net,
-		client:   &http.Client{Transport: &http.Transport{DialContext: net.Host(netip.MustParseAddr("127.0.0.1")).DialContext, DisableKeepAlives: true}},
+		client:   &http.Client{Transport: &http.Transport{DialContext: local.DialContext, DisableKeepAlives: true}},
 		opts:     options{version: Version},
 	}
 	for _, o := range opts {
 		o(&w.opts)
 	}
 	t.Cleanup(w.stop)
+	endpoints := node.Defaults(contenttype.Set{}).Endpoints
+	if w.opts.walk {
+		w.walk = startWalk(t, s, local, w.opts.listed, &endpoints)
+	}
 	listen := listenKeys(t)
 	for i, spec := range s.Nodes {
 		n := &Node{w: w, spec: spec, addr: setup.Address(i)}
 		n.host = net.Host(n.addr)
-		n.dir = dataDir(t, s, i, listen)
+		n.dir = dataDir(t, s, i, listen, endpoints)
 		w.nodes = append(w.nodes, n)
 		n.Start()
 	}
@@ -115,6 +126,9 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	var err error
 	if w.claims, err = setup.Steps(t.Context(), w.client, s, ready); err != nil {
 		t.Fatal(err)
+	}
+	if w.walk != nil {
+		w.walk.seed(w, ready)
 	}
 	return w
 }
@@ -134,13 +148,13 @@ func listenKeys(t *testing.T) []string {
 	return setup.ListenKeys(resolved)
 }
 
-func dataDir(t *testing.T, s scenario.Scenario, i int, listen []string) node.DataDir {
+func dataDir(t *testing.T, s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) node.DataDir {
 	t.Helper()
 	dir, err := node.ParseDataDir(shortTempDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := setup.Config(s, i, listen, node.Defaults(contenttype.Set{}).Endpoints)
+	config, err := setup.Config(s, i, listen, endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,6 +169,9 @@ func (w *World) stop() {
 		if n.running != nil {
 			n.Stop()
 		}
+	}
+	if w.walk != nil {
+		w.walk.stop(w.t)
 	}
 	if w.t.Failed() {
 		for _, n := range w.nodes {
@@ -174,6 +191,9 @@ func (w *World) Manifest() world.Manifest {
 		Nodes:    []world.Node{},
 		Fakes:    []world.Fake{},
 		APIKey:   w.claims.APIKey,
+	}
+	if w.walk != nil {
+		m.MediaDir = w.walk.mediaDir
 	}
 	if a := w.scenario.Admin; a != nil {
 		m.Admin = &world.Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
@@ -242,7 +262,7 @@ func (n *Node) JoinOp(ctx context.Context, code joincode.Code) (pairing.JoinRepl
 }
 
 func (n *Node) env() node.Env {
-	return node.Env{
+	env := node.Env{
 		DataDir: n.dir,
 		Environ: []string{},
 		Stderr:  io.Discard,
@@ -250,8 +270,16 @@ func (n *Node) env() node.Env {
 		Net:     n.host,
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
+		Media:   mediatest.Prober{},
 		Test:    n.test(),
 	}
+	if n.w.walk != nil {
+		n.w.walk.env(&env)
+	}
+	for _, edit := range n.w.opts.edits {
+		edit(n.spec.Name, &env)
+	}
+	return env
 }
 
 // test is what the world adds to the Node: a view of each half, and the

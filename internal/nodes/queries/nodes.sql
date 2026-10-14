@@ -60,3 +60,8 @@ SELECT join_code_lifetime_seconds FROM nodes_settings WHERE id = 1;
 
 -- name: SetJoinCodeLifetime :exec
 UPDATE nodes_settings SET join_code_lifetime_seconds = sqlc.arg(join_code_lifetime_seconds) WHERE id = 1;
+
+-- name: HoldersByPairing :many
+SELECT n.id FROM nodes_node n JOIN nodes_role r ON r.node_id = n.id
+WHERE r.role = sqlc.arg(role)
+ORDER BY n.paired_at, n.id;

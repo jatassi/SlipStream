@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: roots_root.id
+            go_type:
+              type: RootID
+          - column: roots_root.content_type
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+          - column: roots_root.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID

@@ -45,6 +45,8 @@ sql:
           - column: works_item.key
             go_type:
               type: Key
+          - column: works_item.monitored
+            go_type: bool
           - column: works_disabled_type.content_type
             go_type:
               type: TypeID

@@ -1,53 +1,18 @@
-import { HttpResponse, http, sse } from "msw";
+import { http } from "msw";
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import { getGetSystemQueryKey } from "../api/gen/query/system/system";
-import { type LiveMap, ada, problem } from "../test/handlers";
+import {
+  getGetWorkQueryKey,
+  getListWorksQueryKey,
+  getSearchCatalogQueryKey,
+} from "../api/gen/query/works/works";
+import { ada, problem } from "../test/handlers";
+import { liveServer, seeded } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
-
-type Client = Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"];
-
-// MSW's sse has no public close signal and the request's signal never aborts
-// through the service worker; the client's emitter is what MSW's own logger uses.
-function onClose(client: Client, listener: () => void) {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- reaching MSW's internal emitter
-  const emitters = client as unknown as Record<
-    symbol,
-    { on: (type: "close", listener: () => void) => void }
-  >;
-  emitters[Symbol.for("kClientEmitter")]?.on("close", listener);
-}
-
-function liveServer() {
-  const clients: Client[] = [];
-  const closed: number[] = [];
-  let signedIn = true;
-  const handlers = [
-    http.get("*/api/v1/session", () =>
-      signedIn
-        ? HttpResponse.json({ account: ada })
-        : problem(401, "signed_out", "Sign in to continue"),
-    ),
-    sse<LiveMap>("*/api/v1/events", ({ client }) => {
-      const index = clients.push(client) - 1;
-      onClose(client, () => {
-        closed.push(index);
-      });
-      client.send({ event: "live.resync", data: {} });
-    }),
-  ];
-  return {
-    handlers,
-    clients,
-    closed,
-    signOut() {
-      signedIn = false;
-    },
-  };
-}
 
 function countRequests() {
   const counts = new Map<string, number>();
@@ -70,9 +35,7 @@ test("identity.sessions-changed refetches the session once", async () => {
   const server = liveServer();
   const requests = countRequests();
   renderApp({ path: "/", handlers: server.handlers });
-  await expect
-    .element(page.getByRole("heading", { name: "Signed in as Ada Okafor" }))
-    .toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect.element(liveState()).toHaveTextContent("Live updates: on");
   await expect.poll(() => requests("GET /api/v1/session")).toBe(2);
 
@@ -80,30 +43,56 @@ test("identity.sessions-changed refetches the session once", async () => {
   await expect.poll(() => requests("GET /api/v1/session")).toBe(3);
 });
 
-test("nodes.changed invalidates the Node list and that Node", async () => {
-  const server = liveServer();
-  const { queryClient } = renderApp({ path: "/", handlers: server.handlers });
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
-  const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
-  const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
-  const keys = {
-    list: getListNodesQueryKey(),
-    seedbox: getGetNodeQueryKey(seedbox),
-    home: getGetNodeQueryKey(home),
-  };
-  for (const key of Object.values(keys)) {
-    queryClient.setQueryData(key, {});
-  }
-  const invalidated = () =>
-    Object.fromEntries(
-      Object.entries(keys).map(([name, key]) => [
-        name,
-        queryClient.getQueryState(key)?.isInvalidated,
-      ]),
-    );
+const orchard = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
+const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
-  server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedbox } });
-  await expect.poll(invalidated).toEqual({ list: true, seedbox: true, home: false });
+test("works.changed invalidates the Works, that Work, its cells and every catalog search", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/system", handlers: server.handlers });
+  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  const invalidated = seeded(app, {
+    list: getListWorksQueryKey(),
+    work: getGetWorkQueryKey(orchard),
+    cells: getGetWorkCellsQueryKey(orchard),
+    otherCells: getGetWorkCellsQueryKey(harvest),
+    search: getSearchCatalogQueryKey("cinema", { query: "orchard" }),
+  });
+
+  server.clients[0]?.send({ event: "works.changed", data: { workId: orchard } });
+  await expect.poll(invalidated).toEqual({
+    list: true,
+    work: true,
+    cells: true,
+    otherCells: false,
+    search: true,
+  });
+});
+
+test("targets.changed invalidates every Work's cells and no Work", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/system", handlers: server.handlers });
+  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  const invalidated = seeded(app, {
+    orchard: getGetWorkCellsQueryKey(orchard),
+    harvest: getGetWorkCellsQueryKey(harvest),
+    work: getGetWorkQueryKey(orchard),
+  });
+
+  server.clients[0]?.send({ event: "targets.changed", data: {} });
+  await expect.poll(invalidated).toEqual({ orchard: true, harvest: true, work: false });
+});
+
+test("files.changed invalidates only that Work's cells", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/system", handlers: server.handlers });
+  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  const invalidated = seeded(app, {
+    orchard: getGetWorkCellsQueryKey(orchard),
+    harvest: getGetWorkCellsQueryKey(harvest),
+  });
+
+  server.clients[0]?.send({ event: "files.changed", data: { workId: orchard } });
+  await expect.poll(invalidated).toEqual({ orchard: true, harvest: false });
 });
 
 test("live.resync refetches every active query once", async () => {
@@ -111,11 +100,14 @@ test("live.resync refetches every active query once", async () => {
   const requests = countRequests();
   renderApp({ path: "/system", handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
-  expect(requests("GET /api/v1/system")).toBe(1);
+  const reads = () => ({
+    system: requests("GET /api/v1/system"),
+    session: requests("GET /api/v1/session"),
+  });
+  await expect.poll(reads).toEqual({ system: 1, session: 2 });
 
   server.clients[0]?.send({ event: "live.resync", data: {} });
-  await expect.poll(() => requests("GET /api/v1/system")).toBe(2);
-  expect(requests("GET /api/v1/session")).toBe(1);
+  await expect.poll(reads).toEqual({ system: 2, session: 3 });
 });
 
 test("live.session-ended clears this tab and every other tab", async () => {

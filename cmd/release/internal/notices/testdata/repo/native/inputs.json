@@ -38,5 +38,18 @@
 			"sha256": "0000000000000000000000000000000000000000000000000000000000000000",
 			"license": "Zlib"
 		}
+	],
+	"tools": [
+		{
+			"name": "ffmpeg",
+			"version": "8.1",
+			"license": "GPL-3.0-or-later",
+			"source": "https://example.com/ffmpeg/tree/v8.1",
+			"programs": ["ffmpeg"],
+			"archives": {
+				"linux-amd64": "https://example.com/ffmpeg-linux.tar.xz",
+				"windows-amd64": "https://example.com/ffmpeg-windows.zip"
+			}
+		}
 	]
 }

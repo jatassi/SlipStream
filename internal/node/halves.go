@@ -6,12 +6,24 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloading"
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -31,6 +43,15 @@ type half struct {
 	controls *role.Controls
 	cluster  *rpc.Cluster
 	works    *works.Works
+	indexers *indexers.Indexers
+	targets  *targets.Targets
+	roots    *roots.Roots
+	files    *files.Files
+	grabs    *grabs.Grabs
+	// transfers receives files on the Controller, and source serves them
+	// on a Worker.
+	transfers *transfers.Receiver
+	source    *transfers.Source
 }
 
 // startController starts the Controller half: the control half, its own
@@ -40,9 +61,11 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	client := n.httpClient()
+	opened := n.openTypes(client)
 	tree, err := works.Open(ctx, works.Config{
 		Library:      lib.db,
-		Catalogs:     contenttype.Project(n.openTypes(), func(t contenttype.Type) works.Catalog { return t }),
+		Catalogs:     contenttype.Project(opened, func(t contenttype.Type) works.Catalog { return t }),
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
@@ -51,6 +74,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
 	side, err := nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -58,7 +82,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Node:    n.info,
 		Link:    n.link,
 		Changed: nodes.ChangedEvent.Bind(n.hub),
-		Served:  n.env.Test.Served,
+		Served:  append([]role.Served{downloads}, n.env.Test.Served...),
 		Always:  n.env.Test.Always,
 		Log:     n.rootLog.With("subsystem", "nodes"),
 	})
@@ -73,31 +97,83 @@ func (n *Node) startController(ctx context.Context) error {
 	self := n.key.Public()
 	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
 	cluster := rpc.NewCluster(dispatch, side)
+	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree})
+	types := n.env.Types.IDs()
+	registry := indexers.New(indexers.Config{
+		Library: lib.db,
+		Roster:  side,
+		Searching: func(node role.NodeID) searchv1connect.SearchingServiceHandler {
+			return searchv1connect.SearchingService.On(cluster, node)
+		},
+		Changed: indexers.ChangedEvent.Bind(n.hub),
+	})
+	shelf := files.New(files.Config{Library: lib.db, Works: tree, Grabs: grabs.GrabCells{}})
+	receiver := transfers.NewReceiver(transfers.Config{Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers})
+	pipeline := grabs.New(grabs.Config{
+		Library:   lib.db,
+		Works:     tree,
+		Files:     shelf,
+		Indexers:  registry,
+		Terms:     contenttype.Project(opened, func(t contenttype.Type) indexers.Facet { return t }),
+		Naming:    contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
+		Roster:    side,
+		Downloads: downloads,
+		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
+			return mediav1connect.MediaService.On(cluster, node)
+		},
+		Payloads:      n.downloads,
+		Transfers:     receiver,
+		Linker:        files.OSLinker{},
+		Timings:       n.cfg.Timings.Grabs,
+		Rand:          n.grabsRand,
+		Changed:       grabs.ChangedEvent.Bind(n.hub),
+		SearchChanged: grabs.SearchChangedEvent.Bind(n.hub),
+		FilesChanged:  files.ChangedEvent.Bind(n.hub),
+		BeforeStep:    n.env.Test.BeforeStep,
+		Log:           n.rootLog.With("subsystem", "grabs"),
+	})
+	n.setHalf(&half{
+		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
+		targets:   targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
+		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
+		files:     shelf,
+		grabs:     pipeline,
+		transfers: receiver,
+	})
 	n.claimed.Go("nodes", side.Run)
+	n.claimed.Go("grabs", pipeline.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil
 }
 
-func (n *Node) openTypes() map[works.TypeID]contenttype.Type {
+// httpClient is the half's client for every host the Node reaches, dialing
+// through the Node's network and trusting the OS roots.
+func (n *Node) httpClient() *http.Client {
 	transport := &http.Transport{
 		DialContext:         n.env.Net.DialContext,
 		ForceAttemptHTTP2:   true,
 		TLSHandshakeTimeout: 10 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
 	}
-	n.claimed.OnStop("content types", func(context.Context) error {
+	n.claimed.OnStop("http client", func(context.Context) error {
 		transport.CloseIdleConnections()
 		return nil
 	})
-	client := &http.Client{Transport: transport}
+	return &http.Client{Transport: transport}
+}
+
+func (n *Node) openTypes(client *http.Client) map[works.TypeID]contenttype.Type {
+	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
+	source := tmdb.New(client, n.cfg.Endpoints.TMDB, userAgent)
 	types := map[works.TypeID]contenttype.Type{}
 	for _, t := range n.env.Types.All() {
 		types[t.ID()] = t.Open(contenttype.Deps{
 			HTTP:      client,
-			UserAgent: "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )",
+			UserAgent: userAgent,
+			TMDB:      source,
 			Log:       n.rootLog.With("subsystem", "contenttype."+string(t.ID())),
 		}, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
@@ -114,8 +190,15 @@ func (n *Node) startWorker(ctx context.Context) error {
 		return err
 	}
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
+	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch})
+	n.setHalf(&half{peers: side, dispatch: dispatch, source: transfers.NewSource(transfers.SourceConfig{
+		Payloads:   n.downloads,
+		Controller: controller.Key,
+		Hooks:      n.env.Test.Transfers,
+		Log:        n.rootLog.With("subsystem", "transfers"),
+	})})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local})
@@ -132,7 +215,7 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream) (*role.
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:    local,
 		Upstream: upstream,
-		Held:     append(heldRoles(), n.env.Test.held(local)...),
+		Held:     append(n.heldRoles(local), n.env.Test.held(local)...),
 		Timings:  n.cfg.Timings.Role,
 		Rand:     n.roleRand,
 		Log:      n.rootLog.With("subsystem", "role"),
@@ -151,7 +234,9 @@ func (n *Node) setHalf(h *half) {
 }
 
 // heldRoles is every Role this binary runs, one held line each.
-func heldRoles() []role.Held { return nil }
+func (n *Node) heldRoles(local *storage.DB[storage.Local]) []role.Held {
+	return []role.Held{downloading.Def.Hold(n.downloads.Run(local))}
+}
 
 // claimPeers is how the link treats peers: as the half that started does,
 // and refusing every one while the Node is Unclaimed.
@@ -169,6 +254,18 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 		return h.peers.Pair(ctx, peer, req)
 	}
 	return notAController(), nil
+}
+
+// claimStreams serves Transfer streams with the Worker half's source, and
+// resets them on any other Node.
+type claimStreams struct{ n *Node }
+
+func (c claimStreams) transfer(peer link.Key, s link.Stream) {
+	if h := c.n.half.Load(); h != nil && h.source != nil {
+		h.source.Serve(peer, s)
+		return
+	}
+	_ = s.Reset()
 }
 
 func notAController() *linkv1.PairResponse {

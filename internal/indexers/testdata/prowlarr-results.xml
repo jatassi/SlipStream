@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+  <channel>
+    <atom:link rel="self" type="application/rss+xml" />
+    <title>Example Tracker</title>
+    <item>
+      <title>Night.Harbor.2019.1080p.BluRay.x264-GRP</title>
+      <description />
+      <guid>https://prowlarr.example.test/1/download?id=41</guid>
+      <prowlarrindexer id="1" type="private">Example Tracker</prowlarrindexer>
+      <comments>https://tracker.example.test/details/41</comments>
+      <pubDate>Mon, 03 Feb 2020 10:00:00 +0000</pubDate>
+      <size>8589934592</size>
+      <link>https://prowlarr.example.test/1/download?apikey=k&amp;id=41</link>
+      <category>2040</category>
+      <enclosure url="https://prowlarr.example.test/1/download?apikey=k&amp;id=41" length="8589934592" type="application/x-bittorrent" />
+      <torznab:attr name="category" value="2040" />
+      <torznab:attr name="seeders" value="57" />
+      <torznab:attr name="peers" value="60" />
+      <torznab:attr name="infohash" value="0123456789ABCDEF0123456789ABCDEF01234567" />
+      <torznab:attr name="tmdbid" value="501" />
+      <torznab:attr name="imdbid" value="tt0000501" />
+    </item>
+    <item>
+      <title>Night.Harbor.2019.720p.WEB.h264-OTHER</title>
+      <guid>https://prowlarr.example.test/1/download?id=42</guid>
+      <pubDate>Tue, 04 Feb 2020 10:00:00 +0000</pubDate>
+      <size>2147483648</size>
+      <link>https://prowlarr.example.test/1/download?apikey=k&amp;id=42</link>
+      <enclosure url="https://prowlarr.example.test/1/download?apikey=k&amp;id=42" length="2147483648" type="application/x-bittorrent" />
+      <torznab:attr name="seeders" value="3" />
+    </item>
+  </channel>
+</rss>

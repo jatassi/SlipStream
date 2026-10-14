@@ -57,6 +57,9 @@ func runDev(ctx context.Context, args []string) error {
 			return err
 		}
 	}
+	if err := placeTools(bundle, bin); err != nil {
+		return err
+	}
 	if err := installWeb(ctx, root); err != nil {
 		return err
 	}

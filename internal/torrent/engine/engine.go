@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"net/netip"
 )
 
@@ -12,6 +13,9 @@ type Engine interface {
 	ConnectPeer(Handle, netip.AddrPort) error
 	Status(Handle) (Status, error)
 	Remove(Handle) error
+	// Files lists a torrent's files as they lie under its save path, after
+	// the engine sanitized the names the metainfo gives.
+	Files(Handle) ([]File, error)
 	ListenAddr() (netip.AddrPort, error)
 	// Events is closed by Close. A reader that falls behind gets Dropped and
 	// should re-read Status for the torrents it tracks.
@@ -22,15 +26,20 @@ type Engine interface {
 type Config struct {
 	ListenInterface netip.AddrPort
 	Discovery       Discovery
+	// Rand draws the ports an engine tries when ListenInterface's port is 0.
+	Rand *rand.Rand
 }
 
 // Settings is the torrent section of a Node's configuration.
 type Settings struct {
 	Listen netip.AddrPort `yaml:"listen"`
+	// Downloads is the folder torrents download into. Its consumer resolves
+	// a relative path against the data dir.
+	Downloads string `yaml:"downloads"`
 }
 
 func DefaultSettings() Settings {
-	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881")}
+	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads"}
 }
 
 // Discovery selects the peer discovery services. Its zero value turns
@@ -47,6 +56,14 @@ type AddParams struct {
 }
 
 type Handle int64
+
+// File is one file of a torrent: its index in the metainfo, its path under
+// the save path with / separators, and its size.
+type File struct {
+	Index int
+	Path  string
+	Size  int64
+}
 
 type State uint8
 
@@ -91,17 +108,25 @@ type (
 		Torrent Handle
 		Err     *Error
 	}
+	// TrackerReplied and TrackerFailed report each announce to a tracker.
+	TrackerReplied struct{ Torrent Handle }
+	TrackerFailed  struct {
+		Torrent Handle
+		Err     *Error
+	}
 	ListenFailed struct{ Err *Error }
 	Dropped      struct{}
 )
 
-func (Added) event()         {}
-func (StateChanged) event()  {}
-func (Finished) event()      {}
-func (Removed) event()       {}
-func (TorrentFailed) event() {}
-func (ListenFailed) event()  {}
-func (Dropped) event()       {}
+func (Added) event()          {}
+func (StateChanged) event()   {}
+func (Finished) event()       {}
+func (Removed) event()        {}
+func (TorrentFailed) event()  {}
+func (TrackerReplied) event() {}
+func (TrackerFailed) event()  {}
+func (ListenFailed) event()   {}
+func (Dropped) event()        {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
 // *Error in that category.

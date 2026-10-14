@@ -114,6 +114,28 @@ func TestRegisterRefusesWhatWouldCollideOrHaveNoLimit(t *testing.T) {
 	}
 }
 
+type stamped struct {
+	At string `json:"at"`
+}
+
+type entry struct {
+	stamped
+	Name string `json:"name"`
+}
+
+func TestRegisterRefusesAnOutputEmbeddingAnUnexportedStruct(t *testing.T) {
+	o := NewRouter(Services{}).Owner("fixture", Public)
+	got := panicOf(func() {
+		Register(o, Public, Op{ID: "listEntries", Method: http.MethodGet, Path: "/entries"},
+			func(context.Context, identity.Anyone, *struct{}) (*struct{ Body struct{ Entries []entry } }, error) {
+				return nil, nil
+			})
+	})
+	if want := "api: api.entry embeds unexported api.stamped, whose fields the document would leave out; export it"; got != want {
+		t.Fatalf("panic = %q, want %q", got, want)
+	}
+}
+
 var fixtureGone = NewCode(http.StatusGone, "fixture_gone", "The fixture is gone")
 
 func TestAnUndeclaredCodeAnswersInternal(t *testing.T) {
@@ -138,6 +160,19 @@ func TestADeclaredCodeAnswersAsItself(t *testing.T) {
 	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone"}` + "\n"
 	if w.Code != http.StatusGone || w.Body.String() != want || w.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("got %d %s %q, want 410 application/problem+json %q", w.Code, w.Header().Get("Content-Type"), w.Body, want)
+	}
+}
+
+func TestACodeBecauseAReasonAnswersItAsTheDetail(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
+		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
+			return nil, fixtureGone.Because("it was moved")
+		})
+	w := get(t, r.Handler(), "/api/v1/fixture")
+	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"it was moved"}` + "\n"
+	if w.Code != http.StatusGone || w.Body.String() != want {
+		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
 	}
 }
 

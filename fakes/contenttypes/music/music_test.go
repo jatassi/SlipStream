@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -268,7 +269,7 @@ func TestStoreThenFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,6 +324,41 @@ func TestStoreThenFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	fields("after a second Store")
+}
+
+func TestNamingTokensNameATrack(t *testing.T) {
+	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
+	m := open(faketest.Loopback(t, musicmeta.Fake, catalog(t)))
+	w, err := works.Open(t.Context(), works.Config{
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
+		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tokens map[string]string
+	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		tokens, err = m.NamingTokens(ctx, r, tree.Items[1].ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	templates := m.DefaultTemplates()
+	folder, err := naming.Render(templates.Folder, tokens, naming.Core{Target: "FLAC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := naming.Render(templates.File, tokens, naming.Core{Target: "FLAC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := folder+"/"+file, "The Lanterns/The Lanterns - 1-02 - Paper Boats FLAC"; got != want {
+		t.Fatalf("named %q, want %q", got, want)
+	}
 }
 
 func TestTheLibraryAuditPassesWithMusic(t *testing.T) {

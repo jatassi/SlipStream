@@ -73,6 +73,7 @@ func TestGenerateListsEveryShippedDependency(t *testing.T) {
 		"example.com/bsd v1.0.0 (Go module) | License: BSD-2-Clause | Targets: linux-amd64, windows-amd64",
 		"example.com/odd v1.0.0 (Go module) | License: MIT | Targets: linux-amd64, windows-amd64",
 		"example.com/winonly v0.3.0 (Go module) | License: MIT | Targets: windows-amd64",
+		"ffmpeg 8.1 (separate program) | License: GPL-3.0-or-later | Targets: linux-amd64, windows-amd64",
 		"go 1.27 (toolchain runtime) | License: BSD-3-Clause | Targets: linux-amd64, windows-amd64",
 		"leftpad 1.0.0 (npm package) | License: ISC | Targets: linux-amd64, windows-amd64",
 		"musl 1.2.5 (toolchain runtime) | License: MIT | Targets: linux-amd64",
@@ -82,6 +83,10 @@ func TestGenerateListsEveryShippedDependency(t *testing.T) {
 	}
 	if strings.Join(headings, "\n") != strings.Join(want, "\n") {
 		t.Errorf("entries:\n%s\nwant:\n%s", strings.Join(headings, "\n"), strings.Join(want, "\n"))
+	}
+	program := "Targets: linux-amd64, windows-amd64\nSource: https://example.com/ffmpeg/tree/v8.1\n\nGNU GENERAL PUBLIC LICENSE\n"
+	if !strings.Contains(string(got), program) {
+		t.Errorf("notices lack the program's source link and license:\n%s", got)
 	}
 }
 

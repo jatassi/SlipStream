@@ -155,7 +155,8 @@ func fieldsOf(vs []works.FieldValue) []api.OneOf[fieldValue] {
 	return out
 }
 
-type work struct {
+// Work is exported so the document carries the fields tree embeds.
+type Work struct {
 	ID          string    `json:"id" format:"uuid"`
 	ContentType string    `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Key         string    `json:"key"`
@@ -165,15 +166,15 @@ type work struct {
 	RefreshedAt time.Time `json:"refreshedAt"`
 }
 
-func workOf(s works.Summary) work {
-	return work{
+func workOf(s works.Summary) Work {
+	return Work{
 		ID: s.ID.String(), ContentType: string(s.ContentType), Key: string(s.Key), Label: s.Label, SortLabel: s.SortLabel,
 		AddedAt: s.AddedAt.Time(), RefreshedAt: s.RefreshedAt.Time(),
 	}
 }
 
 type tree struct {
-	work
+	Work
 	Fields []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
 	Levels []level                 `json:"levels" nullable:"false" doc:"By depth, then their parent's order, live before withdrawn, then position"`
 	Items  []item                  `json:"items" nullable:"false" doc:"By their level's order, live before withdrawn, then position"`
@@ -197,11 +198,12 @@ type item struct {
 	Label       string                  `json:"label"`
 	Position    int                     `json:"position" minimum:"1"`
 	WithdrawnAt *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
+	Monitored   bool                    `json:"monitored"`
 	Fields      []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
 }
 
 func treeOf(t works.Tree) tree {
-	out := tree{work: workOf(t.Summary), Fields: fieldsOf(t.Fields), Levels: []level{}, Items: []item{}}
+	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(t.Fields), Levels: []level{}, Items: []item{}}
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, level{
 			ID: l.ID.String(), ParentID: idOrNull(l.ParentID.UUID), Depth: l.Depth, Key: string(l.Key), Label: l.Label,
@@ -211,7 +213,7 @@ func treeOf(t works.Tree) tree {
 	for _, it := range t.Items {
 		out.Items = append(out.Items, item{
 			ID: it.ID.String(), LevelID: idOrNull(it.LevelID.UUID), Key: string(it.Key), Label: it.Label,
-			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Fields: fieldsOf(it.Fields),
+			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(it.Fields),
 		})
 	}
 	return out
@@ -275,6 +277,7 @@ type addInput struct {
 type newWork struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Key         string `json:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
+	Monitor     bool   `json:"monitor,omitempty" doc:"Monitor a new Work's Items; adding a Work already in the library changes nothing"`
 }
 
 type added struct {
@@ -288,8 +291,13 @@ type listInput struct {
 	ContentType string `query:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 }
 
+type listedWork struct {
+	Work
+	Fields []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's own fields"`
+}
+
 type workList struct {
-	Works []work `json:"works" nullable:"false" doc:"By sort label, then id"`
+	Works []listedWork `json:"works" nullable:"false" doc:"By sort label, then id"`
 }
 
 type workListOutput struct{ Body workList }
@@ -414,7 +422,7 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	if err != nil {
 		return nil, api.Invalid
 	}
-	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key)
+	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key, in.Body.Monitor)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -431,9 +439,9 @@ func (h handlers) listWorks(ctx context.Context, by identity.Admin, in *listInpu
 	if err != nil {
 		return nil, answer(err)
 	}
-	out := workList{Works: []work{}}
-	for _, s := range list {
-		out.Works = append(out.Works, workOf(s))
+	out := workList{Works: []listedWork{}}
+	for _, l := range list {
+		out.Works = append(out.Works, listedWork{Work: workOf(l.Summary), Fields: fieldsOf(l.Fields)})
 	}
 	return &workListOutput{Body: out}, nil
 }

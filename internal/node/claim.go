@@ -8,13 +8,18 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/system"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -89,7 +94,8 @@ func (s surfaceNode) Identity() (*identity.Service, bool) {
 
 // ClaimController creates and migrates library.db and library.key, runs
 // claim, which inserts the Admin, and starts the Controller half. Opening
-// and the half outlive the request that claimed.
+// and the half outlive the request that claimed. It returns once the
+// Controller's own holder half holds the Roles its new row assigns.
 func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.Service) error) error {
 	s.n.claimMu.Lock()
 	defer s.n.claimMu.Unlock()
@@ -108,7 +114,8 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 		return err
 	}
 	s.n.log.Info("claimed", "claim", "controller")
-	return nil
+	side := s.n.half.Load().nodes
+	return side.AwaitDelivery(ctx, side.Self())
 }
 
 func (s surfaceNode) Nodes() (*nodes.Service, bool) {
@@ -125,6 +132,46 @@ func (s surfaceNode) Works() (*works.Works, bool) {
 		return nil, false
 	}
 	return h.works, true
+}
+
+func (s surfaceNode) Indexers() (*indexers.Indexers, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.indexers == nil {
+		return nil, false
+	}
+	return h.indexers, true
+}
+
+func (s surfaceNode) Targets() (*targets.Targets, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.targets == nil {
+		return nil, false
+	}
+	return h.targets, true
+}
+
+func (s surfaceNode) Roots() (*roots.Roots, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.roots == nil {
+		return nil, false
+	}
+	return h.roots, true
+}
+
+func (s surfaceNode) Files() (*files.Files, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.files == nil {
+		return nil, false
+	}
+	return h.files, true
+}
+
+func (s surfaceNode) Grabs() (*grabs.Grabs, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.grabs == nil {
+		return nil, false
+	}
+	return h.grabs, true
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {

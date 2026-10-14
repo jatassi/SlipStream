@@ -18,13 +18,13 @@ const (
 	marrowBay = "a1000000-0000-4000-8000-000000000002"
 )
 
-const musicType = `{"contentTypes":[{"id":"music","name":"Music","enabled":true,` +
+const musicType = `{"id":"music","name":"Music","enabled":true,` +
 	`"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},` +
 	`"fields":[{"key":"country","label":"Country","tier":"work","kind":"text"},` +
 	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date"},` +
 	`{"key":"kind","label":"Kind","tier":"level","depth":1,"kind":"text"},` +
 	`{"key":"disc","label":"Disc","tier":"item","kind":"number"},` +
-	`{"key":"length","label":"Length","tier":"item","kind":"duration"}]}]}` + "\n"
+	`{"key":"length","label":"Length","tier":"item","kind":"duration"}]}`
 
 func searchLanterns(workID string) worldtest.Reply {
 	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","fields":[{"key":"country","kind":"text","text":"GB"}],"workId":` + workID + `}]}` + "\n"}
@@ -56,6 +56,7 @@ type treeNode struct {
 	Label       string  `json:"label"`
 	Position    int     `json:"position"`
 	WithdrawnAt *string `json:"withdrawnAt"`
+	Monitored   bool    `json:"monitored"`
 	Fields      []field `json:"fields"`
 }
 
@@ -84,6 +85,9 @@ func (tr tree) outline(ids *[]string) string {
 		s := fmt.Sprintf("%s %d %s %v", name(n.ID), n.Position, n.Label, n.Fields)
 		if n.WithdrawnAt != nil {
 			s += " withdrawn"
+		}
+		if n.Monitored {
+			s += " monitored"
 		}
 		return s
 	}
@@ -150,7 +154,7 @@ func TestMusic(t *testing.T) {
 	a := api(t, run)
 	session := a.SignIn("home")
 
-	worldtest.Expect(t, "listContentTypes", a.Signed("home", session, http.MethodGet, "/api/v1/content-types", ""), worldtest.Reply{Status: 200, Body: musicType})
+	worldtest.Expect(t, "listContentTypes", a.Signed("home", session, http.MethodGet, "/api/v1/content-types", ""), worldtest.Reply{Status: 200, Body: `{"contentTypes":[` + movieType + `,` + musicType + `]}` + "\n"})
 
 	worldtest.Expect(t, "searchCatalog for The Lanterns", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 
@@ -227,7 +231,7 @@ func turnOffAndOn(t *testing.T) {
 	a := api(t, run)
 	session := a.SignIn("home")
 	stream := a.Stream("home", session)
-	musicOff := strings.Replace(strings.TrimSuffix(strings.TrimPrefix(musicType, `{"contentTypes":[`), "]}\n"), `"enabled":true`, `"enabled":false`, 1) + "\n"
+	musicOff := strings.Replace(musicType, `"enabled":true`, `"enabled":false`, 1) + "\n"
 
 	worldtest.Expect(t, "turning music off", a.Admin("home", http.MethodPut, "/api/v1/content-types/music/enabled", `{"enabled":false}`), worldtest.Reply{Status: 200, Body: musicOff})
 	event(t, stream, "works.content-types-changed", `{"contentType":"music"}`)

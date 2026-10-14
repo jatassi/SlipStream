@@ -31,6 +31,16 @@ func (c *Code) problem() *Problem {
 	return &Problem{Status: c.status, Code: c.name, Title: c.title}
 }
 
+// Because answers c with detail, a reason a person reads beside the title.
+func (c *Code) Because(detail string) error { return &explained{code: c, detail: detail} }
+
+type explained struct {
+	code   *Code
+	detail string
+}
+
+func (e *explained) Error() string { return e.code.name + ": " + e.detail }
+
 var (
 	BadRequest           = NewCode(http.StatusBadRequest, "bad_request", "The request is malformed")
 	NotFound             = NewCode(http.StatusNotFound, "not_found", "Nothing is here")

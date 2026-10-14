@@ -221,6 +221,11 @@ func (s *Service) Holders(r role.Name) []ID {
 	return ids
 }
 
+// HoldersByPairing is every Node holding r, first paired first.
+func (s *Service) HoldersByPairing(ctx context.Context, r role.Name) ([]ID, error) {
+	return db.New(s.cfg.Library).HoldersByPairing(ctx, r)
+}
+
 // Admit pins every Worker in the roster and lets any other key only Pair.
 func (s *Service) Admit(key link.Key) link.Admission {
 	if key == s.cfg.Key {
@@ -407,7 +412,7 @@ func (s *Service) SetRoles(ctx context.Context, node ID, roles []role.Name) (Nod
 	s.mu.Unlock()
 	s.controls.Touch(node)
 	s.changed(node)
-	if err := s.awaitDelivery(ctx, node); err != nil {
+	if err := s.AwaitDelivery(ctx, node); err != nil {
 		return Node{}, err
 	}
 	return s.Get(ctx, node)
@@ -440,9 +445,9 @@ func replaceRoles(ctx context.Context, q *db.Queries, node ID, want []role.Name)
 	return nil
 }
 
-// awaitDelivery waits while node is in step and its facts lag the node
+// AwaitDelivery waits while node is in step and its facts lag the node
 // scope the library derives now.
-func (s *Service) awaitDelivery(ctx context.Context, node ID) error {
+func (s *Service) AwaitDelivery(ctx context.Context, node ID) error {
 	for {
 		woken := s.awaitChange(node)
 		if !s.inStep(node) {
@@ -459,6 +464,22 @@ func (s *Service) awaitDelivery(ctx context.Context, node ID) error {
 		case <-woken:
 		case <-ctx.Done():
 			return fmt.Errorf("await delivery to node %s: %w", node, ctx.Err())
+		}
+	}
+}
+
+// AwaitInStep returns once node's link is live and matched, at once for
+// this Node, or with ctx's error when it ends first.
+func (s *Service) AwaitInStep(ctx context.Context, node ID) error {
+	for {
+		woken := s.awaitChange(node)
+		if s.inStep(node) {
+			return nil
+		}
+		select {
+		case <-woken:
+		case <-ctx.Done():
+			return fmt.Errorf("await node %s in step: %w", node, ctx.Err())
 		}
 	}
 }

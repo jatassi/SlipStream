@@ -36,6 +36,9 @@ UPDATE works_level SET parent_id = sqlc.arg(parent_id), depth = sqlc.arg(depth),
     position = sqlc.arg(position), withdrawn_at = sqlc.arg(withdrawn_at)
 WHERE id = sqlc.arg(id);
 
+-- name: GetItem :one
+SELECT * FROM works_item WHERE id = sqlc.arg(id);
+
 -- name: ListItems :many
 SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY withdrawn_at IS NOT NULL, position, id;
 
@@ -60,3 +63,6 @@ ON CONFLICT (content_type) DO NOTHING;
 
 -- name: EnableType :execrows
 DELETE FROM works_disabled_type WHERE content_type = sqlc.arg(content_type);
+
+-- name: MonitorItems :exec
+UPDATE works_item SET monitored = 1 WHERE work_id = sqlc.arg(work_id);

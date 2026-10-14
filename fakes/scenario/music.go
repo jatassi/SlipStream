@@ -52,11 +52,18 @@ type MusicFault struct {
 	Times  int    `jsonschema:"required,minimum=1"                                yaml:"times"`
 }
 
+// ContentTypes is every Content Type the Scenario needs the binary to
+// register, in id order.
 func (s Scenario) ContentTypes() []string {
+	var out []string
 	if s.Music != nil {
-		return []string{"music"}
+		out = append(out, "music")
 	}
-	return nil
+	if s.Library != nil {
+		out = append(out, s.Library.contentTypes()...)
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 const (

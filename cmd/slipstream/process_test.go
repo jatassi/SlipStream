@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -502,11 +503,13 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "seed", Value: "fixed", Default: "", Source: "env"},
 			{Key: "name", Value: host, Default: host, Source: "default"},
 			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
+			{Key: "torrent.downloads", Value: "downloads", Default: "downloads", Source: "default"},
 			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default"},
 			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default"},
 			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default"},
 			{Key: "link.stream_window", Value: "16777216", Default: "16777216", Source: "default"},
 			{Key: "join.code", Value: "", Default: "", Source: "default"},
+			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
 			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default"},
@@ -522,12 +525,19 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default"},
 			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default"},
 			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default"},
+			{Key: "timings.indexers.request", Value: "30s", Default: "30s", Source: "default"},
+			{Key: "timings.transfers.chunk", Value: "30s", Default: "30s", Source: "default"},
+			{Key: "timings.grabs.retry_min", Value: "1s", Default: "1s", Source: "default"},
+			{Key: "timings.grabs.retry_max", Value: "1m0s", Default: "1m0s", Source: "default"},
+			{Key: "timings.grabs.progress", Value: "1s", Default: "1s", Source: "default"},
+			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default"},
+			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default"},
 		},
-		Census:       []string{},
-		ContentTypes: []string{},
+		Census:       []string{"endpoints.tmdb.api"},
+		ContentTypes: []string{"movie"},
 	}
-	if !reflect.DeepEqual(got, want) || !strings.Contains(res.stdout, `"contentTypes": []`) {
-		t.Fatalf("config = %+v, want %+v printed with \"contentTypes\": []", got, want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("config = %+v, want %+v", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "run")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("config started a Node: run dir %v", err)
@@ -603,5 +613,32 @@ func TestNodeOutlivesItsStderrReader(t *testing.T) {
 	var last struct{ Msg string }
 	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &last); err != nil || last.Msg != "stopped" {
 		t.Fatalf("last log file record = %q (%v), want stopped:\n%s", last.Msg, err, logged)
+	}
+}
+
+func TestRunRefusesToStartWithoutFFprobeBesideIt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	bin := filepath.Join(dir, filepath.Base(testbin.Slipstream(t)))
+	program, err := os.ReadFile(testbin.Slipstream(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A child forked while bin is open for writing would make exec of bin
+	// fail with "text file busy".
+	syscall.ForkLock.RLock()
+	err = os.WriteFile(bin, program, 0o700)
+	syscall.ForkLock.RUnlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := startBinary(t, bin, dataDir(t))
+	if code := p.wait(); code != node.ExitFailed || p.output() != "ffprobe not found beside "+bin {
+		t.Fatalf("run: exit %d, stderr %q; want exit %d, ffprobe not found beside %s", code, p.output(), node.ExitFailed, bin)
+	}
+	cmd := exec.CommandContext(t.Context(), bin, "config", "--data-dir", dataDir(t))
+	cmd.Env = childEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("config without ffprobe: %v\n%s", err, out)
 	}
 }

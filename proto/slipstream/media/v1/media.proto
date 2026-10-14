@@ -1,0 +1,27 @@
+// MediaService probes a file where it lies, so the Controller never names a
+// path on another machine.
+syntax = "proto3";
+
+package slipstream.media.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service MediaService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  // Probe reads a downloaded torrent file's container and first video
+  // stream with the bundled ffprobe.
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
+}
+
+message ProbeRequest {
+  bytes info_hash = 1;
+  int32 file_index = 2;
+}
+
+message ProbeResponse {
+  int64 duration_ms = 1;
+  string container = 2;
+  string codec = 3;
+  int32 width = 4;
+  int32 height = 5;
+}

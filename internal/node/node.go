@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -19,9 +20,11 @@ import (
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
@@ -49,6 +52,9 @@ type Env struct {
 	// OpenLog opens the log in dir, mirrored to stderr.
 	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
 	Types   contenttype.Set
+	// Media probes video files: the bundled ffprobe for a process, which
+	// Run finds beside the executable.
+	Media media.Prober
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -100,15 +106,18 @@ type Node struct {
 	isReady atomic.Bool
 
 	// Set during start, before the Node is ready.
-	cfg      Config
-	key      link.PrivateKey
-	info     link.NodeInfo
-	hub      *live.Hub
-	gate     *identity.Gate
-	link     *link.Link
-	pairing  *pairing.Pairing
-	lockstep *http.ServeMux
-	roleRand *rand.Rand
+	cfg       Config
+	key       link.PrivateKey
+	info      link.NodeInfo
+	hub       *live.Hub
+	gate      *identity.Gate
+	link      *link.Link
+	pairing   *pairing.Pairing
+	lockstep  *http.ServeMux
+	roleRand  *rand.Rand
+	grabsRand *rand.Rand
+	// downloads is the Node's built-in torrent client.
+	downloads *downloading.Client
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
 	claimed *Stack
@@ -273,6 +282,11 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	streams := NewStreams(cfg.Seed)
 	n.roleRand = streams.Stream("role")
 	n.hub = live.NewHub(surface.Events)
+	n.grabsRand = streams.Stream("grabs")
+	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
+		return 0, "", err
+	}
+	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
 		if _, err := n.openLibrary(ctx); err != nil {
@@ -286,14 +300,6 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	var setupCode string
 	if n.gate, setupCode, err = identity.NewGate(ctx, n.claim, n.rootLog.With("subsystem", "identity")); err != nil {
 		return 0, "", err
-	}
-	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen})
-	if err != nil {
-		return 0, "", fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
-	}
-	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
-	if l.Torrent, err = torrent.ListenAddr(); err != nil {
-		return 0, "", fmt.Errorf("torrent listen address: %w", err)
 	}
 	if err := n.startLink(cfg, streams, l); err != nil {
 		return 0, "", err
@@ -331,6 +337,27 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		})
 	}
 	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, n.gate)
+}
+
+// startTorrent opens the torrent engine and the Node's built-in client,
+// which reads its events from now on, claimed or not.
+func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
+	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen, Rand: ports})
+	if err != nil {
+		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
+	}
+	n.downloads = downloading.NewClient(downloading.Config{
+		Engine:  torrent,
+		Dir:     n.env.DataDir.Resolve(cfg.Torrent.Downloads),
+		Timings: cfg.Timings.Downloading,
+		Log:     n.rootLog.With("subsystem", "downloading"),
+	})
+	n.stack.Go("torrent events", n.downloads.Drain)
+	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
+	if l.Torrent, err = torrent.ListenAddr(); err != nil {
+		return fmt.Errorf("torrent listen address: %w", err)
+	}
+	return nil
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.
@@ -377,10 +404,32 @@ func changedTimings(keys []Key) []Key {
 
 var ErrInterrupted = errors.New("interrupted again while stopping")
 
+// bundledProber is the ffprobe the release ships beside the executable,
+// with ffmpeg beside it too (ADR 0015).
+func bundledProber() (media.FFprobe, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return media.FFprobe{}, fmt.Errorf("find the executable: %w", err)
+	}
+	beside := func(tool string) string { return filepath.Join(filepath.Dir(exe), tool+filepath.Ext(exe)) }
+	for _, tool := range []string{"ffprobe", "ffmpeg"} {
+		if info, err := os.Stat(beside(tool)); err != nil || !info.Mode().IsRegular() {
+			return media.FFprobe{}, fmt.Errorf("%s not found beside %s", tool, exe)
+		}
+	}
+	return media.FFprobe{Path: beside("ffprobe")}, nil
+}
+
 // Run is Start plus signals: SIGINT or SIGTERM stops the Node, and a second
 // one returns ErrInterrupted at once. Losing the reader of stderr does not
 // stop it.
 func Run(ctx context.Context, env Env) error {
+	prober, err := bundledProber()
+	if err != nil {
+		_, _ = fmt.Fprintln(env.Stderr, err)
+		return err
+	}
+	env.Media = prober
 	// Without a Notify for SIGPIPE, Go kills the process on a write to a
 	// broken pipe on stderr. With one, the write fails and the log file
 	// still gets the record.

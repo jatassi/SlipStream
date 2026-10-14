@@ -101,6 +101,69 @@ func SetNodeRoles(ctx context.Context, c *http.Client, baseURL, apiKey, id strin
 	return row, err
 }
 
+// CreateRoot makes path the root of contentType and returns its id.
+func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, path string) (string, error) {
+	var root struct {
+		ID string `json:"id"`
+	}
+	_, err := call(ctx, c, request{
+		what: "create the " + contentType + " root", method: http.MethodPost, url: baseURL + "/api/v1/roots",
+		header: apiKeyHeader(apiKey), body: struct {
+			ContentType string `json:"contentType"`
+			Path        string `json:"path"`
+		}{contentType, path}, want: http.StatusCreated,
+	}, &root)
+	return root.ID, err
+}
+
+// CreateIndexer creates an Indexer and returns its id.
+func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, url, indexerKey string) (string, error) {
+	var indexer struct {
+		ID string `json:"id"`
+	}
+	_, err := call(ctx, c, request{
+		what: "create Indexer " + name, method: http.MethodPost, url: baseURL + "/api/v1/indexers",
+		header: apiKeyHeader(apiKey), body: struct {
+			Name   string `json:"name"`
+			URL    string `json:"url"`
+			APIKey string `json:"apiKey"`
+		}{name, url, indexerKey}, want: http.StatusCreated,
+	}, &indexer)
+	return indexer.ID, err
+}
+
+// CreateTarget creates a Target and returns its id.
+func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, name string, resolutions []string) (string, error) {
+	var target struct {
+		ID string `json:"id"`
+	}
+	_, err := call(ctx, c, request{
+		what: "create Target " + name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
+		header: apiKeyHeader(apiKey), body: struct {
+			Name        string   `json:"name"`
+			Resolutions []string `json:"resolutions"`
+		}{name, resolutions}, want: http.StatusCreated,
+	}, &target)
+	return target.ID, err
+}
+
+// CreateProfile creates a Profile of the Targets with ids targetIDs and
+// returns its id.
+func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, targetIDs []string) (string, error) {
+	var profile struct {
+		ID string `json:"id"`
+	}
+	_, err := call(ctx, c, request{
+		what: "create Profile " + name, method: http.MethodPost, url: baseURL + "/api/v1/profiles",
+		header: apiKeyHeader(apiKey), body: struct {
+			Name        string   `json:"name"`
+			ContentType string   `json:"contentType"`
+			TargetIDs   []string `json:"targetIds"`
+		}{name, contentType, targetIDs}, want: http.StatusCreated,
+	}, &profile)
+	return profile.ID, err
+}
+
 func apiKeyHeader(key string) http.Header { return http.Header{"X-Api-Key": {key}} }
 
 type request struct {

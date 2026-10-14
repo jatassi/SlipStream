@@ -162,7 +162,7 @@ func npmPackage(dir, name, version string, targets []string) (Dependency, error)
 	if license == "" {
 		license = noLicense
 	}
-	return Dependency{SourceNPM, name, version, license, targets, text}, nil
+	return Dependency{SourceNPM, name, version, license, targets, text, ""}, nil
 }
 
 func stripTrailingCommas(data []byte) []byte {

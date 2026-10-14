@@ -1,0 +1,57 @@
+// The Downloading Role's messages: the torrents a Node's built-in client
+// keeps, their progress, and how each Grab's download ended.
+syntax = "proto3";
+
+package slipstream.downloading.v1;
+
+// Intent is every torrent the Node keeps, ordered by info hash, then Grab
+// id, so its version is stable.
+message Intent {
+  repeated Torrent torrents = 1;
+}
+
+message Torrent {
+  bytes info_hash = 1;
+  bytes metainfo = 2;
+  bytes grab_id = 3;
+}
+
+// Facts are each kept torrent's progress, ordered by info hash.
+message Facts {
+  repeated TorrentFacts torrents = 1;
+}
+
+message TorrentFacts {
+  bytes info_hash = 1;
+  string state = 2;
+  int64 done = 3;
+  int64 wanted = 4;
+  int32 peers = 5;
+}
+
+// Result is how one Grab's download ended. It names the Grab, because two
+// Grabs can share a torrent.
+message Result {
+  bytes grab_id = 1;
+  oneof outcome {
+    Completed completed = 2;
+    Failed failed = 3;
+  }
+}
+
+// Completed lists the torrent's files as they lie under its save path.
+message Completed {
+  bytes info_hash = 1;
+  repeated File files = 2;
+}
+
+message File {
+  int32 index = 1;
+  string path = 2;
+  int64 size = 3;
+}
+
+message Failed {
+  bytes info_hash = 1;
+  string error = 2;
+}

@@ -87,8 +87,11 @@ func TestParityOwners(t *testing.T) {
 func TestNativeLock(t *testing.T) {
 	hint := "; " + native.PublishHint
 	assertFindings(t, check(t, "native-lock", fixtureRepo(t, "native-lock")), []string{
+		"native/lock.json:1: [native-lock] pins ffmpeg archive https://example.test/ffmpeg-old.tar.xz for linux-amd64, inputs list https://example.test/ffmpeg-linux.tar.xz; run scripts/native-deps pin",
+		"native/lock.json:1: [native-lock] pins ffmpeg archive https://example.test/ffmpeg-win.zip for windows-amd64, which native/inputs.json does not list; run scripts/native-deps pin",
 		"native/lock.json:1: [native-lock] pins libs layer 0000000000000000000000000000000000000000000000000000000000000000 for linux-amd64, inputs and recipe build 33c32da85e817d553bca283ba63360455c21ad0be9c02f857261c75b2ecfe946" + hint,
 		"native/lock.json:1: [native-lock] pins libs layer 2222222222222222222222222222222222222222222222222222222222222222 for windows-amd64, which native/inputs.json does not list" + hint,
+		"native/lock.json:1: [native-lock] pins no ffmpeg archive for darwin-arm64, inputs list https://example.test/ffmpeg-mac.tar.xz; run scripts/native-deps pin",
 		"native/lock.json:1: [native-lock] pins no libs layer for darwin-arm64, inputs and recipe build 13fef6af146855c74b4206aa97728129f7231c1f0793afb381abc1310259fc84" + hint,
 		"native/lock.json:1: [native-lock] pins no toolchain layer for linux-amd64, inputs and recipe build c871a31bd840d2719733f3d367edc4c1807ebcd6ba999b630294eb6bab409d39" + hint,
 	})

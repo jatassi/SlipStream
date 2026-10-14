@@ -46,3 +46,11 @@ func (d DataDir) LibraryDB() string { return filepath.Join(d.path, storage.Libra
 func (d DataDir) LibraryKey() string { return filepath.Join(d.path, secret.KeyFile) }
 
 func (d DataDir) LocalDB() string { return filepath.Join(d.path, storage.LocalFile) }
+
+// Resolve is p against the data dir, unless p is absolute.
+func (d DataDir) Resolve(p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(d.path, p)
+}

@@ -48,7 +48,7 @@ func (s *moduleSet) add(source Source, name, version, dir, target string) error 
 		return err
 	}
 	s.byKey[key] = len(s.deps)
-	s.deps = append(s.deps, Dependency{source, name, version, license, []string{target}, text})
+	s.deps = append(s.deps, Dependency{source, name, version, license, []string{target}, text, ""})
 	return nil
 }
 

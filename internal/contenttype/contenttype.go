@@ -35,6 +35,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -43,6 +46,8 @@ import (
 // each defined by the package that consumes it.
 type Type interface {
 	works.Catalog
+	naming.Facet
+	indexers.Facet
 }
 
 type Deps struct {
@@ -50,7 +55,10 @@ type Deps struct {
 	HTTP *http.Client
 	// UserAgent is sent on every request to a metadata source.
 	UserAgent string
-	Log       *slog.Logger
+	// TMDB is the one TMDB client the Node builds from endpoints.tmdb; a
+	// type that doesn't read TMDB ignores it.
+	TMDB *tmdb.Client
+	Log  *slog.Logger
 }
 
 type Registration interface {

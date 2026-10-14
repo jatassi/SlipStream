@@ -129,20 +129,26 @@ const (
 // foreign_keys is off on the migration connection, because SQLite's table-rebuild
 // procedure drops a table, and with foreign keys on that drop would
 // cascade-delete child rows in other sets.
+//
+// synchronous is NORMAL on the migration connection, so a migration commits
+// without a sync. Closing that connection, the file's only one, checkpoints
+// and syncs once, so opening costs a few syncs however many migrations run.
 func dsn(path string, p policy, t Timings, r role) string {
 	busy := (t.BusyTimeout + time.Millisecond - 1) / time.Millisecond
 	q := url.Values{}
 	q.Add("_pragma", "busy_timeout("+strconv.FormatInt(int64(busy), 10)+")")
 	q.Add("_pragma", "journal_mode(WAL)")
-	q.Add("_pragma", "synchronous("+p.synchronous+")")
 	q.Add("_pragma", "reverse_unordered_selects(1)")
 	switch r {
 	case roleMigrate:
+		q.Add("_pragma", "synchronous(NORMAL)")
 		q.Add("_pragma", "foreign_keys(0)")
 	case roleWrite:
+		q.Add("_pragma", "synchronous("+p.synchronous+")")
 		q.Add("_pragma", "foreign_keys(1)")
 		q.Set("_txlock", "immediate")
 	case roleRead:
+		q.Add("_pragma", "synchronous("+p.synchronous+")")
 		q.Add("_pragma", "foreign_keys(1)")
 		q.Add("_pragma", "query_only(1)")
 	}

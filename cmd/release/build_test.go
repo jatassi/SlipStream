@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
@@ -72,6 +73,8 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		t.Errorf("slipstream version printed\n%s\nwant\n%s", printed, wantPrinted)
 	}
 
+	checkTools(t, dist)
+
 	index, err := os.ReadFile(filepath.Join(root, "web", "dist", "index.html"))
 	if err != nil {
 		t.Fatal(err)
@@ -82,5 +85,18 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	}
 	if !bytes.Contains(binary, index) {
 		t.Errorf("%s does not embed web/dist/index.html", bin)
+	}
+}
+
+func checkTools(t *testing.T, dist string) {
+	t.Helper()
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		if runtime.GOOS == "windows" {
+			tool += ".exe"
+		}
+		out, err := exec.CommandContext(t.Context(), filepath.Join(dist, tool), "-version").Output()
+		if prefix := strings.TrimSuffix(tool, ".exe") + " version 8.1.3-Jellyfin "; err != nil || !strings.HasPrefix(string(out), prefix) {
+			t.Errorf("%s -version = %q, %v; want it to start %q", tool, out, err, prefix)
+		}
 	}
 }

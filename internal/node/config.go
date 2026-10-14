@@ -10,13 +10,19 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloading"
+	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -36,6 +42,7 @@ type Config struct {
 }
 
 type EndpointsBlock struct {
+	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 
@@ -105,13 +112,18 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 }
 
 type TimingsBlock struct {
-	Node    Timings         `yaml:"node"`
-	Storage storage.Timings `yaml:"storage"`
-	HTTP    api.Timings     `yaml:"http"`
-	Live    live.Timings    `yaml:"live"`
-	Link    link.Timings    `yaml:"link"`
-	Role    role.Timings    `yaml:"role"`
-	Works   works.Timings   `yaml:"works"`
+	Node        Timings             `yaml:"node"`
+	Storage     storage.Timings     `yaml:"storage"`
+	HTTP        api.Timings         `yaml:"http"`
+	Live        live.Timings        `yaml:"live"`
+	Link        link.Timings        `yaml:"link"`
+	Role        role.Timings        `yaml:"role"`
+	Works       works.Timings       `yaml:"works"`
+	Indexers    indexers.Timings    `yaml:"indexers"`
+	Transfers   transfers.Timings   `yaml:"transfers"`
+	Grabs       grabs.Timings       `yaml:"grabs"`
+	Downloading downloading.Timings `yaml:"downloading"`
+	Media       media.Timings       `yaml:"media"`
 }
 
 type Timings struct {
@@ -132,6 +144,7 @@ func Defaults(types contenttype.Set) Config {
 		Torrent: engine.DefaultSettings(),
 		HTTP:    api.DefaultSettings(),
 		Endpoints: EndpointsBlock{
+			TMDB:         tmdb.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
 		},
 		Link: link.Settings{
@@ -151,8 +164,13 @@ func Defaults(types contenttype.Set) Config {
 				RedialMax:     time.Minute,
 				FallbackDelay: 300 * time.Millisecond,
 			},
-			Role:  role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
-			Works: works.DefaultTimings(),
+			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
+			Works:       works.DefaultTimings(),
+			Indexers:    indexers.DefaultTimings(),
+			Transfers:   transfers.DefaultTimings(),
+			Grabs:       grabs.DefaultTimings(),
+			Downloading: downloading.DefaultTimings(),
+			Media:       media.DefaultTimings(),
 		},
 	}
 }

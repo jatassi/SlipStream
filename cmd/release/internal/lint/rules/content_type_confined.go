@@ -23,7 +23,7 @@ func init() {
 
 const surfacePkg = "./internal/node/surface"
 
-var coreExempt = []string{"cmd/slipstream/", "cmd/slipstream-e2e/", "cmd/release/", "fakes/", "e2e/"}
+var coreExempt = []string{"cmd/slipstream/", "cmd/slipstream-e2e/", "cmd/release/", "fakes/", "e2e/", "internal/providers/"}
 
 var webScripts = []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx"}
 
