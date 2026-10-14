@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -14,7 +15,7 @@ func TestConfigWritesOnlyWhatTheWorldSets(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Nodes = append(s.Nodes, scenario.Node{Name: "work"})
-	got, err := Config(s, 1, []string{"torrent.listen", "http.listen", "link.listen"}, node.Defaults(contenttype.Set{}).Endpoints)
+	got, err := Config(s, 1, []string{"torrent.listen", "http.listen", "link.listen"}, netip.MustParseAddrPort("127.0.0.1:40123"), node.Defaults(contenttype.Set{}).Endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,6 +27,8 @@ http:
   listen: 127.0.0.3:0
 link:
   listen: 127.0.0.3:0
+  advertise:
+    - 127.0.0.1:40123
 timings:
   node:
     stop_deadline: 5s

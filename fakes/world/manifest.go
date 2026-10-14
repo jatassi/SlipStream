@@ -37,10 +37,13 @@ type Manifest struct {
 	Fakes       []Fake   `json:"fakes"`
 	// Fronts is every front: where each Node, and the world, reaches each
 	// target.
-	Fronts   []Front   `json:"fronts"`
-	Releases []Release `json:"releases"`
-	Admin    *Admin    `json:"admin,omitempty"`
-	APIKey   string    `json:"apiKey,omitempty"`
+	Fronts []Front `json:"fronts"`
+	// Links maps each Node to its link front, the address it advertises
+	// and every peer dials.
+	Links    map[string]string `json:"links"`
+	Releases []Release         `json:"releases"`
+	Admin    *Admin            `json:"admin,omitempty"`
+	APIKey   string            `json:"apiKey,omitempty"`
 }
 
 type ScenarioRef struct {
@@ -90,7 +93,8 @@ type Fake struct {
 }
 
 // Front is one front: target as Node reaches it, Node "world" for the
-// harness. URL is absent for a target that speaks no HTTP.
+// harness and "" for a link front, which every peer dials. URL is absent
+// for a target that speaks no HTTP.
 type Front struct {
 	Target  string `json:"target"`
 	Node    string `json:"node"`

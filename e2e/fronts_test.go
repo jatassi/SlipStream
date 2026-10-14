@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -138,4 +139,40 @@ func TestA429FromTheIndexerFailsOneSearch(t *testing.T) {
 	if second.Outcome == nil || *second.Outcome != "grabbed" || second.GrabID == nil {
 		t.Fatalf("the second search ended %+v, want grabbed", second)
 	}
+}
+
+func TestALinkCutMidTransferResumes(t *testing.T) {
+	t.Parallel()
+	w := begin(t, "home")
+	link := string(world.LinkTarget("home"))
+	completed := &events.Query{Kind: tracker.Announces.Kind, Match: map[string]string{"event": "completed"}}
+	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link), Times: 1, After: completed}, "cut=256KiB")
+	s := w.searched(t, w.search(t))
+	if s.Outcome == nil || *s.Outcome != "grabbed" || s.GrabID == nil {
+		t.Fatalf("the search ended %+v, want grabbed", s)
+	}
+	w.ended(t, *s.GrabID)
+	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+		t.Fatalf("the Grab's history is %v with %+v, want %v", w.grab.stages(), w.grab.Failure, want)
+	}
+	fired, err := events.Select(w.m.RunDir, events.Query{Kind: events.FaultFired})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fired) != 1 || string(fired[0].Data) != `{"rule":"link-cut","target":"link/home","fault":"cut=256KiB","match":1}` {
+		t.Fatalf("fault.fired records = %+v, want link-cut once", fired)
+	}
+	onLink := map[string]string{"target": link}
+	cut, err := events.Select(w.m.RunDir, events.Query{Kind: "front.close", Match: map[string]string{"target": link, "cause": "cut"}, After: fired[0].Seq})
+	if err != nil || len(cut) != 1 {
+		t.Fatalf("link/home closed by the cut %+v, %v; want once", cut, err)
+	}
+	var carried struct{ In int64 }
+	if err := json.Unmarshal(cut[0].Data, &carried); err != nil || carried.In < 256<<10 {
+		t.Fatalf("the cut connection carried %s, want the Transfer's 256 KiB from seedbox", cut[0].Data)
+	}
+	if _, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.open", Match: onLink, After: cut[0].Seq}); err != nil {
+		t.Fatalf("no front.open on link/home after the cut: %v", err)
+	}
+	checkPlaced(t, w.m, 1)
 }

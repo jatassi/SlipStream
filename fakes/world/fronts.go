@@ -19,8 +19,8 @@ import (
 
 // bindFronts binds every front before any fake is built, since the
 // release catalog and every address a Node sees name one: each fake as
-// each Node and the world reach it, and each seeded release's seeder as
-// each Node reaches it.
+// each Node and the world reach it, each seeded release's seeder as each
+// Node reaches it, and each Node's link as every peer reaches it.
 func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
 		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
@@ -42,6 +42,9 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 		for _, origin := range r.nodeNames() {
 			planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
 		}
+	}
+	for _, name := range r.nodeNames() {
+		planned = append(planned, fault.Front{Target: LinkTarget(name), Layers: fault.Conn})
 	}
 	r.faults = fault.NewPlan(planned, r.fired)
 	r.fronts = front.NewSet(r.faults, r.appendRecord, r.log)
@@ -118,6 +121,28 @@ func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
 	}
 	bad := map[fault.TLSFailure]tls.Certificate{fault.Untrusted: untrusted, fault.Expired: expired, fault.WrongName: wrongName}
 	return func(f fault.Front) *tls.Config { return front.TLS(r.faults, f, good, bad) }, nil
+}
+
+// LinkTarget is the fault target of the link front of the Node named
+// name: one front every peer dials, since each dials the one address the
+// Node advertises.
+func LinkTarget(name string) fault.Target { return fault.Target("link/" + name) }
+
+// serveLinkFronts forwards each Node's link front to the link listener of
+// the Node as it runs now.
+func (r *Run) serveLinkFronts() {
+	for _, n := range r.nodes {
+		at := r.linkFront(n.spec.Name)
+		at.Serve(front.Forward(func() (netip.AddrPort, error) {
+			ready, err := n.life.Live()
+			return ready.Listeners.Link, err
+		}))
+	}
+}
+
+func (r *Run) linkFront(name string) *front.Front {
+	i := slices.IndexFunc(r.listeners, func(l *front.Front) bool { return l.Fault().Target == LinkTarget(name) })
+	return r.listeners[i]
 }
 
 // serveSeederFronts forwards each seeder front to its release's seeder.

@@ -142,6 +142,7 @@ func TestARuleAFrontCantPlayIsRefused(t *testing.T) {
 		{fault.Rule{ID: "x", Target: "tmdb", Route: "movie", Fault: fault.Throttle(1024)}, "throttle=1KiB/s is a connection fault and takes no route or params"},
 		{fault.Rule{ID: "x", Target: "tmdbx", Fault: fault.Reset{}}, "no target tmdbx"},
 		{fault.Rule{ID: "x", Target: "tmdb", Origin: "nas", Fault: fault.Reset{}}, "tmdb has no front for nas"},
+		{fault.Rule{ID: "x", Target: "link/home", Origin: "seedbox", Fault: fault.Stall{}}, "link/home is the one front every peer dials, so a rule can't pick seedbox's connections; per-pair link faults stay in the simulation tier"},
 		{fault.Rule{ID: "x", Target: "tmdb", Fault: fault.Refuse{}, Times: 1}, "refuse holds a front until cleared and takes no skip or times"},
 		{fault.Rule{ID: "x", Target: "tmdb", Fault: fault.Hang{}, Skip: -1}, `rule "x": skip and times can't be negative`},
 		{fault.Rule{ID: "x", Target: "tmdb"}, `rule "x" has no fault`},

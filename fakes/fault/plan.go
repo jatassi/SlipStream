@@ -125,6 +125,9 @@ func Check(r Rule, fronts []Front) error {
 		if !slices.ContainsFunc(fronts, func(f Front) bool { return r.Target.covers(f.Target) }) {
 			return fmt.Errorf("no target %s", r.Target)
 		}
+		if !slices.ContainsFunc(fronts, func(f Front) bool { return r.Target.covers(f.Target) && f.Origin != "" }) {
+			return fmt.Errorf("%s is the one front every peer dials, so a rule can't pick %s's connections; per-pair link faults stay in the simulation tier", r.Target, r.Origin)
+		}
 		return fmt.Errorf("%s has no front for %s", r.Target, r.Origin)
 	}
 	for _, f := range covered {

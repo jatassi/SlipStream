@@ -154,7 +154,7 @@ func dataDir(t *testing.T, s scenario.Scenario, i int, listen []string, endpoint
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := setup.Config(s, i, listen, endpoints)
+	config, err := setup.Config(s, i, listen, netip.AddrPort{}, endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}

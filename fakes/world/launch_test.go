@@ -206,9 +206,13 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 	wantFronts := []world.Front{
 		{Target: "echo", Node: "home", Address: strings.TrimPrefix(m.Fronts[0].URL, "https://"), URL: m.Fronts[0].URL},
 		{Target: "echo", Node: "world", Address: strings.TrimPrefix(m.Fakes[0].URL, "https://"), URL: m.Fakes[0].URL},
+		{Target: "link/home", Node: "", Address: m.Links["home"]},
 	}
 	if !reflect.DeepEqual(m.Fronts, wantFronts) || m.Fronts[0].Address == m.Fronts[1].Address || !strings.HasPrefix(m.Fronts[0].Address, "127.0.0.1:") {
-		t.Fatalf("fronts = %+v, want echo's for home and the world on two ports of 127.0.0.1", m.Fronts)
+		t.Fatalf("fronts = %+v, want echo's for home and the world and home's link front on ports of 127.0.0.1", m.Fronts)
+	}
+	if advertised := advertisedLink(t, filepath.Join(home.DataDir, "config.yaml")); len(m.Links) != 1 || !strings.HasPrefix(m.Links["home"], "127.0.0.1:") || !slices.Equal(advertised, []string{m.Links["home"]}) {
+		t.Fatalf("links = %v and home's config.yaml advertises %v, want home's link front advertised", m.Links, advertised)
 	}
 	if want := []world.Fake{{Name: "echo", URL: m.Fronts[1].URL, Captures: []fake.CaptureSpec{}}}; !reflect.DeepEqual(m.Fakes, want) || len(m.Releases) != 0 {
 		t.Fatalf("fakes = %+v and releases %+v, want %+v and none", m.Fakes, m.Releases, want)
@@ -501,7 +505,7 @@ func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 	s.Timings.Node.StopDeadline = -time.Second
 	runDir := filepath.Join(t.TempDir(), "run")
 	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: testbin.Slipstream(t), Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)})
-	if want := "node home: config.yaml:11: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
+	if want := "node home: config.yaml:13: timings.node.stop_deadline: duration -1s is not positive"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v\nwant %s", err, want)
 	}
 	assertNothingLeft(t, runDir, false)
@@ -598,4 +602,22 @@ func pinnedListeners(t *testing.T, path string) map[string]string {
 		out[name], _ = block["listen"].(string)
 	}
 	return out
+}
+
+// advertisedLink reads link.advertise from a Node's config.yaml.
+func advertisedLink(t *testing.T, path string) []string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Link struct {
+			Advertise []string `yaml:"advertise"`
+		} `yaml:"link"`
+	}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	return config.Link.Advertise
 }

@@ -76,6 +76,7 @@ export const manifestSchema = z.strictObject({
       url: z.optional(z.string()),
     }),
   ),
+  links: z.record(z.string(), z.string()),
   releases: z.array(
     z.strictObject({
       name: z.string(),

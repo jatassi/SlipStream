@@ -41,15 +41,19 @@ func ListenKeys(probe node.Resolved) []string {
 }
 
 // Config is Node i's config.yaml: its seed and name, every listen key on
-// its own address, the timings the Scenario sets and the endpoints the
-// fakes moved.
-func Config(s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) ([]byte, error) {
+// its own address, the link front it advertises, the timings the Scenario
+// sets and the endpoints the fakes moved. The simulation tier, which has
+// no fronts, passes the zero link.
+func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, endpoints node.EndpointsBlock) ([]byte, error) {
 	root := &yaml.Node{Kind: yaml.MappingNode}
-	set(root, "seed", s.Seed+"/"+s.Nodes[i].Name)
-	set(root, "name", s.Nodes[i].Name)
-	at := netip.AddrPortFrom(Address(i), 0).String()
+	set(root, "seed", scalar(s.Seed+"/"+s.Nodes[i].Name))
+	set(root, "name", scalar(s.Nodes[i].Name))
+	at := scalar(netip.AddrPortFrom(Address(i), 0).String())
 	for _, key := range listen {
 		set(root, key, at)
+	}
+	if link.IsValid() {
+		set(root, "link.advertise", &yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{scalar(link.String())}})
 	}
 	if t := scenario.SetTimings(s.Timings); t != nil {
 		root.Content = append(root.Content, scalar("timings"), t)
@@ -98,7 +102,7 @@ func encode(root *yaml.Node) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func set(m *yaml.Node, key, value string) {
+func set(m *yaml.Node, key string, value *yaml.Node) {
 	head, rest, nested := strings.Cut(key, ".")
 	for i := 0; i < len(m.Content); i += 2 {
 		if m.Content[i].Value == head && nested {
@@ -107,7 +111,7 @@ func set(m *yaml.Node, key, value string) {
 		}
 	}
 	if !nested {
-		m.Content = append(m.Content, scalar(head), scalar(value))
+		m.Content = append(m.Content, scalar(head), value)
 		return
 	}
 	child := &yaml.Node{Kind: yaml.MappingNode}

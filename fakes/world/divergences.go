@@ -48,6 +48,12 @@ var divergences = []divergence{
 		spec:   "#130",
 	},
 	{
+		id:          "link-front",
+		keyPatterns: []string{"link.advertise"},
+		reason:      "Each Node advertises its link front, so the Node link crosses a front the fault rules play on.",
+		spec:        "#135",
+	},
+	{
 		id:          "fake-endpoints",
 		keyPatterns: []string{"endpoints.*"},
 		reason:      "Each boundary's endpoints point at its fake.",

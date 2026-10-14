@@ -421,7 +421,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err != nil {
 			return err
 		}
-		config, err := setup.Config(r.scenario, i, listen, endpoints)
+		config, err := setup.Config(r.scenario, i, listen, r.linkFront(name).Addr(), endpoints)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
@@ -504,6 +504,7 @@ func (r *Run) startNodes(ctx context.Context, undo *unwind) error {
 	if err := os.Mkdir(filepath.Join(r.runDir, "nodes"), 0o755); err != nil {
 		return fmt.Errorf("node logs: %w", err)
 	}
+	r.serveLinkFronts()
 	for _, n := range r.nodes {
 		if err := r.startNode(ctx, undo, n); err != nil {
 			return err
@@ -644,6 +645,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Nodes:       []Node{},
 		Fakes:       []Fake{},
 		Fronts:      []Front{},
+		Links:       map[string]string{},
 		Releases:    []Release{},
 		APIKey:      r.claims.APIKey,
 	}
@@ -663,6 +665,9 @@ func (r *Run) buildManifest() (Manifest, error) {
 			entry.URL = f.Address.URL("")
 		}
 		m.Fronts = append(m.Fronts, entry)
+	}
+	for _, n := range r.nodes {
+		m.Links[n.spec.Name] = r.linkFront(n.spec.Name).Addr().String()
 	}
 	for _, rel := range r.releases.Releases {
 		m.Releases = append(m.Releases, Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:])})
