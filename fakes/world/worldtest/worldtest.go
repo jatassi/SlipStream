@@ -212,7 +212,14 @@ func SetupCode(t *testing.T, run *world.Run, name string) string {
 	if ready != logged || !setupCodeShape.MatchString(ready) {
 		t.Fatalf("node %s: the readiness record's setup_code is %q and the setup code record's code is %q, want one code matching %s", name, ready, logged, setupCodeShape)
 	}
-	manifest, err := os.ReadFile(filepath.Join(m.RunDir, "manifest.json"))
+	// os.Root, as world.ReadManifest says, lets the supervisor replace the
+	// manifest while it is read.
+	root, err := os.OpenRoot(m.RunDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	manifest, err := root.ReadFile("manifest.json")
 	if err != nil {
 		t.Fatal(err)
 	}

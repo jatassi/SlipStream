@@ -92,9 +92,16 @@ func runDev(ctx context.Context, args []string) error {
 // announceWorld prints how to get in to the world's Node and returns the
 // Node's URL.
 func announceWorld(w io.Writer, manifestPath string) (string, error) {
-	data, err := os.ReadFile(manifestPath)
+	// os.Root, as world.ReadManifest says, lets the supervisor replace the
+	// manifest while it is read.
+	root, err := os.OpenRoot(filepath.Dir(manifestPath))
 	if err != nil {
 		return "", fmt.Errorf("read manifest: %w", err)
+	}
+	defer func() { _ = root.Close() }()
+	data, err := root.ReadFile(filepath.Base(manifestPath))
+	if err != nil {
+		return "", fmt.Errorf("read manifest %s: %w", manifestPath, err)
 	}
 	var m devManifest
 	if err := json.Unmarshal(data, &m); err != nil {

@@ -140,14 +140,24 @@ type Admin struct {
 	PIN         string `json:"pin"`
 }
 
+// ReadManifest and writeAtomically go through os.Root because on Windows it
+// opens files sharing delete access and renames with POSIX semantics, so a
+// reader holding manifest.json open neither blocks the supervisor replacing
+// it nor sees the name missing mid-replace. os.ReadFile and os.Rename do
+// neither.
 func ReadManifest(runDir string) (Manifest, error) {
 	return readManifestFile(runDir, manifestFile)
 }
 
 func readManifestFile(runDir, name string) (Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(runDir, name))
+	root, err := os.OpenRoot(runDir)
 	if err != nil {
 		return Manifest{}, fmt.Errorf("read manifest: %w", err)
+	}
+	defer func() { _ = root.Close() }()
+	data, err := root.ReadFile(name)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("read manifest in %s: %w", runDir, err)
 	}
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -157,7 +167,13 @@ func readManifestFile(runDir, name string) (Manifest, error) {
 }
 
 func writeAtomically(path string, data []byte) error {
-	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	dir, name := filepath.Dir(path), filepath.Base(path)
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	defer func() { _ = root.Close() }()
+	f, err := os.CreateTemp(dir, "."+name+".*")
 	if err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
@@ -168,7 +184,7 @@ func writeAtomically(path string, data []byte) error {
 		_ = os.Remove(f.Name())
 		return fmt.Errorf("write %s: %w", path, err)
 	}
-	if err := os.Rename(f.Name(), path); err != nil {
+	if err := root.Rename(filepath.Base(f.Name()), name); err != nil {
 		_ = os.Remove(f.Name())
 		return fmt.Errorf("write %s: %w", path, err)
 	}

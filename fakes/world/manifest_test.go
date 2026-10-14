@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/invopop/jsonschema"
@@ -102,5 +104,45 @@ func validateManifest(t *testing.T, path string) {
 	}
 	if err := compiled.Validate(manifest); err != nil {
 		t.Fatalf("%s does not match %s: %v", path, schemaFile, err)
+	}
+}
+
+func TestReadManifestWhileTheSupervisorRewritesIt(t *testing.T) {
+	t.Parallel()
+	runDir := t.TempDir()
+	path := filepath.Join(runDir, "manifest.json")
+	const writes = 200
+	write := func(i int) error {
+		return world.WriteAtomically(path, fmt.Appendf(nil, `{"runId":"%d"}`, i))
+	}
+	if err := write(0); err != nil {
+		t.Fatal(err)
+	}
+	written := make(chan error, 1)
+	go func() {
+		for i := 1; i <= writes; i++ {
+			if err := write(i); err != nil {
+				written <- err
+				return
+			}
+		}
+		written <- nil
+	}()
+	for {
+		select {
+		case err := <-written:
+			if err != nil {
+				t.Fatalf("rewrite while read: %v", err)
+			}
+			m, err := world.ReadManifest(runDir)
+			if err != nil || m.RunID != strconv.Itoa(writes) {
+				t.Fatalf("ReadManifest after the rewrites = %q, %v, want runId %d", m.RunID, err, writes)
+			}
+			return
+		default:
+		}
+		if _, err := world.ReadManifest(runDir); err != nil {
+			t.Fatalf("ReadManifest while rewritten: %v", err)
+		}
 	}
 }

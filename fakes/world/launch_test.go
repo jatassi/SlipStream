@@ -344,7 +344,10 @@ func TestANodeThatExitsMidRunIsReported(t *testing.T) {
 	}
 	worldtest.Until(t, "the manifest says home exited", func() (bool, error) {
 		m, err := world.ReadManifest(runDir)
-		return m.Nodes[0].State == world.NodeExited && m.Nodes[0].PID == 0, err
+		if err != nil {
+			return false, err
+		}
+		return m.Nodes[0].State == world.NodeExited && m.Nodes[0].PID == 0, nil
 	})
 	report, err := run.Stop(worldtest.Context(t))
 	if len(report.Nodes) != 1 || !report.Nodes[0].ExitedUnasked || report.Nodes[0].ExitCode == 0 {
