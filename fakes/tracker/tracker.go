@@ -18,10 +18,14 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node"
 )
+
+// Passkey is the one passkey the tracker accepts in a world with Scenario s.
+func Passkey(s scenario.Scenario) string { return releases.Passkey(s) }
 
 // DefaultInterval is the announce interval a Scenario that sets none gets.
 const DefaultInterval = 30 * time.Second

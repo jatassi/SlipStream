@@ -108,7 +108,7 @@ type entered struct {
 }
 
 type progress struct {
-	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded"`
+	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
 	Total int64 `json:"total" minimum:"0" doc:"Bytes wanted"`
 }
 
@@ -126,7 +126,7 @@ type grab struct {
 	Stage        string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
 	Failure      *failure  `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
 	History      []entered `json:"history" nullable:"false" doc:"Each stage it entered, oldest first"`
-	Progress     *progress `json:"progress,omitempty" doc:"The download's progress, absent unless it is downloading and its Node reported it"`
+	Progress     *progress `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 

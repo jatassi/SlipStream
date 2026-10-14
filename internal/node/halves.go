@@ -111,6 +111,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed: indexers.ChangedEvent.Bind(n.hub),
 	})
 	shelf := files.New(files.Config{Library: lib.db, Works: tree, Grabs: grabs.GrabCells{}})
+	receiver := transfers.NewReceiver(transfers.Config{Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers})
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
@@ -124,23 +125,23 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
 		Payloads:      n.downloads,
+		Transfers:     receiver,
 		Linker:        files.OSLinker{},
 		Timings:       n.cfg.Timings.Grabs,
 		Rand:          n.grabsRand,
 		Changed:       grabs.ChangedEvent.Bind(n.hub),
 		SearchChanged: grabs.SearchChangedEvent.Bind(n.hub),
 		FilesChanged:  files.ChangedEvent.Bind(n.hub),
+		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
 	n.setHalf(&half{
 		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
-		targets: targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
-		roots:   roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
-		files:   shelf,
-		grabs:   pipeline,
-		transfers: transfers.NewReceiver(transfers.Config{
-			Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers,
-		}),
+		targets:   targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
+		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
+		files:     shelf,
+		grabs:     pipeline,
+		transfers: receiver,
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("grabs", pipeline.Run)

@@ -1,9 +1,11 @@
 package node
 
 import (
+	"context"
 	"io"
 	"net/http"
 
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/role"
@@ -32,6 +34,8 @@ type Test struct {
 	Lockstep func(http.Handler) http.Handler
 	// Transfers sees into a Worker's Transfer source.
 	Transfers transfers.Hooks
+	// BeforeStep sees each Grab step on the Controller before it runs.
+	BeforeStep func(context.Context, grabs.Stage)
 }
 
 // Half is a started half as a test reaches it. Library, Controls and

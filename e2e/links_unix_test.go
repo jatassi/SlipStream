@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func links(t *testing.T, path string) uint64 {
+func linkCount(t *testing.T, path string) uint64 {
 	t.Helper()
 	info, err := os.Stat(path)
 	if err != nil {

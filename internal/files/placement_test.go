@@ -80,3 +80,43 @@ func TestPlaceRefusesAnotherFileAtTheTarget(t *testing.T) {
 		t.Fatalf("Place over the same bytes = %v, want nil", err)
 	}
 }
+
+func TestMoveRenamesTheStagedFileAndConvergesWhenRepeated(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".slipstream-staging"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	from := payload(t, filepath.Join(root, ".slipstream-staging"), "grab.part", "payload")
+	to := filepath.Join(root, "Orchard", "Orchard - 1080p.mkv")
+	for range 2 {
+		if err := files.Move(from, to); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := os.ReadFile(to)
+	if err != nil || string(got) != "payload" {
+		t.Fatalf("the moved file holds %q, %v; want payload", got, err)
+	}
+	if entries, err := os.ReadDir(filepath.Join(root, ".slipstream-staging")); err != nil || len(entries) != 0 {
+		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
+	}
+}
+
+func TestMoveRefusesAnotherFileAndDropsAnIdenticalStagedCopy(t *testing.T) {
+	dir := t.TempDir()
+	to := payload(t, dir, "Orchard - 1080p.mkv", "payload")
+	other := payload(t, dir, "other.part", "another")
+	if err := files.Move(other, to); !errors.Is(err, files.ErrOccupied) {
+		t.Fatalf("Move over another file = %v, want ErrOccupied", err)
+	}
+	same := payload(t, dir, "same.part", "payload")
+	if err := files.Move(same, to); err != nil {
+		t.Fatalf("Move over the same bytes = %v, want nil", err)
+	}
+	if _, err := os.Stat(same); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the identical staged copy is still there: %v", err)
+	}
+	if err := files.Move(filepath.Join(dir, "gone.part"), filepath.Join(dir, "missing.mkv")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Move with neither file = %v, want ErrNotExist", err)
+	}
+}

@@ -47,6 +47,38 @@ func Place(l Linker, from, to string) error {
 	return copyInto(from, to)
 }
 
+// Move renames the staged file at from to to, making to's folder. A file
+// at to with from's size and BLAKE3 counts as moved, and so does any file
+// at to once from is gone, so moving again converges; another file there
+// is ErrOccupied.
+func Move(from, to string) error {
+	if _, err := os.Stat(from); errors.Is(err, os.ErrNotExist) {
+		if _, err := os.Stat(to); err != nil {
+			return fmt.Errorf("neither the staged file nor the target is there: %w", err)
+		}
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil { //nolint:gosec // media servers read the library
+		return fmt.Errorf("make the file's folder: %w", err)
+	}
+	switch same, err := identical(from, to); {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return err
+	case same:
+		if err := os.Remove(from); err != nil {
+			return fmt.Errorf("remove the staged copy: %w", err)
+		}
+		return nil
+	default:
+		return ErrOccupied
+	}
+	if err := os.Rename(from, to); err != nil {
+		return fmt.Errorf("move the staged file into place: %w", err)
+	}
+	return nil
+}
+
 // identical reports whether to holds the same bytes as from, by size and
 // BLAKE3. It fails with os.ErrNotExist when nothing is at to.
 func identical(from, to string) (bool, error) {

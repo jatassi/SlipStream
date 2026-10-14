@@ -423,7 +423,7 @@
           },
           "progress": {
             "$ref": "#/components/schemas/GrabsProgress",
-            "description": "The download's progress, absent unless it is downloading and its Node reported it"
+            "description": "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"
           },
           "releaseSize": {
             "format": "int64",
@@ -494,7 +494,7 @@
         "additionalProperties": false,
         "properties": {
           "done": {
-            "description": "Bytes downloaded",
+            "description": "Bytes downloaded, or received and verified while transferring",
             "format": "int64",
             "minimum": 0,
             "type": "integer"

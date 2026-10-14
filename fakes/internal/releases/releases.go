@@ -192,26 +192,42 @@ func place(cached, dir string, r scenario.Release, announce string) (Release, er
 	if err != nil {
 		return Release{}, fmt.Errorf("copy the payload: %w", err)
 	}
+	meta, hash, err := metainfo(name, size, pieces.sum(), announce)
+	if err != nil {
+		return Release{}, err
+	}
+	release := Release{Release: r, Dir: dir, File: file, Size: size, Metainfo: meta, InfoHash: hash}
+	copy(release.BLAKE3[:], b3.Sum(nil))
+	return release, nil
+}
+
+// Metainfo is a catalog torrent of payload as the one file name, for a
+// world that makes its payloads without ffmpeg.
+func Metainfo(name string, payload []byte, announce string) ([]byte, bencode.InfoHash, error) {
+	pieces := &pieceHasher{}
+	_, _ = pieces.Write(payload)
+	return metainfo(name, int64(len(payload)), pieces.sum(), announce)
+}
+
+func metainfo(name string, size int64, pieces []byte, announce string) ([]byte, bencode.InfoHash, error) {
 	meta, err := bencode.Encode(map[string]any{
 		"announce": announce,
 		"info": map[string]any{
 			"length":       size,
 			"name":         name,
 			"piece length": PieceLength,
-			"pieces":       pieces.sum(),
+			"pieces":       pieces,
 			"private":      1,
 		},
 	})
 	if err != nil {
-		return Release{}, err
+		return nil, bencode.InfoHash{}, err
 	}
 	m, err := bencode.DecodeMetainfo(meta)
 	if err != nil {
-		return Release{}, err
+		return nil, bencode.InfoHash{}, err
 	}
-	release := Release{Release: r, Dir: dir, File: file, Size: size, Metainfo: meta, InfoHash: m.InfoHash}
-	copy(release.BLAKE3[:], b3.Sum(nil))
-	return release, nil
+	return meta, m.InfoHash, nil
 }
 
 // pieceHasher takes the SHA-1 of each PieceLength piece written to it.

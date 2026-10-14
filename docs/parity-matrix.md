@@ -358,7 +358,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 |---|---|---|---|---|---|---|
 | P-241 | Admin WebSocket with reconnect that drives queue, progress, tasks, health and library refresh | `internal/websocket/hub.go`, `web/src/stores/websocket.ts` | working | superseded by a Server-Sent Events stream with reconnect | [API, sign-in and live updates](https://github.com/jatassi/SlipStream/issues/129) | planned |
 | P-242 | Library entity added, updated and deleted events | `internal/websocket/hub.go` | working | kept | [Library, the add flow and the Work page](https://github.com/jatassi/SlipStream/issues/145) | planned |
-| P-243 | Live events for search, grab, auto search, RSS, import, rename, history, health, indexers, artwork, tasks, updates, logs and requests | `internal/websocket/hub.go`, `web/src/stores/ws-message-handlers.ts` | working | kept | [Walking skeleton](https://github.com/jatassi/SlipStream/issues/134) | planned |
+| P-243 | Live events for search, grab, auto search, RSS, import, rename, history, health, indexers, artwork, tasks, updates, logs and requests | `internal/websocket/hub.go`, `web/src/stores/ws-message-handlers.ts` | working | kept. The Walking skeleton delivers the mechanism and the search, grab, import and indexer events (`grabs.search-changed`, `grabs.changed`, `files.changed`, `indexers.changed`); each other subject's spec adds its own | [Walking skeleton](https://github.com/jatassi/SlipStream/issues/134) | planned |
 
 ## System and logs
 
