@@ -36,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/node"
@@ -97,11 +98,7 @@ type nodeRun struct {
 	dataDir node.DataDir
 	env     []string
 	log     string
-	logFile *os.File
-	proc    *proc.Process
-	ready   node.Ready
-	// recorded is closed once the Node's node.exited record is logged.
-	recorded chan struct{}
+	life    *lifecycle.Node
 }
 
 // fakeRun is a fake the world hosts: the address of its world front, and
@@ -432,6 +429,8 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
 		n.env = env
+		n.log = filepath.Join(r.runDir, "nodes", name+".log")
+		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor})
 		resolved, err := r.resolve(ctx, name, n.dataDir.Path(), env)
 		if err != nil {
 			return err
@@ -514,55 +513,13 @@ func (r *Run) startNodes(ctx context.Context, undo *unwind) error {
 }
 
 func (r *Run) startNode(ctx context.Context, undo *unwind, n *nodeRun) error {
-	name := n.spec.Name
-	n.log = filepath.Join(r.runDir, "nodes", name+".log")
-	var err error
-	if n.logFile, err = os.Create(n.log); err != nil {
-		return fmt.Errorf("node %s: %w", name, err)
-	}
-	ready := make(chan node.Ready, 1)
-	found := false
-	watch := func(line []byte) {
-		if errorLine(line) {
-			r.appendRecord(events.Record{Kind: events.NodeError, Node: name, Data: line})
-		}
-		if found {
-			return
-		}
-		if rec, err := node.ParseReady(line); err == nil {
-			found = true
-			r.record(events.NodeReady, name, struct {
-				PID int `json:"pid"`
-			}{rec.PID})
-			ready <- rec
-		}
-	}
-	n.proc, err = proc.Start(ctx, r.binary.Path, []string{"run", "--data-dir", n.dataDir.Path()}, n.env, n.logFile, watch)
-	if err != nil {
-		_ = n.logFile.Close()
-		return fmt.Errorf("node %s: %w", name, err)
-	}
-	r.record(events.NodeSpawned, name, spawned{PID: n.proc.PID, DataDir: n.dataDir.Path()})
-	n.recorded = make(chan struct{})
-	undo.push(func() { r.stopNode(n, false) })
-	go func() {
-		<-n.proc.Exited()
-		r.record(events.NodeExited, name, exited{PID: n.proc.PID, Code: n.proc.ExitCode()})
-		close(n.recorded)
-	}()
-	select {
-	case n.ready = <-ready:
-		return nil
-	case <-n.proc.Exited():
-		return fmt.Errorf("node %s exited with code %d before it was ready\n%s", name, n.proc.ExitCode(), strings.Join(n.proc.Tail(), "\n"))
-	case <-ctx.Done():
-		return fmt.Errorf("node %s was not ready: %w", name, ctx.Err())
-	}
+	undo.push(func() { n.life.End(r.life) })
+	return n.life.Start(ctx)
 }
 
 func (r *Run) checkListeners(context.Context, *unwind) error {
 	for _, n := range r.nodes {
-		listeners, err := setup.Listeners(n.ready.Listeners)
+		listeners, err := setup.Listeners(n.life.Ready().Listeners)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", n.spec.Name, err)
 		}
@@ -599,7 +556,7 @@ func (r *Run) pinPorts(ctx context.Context, _ *unwind) error {
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
-		listeners, err := setup.Listeners(n.ready.Listeners)
+		listeners, err := setup.Listeners(n.life.Ready().Listeners)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
@@ -652,7 +609,7 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 func (r *Run) ready() []node.Ready {
 	ready := make([]node.Ready, len(r.nodes))
 	for i, n := range r.nodes {
-		ready[i] = n.ready
+		ready[i] = n.life.Ready()
 	}
 	return ready
 }
@@ -693,7 +650,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 	if r.scenario.Library != nil {
 		m.MediaDir = r.mediaDir()
 	}
-	m.Binary.Version = r.nodes[0].ready.Version
+	m.Binary.Version = r.nodes[0].life.Ready().Version
 	if a := r.scenario.Admin; a != nil {
 		m.Admin = &Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
@@ -711,7 +668,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		m.Releases = append(m.Releases, Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:])})
 	}
 	for i, n := range r.nodes {
-		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.ready, DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
+		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, Ready: n.life.Ready(), DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
 		if err != nil {
 			return Manifest{}, err
 		}

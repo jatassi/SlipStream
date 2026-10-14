@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 )
 
@@ -27,8 +28,12 @@ type StopReport struct {
 type NodeStop struct {
 	Name     string `json:"name"`
 	ExitCode int    `json:"exitCode"`
-	// ExitedUnasked is a Node that exited before the run was stopping.
+	// ExitedUnasked is a Node that exited before the run was stopping
+	// with no Node action asking it to.
 	ExitedUnasked bool `json:"exitedUnasked"`
+	// Killed is a Node a kill action left down, whose exit code says
+	// nothing.
+	Killed bool `json:"killed,omitempty"`
 	// StopFailed is slipstream stop's failure when it did not see the Node
 	// release its data dir; the world then killed the Node.
 	StopFailed string `json:"stopFailed,omitempty"`
@@ -44,7 +49,7 @@ func (r StopReport) Err() error {
 			problems = append(problems, fmt.Sprintf("node %s exited with code %d before it was asked to stop", n.Name, n.ExitCode))
 		case n.StopFailed != "":
 			problems = append(problems, fmt.Sprintf("node %s did not stop: %s", n.Name, n.StopFailed))
-		case n.ExitCode != 0:
+		case n.ExitCode != 0 && !n.Killed:
 			problems = append(problems, fmt.Sprintf("node %s exited with code %d", n.Name, n.ExitCode))
 		}
 	}
@@ -73,11 +78,7 @@ func (r *Run) stop() {
 	r.record(events.RunStopping, events.World, struct{}{})
 	unasked := make([]bool, len(r.nodes))
 	for i, n := range r.nodes {
-		select {
-		case <-n.proc.Exited():
-			unasked[i] = true
-		default:
-		}
+		unasked[i] = n.life.State() == lifecycle.Exited
 	}
 	r.report.Nodes = make([]NodeStop, len(r.nodes))
 	for i := len(r.nodes) - 1; i >= 0; i-- {
@@ -103,27 +104,9 @@ func (r *Run) stop() {
 }
 
 func (r *Run) stopNode(n *nodeRun, unasked bool) NodeStop {
-	ns := NodeStop{Name: n.spec.Name, ExitedUnasked: unasked}
-	select {
-	case <-n.proc.Exited():
-	default:
-		res, err := proc.Run(r.life, r.binary.Path, []string{"stop", "--data-dir", n.dataDir.Path()}, n.env)
-		switch {
-		case err != nil:
-			ns.StopFailed = err.Error()
-		case res.Code != 0:
-			ns.StopFailed = fmt.Sprintf("slipstream stop exited with code %d: %s", res.Code, strings.TrimSpace(string(res.Stderr)))
-		}
-		if ns.StopFailed != "" {
-			if err := n.proc.Kill(); err != nil {
-				ns.StopFailed += "; " + err.Error()
-			}
-		}
-	}
-	<-n.recorded
-	ns.ExitCode = n.proc.ExitCode()
-	_ = n.logFile.Close()
-	r.log.Info("node stopped", "node", ns.Name, "code", ns.ExitCode, "unasked", ns.ExitedUnasked, "stop_failed", ns.StopFailed)
+	e := n.life.End(r.life)
+	ns := NodeStop{Name: n.spec.Name, ExitCode: e.ExitCode, ExitedUnasked: unasked, Killed: e.Killed, StopFailed: e.StopFailed}
+	r.log.Info("node stopped", "node", ns.Name, "code", ns.ExitCode, "unasked", ns.ExitedUnasked, "killed", ns.Killed, "stop_failed", ns.StopFailed)
 	return ns
 }
 

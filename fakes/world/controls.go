@@ -86,12 +86,16 @@ func stepOf(ctx context.Context) int {
 
 // stepData is v's JSON object with the step ctx carries, if any.
 func stepData(ctx context.Context, v any) json.RawMessage {
-	n := stepOf(ctx)
-	if n == 0 {
-		return data(v)
+	if n := stepOf(ctx); n > 0 {
+		return withStep(data(v), n)
 	}
+	return data(v)
+}
+
+// withStep is the JSON object obj with its step field set to n.
+func withStep(obj json.RawMessage, n int) json.RawMessage {
 	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(data(v), &fields); err != nil {
+	if err := json.Unmarshal(obj, &fields); err != nil {
 		panic("world: " + err.Error())
 	}
 	fields["step"] = data(n)

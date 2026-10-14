@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 )
 
 // world.log keeps only diagnostics: the world's slog lines and a crashed
@@ -48,16 +50,6 @@ type launched struct {
 	ScratchDir string `json:"scratchDir"`
 	Scenario   string `json:"scenario"`
 	Origin     Origin `json:"origin"`
-}
-
-type spawned struct {
-	PID     int    `json:"pid"`
-	DataDir string `json:"dataDir"`
-}
-
-type exited struct {
-	PID  int `json:"pid"`
-	Code int `json:"code"`
 }
 
 type stopped struct {
@@ -99,7 +91,7 @@ func readLaunch(runDir string) (Supervisor, []Spawn, error) {
 		if rec.Kind != events.NodeSpawned {
 			continue
 		}
-		var s spawned
+		var s lifecycle.Spawned
 		if err := json.Unmarshal(rec.Data, &s); err != nil {
 			return Supervisor{}, nil, fmt.Errorf("%s: %w", events.NodeSpawned, err)
 		}
@@ -119,6 +111,14 @@ func (r *Run) appendRecord(rec events.Record) {
 	if _, err := r.events.Append(rec); err != nil {
 		r.log.Error("event log", "kind", rec.Kind, "err", err.Error())
 	}
+}
+
+// recordFor appends rec, naming in its data the step ctx carries.
+func (r *Run) recordFor(ctx context.Context, rec events.Record) {
+	if n := stepOf(ctx); n > 0 {
+		rec.Data = withStep(rec.Data, n)
+	}
+	r.appendRecord(rec)
 }
 
 // observe arms the rules waiting on rec. No rule exists before bindFakes
@@ -142,14 +142,6 @@ func firedRecords(fs []fault.Firing) []events.Record {
 		}
 	}
 	return recs
-}
-
-// errorLine is a Node log line at level ERROR.
-func errorLine(line []byte) bool {
-	var rec struct {
-		Level string `json:"level"`
-	}
-	return json.Unmarshal(line, &rec) == nil && rec.Level == slog.LevelError.String()
 }
 
 func data(v any) json.RawMessage {
