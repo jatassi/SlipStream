@@ -2,7 +2,8 @@
 // exit, as a small state machine: an action moves a Node between
 // running, stopped, killed and exited, and a process that exits while no
 // action is under way leaves it exited. Each process writes node.spawned,
-// node.ready, node.error and node.exited records.
+// node.ready, node.error and node.exited records, and each stop, kill and
+// wipe a node.stopped, node.killed or node.wiped record once done.
 package lifecycle
 
 import (
