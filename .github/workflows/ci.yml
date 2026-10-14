@@ -9,6 +9,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      update-shapes:
+        description: Rewrite each conformance suite's shape.json from the real services and upload them
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -231,9 +236,14 @@ jobs:
       - uses: ./.github/actions/go
         with:
           cache: go-plan
-      - run: go run ./cmd/release test -tier online
+      - run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+      - if: inputs.update-shapes
+        uses: actions/upload-artifact@v4
+        with:
+          name: shapes
+          path: conformance/*/shape.json
 
   native-gate:
     if: always()
