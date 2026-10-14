@@ -133,7 +133,7 @@ type principalKey struct{}
 // level admits. Register panics at start on an id that is not
 // lowerCamelCase or is taken, a level below the owner's floor, an unlimited
 // or overflowing body limit, a GET or HEAD with a request body, or an
-// input or output embedding an unexported struct.
+// output embedding an unexported struct.
 func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context.Context, P, *I) (*O, error)) {
 	r := o.router
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
