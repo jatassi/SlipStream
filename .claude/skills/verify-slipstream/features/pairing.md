@@ -59,12 +59,13 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desk goto '{nodes.seedbox.browserUrl}/'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desk run-code 'async page => { await page.waitForURL(/\/worker$/); }'
   $FW exec $RUN --proof pairing/pairing-worker-page -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/pairing/pairing-worker-page/worker.png
   ```
 
 ## Gotchas
 
-- A wiped Node has a new key, so the Controller pairs it as a new Node named `seedbox-2`, and the old row stays down with its Roles. Doctor's check 3 then fails on the Roles, which is expected after this recipe.
+- A wiped Node has a new key, so the Controller pairs it as a new Node named `seedbox-2`, and the old row stays down with its Roles. Doctor's check 3 then fails with `node seedbox's link is down, not up`, which is expected after this recipe.
 - `slipstream join` needs the Node stopped: it writes the data dir the running Node holds.
 - The Join Code is single-use and short-lived. Mint it right before the join.
 - A wiped Node logs a new Setup code in `nodes/seedbox.log`, which the API path `POST /api/v1/setup/worker` takes in `X-Setup-Code`.

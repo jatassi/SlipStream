@@ -108,6 +108,7 @@ Steps:
 - `announces wait` and `sse wait` default `--after` to the previous step's start. The `started` announce arrives while the second search's click or wait step runs, so pass `--after $FIRED`, the seq of the 429's `fault.fired`.
 - Search outcomes arrive after the click returns. Wait for the Searches text with `run-code`; a snapshot taken at once may read `Searching`.
 - The skeleton doesn't hold off after a 429's `Retry-After`: the second Search grabs at once.
+- `indexer-429` stays listed in `fault list` and doctor after its one firing. Clear it with `$FW fault clear $RUN indexer-429` before a recipe that reads doctor's active faults.
 - At 16 KiB/s the 3.7 MB release takes about four minutes, so clear the throttle once the held state is captured.
 - libtorrent announces again only every five minutes. Wait for `started` and `completed`, never a regular announce.
 - Grab and Work ids are drawn fresh in each run. Address the Work by its link name and read ids from `GET /api/v1/grabs`.

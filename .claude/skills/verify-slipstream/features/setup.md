@@ -72,4 +72,4 @@ Steps:
 - The Setup code is single-use. After the Admin exists, `/setup` sends the browser to the Library; relaunch `first-run` to drive setup again.
 - The API key appears only once. Copy it into the proof by the screenshot; nothing reads it back.
 - The PIN fields split into four digit boxes named `PIN`, `PIN digit 2 of 4` and so on. Click the first box and `type` the digits.
-- The manifest's `admin` and `apiKey` stay empty for the whole run, so `{apiKey}` and `bin/sign-in.ts` fail on `first-run`.
+- The manifest's `admin` and `apiKey` stay empty for the whole run, so `exec` refuses `{apiKey}` with `{apiKey} names nothing in the manifest`, and `bin/sign-in.ts` fails on `first-run`.

@@ -34,4 +34,6 @@ Only for a recipe that proves motion. `video-start {runDir}/proof/<f>/<s>/<name>
 $FW exec $RUN --proof <f>/<s> -- {runDir}/bin/ffmpeg -loglevel error -i {runDir}/proof/<f>/<s>/<name>.webm -c:v libx264 -pix_fmt yuv420p -movflags +faststart {runDir}/proof/<f>/<s>/<name>.mp4
 ```
 
+Recording needs Playwright's own ffmpeg, which `bun run --cwd web e2e:install` installs; the run's ffmpeg doesn't stand in for it. A `video-start` that fails leaves the session reporting `Video recording has already been started`, so close the session and open it again.
+
 Playwright's bundled skill tells you to attach media to PRs with `gh --attach`. That doesn't apply here: media goes to the maintainer in chat or on one private Artifact, never into the PR.
