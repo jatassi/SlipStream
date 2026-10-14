@@ -45,7 +45,7 @@ status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | tru
 
 - The first six and `tls=` are connection faults; the rest are HTTP faults and need a fake that speaks HTTP. A rule the front can't play is refused when set, naming the layer.
 - `@<node>` limits a rule to the traffic of that Node; without it the rule holds every origin.
-- `--skip 2 --times 1` plays the third match only. `--times 0`, the default, plays until cleared. A rule that has played its times still shows in `fault list` and in doctor's active faults until `fault clear`.
+- `--skip 2 --times 1` plays the third match only. `--times 0`, the default, plays until cleared. A rule that has played its times drops out of `fault list` and doctor's active faults. A connection fault other than `reset` stays listed until `fault clear`, because the connections it took keep playing it.
 - `--after <kind>,k=v` arms the rule on the first matching event-log record, never on a timer.
 - Setting an id again replaces the rule. `fault clear` without an id clears every rule, the Scenario's included.
 - `fault set` prints the `fault.set` record, and every firing logs `fault.fired` with its match count.
