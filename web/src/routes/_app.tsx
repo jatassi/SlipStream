@@ -28,6 +28,11 @@ function AppLayout() {
               </Link>
             </li>
             <li>
+              <Link to="/activity" className="underline">
+                Activity
+              </Link>
+            </li>
+            <li>
               <Link to="/system" className="underline">
                 This Node
               </Link>

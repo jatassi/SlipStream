@@ -11,30 +11,34 @@ export const getListGrabsResponseMock = (
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     edition: faker.helpers.arrayElement(["standard"] as const),
-    failure: {
-      code: faker.helpers.arrayElement([
-        "indexer_unavailable",
-        "torrent_unreachable",
-        "torrent_invalid",
-        "infohash_mismatch",
-        "torrent_v2_only",
-        "no_download_client",
-        "download_failed",
-        "no_video_file",
-        "probe_failed",
-        "fills_nothing",
-        "transfer_failed",
-        "import_failed",
-      ] as const),
-      message: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      stage: faker.helpers.arrayElement([
-        "fetching",
-        "downloading",
-        "probing",
-        "transferring",
-        "importing",
-      ] as const),
-    },
+    ...(faker.datatype.boolean()
+      ? {
+          failure: {
+            code: faker.helpers.arrayElement([
+              "indexer_unavailable",
+              "torrent_unreachable",
+              "torrent_invalid",
+              "infohash_mismatch",
+              "torrent_v2_only",
+              "no_download_client",
+              "download_failed",
+              "no_video_file",
+              "probe_failed",
+              "fills_nothing",
+              "transfer_failed",
+              "import_failed",
+            ] as const),
+            message: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            stage: faker.helpers.arrayElement([
+              "fetching",
+              "downloading",
+              "probing",
+              "transferring",
+              "importing",
+            ] as const),
+          },
+        }
+      : {}),
     history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         at: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -57,7 +61,9 @@ export const getListGrabsResponseMock = (
     ]),
     itemId: faker.string.uuid(),
     nodeId: faker.string.uuid(),
-    progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) },
+    ...(faker.datatype.boolean()
+      ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
+      : {}),
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     stage: faker.helpers.arrayElement([
@@ -82,30 +88,34 @@ export const getGetGrabResponseMock = (
 ): GrabsGrab => ({
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   edition: faker.helpers.arrayElement(["standard"] as const),
-  failure: {
-    code: faker.helpers.arrayElement([
-      "indexer_unavailable",
-      "torrent_unreachable",
-      "torrent_invalid",
-      "infohash_mismatch",
-      "torrent_v2_only",
-      "no_download_client",
-      "download_failed",
-      "no_video_file",
-      "probe_failed",
-      "fills_nothing",
-      "transfer_failed",
-      "import_failed",
-    ] as const),
-    message: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    stage: faker.helpers.arrayElement([
-      "fetching",
-      "downloading",
-      "probing",
-      "transferring",
-      "importing",
-    ] as const),
-  },
+  ...(faker.datatype.boolean()
+    ? {
+        failure: {
+          code: faker.helpers.arrayElement([
+            "indexer_unavailable",
+            "torrent_unreachable",
+            "torrent_invalid",
+            "infohash_mismatch",
+            "torrent_v2_only",
+            "no_download_client",
+            "download_failed",
+            "no_video_file",
+            "probe_failed",
+            "fills_nothing",
+            "transfer_failed",
+            "import_failed",
+          ] as const),
+          message: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          stage: faker.helpers.arrayElement([
+            "fetching",
+            "downloading",
+            "probing",
+            "transferring",
+            "importing",
+          ] as const),
+        },
+      }
+    : {}),
   history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -128,7 +138,9 @@ export const getGetGrabResponseMock = (
   ]),
   itemId: faker.string.uuid(),
   nodeId: faker.string.uuid(),
-  progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) },
+  ...(faker.datatype.boolean()
+    ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
+    : {}),
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
   stage: faker.helpers.arrayElement([

@@ -168,7 +168,7 @@ export const grabsGrabReleaseSizeMin = 0;
 export const GrabsGrab = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
   edition: zod.enum(["standard"]),
-  failure: GrabsFailure.describe("Why it failed, null unless it did"),
+  failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
   indexerId: zod.uuid(),
@@ -178,8 +178,8 @@ export const GrabsGrab = zod.object({
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
   itemId: zod.uuid(),
   nodeId: zod.uuid().describe("The Node that downloads it: the Indexer's home Node"),
-  progress: GrabsProgress.describe(
-    "The download's progress, null unless it is downloading and its Node reported it",
+  progress: GrabsProgress.exactOptional().describe(
+    "The download's progress, absent unless it is downloading and its Node reported it",
   ),
   releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
   releaseTitle: zod.string(),

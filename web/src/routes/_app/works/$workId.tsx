@@ -6,12 +6,17 @@ import {
   useGetWorkCellsSuspense,
 } from "../../../api/gen/query/files/files";
 import {
+  getListGrabsSuspenseQueryOptions,
+  getListSearchesSuspenseQueryOptions,
+} from "../../../api/gen/query/grabs/grabs";
+import {
   getGetWorkSuspenseQueryOptions,
   getListContentTypesSuspenseQueryOptions,
   useGetWorkSuspense,
   useListContentTypesSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
+import { Grabs, SearchButton, Searches } from "../../../grabs/work-sections";
 import { Skeleton } from "../../../ui/skeleton";
 import { fieldText, typeOf } from "../../../works/fields";
 
@@ -21,6 +26,8 @@ export const Route = createFileRoute("/_app/works/$workId")({
       ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getGetWorkSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getGetWorkCellsSuspenseQueryOptions(workId)),
+      ensureQuery(context.queryClient, getListSearchesSuspenseQueryOptions(workId)),
+      ensureQuery(context.queryClient, getListGrabsSuspenseQueryOptions()),
     ]),
   pendingComponent: () => <Skeleton label="Loading the Work" />,
   component: WorkPage,
@@ -34,8 +41,11 @@ function WorkPage() {
   return (
     <article className="flex flex-col gap-8">
       <WorkHeader type={type} work={work} />
+      <SearchButton workId={workId} />
       <CellsGrid type={type} work={work} cells={cells} />
       <Files cells={cells} />
+      <Searches workId={workId} />
+      <Grabs workId={workId} />
     </article>
   );
 }
@@ -138,7 +148,7 @@ function Files({ cells }: { cells: FilesCell[] }) {
       {files.length === 0 ? (
         <p className="text-ink-3">No files yet.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul aria-label="Files" className="flex flex-col gap-2">
           {files.map((file) => (
             <li key={file.id}>
               <span className="font-mono wrap-anywhere">{file.path}</span>
