@@ -2,6 +2,7 @@ package node
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,7 +12,9 @@ import (
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/internal/link"
+	probev1 "github.com/jatassi/slipstream/internal/pb/slipstream/probe/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -87,6 +90,46 @@ func TestAClaimedSingleMachineNodeReachesLive(t *testing.T) {
 		synctest.Wait()
 		if again.Ready().Claim != system.Controller || !caughtUp(t, again) {
 			t.Fatalf("restarted as %s, live %v; want a Controller whose holder half is live", again.Ready().Claim, caughtUp(t, again))
+		}
+	})
+}
+
+// TestAClaimAnswersOnceTheControllerHoldsItsRoles holds the node scope's
+// first delivery to the claimed Controller's own holder half, and finds
+// claimController answering only after it lands, so an Admin's first call
+// to a Role, such as creating an Indexer, finds this Node holding it.
+func TestAClaimAnswersOnceTheControllerHoldsItsRoles(t *testing.T) {
+	env, _ := testEnv(t)
+	gate := role.Def[*probev1.Intent, *probev1.Facts, *probev1.Result]{Name: "gate"}
+	env.Test.Always = []role.Name{gate.Name}
+	synctest.Test(t, func(t *testing.T) {
+		release := make(chan struct{})
+		env.Test.Served = []role.Served{gate.Serve(
+			func(ctx context.Context, _ storage.Reader[storage.Library], _ role.NodeID) (*probev1.Intent, error) {
+				select {
+				case <-release:
+					return &probev1.Intent{}, nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			},
+			func(context.Context, *storage.Tx[storage.Library], role.NodeID, *probev1.Result) error { return nil },
+		)}
+		n, c := startInMemory(t, env)
+		answered := make(chan reply, 1)
+		go func() { answered <- c.claim(n.Ready().SetupCode, "1234") }()
+		synctest.Wait()
+		select {
+		case r := <-answered:
+			t.Fatalf("claimController answered %d %s before the Controller's holder half held its Roles", r.status, r.body)
+		default:
+		}
+		close(release)
+		if r := <-answered; r.status != http.StatusCreated {
+			t.Fatalf("claimController = %d %s", r.status, r.body)
+		}
+		if !caughtUp(t, n) {
+			t.Fatal("claimController answered before the Controller's holder half caught up")
 		}
 	})
 }
