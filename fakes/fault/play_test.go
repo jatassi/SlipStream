@@ -286,7 +286,7 @@ func (r reply) withRetry() string {
 }
 
 func faulted(t *testing.T, f fault.Fault, h http.Handler) http.Handler {
-	return plan(t, f).HTTP("tracker", "announce", func(*http.Request) string { return "home" }, h)
+	return plan(t, f).HTTP("tracker", fault.Route{Name: "announce"}, func(*http.Request) string { return "home" }, h)
 }
 
 func TestStatusAnswersWithoutTheHandler(t *testing.T) {
@@ -368,6 +368,10 @@ func TestSlowBodySendsHeadersAtOnce(t *testing.T) {
 
 func TestAnHTTPRuleMatchesItsRouteParamsAndOrigin(t *testing.T) {
 	p := fault.NewPlan([]fault.Front{front, {Target: "tracker", Origin: "seedbox", Layers: fault.HTTP}}, nil)
+	var origin string
+	mux := http.NewServeMux()
+	mux.Handle("GET /artist/{mbid}", p.HTTP("tracker", fault.Route{Name: "artist", Params: []string{"mbid"}}, func(*http.Request) string { return origin }, ok))
+	mux.Handle("GET /artist", p.HTTP("tracker", fault.Route{Name: "search"}, func(*http.Request) string { return origin }, ok))
 	arm(t, p, fault.Rule{ID: "one", Target: "tracker", Origin: "home", Route: "artist", Params: map[string]string{"mbid": "a1"}, Fault: fault.Status{Code: 503}})
 	for _, c := range []struct {
 		origin, route, path string
@@ -378,9 +382,7 @@ func TestAnHTTPRuleMatchesItsRouteParamsAndOrigin(t *testing.T) {
 		{"home", "search", "/artist", 200},
 		{"seedbox", "artist", "/artist/a1", 200},
 	} {
-		mux := http.NewServeMux()
-		mux.Handle("GET /artist/{mbid}", p.HTTP("tracker", "artist", func(*http.Request) string { return c.origin }, ok))
-		mux.Handle("GET /artist", p.HTTP("tracker", "search", func(*http.Request) string { return c.origin }, ok))
+		origin = c.origin
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, c.path, http.NoBody))
 		if rec.Code != c.want {

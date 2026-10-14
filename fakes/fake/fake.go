@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"regexp"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -157,14 +158,22 @@ type Route struct {
 type Routes map[string]Route
 
 // HTTP serves routes behind env.Faults until the context ends, then
-// closes every connection. The fault middleware runs before each handler.
+// closes every connection. The fault middleware runs before each handler,
+// and a rule may name each route and the path values its pattern names.
 func HTTP(env Env, routes Routes) Server {
 	mux := http.NewServeMux()
 	for name, rt := range routes {
-		mux.Handle(rt.Pattern, env.Faults.HTTP(fault.Target(env.Name), name, originOf, rt.Handler))
+		route := fault.Route{Name: name}
+		for _, m := range wildcard.FindAllStringSubmatch(rt.Pattern, -1) {
+			route.Params = append(route.Params, m[1])
+		}
+		mux.Handle(rt.Pattern, env.Faults.HTTP(fault.Target(env.Name), route, originOf, rt.Handler))
 	}
 	return httpServer{h: mux}
 }
+
+// wildcard is a path value in an http.ServeMux pattern.
+var wildcard = regexp.MustCompile(`\{([^{}.]+)(?:\.\.\.)?\}`)
 
 type originKey struct{}
 

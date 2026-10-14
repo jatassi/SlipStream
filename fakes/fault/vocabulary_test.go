@@ -162,6 +162,32 @@ func TestARuleAFrontCantPlayIsRefused(t *testing.T) {
 	}
 }
 
+func TestARuleNamesARouteAndPathValuesItsTargetServes(t *testing.T) {
+	p := fault.NewPlan(fronts, nil)
+	p.HTTP("tmdb", fault.Route{Name: "movie", Params: []string{"id"}}, func(*http.Request) string { return "home" }, ok)
+	p.HTTP("tmdb", fault.Route{Name: "search"}, func(*http.Request) string { return "home" }, ok)
+	for _, c := range []struct {
+		rule fault.Rule
+		want string
+	}{
+		{fault.Rule{ID: "x", Target: "tmdb", Route: "movies", Fault: fault.Hang{}}, "tmdb serves no route movies"},
+		{fault.Rule{ID: "x", Target: "tmdb", Route: "search", Params: map[string]string{"id": "1"}, Fault: fault.Hang{}}, "route search of tmdb has no path value id"},
+		{fault.Rule{ID: "x", Target: "tmdb", Params: map[string]string{"mbid": "1"}, Fault: fault.Hang{}}, "no route of tmdb has a path value mbid"},
+	} {
+		if _, err := p.Set(c.rule); err == nil || err.Error() != c.want {
+			t.Errorf("Set(%+v) = %v, want %q", c.rule, err, c.want)
+		}
+	}
+	for _, r := range []fault.Rule{
+		{ID: "x", Target: "tmdb", Route: "movie", Params: map[string]string{"id": "1"}, Fault: fault.Hang{}},
+		{ID: "x", Target: "tmdb", Params: map[string]string{"id": "1"}, Fault: fault.Hang{}},
+	} {
+		if _, err := p.Set(r); err != nil {
+			t.Errorf("Set(%+v) = %v", r, err)
+		}
+	}
+}
+
 func arm(t *testing.T, p *fault.Plan, r fault.Rule) {
 	t.Helper()
 	if _, err := p.Set(r); err != nil {
@@ -208,7 +234,7 @@ func TestAPlanCountsEachOccurrenceOnceUnderConcurrency(t *testing.T) {
 	arm(t, p, fault.Rule{ID: "429", Target: "tmdb", Fault: fault.Status{Code: 429}, Skip: 2, Times: 3})
 	arm(t, p, fault.Rule{ID: "slow", Target: "tmdb", Fault: fault.Status{Code: 503}})
 	arm(t, p, fault.Rule{ID: "drop", Target: "tmdb", Origin: "home", Fault: fault.Reset{}, Skip: 1, Times: 2})
-	handler := p.HTTP("tmdb", "movie", func(*http.Request) string { return "home" }, ok)
+	handler := p.HTTP("tmdb", fault.Route{Name: "movie", Params: []string{"id"}}, func(*http.Request) string { return "home" }, ok)
 
 	var wg sync.WaitGroup
 	codes := make(chan int, 40)
@@ -285,7 +311,7 @@ func TestAfterArmsOnARecordObservedAfterSet(t *testing.T) {
 
 func TestSetReplacesByIDAndClearRemoves(t *testing.T) {
 	p := fault.NewPlan(fronts, nil)
-	handler := p.HTTP("tmdb", "movie", func(*http.Request) string { return "home" }, ok)
+	handler := p.HTTP("tmdb", fault.Route{Name: "movie", Params: []string{"id"}}, func(*http.Request) string { return "home" }, ok)
 	arm(t, p, fault.Rule{ID: "a", Target: "tmdb", Fault: fault.Status{Code: 429}})
 	arm(t, p, fault.Rule{ID: "a", Target: "tmdb", Fault: fault.Status{Code: 503}})
 	arm(t, p, fault.Rule{ID: "b", Target: "tmdb", Fault: fault.Status{Code: 404}})

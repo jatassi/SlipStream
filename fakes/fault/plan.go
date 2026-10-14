@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -138,6 +139,34 @@ func Check(r Rule, fronts []Front) error {
 	return nil
 }
 
+// checkRouteLocked refuses a rule whose Route no fake serving its target
+// declared, or whose Params name a path value no such route has.
+func (p *Plan) checkRouteLocked(r Rule) error {
+	if r.Route == "" && len(r.Params) == 0 {
+		return nil
+	}
+	var routes []Route
+	for t, rs := range p.routes {
+		if r.Target.covers(t) {
+			routes = append(routes, rs...)
+		}
+	}
+	missing := "no route of %[1]s has a path value %[3]s"
+	if r.Route != "" {
+		routes = slices.DeleteFunc(routes, func(rt Route) bool { return rt.Name != r.Route })
+		if len(routes) == 0 {
+			return fmt.Errorf("%s serves no route %s", r.Target, r.Route)
+		}
+		missing = "route %[2]s of %[1]s has no path value %[3]s"
+	}
+	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
+		if !slices.ContainsFunc(routes, func(rt Route) bool { return slices.Contains(rt.Params, k) }) {
+			return fmt.Errorf(missing, r.Target, r.Route, k)
+		}
+	}
+	return nil
+}
+
 // Firing is one occurrence a rule played.
 type Firing struct {
 	Rule  string
@@ -159,6 +188,7 @@ type Plan struct {
 	mu      sync.Mutex
 	rules   []*entry
 	conns   []*conn
+	routes  map[Target][]Route
 	changed chan struct{}
 }
 
@@ -176,17 +206,21 @@ func (e *entry) done() bool { return e.Times > 0 && e.matched >= e.Skip+e.Times 
 // instead, so the event log can append them after the record that armed
 // the rule.
 func NewPlan(fronts []Front, fired func(Firing)) *Plan {
-	return &Plan{fronts: fronts, fired: fired}
+	return &Plan{fronts: fronts, fired: fired, routes: map[Target][]Route{}}
 }
 
 // Set checks r and arms it, replacing the rule with its ID, and returns
-// the occurrences arming played.
+// the occurrences arming played. Beyond Check, an HTTP rule's route and
+// params must be ones a fake serving its target declared through HTTP.
 func (p *Plan) Set(r Rule) ([]Firing, error) {
 	if err := Check(r, p.fronts); err != nil {
 		return nil, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.checkRouteLocked(r); err != nil {
+		return nil, err
+	}
 	p.removeLocked(r.ID)
 	e := &entry{Rule: r}
 	p.rules = append(p.rules, e)

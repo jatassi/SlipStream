@@ -110,11 +110,6 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	}
 	front := fault.Front{Target: fault.Target(spec.Name), Origin: o.origin, Layers: fault.Conn | fault.HTTP}
 	plan := fault.NewPlan([]fault.Front{front}, nil)
-	for _, r := range o.rules {
-		if _, err := plan.Set(r); err != nil {
-			t.Fatal(err)
-		}
-	}
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
 	l = plan.Listener(l, front)
 	if spec.TLS {
@@ -136,6 +131,11 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	server, err := spec.New(s, env)
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, r := range o.rules {
+		if _, err := plan.Set(r); err != nil {
+			t.Fatal(err)
+		}
 	}
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(t.Context(), l) }()

@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -13,13 +14,26 @@ import (
 // malformed parses as none of JSON, XML or bencode.
 const malformed = "\x00malformed"
 
-// HTTP serves h, the handler of route at target, behind p's HTTP rules.
-// origin reads a request's dialing Node. A status or a hang answers
-// without calling h, so a faulted request never reaches the fake's state;
-// the body faults take h's answer and spoil it.
-func (p *Plan) HTTP(target Target, route string, origin func(*http.Request) string, h http.Handler) http.Handler {
+// Route is an HTTP route a target serves: the name a rule's Route gives,
+// and the path values its pattern names, which a rule's Params match.
+type Route struct {
+	Name   string
+	Params []string
+}
+
+// HTTP serves h, the handler of route at target, behind p's HTTP rules,
+// and lets a rule set from now on name route. origin reads a request's
+// dialing Node. A status or a hang answers without calling h, so a
+// faulted request never reaches the fake's state; the body faults take
+// h's answer and spoil it.
+func (p *Plan) HTTP(target Target, route Route, origin func(*http.Request) string, h http.Handler) http.Handler {
+	p.mu.Lock()
+	if !slices.ContainsFunc(p.routes[target], func(r Route) bool { return r.Name == route.Name }) {
+		p.routes[target] = append(p.routes[target], route)
+	}
+	p.mu.Unlock()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		f, ok := p.request(Front{Target: target, Origin: origin(r)}, route, r)
+		f, ok := p.request(Front{Target: target, Origin: origin(r)}, route.Name, r)
 		if !ok {
 			h.ServeHTTP(w, r)
 			return
