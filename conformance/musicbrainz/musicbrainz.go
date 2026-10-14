@@ -7,10 +7,12 @@ package musicbrainz
 import (
 	_ "embed"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"path"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -130,4 +132,33 @@ func (s *spaced) RoundTrip(req *http.Request) (*http.Response, error) {
 	res, err := s.next.RoundTrip(req)
 	s.last = time.Now()
 	return res, err //nolint:wrapcheck // a RoundTripper hands its transport's error on unchanged
+}
+
+// RetryRateLimited retries the 503 MusicBrainz answers when a client's address
+// is over its rate limit, which shared CI runner addresses often are.
+func RetryRateLimited(next http.RoundTripper) http.RoundTripper { return rateLimited{next} }
+
+type rateLimited struct{ next http.RoundTripper }
+
+func (r rateLimited) RoundTrip(req *http.Request) (*http.Response, error) {
+	wait := 2 * time.Second
+	for attempt := 1; ; attempt++ {
+		res, err := r.next.RoundTrip(req)
+		if err != nil {
+			return nil, fmt.Errorf("musicbrainz: %w", err)
+		}
+		if res.StatusCode != http.StatusServiceUnavailable || attempt == 6 {
+			return res, nil
+		}
+		if s, err := strconv.Atoi(res.Header.Get("Retry-After")); err == nil && s > 0 {
+			wait = time.Duration(s) * time.Second
+		}
+		_ = res.Body.Close()
+		select {
+		case <-req.Context().Done():
+			return nil, fmt.Errorf("musicbrainz: waiting out a 503: %w", req.Context().Err())
+		case <-time.After(wait):
+		}
+		wait *= 2
+	}
 }
