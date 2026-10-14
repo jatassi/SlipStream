@@ -18,7 +18,7 @@ import { warmUpWebKit } from "./warm-up.ts";
 
 export { expect };
 
-export type Scenario = "single-machine" | "first-run";
+export type Scenario = "single-machine" | "first-run" | "home";
 
 export type World = {
   manifest: Manifest;

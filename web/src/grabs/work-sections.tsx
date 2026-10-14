@@ -52,7 +52,7 @@ export function Searches({ workId }: { workId: string }) {
             <li key={search.id}>
               {search.outcome === null
                 ? "Searching"
-                : `${outcomeText[search.outcome]} from ${releases(search.candidates)}`}
+                : `${outcomeText[search.outcome]} · ${releases(search.candidates)}`}
             </li>
           ))}
         </ul>

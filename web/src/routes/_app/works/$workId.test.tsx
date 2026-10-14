@@ -78,7 +78,7 @@ test("Search starts a search, and the run and its Grab show without a reload", a
   await expect.element(searches).toHaveTextContent("Searching");
 
   server.searchRuns(grabbed);
-  await expect.element(searches).toHaveTextContent("Grabbed from 2 releases");
+  await expect.element(searches).toHaveTextContent("Grabbed · 2 releases");
 
   server.grabMoves(downloading);
   const grabs = page.getByRole("list", { name: "Grabs" });
