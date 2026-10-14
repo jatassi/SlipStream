@@ -132,4 +132,7 @@ func TestDoctorCatchesARealIndexerURL(t *testing.T) {
 	if !reflect.DeepEqual(report.Checks[4], want) {
 		t.Fatalf("check 5 = %+v, want %+v", report.Checks[4], want)
 	}
+	if !strings.Contains(got.stdout, `,"activeFaults":[]}`) {
+		t.Fatalf("doctor --json = %s, want an empty activeFaults list", got.stdout)
+	}
 }

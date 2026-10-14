@@ -101,7 +101,7 @@ func Doctor(ctx context.Context, runDir, dir string) Report {
 	r := Report{OK: true, Checks: []CheckResult{}, ActiveFaults: []ActiveFault{}}
 	err := d.load(runDir)
 	if err == nil {
-		r.ActiveFaults = d.active
+		r.ActiveFaults = append(r.ActiveFaults, d.active...)
 	}
 	for i, c := range doctorChecks {
 		res := CheckResult{N: i + 1, Name: c.name}
