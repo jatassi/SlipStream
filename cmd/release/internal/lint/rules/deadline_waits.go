@@ -25,6 +25,11 @@ var endToEndTrees = []string{"e2e/", "fakes/world/", "fakes/events/"}
 // deadline: worldtest.Until on a condition and events.Wait on a record.
 var pollingWaits = []string{"fakes/world/worldtest/until.go", "fakes/events/wait.go"}
 
+// endToEndTestTrees are in the tier only in their tests: cmd/fakeworld's
+// other files are a process that roots its own contexts, and conformance's
+// suites also run inside synctest bubbles, where worldtest.Context panics.
+var endToEndTestTrees = []string{"cmd/fakeworld/", "conformance/"}
+
 const (
 	// simTree runs inside a testing/synctest bubble, whose waits are fake
 	// time, as is every file importing synctest.
@@ -62,7 +67,8 @@ func checkDeadlineWaits(repo *lint.Repo) ([]lint.Finding, error) {
 		findings = append(findings, lint.Finding{Path: f.Path, Line: repo.Fset.Position(n.Pos()).Line, Message: message})
 	}
 	for _, f := range files {
-		if !underAny(f.Path, endToEndTrees) || slices.Contains(pollingWaits, f.Path) || strings.HasPrefix(f.Path, simTree) {
+		inTier := underAny(f.Path, endToEndTrees) || (underAny(f.Path, endToEndTestTrees) && strings.HasSuffix(f.Path, "_test.go"))
+		if !inTier || slices.Contains(pollingWaits, f.Path) || strings.HasPrefix(f.Path, simTree) {
 			continue
 		}
 		imports := importNames(f)

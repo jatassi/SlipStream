@@ -15,39 +15,44 @@ import (
 )
 
 func init() {
-	register("test", "run the test tiers: -tier go|component|browser|all (default all); -tier go passes the rest to go test -race -shuffle=on", runTest)
+	register("test", "run the test tiers: -tier go|component|browser|online|all (default all, which leaves out online); -tier go passes the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
 }
 
 type testTier struct {
 	name string
 	run  func(ctx context.Context, root string, goArgs []string) error
+	// goArgs says the tier hands the arguments after -tier to go test.
+	goArgs bool
+	// online tiers reach real services, so all leaves them out.
+	online bool
 }
 
 var testTiers = []testTier{
-	{"go", testGo},
-	{"component", testComponent},
-	{"browser", testBrowser},
+	{name: "go", run: testGo, goArgs: true},
+	{name: "component", run: testComponent},
+	{name: "browser", run: testBrowser},
+	{name: "online", run: testOnline, goArgs: true, online: true},
 }
 
 // runTest reads -tier ahead of go test's own flags, so `release test -tier
 // go -run Foo ./e2e` hands `-run Foo ./e2e` to go test.
 func runTest(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	tier := fs.String("tier", "all", "go, component, browser or all")
+	tier := fs.String("tier", "all", "go, component, browser, online or all")
 	tierArgs, goArgs := splitTierFlag(args)
 	if err := fs.Parse(tierArgs); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
-	tiers := testTiers
+	tiers := slices.DeleteFunc(slices.Clone(testTiers), func(t testTier) bool { return t.online })
 	if *tier != "all" {
 		i := slices.IndexFunc(testTiers, func(t testTier) bool { return t.name == *tier })
 		if i < 0 {
-			return fmt.Errorf("-tier %q is not one of go, component, browser, all", *tier)
+			return fmt.Errorf("-tier %q is not one of go, component, browser, online, all", *tier)
 		}
 		tiers = testTiers[i : i+1]
 	}
-	if len(goArgs) > 0 && *tier != "go" {
-		return fmt.Errorf("go test arguments %q need -tier go", goArgs)
+	if len(goArgs) > 0 && (len(tiers) != 1 || !tiers[0].goArgs) {
+		return fmt.Errorf("go test arguments %q need -tier go or -tier online", goArgs)
 	}
 	root, err := repoRoot(ctx)
 	if err != nil {
@@ -96,6 +101,20 @@ func testGo(ctx context.Context, root string, goArgs []string) error {
 	gotest.Dir = root
 	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr
 	gotest.Env = bundleEnv(bundle)
+	if err := gotest.Run(); err != nil {
+		return fmt.Errorf("go test: %w", err)
+	}
+	return nil
+}
+
+// testOnline runs every conformance suite against the real service it
+// checks. TEST_ONLINE_TMDB_KEY carries TMDB's key; -update rewrites each
+// suite's shape.json.
+func testOnline(ctx context.Context, root string, goArgs []string) error {
+	args := append(append([]string{"test", "-tags", "online", "-count=1"}, goArgs...), "./conformance/...")
+	gotest := exec.CommandContext(ctx, "go", args...)
+	gotest.Dir = root
+	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr
 	if err := gotest.Run(); err != nil {
 		return fmt.Errorf("go test: %w", err)
 	}

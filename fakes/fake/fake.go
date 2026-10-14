@@ -32,6 +32,30 @@ type Spec struct {
 	// Endpoints points every Endpoints entry the fake's boundary owns at
 	// the fake. It is the only place a fake touches Node config.
 	Endpoints func(*node.EndpointsBlock, Address)
+	// Online says whether a suite checks the fake against the real service.
+	// The world refuses the zero value at launch.
+	Online Online
+}
+
+// Online is a fake's stance on running against the real service: a
+// conformance suite, or a reason it has none.
+type Online struct {
+	suite  string
+	reason string
+}
+
+// OnlineSuite names the suite under conformance/ that runs against both
+// the fake and the real service.
+func OnlineSuite(suite string) Online { return Online{suite: suite} }
+
+func NoOnlineRun(reason string) Online { return Online{reason: reason} }
+
+// Check refuses a Spec that declares no online stance.
+func (s Spec) Check() error {
+	if s.Online.suite == "" && s.Online.reason == "" {
+		return fmt.Errorf("fake %s declares no Online stance; set fake.OnlineSuite(suite) or fake.NoOnlineRun(reason)", s.Name)
+	}
+	return nil
 }
 
 // Server serves a boundary's real protocol on l until ctx ends.

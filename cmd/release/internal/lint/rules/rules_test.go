@@ -322,6 +322,18 @@ func TestFakesWired(t *testing.T) {
 	})
 }
 
+func TestConformanceSuites(t *testing.T) {
+	assertFindings(t, check(t, "conformance-suites", fixtureRepo(t, "conformance-suites")), []string{
+		"fakes/music/music.go:7: [conformance-suites] conformance/musicbrainz declares no func Run",
+		"fakes/music/music.go:7: [conformance-suites] conformance/musicbrainz/online_test.go is missing or not built only under //go:build online",
+		"fakes/music/music.go:7: [conformance-suites] no test in fakes/music calls conformance/musicbrainz.Run",
+		"fakes/other/other.go:7: [conformance-suites] fake.OnlineSuite takes a string literal naming its suite under conformance/",
+		"fakes/radarr/radarr.go:5: [conformance-suites] conformance/radarr declares no func Run",
+		"fakes/radarr/radarr.go:5: [conformance-suites] conformance/radarr/online_test.go is missing or not built only under //go:build online",
+		"fakes/radarr/radarr.go:5: [conformance-suites] no test in fakes/radarr calls conformance/radarr.Run",
+	})
+}
+
 func TestDeadlineWaits(t *testing.T) {
 	const (
 		until    = " in the end-to-end tier; wait on a condition with worldtest.Until or on a record with events.Wait"
@@ -329,6 +341,8 @@ func TestDeadlineWaits(t *testing.T) {
 		unlinked = " without an issue link; a flaky test gets an issue first"
 	)
 	assertFindings(t, check(t, "deadline-waits", fixtureRepo(t, "deadline-waits")), []string{
+		"cmd/fakeworld/fakeworld_test.go:9: [deadline-waits] time.Sleep" + until,
+		"conformance/tmdb/online_test.go:8: [deadline-waits] t.Skip" + unlinked,
 		"e2e/first_run_test.go:10: [deadline-waits] time.Sleep" + until,
 		"e2e/first_run_test.go:11: [deadline-waits] time.After" + until,
 		"e2e/first_run_test.go:12: [deadline-waits] context.Background" + context,

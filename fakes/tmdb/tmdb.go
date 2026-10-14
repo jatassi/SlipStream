@@ -23,6 +23,7 @@ var Fake = fake.Spec{
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.TMDB.API = endpoint.MustParseURL(at.URL(root))
 	},
+	Online: fake.OnlineSuite("tmdb"),
 }
 
 const root = "/3"

@@ -40,6 +40,7 @@ var Fake = fake.Spec{
 	TLS:       true,
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
+	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
 }
 
 // Announce is one announce as the tracker received it. Source is the IP

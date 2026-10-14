@@ -76,3 +76,17 @@ func NotInert(changes []nativetouch.Change) []string {
 	}
 	return paths
 }
+
+// onlineRoots hold the fakes, the clients and the suites the online job
+// checks against the real services.
+var onlineRoots = []string{"fakes/tmdb/", "fakes/contenttypes/music/", "internal/providers/tmdb/", "conformance/"}
+
+// Online reports whether a change touches, on either side, anything the
+// online job checks.
+func Online(changes []nativetouch.Change) bool {
+	return slices.ContainsFunc(changes, func(c nativetouch.Change) bool {
+		return slices.ContainsFunc(onlineRoots, func(root string) bool {
+			return strings.HasPrefix(c.Old.Path, root) || strings.HasPrefix(c.New.Path, root)
+		})
+	})
+}

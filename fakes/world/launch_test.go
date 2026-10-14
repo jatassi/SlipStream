@@ -92,6 +92,7 @@ var echo = fake.Spec{
 		}}}), nil
 	},
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
+	Online:    fake.NoOnlineRun("a test fixture serves no real service"),
 }
 
 func TestLaunchAndStopOnTheStub(t *testing.T) {
@@ -414,6 +415,20 @@ func TestLaunchRefusesAnExistingRunDir(t *testing.T) {
 	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
 	if want := "run dir " + runDir + " already exists"; err == nil || err.Error() != want {
 		t.Fatalf("Launch = %v, want %s", err, want)
+	}
+}
+
+func TestLaunchRefusesAFakeWithoutAnOnlineStance(t *testing.T) {
+	t.Parallel()
+	bare := echo
+	bare.Online = fake.Online{}
+	runDir := filepath.Join(t.TempDir(), "run")
+	_, err := world.LaunchWith(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir}, []fake.Spec{bare})
+	if want := "fake echo declares no Online stance; set fake.OnlineSuite(suite) or fake.NoOnlineRun(reason)"; err == nil || err.Error() != want {
+		t.Fatalf("Launch = %v\nwant %s", err, want)
+	}
+	if _, err := os.Stat(runDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("run dir after a refused launch: %v, want it absent", err)
 	}
 }
 

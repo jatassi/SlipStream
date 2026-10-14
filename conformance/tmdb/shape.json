@@ -1,0 +1,45 @@
+{
+  "movie 200": {
+    "$": "object",
+    "$.adult": "boolean",
+    "$.external_ids": "object",
+    "$.external_ids.imdb_id": "string",
+    "$.id": "number",
+    "$.imdb_id": "string",
+    "$.original_title": "string",
+    "$.release_date": "string",
+    "$.release_dates": "object",
+    "$.release_dates.results": "array",
+    "$.release_dates.results[]": "object",
+    "$.release_dates.results[].iso_3166_1": "string",
+    "$.release_dates.results[].release_dates": "array",
+    "$.release_dates.results[].release_dates[]": "object",
+    "$.release_dates.results[].release_dates[].certification": "string",
+    "$.release_dates.results[].release_dates[].iso_639_1": "string",
+    "$.release_dates.results[].release_dates[].note": "string",
+    "$.release_dates.results[].release_dates[].release_date": "string",
+    "$.release_dates.results[].release_dates[].type": "number",
+    "$.runtime": "number",
+    "$.status": "string",
+    "$.title": "string"
+  },
+  "movie 404": {
+    "$": "object",
+    "$.status_code": "number",
+    "$.status_message": "string",
+    "$.success": "boolean"
+  },
+  "search 200": {
+    "$": "object",
+    "$.page": "number",
+    "$.results": "array",
+    "$.results[]": "object",
+    "$.results[].adult": "boolean",
+    "$.results[].id": "number",
+    "$.results[].original_title": "string",
+    "$.results[].release_date": "string",
+    "$.results[].title": "string",
+    "$.total_pages": "number",
+    "$.total_results": "number"
+  }
+}

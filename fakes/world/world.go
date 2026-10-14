@@ -158,6 +158,11 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 	if opts.Origin.Kind != FromSteps && opts.Origin.Kind != FromTest {
 		return nil, fmt.Errorf("launch %s: the options name no origin", opts.Scenario.Name)
 	}
+	for _, spec := range fakes {
+		if err := spec.Check(); err != nil {
+			return nil, err
+		}
+	}
 	addrs, err := CheckAddresses(ctx, len(opts.Scenario.Nodes))
 	if err != nil {
 		return nil, err
