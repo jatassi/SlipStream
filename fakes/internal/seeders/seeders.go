@@ -79,24 +79,27 @@ func seed(ctx context.Context, ses engine.Engine, r releases.Release) error {
 			if !ok {
 				return errors.New("the session closed before the tracker replied")
 			}
-			switch ev := ev.(type) {
-			case engine.TrackerReplied:
-				if ev.Torrent == h {
-					return nil
-				}
-			case engine.TrackerFailed:
-				if ev.Torrent == h {
-					return fmt.Errorf("announce: %w", ev.Err)
-				}
-			case engine.TorrentFailed:
-				if ev.Torrent == h {
-					return fmt.Errorf("seed: %w", ev.Err)
-				}
+			if done, err := announced(ev, h); done {
+				return err
 			}
 		case <-ctx.Done():
 			return fmt.Errorf("await the started announce: %w", ctx.Err())
 		}
 	}
+}
+
+// announced reports whether ev ends the wait for torrent h's started
+// announce, with the error it ends in.
+func announced(ev engine.Event, h engine.Handle) (bool, error) {
+	switch ev := ev.(type) {
+	case engine.TrackerReplied:
+		return ev.Torrent == h, nil
+	case engine.TrackerFailed:
+		return ev.Torrent == h, fmt.Errorf("announce: %w", ev.Err)
+	case engine.TorrentFailed:
+		return ev.Torrent == h, fmt.Errorf("seed: %w", ev.Err)
+	}
+	return false, nil
 }
 
 // Close stops every session.

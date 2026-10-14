@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -47,10 +48,9 @@ var grabsEvent = regexp.MustCompile(`(?m)^event: (grabs\.[a-z-]+)\ndata: (.*)$`)
 
 // awaitGrab reads the stream until a grabs.changed leaves the Work's Grab
 // done, and returns it with the grabs events read, in order.
-func awaitGrab(t *testing.T, a *worldtest.API, s *apitest.Stream) (grabView, []string) {
+func awaitGrab(t *testing.T, a *worldtest.API, s *apitest.Stream) (g grabView, seen []string) {
 	t.Helper()
 	ctx := worldtest.Context(t)
-	var seen []string
 	for {
 		msg, err := s.Next(ctx)
 		if err != nil {
@@ -70,9 +70,9 @@ func awaitGrab(t *testing.T, a *worldtest.API, s *apitest.Stream) (grabView, []s
 		if err := json.Unmarshal([]byte(m[2]), &changed); err != nil {
 			t.Fatal(err)
 		}
-		g := decode(t, "getGrab", a.Admin("home", http.MethodGet, "/api/v1/grabs/"+changed.GrabID, ""), &grabView{})
+		g = *decode(t, "getGrab", a.Admin("home", http.MethodGet, "/api/v1/grabs/"+changed.GrabID, ""), &grabView{})
 		if g.Stage == "imported" || g.Stage == "failed" {
-			return *g, seen
+			return g, seen
 		}
 	}
 }
@@ -107,7 +107,15 @@ func TestASearchedMovieIsDownloadedProbedAndImported(t *testing.T) {
 	if seen[0] != "grabs.search-changed" || !slices.Contains(seen, "grabs.changed") {
 		t.Fatalf("the stream read %v, want grabs.search-changed first, then grabs.changed", seen)
 	}
+	checkPlaced(t, m)
+	checkCells(t, a, tr.ID)
+	checkAnnounces(t, m, g.InfoHash)
+}
 
+// checkPlaced checks the media dir holds only the imported file: the
+// catalog payload, hard linked to the seeding download.
+func checkPlaced(t *testing.T, m world.Manifest) {
+	t.Helper()
 	placed := "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv"
 	if got := filesUnder(t, m.MediaDir); !slices.Equal(got, []string{placed}) {
 		t.Fatalf("the media dir holds %v, want exactly [%s]", got, placed)
@@ -120,7 +128,10 @@ func TestASearchedMovieIsDownloadedProbedAndImported(t *testing.T) {
 	if n := links(t, file); n != 2 {
 		t.Fatalf("the placed file has %d links, want 2: itself and the seeding download", n)
 	}
+}
 
+func checkCells(t *testing.T, a *worldtest.API, work string) {
+	t.Helper()
 	var cells struct {
 		Cells []struct {
 			TargetName string `json:"targetName"`
@@ -134,12 +145,17 @@ func TestASearchedMovieIsDownloadedProbedAndImported(t *testing.T) {
 			} `json:"file"`
 		} `json:"cells"`
 	}
-	decode(t, "getWorkCells", a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID+"/cells", ""), &cells)
+	decode(t, "getWorkCells", a.Admin("home", http.MethodGet, "/api/v1/works/"+work+"/cells", ""), &cells)
 	if c := cells.Cells; len(c) != 1 || c[0].TargetName != "1080p" || c[0].State != "met" || c[0].File == nil ||
 		c[0].File.Path != "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv" || c[0].File.Probe.Width != 1920 || c[0].File.Probe.Height != 1080 {
 		t.Fatalf("getWorkCells = %+v, want 1080p met by the 1920x1080 file", c)
 	}
+}
 
+// checkAnnounces checks the Controller announced only the grabbed release:
+// started first, then completed with nothing left.
+func checkAnnounces(t *testing.T, m world.Manifest, infoHash string) {
+	t.Helper()
 	home := netip.MustParseAddrPort(m.Nodes[0].Listeners["torrent"]).Port()
 	var ours []tracker.Announce
 	worldtest.Until(t, "the tracker hears the Controller complete", func() (bool, error) {
@@ -152,13 +168,13 @@ func TestASearchedMovieIsDownloadedProbedAndImported(t *testing.T) {
 		done := slices.IndexFunc(ours, func(an tracker.Announce) bool { return an.Event == "completed" })
 		return done >= 0, nil
 	})
-	if ours[0].Event != "started" || ours[0].InfoHash != g.InfoHash {
-		t.Fatalf("the Controller's first announce = %+v, want started for %s", ours[0], g.InfoHash)
+	if ours[0].Event != "started" || ours[0].InfoHash != infoHash {
+		t.Fatalf("the Controller's first announce = %+v, want started for %s", ours[0], infoHash)
 	}
 	completed := false
 	for _, an := range ours {
-		if an.InfoHash != g.InfoHash {
-			t.Fatalf("the Controller announced %+v, want only the 1080p release %s", an, g.InfoHash)
+		if an.InfoHash != infoHash {
+			t.Fatalf("the Controller announced %+v, want only the 1080p release %s", an, infoHash)
 		}
 		completed = completed || an.Event == "completed"
 		if completed && an.Left != 0 {
@@ -175,8 +191,11 @@ func filesUnder(t *testing.T, dir string) []string {
 			return err
 		}
 		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return fmt.Errorf("relative to the media dir: %w", err)
+		}
 		out = append(out, filepath.ToSlash(rel))
-		return err
+		return nil
 	})
 	if err != nil {
 		t.Fatal(err)

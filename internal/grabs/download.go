@@ -47,9 +47,9 @@ func ApplyDownload(ctx context.Context, tx *storage.Tx[file], node role.NodeID, 
 		if err != nil {
 			return fmt.Errorf("encode the download's files: %w", err)
 		}
-		params.DownloadFiles = nullString(string(b))
+		params.DownloadFiles = new(string(b))
 	case *dlv1.Result_Failed:
-		params.DownloadError = nullString(o.Failed.GetError())
+		params.DownloadError = new(o.Failed.GetError())
 	}
 	return db.New(tx).RecordDownload(ctx, params)
 }

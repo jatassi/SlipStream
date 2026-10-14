@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
@@ -37,15 +35,15 @@ type GrabsGrab struct {
 	Stage           Stage
 	InfoHash        []byte
 	Metainfo        []byte
-	DownloadFiles   sql.NullString
-	DownloadError   sql.NullString
-	FileIndex       sql.NullInt64
-	Probe           sql.NullString
+	DownloadFiles   *string
+	DownloadError   *string
+	FileIndex       *int64
+	Probe           *string
 	RootID          roots.ID
-	Path            sql.NullString
+	Path            *string
 	FailedStage     *Stage
 	FailureCode     *Code
-	FailureMessage  sql.NullString
+	FailureMessage  *string
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
 }

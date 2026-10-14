@@ -64,3 +64,27 @@ sql:
             go_type:
               type: Outcome
               pointer: true
+          - column: grabs_grab.download_files
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.download_error
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.probe
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.path
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.failure_message
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.file_index
+            go_type:
+              type: int64
+              pointer: true

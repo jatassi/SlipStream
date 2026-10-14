@@ -185,7 +185,9 @@ func TestSystemReportsTheBinarysStamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stamped := testbin.Build(t, t.TempDir(), "./cmd/slipstream", "-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+stamp)
+	bin := t.TempDir()
+	testbin.PlaceTools(t, bin)
+	stamped := testbin.Build(t, bin, "./cmd/slipstream", "-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+stamp)
 	version, err := exec.CommandContext(t.Context(), stamped, "version").Output()
 	if err != nil {
 		t.Fatal(err)

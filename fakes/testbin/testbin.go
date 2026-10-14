@@ -146,6 +146,15 @@ func build(ctx context.Context, dir, pkg string, flags ...string) (string, error
 	return out, nil
 }
 
+// PlaceTools copies the native bundle's tool programs into dir, beside a
+// slipstream Build put there, which refuses to run without them.
+func PlaceTools(t testing.TB, dir string) {
+	t.Helper()
+	if err := placeTools(dir); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // placeTools copies the native bundle's tool programs into dir.
 func placeTools(dir string) error {
 	list, ok := os.LookupEnv(toolsVariable)

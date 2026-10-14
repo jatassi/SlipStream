@@ -121,13 +121,13 @@ func TestSupervisorRestarts(t *testing.T) {
 		synctest.Wait()
 		w.Node("seedbox").Probe().Crash()
 		synctest.Wait()
-		if f := seedbox(t, a).Facts; f == nil || len(f.Running) != 0 || !slices.Equal(f.Restarting, []string{"probe"}) {
-			t.Fatalf("after the panic, seedbox's facts are %+v, want probe restarting", f)
+		if f := seedbox(t, a).Facts; f == nil || !slices.Equal(f.Running, []string{"downloading"}) || !slices.Equal(f.Restarting, []string{"probe"}) {
+			t.Fatalf("after the panic, seedbox's facts are %+v, want downloading running and probe restarting", f)
 		}
 		time.Sleep(time.Second)
 		synctest.Wait()
-		if f := seedbox(t, a).Facts; f == nil || !slices.Equal(f.Running, []string{"probe"}) || len(f.Restarting) != 0 {
-			t.Fatalf("restart_min later, seedbox's facts are %+v, want probe running", f)
+		if f := seedbox(t, a).Facts; f == nil || !slices.Equal(f.Running, []string{"downloading", "probe"}) || len(f.Restarting) != 0 {
+			t.Fatalf("restart_min later, seedbox's facts are %+v, want downloading and probe running", f)
 		}
 		if starts := w.Node("seedbox").Probe().Starts(); starts != 2 {
 			t.Fatalf("the Probe started %d times, want 2", starts)

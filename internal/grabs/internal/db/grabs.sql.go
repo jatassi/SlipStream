@@ -7,7 +7,6 @@ package db
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -38,13 +37,13 @@ type AdvanceParams struct {
 	Next           Stage
 	InfoHash       []byte
 	Metainfo       []byte
-	FileIndex      sql.NullInt64
-	Probe          sql.NullString
+	FileIndex      *int64
+	Probe          *string
 	RootID         roots.ID
-	Path           sql.NullString
+	Path           *string
 	FailedStage    *Stage
 	FailureCode    *Code
-	FailureMessage sql.NullString
+	FailureMessage *string
 	UpdatedAt      storage.Time
 	ID             GrabID
 	Stage          Stage
@@ -589,8 +588,8 @@ WHERE id = ?3 AND node_id = ?4 AND stage = 'downloading'
 `
 
 type RecordDownloadParams struct {
-	DownloadFiles sql.NullString
-	DownloadError sql.NullString
+	DownloadFiles *string
+	DownloadError *string
 	ID            GrabID
 	NodeID        role.NodeID
 }

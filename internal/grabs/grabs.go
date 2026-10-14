@@ -5,7 +5,6 @@ package grabs
 
 import (
 	"context"
-	"database/sql"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -284,26 +283,26 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		g.Torrent = &Torrent{InfoHash: bencode.InfoHash(row.InfoHash), Metainfo: row.Metainfo}
 	}
 	switch {
-	case row.DownloadFiles.Valid:
+	case row.DownloadFiles != nil:
 		g.Download = &Download{}
-		if err := json.Unmarshal([]byte(row.DownloadFiles.String), &g.Download.Files); err != nil {
+		if err := json.Unmarshal([]byte(*row.DownloadFiles), &g.Download.Files); err != nil {
 			return Grab{}, fmt.Errorf("grab %s: download files: %w", row.ID, err)
 		}
-	case row.DownloadError.Valid:
-		g.Download = &Download{Error: row.DownloadError.String}
+	case row.DownloadError != nil:
+		g.Download = &Download{Error: *row.DownloadError}
 	}
-	if row.Path.Valid {
+	if row.Path != nil {
 		root, err := roots.Get(ctx, r, row.RootID)
 		if err != nil {
 			return Grab{}, err
 		}
-		g.Plan = &Plan{FileIndex: int(row.FileIndex.Int64), Root: root, Path: row.Path.String, Fills: rel.fills[row.ID]}
-		if err := json.Unmarshal([]byte(row.Probe.String), &g.Plan.Probe); err != nil {
+		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Root: root, Path: *row.Path, Fills: rel.fills[row.ID]}
+		if err := json.Unmarshal([]byte(*row.Probe), &g.Plan.Probe); err != nil {
 			return Grab{}, fmt.Errorf("grab %s: probe: %w", row.ID, err)
 		}
 	}
 	if row.FailureCode != nil {
-		g.Failed = &Failure{Stage: *row.FailedStage, Code: *row.FailureCode, Message: row.FailureMessage.String}
+		g.Failed = &Failure{Stage: *row.FailedStage, Code: *row.FailureCode, Message: *row.FailureMessage}
 	}
 	return g, nil
 }
@@ -321,7 +320,3 @@ func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (
 	}
 	return out, nil
 }
-
-func nullString(s string) sql.NullString { return sql.NullString{String: s, Valid: true} }
-
-func nullInt(n int) sql.NullInt64 { return sql.NullInt64{Int64: int64(n), Valid: true} }

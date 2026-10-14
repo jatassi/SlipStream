@@ -97,7 +97,7 @@ func write(savePath string, files []engine.File, payload []byte) error {
 		return &engine.Error{Category: engine.CategoryOther, Text: fmt.Sprintf("a payload fills one file, and the torrent has %d", len(files))}
 	}
 	file := filepath.Join(savePath, filepath.FromSlash(files[0].Path))
-	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it
 		return &engine.Error{Category: engine.CategorySystem, Text: err.Error()}
 	}
 	if err := os.WriteFile(file, payload, 0o644); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it

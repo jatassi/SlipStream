@@ -627,7 +627,7 @@ func TestRunRefusesToStartWithoutFFprobeBesideIt(t *testing.T) {
 	// A child forked while bin is open for writing would make exec of bin
 	// fail with "text file busy".
 	syscall.ForkLock.RLock()
-	err = os.WriteFile(bin, program, 0o700) //nolint:gosec // the copy must run
+	err = os.WriteFile(bin, program, 0o700)
 	syscall.ForkLock.RUnlock()
 	if err != nil {
 		t.Fatal(err)

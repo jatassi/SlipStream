@@ -275,13 +275,13 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 			if err != nil {
 				return db.AdvanceParams{}, advance{}, fmt.Errorf("encode the probe: %w", err)
 			}
-			params.FileIndex = nullInt(o.plan.FileIndex)
-			params.Probe, params.RootID, params.Path = nullString(string(probe)), o.plan.Root.ID, nullString(o.plan.Path)
+			params.FileIndex = new(int64(o.plan.FileIndex))
+			params.Probe, params.RootID, params.Path = new(string(probe)), o.plan.Root.ID, new(o.plan.Path)
 		}
 		return params, o, nil
 	case fail:
 		params.Next = Failed
-		params.FailedStage, params.FailureCode, params.FailureMessage = &g.Stage, &o.code, nullString(o.msg)
+		params.FailedStage, params.FailureCode, params.FailureMessage = &g.Stage, &o.code, new(o.msg)
 	}
 	return params, advance{}, nil
 }

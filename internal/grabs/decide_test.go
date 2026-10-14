@@ -48,7 +48,7 @@ func cell(t targets.Target, s files.State) files.Cell {
 	return files.Cell{Item: item, Edition: files.Standard, Target: t, State: s}
 }
 
-var orchard = indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
+var orchard = indexers.Terms{Mode: "search", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 
 func release(title string, seeders, size int64, ids map[string]string) indexers.Item {
 	return indexers.Item{Title: title, Seeders: seeders, Size: size, IDs: ids}
@@ -78,7 +78,7 @@ func TestDecideRanksByTargetThenResolutionThenSeedersSizeAndTitle(t *testing.T) 
 	}
 }
 
-func TestDecideRejectsTheWrongMovieAnUnknownResolutionAndWhatMeetsNothing(t *testing.T) {
+func TestDecideRejectsTheWrongWorkAnUnknownResolutionAndWhatMeetsNothing(t *testing.T) {
 	candidates := []indexers.Item{
 		release("Orchard.1080p.Other", 50, 10, map[string]string{"tmdbid": "9000002"}),
 		release("Orchard.WEB-DL", 50, 10, nil),
