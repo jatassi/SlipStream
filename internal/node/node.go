@@ -283,7 +283,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.roleRand = streams.Stream("role")
 	n.hub = live.NewHub(surface.Events)
 	n.grabsRand = streams.Stream("grabs")
-	if err := n.startTorrent(cfg, l); err != nil {
+	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
 		return 0, "", err
 	}
 	// The claimed half stops before the torrent engine closes under it.
@@ -341,8 +341,8 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 
 // startTorrent opens the torrent engine and the Node's built-in client,
 // which reads its events from now on, claimed or not.
-func (n *Node) startTorrent(cfg Config, l *Listeners) error {
-	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen})
+func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
+	torrent, err := n.env.Engine(engine.Config{ListenInterface: cfg.Torrent.Listen, Rand: ports})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}

@@ -20,7 +20,7 @@ const payloadSize = 8 << 20
 
 func open(t *testing.T) engine.Engine {
 	t.Helper()
-	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0")})
+	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

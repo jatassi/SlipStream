@@ -83,7 +83,6 @@ typedef struct {
 } lts_alert;
 
 /* Functions that return int return 0 on success and -1 with *err filled. */
-/* Port 0 picks a port both TCP and UDP can bind on address. */
 lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, lts_error* err);
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 int lts_add(lts_session* s, const char* metainfo, size_t len, const char* save_path, int seed_mode, int64_t* torrent, lts_error* err);

@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"net/netip"
 	"os"
 
@@ -27,7 +28,10 @@ func main() {
 }
 
 func run() error {
-	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.AddrPortFrom(netip.MustParseAddr(os.Args[1]), 0)})
+	e, err := libtorrent.Open(engine.Config{
+		ListenInterface: netip.AddrPortFrom(netip.MustParseAddr(os.Args[1]), 0),
+		Rand:            rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), //nolint:gosec // picks listen ports
+	})
 	if err != nil {
 		return err
 	}

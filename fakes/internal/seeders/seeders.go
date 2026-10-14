@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/netip"
 	"os"
 	"sync"
@@ -52,7 +53,7 @@ func open(caFile string) (engine.Engine, error) {
 	if err := os.Setenv("SSL_CERT_FILE", caFile); err != nil {
 		return nil, fmt.Errorf("trust the run CA: %w", err)
 	}
-	ses, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0")})
+	ses, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
 	restore := os.Unsetenv("SSL_CERT_FILE")
 	if set {
 		restore = os.Setenv("SSL_CERT_FILE", was)

@@ -11,6 +11,9 @@ package libtorrent
 import "C"
 
 import (
+	"errors"
+	"fmt"
+	"math/rand/v2"
 	"net/netip"
 	"path/filepath"
 	"strings"
@@ -45,23 +48,104 @@ func Version() string {
 	return strings.Join(parts[:3], ".")
 }
 
+// anyPortTries bounds the ports Open tries for port 0. With a fraction f of
+// ports refused, all of them fail with probability f^anyPortTries.
+const anyPortTries = 32
+
+// Open returns a session that listens, or the reason it could not. For port 0
+// it tries random dynamic ports until one takes both libtorrent's TCP
+// listener and its uTP socket, which libtorrent binds on the same port and
+// retries only on address-in-use. Windows refuses either bind with WSAEACCES
+// on a port in one of its excluded ranges, which span runs of adjacent
+// ports, so candidates from an allocator that walks ports in sequence fail
+// together.
 func Open(cfg engine.Config) (*Session, error) {
-	addr := C.CString(cfg.ListenInterface.Addr().String())
-	defer C.free(unsafe.Pointer(addr))
-	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(cfg.ListenInterface.Port()), discoveryBits(cfg.Discovery), &cerr)
-	if ses == nil {
-		return nil, goError(&cerr)
+	ports := []uint16{cfg.ListenInterface.Port()}
+	if ports[0] == 0 {
+		ports = dynamicPorts(cfg.Rand, anyPortTries)
 	}
-	s := &Session{
-		ses:    ses,
-		listen: cfg.ListenInterface.Addr(),
-		events: make(chan engine.Event, 64),
-		stop:   make(chan struct{}),
-		done:   make(chan struct{}),
+	s, err := firstListening(ports, func(port uint16) (*Session, error) {
+		return openListening(netip.AddrPortFrom(cfg.ListenInterface.Addr(), port), cfg.Discovery)
+	})
+	if err != nil {
+		return nil, err
 	}
 	go s.pump()
 	return s, nil
+}
+
+// firstListening opens on each port in turn and returns the first session
+// that listens, or the last error. Only a refused listen moves on.
+func firstListening[S any](ports []uint16, open func(port uint16) (S, error)) (S, error) {
+	var err error
+	for _, port := range ports {
+		var s S
+		if s, err = open(port); !errors.Is(err, engine.ErrNotListening) {
+			return s, err
+		}
+	}
+	var none S
+	return none, err
+}
+
+func dynamicPorts(r *rand.Rand, n int) []uint16 {
+	const first, count = 49152, 65536 - 49152
+	ports := make([]uint16, n)
+	for i := range ports {
+		ports[i] = uint16(first + r.IntN(count))
+	}
+	return ports
+}
+
+// openListening runs before the pump starts, so it reads the session's
+// alerts itself to say why a session that does not listen was refused.
+func openListening(ap netip.AddrPort, d engine.Discovery) (*Session, error) {
+	addr := C.CString(ap.Addr().String())
+	defer C.free(unsafe.Pointer(addr))
+	var cerr C.lts_error
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(d), &cerr)
+	if ses == nil {
+		return nil, goError(&cerr)
+	}
+	var port C.uint16_t
+	if C.lts_listen_port(ses, &port, &cerr) != 0 {
+		err := goError(&cerr)
+		C.lts_close(ses, &cerr)
+		return nil, err
+	}
+	if port == 0 {
+		err := fmt.Errorf("%w on %s", engine.ErrNotListening, ap)
+		reason := listenFailure(ses)
+		if reason != nil {
+			err = fmt.Errorf("%w: %w", err, reason)
+		}
+		C.lts_close(ses, &cerr)
+		return nil, err
+	}
+	return &Session{
+		ses:    ses,
+		listen: ap.Addr(),
+		events: make(chan engine.Event, 64),
+		stop:   make(chan struct{}),
+		done:   make(chan struct{}),
+	}, nil
+}
+
+// listenFailure finds the listen_failed alert libtorrent queued while it
+// opened the session, before lts_listen_port's call ran on its network thread.
+func listenFailure(ses *C.lts_session) error {
+	var buf [8]C.lts_alert
+	var cerr C.lts_error
+	n := int(C.lts_wait_alerts(ses, 0, &buf[0], C.int(len(buf)), &cerr))
+	if n < 0 {
+		return goError(&cerr)
+	}
+	for i := range n {
+		if buf[i].kind == C.LTS_ALERT_LISTEN_FAILED {
+			return goError(&buf[i].error)
+		}
+	}
+	return nil
 }
 
 func (s *Session) Events() <-chan engine.Event { return s.events }

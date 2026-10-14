@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"net/netip"
 )
 
@@ -25,6 +26,8 @@ type Engine interface {
 type Config struct {
 	ListenInterface netip.AddrPort
 	Discovery       Discovery
+	// Rand draws the ports an engine tries when ListenInterface's port is 0.
+	Rand *rand.Rand
 }
 
 // Settings is the torrent section of a Node's configuration.
