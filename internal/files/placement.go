@@ -18,7 +18,9 @@ type Linker interface {
 
 type OSLinker struct{}
 
-func (OSLinker) Link(oldname, newname string) error { return os.Link(oldname, newname) }
+func (OSLinker) Link(oldname, newname string) error {
+	return os.Link(oldname, newname) //nolint:wrapcheck // Place asks only whether it linked
+}
 
 var ErrOccupied = errors.New("another file is at the target path")
 
@@ -27,7 +29,7 @@ var ErrOccupied = errors.New("another file is at the target path")
 // and BLAKE3 counts as placed, so placing again converges; another file
 // there is ErrOccupied.
 func Place(l Linker, from, to string) error {
-	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil { //nolint:gosec // media servers read the library
 		return fmt.Errorf("make the file's folder: %w", err)
 	}
 	switch same, err := identical(from, to); {
@@ -50,11 +52,11 @@ func Place(l Linker, from, to string) error {
 func identical(from, to string) (bool, error) {
 	at, err := os.Stat(to)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("read the target: %w", err)
 	}
 	src, err := os.Stat(from)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("read the source: %w", err)
 	}
 	if os.SameFile(src, at) {
 		return true, nil
@@ -75,9 +77,9 @@ func identical(from, to string) (bool, error) {
 
 func sum(path string) ([32]byte, error) {
 	var out [32]byte
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // a download or a library file the Grab placed
 	if err != nil {
-		return out, err
+		return out, fmt.Errorf("hash the file: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 	h := blake3.New()
@@ -89,13 +91,13 @@ func sum(path string) ([32]byte, error) {
 }
 
 func copyInto(from, to string) error {
-	in, err := os.Open(from)
+	in, err := os.Open(from) //nolint:gosec // the download the Grab imports
 	if err != nil {
-		return err
+		return fmt.Errorf("copy the file: %w", err)
 	}
 	defer func() { _ = in.Close() }()
 	part := to + ".part"
-	out, err := os.Create(part)
+	out, err := os.Create(part) //nolint:gosec // beside the target the Grab planned
 	if err != nil {
 		return fmt.Errorf("copy the file: %w", err)
 	}
@@ -110,5 +112,8 @@ func copyInto(from, to string) error {
 		_ = os.Remove(part)
 		return fmt.Errorf("copy the file: %w", err)
 	}
-	return os.Rename(part, to)
+	if err := os.Rename(part, to); err != nil {
+		return fmt.Errorf("move the copy into place: %w", err)
+	}
+	return nil
 }

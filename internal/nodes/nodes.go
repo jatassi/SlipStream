@@ -479,7 +479,7 @@ func (s *Service) AwaitInStep(ctx context.Context, node ID) error {
 		select {
 		case <-woken:
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("await node %s in step: %w", node, ctx.Err())
 		}
 	}
 }

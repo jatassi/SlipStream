@@ -1,0 +1,66 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: grabs_grab.id
+            go_type:
+              type: GrabID
+          - column: "*.grab_id"
+            go_type:
+              type: GrabID
+          - column: grabs_search.id
+            go_type:
+              type: SearchID
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: "*.item_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID
+          - column: "*.indexer_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: ID
+          - column: grabs_grab.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: grabs_grab.edition
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: Edition
+          - column: grabs_grab.root_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: "*.target_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: TargetID
+          - column: "*.stage"
+            go_type:
+              type: Stage
+          - column: grabs_grab.failed_stage
+            go_type:
+              type: Stage
+              pointer: true
+          - column: grabs_grab.failure_code
+            go_type:
+              type: Code
+              pointer: true
+          - column: grabs_search.outcome
+            go_type:
+              type: Outcome
+              pointer: true
