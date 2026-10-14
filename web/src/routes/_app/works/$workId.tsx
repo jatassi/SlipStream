@@ -57,7 +57,8 @@ function WorkHeader({ type, work }: { type: WorksContentType; work: WorksTree })
   );
 }
 
-const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+const fileName = (path: string) =>
+  path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
 
 function CellsGrid({
   type,
