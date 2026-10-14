@@ -61,6 +61,34 @@ func Config(s scenario.Scenario, i int, listen []string, endpoints node.Endpoint
 	if e != nil {
 		root.Content = append(root.Content, scalar("endpoints"), e)
 	}
+	return encode(root)
+}
+
+// Pin is config with each listen key whose listener is in listeners, by
+// name such as http, at the address that listener bound, so a Node
+// started again on it binds the same ports.
+func Pin(config []byte, listeners map[string]string) ([]byte, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(config, &doc); err != nil {
+		return nil, fmt.Errorf("config.yaml: %w", err)
+	}
+	root := doc.Content[0]
+	for i := 0; i < len(root.Content); i += 2 {
+		bound, ok := listeners[root.Content[i].Value]
+		if !ok || root.Content[i+1].Kind != yaml.MappingNode {
+			continue
+		}
+		block := root.Content[i+1]
+		for j := 0; j < len(block.Content); j += 2 {
+			if block.Content[j].Value == "listen" {
+				block.Content[j+1] = scalar(bound)
+			}
+		}
+	}
+	return encode(root)
+}
+
+func encode(root *yaml.Node) ([]byte, error) {
 	var b bytes.Buffer
 	enc := yaml.NewEncoder(&b)
 	enc.SetIndent(2)
