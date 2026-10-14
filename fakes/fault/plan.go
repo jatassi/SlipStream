@@ -96,7 +96,8 @@ func (r *Rule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (r Rule) covers(f Front) bool {
+// Covers reports whether f is a front r faults.
+func (r Rule) Covers(f Front) bool {
 	return r.Target.covers(f.Target) && (r.Origin == "" || r.Origin == f.Origin)
 }
 
@@ -119,7 +120,7 @@ func Check(r Rule, fronts []Front) error {
 	}
 	var covered []Front
 	for _, f := range fronts {
-		if r.covers(f) {
+		if r.Covers(f) {
 			covered = append(covered, f)
 		}
 	}
@@ -283,7 +284,7 @@ func (p *Plan) Refused(f Front) (refused bool, changed <-chan struct{}) {
 	defer p.mu.Unlock()
 	refused = slices.ContainsFunc(p.rules, func(e *entry) bool {
 		_, ok := e.Fault.(Refuse)
-		return ok && e.armed && e.covers(f)
+		return ok && e.armed && e.Covers(f)
 	})
 	return refused, p.changedLocked()
 }
@@ -361,7 +362,7 @@ func (p *Plan) firstLocked(f Front, layer Layer, match func(*entry) bool) (playe
 // rule holds a front and counts nothing.
 func (e *entry) takes(f Front, layer Layer) bool {
 	_, refuse := e.Fault.(Refuse)
-	return !refuse && e.armed && !e.done() && e.Fault.Layer() == layer && e.covers(f)
+	return !refuse && e.armed && !e.done() && e.Fault.Layer() == layer && e.Covers(f)
 }
 
 func (e *entry) countLocked() (played *entry, matched int) {

@@ -3,7 +3,6 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -13,14 +12,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/zeebo/blake3"
-
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/api/apitest"
 )
 
 const (
@@ -71,7 +67,7 @@ type walked struct {
 func walk(t *testing.T, name string) walked {
 	t.Helper()
 	w := begin(t, name)
-	stream := w.a.Stream("home", w.a.SignIn("home"))
+	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
 	search := w.search(t)
 	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
 	w.ended(t, grabChanged(t, stream, w.work))
@@ -134,27 +130,18 @@ func (w *walked) ended(t *testing.T, id string) {
 	})
 }
 
-var grabChangedData = regexp.MustCompile(`(?m)^event: grabs\.changed\ndata: \{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
+var grabChangedData = regexp.MustCompile(`^\{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})"\}$`)
 
 // grabChanged reads the stream to the next grabs.changed and returns its
 // Grab, which must be work's.
-func grabChanged(t *testing.T, s *apitest.Stream, work string) string {
+func grabChanged(t *testing.T, s *worldtest.Messages, work string) string {
 	t.Helper()
-	ctx := worldtest.Context(t)
-	for {
-		msg, err := s.Next(ctx)
-		if err != nil {
-			t.Fatalf("the stream ended before grabs.changed: %v", err)
-		}
-		m := grabChangedData.FindStringSubmatch(msg)
-		if m == nil {
-			continue
-		}
-		if m[2] != work {
-			t.Fatalf("the stream read %q, want grabs.changed for Work %s", msg, work)
-		}
-		return m[1]
+	data := s.Next("grabs.changed")
+	m := grabChangedData.FindStringSubmatch(data)
+	if len(m) != 3 || m[2] != work {
+		t.Fatalf("grabs.changed carried %s, want a Grab of Work %s", data, work)
 	}
+	return m[1]
 }
 
 type cellList struct {
@@ -219,12 +206,12 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	if got := filesUnder(t, m.MediaDir); !slices.Equal(got, []string{placed}) {
 		t.Fatalf("the media dir holds %v, want exactly [%s]", got, placed)
 	}
-	file := filepath.Join(m.MediaDir, filepath.FromSlash(placed))
-	if got, want := sum(t, file), sum(t, filepath.Join(m.ScratchDir, "releases", release+".mkv")); got != want {
-		t.Fatalf("the placed file's BLAKE3 is %x, want the catalog payload's %x", got, want)
+	info, err := world.MatchRelease(m, filepath.Join(m.MediaDir, filepath.FromSlash(placed)), release)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if n := linkCount(t, file); n != links {
-		t.Fatalf("the placed file has %d links, want %d", n, links)
+	if info.Links != links {
+		t.Fatalf("the placed file has %d links, want %d", info.Links, links)
 	}
 }
 
@@ -315,21 +302,5 @@ func filesUnder(t *testing.T, dir string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return out
-}
-
-func sum(t *testing.T, path string) [32]byte {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-	h := blake3.New()
-	if _, err := io.Copy(h, f); err != nil {
-		t.Fatal(err)
-	}
-	var out [32]byte
-	copy(out[:], h.Sum(nil))
 	return out
 }

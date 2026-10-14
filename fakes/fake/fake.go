@@ -42,6 +42,19 @@ type Spec struct {
 	Captures []CaptureSpec
 	// Cues are the cues the fake plays; OnCue refuses any other.
 	Cues []CueSpec
+	// Entered reads the addresses of the fake an Admin typed into
+	// SlipStream, through get, a GET of an API path on the Controller that
+	// answers the body of a 200. doctor checks each is the fake's front for
+	// the Node that dials it. nil is a fake no Admin types.
+	Entered func(get func(path string) ([]byte, error)) ([]Entered, error)
+}
+
+// Entered is one address an Admin typed: what a person calls it, its URL
+// and the id of the Node that dials it.
+type Entered struct {
+	What   string
+	URL    string
+	NodeID string
 }
 
 // CaptureSpec is a capture a fake declares. Name is its fakeworld reader

@@ -45,9 +45,32 @@ const usageText = `usage: fakeworld <command>
       stop the Node with slipstream stop, kill its process, start it again
       on the same config.yaml, or empty a stopped Node's data dir but its
       config.yaml, and print its manifest entry
+<<<<<<< HEAD
   browser <run-dir>
       write the playwright cli config of each shell the manifest's browser
       block names and print their paths
+=======
+  fs stat <run-dir> <path>
+      print the file's path, size, link count and BLAKE3
+  fs match <run-dir> <path> --release <name>
+      exit 0 when the file's size and BLAKE3 are the release's; a path
+      outside the run dir and its scratch dir is refused
+  doctor <run-dir> [--json] [--worktree <dir>] [--timeout 2m]
+      run six read-only checks on the live run: it is ours, its build is the
+      worktree's, its cluster is its Scenario's, every fake answers, every
+      address an Admin entered is a fake's front, and its API key works;
+      exit 1 when any fails, and list the fault rules still set
+  summary <run-dir>
+      write the run's summary.md, text for a PR's Verify section, from its
+      files alone, and print its path
+  replay <bundle> [--binary <path>] [--run-dir <dir>] [--to N] [--stop]
+         [--timeout 2m]
+      check the bundle's scenario.yaml and binary against its manifest, then
+      for a run fakeworld start launched, start a fresh world from its
+      Scenario and run its steps 1 to N again, stopping at the first whose
+      exit differs from the one recorded; for a run a Go test launched, run
+      the test again against the binary
+>>>>>>> s10/doctor-replay
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -86,9 +109,14 @@ var verbs = map[string]func(args []string) int{
 		}
 		return execStep(f)
 	},
-	"fault": faultCommand,
-	"cue":   cueCommand,
-	"node":  nodeCommand,
+	"fault":   faultCommand,
+	"cue":     cueCommand,
+	"node":    nodeCommand,
+	"fs":      fsCommand,
+	"sse":     captureCommand(sseReader),
+	"doctor":  doctor,
+	"summary": summary,
+	"replay":  replay,
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {
@@ -106,7 +134,10 @@ var verbs = map[string]func(args []string) int{
 	"browser": browserCommand,
 }
 
-var commands = withCaptures(verbs)
+// commands are set in init, since replay dispatches through them.
+var commands map[string]func(args []string) int
+
+func init() { commands = withCaptures(verbs) }
 
 func run(args []string) int {
 	if len(args) == 0 {
@@ -182,8 +213,11 @@ func required(fs *flag.FlagSet, names ...string) error {
 type startFlags struct {
 	binary, runDir string
 	scenario       scenario.Scenario
-	timeout        time.Duration
-	testCommand    string
+	// scenarioFile holds the Scenario when it is not the catalog's, as
+	// for a replay.
+	scenarioFile string
+	timeout      time.Duration
+	testCommand  string
 }
 
 func parseStart(args []string) (startFlags, error) {
@@ -236,8 +270,8 @@ func parseSetupLoopback(args []string) (bool, error) {
 }
 
 type superviseFlags struct {
-	binary, scenario, runDir string
-	testCommand              string
+	binary, scenario, scenarioFile, runDir string
+	testCommand                            string
 }
 
 func parseSupervise(args []string) (superviseFlags, error) {
@@ -245,6 +279,7 @@ func parseSupervise(args []string) (superviseFlags, error) {
 	var f superviseFlags
 	fs.StringVar(&f.binary, "binary", "", "")
 	fs.StringVar(&f.scenario, "scenario", "", "")
+	fs.StringVar(&f.scenarioFile, "scenario-file", "", "")
 	fs.StringVar(&f.runDir, "run-dir", "", "")
 	fs.StringVar(&f.testCommand, "test-command", "", "")
 	if err := noArguments(fs, args); err != nil {

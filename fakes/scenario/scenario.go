@@ -83,7 +83,7 @@ func Load(name string) (Scenario, error) {
 	if err != nil {
 		return Scenario{}, fmt.Errorf("scenario %s: %w", name, err)
 	}
-	return parse(name, data)
+	return Parse(name, data)
 }
 
 // Catalog is the name of every catalog Scenario.
@@ -96,7 +96,9 @@ func Catalog() []string {
 	return out
 }
 
-func parse(name string, data []byte) (Scenario, error) {
+// Parse reads data as the Scenario name, strictly, and validates it, as a
+// run dir's scenario.yaml is read back for replay.
+func Parse(name string, data []byte) (Scenario, error) {
 	s := Scenario{Name: name}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)

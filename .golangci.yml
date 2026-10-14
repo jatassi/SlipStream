@@ -161,7 +161,7 @@ linters:
   exclusions:
     generated: strict
     rules:
-      - path: ^(cmd/release|cmd/fakeworld|fakes)/|_test\.go$
+      - path: ^(cmd/release|cmd/fakeworld|fakes|internal/worktree)/|_test\.go$
         linters:
           - gosec
         text: "^G(122|204|301|304|306|702|703):"

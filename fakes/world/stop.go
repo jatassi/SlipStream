@@ -76,6 +76,7 @@ func (r *Run) Done() <-chan struct{} { return r.control.Done() }
 
 func (r *Run) stop() {
 	r.record(events.RunStopping, struct{}{})
+	r.stopCaptures()
 	r.manifestMu.Lock()
 	r.published = false
 	r.manifestMu.Unlock()

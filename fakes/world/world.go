@@ -83,6 +83,7 @@ type Run struct {
 	used      map[string]bool
 	claims    setup.Claims
 	control   *control.Server
+	captures  *captures
 
 	// manifestMu guards the manifest and whether manifest.json holds it.
 	manifestMu sync.Mutex
@@ -174,6 +175,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		}
 	}
 	r := &Run{scenario: opts.Scenario, id: newRunID(), runDir: runDir, life: context.WithoutCancel(ctx), used: map[string]bool{}, openSteps: map[int]bool{}}
+	r.captures = newCaptures(r.life)
 	for i, n := range opts.Scenario.Nodes {
 		r.nodes = append(r.nodes, &nodeRun{spec: n, addr: addrs[i]})
 	}
@@ -640,11 +642,26 @@ func (r *Run) publish(ctx context.Context, undo *unwind) error {
 	if err != nil {
 		return err
 	}
+	if err := r.captureAdmin(ctx, undo); err != nil {
+		return err
+	}
 	if err := writeAtomically(filepath.Join(r.runDir, manifestFile), marshal(r.manifest)); err != nil {
 		return err
 	}
 	r.published = true
 	return nil
+}
+
+// captureAdmin captures the Admin's stream on the Controller from launch,
+// unasked, when the Scenario has an Admin.
+func (r *Run) captureAdmin(ctx context.Context, undo *unwind) error {
+	undo.push(r.stopCaptures)
+	if r.manifest.Admin == nil {
+		return nil
+	}
+	i := slices.IndexFunc(r.manifest.Nodes, func(n Node) bool { return n.Setup == scenario.SetupController })
+	_, err := r.captureSSE(ctx, *r.manifest.Admin, r.manifest.Nodes[i])
+	return err
 }
 
 func (r *Run) buildManifest() (Manifest, error) {

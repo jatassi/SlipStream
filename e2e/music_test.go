@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/api/apitest"
 )
 
 const (
@@ -126,23 +126,10 @@ func checkOutline(t *testing.T, what string, tr tree, ids *[]string, want string
 	}
 }
 
-func event(t *testing.T, s *apitest.Stream, name, data string) {
+func event(t *testing.T, s *worldtest.Messages, name, data string) {
 	t.Helper()
-	named := regexp.MustCompile(`(?m)^event: ` + regexp.QuoteMeta(name) + `$`)
-	want := regexp.MustCompile(`^id: \d+\n(retry: \d+\n)?event: ` + regexp.QuoteMeta(name) + `\ndata: ` + regexp.QuoteMeta(data) + `\n$`)
-	ctx := worldtest.Context(t)
-	for {
-		msg, err := s.Next(ctx)
-		if err != nil {
-			t.Fatalf("the stream ended before %s: %v", name, err)
-		}
-		if !named.MatchString(msg) {
-			continue
-		}
-		if !want.MatchString(msg) {
-			t.Fatalf("the stream read %q, want event %s with data %s", msg, name, data)
-		}
-		return
+	if got := s.Next(name); got != data {
+		t.Fatalf("the stream's %s carried %s, want %s", name, got, data)
 	}
 }
 
@@ -158,7 +145,7 @@ func TestMusic(t *testing.T) {
 
 	worldtest.Expect(t, "searchCatalog for The Lanterns", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog?query=Lanterns", ""), searchLanterns("null"))
 
-	stream := a.Stream("home", session)
+	stream := worldtest.NewMessages(t, run.Manifest(), world.AdminIdentity)
 	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"music","key":"`+lanterns+`"}`), &added{})
 	var ids []string
 	var tr tree
@@ -229,8 +216,7 @@ func turnOffAndOn(t *testing.T) {
 	s.Name, s.Faults = "music-empty", nil
 	run := worldtest.LaunchE2EScenario(t, s)
 	a := api(t, run)
-	session := a.SignIn("home")
-	stream := a.Stream("home", session)
+	stream := worldtest.NewMessages(t, run.Manifest(), world.AdminIdentity)
 	musicOff := strings.Replace(musicType, `"enabled":true`, `"enabled":false`, 1) + "\n"
 
 	worldtest.Expect(t, "turning music off", a.Admin("home", http.MethodPut, "/api/v1/content-types/music/enabled", `{"enabled":false}`), worldtest.Reply{Status: 200, Body: musicOff})

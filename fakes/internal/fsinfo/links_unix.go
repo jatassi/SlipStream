@@ -1,24 +1,19 @@
 //go:build unix
 
-package e2e
+package fsinfo
 
 import (
+	"fmt"
 	"os"
 	"syscall"
-	"testing"
 )
 
-func linkCount(t *testing.T, path string) uint64 {
-	t.Helper()
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	st, ok := info.Sys().(*syscall.Stat_t)
+func links(_ *os.File, fi os.FileInfo) (uint64, error) {
+	st, ok := fi.Sys().(*syscall.Stat_t)
 	if !ok {
-		t.Fatalf("stat %s: %T, want a Stat_t", path, info.Sys())
+		return 0, fmt.Errorf("%T is not a Stat_t", fi.Sys())
 	}
-	return widen(st.Nlink)
+	return widen(st.Nlink), nil
 }
 
 // widen takes Nlink's type, which is uint64 on linux-amd64 and narrower
