@@ -60,7 +60,7 @@ func TestTheFakeAnswersAsMusicBrainzDoes(t *testing.T) {
 	inBothTiers(t, s, []exchange{
 		{"/ws/2/artist/a1000000-0000-4000-8000-000000000001", "400 Bad Request Retry-After= {\"error\":\"Bad Request\"}\n"},
 		{"/ws/2/elsewhere?fmt=json", "404 Not Found Retry-After= {\"error\":\"Not Found\"}\n"},
-		{"/ws/2/artist/a1000000-0000-4000-8000-000000000002?fmt=json", "503 Service Unavailable Retry-After=1 {\"error\":\"Service Unavailable\"}\n"},
+		{"/ws/2/artist/a1000000-0000-4000-8000-000000000002?fmt=json", "503 Service Unavailable Retry-After=1 Service Unavailable\n"},
 		{"/ws/2/artist/a1000000-0000-4000-8000-000000000002?fmt=json", `200 OK Retry-After= {"id":"a1000000-0000-4000-8000-000000000002","name":"Marrow Bay","sort-name":"Marrow Bay","country":"NZ","disambiguation":""}` + "\n"},
 		{"/ws/2/artist?query=bay&fmt=json", `200 OK Retry-After= {"count":1,"offset":0,"artists":[{"id":"a1000000-0000-4000-8000-000000000002","name":"Marrow Bay","sort-name":"Marrow Bay","country":"NZ","disambiguation":"","score":80}]}` + "\n"},
 		{"/ws/2/release-group?artist=a1000000-0000-4000-8000-000000000002&type=album|ep&fmt=json", `200 OK Retry-After= {"release-group-count":1,"release-group-offset":0,"release-groups":[{"id":"b2000000-0000-4000-8000-000000000001","title":"Saltgrass","primary-type":"Album","secondary-types":[],"first-release-date":"2019-11"}]}` + "\n"},

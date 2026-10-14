@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/musicmeta"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -50,9 +51,9 @@ func catalog(t *testing.T) scenario.Scenario {
 		scenario.MusicArtist{ID: slow, Revisions: one(2)},
 		scenario.MusicArtist{ID: prolific, Revisions: []scenario.MusicRevision{prolificRevision()}},
 	)
-	s.Music.Faults = append(s.Music.Faults,
-		scenario.MusicFault{Artist: missing, Answer: scenario.AnswerNotFound, Times: 1},
-		scenario.MusicFault{Artist: slow, Answer: scenario.AnswerSlow, Times: 1},
+	s.Faults = append(s.Faults,
+		fault.Rule{ID: "missing", Target: "music-meta", Route: "artist", Params: map[string]string{"mbid": missing}, Fault: fault.Status{Code: 404}, Times: 1},
+		fault.Rule{ID: "slow", Target: "music-meta", Route: "artist", Params: map[string]string{"mbid": slow}, Fault: fault.Hang{}, Times: 1},
 	)
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)

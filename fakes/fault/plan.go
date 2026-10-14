@@ -34,26 +34,27 @@ type Front struct {
 }
 
 // Rule is one fault and where and when it plays. Its JSON, the form the
-// control API and the event log carry, writes Fault as its canonical text.
+// control API and the event log carry, and its YAML, the form a
+// Scenario's faults block holds, write Fault as its canonical text.
 type Rule struct {
-	ID     string `json:"id"`
-	Target Target `json:"target"`
+	ID     string `json:"id"     jsonschema:"required" yaml:"id"`
+	Target Target `json:"target" jsonschema:"required" yaml:"target"`
 	// Origin is the dialing Node; "" is every origin.
-	Origin string `json:"origin,omitempty"`
+	Origin string `json:"origin,omitempty" yaml:"origin,omitempty"`
 	// Route is, for an HTTP fault, a route name the fake declares in
 	// fake.Routes; "" is every route.
-	Route string `json:"route,omitempty"`
+	Route string `json:"route,omitempty" yaml:"route,omitempty"`
 	// Params are, for an HTTP fault, path values the request must carry.
-	Params map[string]string `json:"params,omitempty"`
-	Fault  Fault             `json:"fault"`
+	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
+	Fault  Fault             `json:"fault"            jsonschema:"required" yaml:"fault"`
 	// Skip is the matches let through first: the 3rd request is Skip 2,
 	// Times 1.
-	Skip int `json:"skip,omitempty"`
+	Skip int `json:"skip,omitempty" jsonschema:"minimum=0" yaml:"skip,omitempty"`
 	// Times is the matches played; 0 plays until cleared.
-	Times int `json:"times,omitempty"`
+	Times int `json:"times,omitempty" jsonschema:"minimum=0" yaml:"times,omitempty"`
 	// After arms the rule on the first matching record observed after it
 	// is set. nil arms it at once.
-	After *events.Query `json:"after,omitempty"`
+	After *events.Query `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
 // ruleFields is Rule without the methods below, so they can encode its

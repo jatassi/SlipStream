@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/front"
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/node"
@@ -25,27 +26,7 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
 		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
 	})
-	var planned []fault.Front
-	for _, spec := range specs {
-		layers := fault.Conn | fault.HTTP
-		if spec.TLS {
-			layers |= fault.TLS
-		}
-		for _, origin := range append(r.nodeNames(), events.World) {
-			planned = append(planned, fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: layers})
-		}
-	}
-	for _, rel := range r.scenario.Releases {
-		if !rel.Seeded {
-			continue
-		}
-		for _, origin := range r.nodeNames() {
-			planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
-		}
-	}
-	for _, name := range r.nodeNames() {
-		planned = append(planned, fault.Front{Target: LinkTarget(name), Layers: fault.Conn})
-	}
+	planned := planFronts(specs, r.nodeNames(), r.scenario.Releases)
 	r.faults = fault.NewPlan(planned, r.fired)
 	r.fronts = front.NewSet(r.faults, r.appendRecord, r.log)
 	undo.push(r.fronts.Close)
@@ -60,6 +41,44 @@ func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) e
 	for _, spec := range specs {
 		at, _ := r.table.Find(fault.Target(spec.Name), events.World)
 		r.fakes = append(r.fakes, &fakeRun{spec: spec, at: at, inbox: front.NewInbox(at.AddrPort)})
+	}
+	return nil
+}
+
+// planFronts is every front a world of the fakes specs and the Nodes
+// nodes binds for releases.
+func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) []fault.Front {
+	var planned []fault.Front
+	for _, spec := range specs {
+		layers := fault.Conn | fault.HTTP
+		if spec.TLS {
+			layers |= fault.TLS
+		}
+		for _, origin := range append(slices.Clone(nodes), events.World) {
+			planned = append(planned, fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: layers})
+		}
+	}
+	for _, rel := range releases {
+		if !rel.Seeded {
+			continue
+		}
+		for _, origin := range nodes {
+			planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+		}
+	}
+	for _, name := range nodes {
+		planned = append(planned, fault.Front{Target: LinkTarget(name), Layers: fault.Conn})
+	}
+	return planned
+}
+
+// setFaults sets the Scenario's fault rules once every fake has declared
+// its routes and before any Node starts, each with its fault.set record.
+func (r *Run) setFaults(ctx context.Context, _ *unwind) error {
+	for _, rule := range r.scenario.Faults {
+		if _, err := r.SetFault(ctx, rule); err != nil {
+			return fmt.Errorf("scenario %s fault %s: %w", r.scenario.Name, rule.ID, err)
+		}
 	}
 	return nil
 }

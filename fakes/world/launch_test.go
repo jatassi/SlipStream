@@ -25,6 +25,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/testbin"
@@ -620,4 +621,32 @@ func advertisedLink(t *testing.T, path string) []string {
 		t.Fatal(err)
 	}
 	return config.Link.Advertise
+}
+
+func TestLaunchSetsTheScenarioFaultsAndRefusesOneNoFakeServes(t *testing.T) {
+	t.Parallel()
+	bin := stub{}.build(t)
+	ctx := worldtest.Context(t)
+	s := stubScenario()
+	s.Faults = []fault.Rule{{ID: "echo-503", Target: "echo", Route: "echo", Fault: fault.Status{Code: 503}, Times: 1}}
+	runDir := filepath.Join(t.TempDir(), "run")
+	run, err := world.LaunchWith(ctx, world.Options{Binary: bin, Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)}, []fake.Spec{echo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = run.Stop(ctx) })
+	if got := getFake(ctx, t, run.Manifest()); got != "Service Unavailable\n" {
+		t.Fatalf("the first request answered %q, want the Scenario's 503", got)
+	}
+	if got := besideFronts(t, runDir)[1]; got != `fault.set world {"id":"echo-503","target":"echo","route":"echo","times":1,"fault":"status=503"}` {
+		t.Fatalf("the record after run.launched is %s, want the Scenario rule's fault.set", got)
+	}
+
+	s.Faults[0].Route = "nope"
+	runDir = filepath.Join(t.TempDir(), "run")
+	_, err = world.LaunchWith(ctx, world.Options{Binary: bin, Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)}, []fake.Spec{echo})
+	if want := "scenario stub fault echo-503: echo serves no route nope"; err == nil || err.Error() != want {
+		t.Fatalf("Launch = %v, want %s", err, want)
+	}
+	assertNothingLeft(t, runDir, false)
 }

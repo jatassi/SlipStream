@@ -21,11 +21,6 @@ func TestValidateChecksTheMusicCatalog(t *testing.T) {
 			{ID: artist},
 			{ID: "a2", Revisions: []MusicRevision{{Name: "Other", SortName: "Other", Albums: []MusicAlbum{good, bad}}}},
 		},
-		Faults: []MusicFault{
-			{Artist: artist, Answer: AnswerSlow, Times: 1},
-			{Artist: artist, Answer: "busy", Times: 0},
-			{Artist: "a3", Answer: AnswerNotFound, Times: 1},
-		},
 	}}
 	want := []string{
 		"scenario x: music artist a1000000-0000-4000-8000-000000000001 revision 0 lists album b1000000-0000-4000-8000-000000000001 twice",
@@ -38,10 +33,6 @@ func TestValidateChecksTheMusicCatalog(t *testing.T) {
 		`scenario x: music artist a2 revision 0 album b1 first_release "spring" is not YYYY, YYYY-MM or YYYY-MM-DD`,
 		"scenario x: music artist a2 revision 0 album b1 lists recording d1000000-0000-4000-8000-000000000001 twice",
 		"scenario x: music artist a2 revision 0 album b1 track d1000000-0000-4000-8000-000000000001 is on disc 0; discs start at 1",
-		"scenario x: music faults name artist a1000000-0000-4000-8000-000000000001 twice",
-		`scenario x: music fault answer "busy" is not one of not_found, unavailable, slow`,
-		"scenario x: music fault for artist a1000000-0000-4000-8000-000000000001 has times 0; it is at least 1",
-		"scenario x: music fault names artist a3, which the catalog does not list",
 	}
 	err := s.Validate()
 	if err == nil {

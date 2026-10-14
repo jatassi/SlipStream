@@ -210,6 +210,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		func(ctx context.Context, undo *unwind) error { return r.bindFronts(ctx, undo, fakes) },
 		r.buildReleases,
 		r.serveFakes,
+		r.setFaults,
 		r.startSeeders,
 		r.prepareNodes,
 		r.startNodes,

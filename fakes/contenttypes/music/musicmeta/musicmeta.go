@@ -34,16 +34,10 @@ type server struct {
 
 	mu      sync.Mutex
 	lookups map[string]int
-	faults  map[string]*fault
-}
-
-type fault struct {
-	answer string
-	left   int
 }
 
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-	srv := &server{artists: map[string]scenario.MusicArtist{}, artistOf: map[string]string{}, lookups: map[string]int{}, faults: map[string]*fault{}}
+	srv := &server{artists: map[string]scenario.MusicArtist{}, artistOf: map[string]string{}, lookups: map[string]int{}}
 	if s.Music != nil {
 		for _, a := range s.Music.Artists {
 			srv.artists[a.ID] = a
@@ -52,9 +46,6 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 					srv.artistOf[al.ID] = a.ID
 				}
 			}
-		}
-		for _, f := range s.Music.Faults {
-			srv.faults[f.Artist] = &fault{answer: f.Answer, left: f.Times}
 		}
 	}
 	return fake.HTTP(env, fake.Routes{
@@ -163,29 +154,10 @@ func (s *server) artist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	f := s.faults[a.ID]
-	faulted := f != nil && f.left > 0
-	if faulted {
-		f.left--
-	} else {
-		s.lookups[a.ID]++
-	}
+	s.lookups[a.ID]++
 	s.mu.Unlock()
-	if faulted {
-		answers[f.answer](w, r)
-		return
-	}
 	rev := s.revision(a)
 	reply(w, artistJSON{ID: a.ID, Name: rev.Name, SortName: rev.SortName, Country: rev.Country, Disambiguation: rev.Disambiguation})
-}
-
-var answers = map[string]http.HandlerFunc{
-	scenario.AnswerNotFound: func(w http.ResponseWriter, _ *http.Request) { notFound(w) },
-	scenario.AnswerUnavailable: func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Retry-After", "1")
-		errorReply(w, http.StatusServiceUnavailable)
-	},
-	scenario.AnswerSlow: func(_ http.ResponseWriter, r *http.Request) { <-r.Context().Done() },
 }
 
 func (s *server) releaseGroups(w http.ResponseWriter, r *http.Request) {

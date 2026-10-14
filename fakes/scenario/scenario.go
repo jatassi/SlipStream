@@ -18,6 +18,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/yamltree"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/role"
@@ -44,6 +45,9 @@ type Scenario struct {
 	// Library is what the world creates on the controller Node after
 	// setting it up.
 	Library *Library `yaml:"library,omitempty"`
+	// Faults are the fault rules the world sets at launch, before any Node
+	// starts, as fakeworld fault set would.
+	Faults []fault.Rule `yaml:"faults,omitempty"`
 }
 
 // Admin is the first Admin a controller Node is set up with.
@@ -151,10 +155,27 @@ func (s Scenario) Validate() error {
 			add("library has indexers, and nodes %s all hold searching; exactly one does", strings.Join(holders, ", "))
 		}
 	}
+	checkFaults(add, s.Faults)
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))
 	}
 	return nil
+}
+
+// checkFaults checks what a rule needs before any front exists: an id of
+// its own and a fault. The world checks the rest when it sets the rules.
+func checkFaults(add func(format string, args ...any), rules []fault.Rule) {
+	for i, r := range rules {
+		switch {
+		case r.ID == "":
+			add("fault %d has no id", i+1)
+		case slices.ContainsFunc(rules[:i], func(o fault.Rule) bool { return o.ID == r.ID }):
+			add("fault id %s is used twice", r.ID)
+		}
+		if r.Fault == nil {
+			add("fault %s names no fault", r.ID)
+		}
+	}
 }
 
 // checkNodes checks each Node and the rules across them, and returns the

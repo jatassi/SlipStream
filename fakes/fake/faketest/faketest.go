@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 
@@ -66,8 +67,9 @@ func As(origin string) Option {
 	return func(o *options) { o.origin = origin }
 }
 
-// WithFaults sets rules before the fake serves. Their Target is the
-// fake's name, and its one front carries connections and HTTP.
+// WithFaults sets rules before the fake serves, after the Scenario's own
+// rules for the fake. Their Target is the fake's name, and its one front
+// carries connections and HTTP.
 func WithFaults(rules ...fault.Rule) Option {
 	return func(o *options) { o.rules = append(o.rules, rules...) }
 }
@@ -132,7 +134,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range o.rules {
+	for _, r := range slices.Concat(ownRules(s, spec), o.rules) {
 		if _, err := plan.Set(r); err != nil {
 			t.Fatal(err)
 		}
@@ -146,6 +148,18 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		}
 	})
 	return Served{Address: at, Client: &http.Client{Transport: tr}, Faults: plan, RunDir: runDir}
+}
+
+// ownRules are the Scenario's fault rules whose Target is spec's fake, as
+// the world sets them at launch.
+func ownRules(s scenario.Scenario, spec fake.Spec) []fault.Rule {
+	var out []fault.Rule
+	for _, r := range s.Faults {
+		if r.Target == fault.Target(spec.Name) {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // pipeListener hands each dial's far end of a fault.Pipe to Accept. Every

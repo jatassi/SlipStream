@@ -55,14 +55,14 @@ type Record struct {
 
 type Query struct {
 	// Kind is a path.Match glob such as "mail.*". Empty matches every kind.
-	Kind string `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 	// Node is empty for every Node.
-	Node string `json:"node,omitempty"`
+	Node string `json:"node,omitempty" yaml:"node,omitempty"`
 	// Match compares top-level Data fields as JSON text: a string field by
 	// its value, any other field by its compact JSON.
-	Match map[string]string `json:"match,omitempty"`
+	Match map[string]string `json:"match,omitempty" yaml:"match,omitempty"`
 	// After keeps only records with a greater Seq.
-	After uint64 `json:"after,omitempty"`
+	After uint64 `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
 func (q Query) Matches(r Record) bool {

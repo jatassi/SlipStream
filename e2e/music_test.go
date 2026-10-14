@@ -226,7 +226,7 @@ func turnOffAndOn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Name, s.Music.Faults = "music-empty", nil
+	s.Name, s.Faults = "music-empty", nil
 	run := worldtest.LaunchE2EScenario(t, s)
 	a := api(t, run)
 	session := a.SignIn("home")
