@@ -26,7 +26,9 @@ export default defineConfig((env) =>
       browser: {
         enabled: true,
         headless: true,
-        provider: playwright(),
+        // Windows runners turn animations off, which Chromium reports as
+        // prefers-reduced-motion: reduce. Tests that want it emulate it.
+        provider: playwright({ contextOptions: { reducedMotion: "no-preference" } }),
         instances: [{ browser: "chromium" }],
         commands: { emulateReducedMotion },
         viewport: { width: presets.desktop.width, height: presets.desktop.height },

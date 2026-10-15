@@ -73,13 +73,18 @@ test("a page not opened before fails inside the standing shell while the Node is
   adminPage,
   world,
 }) => {
+  test.setTimeout(60_000);
   await expect(shellNav(adminPage)).toBeVisible();
   await world.fw.node("kill", world.node.name);
   await expect(adminPage.getByText("Reconnecting to SlipStream…")).toBeVisible();
 
   await navigate(adminPage, "Activity");
+  // The page gives up after three refused requests. On Windows a refused
+  // loopback connect takes about 4s, so the attempts and their 1s and 2s
+  // backoffs take about 15s there.
   await expect(adminPage.getByRole("alert")).toContainText(
     "SlipStream isn't answering. Check that it's running, then try again.",
+    { timeout: 20_000 },
   );
   await expect(shellNav(adminPage)).toBeVisible();
 

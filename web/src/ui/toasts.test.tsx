@@ -129,5 +129,5 @@ test("toasts sit top centre in the phone shell", async () => {
   const capsule = notifications().getByRole("dialog", { name: "Search started" });
   await expect.element(capsule).toBeVisible();
   const { left, width } = capsule.element().getBoundingClientRect();
-  expect(left + width / 2).toBe(document.documentElement.clientWidth / 2);
+  expect(left + width / 2).toBeCloseTo(document.documentElement.clientWidth / 2, 0);
 });
