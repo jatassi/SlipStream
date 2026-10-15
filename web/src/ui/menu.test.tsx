@@ -1,3 +1,4 @@
+import { Settings01Icon } from "@hugeicons/core-free-icons";
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -102,6 +103,33 @@ test("choosing an action sheet item runs it and closes the sheet", async () => {
   await userEvent.click(sheet.getByRole("button", { name: "Move up" }));
   expect(onSelect).toHaveBeenCalledWith("Move up");
   await expect.element(sheet).not.toBeInTheDocument();
+});
+
+test("an item without an icon lines its label up with the icon rows", async () => {
+  renderKit(
+    <Menu
+      trigger={<button type="button">Account</button>}
+      label="Account"
+      items={[
+        { label: "Open the portal", icon: Settings01Icon, onSelect: ignore },
+        { kind: "toggle", label: "Startup sequence", checked: true, onCheckedChange: ignore },
+        "separator",
+        { label: "Sign out", icon: Settings01Icon, onSelect: ignore },
+      ]}
+    />,
+  );
+  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  const menu = page.getByRole("menu", { name: "Account" }).element();
+  const labelLeft = (text: string) => {
+    const walker = document.createTreeWalker(menu, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()?.textContent !== text) {}
+    const range = document.createRange();
+    range.selectNode(walker.currentNode);
+    return Math.round(range.getBoundingClientRect().left - menu.getBoundingClientRect().left);
+  };
+  await expect
+    .poll(() => ["Open the portal", "Startup sequence", "Sign out"].map((text) => labelLeft(text)))
+    .toEqual([40, 40, 40]);
 });
 
 function AccountMenu({ onCheckedChange }: { onCheckedChange: (checked: boolean) => void }) {

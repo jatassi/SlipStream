@@ -84,8 +84,16 @@ const popup = `max-h-(--available-height) min-w-[220px] overflow-y-auto p-1 ${fl
 const item =
   "flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-(length:--body-size) leading-(--body-line-height) outline-none select-none data-highlighted:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";
 
+function ItemIcon({ icon, slot }: { icon: IconSvgElement | undefined; slot: boolean }) {
+  if (icon) {
+    return <Icon icon={icon} className="size-4 shrink-0" />;
+  }
+  return slot ? <span aria-hidden="true" className="size-4 shrink-0" /> : null;
+}
+
 function PopupMenu({ trigger, label, items }: MenuProps) {
   const { density, probe } = usePortalDensity();
+  const iconSlot = items.some((entry) => entry !== "separator" && entry.icon !== undefined);
   return (
     <>
       {probe}
@@ -107,7 +115,7 @@ function PopupMenu({ trigger, label, items }: MenuProps) {
                         }}
                         className={`${item} ${tones.default}`}
                       >
-                        {entry.icon && <Icon icon={entry.icon} className="size-4 shrink-0" />}
+                        <ItemIcon icon={entry.icon} slot={iconSlot} />
                         <span className="flex-1">{entry.label}</span>
                         <BaseMenu.CheckboxItemIndicator className="text-glow">
                           <Icon icon={Tick02Icon} className="size-4" />
@@ -119,7 +127,7 @@ function PopupMenu({ trigger, label, items }: MenuProps) {
                         onClick={entry.onSelect}
                         className={`${item} ${tones[entry.tone ?? "default"]}`}
                       >
-                        {entry.icon && <Icon icon={entry.icon} className="size-4 shrink-0" />}
+                        <ItemIcon icon={entry.icon} slot={iconSlot} />
                         {entry.label}
                       </BaseMenu.Item>
                     ),
