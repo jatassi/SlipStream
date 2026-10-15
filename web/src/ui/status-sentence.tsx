@@ -19,10 +19,10 @@ const signalLink = {
 function Part({ part }: { part: StatusPart }) {
   if (part.kind === "live") {
     return (
-      <span className="inline-flex items-center gap-2.5">
+      <span>
         <span
           aria-hidden="true"
-          className="size-2 rounded-full bg-solid shadow-[var(--shadow-live-glow),0_0_0_3px_var(--live-ring)]"
+          className="mr-2.5 inline-block size-2 rounded-full align-[0.15em] bg-solid shadow-[var(--shadow-live-glow),0_0_0_3px_var(--live-ring)]"
         />
         {part.text}
       </span>
@@ -33,11 +33,8 @@ function Part({ part }: { part: StatusPart }) {
   }
   const { icon, ink } = signalLink[part.kind];
   return (
-    <a
-      href={part.href}
-      className={`inline-flex items-center gap-1.5 rounded-item underline-offset-4 hover:underline ${ink}`}
-    >
-      <Icon icon={icon} className="size-[0.8em] shrink-0" />
+    <a href={part.href} className={`rounded-item underline-offset-4 hover:underline ${ink}`}>
+      <Icon icon={icon} className="mr-1.5 inline-block size-[0.8em] align-[-0.05em]" />
       {part.text}
     </a>
   );

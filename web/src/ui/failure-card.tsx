@@ -42,7 +42,7 @@ function CardButton({
 
 function FailChip({ stage }: { stage: Stage }) {
   return (
-    <span className="inline-flex h-6 items-center gap-1.5 rounded-chip bg-fail px-2 text-chip font-bold text-fail-deep">
+    <span className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip bg-fail px-2 text-chip font-bold text-fail-deep">
       <Icon icon={AlertCircleIcon} className="size-3.5" />
       Failed at {stageLabel[stage]}
     </span>
@@ -61,7 +61,11 @@ function Facts({ facts, columns }: { facts: readonly Fact[]; columns: "pair" | "
       {facts.map(({ label, value }) => (
         <div key={label} className="contents">
           <dt className="pt-px text-label-caps text-fail-ink uppercase">{label}</dt>
-          <dd className={`text-fail-text ${columns === "one" ? "mb-2 last:mb-0" : ""}`}>{value}</dd>
+          <dd
+            className={`wrap-anywhere text-fail-text ${columns === "one" ? "mb-2 last:mb-0" : ""}`}
+          >
+            {value}
+          </dd>
         </div>
       ))}
     </dl>

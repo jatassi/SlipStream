@@ -52,7 +52,7 @@ export function SignalRow({
           className="size-4 text-ink-4 transition-transform duration-(--duration-chevron) ease-standard [grid-area:chevron] group-data-panel-open:rotate-90 motion-reduce:transition-none"
         />
         <span
-          className={`inline-flex h-6 items-center gap-1.5 justify-self-start rounded-chip px-2 text-chip font-bold [grid-area:chip] ${look.chip}`}
+          className={`inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap justify-self-start rounded-chip px-2 text-chip font-bold [grid-area:chip] ${look.chip}`}
         >
           <Icon icon={look.icon} className="size-3.5" />
           {chip}
