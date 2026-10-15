@@ -1,6 +1,7 @@
 package rules_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -164,6 +165,41 @@ func TestInstallMarker(t *testing.T) {
 		"internal/node/node.go:17:" + write,
 		"internal/node/node.go:19:" + read,
 		"internal/nodes/nodes.go:5:" + read,
+	})
+}
+
+func TestDesktopConfined(t *testing.T) {
+	const linux = " in a file the Linux build compiles; constrain it to windows || darwin"
+	assertFindings(t, check(t, "desktop-confined", fixtureRepo(t, "desktop-confined")), []string{
+		"internal/api/api_test.go:3: [desktop-confined] imports the desktop package, which only internal/node/app.go imports",
+		"internal/media/media.go:3: [desktop-confined] imports fyne.io/systray outside internal/node/internal/desktop",
+		"internal/node/internal/desktop/menu.go:3: [desktop-confined] imports fyne.io/systray" + linux,
+		"internal/node/internal/desktop/notwindows.go:8: [desktop-confined] imports fyne.io/systray/internal/generated/menu" + linux,
+		"internal/node/run.go:6: [desktop-confined] imports the desktop package, which only internal/node/app.go imports",
+	})
+}
+
+func TestAppMain(t *testing.T) {
+	const only = " [app-main] imports %s; the trampoline imports only std and golang.org/x/sys"
+	files := " [app-main] the trampoline holds only main.go, launch_windows.go, launch_darwin.go"
+	assertFindings(t, check(t, "app-main", fixtureRepo(t, "app-main")), []string{
+		"cmd/slipstream-app/helper.go:1:" + files,
+		"cmd/slipstream-app/launch_windows.go:4:" + fmt.Sprintf(only, "C"),
+		"cmd/slipstream-app/launch_windows.go:7:" + fmt.Sprintf(only, "github.com/example/shell"),
+		"cmd/slipstream-app/main.go:6:" + fmt.Sprintf(only, "example.com/app/internal/buildinfo"),
+		"cmd/slipstream-app/stub_amd64.s:1:" + files,
+	})
+}
+
+func TestAppMainWithoutMain(t *testing.T) {
+	repo := fixtureRepo(t, "app-main")
+	cmd := exec.CommandContext(t.Context(), "git", "rm", "-q", "-r", "-f", "cmd/slipstream-app/main.go", "cmd/slipstream-app/helper.go", "cmd/slipstream-app/stub_amd64.s", "cmd/slipstream-app/launch_windows.go")
+	cmd.Dir = repo.Root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git rm: %v\n%s", err, out)
+	}
+	assertFindings(t, check(t, "app-main", repo), []string{
+		"cmd/slipstream-app/main.go:1: [app-main] does not exist",
 	})
 }
 
