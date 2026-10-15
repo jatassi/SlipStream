@@ -109,6 +109,10 @@ func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates 
 	return caller, true
 }
 
+// contentTypes covers the extensions Go's built-in MIME table lacks, which
+// would otherwise depend on the host's MIME files.
+var contentTypes = map[string]string{".webmanifest": "application/manifest+json"}
+
 // webApp serves dist with an index.html fallback on GET and HEAD. Vite
 // names everything under assets/ by its content hash, so those files never
 // change.
@@ -133,6 +137,9 @@ func webApp(dist fs.FS) http.Handler {
 		defer func() { _ = f.Close() }()
 		if strings.HasPrefix(name, "assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+		if ct, ok := contentTypes[path.Ext(name)]; ok {
+			w.Header().Set("Content-Type", ct)
 		}
 		http.ServeContent(w, req, name, time.Time{}, f)
 	})

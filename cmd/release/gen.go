@@ -7,15 +7,27 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/icons"
 	"github.com/jatassi/slipstream/cmd/release/internal/tokens"
 )
 
 func init() {
-	register("gen", "write a committed generated source: tokens (the web theme from DESIGN.md)", runGen)
+	register("gen", "write a committed generated source: tokens (the web theme from DESIGN.md) or icons (the web app's PNG icons from brand/app-icon.svg)", runGen)
 }
 
-var generators = map[string]func(root string) error{
-	"tokens": tokens.Write,
+var generators = map[string]func(ctx context.Context, root string) error{
+	"tokens": func(_ context.Context, root string) error { return tokens.Write(root) },
+	"icons":  genIcons,
+}
+
+func genIcons(ctx context.Context, root string) error {
+	if err := installWeb(ctx, root); err != nil {
+		return err
+	}
+	if err := run(ctx, root, nil, "bun", icons.Renderer); err != nil {
+		return err
+	}
+	return icons.Record(root)
 }
 
 func runGen(ctx context.Context, args []string) error {
@@ -31,5 +43,5 @@ func runGen(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	return generate(root)
+	return generate(ctx, root)
 }
