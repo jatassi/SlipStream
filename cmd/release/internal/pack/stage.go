@@ -10,7 +10,9 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
@@ -48,9 +50,10 @@ func (in Input) stagePrograms(dir string, k install.Kind) error {
 }
 
 func (in Input) writeMarker(exe string, k install.Kind) error {
-	// MarkerPath spells a path the target's way, which a test on another
-	// host turns back into its own.
-	marker := filepath.FromSlash(strings.ReplaceAll(install.MarkerPath(install.Layout{GOOS: in.Target.GOOS, Executable: exe}), `\`, "/"))
+	// Layout reads and spells paths the target's way, so a stage on
+	// another host goes in and comes back as slash paths.
+	l := install.Layout{GOOS: in.Target.GOOS, Executable: filepath.ToSlash(exe)}
+	marker := filepath.FromSlash(strings.ReplaceAll(install.MarkerPath(l), `\`, "/"))
 	if err := os.MkdirAll(filepath.Dir(marker), 0o755); err != nil {
 		return fmt.Errorf("stage the marker: %w", err)
 	}
@@ -123,9 +126,10 @@ func walkStage(root string, visit func(rel string, info fs.FileInfo) error) erro
 	return nil
 }
 
-// writeTarGz archives everything under root into archive, with each
-// entry's mode as staged and no owner.
-func writeTarGz(archive, root string) error {
+// writeTarGz archives everything under root into archive with no owner.
+// Each mode is set here, since a Windows host stages no exec bit:
+// directories and programs are 0755, everything else 0644.
+func writeTarGz(archive, root string, programs []string) error {
 	f, err := os.Create(archive)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Base(archive), err)
@@ -133,7 +137,10 @@ func writeTarGz(archive, root string) error {
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
 	err = walkStage(root, func(rel string, info fs.FileInfo) error {
-		hdr := &tar.Header{Name: rel, Mode: int64(info.Mode().Perm()), ModTime: info.ModTime(), Format: tar.FormatPAX}
+		hdr := &tar.Header{Name: rel, Mode: 0o644, ModTime: info.ModTime(), Format: tar.FormatPAX}
+		if info.IsDir() || slices.Contains(programs, path.Base(rel)) {
+			hdr.Mode = 0o755
+		}
 		if info.IsDir() {
 			hdr.Typeflag, hdr.Name = tar.TypeDir, rel+"/"
 			if err := tw.WriteHeader(hdr); err != nil {

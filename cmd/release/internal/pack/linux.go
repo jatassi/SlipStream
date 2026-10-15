@@ -23,7 +23,7 @@ func buildTarball(_ context.Context, in Input, stage string) ([]string, error) {
 		return nil, err
 	}
 	name := fmt.Sprintf("%s-%s-linux-%s.tar.gz", install.Executable, in.Version, in.Target.GOARCH)
-	return []string{name}, writeTarGz(filepath.Join(in.Out, name), stage)
+	return []string{name}, writeTarGz(filepath.Join(in.Out, name), stage, in.programs())
 }
 
 // System package layout: the unit runs install.SystemExecutable, and
@@ -141,16 +141,17 @@ func (c nfpmConfig) encode() (string, error) {
 // systemPackageConfig describes p for nfpm from files staged under root.
 func systemPackageConfig(in Input, p systemPackage, root string, scripts map[string]string) nfpmConfig {
 	libDir := path.Dir(install.SystemExecutable)
+	root = filepath.ToSlash(root)
 	var contents []nfpmContent
 	for _, name := range append(in.programs(), install.MarkerName) {
-		contents = append(contents, nfpmContent{Src: filepath.Join(root, "lib", name), Dst: path.Join(libDir, name)})
+		contents = append(contents, nfpmContent{Src: path.Join(root, "lib", name), Dst: path.Join(libDir, name)})
 	}
 	contents = append(contents,
 		nfpmContent{Src: install.SystemExecutable, Dst: "/usr/bin/" + install.Executable, Type: "symlink"},
-		nfpmContent{Src: filepath.Join(root, install.UnitName), Dst: unitPath},
-		nfpmContent{Src: filepath.Join(root, "sysusers.conf"), Dst: sysusersPath},
-		nfpmContent{Src: filepath.Join(root, "doc", "LICENSE"), Dst: docDir + "/LICENSE"},
-		nfpmContent{Src: filepath.Join(root, "doc", "NOTICES.txt"), Dst: docDir + "/NOTICES.txt"},
+		nfpmContent{Src: path.Join(root, install.UnitName), Dst: unitPath},
+		nfpmContent{Src: path.Join(root, "sysusers.conf"), Dst: sysusersPath},
+		nfpmContent{Src: path.Join(root, "doc", "LICENSE"), Dst: docDir + "/LICENSE"},
+		nfpmContent{Src: path.Join(root, "doc", "NOTICES.txt"), Dst: docDir + "/NOTICES.txt"},
 	)
 	return nfpmConfig{
 		Name: install.Executable, Arch: p.arch[in.Target.GOARCH], Platform: "linux",
