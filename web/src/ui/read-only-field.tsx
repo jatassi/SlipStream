@@ -1,6 +1,8 @@
 import { Field } from "@base-ui/react/field";
 import { Input } from "@base-ui/react/input";
 
+import { dataFont } from "./data";
+
 export function ReadOnlyField({
   label,
   value,
@@ -19,7 +21,7 @@ export function ReadOnlyField({
         onFocus={(event) => {
           event.currentTarget.select();
         }}
-        className="rounded-md bg-fill px-3 py-2 font-mono text-ink-1 ring-1 ring-hairline ring-inset"
+        className={`rounded-md bg-fill px-3 py-2 ${dataFont} text-ink-1 ring-1 ring-hairline ring-inset`}
       />
       <Field.Description>{description}</Field.Description>
     </Field.Root>

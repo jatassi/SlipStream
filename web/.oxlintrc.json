@@ -11,6 +11,7 @@
     "import",
     "promise"
   ],
+  "jsPlugins": ["./lint/restricted-syntax.js"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -165,7 +166,42 @@
         "allow": ["**/*.css", "./zod-jitless"]
       }
     ],
-    "unicorn/prefer-top-level-await": "off"
+    "unicorn/prefer-top-level-await": "off",
+    "slipstream/no-restricted-syntax": [
+      "error",
+      {
+        "selector": "JSXAttribute[name.name='className'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='style'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='style'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "Literal[value=/\\[(#|rgba?\\(|hsla?\\()/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "TemplateElement[value.raw=/\\[(#|rgba?\\(|hsla?\\()/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
+        "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+      },
+      {
+        "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
+        "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+      }
+    ]
   },
   "overrides": [
     {
@@ -423,6 +459,28 @@
       "files": ["e2e/fixtures.ts"],
       "rules": {
         "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["src/ui/**", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
+      "rules": {
+        "slipstream/no-restricted-syntax": [
+          "error",
+          {
+            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
+            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          },
+          {
+            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
+            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/ui/data.tsx"],
+      "rules": {
+        "slipstream/no-restricted-syntax": "off"
       }
     }
   ]

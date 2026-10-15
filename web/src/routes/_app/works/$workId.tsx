@@ -19,6 +19,7 @@ import { ensureQuery } from "../../../api/query-client";
 import { Grabs, SearchButton, Searches } from "../../../grabs/work-sections";
 import { Skeleton } from "../../../ui/skeleton";
 import { fieldText, typeOf } from "../../../works/fields";
+import { Data } from "../../../ui/data";
 
 export const Route = createFileRoute("/_app/works/$workId")({
   loader: ({ context, params: { workId } }) =>
@@ -128,7 +129,7 @@ function CellState({ cell }: { cell: FilesCell | undefined }) {
     <>
       {cell === undefined ? null : stateText[cell.state]}
       {cell?.state === "met" ? (
-        <span className="block font-mono text-sm wrap-anywhere">{fileName(cell.file.path)}</span>
+        <Data className="block wrap-anywhere">{fileName(cell.file.path)}</Data>
       ) : null}
     </>
   );
@@ -151,7 +152,7 @@ function Files({ cells }: { cells: FilesCell[] }) {
         <ul aria-label="Files" className="flex flex-col gap-2">
           {files.map((file) => (
             <li key={file.id}>
-              <span className="font-mono wrap-anywhere">{file.path}</span>
+              <Data className="wrap-anywhere">{file.path}</Data>
               <span className="text-ink-3">
                 {" "}
                 {file.probe.width}×{file.probe.height}

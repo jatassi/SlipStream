@@ -6,6 +6,7 @@ import {
 } from "../../api/gen/query/system/system";
 import { ensureQuery } from "../../api/query-client";
 import { Skeleton } from "../../ui/skeleton";
+import { Data } from "../../ui/data";
 
 export const Route = createFileRoute("/_app/system")({
   loader: ({ context }) => ensureQuery(context.queryClient, getGetSystemSuspenseQueryOptions()),
@@ -30,7 +31,9 @@ function SystemPage() {
         {rows.map(([term, value]) => (
           <div key={term} className="contents">
             <dt className="text-ink-3">{term}</dt>
-            <dd className="font-mono wrap-anywhere">{value}</dd>
+            <dd className="wrap-anywhere">
+              <Data>{value}</Data>
+            </dd>
           </div>
         ))}
       </dl>

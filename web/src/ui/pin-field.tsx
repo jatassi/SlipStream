@@ -37,7 +37,7 @@ export function PinField({
             key={slot}
             aria-label={slot === 0 ? undefined : `${label} digit ${slot + 1} of ${pinLength}`}
             onBlur={field.handleBlur}
-            className="size-11 rounded-md bg-fill text-center font-mono text-ink-1 ring-1 ring-hairline ring-inset"
+            className="size-11 rounded-md bg-fill text-center text-ink-1 tabular-nums ring-1 ring-hairline ring-inset"
           />
         ))}
       </OTPField.Root>

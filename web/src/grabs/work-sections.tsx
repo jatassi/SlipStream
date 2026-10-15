@@ -7,6 +7,7 @@ import {
 import { Button } from "../ui/button";
 import { submitErrors } from "../ui/form";
 import { GrabStatus } from "./grab-status";
+import { Data } from "../ui/data";
 
 export function SearchButton({ workId }: { workId: string }) {
   const search = useSearchWork();
@@ -72,7 +73,7 @@ export function Grabs({ workId }: { workId: string }) {
         <ul aria-label="Grabs" className="flex flex-col gap-3">
           {grabs.map((grab) => (
             <li key={grab.id} className="flex flex-col gap-1">
-              <span className="font-mono text-sm wrap-anywhere">{grab.releaseTitle}</span>
+              <Data className="wrap-anywhere">{grab.releaseTitle}</Data>
               <GrabStatus grab={grab} />
             </li>
           ))}

@@ -11,6 +11,7 @@ import {
 import { ensureQuery } from "../../api/query-client";
 import { GrabStatus } from "../../grabs/grab-status";
 import { Skeleton } from "../../ui/skeleton";
+import { Data } from "../../ui/data";
 
 export const Route = createFileRoute("/_app/activity")({
   loader: ({ context }) =>
@@ -37,7 +38,7 @@ function Activity() {
               <Link to="/works/$workId" params={{ workId: grab.workId }} className="underline">
                 {labels.get(grab.workId)}
               </Link>
-              <span className="font-mono text-sm wrap-anywhere">{grab.releaseTitle}</span>
+              <Data className="wrap-anywhere">{grab.releaseTitle}</Data>
               <GrabStatus grab={grab} />
             </li>
           ))}

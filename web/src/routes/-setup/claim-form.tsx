@@ -66,7 +66,6 @@ export function ClaimForm(outcome: Outcome) {
               autoCapitalize="characters"
               autoComplete="off"
               spellCheck={false}
-              className="font-mono"
               format={displaySetupCode}
             />
           )}
