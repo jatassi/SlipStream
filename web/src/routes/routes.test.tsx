@@ -12,11 +12,13 @@ type Walked = {
 };
 
 const routesById: Record<string, Walked> = { ...router.routesById };
-const pages = Object.values(routesById).filter(
-  (route) => route.id.startsWith("/_app/") && route.options.component !== undefined,
-);
+const pagesUnder = (layout: string) =>
+  Object.values(routesById).filter(
+    (route) => route.id.startsWith(`/${layout}/`) && route.options.component !== undefined,
+  );
 
-test("every signed-in page declares its title", () => {
+test.each(["_app", "portal"])("every page under %s declares its title", (layout) => {
+  const pages = pagesUnder(layout);
   expect(pages.length).toBeGreaterThan(0);
   expect(
     pages.filter((route) => route.options.staticData?.title === undefined).map((route) => route.id),

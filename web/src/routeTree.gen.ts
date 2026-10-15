@@ -10,20 +10,32 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AppRouteImport } from "./routes/_app";
+import { Route as PortalRouteImport } from "./routes/portal";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
 import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
+import { Route as AppSplatRouteImport } from "./routes/_app/$";
 import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
+import { Route as PortalIndexRouteImport } from "./routes/portal/index";
+import { Route as PortalSplatRouteImport } from "./routes/portal/$";
+import { Route as PortalAccountRouteImport } from "./routes/portal/account";
+import { Route as PortalRequestsRouteImport } from "./routes/portal/requests";
+import { Route as PortalSearchRouteImport } from "./routes/portal/search";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 
 const AppRoute = AppRouteImport.update({
   id: "/_app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PortalRoute = PortalRouteImport.update({
+  id: "/portal",
+  path: "/portal",
   getParentRoute: () => rootRouteImport,
 } as any);
 const SetupRoute = SetupRouteImport.update({
@@ -46,6 +58,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: "/",
   getParentRoute: () => AppRoute,
 } as any);
+const AppSplatRoute = AppSplatRouteImport.update({
+  id: "/$",
+  path: "/$",
+  getParentRoute: () => AppRoute,
+} as any);
 const AppActivityRoute = AppActivityRouteImport.update({
   id: "/activity",
   path: "/activity",
@@ -66,6 +83,31 @@ const AppSystemRoute = AppSystemRouteImport.update({
   path: "/system",
   getParentRoute: () => AppRoute,
 } as any);
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => PortalRoute,
+} as any);
+const PortalSplatRoute = PortalSplatRouteImport.update({
+  id: "/$",
+  path: "/$",
+  getParentRoute: () => PortalRoute,
+} as any);
+const PortalAccountRoute = PortalAccountRouteImport.update({
+  id: "/account",
+  path: "/account",
+  getParentRoute: () => PortalRoute,
+} as any);
+const PortalRequestsRoute = PortalRequestsRouteImport.update({
+  id: "/requests",
+  path: "/requests",
+  getParentRoute: () => PortalRoute,
+} as any);
+const PortalSearchRoute = PortalSearchRouteImport.update({
+  id: "/search",
+  path: "/search",
+  getParentRoute: () => PortalRoute,
+} as any);
 const AppLibraryIndexRoute = AppLibraryIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -84,13 +126,20 @@ const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute;
+  "/portal": typeof PortalRouteWithChildren;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
   "/library": typeof AppLibraryRouteRouteWithChildren;
+  "/$": typeof AppSplatRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
+  "/portal/$": typeof PortalSplatRoute;
+  "/portal/account": typeof PortalAccountRoute;
+  "/portal/requests": typeof PortalRequestsRoute;
+  "/portal/search": typeof PortalSearchRoute;
+  "/portal/": typeof PortalIndexRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/library/": typeof AppLibraryIndexRoute;
@@ -99,10 +148,16 @@ export interface FileRoutesByTo {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
+  "/$": typeof AppSplatRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
+  "/portal/$": typeof PortalSplatRoute;
+  "/portal/account": typeof PortalAccountRoute;
+  "/portal/requests": typeof PortalRequestsRoute;
+  "/portal/search": typeof PortalSearchRoute;
   "/": typeof AppIndexRoute;
+  "/portal": typeof PortalIndexRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/library": typeof AppLibraryIndexRoute;
@@ -110,14 +165,21 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_app": typeof AppRouteWithChildren;
+  "/portal": typeof PortalRouteWithChildren;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
+  "/_app/$": typeof AppSplatRoute;
   "/_app/activity": typeof AppActivityRoute;
   "/_app/add": typeof AppAddRoute;
   "/_app/system": typeof AppSystemRoute;
+  "/portal/$": typeof PortalSplatRoute;
+  "/portal/account": typeof PortalAccountRoute;
+  "/portal/requests": typeof PortalRequestsRoute;
+  "/portal/search": typeof PortalSearchRoute;
   "/_app/": typeof AppIndexRoute;
+  "/portal/": typeof PortalIndexRoute;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
@@ -126,13 +188,20 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/portal"
     | "/setup"
     | "/sign-in"
     | "/worker"
     | "/library"
+    | "/$"
     | "/activity"
     | "/add"
     | "/system"
+    | "/portal/$"
+    | "/portal/account"
+    | "/portal/requests"
+    | "/portal/search"
+    | "/portal/"
     | "/library/$contentType"
     | "/works/$workId"
     | "/library/";
@@ -141,24 +210,37 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/worker"
+    | "/$"
     | "/activity"
     | "/add"
     | "/system"
+    | "/portal/$"
+    | "/portal/account"
+    | "/portal/requests"
+    | "/portal/search"
     | "/"
+    | "/portal"
     | "/library/$contentType"
     | "/works/$workId"
     | "/library";
   id:
     | "__root__"
     | "/_app"
+    | "/portal"
     | "/setup"
     | "/sign-in"
     | "/worker"
     | "/_app/library"
+    | "/_app/$"
     | "/_app/activity"
     | "/_app/add"
     | "/_app/system"
+    | "/portal/$"
+    | "/portal/account"
+    | "/portal/requests"
+    | "/portal/search"
     | "/_app/"
+    | "/portal/"
     | "/_app/library/$contentType"
     | "/_app/works/$workId"
     | "/_app/library/";
@@ -166,6 +248,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren;
+  PortalRoute: typeof PortalRouteWithChildren;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
   WorkerRoute: typeof WorkerRoute;
@@ -178,6 +261,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof AppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/portal": {
+      id: "/portal";
+      path: "/portal";
+      fullPath: "/portal";
+      preLoaderRoute: typeof PortalRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/setup": {
@@ -208,6 +298,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/_app/$": {
+      id: "/_app/$";
+      path: "/$";
+      fullPath: "/$";
+      preLoaderRoute: typeof AppSplatRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/activity": {
       id: "/_app/activity";
       path: "/activity";
@@ -235,6 +332,41 @@ declare module "@tanstack/react-router" {
       fullPath: "/system";
       preLoaderRoute: typeof AppSystemRouteImport;
       parentRoute: typeof AppRoute;
+    };
+    "/portal/": {
+      id: "/portal/";
+      path: "/";
+      fullPath: "/portal/";
+      preLoaderRoute: typeof PortalIndexRouteImport;
+      parentRoute: typeof PortalRoute;
+    };
+    "/portal/$": {
+      id: "/portal/$";
+      path: "/$";
+      fullPath: "/portal/$";
+      preLoaderRoute: typeof PortalSplatRouteImport;
+      parentRoute: typeof PortalRoute;
+    };
+    "/portal/account": {
+      id: "/portal/account";
+      path: "/account";
+      fullPath: "/portal/account";
+      preLoaderRoute: typeof PortalAccountRouteImport;
+      parentRoute: typeof PortalRoute;
+    };
+    "/portal/requests": {
+      id: "/portal/requests";
+      path: "/requests";
+      fullPath: "/portal/requests";
+      preLoaderRoute: typeof PortalRequestsRouteImport;
+      parentRoute: typeof PortalRoute;
+    };
+    "/portal/search": {
+      id: "/portal/search";
+      path: "/search";
+      fullPath: "/portal/search";
+      preLoaderRoute: typeof PortalSearchRouteImport;
+      parentRoute: typeof PortalRoute;
     };
     "/_app/library/": {
       id: "/_app/library/";
@@ -276,6 +408,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
+  AppSplatRoute: typeof AppSplatRoute;
   AppActivityRoute: typeof AppActivityRoute;
   AppAddRoute: typeof AppAddRoute;
   AppSystemRoute: typeof AppSystemRoute;
@@ -285,6 +418,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
+  AppSplatRoute: AppSplatRoute,
   AppActivityRoute: AppActivityRoute,
   AppAddRoute: AppAddRoute,
   AppSystemRoute: AppSystemRoute,
@@ -294,8 +428,28 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
 
+interface PortalRouteChildren {
+  PortalSplatRoute: typeof PortalSplatRoute;
+  PortalAccountRoute: typeof PortalAccountRoute;
+  PortalRequestsRoute: typeof PortalRequestsRoute;
+  PortalSearchRoute: typeof PortalSearchRoute;
+  PortalIndexRoute: typeof PortalIndexRoute;
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalSplatRoute: PortalSplatRoute,
+  PortalAccountRoute: PortalAccountRoute,
+  PortalRequestsRoute: PortalRequestsRoute,
+  PortalSearchRoute: PortalSearchRoute,
+  PortalIndexRoute: PortalIndexRoute,
+};
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren);
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  PortalRoute: PortalRouteWithChildren,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   WorkerRoute: WorkerRoute,

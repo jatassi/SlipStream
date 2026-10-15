@@ -106,6 +106,6 @@ test.each([
     path,
     handlers: [getListContentTypesMockHandler({ contentTypes: [{ ...cinema, enabled: false }] })],
   });
-  await expect.element(page.getByText("Not Found")).toBeVisible();
+  await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: /^Add/u })).not.toBeInTheDocument();
 });

@@ -371,6 +371,76 @@
       }
     },
     {
+      "files": ["src/routes/portal/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "axios",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "react-hook-form",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "zustand",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "sonner",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "lucide-react",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "cmdk",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "vaul",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "msw",
+                "message": "MSW and mocks belong to tests"
+              },
+              {
+                "name": "@faker-js/faker",
+                "message": "MSW and mocks belong to tests"
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@base-ui/react", "@base-ui/react/*"],
+                "message": "compose the kit in src/ui; it carries DESIGN.md"
+              },
+              {
+                "group": ["@hugeicons-pro/*"],
+                "message": "only the Hugeicons free set ships"
+              },
+              {
+                "group": ["**/api/fetch"],
+                "message": "only generated code calls the mutator"
+              },
+              {
+                "group": ["msw/*", "**/*.msw", "**/test/*"],
+                "message": "MSW and mocks belong to tests"
+              },
+              {
+                "group": ["**/_app", "**/_app/**"],
+                "message": "the portal never imports Admin pages"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
       "rules": {
         "no-restricted-imports": [

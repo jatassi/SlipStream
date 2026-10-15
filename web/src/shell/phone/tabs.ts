@@ -22,13 +22,17 @@ type Visit = { href: string; scroll: number };
 const visits = new Map<NavId, Visit>();
 
 /**
- * The tab the current page belongs to: the tab whose root holds the path, or,
- * for a page outside every tab's root, the tab it was opened from.
+ * The tab the current page belongs to: the tab with the deepest root holding
+ * the path (the portal's Home holds the other portal tabs), or, for a page
+ * outside every tab's root, the tab it was opened from.
  */
 export function useTabs(tabs: readonly ShownRow[]) {
   const router = useRouter();
   const { pathname, href } = useLocation();
-  const owner = tabs.find((row) => owns(row, pathname));
+  const owner = tabs
+    .filter((row) => owns(row, pathname))
+    .toSorted((a, b) => b.to.length - a.to.length)
+    .at(0);
   const [current, setCurrent] = useState<NavId | undefined>(owner?.id);
   if (owner !== undefined && owner.id !== current) {
     setCurrent(owner.id);

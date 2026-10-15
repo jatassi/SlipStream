@@ -12,7 +12,7 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "web-layout",
-		Doc:   "signed-in pages live under web/src/routes/_app/, component tests under web/src/, browser tests under web/e2e/, and web/harness/ is a library the app never imports (specs #131 and #135)",
+		Doc:   "signed-in pages live under web/src/routes/_app/ or web/src/routes/portal/, component tests under web/src/, browser tests under web/e2e/, and web/harness/ is a library the app never imports (specs #131, #135 and #136)",
 		Check: checkWebLayout,
 	})
 }
@@ -90,17 +90,22 @@ func webPlacement(f string) string {
 	case strings.HasPrefix(f, webHarness) && slices.Contains(strings.Split(f, "/"), "routes"):
 		return "web/harness/ is a library and holds no routes"
 	case strings.HasPrefix(f, webRoutes) && !guardedOrPublic(strings.TrimPrefix(f, webRoutes)):
-		return "signed-in pages live under web/src/routes/_app/; a public route is listed in web-layout"
+		return "signed-in pages live under web/src/routes/_app/ or web/src/routes/portal/; a public route is listed in web-layout"
 	}
 	return ""
 }
 
-// guardedOrPublic reports whether a file under routes/ is the _app layout
+// guardedLayouts are the layouts whose guard every page under them passes:
+// the Admin app and the Member portal.
+var guardedLayouts = []string{"_app", "portal"}
+
+// guardedOrPublic reports whether a file under routes/ is a guarded layout
 // or one of its pages, a listed public route, a test, or a file the router
 // ignores because a path element starts with "-".
 func guardedOrPublic(route string) bool {
-	return route == "_app.tsx" ||
-		strings.HasPrefix(route, "_app/") ||
+	return slices.ContainsFunc(guardedLayouts, func(layout string) bool {
+		return route == layout+".tsx" || strings.HasPrefix(route, layout+"/")
+	}) ||
 		slices.Contains(publicRoutes, route) ||
 		strings.HasSuffix(route, ".test.tsx") ||
 		slices.ContainsFunc(strings.Split(route, "/"), func(elem string) bool { return strings.HasPrefix(elem, "-") })

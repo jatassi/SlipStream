@@ -1,16 +1,12 @@
-import { ArrowLeft01Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
-import { useAccount } from "../../session/session";
 import { Icon } from "../../ui/icon";
-import { IconButton } from "../../ui/icon-button";
-import { Avatar } from "../account";
-import { openPalette } from "../palette-state";
 import type { Crumb } from "../titles";
-import { openMore } from "./more-state";
 import type { PhonePlace } from "./tabs";
 
-const glass =
+export const barGlass =
   "bg-chrome shadow-[inset_0_-1px_0_var(--color-hairline)] backdrop-blur-[24px] backdrop-saturate-[1.6]";
 
 export function NavBar({
@@ -18,16 +14,18 @@ export function NavBar({
   title,
   back,
   titleShown,
+  actions,
 }: {
   place: PhonePlace;
   title: string | undefined;
   back: Crumb | undefined;
   titleShown: boolean;
+  actions: ReactNode;
 }) {
   const solid = place === "push" || titleShown;
   return (
     <header
-      className={`sticky top-0 z-20 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] transition-[background-color,box-shadow] duration-(--duration-control) [view-transition-name:nav-bar] ${solid ? glass : ""}`}
+      className={`sticky top-0 z-20 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] transition-[background-color,box-shadow] duration-(--duration-control) [view-transition-name:nav-bar] ${solid ? barGlass : ""}`}
     >
       <div className="grid h-11 grid-cols-[1fr_auto_1fr] items-center gap-2 px-2">
         <div className="flex min-w-0">
@@ -52,26 +50,9 @@ export function NavBar({
           </span>
         )}
         <div className="flex min-w-0 items-center justify-end gap-1">
-          {place === "top" && <TopActions />}
+          {place === "top" && actions}
         </div>
       </div>
     </header>
-  );
-}
-
-function TopActions() {
-  const { displayName } = useAccount();
-  return (
-    <>
-      <IconButton icon={Search01Icon} label="Search" onClick={openPalette} />
-      <button
-        type="button"
-        aria-label="Account"
-        onClick={openMore}
-        className="grid size-11 place-items-center rounded-capsule"
-      >
-        <Avatar name={displayName} />
-      </button>
-    </>
   );
 }

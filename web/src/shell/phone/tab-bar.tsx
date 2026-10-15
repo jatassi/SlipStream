@@ -1,4 +1,3 @@
-import { MoreHorizontalIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { Link, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -6,18 +5,24 @@ import type { ReactNode } from "react";
 import { Icon } from "../../ui/icon";
 import { useCounts } from "../counts";
 import type { ShownRow } from "../nav";
-import { openPalette } from "../palette-state";
-import { openMore } from "./more-state";
 
 const cell =
   "relative flex h-[49px] w-full flex-col items-center justify-center gap-0.5 text-label transition-colors duration-(--duration-control)";
 
+export type TabAction = {
+  readonly label: string;
+  readonly icon: IconSvgElement;
+  readonly onPress: () => void;
+};
+
 export function TabBar({
   tabs,
+  actions,
   current,
   onOpen,
 }: {
   tabs: readonly ShownRow[];
+  actions: readonly TabAction[];
   current: ShownRow | undefined;
   onOpen: (row: ShownRow) => void;
 }) {
@@ -38,16 +43,13 @@ export function TabBar({
             />
           </li>
         ))}
-        <li>
-          <button type="button" onClick={openPalette} className={`${cell} text-ink-3`}>
-            <TabFace icon={Search01Icon} label="Search" />
-          </button>
-        </li>
-        <li>
-          <button type="button" onClick={openMore} className={`${cell} text-ink-3`}>
-            <TabFace icon={MoreHorizontalIcon} label="More" />
-          </button>
-        </li>
+        {actions.map((action) => (
+          <li key={action.label}>
+            <button type="button" onClick={action.onPress} className={`${cell} text-ink-3`}>
+              <TabFace icon={action.icon} label={action.label} />
+            </button>
+          </li>
+        ))}
       </ul>
     </nav>
   );
@@ -68,6 +70,7 @@ function Tab({
   return (
     <Link
       to={row.to}
+      activeOptions={{ exact: true }}
       aria-current={current ? (pathname === row.to ? "page" : "true") : undefined}
       onClick={(event) => {
         event.preventDefault();

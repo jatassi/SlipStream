@@ -1,4 +1,12 @@
-import { Activity01Icon, LibraryIcon, ServerStack01Icon } from "@hugeicons/core-free-icons";
+import {
+  Activity01Icon,
+  Home01Icon,
+  LibraryIcon,
+  Search01Icon,
+  ServerStack01Icon,
+  Task01Icon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { RegisteredRouter } from "@tanstack/react-router";
@@ -12,7 +20,14 @@ type RoutePath = RegisteredRouter["routeTree"]["types"]["fileRouteTypes"]["to"];
 
 export type AppPath = Exclude<RoutePath, `${string}$${string}`>;
 
-export type NavId = "library" | "activity" | "this-node";
+export type NavId =
+  | "library"
+  | "activity"
+  | "this-node"
+  | "home"
+  | "search"
+  | "requests"
+  | "account";
 
 export type NavRow = {
   id: NavId;
@@ -38,7 +53,9 @@ export type NavChild = {
 
 export type ShownRow = Omit<NavRow, "children"> & { children: readonly NavChild[] };
 
-export const adminNav: readonly NavRow[] = [
+export type NavTable = readonly [NavRow, ...NavRow[]];
+
+export const adminNav: NavTable = [
   {
     id: "library",
     label: "Library",
@@ -68,6 +85,47 @@ export const adminNav: readonly NavRow[] = [
     place: "system",
   },
 ];
+
+export const portalNav: NavTable = [
+  {
+    id: "home",
+    label: "Home",
+    icon: Home01Icon,
+    to: "/portal",
+    audience: "member",
+    place: "main",
+    tab: { order: 1 },
+  },
+  {
+    id: "search",
+    label: "Search",
+    icon: Search01Icon,
+    to: "/portal/search",
+    audience: "member",
+    place: "main",
+    tab: { order: 2 },
+  },
+  {
+    id: "requests",
+    label: "Requests",
+    icon: Task01Icon,
+    to: "/portal/requests",
+    audience: "member",
+    place: "main",
+    tab: { order: 3 },
+  },
+  {
+    id: "account",
+    label: "Account",
+    icon: UserCircleIcon,
+    to: "/portal/account",
+    audience: "member",
+    place: "main",
+    tab: { order: 4 },
+  },
+];
+
+export const portalRows: readonly ShownRow[] = portalNav.map((row) => ({ ...row, children: [] }));
 
 export function useContentTypes(): readonly WorksContentType[] {
   return (
@@ -106,5 +164,6 @@ export const tabRows = (rows: readonly ShownRow[]): ShownRow[] =>
 /** The paths a nav row or child leads to: the phone's top-level pages. */
 export const navPaths: ReadonlySet<string> = new Set([
   ...adminNav.map((row) => row.to),
+  ...portalNav.map((row) => row.to),
   contentTypeLibrary,
 ]);

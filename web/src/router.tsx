@@ -1,10 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { type RouterHistory, createRouter } from "@tanstack/react-router";
 
-import { RouteError } from "./app/route-error";
 import type { LiveStream } from "./live/stream";
 import type { SessionEndReason } from "./live/types";
 import { routeTree } from "./routeTree.gen";
+import { RouteError } from "./shell/errors";
 
 export type RouterContext = {
   queryClient: QueryClient;
