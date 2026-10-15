@@ -330,8 +330,8 @@ func (n *Node) startLogged(ctx context.Context) error {
 			n.log.Warn("host below the supported floor", "reason", msg)
 		}
 	}
-	n.isReady.Store(true)
 	n.log.Info("ready", "ready", n.ready)
+	n.isReady.Store(true)
 	return nil
 }
 
