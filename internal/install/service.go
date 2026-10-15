@@ -43,7 +43,8 @@ func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte) ([]Ste
 		}
 	}
 	unit := UserUnit(exe, dataDir)
-	steps := []Step{systemctl("enable", "--now", UnitName)}
+	// The reload stays in a rerun, so one cut off after the write converges.
+	steps := []Step{systemctl("daemon-reload"), systemctl("enable", "--now", UnitName)}
 	if current == nil || string(current) != unit {
 		steps = []Step{WriteFile{Path: p, Content: unit}, systemctl("daemon-reload"), systemctl("enable", UnitName), systemctl("restart", UnitName)}
 	}

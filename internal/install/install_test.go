@@ -225,6 +225,7 @@ func TestUserServiceInstallPlan(t *testing.T) {
 	}{
 		{"fresh", Tarball, tarball, nil, written(unitPath, tarballUnit)},
 		{"identical rerun", Tarball, tarball, []byte(tarballUnit), []Step{
+			Command{Args: []string{"systemctl", "--user", "daemon-reload"}},
 			Command{Args: []string{"systemctl", "--user", "enable", "--now", "slipstream.service"}},
 			linger,
 			AwaitRunning{},
