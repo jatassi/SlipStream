@@ -49,16 +49,3 @@ describe.each(shells)("in the $shell shell", ({ shell, row, twoLine }) => {
     await expect.element(films).toHaveFocus();
   });
 });
-
-test("Touch lists sit in inset groups with 16px gutters", async () => {
-  renderKit(
-    <List label="Settings">
-      <ListRow title="Account" />
-    </List>,
-    { shell: "phone" },
-  );
-  const list = page.getByRole("list", { name: "Settings" });
-  await expect.element(list).toBeVisible();
-  expect(getComputedStyle(list.element()).marginLeft).toBe("16px");
-  expect(getComputedStyle(list.element()).marginRight).toBe("16px");
-});

@@ -9,7 +9,7 @@ export function List({ label, children }: { label: string; children: ReactNode }
     <ul
       aria-label={label}
       {...{ [rowGroup]: "" }}
-      className="rounded-card bg-glass ring-1 ring-hairline ring-inset in-data-[density=touch]:mx-4"
+      className="rounded-card bg-glass ring-1 ring-hairline ring-inset"
     >
       {children}
     </ul>

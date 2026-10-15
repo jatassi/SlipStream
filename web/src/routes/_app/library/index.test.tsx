@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import {
@@ -91,4 +91,22 @@ test("a Content Type's empty Library offers to add one", async () => {
   await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a Film" }));
   await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
   expect(router.state.location.href).toBe("/add?contentType=cinema");
+});
+
+test("on a phone the Library's list sits in an inset group 16px from each edge", async () => {
+  await page.viewport(390, 844);
+  onTestFinished(async () => {
+    await page.viewport(1440, 900);
+  });
+  renderApp({
+    path: "/library",
+    handlers: [
+      getListContentTypesMockHandler({ contentTypes: [cinema] }),
+      getListWorksMockHandler({ works: [listedOrchard] }),
+    ],
+  });
+  const list = page.getByRole("list", { name: "Works" });
+  await expect.element(list).toBeVisible();
+  const { left, right } = list.element().getBoundingClientRect();
+  expect([left, right]).toEqual([16, 374]);
 });
