@@ -32,6 +32,15 @@ export const ada: IdentityAccount = {
   admin: true,
 };
 
+export const grace: IdentityAccount = {
+  id: "5c1d7e9a-3b2f-4a6c-8d0e-1f4a7b9c2e5d",
+  email: "grace@example.test",
+  displayName: "Grace Lindqvist",
+  admin: false,
+};
+
+export const signedInAsGrace = getGetSessionMockHandler({ account: grace });
+
 export function problem(status: number, code: string, title: string) {
   return HttpResponse.json(
     { status, code, title },

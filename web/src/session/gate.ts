@@ -9,13 +9,17 @@ export type Entry =
   | { readonly kind: "setup" }
   | { readonly kind: "sign-in" }
   | { readonly kind: "worker" }
-  | { readonly kind: "app"; readonly account: IdentityAccount };
+  | { readonly kind: "app"; readonly account: IdentityAccount }
+  | { readonly kind: "portal"; readonly account: IdentityAccount };
 
 export type EntryKind = Entry["kind"];
 
+const signedIn = (account: IdentityAccount): Entry =>
+  account.admin ? { kind: "app", account } : { kind: "portal", account };
+
 const entries: { readonly [C in SystemStatusClaim]: (account: IdentityAccount | null) => Entry } = {
   unclaimed: () => ({ kind: "setup" }),
-  controller: (account) => (account === null ? { kind: "sign-in" } : { kind: "app", account }),
+  controller: (account) => (account === null ? { kind: "sign-in" } : signedIn(account)),
   worker: () => ({ kind: "worker" }),
 };
 
@@ -26,30 +30,44 @@ type Cell = (href: string, redirect: string | undefined) => string | null;
 
 const render: Cell = () => null;
 
+const toSignIn: Cell = (href) => `/sign-in?redirect=${encodeURIComponent(href)}`;
+const toRedirect: Cell = (_href, to) => safeRedirect(to);
+
 const redirects: { readonly [W in EntryKind]: { readonly [E in EntryKind]: Cell } } = {
   app: {
     setup: () => "/setup",
-    "sign-in": (href) => `/sign-in?redirect=${encodeURIComponent(href)}`,
+    "sign-in": toSignIn,
     worker: () => "/worker",
     app: render,
+    portal: () => "/portal",
+  },
+  portal: {
+    setup: () => "/setup",
+    "sign-in": toSignIn,
+    worker: () => "/worker",
+    app: render,
+    portal: render,
   },
   "sign-in": {
     setup: () => "/setup",
     "sign-in": render,
     worker: () => "/worker",
-    app: (_href, to) => safeRedirect(to),
+    app: toRedirect,
+    portal: toRedirect,
   },
   setup: {
     setup: render,
     "sign-in": () => "/sign-in",
     worker: () => "/worker",
     app: () => "/",
+    portal: () => "/portal",
   },
   worker: {
     setup: () => "/setup",
     "sign-in": () => "/sign-in",
     worker: render,
     app: () => "/",
+    portal: () => "/portal",
   },
 };
 
@@ -70,7 +88,7 @@ export async function requireEntry(
   const entry: Entry =
     session === null
       ? entryOf(await queryClient.query(statusQuery), null)
-      : { kind: "app", account: session.account };
+      : signedIn(session.account);
   const target = redirectFor(entry, want, location.href, to);
   if (target !== null) {
     redirect({ href: target, replace: true, throw: true });
