@@ -38,8 +38,7 @@ test("a new tab plays the sequence and a key press skips it", async () => {
 
   await expect.element(sequence).toBeVisible();
   const first = await drawing();
-  await pause(150);
-  expect(await drawing()).not.toBe(first);
+  await expect.poll(drawing).not.toBe(first);
 
   await userEvent.keyboard("{Enter}");
   await expect.element(sequence).not.toBeInTheDocument();

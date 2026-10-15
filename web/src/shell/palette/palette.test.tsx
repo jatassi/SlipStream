@@ -9,6 +9,7 @@ import {
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../test/library";
 import { asPhone } from "../../test/viewport";
+import { paletteShortcut } from "../palette-state";
 import { renderApp } from "../../test/render-app";
 
 const label = "Search Works or run a command";
@@ -44,9 +45,10 @@ const optionTexts = (name: string) =>
     .all()
     .map((option) => option.element().textContent);
 
-const pressShortcut = () => userEvent.keyboard("{Control>}k{/Control}");
+const [modifier] = paletteShortcut.keys.split("+");
+const pressShortcut = () => userEvent.keyboard(`{${modifier}>}k{/${modifier}}`);
 
-test("Ctrl+K opens the palette, and Enter on a typed Work opens its page", async () => {
+test("the shortcut opens the palette, and Enter on a typed Work opens its page", async () => {
   const { router } = renderApp({ path: "/library", handlers: library() });
   await expect.element(capsule()).toBeVisible();
 
@@ -106,7 +108,7 @@ test("the palette's group labels are Label type, never uppercase", async () => {
   expect([style.fontSize, style.fontWeight, style.textTransform]).toEqual(["11px", "500", "none"]);
 });
 
-test("Ctrl+K toggles the palette closed", async () => {
+test("the shortcut toggles the palette closed", async () => {
   renderApp({ path: "/library", handlers: library() });
   await expect.element(capsule()).toBeVisible();
   await pressShortcut();

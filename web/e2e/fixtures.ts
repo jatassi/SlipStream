@@ -101,7 +101,12 @@ function testCommand(testInfo: TestInfo): string {
 }
 
 export async function expectAccessible(page: Page): Promise<void> {
-  const { violations } = await new AxeBuilder({ page }).withTags(wcag).analyze();
+  // Base UI gives its focus guards role="button" in WebKit, so VoiceOver can
+  // land on them; they are focus traps, not commands, and have no name.
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(wcag)
+    .exclude("[data-base-ui-focus-guard]")
+    .analyze();
   const found = violations.map(
     (violation) =>
       `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,

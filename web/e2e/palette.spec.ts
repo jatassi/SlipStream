@@ -7,7 +7,7 @@ import { isPhone } from "./shell.ts";
 const Candidates = z.object({ candidates: z.array(z.object({ key: z.string() })).min(1) });
 const Added = z.object({ work: z.object({ id: z.string() }) });
 
-async function openPalette(page: Page, engine: string): Promise<void> {
+async function openPalette(page: Page): Promise<void> {
   if (isPhone(page)) {
     await page
       .getByRole("navigation", { name: "Tabs" })
@@ -16,10 +16,10 @@ async function openPalette(page: Page, engine: string): Promise<void> {
     return;
   }
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
-  await page.keyboard.press(engine === "webkit" ? "Meta+k" : "Control+k");
+  await page.keyboard.press("ControlOrMeta+k");
 }
 
-test("the palette opens a Work by its name", async ({ adminPage: page, world, browserName }) => {
+test("the palette opens a Work by its name", async ({ adminPage: page, world }) => {
   const found = await world.api("GET", "/api/v1/content-types/movie/catalog?query=quiet+orchard");
   const [candidate] = Candidates.parse(found.body).candidates;
   const added = await world.api("POST", "/api/v1/works", {
@@ -29,7 +29,7 @@ test("the palette opens a Work by its name", async ({ adminPage: page, world, br
   });
   const { id } = Added.parse(added.body).work;
 
-  await openPalette(page, browserName);
+  await openPalette(page);
   const palette = page.getByRole("dialog", { name: "Search Works or run a command" });
   await expect(palette.getByRole("combobox")).toBeFocused();
 
