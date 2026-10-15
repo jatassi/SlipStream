@@ -102,8 +102,8 @@ function LargeTitle({
       throw new Error("the large title mounted without its heading");
     }
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        onScrolledOut(entry?.isIntersecting === false);
+      (entries) => {
+        onScrolledOut(entries.at(-1)?.isIntersecting === false);
       },
       { rootMargin: "-44px 0px 0px 0px" },
     );

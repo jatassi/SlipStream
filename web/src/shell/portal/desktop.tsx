@@ -11,8 +11,8 @@ import { AccountMenu } from "./account-menu";
 export function PortalDesktop({ children }: { children: ReactNode }) {
   const [glass, setGlass] = useState(false);
   const sentinel = useCallback((element: HTMLElement) => {
-    const observer = new IntersectionObserver(([entry]) => {
-      setGlass(entry?.isIntersecting === false);
+    const observer = new IntersectionObserver((entries) => {
+      setGlass(entries.at(-1)?.isIntersecting === false);
     });
     observer.observe(element);
     return () => {
