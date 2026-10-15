@@ -16,7 +16,7 @@ import { z } from "zod";
 import { type Fakeworld, fw } from "../harness/fakeworld.ts";
 import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
-import { prefKey } from "../src/shell/prefs.ts";
+import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
@@ -263,14 +263,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       contexts.push(context);
       checks.push(await guard(context, origin));
       if (!startupSequence) {
-        await context.addInitScript(
-          ([key, appOrigin]) => {
-            if (location.origin === appOrigin) {
-              sessionStorage.setItem(key, "true");
-            }
-          },
-          [prefKey("startupPlayed"), origin] as const,
-        );
+        await context.addInitScript({ path: startupPlayedScript });
       }
       return context;
     });

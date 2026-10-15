@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/jatassi/slipstream/web"
 )
 
 func TestBrowserWritesEachShellsConfig(t *testing.T) {
@@ -14,6 +16,7 @@ func TestBrowserWritesEachShellsConfig(t *testing.T) {
 
 	desktop := filepath.Join(runDir, "browser", "desktop", "playwright-cli.json")
 	phone := filepath.Join(runDir, "browser", "phone", "playwright-cli.json")
+	script := filepath.Join(runDir, "browser", "startup-played.js")
 	if got, want := fakeworld(t, "browser", runDir), (result{0, desktop + "\n" + phone + "\n", ""}); got != want {
 		t.Fatalf("browser = %+v, want %+v", got, want)
 	}
@@ -34,17 +37,23 @@ func TestBrowserWritesEachShellsConfig(t *testing.T) {
       "deviceScaleFactor": %v,
       "isMobile": %t,
       "hasTouch": %t
-    }
+    },
+    "initScript": [
+      %s
+    ]
   },
   "outputDir": %s
 }
-`, m.Nodes[0].Address, width, height, scale, mobile, mobile, jsonText(t, filepath.Join(runDir, "browser", "output")))
+`, m.Nodes[0].Address, width, height, scale, mobile, mobile, jsonText(t, script), jsonText(t, filepath.Join(runDir, "browser", "output")))
 	}
 	if got, want := readFile(t, desktop), config(1440, 900, 1, false); got != want {
 		t.Errorf("desktop's config =\n%s\nwant\n%s", got, want)
 	}
 	if got, want := readFile(t, phone), config(390, 844, 3, true); got != want {
 		t.Errorf("phone's config =\n%s\nwant\n%s", got, want)
+	}
+	if got, want := readFile(t, script), string(web.StartupPlayed()); got != want {
+		t.Errorf("startup-played.js =\n%s\nwant\n%s", got, want)
 	}
 	want := []string{
 		`step.start {"n":1,"verb":"browser"}`,

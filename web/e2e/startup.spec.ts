@@ -55,3 +55,13 @@ test("under reduced motion the finished lockup holds still, then leaves", async 
   expect(await drawing(page)).toBe(first);
   await expect(sequence).toBeHidden({ timeout: 2000 });
 });
+
+test.describe("with the harness's startup-played script", () => {
+  test.use({ startupSequence: false });
+
+  test("a new tab opens past the sequence", async ({ page }) => {
+    await page.goto("/sign-in");
+    await expect(page.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
+    expect(await sequenceOf(page).count()).toBe(0);
+  });
+});
