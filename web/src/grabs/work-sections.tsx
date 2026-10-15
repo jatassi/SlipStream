@@ -14,7 +14,7 @@ export function SearchButton({ workId }: { workId: string }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
       <Button
-        variant="primary"
+        look="primary"
         disabled={search.isPending}
         onClick={() => {
           search.mutate({ workId });

@@ -42,7 +42,7 @@ function Setup() {
             description="Scripts send this key in the X-Api-Key header. SlipStream shows it only once."
           />
           <Button
-            variant="primary"
+            look="primary"
             onClick={() => {
               void navigate({ to: "/" });
             }}

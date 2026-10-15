@@ -6,7 +6,6 @@ import { LiveStatus } from "../live/live-status";
 import { requireEntry } from "../session/gate";
 import { useAccount } from "../session/session";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
@@ -63,12 +62,12 @@ function SignOut() {
     <div className="flex items-center gap-3">
       <span className="text-ink-3">{account.displayName}</span>
       <Button
+        icon={Logout01Icon}
         onClick={() => {
           signOut.mutate();
         }}
         disabled={signOut.isPending}
       >
-        <Icon icon={Logout01Icon} />
         Sign out
       </Button>
     </div>
