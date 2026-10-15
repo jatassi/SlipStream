@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -22,11 +23,13 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
+	"github.com/jatassi/slipstream/internal/node/internal/host"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
@@ -42,6 +45,8 @@ import (
 // can hold.
 type Env struct {
 	DataDir DataDir
+	// Install is the kind the marker beside the executable states.
+	Install install.Kind
 	Environ []string
 	Stderr  io.Writer
 	Version string
@@ -59,10 +64,20 @@ type Env struct {
 	Test Test
 }
 
-// ProcessEnv is this process's Env, with the data dir from dataDirFlag or
-// else SLIPSTREAM_DATA_DIR.
-func ProcessEnv(dataDirFlag string) (Env, error) {
+// ProcessEnv is this process's Env for the subcommand cmd. The install
+// kind comes from the marker beside the symlink-resolved executable, and
+// the data dir from dataDirFlag, else SLIPSTREAM_DATA_DIR, else the kind's
+// default.
+func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 	environ := os.Environ()
+	layout, err := processLayout(environ)
+	if err != nil {
+		return Env{}, err
+	}
+	kind, err := install.Read(layout)
+	if err != nil {
+		return Env{}, &UsageError{Err: err}
+	}
 	raw := dataDirFlag
 	if raw == "" {
 		if i := slices.IndexFunc(environ, func(kv string) bool { return strings.HasPrefix(kv, config.DataDirVar+"=") }); i >= 0 {
@@ -70,10 +85,18 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 		}
 	}
 	if raw == "" {
-		return Env{}, &UsageError{Err: fmt.Errorf("no data dir: pass --data-dir or set %s", config.DataDirVar)}
+		if raw, err = kind.DefaultDataDir(layout); errors.Is(err, install.ErrNoDefault) {
+			return Env{}, &UsageError{Err: fmt.Errorf("no data dir: pass --data-dir or set %s", config.DataDirVar)}
+		}
+		if err != nil {
+			return Env{}, &UsageError{Err: fmt.Errorf("no default data dir for a %s install: %w", kind, err)}
+		}
 	}
 	dir, err := ParseDataDir(raw)
 	if err != nil {
+		return Env{}, &UsageError{Err: err}
+	}
+	if err := checkHost(dir, kind, cmd); err != nil {
 		return Env{}, &UsageError{Err: err}
 	}
 	version := "dev"
@@ -82,6 +105,7 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 	}
 	return Env{
 		DataDir: dir,
+		Install: kind,
 		Environ: environ,
 		Stderr:  os.Stderr,
 		Version: version,
@@ -89,6 +113,41 @@ func ProcessEnv(dataDirFlag string) (Env, error) {
 		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog: logs.Open,
 	}, nil
+}
+
+func processLayout(environ []string) (install.Layout, error) {
+	exe, err := os.Executable()
+	if err == nil {
+		exe, err = filepath.EvalSymlinks(exe)
+	}
+	if err != nil {
+		return install.Layout{}, fmt.Errorf("find the executable: %w", err)
+	}
+	return install.Layout{GOOS: runtime.GOOS, Executable: exe, Environ: environ}, nil
+}
+
+// checkHost refuses a data dir another user owns, so a host command never
+// leaves files the Node's own user cannot read, and one on a network share.
+func checkHost(dir DataDir, kind install.Kind, cmd string) error {
+	owner, err := host.ForeignOwner(dir.Path())
+	if err != nil {
+		return err
+	}
+	if owner != nil {
+		hint := fmt.Sprintf("sudo -u %s slipstream %s ...", owner.Name, cmd)
+		if kind == install.Docker {
+			hint = fmt.Sprintf("docker exec -u %d <container> slipstream %s ...", owner.UID, cmd)
+		}
+		return fmt.Errorf("data dir %s belongs to %s; run: %s", dir, owner.Name, hint)
+	}
+	remote, err := host.OnNetworkShare(dir.Path())
+	if err != nil {
+		return err
+	}
+	if remote {
+		return fmt.Errorf("data dir %s is on a network share; SQLite's WAL needs a local disk", dir)
+	}
+	return nil
 }
 
 // Node is one running SlipStream process's worth of state. Several can run in

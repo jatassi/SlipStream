@@ -7,7 +7,6 @@ package install
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 )
@@ -83,6 +82,15 @@ func (k Kind) String() string { return kinds[k].token }
 
 func (k Kind) MarshalText() ([]byte, error) { return []byte(k.String()), nil }
 
+func (k *Kind) UnmarshalText(b []byte) error {
+	parsed, ok := parseToken(string(b))
+	if !ok {
+		return fmt.Errorf("%q is not an install kind", b)
+	}
+	*k = parsed
+	return nil
+}
+
 // GOOS is the only OS the Kind runs on, or "" for Dev, which runs on any.
 func (k Kind) GOOS() string { return kinds[k].goos }
 
@@ -94,8 +102,12 @@ func (k Kind) Proto() linkv1.InstallKind { return kinds[k].proto }
 func (k Kind) SelfInstalled() bool { return kinds[k].selfInstalled }
 
 func parseToken(token string) (Kind, bool) {
-	i := slices.IndexFunc(kinds[:], func(r row) bool { return r.token == token })
-	return Kind(i), i >= 0
+	for _, k := range Kinds() {
+		if k.String() == token {
+			return k, true
+		}
+	}
+	return Dev, false
 }
 
 // ErrNoDefault is Dev's data dir rule: a build without a marker never
