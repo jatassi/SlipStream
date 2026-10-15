@@ -80,7 +80,7 @@ function Tab({
     >
       <TabFace icon={row.icon} label={row.label} />
       {badge > 0 && (
-        <span className="absolute top-1 left-[calc(50%+6px)] grid h-4.5 min-w-4.5 place-items-center rounded-capsule bg-solid px-1 text-label font-semibold text-on-solid tabular-nums">
+        <span className="absolute top-1 left-[calc(50%+6px)] grid h-4.5 min-w-4.5 place-items-center rounded-capsule bg-solid px-1 text-chip text-on-solid tabular-nums">
           {badge}
         </span>
       )}

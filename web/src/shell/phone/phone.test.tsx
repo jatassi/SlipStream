@@ -38,6 +38,8 @@ test("the phone shell has a tab bar, with the Activity count as a badge", async 
         .map((tab) => tab.element().textContent),
     )
     .toEqual(["Library", "Activity2", "Search", "More"]);
+  const badge = getComputedStyle(tabs().getByText("2", { exact: true }).element());
+  expect([badge.fontSize, badge.fontWeight, badge.height]).toEqual(["12px", "600", "18px"]);
   await expect
     .element(tabs().getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");
