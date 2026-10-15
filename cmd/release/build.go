@@ -14,16 +14,25 @@ import (
 	"github.com/jatassi/slipstream/cmd/release/internal/linkage"
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/worktree"
 )
 
 func init() {
-	register("build", "build cmd/slipstream, and cmd/slipstream-e2e for test jobs, for the host target into dist/", runBuild)
+	register("build", "build cmd/slipstream, cmd/slipstream-e2e for test jobs, and cmd/slipstream-app on Windows and macOS, for the host target into dist/", runBuild)
 }
 
-var mains = []struct{ pkg, name string }{
-	{"./cmd/slipstream", "slipstream"},
-	{"./cmd/slipstream-e2e", "slipstream-e2e"},
+// mains are the binaries build writes. goos, when set, lists the only
+// targets a main ships on: the trampoline exists where the OS launches the
+// app through one, and the AppImage runs slipstream app itself.
+var mains = []struct {
+	pkg, name string
+	role      linkage.Role
+	goos      []string
+}{
+	{pkg: "./cmd/slipstream", name: install.Executable, role: linkage.Node},
+	{pkg: "./cmd/slipstream-e2e", name: "slipstream-e2e", role: linkage.Node},
+	{pkg: "./cmd/slipstream-app", name: install.Trampoline, role: linkage.Trampoline, goos: []string{"windows", "darwin"}},
 }
 
 func runBuild(ctx context.Context, args []string) error {
@@ -66,15 +75,36 @@ func runBuild(ctx context.Context, args []string) error {
 	if err := os.MkdirAll(*dist, 0o755); err != nil {
 		return fmt.Errorf("create dist: %w", err)
 	}
-	tags := strings.Join(append([]string{"release"}, target.GoTags...), ",")
+	node := []string{
+		"-trimpath", "-tags", strings.Join(append([]string{"release"}, target.GoTags...), ","),
+		"-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp=" + ldflag,
+	}
 	for _, m := range mains {
+		if m.goos != nil && !slices.Contains(m.goos, target.GOOS) {
+			continue
+		}
 		out := executable(target, *dist, m.name)
-		if err := buildMain(ctx, root, out, m.pkg, tags, ldflag, bundle); err != nil {
+		flags, env := node, bundleEnv(bundle)
+		if m.role == linkage.Trampoline {
+			flags, env = trampolineBuild(target.GOOS)
+		}
+		if err := buildMain(ctx, root, out, m.pkg, m.role, flags, env); err != nil {
 			return err
 		}
 		fmt.Println(out)
 	}
 	return placeTools(bundle, *dist)
+}
+
+// trampolineBuild is the trampoline's go build flags and environment: pure
+// Go, stripped, and with no build stamp or VCS stamp, so its bytes change
+// only with its source or the toolchain. On Windows it is a GUI program.
+func trampolineBuild(goos string) (flags, env []string) {
+	ldflags := "-s -w"
+	if goos == "windows" {
+		ldflags += " -H windowsgui"
+	}
+	return []string{"-trimpath", "-buildvcs=false", "-ldflags", ldflags}, append(bundleEnv(native.Bundle{}), "CGO_ENABLED=0")
 }
 
 // placeTools copies the bundle's tool programs into dir, beside the
@@ -117,7 +147,7 @@ func copyProgram(src, dst string) error {
 	return nil
 }
 
-func buildMain(ctx context.Context, root, out, pkg, tags, ldflag string, bundle native.Bundle) error {
+func buildMain(ctx context.Context, root, out, pkg string, role linkage.Role, flags, env []string) error {
 	tmp, err := os.CreateTemp(filepath.Dir(out), ".slipstream-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create build output: %w", err)
@@ -126,16 +156,14 @@ func buildMain(ctx context.Context, root, out, pkg, tags, ldflag string, bundle 
 		return fmt.Errorf("create build output: %w", err)
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	gobuild := exec.CommandContext(ctx, "go", "build", "-trimpath", "-tags", tags,
-		"-ldflags", "-X=github.com/jatassi/slipstream/internal/buildinfo.stamp="+ldflag,
-		"-o", tmp.Name(), pkg)
+	gobuild := exec.CommandContext(ctx, "go", slices.Concat([]string{"build"}, flags, []string{"-o", tmp.Name(), pkg})...)
 	gobuild.Dir = root
 	gobuild.Stdout, gobuild.Stderr = os.Stderr, os.Stderr
-	gobuild.Env = bundleEnv(bundle)
+	gobuild.Env = env
 	if err := gobuild.Run(); err != nil {
 		return fmt.Errorf("go build %s: %w", pkg, err)
 	}
-	if err := linkage.Check(tmp.Name()); err != nil {
+	if err := linkage.Check(tmp.Name(), role); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp.Name(), out); err != nil {

@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 )
@@ -18,7 +17,10 @@ func init() {
 	})
 }
 
-const runtimeTree = "internal/node/"
+// processBoundaries read the process's own globals: the Node's runtime
+// hands them to every subsystem, and the trampoline passes its environment
+// to the Node it starts.
+var processBoundaries = []string{"internal/node/", "cmd/slipstream-app/"}
 
 type processGlobal struct {
 	pkg         string
@@ -75,7 +77,7 @@ func checkProcessGlobals(repo *lint.Repo) ([]lint.Finding, error) {
 		})
 	}
 	for _, f := range files {
-		if strings.HasPrefix(f.Path, runtimeTree) {
+		if underAny(f.Path, processBoundaries) {
 			continue
 		}
 		for _, imp := range f.Syntax.Imports {
