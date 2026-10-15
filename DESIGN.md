@@ -154,6 +154,35 @@ spacing:
   "6": "24px"
   "7": "28px"
   "8": "32px"
+shadows:
+  float: "inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px {colors.hairline}, 0 18px 40px rgba(0,0,0,.55)"
+  float-large: "inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px {colors.hairline}, 0 30px 60px rgba(0,0,0,.6)"
+  signal-lift: "inset 0 0 0 1px {colors.fail-line}, 0 18px 40px -24px rgba(0,0,0,.8)"
+  poster: "0 24px 48px -16px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.08)"
+  toast: "0 12px 28px rgba(0,0,0,.5)"
+  live-glow: "0 0 10px 0 hsl(var(--h) 95% 70% / .7)"
+motion:
+  easing:
+    standard: "cubic-bezier(.16, 1, .3, 1)"
+    spring: "cubic-bezier(.32, .72, 0, 1)"
+  duration:
+    ambient: "1.1s"
+    backdrop-settle: "1.6s"
+    control: "200ms"
+    chevron: "250ms"
+    menu: "180ms"
+    palette: "220ms"
+    inspector: "280ms"
+    sheet-in: "340ms"
+    sheet-out: "260ms"
+    dialog: "360ms"
+    live-tick: "1s"
+    sheen: "2.4s"
+ambient:
+  neutral:
+    hue: 214
+    saturation: "14%"
+  ceiling: 0.053
 components:
   button:
     backgroundColor: "{colors.fill}"
@@ -299,7 +328,7 @@ Motion is slow where light moves and quick where controls answer. The tint cross
 
 The palette is a tinted graphite whose hue follows the Work in focus, under three fixed signal hues and one solid white.
 
-Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a formula. Two registered CSS properties drive the tint: `--h` (the Work's hue, 0 to 360) and `--s` (its saturation, 18% to 70%). Inks keep their own saturation and take only the hue. Surfaces scale the ambient saturation. The canonical formulas follow, and `.impeccable/design.json` repeats them per token.
+Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a formula. Two registered CSS properties drive the tint: `--h` (the Work's hue, 0 to 360) and `--s` (its saturation, 18% to 70%). The frontmatter's `ambient.neutral` is their resting value. Inks keep their own saturation and take only the hue. Surfaces scale the ambient saturation. The canonical formulas follow, one row per tinted token, and `.impeccable/design.json` repeats them per token. The fixed signal colours (`fail*`, `warn*`, `ok*`, `solid`, `on-solid`) have no formula. `go run ./cmd/release gen tokens` writes the web theme from the frontmatter and this table, and `release lint` refuses a formula whose neutral resolution differs from its frontmatter value.
 
 | Token | Formula |
 |---|---|
@@ -310,12 +339,18 @@ Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a for
 | `popover` | `hsl(var(--h) calc(var(--s) * .55) 12% / .84)` |
 | `sheet` | `hsl(var(--h) calc(var(--s) * .4) 10% / .88)` |
 | `well` | `hsl(var(--h) 30% 4% / .5)` |
-| `fill`, `fill-hover` | `hsl(var(--h) 40% 92% / .1)`, `/ .16` |
+| `fill` | `hsl(var(--h) 40% 92% / .1)` |
+| `fill-hover` | `hsl(var(--h) 40% 92% / .16)` |
 | `selected` | `hsl(var(--h) 30% 92% / .22)` |
 | `live-fill` | `hsl(var(--h) 50% 26% / .7)` |
-| `hairline`, `hairline-strong` | `hsl(var(--h) 40% 88% / .11)`, `/ .18` |
-| `ink-1` to `ink-4` | `hsl(var(--h) 25% 96%)`, `18% 83%`, `14% 71%`, `12% 60%` |
-| `glow`, `halo` | `hsl(var(--h) 95% 72%)`, `hsl(var(--h) 80% 58% / .5)` |
+| `hairline` | `hsl(var(--h) 40% 88% / .11)` |
+| `hairline-strong` | `hsl(var(--h) 40% 88% / .18)` |
+| `ink-1` | `hsl(var(--h) 25% 96%)` |
+| `ink-2` | `hsl(var(--h) 18% 83%)` |
+| `ink-3` | `hsl(var(--h) 14% 71%)` |
+| `ink-4` | `hsl(var(--h) 12% 60%)` |
+| `glow` | `hsl(var(--h) 95% 72%)` |
+| `halo` | `hsl(var(--h) 80% 58% / .5)` |
 
 ### Primary
 
@@ -445,12 +480,14 @@ Depth comes from translucency over the ambient, not from shadows. Surfaces at re
 
 ### Shadow Vocabulary
 
-- **Float** (`box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px var(--hairline), 0 18px 40px rgba(0,0,0,.55)`): Menus and popovers.
-- **Float large** (`box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px var(--hairline), 0 30px 60px rgba(0,0,0,.6)`): The palette, Dialogs and the Inspector.
-- **Signal lift** (`box-shadow: inset 0 0 0 1px var(--fail-line), 0 18px 40px -24px rgba(0,0,0,.8)`): Failure cards. Warning lines use `--warn-line` with no drop.
-- **Poster** (`box-shadow: 0 24px 48px -16px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.08)`): Large posters and portal poster cards.
-- **Toast** (`box-shadow: 0 12px 28px rgba(0,0,0,.5)`).
-- **Live glow** (`box-shadow: 0 0 10px 0 hsl(var(--h) 95% 70% / .7)`): The fill of a live bar. The live dot adds a 3px ring at `hsl(var(--h) 90% 65% / .32)`.
+The frontmatter's `shadows` block holds each shadow's value.
+
+- **Float** (`float`): Menus and popovers.
+- **Float large** (`float-large`): The palette, Dialogs and the Inspector.
+- **Signal lift** (`signal-lift`): Failure cards. Warning lines use `--warn-line` with no drop.
+- **Poster** (`poster`): Large posters and portal poster cards.
+- **Toast** (`toast`).
+- **Live glow** (`live-glow`): The fill of a live bar. The live dot adds a 3px ring at `hsl(var(--h) 90% 65% / .32)`.
 - **Focus** (`outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px var(--halo)`): Every focusable thing except menu items and the palette input, which mark focus with `fill-hover` and a 2px glow underline.
 
 ### Named Rules
@@ -631,6 +668,8 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 - **Controls.** Buttons, segments and switches respond in 200 to 280ms. Disclosure chevrons rotate over 250ms. Sections open and close at once, with no height animation.
 - **Overlays.** Menus take 180ms, the palette 220ms, the Inspector 280ms, sheets 340ms in and 260ms out, and Dialogs 360ms.
 - **Live.** Fills move linearly once a second, and the sheen loops every 2.4s.
+
+The frontmatter's `motion` block holds these easings and durations.
 
 **The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.
 
