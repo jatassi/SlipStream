@@ -1,6 +1,7 @@
 import { type Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures.ts";
+import { shellNav, signOut } from "./shell.ts";
 
 const isSessionRead = (request: Request) =>
   request.method() === "GET" && new URL(request.url()).pathname === "/api/v1/session";
@@ -12,10 +13,10 @@ test("signing out in one tab sends every tab of the session to sign-in", async (
 }) => {
   const tab2 = await context.newPage();
   await tab2.goto("/");
-  await expect(adminPage.getByText("Live updates: on")).toBeVisible();
-  await expect(tab2.getByText("Live updates: on")).toBeVisible();
+  await expect(shellNav(adminPage)).toBeVisible();
+  await expect(shellNav(tab2)).toBeVisible();
 
-  await tab2.getByRole("button", { name: "Sign out" }).click();
+  await signOut(tab2);
   await expect(adminPage).toHaveURL(`${world.baseURL}/sign-in?reason=signed-out`);
   await expect(adminPage.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
 });
@@ -33,7 +34,7 @@ test("a sign-in from another browser refreshes this tab's session once", async (
     }
   });
   await tab.goto("/");
-  await expect(tab.getByText("Live updates: on")).toBeVisible();
+  await expect(shellNav(tab)).toBeVisible();
   // The guard reads the session, and the stream's opening resync refetches it.
   await expect.poll(() => sessionReads.length).toBe(2);
 
@@ -50,15 +51,16 @@ test("live updates reconnect when the Node restarts on its address", async ({
   adminPage,
   world,
 }) => {
-  const status = adminPage.getByText(/^Live updates: /u);
-  await expect(status).toHaveText("Live updates: on");
+  const reconnecting = adminPage.getByText("Reconnecting to SlipStream…");
+  await expect(shellNav(adminPage)).toBeVisible();
+  await expect(reconnecting).toHaveCount(0);
 
   await world.fw.node("kill", world.node.name);
-  await expect(status).toHaveText("Live updates: reconnecting");
+  await expect(reconnecting).toBeVisible();
 
   const restarted = await world.fw.node("start", world.node.name);
   expect(restarted.listeners["http"]).toBe(world.node.listeners["http"]);
-  await expect(status).toHaveText("Live updates: on");
+  await expect(reconnecting).toHaveCount(0);
   const { checks } = await world.fw.doctor();
   expect(checks.find((check) => check.n === 3)).toEqual({
     n: 3,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { expect, test } from "./fixtures.ts";
+import { shellNav } from "./shell.ts";
 
 test("fonts and icons come from the Node", async ({ adminPage: page, world }) => {
   const fonts = await page.evaluate(async () => {
@@ -16,7 +17,11 @@ test("fonts and icons come from the Node", async ({ adminPage: page, world }) =>
   const origin = new URL(world.baseURL).origin;
   expect(fonts.resources.filter((name) => new URL(name).origin !== origin)).toEqual([]);
   expect(fonts.resources.some((name) => name.endsWith(".woff2"))).toBe(true);
-  await expect(page.getByRole("button", { name: "Sign out" }).locator("svg")).toHaveCount(1);
+  await expect(
+    shellNav(page)
+      .getByRole("link", { name: /^Activity\b/u })
+      .locator("svg"),
+  ).toHaveCount(1);
 });
 
 const Manifest = z.object({

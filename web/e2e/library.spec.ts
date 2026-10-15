@@ -1,11 +1,16 @@
 import { expect, test } from "./fixtures.ts";
+import { navigate } from "./shell.ts";
 
 test("an Admin adds a movie from the catalog and sees its missing cell", async ({
   adminPage: page,
 }) => {
-  await page.getByRole("link", { name: "Add movie" }).click();
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Add a Movie" })
+    .or(page.getByRole("button", { name: "Add a Movie" }))
+    .click();
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("list", { name: "Results" })).toHaveText("The Quiet Orchard 2021Add");
 
   await page.getByRole("button", { name: "Add The Quiet Orchard" }).click();
@@ -16,8 +21,8 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
     "The Quiet OrchardMissing",
   );
 
-  await page.getByRole("link", { name: "Library" }).click();
+  await navigate(page, "Library");
   await expect(page.getByRole("main").getByRole("listitem")).toHaveText("The Quiet Orchard 2021");
-  await page.goto("/add?query=quiet+orchard");
+  await page.goto("/add?contentType=movie&query=quiet+orchard");
   await expect(page.getByRole("link", { name: "Open The Quiet Orchard" })).toBeVisible();
 });

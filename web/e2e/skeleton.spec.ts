@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.ts";
+import { navigate } from "./shell.ts";
 
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 120_000 });
@@ -7,16 +8,16 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   adminPage: page,
   world,
 }) => {
-  await page.getByRole("link", { name: "Add movie" }).click();
+  await page.goto("/add?contentType=movie");
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Add The Quiet Orchard" }).click();
   await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("list", { name: "Searches" })).toHaveText("Grabbed · 2 releases");
 
-  await page.getByRole("link", { name: "Activity" }).click();
+  await navigate(page, "Activity");
   await expect(page.getByRole("list", { name: "Grabs" }).getByRole("listitem")).toHaveText(
     "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKWImported",
     { timeout: 60_000 },
