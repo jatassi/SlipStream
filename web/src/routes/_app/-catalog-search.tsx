@@ -23,10 +23,10 @@ function useSearchForm() {
 export function CatalogSearch() {
   const form = useSearchForm();
   return (
-    <search className="mb-6 block">
+    <search className="mb-6 block max-w-[640px]">
       <form
         noValidate
-        className="flex flex-wrap items-end gap-4"
+        className="flex flex-wrap items-end gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           void form.handleSubmit();
@@ -34,7 +34,11 @@ export function CatalogSearch() {
       >
         <form.AppForm>
           <form.AppField name="query">
-            {(field) => <field.TextField label="Title" type="search" />}
+            {(field) => (
+              <div className="min-w-0 flex-[1_1_240px]">
+                <field.TextField label="Title" type="search" />
+              </div>
+            )}
           </form.AppField>
           <form.SubmitButton label="Search" />
         </form.AppForm>
