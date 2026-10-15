@@ -36,6 +36,12 @@ func runPackage(ctx context.Context, args []string) error {
 	if *out == "" {
 		return errors.New("-o is required")
 	}
+	// Recipes run packagers in their stage directory.
+	outDir, err := filepath.Abs(*out)
+	if err != nil {
+		return fmt.Errorf("find -o: %w", err)
+	}
+	*out = outDir
 	if *sign != "" && *sign != "signpath" {
 		return fmt.Errorf("-sign %q is not signpath", *sign)
 	}
