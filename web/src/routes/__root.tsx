@@ -1,3 +1,5 @@
+import "../shell/motion.css";
+
 import { HeadContent, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/react-router";
 import { useEffect } from "react";
 
