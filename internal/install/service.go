@@ -31,7 +31,7 @@ func systemctl(args ...string) Command {
 // nil when there is none. A rerun with an identical unit rewrites and
 // restarts nothing, and still starts a unit someone stopped.
 func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte) ([]Step, error) {
-	p, err := userUnitPath(k, l)
+	p, err := UserUnitPath(k, l)
 	if err != nil {
 		return nil, err
 	}
@@ -54,16 +54,17 @@ func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte) ([]Ste
 // whether the unit file is there. It leaves linger on, since other user
 // services may need it.
 func UserServiceUninstall(k Kind, l Layout, exists bool) ([]Step, error) {
-	p, err := userUnitPath(k, l)
+	p, err := UserUnitPath(k, l)
 	if err != nil || !exists {
 		return nil, err
 	}
 	return []Step{systemctl("disable", "--now", UnitName), RemoveFile{Path: p}, systemctl("daemon-reload")}, nil
 }
 
-func userUnitPath(k Kind, l Layout) (string, error) {
+// UserUnitPath is where service install --user writes k's unit on l.
+func UserUnitPath(k Kind, l Layout) (string, error) {
 	if !k.SelfInstalled() {
-		return "", fmt.Errorf("a %s install runs under its own service manager; service install --user is for a tarball or AppImage install", k)
+		return "", fmt.Errorf("a user service is for a tarball or AppImage install, and this is a %s install", k)
 	}
 	if dir := l.Getenv("XDG_CONFIG_HOME"); l.isAbs(dir) {
 		return l.join(dir, "systemd", "user", UnitName), nil

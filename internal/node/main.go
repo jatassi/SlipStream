@@ -24,6 +24,9 @@ const usageText = `usage: slipstream <command>
   config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
   join   [--data-dir <dir>] <code>
                              join this Node to the Controller a Join Code names
+  service install|uninstall --user [--data-dir <dir>]
+                             run the Node as a systemd user service, or remove it
+                             (tarball and AppImage installs)
   version                    print the build stamp
   notices                    print the third-party notices
 The data dir is --data-dir, else SLIPSTREAM_DATA_DIR, else the install's default.`
@@ -89,6 +92,8 @@ func run(args []string, types contenttype.Set) int {
 		return status(rest, types)
 	case "join":
 		return join(rest, types)
+	case "service":
+		return service(rest)
 	default:
 		return usage(fmt.Errorf("unknown command %q", name))
 	}

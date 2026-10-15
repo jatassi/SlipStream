@@ -124,6 +124,15 @@ func TestStatusAnswersOnceReady(t *testing.T) {
 	}
 }
 
+func TestServiceInstallUserRefusesAKindWithItsOwnServiceManager(t *testing.T) {
+	t.Parallel()
+	res := slipstream(t, childEnv(), "service", "install", "--user", "--data-dir", dataDir(t))
+	want := "slipstream service install: a user service is for a tarball or AppImage install, and this is a dev install\n"
+	if res.code != node.ExitUsage || res.stderr != want {
+		t.Fatalf("service install --user on dev: exit %d, stderr %q; want exit %d, %q", res.code, res.stderr, node.ExitUsage, want)
+	}
+}
+
 // shortDir is a temp dir under parent, for a default data dir whose
 // control socket must stay under the 103-byte limit: macOS's own temp dir
 // is too long for Library/Application Support/SlipStream2 below it.

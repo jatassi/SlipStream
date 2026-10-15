@@ -241,7 +241,7 @@ func TestUserServiceInstallPlan(t *testing.T) {
 
 func TestUserServiceIsForSelfInstalledKindsOnly(t *testing.T) {
 	_, err := UserServiceInstall(Deb, tarball, "/var/lib/slipstream", nil)
-	if want := "a deb install runs under its own service manager; service install --user is for a tarball or AppImage install"; err == nil || err.Error() != want {
+	if want := "a user service is for a tarball or AppImage install, and this is a deb install"; err == nil || err.Error() != want {
 		t.Fatalf("deb: %v, want %s", err, want)
 	}
 	noAppImage := Layout{GOOS: "linux", Executable: "/tmp/.mount_x/usr/bin/slipstream", Environ: []string{"HOME=/home/ana"}}

@@ -327,6 +327,11 @@ func (n *Node) startLogged(ctx context.Context) error {
 	if setupCode != "" {
 		n.log.Info("setup page", "url", setupURL(l.HTTP, setupCode))
 	}
+	if n.env.Install.SelfInstalled() {
+		for _, msg := range host.BelowFloor(ctx) {
+			n.log.Warn("host below the supported floor", "reason", msg)
+		}
+	}
 	n.log.Info("ready", "ready", n.ready)
 	n.isReady.Store(true)
 	return nil
