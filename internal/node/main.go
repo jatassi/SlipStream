@@ -20,6 +20,7 @@ import (
 const usageText = `usage: slipstream <command>
   run    [--data-dir <dir>]  run a Node
   stop   [--data-dir <dir>]  stop the Node on <dir> and wait until it releases <dir>
+  status [--data-dir <dir>]  print the running Node's status as JSON
   config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
   join   [--data-dir <dir>] <code>
                              join this Node to the Controller a Join Code names
@@ -55,6 +56,7 @@ func run(args []string, types contenttype.Set) int {
 		if err != nil {
 			return usage(err)
 		}
+		env.Mode = ModeRun
 		return ExitCode(Run(context.Background(), env))
 	case "stop":
 		env, err := nodeEnv(name, rest, types)
@@ -83,6 +85,8 @@ func run(args []string, types contenttype.Set) int {
 			return ExitFailed
 		}
 		return ExitOK
+	case "status":
+		return status(rest, types)
 	case "join":
 		return join(rest, types)
 	default:
@@ -152,6 +156,24 @@ func join(args []string, types contenttype.Set) int {
 		return ExitOK
 	}
 	return joinFailed(err)
+}
+
+func status(args []string, types contenttype.Set) int {
+	env, err := nodeEnv("status", args, types)
+	if err != nil {
+		return usage(err)
+	}
+	reply, err := Call(context.Background(), env.Net, env.DataDir, StatusOp, StatusRequest{})
+	if err == nil {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(reply)
+	}
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream status: %v\n", err)
+		return ExitFailed
+	}
+	return ExitOK
 }
 
 func joinFailed(err error) int {

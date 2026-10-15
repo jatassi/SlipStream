@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -95,6 +98,29 @@ func TestABadMarkerExitsWithTheUsageCodeNamingIt(t *testing.T) {
 	want := "slipstream: run: install marker " + marker + ` holds "snap\n", not an install kind` + "\n"
 	if code := cmd.ProcessState.ExitCode(); code != node.ExitUsage || !strings.HasPrefix(string(out), want) {
 		t.Fatalf("bad marker: exit %d, output %q; want exit %d starting %q", code, out, node.ExitUsage, want)
+	}
+}
+
+func TestStatusAnswersOnceReady(t *testing.T) {
+	t.Parallel()
+	dir := dataDir(t)
+	p := startNode(t, dir)
+	ready := p.ready()
+	res := slipstream(t, childEnv(), "status", "--data-dir", dir)
+	if res.code != node.ExitOK {
+		t.Fatalf("status: exit %d, stderr %q", res.code, res.stderr)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil {
+		t.Fatalf("status output %q: %v", res.stdout, err)
+	}
+	url := "http://localhost:" + strconv.Itoa(int(ready.Listeners.HTTP.Port())) + "/setup#code=" + ready.SetupCode
+	want := map[string]any{"pid": float64(ready.PID), "version": "dev", "install": "dev", "mode": "run", "claim": "unclaimed", "url": url}
+	if !maps.Equal(got, want) {
+		t.Fatalf("status = %v, want %v", got, want)
+	}
+	if rec := p.record("setup page"); rec["url"] != url {
+		t.Fatalf("setup page record = %v, want url %s", rec, url)
 	}
 }
 

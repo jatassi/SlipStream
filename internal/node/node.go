@@ -47,6 +47,8 @@ type Env struct {
 	DataDir DataDir
 	// Install is the kind the marker beside the executable states.
 	Install install.Kind
+	// Mode is the subcommand running the Node, which status reports.
+	Mode    Mode
 	Environ []string
 	Stderr  io.Writer
 	Version string
@@ -321,6 +323,9 @@ func (n *Node) startLogged(ctx context.Context) error {
 		Listeners: l,
 		Overrides: overrides(keys),
 		SetupCode: setupCode,
+	}
+	if setupCode != "" {
+		n.log.Info("setup page", "url", setupURL(l.HTTP, setupCode))
 	}
 	n.log.Info("ready", "ready", n.ready)
 	n.isReady.Store(true)

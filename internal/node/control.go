@@ -103,8 +103,11 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 	if !n.isReady.Load() {
 		return nil, &control.Error{Code: control.CodeNotReady, Message: fmt.Sprintf("node is starting; it serves only %s until ready", StopOp.Name)}
 	}
-	if name == pairing.JoinOp.Name {
+	switch name {
+	case pairing.JoinOp.Name:
 		return n.serveJoin, nil
+	case StatusOp.Name:
+		return n.serveStatus, nil
 	}
 	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q; node version %s", name, n.env.Version)}
 }
