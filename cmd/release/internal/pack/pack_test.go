@@ -301,3 +301,33 @@ func TestAppSignsTheBundleAfterEveryNestedProgram(t *testing.T) {
 		t.Fatalf("codesign calls:\n%s\nwant:\n%s", strings.Join(signed, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+func TestZipModesDoNotComeFromTheHost(t *testing.T) {
+	stage := t.TempDir()
+	dir := filepath.Join(stage, "SlipStream")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, perm := range map[string]os.FileMode{"slipstream.exe": 0o600, "LICENSE": 0o700} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), perm); err != nil {
+			t.Fatal(err)
+		}
+	}
+	archive := filepath.Join(t.TempDir(), "out.zip")
+	if err := writeZip(archive, stage, []string{"slipstream.exe"}); err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.OpenReader(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = zr.Close() }()
+	got := map[string]os.FileMode{}
+	for _, f := range zr.File {
+		got[f.Name] = f.Mode()
+	}
+	want := map[string]os.FileMode{"SlipStream/": os.ModeDir | 0o755, "SlipStream/slipstream.exe": 0o755, "SlipStream/LICENSE": 0o644}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("zip modes = %v, want %v", got, want)
+	}
+}

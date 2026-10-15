@@ -40,7 +40,7 @@ func buildZIP(_ context.Context, in Input, stage string) ([]string, error) {
 		return nil, err
 	}
 	name := fmt.Sprintf("%s-%s-windows-amd64.zip", install.ProductName, in.Version)
-	return []string{name}, writeZip(filepath.Join(in.Out, name), stage)
+	return []string{name}, writeZip(filepath.Join(in.Out, name), stage, in.programs())
 }
 
 func crlf(s string) string { return strings.ReplaceAll(s, "\n", "\r\n") }

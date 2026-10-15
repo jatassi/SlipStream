@@ -117,8 +117,16 @@ func walkStage(root string, visit func(rel string, info fs.FileInfo) error) erro
 	return nil
 }
 
-// Each mode is set here, since a Windows host stages no exec bit:
-// directories and programs are 0755, everything else 0644.
+// archiveMode is the mode an archive gives each entry, set here because a
+// Windows host stages no exec bit: directories and programs are 0755,
+// everything else 0644.
+func archiveMode(rel string, info fs.FileInfo, programs []string) fs.FileMode {
+	if info.IsDir() || slices.Contains(programs, path.Base(rel)) {
+		return 0o755
+	}
+	return 0o644
+}
+
 func writeTarGz(archive, root string, programs []string) error {
 	f, err := os.Create(archive)
 	if err != nil {
@@ -127,10 +135,7 @@ func writeTarGz(archive, root string, programs []string) error {
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
 	err = walkStage(root, func(rel string, info fs.FileInfo) error {
-		hdr := &tar.Header{Name: rel, Mode: 0o644, ModTime: info.ModTime(), Format: tar.FormatPAX}
-		if info.IsDir() || slices.Contains(programs, path.Base(rel)) {
-			hdr.Mode = 0o755
-		}
+		hdr := &tar.Header{Name: rel, Mode: int64(archiveMode(rel, info, programs)), ModTime: info.ModTime(), Format: tar.FormatPAX}
 		if info.IsDir() {
 			hdr.Typeflag, hdr.Name = tar.TypeDir, rel+"/"
 			if err := tw.WriteHeader(hdr); err != nil {
@@ -155,23 +160,19 @@ func writeTarGz(archive, root string, programs []string) error {
 	return nil
 }
 
-func writeZip(archive, root string) error {
+func writeZip(archive, root string, programs []string) error {
 	f, err := os.Create(archive)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Base(archive), err)
 	}
 	zw := zip.NewWriter(f)
 	err = walkStage(root, func(rel string, info fs.FileInfo) error {
-		hdr, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return fmt.Errorf("archive %s: %w", rel, err)
-		}
-		hdr.Name = rel
+		hdr := &zip.FileHeader{Name: rel, Modified: info.ModTime(), Method: zip.Deflate}
+		mode := archiveMode(rel, info, programs)
 		if info.IsDir() {
-			hdr.Name += "/"
-		} else {
-			hdr.Method = zip.Deflate
+			hdr.Name, hdr.Method, mode = rel+"/", zip.Store, mode|fs.ModeDir
 		}
+		hdr.SetMode(mode)
 		w, err := zw.CreateHeader(hdr)
 		if err != nil {
 			return fmt.Errorf("archive %s: %w", rel, err)
