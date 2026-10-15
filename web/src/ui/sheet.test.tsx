@@ -78,6 +78,17 @@ for (const density of ["console", "touch"] satisfies Density[]) {
   });
 }
 
+test("the sheet's rows and Cancel set Sentence touch, 17px at 600", async () => {
+  renderKit(<MoreSheet />, { shell: "phone" });
+  const sheet = await openMore();
+  const type = (name: string) => {
+    const style = getComputedStyle(sheet.getByRole("button", { name }).element());
+    return [style.fontSize, style.fontWeight];
+  };
+  expect(type("Nodes 3")).toEqual(["17px", "600"]);
+  expect(type("Cancel")).toEqual(["17px", "600"]);
+});
+
 test("choosing a row runs it and closes the sheet, and Cancel closes it", async () => {
   const onChoose = vi.fn<(row: string) => void>();
   renderKit(<MoreSheet onChoose={onChoose} />, { shell: "phone" });

@@ -21,7 +21,7 @@ const popup =
   "flex max-h-[calc(100dvh-env(safe-area-inset-top)-12px)] w-full flex-col overflow-y-auto overscroll-contain rounded-t-sheet bg-sheet px-4 pt-2 pb-[max(44px,calc(env(safe-area-inset-bottom)+16px))] text-ink-1 outline-none backdrop-blur-[30px] backdrop-saturate-[1.7] [transform:translateY(var(--drawer-swipe-movement-y))] transition-[translate,transform,opacity] duration-(--duration-sheet-in) ease-spring data-swiping:duration-0 data-swiping:select-none data-ending-style:duration-(--duration-sheet-out) motion-safe:data-starting-style:translate-y-full motion-safe:data-ending-style:translate-y-full motion-reduce:data-starting-style:opacity-0 motion-reduce:data-ending-style:opacity-0";
 
 const row =
-  "flex h-(--menu-item-height) w-full items-center gap-3 px-4 text-left text-body-touch outline-none hover:bg-fill-hover focus-visible:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";
+  "flex h-(--menu-item-height) w-full items-center gap-3 px-4 text-left text-sentence-touch outline-none hover:bg-fill-hover focus-visible:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";
 
 export const tones = { default: "text-ink-1", danger: "text-fail-ink" } as const;
 
@@ -103,7 +103,7 @@ export function SheetToggle({
 
 export function SheetCancel() {
   return (
-    <Drawer.Close className="flex h-(--menu-item-height) w-full shrink-0 items-center justify-center rounded-card bg-fill text-body-touch font-semibold text-ink-1 hover:bg-fill-hover">
+    <Drawer.Close className="flex h-(--menu-item-height) w-full shrink-0 items-center justify-center rounded-card bg-fill text-sentence-touch text-ink-1 hover:bg-fill-hover">
       Cancel
     </Drawer.Close>
   );

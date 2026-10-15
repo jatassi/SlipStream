@@ -20,7 +20,7 @@ export function MoreSheet({ rows }: { rows: readonly ShownRow[] }) {
       <SheetGroup>
         <div className="flex h-(--menu-item-height) items-center gap-3 px-4">
           <Avatar name={account.displayName} />
-          <span className="min-w-0 flex-1 truncate text-body-touch text-ink-1">
+          <span className="min-w-0 flex-1 truncate text-sentence-touch text-ink-1">
             {account.displayName}
           </span>
         </div>
