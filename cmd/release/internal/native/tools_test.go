@@ -193,3 +193,23 @@ func TestToolArchivesListEveryToolForEveryTarget(t *testing.T) {
 		t.Fatalf("ToolArchives = %+v, want %+v", got, want)
 	}
 }
+
+func TestFetchFileChecksItsDigestAndCaches(t *testing.T) {
+	served := map[string][]byte{"/runtime-x86_64": []byte("runtime")}
+	base := serveArchives(t, served)
+	cache := t.TempDir()
+	d := Download{URL: base + "/runtime-x86_64", SHA256: sha([]byte("runtime"))}
+	file, err := FetchFile(context.Background(), cache, d)
+	if want := filepath.Join(cache, "file", d.SHA256, "runtime-x86_64"); err != nil || file != want {
+		t.Fatalf("FetchFile = %s, %v; want %s", file, err, want)
+	}
+	delete(served, "/runtime-x86_64")
+	if again, err := FetchFile(context.Background(), cache, d); err != nil || again != file {
+		t.Fatalf("cached FetchFile = %s, %v; want %s", again, err, file)
+	}
+	wrong := Download{URL: d.URL + "-new", SHA256: d.SHA256}
+	served["/runtime-x86_64-new"] = []byte("other")
+	if _, err := FetchFile(context.Background(), t.TempDir(), wrong); err == nil || err.Error() != wrong.URL+" has SHA-256 "+sha([]byte("other"))+", native/inputs.json pins "+d.SHA256 {
+		t.Fatalf("FetchFile of a changed file: %v", err)
+	}
+}
