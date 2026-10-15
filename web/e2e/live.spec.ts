@@ -1,7 +1,7 @@
 import { type Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures.ts";
-import { shellNav, signOut } from "./shell.ts";
+import { navigate, shellNav, signOut } from "./shell.ts";
 
 const isSessionRead = (request: Request) =>
   request.method() === "GET" && new URL(request.url()).pathname === "/api/v1/session";
@@ -67,4 +67,24 @@ test("live updates reconnect when the Node restarts on its address", async ({
     name: "the cluster matches the Scenario",
     ok: true,
   });
+});
+
+test("a page not opened before fails inside the standing shell while the Node is down", async ({
+  adminPage,
+  world,
+}) => {
+  await expect(shellNav(adminPage)).toBeVisible();
+  await world.fw.node("kill", world.node.name);
+  await expect(adminPage.getByText("Reconnecting to SlipStream…")).toBeVisible();
+
+  await navigate(adminPage, "Activity");
+  await expect(adminPage.getByRole("alert")).toContainText(
+    "SlipStream isn't answering. Check that it's running, then try again.",
+  );
+  await expect(shellNav(adminPage)).toBeVisible();
+
+  await world.fw.node("start", world.node.name);
+  await expect(adminPage.getByText("Reconnecting to SlipStream…")).toHaveCount(0);
+  await adminPage.getByRole("button", { name: "Try again" }).click();
+  await expect(adminPage.getByRole("heading", { name: "Activity", level: 1 })).toBeVisible();
 });
