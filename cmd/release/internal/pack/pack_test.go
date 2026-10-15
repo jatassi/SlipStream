@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -243,21 +242,17 @@ func TestICNSHoldsThreePNGs(t *testing.T) {
 	}
 }
 
-func TestWixVersionMatchesTheDotnetToolPin(t *testing.T) {
-	data, err := os.ReadFile("../../../../.config/dotnet-tools.json")
-	if err != nil {
+func TestWixVersionIsTheDotnetToolPin(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".config"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	var manifest struct {
-		Tools map[string]struct {
-			Version string `json:"version"`
-		} `json:"tools"`
-	}
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	manifest := `{"version":1,"isRoot":true,"tools":{"wix":{"version":"9.1.4","commands":["wix"]}}}`
+	if err := os.WriteFile(filepath.Join(root, ".config", "dotnet-tools.json"), []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := manifest.Tools["wix"].Version; got != wixVersion {
-		t.Fatalf(".config/dotnet-tools.json pins wix %s, and the UI extension takes %s", got, wixVersion)
+	if got, err := wixVersion(root); err != nil || got != "9.1.4" {
+		t.Fatalf("wixVersion = %q, %v; want 9.1.4", got, err)
 	}
 }
 

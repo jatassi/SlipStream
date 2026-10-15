@@ -2,6 +2,7 @@ package pack
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,7 +23,23 @@ const upgradeCode = "{73394E63-47CD-417B-AEDD-7F50B149F574}"
 // holds files under a registry key path.
 const programFilesGUID = "{C20646BA-DEE1-4ACA-9C3E-B3E9C252C265}"
 
-const wixVersion = "5.0.2"
+// wixVersion is the wix tool's pin in the repository's dotnet tool
+// manifest, which the UI extension must match.
+func wixVersion(root string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(root, ".config", "dotnet-tools.json"))
+	if err != nil {
+		return "", fmt.Errorf("read the dotnet tool manifest: %w", err)
+	}
+	var manifest struct {
+		Tools map[string]struct {
+			Version string `json:"version"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return "", fmt.Errorf(".config/dotnet-tools.json: %w", err)
+	}
+	return manifest.Tools["wix"].Version, nil
+}
 
 func buildZIP(_ context.Context, in Input, stage string) ([]string, error) {
 	dir := filepath.Join(stage, install.ProductName)
@@ -97,7 +114,11 @@ func buildMSI(ctx context.Context, in Input, stage string) ([]string, error) {
 		return nil, err
 	}
 	name := fmt.Sprintf("%s-%s-windows-amd64.msi", install.ProductName, in.Version)
-	ui := "WixToolset.UI.wixext/" + wixVersion
+	wix, err := wixVersion(in.Root)
+	if err != nil {
+		return nil, err
+	}
+	ui := "WixToolset.UI.wixext/" + wix
 	for _, args := range [][]string{
 		{"tool", "restore"},
 		{"tool", "run", "wix", "extension", "add", "-g", ui},
