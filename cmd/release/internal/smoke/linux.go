@@ -127,7 +127,7 @@ func smokeRPM(ctx context.Context, r *Run, files []string) error {
 		return err
 	}
 	r.tidy(ctx, "docker", "rm", "-f", rpmContainer)
-	build := exec.CommandContext(ctx, "docker", "build", "-t", rpmImage, "-")
+	build := command(ctx, nil, "docker", "build", "-t", rpmImage, "-")
 	build.Stdin = strings.NewReader(rpmDockerfile)
 	build.Stdout, build.Stderr = r.Log, r.Log
 	if err := build.Run(); err != nil {
@@ -377,8 +377,7 @@ func (r *Run) smokeBrowserOpen(ctx context.Context, exe string) error {
 	if err := os.RemoveAll(dataDir); err != nil {
 		return fmt.Errorf("remove the earlier data dir: %w", err)
 	}
-	app := exec.CommandContext(ctx, exe, "app")
-	app.Env = append(os.Environ(), "DISPLAY=:99", "BROWSER="+stub)
+	app := command(ctx, []string{"DISPLAY=:99", "BROWSER=" + stub}, exe, "app")
 	app.Stdout, app.Stderr = r.Log, r.Log
 	r.logf("+ %s app\n", exe)
 	if err := app.Start(); err != nil {

@@ -85,12 +85,23 @@ func (res result) String() string {
 	return fmt.Sprintf("exit %d, stdout %q, stderr %q", res.code, strings.TrimSpace(res.stdout), strings.TrimSpace(res.stderr))
 }
 
+// personEnv is the environment of every command the smoke runs: its own,
+// with each SLIPSTREAM_ variable removed, since a person launching the
+// installed binary has none and the Node refuses keys it does not know.
+func personEnv(extra ...string) []string {
+	env := slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "SLIPSTREAM_") })
+	return append(env, extra...)
+}
+
+func command(ctx context.Context, env []string, argv ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.Env = personEnv(env...)
+	return cmd
+}
+
 func (r *Run) exec(ctx context.Context, env []string, argv ...string) (result, error) {
 	name, args := argv[0], argv[1:]
-	cmd := exec.CommandContext(ctx, name, args...)
-	if env != nil {
-		cmd.Env = append(os.Environ(), env...)
-	}
+	cmd := command(ctx, env, argv...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = io.MultiWriter(&stdout, r.Log)
 	cmd.Stderr = io.MultiWriter(&stderr, r.Log)
