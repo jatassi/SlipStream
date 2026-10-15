@@ -30,7 +30,7 @@ func (r *Run) launch(ctx context.Context, trampoline string) error {
 }
 
 func (r *Run) windowless(ctx context.Context) error {
-	out, err := r.powershell(ctx, `Get-Process -Name slipstream,ffmpeg,ffprobe -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { $_.ProcessName }`)
+	out, err := r.powershell(ctx, `Get-Process -Name slipstream,ffmpeg,ffprobe -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { $_.ProcessName }; exit 0`)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func smokeMSI(ctx context.Context, r *Run, files []string) error {
 	if err := r.windowless(ctx); err != nil {
 		return err
 	}
-	st, err := r.statusOf(ctx, slipstream, "status")
+	st, err := r.appStatusOf(ctx, slipstream, "status")
 	if err != nil {
 		return err
 	}
@@ -197,6 +197,7 @@ func smokeZIP(ctx context.Context, r *Run, files []string) error {
 	if err := os.RemoveAll(dir); err != nil {
 		return fmt.Errorf("remove the earlier ZIP: %w", err)
 	}
+	r.tidy(ctx, "reg", "delete", runKey, "/v", install.WindowsRunValue, "/f")
 	if _, err := r.powershell(ctx, fmt.Sprintf(`Expand-Archive -LiteralPath '%s' -DestinationPath '%s'`, zip, dir)); err != nil {
 		return err
 	}
@@ -212,7 +213,7 @@ func smokeZIP(ctx context.Context, r *Run, files []string) error {
 	if run, ok := r.regValue(ctx, runKey, install.WindowsRunValue); ok {
 		return fmt.Errorf("the ZIP turned on start at sign-in: %s", run)
 	}
-	st, err := r.statusOf(ctx, slipstream, "status")
+	st, err := r.appStatusOf(ctx, slipstream, "status")
 	if err != nil {
 		return err
 	}

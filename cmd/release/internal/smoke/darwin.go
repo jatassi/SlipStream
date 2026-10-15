@@ -58,7 +58,7 @@ func smokeApp(ctx context.Context, r *Run, files []string) error {
 	if !strings.Contains(ready.setupURL, "/setup#code="+ready.setupCode) {
 		return fmt.Errorf("the setup page record holds %q, not the ready line's code %s", ready.setupURL, ready.setupCode)
 	}
-	st, err := r.statusOf(ctx, slipstream, "status")
+	st, err := r.appStatusOf(ctx, slipstream, "status")
 	if err != nil {
 		return err
 	}

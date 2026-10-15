@@ -169,6 +169,19 @@ func (r *Run) statusOf(ctx context.Context, argv ...string) (status, error) {
 	return parseStatus(out)
 }
 
+// appStatusOf waits out the tray's start, which status reports while the
+// menu bar or tray item is still being created.
+func (r *Run) appStatusOf(ctx context.Context, argv ...string) (status, error) {
+	deadline := time.Now().Add(waitFor)
+	for {
+		s, err := r.statusOf(ctx, argv...)
+		if err != nil || s.Tray != "starting" || time.Now().After(deadline) {
+			return s, err
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 func (s status) want(k install.Kind, mode string) error {
 	if s.Install != k.String() || s.Mode != mode {
 		return fmt.Errorf("status reports install %q and mode %q, want %q and %q", s.Install, s.Mode, k, mode)
