@@ -56,19 +56,19 @@ Open the browser once per identity and shell, signed in through the real page:
 
 ```sh
 $FW browser $RUN
-$FW exec $RUN -- bun web/harness/bin/sign-in.ts {runDir} admin desk
-$FW exec $RUN -- $PW cli -s={runId}-admin-desk open --config={runDir}/browser/desk/playwright-cli.json
-$FW exec $RUN -- $PW cli -s={runId}-admin-desk state-load {runDir}/auth/admin-desk.json
-$FW exec $RUN -- $PW cli -s={runId}-admin-desk goto {nodes.home.browserUrl}/
+$FW exec $RUN -- bun web/harness/bin/sign-in.ts {runDir} admin desktop
+$FW exec $RUN -- $PW cli -s={runId}-admin-desktop open --config={runDir}/browser/desktop/playwright-cli.json
+$FW exec $RUN -- $PW cli -s={runId}-admin-desktop state-load {runDir}/auth/admin-desktop.json
+$FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/
 ```
 
-The session name carries the run id, so another agent's sessions in the same worktree stay apart. Swap `desk` for `phone` for the phone shell. Then follow the feature file's recipe. Target elements by role and accessible name, as in `click 'getByRole("button", { name: "Search" })'`; snapshot refs change on every snapshot.
+The session name carries the run id, so another agent's sessions in the same worktree stay apart. Swap `desktop` for `phone` for the phone shell. Then follow the feature file's recipe. Target elements by role and accessible name, as in `click 'getByRole("button", { name: "Search" })'`; snapshot refs change on every snapshot.
 
 ## Evidence
 
 Proof lives under `$RUN/proof/<feature>/<sub-feature>/`. A proof step:
 
-- Captures the state before and after the action: an ARIA snapshot (`snapshot --filename={runDir}/proof/<f>/<s>/<name>.aria.yml`) and a screenshot (`screenshot --filename={runDir}/proof/<f>/<s>/<name>.png`), desk and phone where the feature file lists a phone entry point.
+- Captures the state before and after the action: an ARIA snapshot (`snapshot --filename={runDir}/proof/<f>/<s>/<name>.aria.yml`) and a screenshot (`screenshot --filename={runDir}/proof/<f>/<s>/<name>.png`), desktop and phone where the feature file lists a phone entry point.
 - Proves each side effect on the receiving side: the placed file with `fs match`, announces through `announces`, the live stream through `sse`, stored state through an API read with `--proof`.
 - Drives the real user path. Cues act only on the world outside SlipStream: fakes, fault rules and machine events. Nothing writes a Node's database or files.
 - Reports a feature it couldn't reach with the command it tried and the precondition it lacked, never as verified through another path.
@@ -80,7 +80,7 @@ Delivery. Paste `$RUN/summary.md` into the PR's Verify section. Show a few scree
 ## Cleanup
 
 ```sh
-$FW exec $RUN -- $PW cli -s={runId}-admin-desk close    # each session the run opened; $PW cli list shows them
+$FW exec $RUN -- $PW cli -s={runId}-admin-desktop close    # each session the run opened; $PW cli list shows them
 $FW stop $RUN
 $FW summary $RUN
 ls $RUN/proof $RUN/summary.md

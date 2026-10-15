@@ -12,49 +12,49 @@ An Admin searches the metadata catalog from the Library's Add movie link and add
 
 ## How to get to it (user POV)
 
-- Desk and phone: the `Add movie` link beside the Library heading, which opens `/add`.
-- Desk and phone: `/add?query=<title>` runs the search directly.
+- Desktop and phone: the `Add movie` link beside the Library heading, which opens `/add`.
+- Desktop and phone: `/add?query=<title>` runs the search directly.
 - API: `GET /api/v1/content-types/{contentType}/catalog?query=`, `POST /api/v1/works`, `GET /api/v1/works`.
 
 ## Driving it with fakeworld and playwright cli
 
 Preconditions:
 
-- The baseline: a `home` run, doctor passing, `{runId}-admin-desk` on the Library, which reads `Nothing in the library yet.`
+- The baseline: a `home` run, doctor passing, `{runId}-admin-desktop` on the Library, which reads `Nothing in the library yet.`
 
 Steps:
 
 - **Search the catalog.** Choose `Add movie`, fill `Title` with `quiet orchard` and choose `Search`. The `Results` list reads `The Quiet Orchard 2021` with `Add`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("link", { name: "Add movie" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk fill 'getByRole("searchbox", { name: "Title" })' "quiet orchard"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("button", { name: "Search" })'
-  $FW exec $RUN --proof add-a-movie/add-search -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/add-a-movie/add-search/results.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "Add movie" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("searchbox", { name: "Title" })' "quiet orchard"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Search" })'
+  $FW exec $RUN --proof add-a-movie/add-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-search/results.aria.yml
   ```
 
 - **No match.** Go to `/add?query=volcano`. The page reads `Nothing matches “volcano”.`
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk goto '{nodes.home.browserUrl}/add?query=volcano'
-  $FW exec $RUN --proof add-a-movie/add-no-match -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/add-a-movie/add-no-match/results.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?query=volcano'
+  $FW exec $RUN --proof add-a-movie/add-no-match -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-no-match/results.aria.yml
   ```
 
 - **Add the Work.** Search again and choose `Add The Quiet Orchard`. The Work page opens, headed `The Quiet Orchard`, with its fields and the `1080p` cell reading `Missing`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk goto '{nodes.home.browserUrl}/add?query=quiet+orchard'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("button", { name: "Add The Quiet Orchard" })'
-  $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/add-a-movie/add-work-page/work.aria.yml
-  $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/add-a-movie/add-work-page/work.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?query=quiet+orchard'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
+  $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-work-page/work.aria.yml
+  $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/add-a-movie/add-work-page/work.png
   $FW exec $RUN --proof add-a-movie/add-work -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works'
   ```
 
 - **Open an existing Work.** Go back to `/add?query=quiet+orchard`. The result shows the link `Open The Quiet Orchard`, and the Library lists `The Quiet Orchard 2021`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk goto '{nodes.home.browserUrl}/add?query=quiet+orchard'
-  $FW exec $RUN --proof add-a-movie/add-open-existing -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/add-a-movie/add-open-existing/results.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?query=quiet+orchard'
+  $FW exec $RUN --proof add-a-movie/add-open-existing -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-open-existing/results.aria.yml
   ```
 
 ## Gotchas

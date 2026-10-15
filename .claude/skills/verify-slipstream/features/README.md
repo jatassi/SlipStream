@@ -6,7 +6,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
-- The `{runId}-admin-desk` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
+- The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
 - A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup.
 
 ## Conventions
@@ -30,7 +30,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 Each feature file starts with an H1 title and one paragraph describing the user-visible behaviour, then exactly four H2s in this order:
 
 1. `Sub-features` lists each behaviour as a bullet that starts with its unique `` `id` `` and cites the `P-###` parity rows it proves.
-2. `How to get to it (user POV)` lists every entry point, per shell where desk and phone differ, plus the API and host CLI.
+2. `How to get to it (user POV)` lists every entry point, per shell where desktop and phone differ, plus the API and host CLI.
 3. `Driving it with <harness>` starts with `Preconditions:` and pairs each user action with exact commands and the observable result.
 4. `Gotchas` lists traps that waste or invalidate a run.
 

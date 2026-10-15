@@ -18,7 +18,7 @@ export default defineConfig((env) =>
         headless: true,
         provider: playwright(),
         instances: [{ browser: "chromium" }],
-        viewport: { width: presets.desk.width, height: presets.desk.height },
+        viewport: { width: presets.desktop.width, height: presets.desktop.height },
       },
     },
   }),

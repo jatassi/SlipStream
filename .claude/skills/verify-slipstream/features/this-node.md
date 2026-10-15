@@ -9,7 +9,7 @@ This Node shows the Node the browser is talking to: its build version, data dir 
 
 ## How to get to it (user POV)
 
-- Desk and phone: the `This Node` link in the header, which opens `/system`.
+- Desktop and phone: the `This Node` link in the header, which opens `/system`.
 - API: `GET /api/v1/system`.
 - Host CLI: `slipstream version` prints the same build stamp.
 
@@ -17,16 +17,16 @@ This Node shows the Node the browser is talking to: its build version, data dir 
 
 Preconditions:
 
-- The baseline: a `home` run, doctor passing, `{runId}-admin-desk` signed in.
+- The baseline: a `home` run, doctor passing, `{runId}-admin-desktop` signed in.
 
 Steps:
 
 - **Open This Node.** Choose `This Node`. The page is headed `This Node`, Version reads the binary's short commit, and Data dir reads the manifest's `{nodes.home.dataDir}`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("link", { name: "This Node" })'
-  $FW exec $RUN --proof this-node/this-node-page -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/this-node/this-node-page/system.aria.yml
-  $FW exec $RUN --proof this-node/this-node-page -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/this-node/this-node-page/system.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "This Node" })'
+  $FW exec $RUN --proof this-node/this-node-page -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/this-node/this-node-page/system.aria.yml
+  $FW exec $RUN --proof this-node/this-node-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/this-node/this-node-page/system.png
   ```
 
 - **Read it over the API and the host CLI.** The API's `dataDir` and listeners equal the page's rows, and `slipstream version` prints the same commit.

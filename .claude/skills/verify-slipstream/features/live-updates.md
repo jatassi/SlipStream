@@ -10,37 +10,37 @@ Every signed-in page keeps a live stream open to the Controller and shows its st
 
 ## How to get to it (user POV)
 
-- Desk and phone: the status text in the header of every signed-in page.
+- Desktop and phone: the status text in the header of every signed-in page.
 - API: `GET /api/v1/events` with a session cookie; the run's capture reads it as `sse.message` records.
 
 ## Driving it with fakeworld and playwright cli
 
 Preconditions:
 
-- The baseline: a `home` run, doctor passing, `{runId}-admin-desk` signed in on the Library. Run this last or on its own run: the Controller restarts.
+- The baseline: a `home` run, doctor passing, `{runId}-admin-desktop` signed in on the Library. Run this last or on its own run: the Controller restarts.
 
 Steps:
 
 - **See it on.** The header's status reads `Live updates: on`.
 
   ```sh
-  $FW exec $RUN --proof live-updates/live-on -- $PW cli -s={runId}-admin-desk snapshot 'getByRole("banner")' --filename={runDir}/proof/live-updates/live-on/banner.aria.yml
+  $FW exec $RUN --proof live-updates/live-on -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("banner")' --filename={runDir}/proof/live-updates/live-on/banner.aria.yml
   ```
 
 - **Kill the Controller.** The kill prints the entry with `"state":"killed"`, and the header turns to `Live updates: reconnecting`.
 
   ```sh
   $FW node kill $RUN home
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk run-code 'async page => { await page.getByText("Live updates: reconnecting").waitFor({ timeout: 10000 }); }'
-  $FW exec $RUN --proof live-updates/live-reconnect -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/live-updates/live-reconnect/reconnecting.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Live updates: reconnecting").waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof live-updates/live-reconnect -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/live-updates/live-reconnect/reconnecting.png
   ```
 
 - **Start it again.** The start prints the same `http` listener as before, the header turns back to `Live updates: on`, and doctor passes.
 
   ```sh
   $FW node start $RUN home
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk run-code 'async page => { await page.getByText("Live updates: on").waitFor({ timeout: 30000 }); }'
-  $FW exec $RUN --proof live-updates/live-reconnect -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/live-updates/live-reconnect/on.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Live updates: on").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN --proof live-updates/live-reconnect -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/live-updates/live-reconnect/on.png
   $FW doctor $RUN
   ```
 
