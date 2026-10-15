@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { WorksListedWork, WorksTree } from "../../api/gen/model";
@@ -8,6 +8,7 @@ import {
   getListWorksMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../test/library";
+import { asPhone } from "../../test/viewport";
 import { renderApp } from "../../test/render-app";
 
 const label = "Search Works or run a command";
@@ -44,13 +45,6 @@ const optionTexts = (name: string) =>
     .map((option) => option.element().textContent);
 
 const pressShortcut = () => userEvent.keyboard("{Control>}k{/Control}");
-
-async function asPhone() {
-  await page.viewport(390, 844);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
-}
 
 test("Ctrl+K opens the palette, and Enter on a typed Work opens its page", async () => {
   const { router } = renderApp({ path: "/library", handlers: library() });

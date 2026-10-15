@@ -2,16 +2,10 @@ import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { signedInAsGrace } from "../test/handlers";
+import { asPhone } from "../test/viewport";
 import { renderApp } from "../test/render-app";
 
 const mainNav = () => page.getByRole("navigation", { name: "Main" });
-
-async function asPhone() {
-  await page.viewport(390, 844);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
-}
 
 test("a Member lands in the portal, under its top nav, at the Touch density", async () => {
   const { router } = renderApp({ path: "/", handlers: [signedInAsGrace] });
@@ -68,12 +62,14 @@ test("the avatar menu opens Account and the page shows the Member's name", async
     .not.toBeInTheDocument();
 
   await userEvent.click(page.getByRole("button", { name: "Account" }));
-  expect(
-    page
-      .getByRole("menuitem")
-      .all()
-      .map((item) => item.element().textContent),
-  ).toEqual(["Account", "Sign out"]);
+  await expect
+    .poll(() =>
+      page
+        .getByRole("menuitem")
+        .all()
+        .map((item) => item.element().textContent),
+    )
+    .toEqual(["Account", "Sign out"]);
 });
 
 test("a Member who opens an Admin link is taken to the portal", async () => {

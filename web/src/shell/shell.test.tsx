@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw";
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { WorksContentType, WorksListedWork } from "../api/gen/model";
@@ -10,6 +10,7 @@ import {
 import { cinema, orchard, orchardId } from "../test/library";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
+import { resize } from "../test/viewport";
 import { workServer } from "../test/work-server";
 
 const shows: WorksContentType = {
@@ -111,10 +112,7 @@ test("the sidebar collapses to a 60px rail that a reload keeps", async () => {
 });
 
 test("a window below 1100px starts with the rail", async () => {
-  await page.viewport(1000, 800);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
+  await resize(1000, 800);
   renderApp({ path: "/library" });
   await expect.element(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   expect(mainNav().element().getBoundingClientRect().width).toBe(60);

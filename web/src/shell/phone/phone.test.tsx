@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw";
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { WorksListedWork } from "../../api/gen/model";
@@ -9,18 +9,12 @@ import {
   getListWorksMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../test/library";
+import { asPhone } from "../../test/viewport";
 import { renderApp } from "../../test/render-app";
 import { workServer } from "../../test/work-server";
 
 const mainNav = () => page.getByRole("navigation", { name: "Main" });
 const tabs = () => page.getByRole("navigation", { name: "Tabs" });
-
-async function asPhone() {
-  await page.viewport(390, 844);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
-}
 
 function counting(activity: number) {
   return http.get("*/api/v1/counts", () => HttpResponse.json({ activity }));

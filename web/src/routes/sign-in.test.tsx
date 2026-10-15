@@ -1,10 +1,11 @@
 import { HttpResponse, http } from "msw";
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { CreateSessionBody } from "../api/gen/zod/identity/identity.zod";
 import { ada, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
+import { resize } from "../test/viewport";
 
 function adaServer() {
   let signedIn = false;
@@ -60,10 +61,7 @@ test.each([
   ["a desktop browser", 1440, "32px"],
   ["a phone", 390, "48px"],
 ])("sign-in in %s takes that shell's density", async (_shell, width, inputHeight) => {
-  await page.viewport(width, 844);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
+  await resize(width, 844);
   renderApp({ path: "/sign-in", handlers: [signedOut] });
   const email = page.getByLabelText("Email");
   await expect.element(email).toBeVisible();

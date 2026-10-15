@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import {
@@ -7,6 +7,7 @@ import {
 } from "../../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../../test/library";
 import { renderApp } from "../../../test/render-app";
+import { asPhone } from "../../../test/viewport";
 
 const listedOrchard = {
   id: orchardId,
@@ -94,10 +95,7 @@ test("a Content Type's empty Library offers to add one", async () => {
 });
 
 test("on a phone the Library's list sits in an inset group 16px from each edge", async () => {
-  await page.viewport(390, 844);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
+  await asPhone();
   renderApp({
     path: "/library",
     handlers: [
