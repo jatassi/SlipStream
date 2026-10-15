@@ -3,7 +3,6 @@ import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { WorksContentType, WorksListedWork } from "../api/gen/model";
-import { getGetSystemMockHandler } from "../api/gen/query/system/system.msw";
 import {
   getListContentTypesMockHandler,
   getListWorksMockHandler,
@@ -23,14 +22,20 @@ const shows: WorksContentType = {
 };
 
 const mainNav = () => page.getByRole("navigation", { name: "Main" });
-const tabs = () => page.getByRole("navigation", { name: "Tabs" });
+const breadcrumbs = () => page.getByRole("navigation", { name: "Breadcrumbs" });
 
-async function asPhone() {
-  await page.viewport(390, 844);
-  onTestFinished(async () => {
-    await page.viewport(1440, 900);
-  });
-}
+const currentLinks = () =>
+  page
+    .getByRole("link")
+    .all()
+    .filter((link) => link.element().getAttribute("aria-current") === "page")
+    .map((link) => link.element().textContent);
+
+const crumbLinks = () =>
+  breadcrumbs()
+    .getByRole("link")
+    .all()
+    .map((link) => [link.element().textContent, link.element().getAttribute("href")]);
 
 function counting(first: number) {
   let activity = first;
@@ -71,6 +76,10 @@ test("the sidebar lists Library with each enabled Content Type, Activity and Thi
   await expect
     .element(mainNav().getByRole("link", { name: "Films" }))
     .not.toHaveAttribute("aria-current");
+  await expect
+    .element(page.getByRole("link", { name: "SlipStream" }))
+    .toHaveAttribute("href", "/library");
+  expect(currentLinks()).toEqual(["Library"]);
 
   contentTypes = [cinema, { ...shows, enabled: true }];
   server.clients[0]?.send({
@@ -132,15 +141,52 @@ test("the tab is titled after the page, and follows navigation", async () => {
 
   await userEvent.click(mainNav().getByRole("link", { name: "This Node" }));
   await expect.poll(() => document.title).toBe("This Node · SlipStream");
-  await expect
-    .element(page.getByRole("navigation", { name: "Breadcrumbs" }))
-    .toHaveTextContent("This Node");
+  await expect.element(breadcrumbs()).toHaveTextContent("This Node");
 });
 
-test("a Work's page is titled with its label", async () => {
+test("a Work's page is titled with its label, under its Content Type's library", async () => {
   renderApp({ path: `/works/${orchardId}`, handlers: workServer().handlers });
   await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
   await expect.poll(() => document.title).toBe("The Quiet Orchard · SlipStream");
+  await expect.element(breadcrumbs()).toHaveTextContent("LibraryFilmsThe Quiet Orchard");
+  expect(crumbLinks()).toEqual([
+    ["Library", "/library"],
+    ["Films", "/library/cinema"],
+  ]);
+});
+
+test("a Work of a disabled Content Type sits under the Library alone", async () => {
+  renderApp({
+    path: `/works/${orchardId}`,
+    handlers: [
+      getListContentTypesMockHandler({ contentTypes: [{ ...cinema, enabled: false }] }),
+      ...workServer().handlers,
+    ],
+  });
+  await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
+  await expect.element(breadcrumbs()).toHaveTextContent("LibraryThe Quiet Orchard");
+  expect(crumbLinks()).toEqual([["Library", "/library"]]);
+});
+
+test("Add sits under its Content Type's library", async () => {
+  renderApp({
+    path: "/add?contentType=cinema",
+    handlers: [getListContentTypesMockHandler({ contentTypes: [cinema] })],
+  });
+  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  await expect.element(breadcrumbs()).toHaveTextContent("LibraryFilmsAdd a Film");
+  expect(crumbLinks()).toEqual([
+    ["Library", "/library"],
+    ["Films", "/library/cinema"],
+  ]);
+});
+
+test("the account menu opens the portal", async () => {
+  const { router } = renderApp({ path: "/library" });
+  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Open the portal" }));
+  await expect.poll(() => router.state.location.href).toBe("/portal");
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 });
 
 test("a Content Type's page lists its Works, is titled with them and adds one", async () => {
@@ -158,9 +204,7 @@ test("a Content Type's page lists its Works, is titled with them and adds one", 
   await expect.element(page.getByRole("heading", { name: "Films" })).toBeVisible();
   await expect.poll(() => document.title).toBe("Films · SlipStream");
   expect(asked).toEqual(["?contentType=cinema"]);
-  await expect
-    .element(page.getByRole("navigation", { name: "Breadcrumbs" }))
-    .toHaveTextContent("LibraryFilms");
+  await expect.element(breadcrumbs()).toHaveTextContent("LibraryFilms");
   await expect
     .element(page.getByRole("banner").getByRole("button", { name: "Add a Film" }))
     .toHaveAttribute("href", "/add?contentType=cinema");
@@ -173,109 +217,4 @@ test("a disabled Content Type has no page", async () => {
   });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
   await expect.element(mainNav().getByRole("link", { name: "Films" })).toBeVisible();
-});
-
-test("the phone shell has a tab bar, with the Activity count as a badge", async () => {
-  await asPhone();
-  renderApp({ path: "/library", handlers: [counting(2).handler] });
-  await expect
-    .poll(() =>
-      tabs()
-        .getByRole("listitem")
-        .all()
-        .map((tab) => tab.element().textContent),
-    )
-    .toEqual(["Library", "Activity2", "Search", "More"]);
-  await expect
-    .element(tabs().getByRole("link", { name: "Library" }))
-    .toHaveAttribute("aria-current", "page");
-  await expect.element(mainNav()).not.toBeInTheDocument();
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-});
-
-test("More opens a sheet with the rest of the nav and the version, and Cancel closes it", async () => {
-  await asPhone();
-  const { router } = renderApp({
-    path: "/library",
-    handlers: [
-      getGetSystemMockHandler({
-        build: { stamped: true, version: "0.4.0" },
-        dataDir: "/data/home",
-        listeners: {
-          http: "127.0.0.2:8080",
-          torrent: "127.0.0.2:6881",
-          link: "127.0.0.2:8485",
-          control: "/data/home/control.sock",
-        },
-        pid: 4242,
-        seed: "home",
-        startedAt: "2026-10-12T09:00:00Z",
-      }),
-    ],
-  });
-  await userEvent.click(tabs().getByRole("button", { name: "More" }));
-  const sheet = page.getByRole("dialog", { name: "More" });
-  await expect.element(sheet.getByRole("button", { name: "This Node" })).toBeVisible();
-  await expect.element(sheet.getByText("SlipStream 0.4.0")).toBeVisible();
-  await expect.element(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect
-    .element(sheet.getByRole("button", { name: "Startup sequence" }))
-    .toHaveAttribute("aria-pressed", "true");
-
-  await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
-  await expect.element(sheet).not.toBeInTheDocument();
-
-  await userEvent.click(tabs().getByRole("button", { name: "More" }));
-  await userEvent.click(sheet.getByRole("button", { name: "This Node" }));
-  await expect.element(sheet).not.toBeInTheDocument();
-  await expect.poll(() => router.state.location.href).toBe("/system");
-  await expect
-    .element(tabs().getByRole("button", { name: "More" }))
-    .not.toHaveAttribute("aria-current");
-});
-
-test("on a phone a menu opens as an action sheet", async () => {
-  await asPhone();
-  renderApp({
-    path: "/library",
-    handlers: [getListContentTypesMockHandler({ contentTypes: [cinema] })],
-  });
-  await userEvent.click(page.getByRole("button", { name: "Add" }));
-  const sheet = page.getByRole("dialog", { name: "Add a Work" });
-  await expect.element(sheet.getByRole("button", { name: "Add a Film" })).toBeVisible();
-  await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
-  await expect.element(sheet).not.toBeInTheDocument();
-});
-
-test("the large title hands its words to the nav bar once it scrolls away", async () => {
-  await asPhone();
-  renderApp({ path: "/library", handlers: [getListWorksMockHandler({ works: listed(40) })] });
-  const barTitle = page.getByRole("banner").getByText("Library");
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  await expect.poll(() => getComputedStyle(barTitle.element()).opacity).toBe("0");
-
-  window.scrollTo({ top: 400 });
-  await expect.poll(() => getComputedStyle(barTitle.element()).opacity).toBe("1");
-  window.scrollTo({ top: 0 });
-});
-
-test("a pushed page goes back to its tab, and a tab returns to where it was", async () => {
-  await asPhone();
-  const server = workServer();
-  const { router } = renderApp({
-    path: "/library/cinema",
-    handlers: [...server.handlers, getListWorksMockHandler({ works: [{ ...orchard }] })],
-  });
-  await userEvent.click(page.getByRole("link", { name: "The Quiet Orchard 2021" }));
-  const back = page.getByRole("banner").getByRole("link", { name: "Library" });
-  await expect.element(back).toHaveAttribute("href", "/library");
-  await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
-
-  await userEvent.click(tabs().getByRole("link", { name: "Activity" }));
-  await expect.poll(() => router.state.location.href).toBe("/activity");
-  await userEvent.click(tabs().getByRole("link", { name: "Library" }));
-  await expect.poll(() => router.state.location.href).toBe(`/works/${orchardId}`);
-
-  await userEvent.click(back);
-  await expect.poll(() => router.state.location.href).toBe("/library");
 });

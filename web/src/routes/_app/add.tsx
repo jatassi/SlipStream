@@ -6,10 +6,10 @@ import {
   getSearchCatalogSuspenseQueryOptions,
 } from "../../api/gen/query/works/works";
 import { ensureQuery } from "../../api/query-client";
-import { loaderTitle } from "../../shell/titles";
 import { Page } from "../../shell/page";
+import { loaderTitle } from "../../shell/titles";
 import { Skeleton } from "../../ui/skeleton";
-import { addLabel, enabledTypeOf } from "../../works/fields";
+import { addLabel, enabledTypeOf, libraryTrail } from "../../works/fields";
 import { Candidates } from "./-candidates";
 import { CatalogSearch, searchForm } from "./-catalog-search";
 
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_app/add")({
         getSearchCatalogSuspenseQueryOptions(type.id, { query }),
       );
     }
-    return { title: addLabel(type), type };
+    return { title: addLabel(type), trail: libraryTrail(contentTypes, type.id), type };
   },
   pendingComponent: () => <Skeleton label="Loading the catalog" />,
   component: AddPage,

@@ -1,6 +1,8 @@
 import { notFound } from "@tanstack/react-router";
 
 import type { WorksContentType, WorksFieldValue } from "../api/gen/model";
+import { adminNav } from "../shell/nav";
+import type { Crumb } from "../shell/titles";
 
 export function fieldText(value: WorksFieldValue): string {
   if (value.kind === "text") {
@@ -42,4 +44,13 @@ export function typeOf(types: WorksContentType[], id: string): WorksContentType 
     throw new Error(`no Content Type ${id} is registered`);
   }
   return type;
+}
+
+/** The crumbs above a page of one Content Type's Works: Library, then that type's library while it is enabled. */
+export function libraryTrail(types: readonly WorksContentType[], id: string): Crumb[] {
+  const library = { title: adminNav[0].label, pathname: adminNav[0].to };
+  const type = types.find((candidate) => candidate.id === id && candidate.enabled);
+  return type === undefined
+    ? [library]
+    : [library, { title: type.work.many, pathname: `${library.pathname}/${type.id}` }];
 }

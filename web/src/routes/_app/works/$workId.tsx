@@ -14,19 +14,23 @@ import { ensureQuery } from "../../../api/query-client";
 import { useAmbient } from "../../../shell/ambient/use-ambient";
 import { loaderTitle } from "../../../shell/titles";
 import { Skeleton } from "../../../ui/skeleton";
+import { libraryTrail } from "../../../works/fields";
 import { WorkBody } from "./-work-body";
 
 export const Route = createFileRoute("/_app/works/$workId")({
   staticData: { title: loaderTitle },
   loader: async ({ context, params: { workId } }) => {
-    const [, work] = await Promise.all([
+    const [{ contentTypes }, work] = await Promise.all([
       ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getGetWorkSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getGetWorkCellsSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getListSearchesSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getListGrabsSuspenseQueryOptions()),
     ]);
-    return { title: work.label };
+    return {
+      title: work.label,
+      trail: libraryTrail(contentTypes, work.contentType),
+    };
   },
   pendingComponent: () => <Skeleton label="Loading the Work" />,
   component: WorkPage,

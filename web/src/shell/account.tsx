@@ -1,3 +1,4 @@
+import { LibraryIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { useRouteContext } from "@tanstack/react-router";
 
 import { useDeleteSession } from "../api/gen/query/identity/identity";
@@ -18,6 +19,10 @@ export function useSignOut(): () => void {
 }
 
 export const startupLabel = "Startup sequence";
+
+/** An Admin's way into the portal, to see what Members see, and back. */
+export const toPortal = { label: "Open the portal", icon: UserGroupIcon, to: "/portal" } as const;
+export const fromPortal = { label: "Back to Library", icon: LibraryIcon, to: "/library" } as const;
 
 export function useStartupOn(): [on: boolean, set: (on: boolean) => void] {
   return [

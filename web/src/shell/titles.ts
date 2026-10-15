@@ -11,16 +11,23 @@ declare module "@tanstack/react-router" {
 
 export type Crumb = { readonly title: string; readonly pathname: string };
 
-type Titled = { title: string };
+/**
+ * A loader's title. `trail` names the pages above one that the route tree
+ * doesn't nest it under, such as the Library a Work belongs to.
+ */
+export type Titled = { title: string; trail?: readonly Crumb[] };
 
 const isTitled = (data: unknown): data is Titled =>
   typeof data === "object" && data !== null && "title" in data && typeof data.title === "string";
 
-function titleOf({ staticData, loaderData }: AnyRouteMatch): string | undefined {
-  if (staticData.title !== loaderTitle) {
-    return staticData.title;
+function crumbsOf(match: AnyRouteMatch): readonly Crumb[] {
+  const pathname = placeOf(match.pathname);
+  const { title } = match.staticData;
+  if (title !== loaderTitle) {
+    return title === undefined ? [] : [{ title, pathname }];
   }
-  return isTitled(loaderData) ? loaderData.title : undefined;
+  const data: unknown = match.loaderData;
+  return isTitled(data) ? [...(data.trail ?? []), { title: data.title, pathname }] : [];
 }
 
 export const placeOf = (pathname: string): string =>
@@ -30,12 +37,7 @@ export const placeOf = (pathname: string): string =>
 // the deeper title wins.
 export function breadcrumbs(matches: readonly AnyRouteMatch[]): Crumb[] {
   const crumbs: Crumb[] = [];
-  for (const match of matches) {
-    const title = titleOf(match);
-    if (title === undefined) {
-      continue;
-    }
-    const crumb = { title, pathname: placeOf(match.pathname) };
+  for (const crumb of matches.flatMap((match) => crumbsOf(match))) {
     if (crumbs.at(-1)?.pathname === crumb.pathname) {
       crumbs[crumbs.length - 1] = crumb;
     } else {

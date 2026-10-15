@@ -26,6 +26,7 @@ beforeEach(() => {
   faker.seed(6);
   writePref("startupPlayed", true);
   writePref("sidebarCollapsed", false);
+  writePref("startupOff", false);
   onTestFinished(() => {
     worker.resetHandlers();
   });

@@ -12,7 +12,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
       <PhoneFrame rows={rows} barActions={<AdminBarActions />} tabActions={adminTabActions}>
         {children}
       </PhoneFrame>
-      <MoreSheet rows={rows.filter((row) => row.tab === undefined)} />
+      <MoreSheet rows={rows} />
     </>
   );
 }

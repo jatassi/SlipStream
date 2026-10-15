@@ -1,8 +1,7 @@
 import { SidebarLeftIcon } from "@hugeicons/core-free-icons";
-import { Link } from "@tanstack/react-router";
-
 import { IconButton } from "../../ui/icon-button";
 import { Mark } from "../../ui/mark";
+import { BrandLink } from "../brand-link";
 import { useAdminNav } from "../nav";
 import { toggleSidebar, useSidebarCollapsed } from "../sidebar-state";
 import { useMarkTransitionName } from "../startup/startup";
@@ -36,7 +35,7 @@ function Brand({ collapsed }: { collapsed: boolean }) {
     <div
       className={`flex shrink-0 gap-2 px-3.5 pt-3 ${collapsed ? "flex-col items-center px-0" : "h-14 items-center justify-between pt-0"}`}
     >
-      <Link
+      <BrandLink
         to="/library"
         aria-label="SlipStream"
         className="flex items-center gap-2 rounded-item text-[17px] tracking-[-0.03em] text-ink-1"
@@ -52,7 +51,7 @@ function Brand({ collapsed }: { collapsed: boolean }) {
             <span className="font-normal">Stream</span>
           </span>
         )}
-      </Link>
+      </BrandLink>
       <IconButton
         icon={SidebarLeftIcon}
         label={collapsed ? "Expand sidebar" : "Collapse sidebar"}

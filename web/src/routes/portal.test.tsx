@@ -28,6 +28,13 @@ test("a Member lands in the portal, under its top nav, at the Touch density", as
   ).toEqual(["Home", "Search", "Requests", "Account"]);
   await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   await expect.element(mainNav()).not.toBeInTheDocument();
+  expect(
+    page
+      .getByRole("link")
+      .all()
+      .filter((link) => link.element().getAttribute("aria-current") === "page")
+      .map((link) => link.element().textContent),
+  ).toEqual(["Home"]);
   expect(document.documentElement.dataset["density"]).toBe("touch");
   expect(document.title).toBe("Home · SlipStream");
 });
@@ -56,6 +63,17 @@ test("the avatar menu opens Account and the page shows the Member's name", async
   await expect.poll(() => router.state.location.href).toBe("/portal/account");
   await expect.element(page.getByText("You're signed in as Grace Lindqvist.")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Back to Library" }))
+    .not.toBeInTheDocument();
+
+  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  expect(
+    page
+      .getByRole("menuitem")
+      .all()
+      .map((item) => item.element().textContent),
+  ).toEqual(["Account", "Sign out"]);
 });
 
 test("a Member who opens an Admin link is taken to the portal", async () => {
@@ -73,6 +91,21 @@ test("an Admin can open the portal to see what Members see", async () => {
     .element(
       page.getByRole("navigation", { name: "Portal" }).getByRole("link", { name: "Requests" }),
     )
+    .toHaveAttribute("aria-current", "page");
+
+  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Back to Library" }));
+  await expect.poll(() => router.state.location.href).toBe("/library");
+  await expect.element(mainNav()).toBeVisible();
+});
+
+test("on a phone an Admin finds the way back to Library on the portal's Account page", async () => {
+  await asPhone();
+  const { router } = renderApp({ path: "/portal/account" });
+  await userEvent.click(page.getByRole("button", { name: "Back to Library" }));
+  await expect.poll(() => router.state.location.href).toBe("/library");
+  await expect
+    .element(page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");
 });
 

@@ -1,14 +1,12 @@
-import { Logout01Icon, UserCircleIcon } from "@hugeicons/core-free-icons";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { type ReactNode, useCallback, useState } from "react";
 
-import { useAccount } from "../../session/session";
-import { Menu } from "../../ui/menu";
 import { Wordmark } from "../../ui/wordmark";
-import { Avatar, useSignOut } from "../account";
+import { BrandLink } from "../brand-link";
 import { ConnectionLine } from "../connection-line";
 import { portalNav } from "../nav";
 import { barGlass } from "../phone/nav-bar";
+import { AccountMenu } from "./account-menu";
 
 export function PortalDesktop({ children }: { children: ReactNode }) {
   const [glass, setGlass] = useState(false);
@@ -35,9 +33,9 @@ function TopNav({ glass }: { glass: boolean }) {
     <header
       className={`fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-8 px-(--gutter) transition-[background-color,box-shadow] duration-(--duration-control) [view-transition-name:top-bar] ${glass ? barGlass : ""}`}
     >
-      <Link to="/portal" aria-label="SlipStream" className="rounded-item text-[19px]">
+      <BrandLink to="/portal" aria-label="SlipStream" className="rounded-item text-[19px]">
         <Wordmark />
-      </Link>
+      </BrandLink>
       <nav aria-label="Portal" className="min-w-0 flex-1">
         <ul className="flex items-center gap-1">
           {portalNav.map((row) => (
@@ -56,35 +54,5 @@ function TopNav({ glass }: { glass: boolean }) {
       <ConnectionLine />
       <AccountMenu />
     </header>
-  );
-}
-
-function AccountMenu() {
-  const { displayName } = useAccount();
-  const navigate = useNavigate();
-  const signOut = useSignOut();
-  return (
-    <Menu
-      label="Account"
-      trigger={
-        <button
-          type="button"
-          aria-label="Account"
-          className="grid size-11 place-items-center rounded-capsule hover:bg-fill"
-        >
-          <Avatar name={displayName} />
-        </button>
-      }
-      items={[
-        {
-          label: "Account",
-          icon: UserCircleIcon,
-          onSelect: () => {
-            void navigate({ to: "/portal/account" });
-          },
-        },
-        { label: "Sign out", icon: Logout01Icon, onSelect: signOut },
-      ]}
-    />
   );
 }

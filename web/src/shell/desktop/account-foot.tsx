@@ -1,11 +1,13 @@
 import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { useNavigate } from "@tanstack/react-router";
 
 import { useAccount } from "../../session/session";
 import { Menu } from "../../ui/menu";
-import { Avatar, startupLabel, useSignOut, useStartupOn } from "../account";
+import { Avatar, startupLabel, toPortal, useSignOut, useStartupOn } from "../account";
 
 export function AccountFoot({ collapsed }: { collapsed: boolean }) {
   const account = useAccount();
+  const navigate = useNavigate();
   const signOut = useSignOut();
   const [startupOn, setStartupOn] = useStartupOn();
   return (
@@ -23,6 +25,13 @@ export function AccountFoot({ collapsed }: { collapsed: boolean }) {
           </button>
         }
         items={[
+          {
+            label: toPortal.label,
+            icon: toPortal.icon,
+            onSelect: () => {
+              void navigate({ to: toPortal.to });
+            },
+          },
           {
             kind: "toggle",
             label: startupLabel,
