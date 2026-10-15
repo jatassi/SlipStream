@@ -18,7 +18,7 @@ const (
 	marrowBay = "a1000000-0000-4000-8000-000000000002"
 )
 
-const musicType = `{"id":"music","name":"Music","enabled":true,` +
+const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,` +
 	`"work":{"one":"Artist","many":"Artists"},"levels":[{"one":"Album","many":"Albums"}],"item":{"one":"Track","many":"Tracks"},` +
 	`"fields":[{"key":"country","label":"Country","tier":"work","kind":"text"},` +
 	`{"key":"released","label":"Released","tier":"level","depth":1,"kind":"date"},` +

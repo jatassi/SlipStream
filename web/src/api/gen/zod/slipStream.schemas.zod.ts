@@ -871,6 +871,7 @@ export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const WorksContentType = zod.object({
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
+  icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
   id: zod.string().regex(worksContentTypeIdRegExp),
   item: WorksNoun,
   levels: zod.array(WorksNoun).describe("Outermost first; empty when Items hang off the Work"),

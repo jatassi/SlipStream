@@ -28,6 +28,7 @@ var Def = contenttype.Define("movie", schemaFiles, nil, New)
 
 var Description = works.Description{
 	Name: "Movies",
+	Icon: works.IconFilm,
 	Work: works.Noun{One: "Movie", Many: "Movies"},
 	Item: works.Noun{One: "Movie", Many: "Movies"},
 	Fields: []works.FieldSpec{

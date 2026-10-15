@@ -1658,6 +1658,19 @@
             },
             "type": "array"
           },
+          "icon": {
+            "enum": [
+              "film",
+              "tv",
+              "note",
+              "open-book",
+              "headphones",
+              "panels",
+              "image",
+              "shapes"
+            ],
+            "type": "string"
+          },
           "id": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
@@ -1682,6 +1695,7 @@
         "required": [
           "id",
           "name",
+          "icon",
           "enabled",
           "work",
           "levels",

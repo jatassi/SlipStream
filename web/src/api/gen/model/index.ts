@@ -449,6 +449,7 @@ export * from "./worksAdded.ts";
 export * from "./worksCandidate.ts";
 export * from "./worksCandidateList.ts";
 export * from "./worksContentType.ts";
+export * from "./worksContentTypeIcon.ts";
 export * from "./worksContentTypeList.ts";
 export * from "./worksContentTypesChanged.ts";
 export * from "./worksDateValue.ts";

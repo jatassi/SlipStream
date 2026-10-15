@@ -37,12 +37,34 @@ type Catalog interface {
 
 type Description struct {
 	Name string
+	Icon Icon
 	Work Noun
 	// Levels are outermost first, empty when Items hang off the Work.
 	Levels []Noun
 	Item   Noun
 	Fields []FieldSpec
 }
+
+// Icon names the glyph that stands for a Content Type in navigation.
+type Icon uint8
+
+const (
+	IconFilm Icon = iota + 1
+	IconTV
+	IconNote
+	IconOpenBook
+	IconHeadphones
+	IconPanels
+	IconImage
+	IconShapes
+)
+
+var iconNames = map[Icon]string{
+	IconFilm: "film", IconTV: "tv", IconNote: "note", IconOpenBook: "open-book",
+	IconHeadphones: "headphones", IconPanels: "panels", IconImage: "image", IconShapes: "shapes",
+}
+
+func (i Icon) String() string { return iconNames[i] }
 
 type Noun struct {
 	One  string
