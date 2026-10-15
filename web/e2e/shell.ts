@@ -50,7 +50,5 @@ export async function signOut(page: Page): Promise<void> {
   await page.getByRole("menuitem", { name: "Sign out" }).click();
 }
 
-// A page's main action sits in the top bar in a desktop browser and at the
-// head of the content on a phone.
 export const pageAction = (page: Page, name: string) =>
   page.getByRole(isPhone(page) ? "main" : "banner").getByRole("button", { name, exact: true });

@@ -44,8 +44,7 @@ export function progressOf(grab: GrabsGrab): TrackProgress {
   return { kind: "running", stage: trackStage[grab.stage] };
 }
 
-// A failed Grab stops needing anyone once a later Grab for its Item exists.
-export function standing(grabs: readonly GrabsGrab[]): GrabsGrab[] {
+export function withoutRetriedFailures(grabs: readonly GrabsGrab[]): GrabsGrab[] {
   return grabs.filter(
     (grab) =>
       !isFailed(grab) ||

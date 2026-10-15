@@ -8,7 +8,7 @@ import { Section } from "../ui/section";
 import { type StatusPart, StatusSentence } from "../ui/status-sentence";
 import { GrabFailure, failureAnchor } from "./failure-cards";
 import { GrabTable } from "./grab-table";
-import { type FailedGrab, isFailed, standing } from "./stages";
+import { type FailedGrab, isFailed, withoutRetriedFailures } from "./stages";
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -40,7 +40,7 @@ export function ActivityBody({
   grabs: readonly GrabsGrab[];
   labels: ReadonlyMap<string, string>;
 }) {
-  const grabs = standing(all);
+  const grabs = withoutRetriedFailures(all);
   if (grabs.length === 0) {
     return (
       <Empty

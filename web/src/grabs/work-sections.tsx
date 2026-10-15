@@ -7,7 +7,7 @@ import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
-import { isFailed, standing } from "./stages";
+import { isFailed, withoutRetriedFailures } from "./stages";
 
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
   grabbed: "Grabbed a release",
@@ -68,7 +68,9 @@ export function Searches({ workId }: { workId: string }) {
 }
 
 function useWorkGrabs(workId: string) {
-  return standing(useListGrabsSuspense().data.grabs.filter((grab) => grab.workId === workId));
+  return withoutRetriedFailures(
+    useListGrabsSuspense().data.grabs.filter((grab) => grab.workId === workId),
+  );
 }
 
 export function NeedsYou({ workId, work }: { workId: string; work: string }) {
