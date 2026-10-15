@@ -149,8 +149,12 @@ func smokeMSI(ctx context.Context, r *Run, files []string) error {
 	if err := r.launch(ctx, trampoline); err != nil {
 		return fmt.Errorf("a second launch: %w", err)
 	}
-	if again, err := r.statusOf(ctx, slipstream, "status"); err != nil || again.PID != st.PID {
-		return fmt.Errorf("after a second launch the Node is PID %d (%w), want %d", again.PID, err, st.PID)
+	again, err := r.statusOf(ctx, slipstream, "status")
+	if err != nil {
+		return err
+	}
+	if again.PID != st.PID {
+		return fmt.Errorf("after a second launch the Node is PID %d, want %d", again.PID, st.PID)
 	}
 	if _, err := r.must(ctx, nil, slipstream, "stop"); err != nil {
 		return err

@@ -226,11 +226,14 @@ func awaitReady(ctx context.Context, what string, read func() (string, error)) (
 			}
 		}
 		if time.Now().After(deadline) {
-			return logged{}, fmt.Errorf("no ready record in %s within %s (last read: %w)", what, waitFor, err)
+			if err != nil {
+				return logged{}, fmt.Errorf("no ready record in %s within %s: %w", what, waitFor, err)
+			}
+			return logged{}, fmt.Errorf("no ready record in %s within %s", what, waitFor)
 		}
 		select {
 		case <-ctx.Done():
-			return logged{}, fmt.Errorf("wait for %s: %w", what, ctx.Err())
+			return logged{}, fmt.Errorf("wait for %s: %w", what, context.Cause(ctx))
 		case <-time.After(time.Second):
 		}
 	}
@@ -272,11 +275,14 @@ func awaitFile(ctx context.Context, path, want string) error {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("%s does not hold %q within %s (read %q, %w)", path, want, waitFor, b, err)
+			if err != nil {
+				return fmt.Errorf("%s does not hold %q within %s: %w", path, want, waitFor, err)
+			}
+			return fmt.Errorf("%s does not hold %q within %s; it holds %q", path, want, waitFor, b)
 		}
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("wait for %s: %w", path, ctx.Err())
+			return fmt.Errorf("wait for %s: %w", path, context.Cause(ctx))
 		case <-time.After(time.Second):
 		}
 	}

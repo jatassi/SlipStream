@@ -55,23 +55,25 @@ type system struct {
 // service owned by the slipstream user, a root host command is refused,
 // and removing it stops the service and keeps the data.
 func (r *Run) smokeService(ctx context.Context, s system, k install.Kind) error {
-	if res, err := r.exec(ctx, nil, s.root(s.install...)...); err != nil || res.code != 0 {
-		return fmt.Errorf("install: %s, %w", res, err)
+	// The journal outlives the package, so only this install's records count.
+	since := "@" + strconv.FormatInt(time.Now().Unix(), 10)
+	if _, err := r.must(ctx, nil, s.root(s.install...)...); err != nil {
+		return err
 	}
-	if res, err := r.exec(ctx, nil, s.root("systemctl", "is-active", install.UnitName)...); err != nil || strings.TrimSpace(res.stdout) != "active" {
-		return fmt.Errorf("after install, %s is %q (%w), want active", install.UnitName, strings.TrimSpace(res.stdout), err)
+	res, err := r.exec(ctx, nil, s.root("systemctl", "is-active", install.UnitName)...)
+	if err != nil {
+		return err
+	}
+	if state := strings.TrimSpace(res.stdout); state != "active" {
+		return fmt.Errorf("after install, %s is %q, want active", install.UnitName, state)
 	}
 	if _, err := awaitReady(ctx, "journalctl -u slipstream", func() (string, error) {
-		res, err := r.exec(ctx, nil, s.root("journalctl", "-u", install.UnitName, "-o", "cat", "--no-pager")...)
+		res, err := r.exec(ctx, nil, s.root("journalctl", "-u", install.UnitName, "--since", since, "-o", "cat", "--no-pager")...)
 		return res.stdout, err
 	}); err != nil {
 		return err
 	}
-	res, err := r.exec(ctx, nil, s.as(install.SystemUser, install.Executable, "status")...)
-	if err != nil || res.code != 0 {
-		return fmt.Errorf("status as %s: %s, %w", install.SystemUser, res, err)
-	}
-	st, err := parseStatus(res.stdout)
+	st, err := r.statusOf(ctx, s.as(install.SystemUser, install.Executable, "status")...)
 	if err != nil {
 		return err
 	}
@@ -83,12 +85,15 @@ func (r *Run) smokeService(ctx context.Context, s system, k install.Kind) error 
 		return err
 	}
 	res, err = r.exec(ctx, nil, s.root(install.Executable, "join", code)...)
-	owner := "data dir /var/lib/slipstream belongs to slipstream; run: sudo -u slipstream slipstream join ..."
-	if err != nil || res.code != 3 || !strings.Contains(res.stderr, owner) {
-		return fmt.Errorf("join as root: %s, %w; want exit 3 and %q", res, err, owner)
+	if err != nil {
+		return err
 	}
-	if res, err := r.exec(ctx, nil, s.root(s.remove...)...); err != nil || res.code != 0 {
-		return fmt.Errorf("remove: %s, %w", res, err)
+	owner := "data dir /var/lib/slipstream belongs to slipstream; run: sudo -u slipstream slipstream join ..."
+	if res.code != 3 || !strings.Contains(res.stderr, owner) {
+		return fmt.Errorf("join as root: %s; want exit 3 and %q", res, owner)
+	}
+	if _, err := r.must(ctx, nil, s.root(s.remove...)...); err != nil {
+		return err
 	}
 	if res, _ := r.exec(ctx, nil, s.root("systemctl", "is-active", install.UnitName)...); strings.TrimSpace(res.stdout) == "active" {
 		return fmt.Errorf("after remove, %s is still active", install.UnitName)
@@ -146,8 +151,8 @@ func smokeRPM(ctx context.Context, r *Run, files []string) error {
 	}
 	defer r.tidy(context.WithoutCancel(ctx), "docker", "rm", "-f", rpmContainer)
 	in := func(args ...string) []string { return append([]string{"docker", "exec", rpmContainer}, args...) }
-	if res, err := r.exec(ctx, nil, in("systemctl", "is-system-running", "--wait")...); err != nil || res.code > 1 {
-		return fmt.Errorf("systemd in the container: %s, %w", res, err)
+	if err := r.awaitSystemd(ctx, in); err != nil {
+		return err
 	}
 	return r.smokeService(ctx, system{
 		root: in,
@@ -157,6 +162,32 @@ func smokeRPM(ctx context.Context, r *Run, files []string) error {
 		install: []string{"dnf", "install", "-y", "/pkg/" + filepath.Base(rpm)},
 		remove:  []string{"dnf", "remove", "-y", install.Executable},
 	}, install.RPM)
+}
+
+// awaitSystemd waits for the container's systemd to finish booting. Its
+// bus is missing for the first moments, so is-system-running --wait alone
+// can fail before it waits.
+func (r *Run) awaitSystemd(ctx context.Context, in func(args ...string) []string) error {
+	deadline := time.Now().Add(waitFor)
+	for {
+		res, err := r.exec(ctx, nil, in("systemctl", "is-system-running", "--wait")...)
+		if err != nil {
+			return err
+		}
+		// A container's missing devices leave systemd degraded, which is enough.
+		state := strings.TrimSpace(res.stdout)
+		if state == "running" || state == "degraded" {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("systemd in the container is %q after %s, want running", state, waitFor)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for systemd in the container: %w", ctx.Err())
+		case <-time.After(time.Second):
+		}
+	}
 }
 
 // userSession gives the smoke what a person's login session has: a
@@ -337,8 +368,11 @@ func (r *Run) smokeUserServiceUnit(ctx context.Context, env []string, image stri
 		return err
 	}
 	unit, err := os.ReadFile(unitPath)
-	if want := install.UserUnit(image, dataDir); err != nil || string(unit) != want {
-		return fmt.Errorf("the AppImage's unit is %q (%w), want %q", unit, err, want)
+	if err != nil {
+		return fmt.Errorf("read the AppImage's unit: %w", err)
+	}
+	if want := install.UserUnit(image, dataDir); string(unit) != want {
+		return fmt.Errorf("the AppImage's unit is %q, want %q", unit, want)
 	}
 	_, err = r.must(ctx, env, image, "service", "uninstall", "--user")
 	return err
@@ -371,11 +405,22 @@ func (r *Run) smokeBrowserOpen(ctx context.Context, exe string) error {
 	if err := app.Start(); err != nil {
 		return fmt.Errorf("start %s app: %w", exe, err)
 	}
+	// An app that exits early fails the waits at once, naming its exit.
+	running, exitedEarly := context.WithCancelCause(ctx)
+	defer exitedEarly(nil)
 	exited := make(chan error, 1)
-	go func() { exited <- app.Wait() }()
-	l, err := awaitReady(ctx, dataDir, readFile(filepath.Join(dataDir, "logs", "slipstream.log")))
+	go func() {
+		err := app.Wait()
+		exited <- err
+		cause := fmt.Errorf("%s app exited 0 before the smoke stopped it", exe)
+		if err != nil {
+			cause = fmt.Errorf("%s app exited: %w", exe, err)
+		}
+		exitedEarly(cause)
+	}()
+	l, err := awaitReady(running, dataDir, readFile(filepath.Join(dataDir, "logs", "slipstream.log")))
 	if err == nil {
-		err = awaitFile(ctx, opened, l.setupURL)
+		err = awaitFile(running, opened, l.setupURL)
 	}
 	if err == nil && !strings.Contains(l.setupURL, "/setup#code="+l.setupCode) {
 		err = fmt.Errorf("the setup page record holds %q, not the ready line's code %s", l.setupURL, l.setupCode)
