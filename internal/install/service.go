@@ -2,6 +2,7 @@ package install
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // Step is one action of a user service plan. A plan is pure, so it is
@@ -26,11 +27,18 @@ func systemctl(args ...string) Command {
 	return Command{Args: append([]string{"systemctl", "--user"}, args...)}
 }
 
+// Linger is whether systemd keeps a user's services running while the
+// user has no login session.
+type Linger struct {
+	UID int
+	On  bool
+}
+
 // UserServiceInstall plans service install --user: the unit runs k's
 // binary on dataDir, an absolute path. current is the unit file there now,
 // nil when there is none. A rerun with an identical unit rewrites and
 // restarts nothing, and still starts a unit someone stopped.
-func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte) ([]Step, error) {
+func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte, linger Linger) ([]Step, error) {
 	p, err := UserUnitPath(k, l)
 	if err != nil {
 		return nil, err
@@ -48,7 +56,14 @@ func UserServiceInstall(k Kind, l Layout, dataDir string, current []byte) ([]Ste
 	if current == nil || string(current) != unit {
 		steps = []Step{WriteFile{Path: p, Content: unit}, systemctl("daemon-reload"), systemctl("enable", UnitName), systemctl("restart", UnitName)}
 	}
-	return append(steps, Command{Args: []string{"loginctl", "enable-linger"}}, AwaitRunning{}), nil
+	// logind asks polkit even when linger is already on, and polkit refuses
+	// a caller with no login session, such as cron or a CI runner. Without
+	// a user, loginctl names the caller's session's user, so it names the
+	// UID.
+	if !linger.On {
+		steps = append(steps, Command{Args: []string{"loginctl", "enable-linger", strconv.Itoa(linger.UID)}})
+	}
+	return append(steps, AwaitRunning{}), nil
 }
 
 // UserServiceUninstall plans service uninstall --user. exists reports
