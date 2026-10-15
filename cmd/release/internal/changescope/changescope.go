@@ -45,12 +45,16 @@ func Of(changes []nativetouch.Change) Scope {
 }
 
 // inertRoots name paths no CI check reads, and a path belongs here only while
-// that holds. docs/parity-matrix.md is the exception: the parity-owners lint
-// reads it.
-var inertRoots = []string{"docs/", ".agents/", ".claude/", ".grok/", ".impeccable/", "brand/"}
+// that holds. readByChecks are the exceptions: the parity-owners lint reads
+// docs/parity-matrix.md, and the tokens generated and contrast checks read
+// DESIGN.md.
+var (
+	inertRoots   = []string{"docs/", ".agents/", ".claude/", ".grok/"}
+	readByChecks = []string{"docs/parity-matrix.md", "DESIGN.md"}
+)
 
 func inert(p string) bool {
-	if p == "docs/parity-matrix.md" {
+	if slices.Contains(readByChecks, p) {
 		return false
 	}
 	if !strings.Contains(p, "/") && strings.HasSuffix(p, ".md") {
