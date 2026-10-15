@@ -45,14 +45,40 @@ test("a new tab plays the startup sequence over a working page until a key skips
   await expect(sequence).toHaveCount(0);
 });
 
+// The lockup holds for 600ms, which a few protocol round trips on a loaded
+// engine outlast, so the page compares two frames of the drawn lockup itself.
 test("under reduced motion the finished lockup holds still, then leaves", async ({ page }) => {
   const sequence = sequenceOf(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/sign-in");
   await expect(sequence).toBeVisible();
 
-  const first = await drawing(page);
-  expect(await drawing(page)).toBe(first);
+  const frames = await sequence.evaluate(async (stage) => {
+    await new Promise((resolve) => {
+      new MutationObserver((_, observer) => {
+        observer.disconnect();
+        resolve(undefined);
+      }).observe(stage, { childList: true });
+      if (stage.childElementCount > 0) {
+        resolve(undefined);
+      }
+    });
+    await document.fonts.ready;
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve);
+      });
+    });
+    const first = stage.innerHTML;
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve);
+      });
+    });
+    return [first, stage.innerHTML];
+  });
+  expect(frames[0]).not.toBe("");
+  expect(frames[1]).toBe(frames[0]);
   await expect(sequence).toBeHidden({ timeout: 2000 });
 });
 
