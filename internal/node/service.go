@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/install"
@@ -55,7 +57,7 @@ func installUserService(env Env, layout install.Layout) int {
 	current, err := readUnit(env.Install, layout)
 	var steps []install.Step
 	if err == nil {
-		steps, err = install.UserServiceInstall(env.Install, layout, env.DataDir.Path(), current)
+		steps, err = install.UserServiceInstall(env.Install, layout, env.DataDir.Path(), current, lingerOf(os.Getuid()))
 	}
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "slipstream service install: %v\n", err)
@@ -87,6 +89,13 @@ func uninstallUserService(env Env, layout install.Layout) int {
 	}
 	fmt.Println("slipstream service removed; linger stays on, and loginctl disable-linger turns it off")
 	return ExitOK
+}
+
+// lingerOf asks logind whether uid lingers. logind knows no user that has
+// neither a session nor linger, so a failed query means off.
+func lingerOf(uid int) install.Linger {
+	out, err := exec.CommandContext(context.Background(), "loginctl", "show-user", strconv.Itoa(uid), "--property=Linger", "--value").Output() //nolint:gosec // G204: a UID, from this process
+	return install.Linger{UID: uid, On: err == nil && strings.TrimSpace(string(out)) == "yes"}
 }
 
 // readUnit is the user unit file there now, or nil when there is none.

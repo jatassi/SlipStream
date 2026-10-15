@@ -93,6 +93,33 @@ type Tool struct {
 	Programs []string `json:"programs"`
 	// Archives maps each target name to the URL of its archive.
 	Archives map[string]string `json:"archives"`
+	// SourceArchive is the published source of Version, which a release
+	// ships beside its packages to meet a copyleft license's source offer.
+	SourceArchive *Download `json:"source_archive,omitempty"`
+	// Debian is the tool as Debian packages, which the Docker image
+	// installs in place of the archive.
+	Debian *DebianTool `json:"debian,omitempty"`
+}
+
+// DebianTool is a tool's Debian package for each Linux target, which
+// installs Programs into Dir.
+type DebianTool struct {
+	Dir      string              `json:"dir"`
+	Packages map[string]Download `json:"packages"`
+}
+
+// Download is a file pinned by its content.
+type Download struct {
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
+}
+
+// Packager is a program the release runs to build a package, never ships.
+type Packager struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Target  string `json:"target"`
+	Download
 }
 
 type Inputs struct {
@@ -100,6 +127,7 @@ type Inputs struct {
 	Toolchains []Toolchain `json:"toolchains"`
 	Components []Component `json:"components"`
 	Tools      []Tool      `json:"tools"`
+	Packagers  []Packager  `json:"packagers"`
 }
 
 func LoadInputs(path string) (Inputs, error) {
@@ -148,7 +176,53 @@ func ParseInputs(data []byte) (Inputs, error) {
 	if err := in.checkTools(); err != nil {
 		return Inputs{}, err
 	}
+	if err := in.checkDownloads(); err != nil {
+		return Inputs{}, err
+	}
 	return in, nil
+}
+
+func (in Inputs) checkDownloads() error {
+	var downloads []Source
+	for _, tool := range in.Tools {
+		if tool.SourceArchive != nil {
+			downloads = append(downloads, Source{Name: tool.Name + " source", URL: tool.SourceArchive.URL, SHA256: tool.SourceArchive.SHA256})
+		}
+		if tool.Debian == nil {
+			continue
+		}
+		for target, d := range tool.Debian.Packages {
+			if _, err := in.Target(target); err != nil {
+				return fmt.Errorf("native inputs: tool %s: Debian package for %w", tool.Name, err)
+			}
+			downloads = append(downloads, Source{Name: tool.Name + " Debian package for " + target, URL: d.URL, SHA256: d.SHA256})
+		}
+	}
+	for _, p := range in.Packagers {
+		if _, err := in.Target(p.Target); err != nil {
+			return fmt.Errorf("native inputs: packager %s: %w", p.Name, err)
+		}
+		downloads = append(downloads, Source{Name: p.Name, URL: p.URL, SHA256: p.SHA256})
+	}
+	return checkDigests(downloads)
+}
+
+func (in Inputs) Tool(name string) (Tool, error) {
+	for _, t := range in.Tools {
+		if t.Name == name {
+			return t, nil
+		}
+	}
+	return Tool{}, fmt.Errorf("native inputs list no tool %q", name)
+}
+
+func (in Inputs) Packager(name, target string) (Packager, error) {
+	for _, p := range in.Packagers {
+		if p.Name == name && p.Target == target {
+			return p, nil
+		}
+	}
+	return Packager{}, fmt.Errorf("native inputs list no packager %s for %s", name, target)
 }
 
 func (in Inputs) checkTools() error {

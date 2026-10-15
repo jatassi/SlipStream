@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+if [ "$(id -u)" != 0 ]; then
+	exec {{.Dir}}/{{.Executable}} "$@"
+fi
+groupmod -o -g "${PGID:-1000}" {{.User}}
+usermod -o -u "${PUID:-1000}" {{.User}}
+for dev in /dev/dri/renderD*; do
+	[ -e "$dev" ] || continue
+	gid=$(stat -c %g "$dev")
+	group=$(getent group "$gid" | cut -d : -f 1)
+	if [ -z "$group" ]; then
+		group=render$gid
+		groupadd -g "$gid" "$group"
+	fi
+	usermod -a -G "$group" {{.User}}
+done
+if [ "$(stat -c %u /config)" = 0 ] && [ -z "$(ls -A /config)" ]; then
+	chown {{.User}}:{{.User}} /config
+fi
+exec setpriv --reuid={{.User}} --regid={{.User}} --init-groups {{.Dir}}/{{.Executable}} "$@"

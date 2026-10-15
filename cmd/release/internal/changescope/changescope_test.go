@@ -117,3 +117,25 @@ func TestOnline(t *testing.T) {
 		}
 	}
 }
+
+func TestPackaging(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		changes []nativetouch.Change
+		want    bool
+	}{
+		{"elsewhere", []nativetouch.Change{modified("internal/works/works.go"), modified("cmd/release/plan.go")}, false},
+		{"an install kind", []nativetouch.Change{modified("internal/install/kind.go")}, true},
+		{"the tray", []nativetouch.Change{added("internal/node/internal/desktop/tray_windows.go")}, true},
+		{"the trampoline", []nativetouch.Change{modified("cmd/slipstream-app/main.go")}, true},
+		{"a template", []nativetouch.Change{modified("cmd/release/internal/pack/templates/SlipStream.wxs")}, true},
+		{"a smoke", []nativetouch.Change{modified("cmd/release/internal/smoke/linux.go")}, true},
+		{"the package command", []nativetouch.Change{modified("cmd/release/package.go")}, true},
+		{"the WiX pin", []nativetouch.Change{modified(".config/dotnet-tools.json")}, true},
+		{"a tool pin", []nativetouch.Change{modified("native/inputs.json")}, true},
+	} {
+		if got := Packaging(c.changes); got != c.want {
+			t.Errorf("%s: Packaging = %t, want %t", c.name, got, c.want)
+		}
+	}
+}

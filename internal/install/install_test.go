@@ -203,7 +203,8 @@ var tarball = Layout{GOOS: "linux", Executable: "/home/ana/slipstream-1.0.0/slip
 
 func TestUserServiceInstallPlan(t *testing.T) {
 	const unitPath = "/home/ana/.config/systemd/user/slipstream.service"
-	linger := Command{Args: []string{"loginctl", "enable-linger"}}
+	linger := Command{Args: []string{"loginctl", "enable-linger", "1000"}}
+	off := Linger{UID: 1000}
 	written := func(path, unit string) []Step {
 		return []Step{
 			WriteFile{Path: path, Content: unit},
@@ -233,20 +234,32 @@ func TestUserServiceInstallPlan(t *testing.T) {
 		{"changed unit", Tarball, tarball, []byte(strings.Replace(tarballUnit, "slipstream2", "old", 1)), written(unitPath, tarballUnit)},
 		{"appimage", AppImage, appImage, nil, written("/cfg/systemd/user/slipstream.service", appImageUnit)},
 	} {
-		got, err := UserServiceInstall(tc.kind, tc.l, "/home/ana/.local/share/slipstream2", tc.current)
+		got, err := UserServiceInstall(tc.kind, tc.l, "/home/ana/.local/share/slipstream2", tc.current, off)
 		if err != nil || !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%s: %#v, %v\nwant %#v", tc.name, got, err, tc.want)
 		}
 	}
 }
 
+func TestUserServiceInstallLeavesLingerOnAlone(t *testing.T) {
+	got, err := UserServiceInstall(Tarball, tarball, "/home/ana/.local/share/slipstream2", []byte(tarballUnit), Linger{UID: 1000, On: true})
+	want := []Step{
+		Command{Args: []string{"systemctl", "--user", "daemon-reload"}},
+		Command{Args: []string{"systemctl", "--user", "enable", "--now", "slipstream.service"}},
+		AwaitRunning{},
+	}
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("%#v, %v\nwant %#v", got, err, want)
+	}
+}
+
 func TestUserServiceIsForSelfInstalledKindsOnly(t *testing.T) {
-	_, err := UserServiceInstall(Deb, tarball, "/var/lib/slipstream", nil)
+	_, err := UserServiceInstall(Deb, tarball, "/var/lib/slipstream", nil, Linger{})
 	if want := "a user service is for a tarball or AppImage install, and this is a deb install"; err == nil || err.Error() != want {
 		t.Fatalf("deb: %v, want %s", err, want)
 	}
 	noAppImage := Layout{GOOS: "linux", Executable: "/tmp/.mount_x/usr/bin/slipstream", Environ: []string{"HOME=/home/ana"}}
-	_, err = UserServiceInstall(AppImage, noAppImage, "/d", nil)
+	_, err = UserServiceInstall(AppImage, noAppImage, "/d", nil, Linger{})
 	if want := `APPIMAGE is "", not an absolute path: start service install --user from the AppImage`; err == nil || err.Error() != want {
 		t.Fatalf("appimage without APPIMAGE: %v, want %s", err, want)
 	}

@@ -7,13 +7,22 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/jatassi/slipstream/internal/install"
 )
 
-// The floor is what the bundled ffmpeg needs (#93 Q18).
 var (
-	glibcFloor  = version{2, 28}
-	kernelFloor = version{4, 18}
+	glibcFloor  = mustVersion(install.GlibcFloor)
+	kernelFloor = mustVersion(install.KernelFloor)
 )
+
+func mustVersion(s string) version {
+	v, err := parseVersion(s)
+	if err != nil {
+		panic("host: " + err.Error())
+	}
+	return v
+}
 
 // BelowFloor names each part of the host older than the floor, or that it
 // cannot read. The binary is static, so glibc's version comes from the

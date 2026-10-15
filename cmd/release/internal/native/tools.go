@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bufio"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -100,29 +101,31 @@ func PinTools(ctx context.Context, archives []ToolArchive) ([]PinnedTool, error)
 	return pinned, nil
 }
 
-// extractTool extracts the regular files of a .tar.xz or .zip archive, as
-// url names it, into dir.
+// extractTool extracts the regular files of a .tar.xz, .tar.gz or .zip
+// archive, as url names it, into dir.
 func extractTool(archive, url, dir string) error {
 	switch {
 	case strings.HasSuffix(url, ".tar.xz"):
-		return extractTarXZ(archive, dir)
+		return extractTar(archive, dir, func(r io.Reader) (io.Reader, error) { return xz.NewReader(r) })
+	case strings.HasSuffix(url, ".tar.gz"):
+		return extractTar(archive, dir, func(r io.Reader) (io.Reader, error) { return gzip.NewReader(r) })
 	case strings.HasSuffix(url, ".zip"):
 		return extractZip(archive, dir)
 	}
-	return fmt.Errorf("%s is neither a .tar.xz nor a .zip archive", url)
+	return fmt.Errorf("%s is neither a .tar.xz, a .tar.gz nor a .zip archive", url)
 }
 
-func extractTarXZ(archive, dir string) error {
+func extractTar(archive, dir string, decompress func(io.Reader) (io.Reader, error)) error {
 	f, err := os.Open(archive)
 	if err != nil {
 		return fmt.Errorf("open the tool archive: %w", err)
 	}
 	defer func() { _ = f.Close() }()
-	xr, err := xz.NewReader(bufio.NewReader(f))
+	dr, err := decompress(bufio.NewReader(f))
 	if err != nil {
 		return fmt.Errorf("%s: %w", archive, err)
 	}
-	tr := tar.NewReader(xr)
+	tr := tar.NewReader(dr)
 	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
