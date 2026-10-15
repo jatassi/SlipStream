@@ -5,14 +5,14 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 ## Sub-features
 
 - `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` in `home`), Activity, a separator and This Node, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
-- `shell-current-page` the current row carries `aria-current="page"`, and the breadcrumb's last item names the page (P-001).
+- `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the breadcrumb's last item names the page; a Work and Add sit under `Library` › `Movies` (P-001).
 - `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001).
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
 - `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` on the Library, and `Add a Movie` is a link on the Movies library.
-- `shell-account-menu` `Account` at the sidebar's foot opens a menu with the `Startup sequence` checkbox and `Sign out`.
+- `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox and `Sign out`.
 - `shell-tab-bar` the phone's tab bar `Tabs` holds `Library`, `Activity`, `Search` and `More` (P-004).
-- `shell-more-sheet` `More` opens the sheet `More` with This Node, the Admin's name, `Sign out`, `Startup sequence`, `SlipStream <version>` and `Cancel` (P-005).
-- `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled `Library`; a menu opens as an action sheet (P-016).
+- `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), This Node, the Admin's name, `Open the portal`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
+- `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`); a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing part of a Work's name lists it under Works, Enter opens it, and Esc returns focus where it was.
 - `shell-palette-commands` with no query the palette lists Go to each nav row and Content Type, `Add a Movie`, `Toggle sidebar` (desktop shell only) and `Sign out`.
 - `shell-palette-empty` an unmatched query reads `Nothing matches "volcano". Try a Work's name, or a command such as Add a Movie.`
@@ -22,20 +22,20 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-route-error` with the Controller down, a page that fails to load says `SlipStream isn't answering. Check that it's running, then try again.` inside the standing shell, `Details` shows the message, and `Try again` loads the page once the Controller is back (P-015).
 - `shell-not-found` a dead address such as `/nowhere` reads `There's nothing at this address.` with `Go to Library`, inside the shell.
 - `shell-brand` the sidebar carries the Two Nodes mark and wordmark, and the page links the mark as its favicon with `theme-color` `#0c0d0e` (P-017).
-- `shell-portal` `/portal` shows the portal shell: in a desktop browser a top nav `Portal` with Home, Search, Requests and Account and an `Account` menu; on phone a tab bar `Tabs` with the same four.
+- `shell-portal` `/portal` shows the portal shell: in a desktop browser a top nav `Portal` with Home, Search, Requests and Account and an `Account` menu; on phone a tab bar `Tabs` with the same four. An Admin opens it from `Open the portal` and returns through `Back to Library` in the portal's `Account` menu or on its Account page (story 40).
 - `startup-plays` a new tab plays the startup sequence, an image named `SlipStream`, over the page while it loads.
 - `startup-skip` any key, click or tap ends it at once, and a reload in the same tab doesn't replay it.
 - `startup-off` unchecking `Startup sequence` stores `slipstream.startupOff` in this browser, and the next new tab opens with no sequence.
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's rows (`Library`, `Movies`, `Activity`, `This Node`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Startup sequence` and `Sign out`.
+- Desktop shell: the sidebar's rows (`Library`, `Movies`, `Activity`, `This Node`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Open the portal`, `Startup sequence` and `Sign out`.
 - Desktop shell: the top bar's breadcrumbs, the capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and the page's action at the right (`Add` on the Library).
 - Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies`, `Go to Activity`, `Go to This Node`, `Add a Movie`, `Toggle sidebar` and `Sign out`.
-- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding This Node, `Sign out` and `Startup sequence`).
-- Phone shell: the large title's `Search` button opens the palette and its `Account` button opens the More sheet; a pushed page's back link names the tab it came from.
+- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, This Node, `Open the portal`, `Sign out` and `Startup sequence`).
+- Phone shell: the large title's `Search` button opens the palette and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
 - Both shells: `/` redirects to `/library`, and any address the app doesn't know shows the not-found page.
-- Both shells: the portal at `/portal`, which an Admin reaches only by address; nothing in the Admin shell links to it.
+- Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Library`.
 - The startup sequence: any new tab or window on the Controller, signed in or not. Verify sessions open past it; the recipe below opens one that plays it.
 - API: `GET /api/v1/counts` gives the Activity count, `GET /api/v1/content-types` the Library's children, and `GET /api/v1/system` the More sheet's version.
 
@@ -113,7 +113,7 @@ Steps:
   $FW exec $RUN --proof shell/shell-palette -- $PW cli -s={runId}-admin-desktop eval 'location.pathname'
   ```
 
-- **Use the page action and the account menu.** On the Library, `Add` opens the menu `Add a Work` with `Add a Movie`. On `Movies` the action is the link `Add a Movie`, under the breadcrumbs `Library` › `Movies`. `Account` opens `Startup sequence` and `Sign out`.
+- **Use the page action and the account menu.** On the Library, `Add` opens the menu `Add a Work` with `Add a Movie`. On `Movies` the action is the link `Add a Movie`, under the breadcrumbs `Library` › `Movies`. `Account` opens `Open the portal`, `Startup sequence` and `Sign out`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
@@ -153,7 +153,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone press Escape
   ```
 
-- **Open More.** Choose `More`. The sheet lists `This Node`, `Ada Okafor`, `Sign out`, `Startup sequence`, `SlipStream <version>` and `Cancel`. Choosing `This Node` closes it and opens `/system`.
+- **Open More.** Choose `More`. The sheet lists `Movies`, `This Node`, `Ada Okafor`, `Open the portal`, `Sign out`, the switch `Startup sequence`, `SlipStream <version>` and `Cancel`. Choosing `This Node` closes it and opens `/system`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("button", { name: "More" })'
@@ -170,14 +170,14 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("dialog").getByRole("button", { name: "Cancel" })'
   ```
 
-- **Push a page.** From the `Library` tab, open The Quiet Orchard. The nav bar shows the back link `Library` and the heading `The Quiet Orchard`; the back link returns to `/library`.
+- **Push a page.** From the `Library` tab, open The Quiet Orchard. The nav bar shows the back link `Movies` and the heading `The Quiet Orchard`; the back link returns to `/library/movie`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Library" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("main").getByRole("link", { name: "The Quiet Orchard" })'
   $FW exec $RUN --proof shell/shell-phone-pages -- $PW cli -s={runId}-admin-phone snapshot 'getByRole("banner")' --filename={runDir}/proof/shell/shell-phone-pages/pushed.aria.yml
   $FW exec $RUN --proof shell/shell-phone-pages -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/shell/shell-phone-pages/pushed.png
-  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("banner").getByRole("link", { name: "Library" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("banner").getByRole("link", { name: "Movies" })'
   ```
 
 - **Watch the Activity count.** Hold the swarm and search the Work, as in [search-and-grab.md](search-and-grab.md). The sidebar row reads `Activity 1 live` and the phone tab `Activity 1`; once the throttle clears and the Grab imports, the row reads `Activity` again.
@@ -194,13 +194,19 @@ Steps:
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity", exact: true }).waitFor({ timeout: 120000 }); }'
   ```
 
-- **Open the portal.** Go to `/portal` in each session. The desktop shows the top nav `Portal` and the heading `Home`; the phone shows the tab bar `Tabs` with `Home`, `Search`, `Requests` and `Account`.
+- **Open the portal.** On the desktop, `Account` › `Open the portal`; on the phone, `More` › `Open the portal`. The desktop shows the top nav `Portal` and the heading `Home`; the phone shows the tab bar `Tabs` with `Home`, `Search`, `Requests` and `Account`. `Back to Library` in the desktop's `Account` menu, and on the phone's `Account` tab, returns to `/library`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/portal'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Account" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Open the portal" })'
   $FW exec $RUN --proof shell/shell-portal -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-portal/desktop.png
-  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/portal'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("button", { name: "More" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("dialog", { name: "More" }).getByRole("button", { name: "Open the portal" })'
   $FW exec $RUN --proof shell/shell-portal -- $PW cli -s={runId}-admin-phone snapshot --filename={runDir}/proof/shell/shell-portal/phone.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Account" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Back to Library" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Account" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("main").getByRole("button", { name: "Back to Library" })'
   ```
 
 - **Play the startup sequence.** Write a config without the init script, open a session from it, and go to the Library. The image `SlipStream` covers the page; Shift ends it, a reload doesn't replay it, and a new tab plays it again. Unchecking `Startup sequence` in `Account` stops the next new tab from playing it.
@@ -245,11 +251,10 @@ Steps:
 ## Gotchas
 
 - `getByRole("button", { name: "Search" })` also matches the capsule `Search Works or run a command` on desktop and the large title's and tab bar's `Search` on phone. Scope it to `getByRole("main")` with `exact: true` for a page's own Search.
-- On phone, two links read `Library` on a pushed page: the back link and the tab. Scope them to `getByRole("banner")` or `getByRole("navigation", { name: "Tabs" })`.
+- On phone, the back link and a tab can share a name (`Library` above `/add` with no Content Type). Scope them to `getByRole("banner")` or `getByRole("navigation", { name: "Tabs" })`.
 - A nav row's accessible name carries its count, as in `Activity 1 live`. `name: "Activity"` matches either; `exact: true` matches only the row with no count.
 - The rail's tooltips have no `tooltip` role; wait for the label's text in the `[data-side=right]` popup.
 - Ctrl+K opens the palette on Linux and Windows; on macOS it's `Meta+k`, and the capsule shows `⌘K`.
 - Verify sessions start past the startup sequence through the config's init script, so `startup-*` needs the separate config above. The init script runs on every navigation and every new tab of its session, so neither a reload nor `sessionstorage-delete` brings the sequence back there.
 - The phone's large title collapses into the nav bar only once the page scrolls; a page shorter than the screen never collapses.
-- An Admin reaches `/portal` only by typing the address; nothing in the Admin shell or the palette links there.
 - Killing the Controller drops the seedbox's link; doctor's check 3 reads `node seedbox's link is down, not up` until it reconnects.

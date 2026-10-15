@@ -15,7 +15,7 @@ An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Library`, a Work's link, then the `Search` button on the Work page; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name.
-- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Library`), then `Search`; or the `Search` tab's palette.
+- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Movies`), then `Search`; or the `Search` tab's palette.
 - Desktop shell: the sidebar's `Activity`, which reads `Activity 1 live` while a Grab moves. Phone shell: the `Activity` tab, badged with the same count.
 - API: `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs`.
 
