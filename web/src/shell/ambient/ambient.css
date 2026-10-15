@@ -1,0 +1,35 @@
+:root {
+  transition:
+    --h var(--duration-ambient) var(--ease-standard),
+    --s var(--duration-ambient) var(--ease-standard);
+}
+
+[data-ambient-backdrop] {
+  transition:
+    opacity var(--duration-ambient) var(--ease-standard),
+    scale var(--duration-backdrop-settle) var(--ease-standard);
+}
+
+@starting-style {
+  [data-ambient-backdrop] {
+    opacity: 0;
+    scale: 1.04;
+  }
+}
+
+[data-ambient-backdrop="leaving"] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  [data-ambient-backdrop] {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  [data-ambient-backdrop] {
+    display: none;
+  }
+}
