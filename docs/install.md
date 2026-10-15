@@ -25,7 +25,7 @@ Each Node keeps its database, settings and logs in one data dir. Removing or uni
 2. If Windows shows **Windows protected your PC**, choose **More info**, then **Run anyway**. Windows shows this prompt because the release is not yet code-signed.
 3. Keep **Launch SlipStream** ticked on the last page. SlipStream appears in the tray, and your browser opens at the setup page.
 
-The installer puts SlipStream in `%LOCALAPPDATA%\Programs\SlipStream` and adds that folder to your PATH. It adds a Start menu entry, and a Desktop shortcut only if you tick it. SlipStream starts when you sign in. To stop that, untick **Start at login** in the tray menu.
+The installer puts SlipStream in `%LOCALAPPDATA%\Programs\SlipStream` and adds that folder to your PATH. It adds a Start menu entry, and a Desktop shortcut only if you tick it. SlipStream starts when you sign in. To stop that, untick **Start at login** in the tray menu; upgrades keep that choice.
 
 Your data lives in `%LOCALAPPDATA%\SlipStream2`, which never overlaps SlipStream v1's folder. Uninstalling from **Settings > Apps** removes the program, its shortcuts and its sign-in entry, and keeps that folder.
 

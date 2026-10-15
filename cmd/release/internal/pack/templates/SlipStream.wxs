@@ -10,6 +10,11 @@
     </Property>
     <Launch Condition="Installed OR WINDOWS10" Message="{{.Product}} needs Windows 10 or later." />
 
+    <!-- An upgrade writes the Run value only where it was already there, so turning start at sign-in off outlives upgrades. -->
+    <Property Id="RUNATSIGNIN" Secure="yes">
+      <RegistrySearch Id="RunAtSignInValue" Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="{{.RunValue}}" Type="raw" />
+    </Property>
+
     <Property Id="ARPCOMMENTS" Value="Licensed under GPL-3.0" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/jatassi/SlipStream" />
 
@@ -29,7 +34,7 @@
         <RemoveFolder Id="RemoveProgramsDir" Directory="ProgramsDir" On="uninstall" />
         <Environment Id="UserPath" Name="PATH" Value="[INSTALLFOLDER]" Action="set" Part="last" System="no" Permanent="no" />
       </Component>
-      <Component Id="RunAtSignIn">
+      <Component Id="RunAtSignIn" Condition="NOT WIX_UPGRADE_DETECTED OR RUNATSIGNIN">
         <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="{{.RunValue}}" Type="string" Value="&quot;[INSTALLFOLDER]{{.TrampolineExe}}&quot;" KeyPath="yes" />
       </Component>
     </ComponentGroup>
