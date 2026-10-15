@@ -7,7 +7,7 @@ import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
-import { isFailed } from "./stages";
+import { isFailed, standing } from "./stages";
 
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
   grabbed: "Grabbed a release",
@@ -19,7 +19,11 @@ const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
 const found = (count: number) => (count === 1 ? "1 release found" : `${count} releases found`);
 
 function SearchRow({ search }: { search: GrabsSearch }) {
-  const time = <Data>{clock(search.startedAt)}</Data>;
+  const time = (
+    <span className="text-meta">
+      <Data>{clock(search.startedAt)}</Data>
+    </span>
+  );
   if (search.outcome === null) {
     return (
       <ListRow
@@ -64,7 +68,7 @@ export function Searches({ workId }: { workId: string }) {
 }
 
 function useWorkGrabs(workId: string) {
-  return useListGrabsSuspense().data.grabs.filter((grab) => grab.workId === workId);
+  return standing(useListGrabsSuspense().data.grabs.filter((grab) => grab.workId === workId));
 }
 
 export function NeedsYou({ workId, work }: { workId: string; work: string }) {

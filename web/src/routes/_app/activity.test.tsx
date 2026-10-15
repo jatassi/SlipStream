@@ -176,3 +176,17 @@ test("Activity with no Grabs says what to do next", async () => {
     .element(page.getByRole("main").getByRole("button", { name: "Open the Library" }))
     .toHaveAttribute("href", "/library");
 });
+
+test("a failure that a later Grab for its Item replaced no longer needs you", async () => {
+  const retried: GrabsGrab = { ...downloading, createdAt: "2026-10-12T10:00:00Z" };
+  const replaced: GrabsGrab = { ...failed, workId: orchardId, createdAt: "2026-10-12T09:00:00Z" };
+  renderApp({
+    path: "/activity",
+    handlers: [
+      getListGrabsMockHandler({ grabs: [retried, replaced] }),
+      ...activityServer().handlers,
+    ],
+  });
+  await expect.element(sentence()).toHaveTextContent("1 job moving");
+  await expect.element(page.getByRole("article")).not.toBeInTheDocument();
+});

@@ -44,6 +44,15 @@ export function progressOf(grab: GrabsGrab): TrackProgress {
   return { kind: "running", stage: trackStage[grab.stage] };
 }
 
+// A failed Grab stops needing anyone once a later Grab for its Item exists.
+export function standing(grabs: readonly GrabsGrab[]): GrabsGrab[] {
+  return grabs.filter(
+    (grab) =>
+      !isFailed(grab) ||
+      !grabs.some((later) => later.itemId === grab.itemId && later.createdAt > grab.createdAt),
+  );
+}
+
 const byteStages = new Set<GrabsGrabStage>(["downloading", "transferring"]);
 
 export const movesBytes = (grab: GrabsGrab): boolean => byteStages.has(grab.stage);
