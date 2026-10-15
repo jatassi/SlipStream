@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { frames } from "../test/frames";
 import { renderKit, type Density } from "../test/render-kit";
-import { Sheet, SheetCancel, SheetGroup, SheetItem } from "./sheet";
+import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "./sheet";
 
 const navRows = ["Nodes", "Settings", "System"];
 const ignore = () => {};
@@ -134,4 +134,31 @@ test("a swipe down dismisses the sheet and a short drag springs back", async () 
 
   await touchDrag(sheet.getByRole("button", { name: "Settings" }).element(), 250);
   await expect.element(sheet).not.toBeInTheDocument();
+});
+
+test("a row with no icon lines its label up with the icon rows of its group", async () => {
+  renderKit(
+    <Sheet trigger={<button type="button">More</button>} label="More">
+      <SheetGroup>
+        <SheetItem icon={Settings01Icon} onClick={ignore}>
+          Sign out
+        </SheetItem>
+        <SheetToggle checked onCheckedChange={ignore}>
+          Startup sequence
+        </SheetToggle>
+      </SheetGroup>
+      <SheetGroup>
+        <SheetItem onClick={ignore}>Plain</SheetItem>
+      </SheetGroup>
+    </Sheet>,
+    { shell: "phone" },
+  );
+  const sheet = await openMore();
+  const labelLeft = (text: string) => {
+    const label = sheet.getByText(text, { exact: true }).element();
+    return label.getBoundingClientRect().left - sheet.element().getBoundingClientRect().left;
+  };
+  await expect
+    .poll(() => ["Sign out", "Startup sequence", "Plain"].map((text) => labelLeft(text)))
+    .toEqual([64, 64, 32]);
 });

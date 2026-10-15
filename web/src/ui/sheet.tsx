@@ -51,9 +51,17 @@ export function Sheet({ trigger, title, label, children, ...root }: SheetProps) 
   );
 }
 
+function RowIcon({ icon }: { icon: IconSvgElement | undefined }) {
+  return icon ? (
+    <Icon icon={icon} className="row-icon shrink-0" />
+  ) : (
+    <span aria-hidden="true" className="hidden size-5 shrink-0 group-has-[.row-icon]/rows:block" />
+  );
+}
+
 export function SheetGroup({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col divide-y divide-hairline overflow-hidden rounded-card bg-fill">
+    <div className="group/rows flex flex-col divide-y divide-hairline overflow-hidden rounded-card bg-fill">
       {children}
     </div>
   );
@@ -74,7 +82,7 @@ export function SheetItem({
 }) {
   return (
     <Drawer.Close onClick={onClick} className={`${row} ${tones[tone]}`}>
-      {icon && <Icon icon={icon} className="shrink-0" />}
+      <RowIcon icon={icon} />
       <span className="flex-1">{children}</span>
       {trailing}
     </Drawer.Close>
@@ -94,7 +102,7 @@ export function SheetToggle({
 }) {
   return (
     <label className={`${row} ${tones.default} has-focus-visible:bg-fill-hover`}>
-      {icon && <Icon icon={icon} className="shrink-0" />}
+      <RowIcon icon={icon} />
       <span className="flex-1">{children}</span>
       <SwitchControl checked={checked} onCheckedChange={onCheckedChange} />
     </label>
