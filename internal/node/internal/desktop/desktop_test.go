@@ -26,7 +26,6 @@ func TestOpener(t *testing.T) {
 func TestLaunchAgent(t *testing.T) {
 	got := string(launchAgent("/Applications/R&D SlipStream.app/Contents/MacOS/slipstream-app"))
 	want := `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>Label</key>
