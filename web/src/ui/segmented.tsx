@@ -34,7 +34,7 @@ export function Segmented<V extends string>({
         <Radio.Root
           key={option.value}
           value={option.value}
-          className="inline-flex h-7 cursor-default items-center justify-center gap-1.5 rounded-capsule px-3 text-body font-medium whitespace-nowrap text-ink-2 transition-[background-color,color] duration-(--duration-control) ease-standard select-none in-data-[density=touch]:h-10 in-data-[density=touch]:text-body-touch in-data-[density=touch]:font-medium data-checked:bg-selected data-checked:text-ink-1 data-checked:shadow-[0_1px_3px_rgba(0,0,0,.28)] motion-reduce:transition-none"
+          className="inline-flex h-7 cursor-default items-center justify-center gap-1.5 rounded-capsule px-3 text-body font-medium whitespace-nowrap text-ink-2 transition-[background-color,color] duration-(--duration-control) ease-standard select-none in-data-[density=touch]:h-11 in-data-[density=touch]:text-body-touch in-data-[density=touch]:font-medium data-checked:bg-selected data-checked:text-ink-1 data-checked:shadow-[0_1px_3px_rgba(0,0,0,.28)] motion-reduce:transition-none"
         >
           {option.label}
           {option.count === undefined ? null : (

@@ -35,7 +35,7 @@ test.each(["desktop", "phone"] satisfies ShellKind[])(
 
 test.each([
   ["desktop", "28px"],
-  ["phone", "40px"],
+  ["phone", "44px"],
 ] satisfies [ShellKind, string][])(
   "in the %s shell an option is %s tall",
   async (shell, height) => {
