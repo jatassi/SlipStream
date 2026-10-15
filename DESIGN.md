@@ -302,7 +302,7 @@ components:
     padding: "12px 16px"
 ---
 
-<!-- Derived from the reference specs named in Design system and DESIGN.md (https://github.com/jatassi/SlipStream/issues/94), before any v2 code exists. Re-run /impeccable document once the walking skeleton ships, and keep `.impeccable/contrast.py` passing. -->
+<!-- Derived from the reference specs named in Design system and DESIGN.md (https://github.com/jatassi/SlipStream/issues/94), before any v2 code exists. Re-run /impeccable document once the walking skeleton ships, and keep the contrast check in `go run ./cmd/release lint` passing. -->
 
 # Design System: SlipStream
 
@@ -395,7 +395,7 @@ Who sets the ambient:
 
 **The Never Alone Rule.** Every signal colour comes with an icon and a word. Red and green are the pair most often confused, so colour alone never carries the state.
 
-**The Contrast Proof Rule.** Change a colour token only together with `.impeccable/contrast.py`, and only if the script still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling and checks 32 ink and surface pairs at it.
+**The Contrast Proof Rule.** Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 32 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.
 
 ## Typography
 
@@ -678,7 +678,7 @@ The frontmatter's `motion` block holds these easings and durations.
 ### Do:
 - **Do** take every surface and ink from the formulas in Colors, so a Work's hue reaches the whole page.
 - **Do** hold the ambient at or below relative luminance 0.053, measured per backdrop.
-- **Do** run `python3 .impeccable/contrast.py` after changing any colour token, and keep it passing.
+- **Do** run `go run ./cmd/release lint` after changing any colour token, and keep its contrast check passing.
 - **Do** lead every watching page with a status sentence, then failures with their stage, cause and recovery, then live work.
 - **Do** show live work as white with the Work's glow, and Met as solid white.
 - **Do** pair every signal colour with an icon and a word.

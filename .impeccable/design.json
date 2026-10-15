@@ -816,7 +816,7 @@
       },
       "ceiling": {
         "relativeLuminance": 0.053,
-        "proof": ".impeccable/contrast.py"
+        "proof": "the contrast check in go run ./cmd/release lint (cmd/release/internal/tokens/contrast.go)"
       },
       "backdropFilter": "blur(64px) saturate(1.8) brightness(<computed to hold the ceiling>)"
     }
@@ -929,7 +929,7 @@
       },
       {
         "name": "The Contrast Proof Rule",
-        "body": "Change a colour token only together with `.impeccable/contrast.py`, and only if the script still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling and checks 32 ink and surface pairs at it.",
+        "body": "Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 32 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.",
         "section": "colors"
       },
       {
@@ -966,7 +966,7 @@
     "dos": [
       "**Do** take every surface and ink from the formulas in Colors, so a Work's hue reaches the whole page.",
       "**Do** hold the ambient at or below relative luminance 0.053, measured per backdrop.",
-      "**Do** run `python3 .impeccable/contrast.py` after changing any colour token, and keep it passing.",
+      "**Do** run `go run ./cmd/release lint` after changing any colour token, and keep its contrast check passing.",
       "**Do** lead every watching page with a status sentence, then failures with their stage, cause and recovery, then live work.",
       "**Do** show live work as white with the Work's glow, and Met as solid white.",
       "**Do** pair every signal colour with an icon and a word.",
