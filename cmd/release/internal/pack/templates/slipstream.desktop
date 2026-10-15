@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name={{.Product}}
+Comment=Manage your movie and TV library
+Exec={{.Executable}} {{.DesktopArgs}}
+Icon={{.Executable}}
+Terminal=false
+Categories=AudioVideo;Video;

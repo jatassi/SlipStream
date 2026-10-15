@@ -4,23 +4,17 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/exitcode"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Exit codes are a contract with the tray launcher, the service manager and
-// the health trial. 2 is left to Go's runtime, which exits 2 on an
-// unrecovered panic.
 const (
-	ExitOK     = 0
-	ExitFailed = 1
-	ExitUsage  = 3
-	ExitInUse  = 4
-	// ExitLibraryRefused is a library.db newer than this binary, holding a
-	// schema set it lacks, or unreadable.
-	ExitLibraryRefused = 5
-	// ExitRecordRefused is a node key or pairing record refused: an
-	// unreadable or malformed node.key or pairing.json.
-	ExitRecordRefused = 6
+	ExitOK             = exitcode.OK
+	ExitFailed         = exitcode.Failed
+	ExitUsage          = exitcode.Usage
+	ExitInUse          = exitcode.InUse
+	ExitLibraryRefused = exitcode.LibraryRefused
+	ExitRecordRefused  = exitcode.RecordRefused
 )
 
 // UsageError is a bad command line or a missing or invalid data dir.

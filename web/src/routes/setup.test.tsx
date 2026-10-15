@@ -54,6 +54,42 @@ test("the Setup code shows grouped as it is typed", async () => {
   await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
 });
 
+test("a setup link fills in the Setup code and leaves the address bar", async () => {
+  const server = claimServer(() => HttpResponse.json({ account: ada, apiKey }, { status: 201 }));
+  const { router } = renderApp({ path: "/setup#code=7K2M-Q9XD-4HBT", handlers: server.handlers });
+  await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
+  await expect
+    .element(page.getByLabelText("Setup code"))
+    .toHaveAccessibleDescription("Setup code filled in");
+  await expect.poll(() => router.state.location.href).toBe("/setup");
+  expect(router.history.location.hash).toBe("");
+
+  await userEvent.fill(page.getByLabelText("Email"), "ada@example.test");
+  await userEvent.fill(page.getByLabelText("Display name"), "Ada Okafor");
+  await userEvent.click(page.getByRole("textbox", { name: "PIN", exact: true }));
+  await userEvent.keyboard("1234");
+  await userEvent.click(page.getByRole("textbox", { name: "PIN again", exact: true }));
+  await userEvent.keyboard("1234");
+  await userEvent.click(page.getByRole("button", { name: "Create Admin" }));
+  await expect.element(page.getByLabelText("API key")).toHaveValue(apiKey);
+  expect(server.claims).toEqual([
+    {
+      code: "7K2MQ9XD4HBT",
+      body: { email: "ada@example.test", displayName: "Ada Okafor", pin: "1234" },
+    },
+  ]);
+});
+
+test("a setup link's code reads the way a typed one does", async () => {
+  renderApp({ path: "/setup#code=7k2m%20q9xd%204hbt", handlers: unclaimed });
+  await expect.element(page.getByLabelText("Setup code")).toHaveValue("7K2M-Q9XD-4HBT");
+});
+
+test("a typed Setup code says nothing was filled in", async () => {
+  renderApp({ path: "/setup", handlers: unclaimed });
+  await expect.element(page.getByLabelText("Setup code")).toHaveAccessibleDescription("");
+});
+
 test("mismatched PINs never reach the server", async () => {
   const server = claimServer(() => HttpResponse.json({ account: ada, apiKey }, { status: 201 }));
   renderApp({ path: "/setup", handlers: server.handlers });

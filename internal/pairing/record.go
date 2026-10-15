@@ -27,12 +27,14 @@ const schema = 1
 func recordPath(dataDir string) string { return filepath.Join(dataDir, RecordFile) }
 
 // Record is pairing.json: this Node's id, its Controller and every
-// Controller key it replaced.
+// Controller key it replaced. ControllerName is the name the Controller
+// gave at pairing, which the tray shows.
 type Record struct {
-	NodeID     role.NodeID
-	Controller link.Target
-	Superseded []Superseded
-	PairedAt   time.Time
+	NodeID         role.NodeID
+	Controller     link.Target
+	ControllerName string
+	Superseded     []Superseded
+	PairedAt       time.Time
 }
 
 // Superseded is a Controller key a re-pair replaced, with the key that
@@ -64,6 +66,7 @@ type recordJSON struct {
 
 type controllerJSON struct {
 	Key       link.Key         `json:"key"`
+	Name      string           `json:"name"`
 	Addresses []netip.AddrPort `json:"addresses"`
 }
 
@@ -114,9 +117,10 @@ func decode(data []byte) (Record, error) {
 		return Record{}, fmt.Errorf("controller.addresses: %w", err)
 	}
 	rec := Record{
-		NodeID:     role.NodeID{UUID: id},
-		Controller: link.Target{Key: j.Controller.Key, Addresses: addrs},
-		PairedAt:   j.PairedAt,
+		NodeID:         role.NodeID{UUID: id},
+		Controller:     link.Target{Key: j.Controller.Key, Addresses: addrs},
+		ControllerName: j.Controller.Name,
+		PairedAt:       j.PairedAt,
 	}
 	for _, s := range j.Superseded {
 		rec.Superseded = append(rec.Superseded, Superseded{Key: s.Key, By: s.ByKey, At: s.At})
@@ -128,7 +132,7 @@ func encode(rec Record) ([]byte, error) {
 	j := recordJSON{
 		Schema:     schema,
 		NodeID:     rec.NodeID.String(),
-		Controller: controllerJSON{Key: rec.Controller.Key, Addresses: rec.Controller.Addresses.All()},
+		Controller: controllerJSON{Key: rec.Controller.Key, Name: rec.ControllerName, Addresses: rec.Controller.Addresses.All()},
 		Superseded: []supersededJSON{},
 		PairedAt:   rec.PairedAt,
 	}

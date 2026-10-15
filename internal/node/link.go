@@ -8,7 +8,7 @@ import (
 	"net/netip"
 	"runtime"
 
-	"github.com/jatassi/slipstream/internal/buildinfo"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
 )
 
@@ -32,7 +32,7 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 	l.Link = boundTCP(ln)
 	peers := claimPeers{n}
 	n.lockstep = http.NewServeMux()
-	n.info = nodeInfo(n.env.Version)
+	n.info = nodeInfo(n.env.Version, n.env.Install)
 	n.link, err = link.New(link.Config{
 		Key:      n.key,
 		Node:     n.info,
@@ -56,8 +56,8 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 }
 
 // nodeInfo is this build as the link's Hello carries it.
-func nodeInfo(version string) link.NodeInfo {
-	return link.NodeInfo{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, InstallKind: buildinfo.InstallKind()}
+func nodeInfo(version string, kind install.Kind) link.NodeInfo {
+	return link.NodeInfo{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, InstallKind: kind.Proto()}
 }
 
 func boundTCP(ln net.Listener) netip.AddrPort {

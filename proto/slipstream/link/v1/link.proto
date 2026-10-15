@@ -36,6 +36,7 @@ enum InstallKind {
   INSTALL_KIND_WINDOWS_ZIP = 6;
   INSTALL_KIND_MACOS_APP = 7;
   INSTALL_KIND_DOCKER = 8;
+  INSTALL_KIND_APPIMAGE = 9;
 }
 
 message NodeInfo {

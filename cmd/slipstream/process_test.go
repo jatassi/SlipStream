@@ -36,10 +36,12 @@ func TestMain(m *testing.M) {
 
 // childEnv is explicit, so a stray SLIPSTREAM_ variable in the developer's
 // environment never reaches the strict loader. Windows needs SystemRoot to
-// initialize sockets.
+// initialize sockets, and PowerShell needs PATHEXT to run an .exe and wait
+// for its exit code: without it PowerShell opens the file through
+// ShellExecute, does not wait, and leaves $LASTEXITCODE unset.
 func childEnv(extra ...string) []string {
 	var env []string
-	for _, name := range []string{"PATH", "SystemRoot", "TEMP", "TMP", "TMPDIR", "HOME"} {
+	for _, name := range []string{"PATH", "PATHEXT", "SystemRoot", "TEMP", "TMP", "TMPDIR", "HOME"} {
 		if v, ok := os.LookupEnv(name); ok {
 			env = append(env, name+"="+v)
 		}
@@ -80,7 +82,16 @@ func startNode(t *testing.T, dir string, env ...string) *nodeProc {
 
 func startBinary(t *testing.T, bin, dir string, env ...string) *nodeProc {
 	t.Helper()
-	cmd := exec.CommandContext(context.Background(), bin, "run", "--data-dir", dir)
+	args := []string{"run"}
+	if dir != "" {
+		args = append(args, "--data-dir", dir)
+	}
+	return startArgs(t, bin, args, env...)
+}
+
+func startArgs(t *testing.T, bin string, args []string, env ...string) *nodeProc {
+	t.Helper()
+	cmd := exec.CommandContext(context.Background(), bin, args...)
 	cmd.Env = childEnv(append(slices.Clone(localListeners), env...)...)
 	pipe, err := cmd.StderrPipe()
 	if err != nil {

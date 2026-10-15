@@ -109,7 +109,7 @@ func joinOffline(ctx context.Context, env Env, code joincode.Code) (pairing.Join
 	refuse := offline{env.DataDir}
 	l, err := link.New(link.Config{
 		Key:      key,
-		Node:     nodeInfo(env.Version),
+		Node:     nodeInfo(env.Version, env.Install),
 		Timings:  cfg.Timings.Link,
 		Settings: cfg.Link,
 		Net:      env.Net,

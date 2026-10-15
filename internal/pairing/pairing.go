@@ -155,9 +155,10 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code) (Joined, error)
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	next := Record{
-		NodeID:     role.NodeID{UUID: id},
-		Controller: link.Target{Key: paired.Controller, Addresses: addrs},
-		PairedAt:   now,
+		NodeID:         role.NodeID{UUID: id},
+		Controller:     link.Target{Key: paired.Controller, Addresses: addrs},
+		ControllerName: paired.ControllerName,
+		PairedAt:       now,
 	}
 	if prev != nil {
 		next.Superseded = slices.Clone(prev.Superseded)

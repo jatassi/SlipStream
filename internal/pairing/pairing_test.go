@@ -131,7 +131,7 @@ func TestARepairSupersedesTheOldController(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if again, _ := reopened.Record(); again.Controller != rec.Controller || len(again.Superseded) != 1 || again.Superseded[0] != rec.Superseded[0] || again.NodeID != rec.NodeID {
+		if again, _ := reopened.Record(); again.Controller != rec.Controller || len(again.Superseded) != 1 || again.Superseded[0] != rec.Superseded[0] || again.NodeID != rec.NodeID || again.ControllerName != "restored" {
 			t.Fatalf("pairing.json read back as %+v, want %+v", again, rec)
 		}
 	})
