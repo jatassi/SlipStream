@@ -4,10 +4,9 @@ on:
   pull_request:
   push:
     branches: [main, "feature/**"]
+    tags: ["v*"]
   schedule:
     - cron: "23 4 * * *"
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       update-shapes:
@@ -34,7 +33,12 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       build: ${{ steps.plan.outputs.build }}
+      package: ${{ steps.plan.outputs.package }}
       online: ${{ steps.scope.outputs.online }}
+      image: ${{ steps.tag.outputs.image }}
+      image-tags: ${{ steps.tag.outputs.image-tags }}
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -46,24 +50,30 @@ jobs:
       # A push to a branch other than main is unmerged work, so it is planned
       # like a pull request into main.
       - id: scope
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main')
         run: go run ./cmd/release scope -explain -base "origin/$BASE" -head HEAD
         env:
           BASE: ${{ github.base_ref || 'main' }}
+      # A tag that is not vX.Y.Z or vX.Y.Z-<pre-release> fails here, before
+      # any target builds.
+      - id: tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: go run ./cmd/release tag "$GITHUB_REF_NAME"
       - id: plan
-        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}"
+        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}"
         env:
-          EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'release' && 'release' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
+          EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'tag' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
           SCOPE: ${{ steps.scope.outputs.scope }}
-      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+          PACKAGE: ${{ steps.scope.outputs.package }}
+      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
         run: go run ./cmd/release migrations-frozen -base "$BASE"
         env:
           BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
-      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
         run: go run ./cmd/release proto-frozen -base "$BASE"
         env:
           BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
-      - if: github.event_name == 'push' && steps.go.outputs.cache-hit != 'true'
+      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && steps.go.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -154,6 +164,42 @@ jobs:
         with:
           name: slipstream-${{ matrix.target }}
           path: dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
+      # The AppImage smoke mounts the image through FUSE.
+      - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
+        run: sudo apt-get install -y fuse3
+      # A tag packages only a clean build stamped with that tag. linux-amd64
+      # alone carries the ffmpeg source, which every target's build shares.
+      - if: needs.plan.outputs.package == 'true'
+        run: |
+          args=(-o out)
+          if [ "$TAG" = true ]; then args+=(-tag "$GITHUB_REF_NAME"); fi
+          if [ "$TARGET" = linux-amd64 ]; then args+=(-source); fi
+          if [ "$TAG" = true ] && [ "$TARGET" = windows-amd64 ] && [ -n "$SIGNPATH" ]; then args+=(-sign signpath); fi
+          go run ./cmd/release package "${args[@]}"
+        env:
+          TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          TARGET: ${{ matrix.target }}
+          SIGNPATH: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+      - if: needs.plan.outputs.package == 'true'
+        run: go run ./cmd/release smoke -from out -disposable
+      - if: needs.plan.outputs.package == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.target }}
+          path: |
+            out
+            !out/docker
+          if-no-files-found: error
+      # The context links ffmpeg to where the image's package installs it,
+      # a link an artifact cannot hold, so it goes up as a tar.
+      - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
+        run: tar -C out -cf "$RUNNER_TEMP/docker-context.tar" docker
+      - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-context-${{ matrix.target }}
+          path: ${{ runner.temp }}/docker-context.tar
+          if-no-files-found: error
       # Lint runs on every target so gofmt, line endings and the cgo type
       # check are proven on each OS, and runs even when a test fails.
       - if: ${{ !cancelled() }}
@@ -161,7 +207,7 @@ jobs:
       # Pushes save the cache that pull requests restore. Pull requests do not
       # save, because a pull request's cache is visible to that pull request
       # alone.
-      - if: ${{ !cancelled() && github.event_name == 'push' && steps.go.outputs.cache-hit != 'true' }}
+      - if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && steps.go.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: |
@@ -219,7 +265,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
 
   # The conformance suites against the real TMDB and MusicBrainz (spec #135,
-  # Online runs): nightly, by hand, on a published release, and on pull
+  # Online runs): nightly, by hand, on a release tag, and on pull
   # requests whose scope touches a fake, client or suite the job checks. It
   # is not a required check. A fork's pull request gets no secrets, so it
   # never runs the job, and a run without the key fails rather than skips.
@@ -227,7 +273,7 @@ jobs:
     needs: plan
     if: >-
       ${{ !cancelled() && (
-        github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'release' ||
+        github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.plan.outputs.online == 'true')
       ) }}
     runs-on: ubuntu-24.04
@@ -259,3 +305,162 @@ jobs:
           PLAN: ${{ needs.plan.result }}
           PLANNED: ${{ needs.plan.outputs.build }}
           BUILD: ${{ needs.build.result }}
+
+  # Each Linux image builds on its own arch's runner from the context its
+  # build job packaged, and goes up by digest alone; docker-manifest names
+  # the pair.
+  image:
+    needs: [plan, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        include:
+          - { target: linux-amd64, runner: ubuntu-24.04, platform: linux/amd64 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, platform: linux/arm64 }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-context-${{ matrix.target }}
+          path: ${{ runner.temp }}
+      - run: tar -C "$RUNNER_TEMP" -xf "$RUNNER_TEMP/docker-context.tar"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ runner.temp }}/docker
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ needs.plan.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+      - run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.target }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+
+  # X.Y.Z, X.Y, X and latest for a release; beta alone for a pre-release.
+  docker-manifest:
+    needs: [plan, image]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - working-directory: ${{ runner.temp }}/digests
+        run: |
+          tags=()
+          for t in $TAGS; do tags+=(-t "$t"); done
+          sources=()
+          for d in *; do sources+=("$IMAGE@sha256:$d"); done
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+          for t in $TAGS; do docker buildx imagetools inspect "$t"; done
+        env:
+          IMAGE: ${{ needs.plan.outputs.image }}
+          TAGS: ${{ needs.plan.outputs.image-tags }}
+
+  # SignPath signs the MSI and the ZIP's programs once the project is set
+  # up: until vars.SIGNPATH_PROJECT_SLUG is set this job skips and the
+  # release ships them unsigned.
+  sign-windows:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && vars.SIGNPATH_PROJECT_SLUG != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages-windows-amd64
+          path: out
+      - id: request
+        uses: actions/upload-artifact@v4
+        with:
+          name: signpath-request
+          path: out/signpath
+          if-no-files-found: error
+      - uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.request.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows
+          path: signed
+          if-no-files-found: error
+
+  # The release is drafted, filled, then published, so nobody sees one
+  # missing assets. A rerun finds the draft and fills it again.
+  publish:
+    needs: [plan, build, docker-manifest, sign-windows]
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') &&
+        needs.build.result == 'success' && needs.docker-manifest.result == 'success' &&
+        (needs.sign-windows.result == 'success' || needs.sign-windows.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/go
+        with:
+          cache: go-plan
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          path: ${{ runner.temp }}/packages
+      - if: needs.sign-windows.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-windows
+          path: ${{ runner.temp }}/signed
+      - run: go run ./cmd/release tag -notes "$RUNNER_TEMP/notes.md" "$GITHUB_REF_NAME"
+      - run: |
+          assets=()
+          for manifest in "$RUNNER_TEMP"/packages/*/packages.json; do
+            dir="$(dirname "$manifest")"
+            while IFS= read -r asset; do
+              signed="$RUNNER_TEMP/signed/$(basename "$asset")"
+              if [ -f "$signed" ]; then assets+=("$signed"); else assets+=("$dir/$asset"); fi
+            done < <(jq -r '.assets[]' "$manifest")
+          done
+          flags=(--draft --verify-tag --title "SlipStream $VERSION" --notes-file "$RUNNER_TEMP/notes.md")
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" "${flags[@]}"
+          gh release upload "$GITHUB_REF_NAME" --clobber "${assets[@]}"
+          # #182: the signed update manifest and its signature go up here.
+          # gh release upload "$GITHUB_REF_NAME" --clobber "$RUNNER_TEMP/manifest.json" "$RUNNER_TEMP/manifest.json.sig"
+          gh release edit "$GITHUB_REF_NAME" --draft=false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}

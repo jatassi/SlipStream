@@ -15,11 +15,11 @@ func TestTagOutputs(t *testing.T) {
 		want [][2]string
 	}{
 		{"v1.2.0", [][2]string{
-			{"version", "1.2.0"}, {"prerelease", "false"},
+			{"image", "ghcr.io/jatassi/slipstream"}, {"version", "1.2.0"}, {"prerelease", "false"},
 			{"image-tags", "ghcr.io/jatassi/slipstream:1.2.0 ghcr.io/jatassi/slipstream:1.2 ghcr.io/jatassi/slipstream:1 ghcr.io/jatassi/slipstream:latest"},
 		}},
 		{"v1.3.0-beta.2", [][2]string{
-			{"version", "1.3.0-beta.2"}, {"prerelease", "true"}, {"image-tags", "ghcr.io/jatassi/slipstream:beta"},
+			{"image", "ghcr.io/jatassi/slipstream"}, {"version", "1.3.0-beta.2"}, {"prerelease", "true"}, {"image-tags", "ghcr.io/jatassi/slipstream:beta"},
 		}},
 	} {
 		v, err := pack.ParseTag(tc.tag)

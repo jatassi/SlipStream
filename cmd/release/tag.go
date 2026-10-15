@@ -19,7 +19,7 @@ func init() {
 	register("tag", "check a release tag vX.Y.Z and write its version, pre-release flag and image tags; -notes writes its release notes", runTag)
 }
 
-// imageRepo is the registry repository every Linux image is pushed to.
+// imageRepo is the registry repository both Linux images are pushed to.
 const imageRepo = "ghcr.io/jatassi/slipstream"
 
 // installDoc is the install guide the release notes link to, at the tag.
@@ -69,6 +69,7 @@ func tagOutputs(v pack.Version) [][2]string {
 		refs = append(refs, imageRepo+":"+t)
 	}
 	return [][2]string{
+		{"image", imageRepo},
 		{"version", v.String()},
 		{"prerelease", strconv.FormatBool(v.Prerelease())},
 		{"image-tags", strings.Join(refs, " ")},
