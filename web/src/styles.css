@@ -6,6 +6,23 @@
 @theme {
   --font-sans: "Geist Variable", "Helvetica Neue", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --animate-spinner: spinner 0.8s linear infinite;
+  --animate-sheen: sheen var(--duration-sheen) linear infinite;
+
+  @keyframes spinner {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  @keyframes sheen {
+    from {
+      translate: -100%;
+    }
+    to {
+      translate: 100%;
+    }
+  }
 }
 
 @layer base {
