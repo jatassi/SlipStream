@@ -1,7 +1,9 @@
 import { Select as BaseSelect } from "@base-ui/react/select";
 import { Tick02Icon, UnfoldMoreIcon } from "@hugeicons/core-free-icons";
 
+import { floatingPanel } from "./floating";
 import { Icon } from "./icon";
+import { usePortalDensity } from "./portal-density";
 
 export type SelectOption<V extends string> = { value: V; label: string };
 
@@ -16,6 +18,7 @@ export function Select<V extends string>({
   value: V;
   onValueChange: (value: V) => void;
 }) {
+  const { density, probe } = usePortalDensity();
   return (
     <BaseSelect.Root
       items={options}
@@ -30,6 +33,7 @@ export function Select<V extends string>({
         <BaseSelect.Label className="text-body font-semibold text-ink-2 in-data-[density=touch]:text-body-touch in-data-[density=touch]:font-semibold">
           {label}
         </BaseSelect.Label>
+        {probe}
         <BaseSelect.Trigger className="flex h-(--input-height) cursor-default items-center justify-between gap-3 rounded-item bg-well pr-2 pl-3 text-body text-ink-1 ring-1 ring-hairline ring-inset select-none in-data-[density=touch]:text-input-touch">
           <BaseSelect.Value />
           <BaseSelect.Icon className="flex text-ink-3">
@@ -37,21 +41,27 @@ export function Select<V extends string>({
           </BaseSelect.Icon>
         </BaseSelect.Trigger>
       </div>
-      <SelectPopup options={options} />
+      <SelectPopup options={options} density={density} />
     </BaseSelect.Root>
   );
 }
 
-function SelectPopup<V extends string>({ options }: { options: readonly SelectOption<V>[] }) {
+function SelectPopup<V extends string>({
+  options,
+  density,
+}: {
+  options: readonly SelectOption<V>[];
+  density: string | undefined;
+}) {
   return (
-    <BaseSelect.Portal>
+    <BaseSelect.Portal data-density={density}>
       <BaseSelect.Positioner
         alignItemWithTrigger={false}
         sideOffset={6}
         collisionPadding={12}
         className="z-50 outline-none"
       >
-        <BaseSelect.Popup className="min-w-(--anchor-width) origin-(--transform-origin) rounded-card bg-popover p-1 text-ink-1 shadow-float backdrop-blur-[30px] backdrop-saturate-[1.7] transition-[opacity,translate,scale] duration-(--duration-menu) ease-standard outline-none data-ending-style:opacity-0 data-starting-style:translate-y-2 data-starting-style:scale-[.985] data-starting-style:opacity-0 motion-reduce:data-starting-style:translate-y-0 motion-reduce:data-starting-style:scale-100">
+        <BaseSelect.Popup className={`min-w-(--anchor-width) p-1 ${floatingPanel}`}>
           <BaseSelect.List className="max-h-(--available-height) overflow-y-auto">
             {options.map((option) => (
               <BaseSelect.Item

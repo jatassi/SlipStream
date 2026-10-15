@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { densityOf, renderKit } from "../test/render-kit";
+import { renderKit } from "../test/render-kit";
 import { Select } from "./select";
 import type { ShellKind } from "./shell-context";
 
@@ -21,12 +21,8 @@ test.each([
   ["desktop", "32px", "36px"],
   ["phone", "48px", "52px"],
 ] satisfies [ShellKind, string, string][])(
-  "in the %s shell a %s select opens %s options, portalled under the document density, and picks one from the keyboard",
+  "in the %s shell a %s select opens %s options, carrying the density it opened from, and picks one from the keyboard",
   async (shell, trigger, item) => {
-    document.documentElement.dataset["density"] = densityOf[shell];
-    onTestFinished(() => {
-      delete document.documentElement.dataset["density"];
-    });
     renderKit(<Profile />, { shell });
     const select = page.getByRole("combobox", { name: "Quality" });
     await expect.element(select).toHaveTextContent("Any");
