@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
@@ -65,5 +66,7 @@ func TestInfoPlist(t *testing.T) {
 
 func TestWixSource(t *testing.T) {
 	files := append(windowsInput.programs(), "install-kind", "LICENSE", "NOTICES.txt")
-	golden(t, "SlipStream.wxs", wixSource(windowsInput, "/stage", files))
+	stage := filepath.FromSlash("/stage")
+	got := wixSource(windowsInput, stage, files)
+	golden(t, "SlipStream.wxs", strings.ReplaceAll(got, stage+string(filepath.Separator), "/stage/"))
 }
