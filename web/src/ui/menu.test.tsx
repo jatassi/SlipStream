@@ -124,13 +124,13 @@ test("a toggle item is a checked menu checkbox that reports its change", async (
   expect(onCheckedChange).toHaveBeenCalledWith(false);
 });
 
-test("on phone a toggle item is a pressed sheet row that stays open when changed", async () => {
+test("on phone a toggle item is a switch row that stays open when changed", async () => {
   const onCheckedChange = vi.fn<(checked: boolean) => void>();
   renderKit(<AccountMenu onCheckedChange={onCheckedChange} />, { shell: "phone" });
   await userEvent.click(page.getByRole("button", { name: "Account" }));
   const sheet = page.getByRole("dialog", { name: "Account" });
-  const row = sheet.getByRole("button", { name: "Startup sequence", pressed: true });
-  await userEvent.click(row);
+  await expect.element(sheet.getByRole("switch", { name: "Startup sequence" })).toBeChecked();
+  await userEvent.click(sheet.getByText("Startup sequence"));
   expect(onCheckedChange).toHaveBeenCalledWith(false);
   await expect.element(sheet).toBeVisible();
 });

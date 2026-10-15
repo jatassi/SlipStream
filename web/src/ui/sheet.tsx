@@ -1,9 +1,9 @@
 import { Drawer } from "@base-ui/react/drawer";
-import { Tick02Icon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactElement, ReactNode } from "react";
 
 import { Icon } from "./icon";
+import { SwitchControl } from "./switch";
 
 type Naming = { title: string; label?: never } | { label: string; title?: never };
 
@@ -93,18 +93,11 @@ export function SheetToggle({
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      onClick={() => {
-        onCheckedChange(!checked);
-      }}
-      className={`${row} ${tones.default}`}
-    >
+    <label className={`${row} ${tones.default} has-focus-visible:bg-fill-hover`}>
       {icon && <Icon icon={icon} className="shrink-0" />}
       <span className="flex-1">{children}</span>
-      {checked && <Icon icon={Tick02Icon} className="shrink-0 text-glow" />}
-    </button>
+      <SwitchControl checked={checked} onCheckedChange={onCheckedChange} />
+    </label>
   );
 }
 
