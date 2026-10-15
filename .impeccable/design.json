@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-11T20:20:15+00:00",
+  "generatedAt": "2026-10-15T06:02:55+00:00",
   "title": "Design System: SlipStream",
   "extensions": {
     "colorMeta": {
@@ -594,19 +594,19 @@
       },
       "sentence": {
         "displayName": "Sentence",
-        "purpose": "The desk status sentence that opens Home, Torrents, Conversions and Remote access. Also the portal's shelf titles."
+        "purpose": "The desktop status sentence that opens Home, Torrents, Conversions and Remote access, and a page's title in the desktop shell. Also the portal's shelf titles and the wordmark on sign-in and setup."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Phone section titles, the inspector title and dialog titles."
+        "purpose": "Phone section titles, the inspector title, dialog titles (a sheet's title too, since a Dialog becomes a sheet on phone) and the title of a sign-in or setup card."
       },
       "sentence-touch": {
         "displayName": "Sentence touch",
-        "purpose": "The phone status sentence, sheet items and a recommendation card's title."
+        "purpose": "The phone status sentence, the phone nav bar's title, sheet items and a recommendation card's title."
       },
       "card-title": {
         "displayName": "Card title",
-        "purpose": "A failure card's subject, a list row's title in Touch, and a sheet's title."
+        "purpose": "A failure card's subject and a list row's title in Touch."
       },
       "body-touch": {
         "displayName": "Body touch",
@@ -634,11 +634,11 @@
       },
       "chip": {
         "displayName": "Chip",
-        "purpose": "Chips, badges and ribbons. Signal chips are 700."
+        "purpose": "Chips and badges. Signal chips are 700."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Column headers, group labels and nav counts."
+        "purpose": "Column headers, group labels, nav counts and the phone tab bar's labels."
       },
       "label-caps": {
         "displayName": "Label caps",
@@ -653,7 +653,7 @@
       {
         "name": "float",
         "value": "inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px hsl(214 40% 88% / .11), 0 18px 40px rgba(0,0,0,.55)",
-        "purpose": "Menus and popovers."
+        "purpose": "Menus, popovers, a Select's list and tooltips."
       },
       {
         "name": "float-large",
@@ -663,7 +663,7 @@
       {
         "name": "signal-lift",
         "value": "inset 0 0 0 1px rgba(255,107,97,.46), 0 18px 40px -24px rgba(0,0,0,.8)",
-        "purpose": "Failure cards."
+        "purpose": "Failure cards and red Signal rows."
       },
       {
         "name": "poster",
@@ -677,13 +677,13 @@
       },
       {
         "name": "segment-selected",
-        "value": "0 1px 3px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.2)",
+        "value": "0 1px 3px rgba(0,0,0,.28)",
         "purpose": "The selected segment."
       },
       {
         "name": "live-glow",
         "value": "0 0 10px 0 hsl(var(--h) 95% 70% / .7)",
-        "purpose": "The fill of a live bar."
+        "purpose": "The fill of a live bar, the current stage segment, the bar on a selected row and the live dot."
       },
       {
         "name": "focus",
@@ -700,7 +700,7 @@
       {
         "name": "ease-spring",
         "value": "cubic-bezier(.32, .72, 0, 1)",
-        "purpose": "Sheets, Dialogs and the PIN dots."
+        "purpose": "Sheets, Dialogs, phone push and pop, and the PIN dots."
       },
       {
         "name": "tint-crossfade",
@@ -720,7 +720,12 @@
       {
         "name": "control",
         "value": "200ms",
-        "purpose": "Buttons, segments and row washes."
+        "purpose": "Buttons, segments, checkboxes, nav rows and the bars turning to glass."
+      },
+      {
+        "name": "row-wash",
+        "value": "350ms",
+        "purpose": "The wash on a hovered or focused list or table row."
       },
       {
         "name": "switch",
@@ -728,19 +733,39 @@
         "purpose": "Switch toggles."
       },
       {
+        "name": "chevron",
+        "value": "250ms",
+        "purpose": "Disclosure chevrons."
+      },
+      {
         "name": "menu-in",
         "value": "180ms",
-        "purpose": "Menus and popovers fade up from 8px and 98.5% scale."
+        "purpose": "Menus and popovers fade up from 8px and 98.5% scale. Tooltips fade."
       },
       {
         "name": "palette-in",
         "value": "220ms",
-        "purpose": "The command palette."
+        "purpose": "The command palette fades in from 98% scale."
       },
       {
         "name": "inspector-in",
         "value": "280ms",
         "purpose": "The Inspector enters from 16px right."
+      },
+      {
+        "name": "sidebar",
+        "value": "280ms",
+        "purpose": "The sidebar collapsing to its rail and back."
+      },
+      {
+        "name": "page-desktop",
+        "value": "180ms",
+        "purpose": "The content crossfades on a page change in the desktop shell."
+      },
+      {
+        "name": "page-phone",
+        "value": "340ms on the spring",
+        "purpose": "A phone push slides in from the right while the old page drifts 30% left and dims to 60%. A pop reverses it."
       },
       {
         "name": "sheet",
@@ -750,12 +775,12 @@
       {
         "name": "dialog-in",
         "value": "360ms on the spring",
-        "purpose": "Dialogs."
+        "purpose": "Dialogs fade in from 96% scale."
       },
       {
         "name": "toast",
-        "value": "220ms in from 8px, 2800ms dwell",
-        "purpose": "Toasts."
+        "value": "220ms in from 8px above, 2800ms dwell without an action",
+        "purpose": "Toasts. A toast with an action stays until used."
       },
       {
         "name": "live-fill",
@@ -771,6 +796,11 @@
         "name": "spinner",
         "value": "800ms linear loop",
         "purpose": "The one spinner."
+      },
+      {
+        "name": "startup",
+        "value": "4400ms, 360ms exit",
+        "purpose": "The startup sequence, then its fade or the mark settling into the sidebar."
       }
     ],
     "breakpoints": [
@@ -780,9 +810,9 @@
         "purpose": "Phone shell."
       },
       {
-        "name": "desk",
+        "name": "desktop",
         "value": ">= 768px",
-        "purpose": "Desk shell."
+        "purpose": "Desktop shell."
       },
       {
         "name": "rail",
@@ -816,7 +846,7 @@
       },
       "ceiling": {
         "relativeLuminance": 0.053,
-        "proof": ".impeccable/contrast.py"
+        "proof": "the contrast check in go run ./cmd/release lint (cmd/release/internal/tokens/contrast.go)"
       },
       "backdropFilter": "blur(64px) saturate(1.8) brightness(<computed to hold the ceiling>)"
     }
@@ -828,7 +858,7 @@
       "refersTo": "button-primary",
       "description": "The one main action in a view. Solid white capsule with dark ink.",
       "html": "<button class=\"ds-btn ds-btn-pri\">Pair a Node</button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border: 0; border-radius: 999px; font: 600 13px/1 Geist, 'Helvetica Neue', sans-serif; cursor: pointer; transition: background-color .2s, transform .2s cubic-bezier(.16,1,.3,1); } .ds-btn:active { transform: scale(.97); } .ds-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); } .ds-btn-pri { background: #f6f4f0; color: #111111; } .ds-btn-pri:hover { background: #ffffff; }"
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border: 0; border-radius: 999px; font: 600 13px/1 Geist, 'Helvetica Neue', sans-serif; cursor: pointer; transition: background-color .2s cubic-bezier(.16,1,.3,1), scale .2s cubic-bezier(.16,1,.3,1); } .ds-btn:active { scale: .97; } .ds-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); } .ds-btn-pri { background: #f6f4f0; color: #111111; }"
     },
     {
       "name": "Button",
@@ -836,7 +866,7 @@
       "refersTo": "button",
       "description": "Every other action. Translucent capsule on the tint, with a hairline ring.",
       "html": "<span style=\"display:inline-flex;gap:8px;padding:12px;background:hsl(214 7% 5%)\"><button class=\"ds-btn2\">Manual search</button><button class=\"ds-btn2 ds-ghost\">Open Activity</button><button class=\"ds-btn2 ds-fail\">Retry</button></span>",
-      "css": ".ds-btn2 { height: 32px; padding: 0 14px; border: 0; border-radius: 999px; font: 600 13px/1 Geist, 'Helvetica Neue', sans-serif; color: hsl(214 25% 96%); background: hsl(214 40% 92% / .1); box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .18); cursor: pointer; transition: background-color .2s, transform .2s cubic-bezier(.16,1,.3,1); } .ds-btn2:hover { background: hsl(214 40% 92% / .16); } .ds-btn2:active { transform: scale(.97); } .ds-btn2:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); } .ds-ghost { background: transparent; box-shadow: none; color: hsl(214 18% 83%); } .ds-ghost:hover { background: hsl(214 40% 92% / .1); color: hsl(214 25% 96%); } .ds-fail { background: #ff6b61; color: #2a0603; box-shadow: none; } .ds-fail:hover { background: #ff8a82; }"
+      "css": ".ds-btn2 { height: 32px; padding: 0 14px; border: 0; border-radius: 999px; font: 600 13px/1 Geist, 'Helvetica Neue', sans-serif; color: hsl(214 25% 96%); background: hsl(214 40% 92% / .1); box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .18); cursor: pointer; transition: background-color .2s cubic-bezier(.16,1,.3,1), color .2s cubic-bezier(.16,1,.3,1), scale .2s cubic-bezier(.16,1,.3,1); } .ds-btn2:hover { background: hsl(214 40% 92% / .16); } .ds-btn2:active { scale: .97; } .ds-btn2:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); } .ds-ghost { background: transparent; box-shadow: none; color: hsl(214 18% 83%); } .ds-ghost:hover { background: hsl(214 40% 92% / .1); color: hsl(214 25% 96%); } .ds-fail { background: #ff6b61; color: #2a0603; box-shadow: none; }"
     },
     {
       "name": "Segmented Control",
@@ -844,7 +874,7 @@
       "refersTo": "segmented-option-selected",
       "description": "A choice of view or filter, with a count on every option.",
       "html": "<div class=\"ds-seg\" role=\"radiogroup\"><button role=\"radio\" aria-checked=\"true\">All <span>512</span></button><button role=\"radio\" aria-checked=\"false\">Downloading <span>5</span></button><button role=\"radio\" aria-checked=\"false\">Problems <span>6</span></button></div>",
-      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: hsl(214 40% 92% / .1); box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .11); } .ds-seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: hsl(214 18% 83%); font: 500 12px/1 Geist, sans-serif; cursor: pointer; transition: background-color .2s cubic-bezier(.16,1,.3,1), color .2s; } .ds-seg button span { font-variant-numeric: tabular-nums; opacity: .8; margin-left: 4px; } .ds-seg button:hover { color: hsl(214 25% 96%); } .ds-seg button[aria-checked=true] { background: hsl(214 30% 92% / .22); color: hsl(214 25% 96%); box-shadow: 0 1px 3px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.2); } .ds-seg button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: hsl(214 40% 92% / .1); box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .11); } .ds-seg button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: hsl(214 18% 83%); font: 500 13px/1 Geist, sans-serif; cursor: default; transition: background-color .2s cubic-bezier(.16,1,.3,1), color .2s cubic-bezier(.16,1,.3,1); } .ds-seg button span { color: hsl(214 14% 71%); font-variant-numeric: tabular-nums; } .ds-seg button[aria-checked=true] { background: hsl(214 30% 92% / .22); color: hsl(214 25% 96%); box-shadow: 0 1px 3px rgba(0,0,0,.28); } .ds-seg button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); }"
     },
     {
       "name": "Signal Chips",
@@ -852,7 +882,7 @@
       "refersTo": "chip-fail",
       "description": "Fixed red, amber and green chips, the live chip and the Met pill. Every one carries an icon and a word.",
       "html": "<span class=\"ds-chips\"><span class=\"ds-chip ds-c-fail\">✕ Failed at Import</span><span class=\"ds-chip ds-c-warn\">! Relaying degraded</span><span class=\"ds-chip ds-c-ok\">✓ Checked by Plex</span><span class=\"ds-chip ds-c-live\"><i></i>Converting</span><span class=\"ds-chip ds-c-met\">✓ Met</span></span>",
-      "css": ".ds-chips { display: inline-flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: hsl(214 7% 5%); } .ds-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px 0 7px; border-radius: 6px; font: 700 12px/1 Geist, sans-serif; } .ds-c-fail { background: #ff6b61; color: #2a0603; } .ds-c-warn { background: #ffb547; color: #2b1a00; } .ds-c-ok { background: #5fd394; color: #03230f; } .ds-c-live { background: hsl(214 50% 26% / .7); box-shadow: inset 0 0 0 1px hsl(214 80% 70% / .4); color: hsl(214 25% 96%); font-weight: 600; } .ds-c-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px hsl(214 90% 65% / .32), 0 0 10px hsl(214 95% 72%); } .ds-c-met { height: 28px; padding: 0 12px 0 10px; border-radius: 999px; background: #f6f4f0; color: #111111; font-weight: 600; }"
+      "css": ".ds-chips { display: inline-flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: hsl(214 7% 5%); } .ds-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 6px; font: 700 12px/1 Geist, sans-serif; white-space: nowrap; } .ds-c-fail { background: #ff6b61; color: #2a0603; } .ds-c-warn { background: #ffb547; color: #2b1a00; } .ds-c-ok { background: #5fd394; color: #03230f; } .ds-c-live { gap: 8px; background: hsl(214 50% 26% / .7); box-shadow: inset 0 0 0 1px hsl(214 90% 65% / .32); color: hsl(214 25% 96%); font-weight: 600; } .ds-c-live i { width: 6px; height: 6px; border-radius: 999px; background: hsl(214 25% 96%); box-shadow: 0 0 0 3px hsl(214 90% 65% / .32), 0 0 10px 0 hsl(214 95% 70% / .7); } .ds-c-met { gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; background: #f6f4f0; color: #111111; font-weight: 600; }"
     },
     {
       "name": "Failure Card",
@@ -860,31 +890,31 @@
       "refersTo": "failure-card",
       "description": "What broke, at which stage, why, and the one fix. Near-opaque red-black that never takes the tint.",
       "html": "<article class=\"ds-fail-card\"><header><span class=\"ds-fc-chip\">✕ Failed at Import</span><time>21:31 · 9 min ago</time><button>Manual search</button></header><dl><dt>Cause</dt><dd>The release is a 1080p file labelled 2160p.</dd><dt>Recovery</dt><dd>Blocklisted. Searching again in 2 h.</dd></dl></article>",
-      "css": ".ds-fail-card { max-width: 560px; padding: 16px 20px 20px; border-radius: 14px; background: hsl(3 48% 11% / .97); color: #fff3f1; box-shadow: inset 0 0 0 1px rgba(255,107,97,.46), 0 18px 40px -24px rgba(0,0,0,.8); font: 400 13px/1.45 Geist, sans-serif; } .ds-fail-card header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; } .ds-fc-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px 0 7px; border-radius: 6px; background: #ff6b61; color: #2a0603; font: 700 12px/1 Geist, sans-serif; } .ds-fail-card time { color: rgba(255,226,223,.74); font: 400 12px/1 'Geist Mono', monospace; flex: 1; } .ds-fail-card button { height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: #ff6b61; color: #2a0603; font: 600 13px/1 Geist, sans-serif; } .ds-fail-card dl { display: grid; grid-template-columns: 76px 1fr; gap: 4px 16px; margin: 0; } .ds-fail-card dt { color: #ffb0a9; font: 600 11px/1.6 Geist, sans-serif; letter-spacing: .06em; text-transform: uppercase; } .ds-fail-card dd { margin: 0; }"
+      "css": ".ds-fail-card { display: flex; flex-direction: column; gap: 16px; max-width: 560px; padding: 16px 20px 20px; border-radius: 14px; background: hsl(3 48% 11% / .97); color: #fff3f1; box-shadow: inset 0 0 0 1px rgba(255,107,97,.46), 0 18px 40px -24px rgba(0,0,0,.8); font: 400 13px/1.45 Geist, sans-serif; } .ds-fail-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; } .ds-fc-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 6px; background: #ff6b61; color: #2a0603; font: 700 12px/1 Geist, sans-serif; } .ds-fail-card time { flex: 1; color: rgba(255,226,223,.74); font: 400 .92em/1.45 'Geist Mono', monospace; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; } .ds-fail-card button { height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: #ff6b61; color: #2a0603; font: 600 13px/1 Geist, sans-serif; } .ds-fail-card button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); } .ds-fail-card dl { display: grid; grid-template-columns: max-content minmax(0, 78ch); gap: 8px 16px; margin: 0; } .ds-fail-card dt { padding-top: 1px; color: #ffb0a9; font: 600 11px/1.3 Geist, sans-serif; letter-spacing: .06em; text-transform: uppercase; } .ds-fail-card dd { margin: 0; }"
     },
     {
       "name": "Status Sentence and Stage Track",
       "kind": "custom",
       "refersTo": "sentence",
-      "description": "The first line of a watching page, and a job running toward Available as white light with the Work glow.",
-      "html": "<div class=\"ds-ss\"><p><i></i>5 jobs moving <b>·</b> <a>1 failure</a> <b>·</b> <a class=\"w\">relay-fra degraded</a></p><div class=\"ds-trk\" role=\"progressbar\" aria-valuenow=\"62\"><span class=\"d\"></span><span class=\"d\"></span><span class=\"c\"><em style=\"width:62%\"></em></span><span></span><span class=\"k\"></span><span></span></div></div>",
-      "css": ".ds-ss { padding: 20px; background: hsl(214 7% 5%); font-family: Geist, sans-serif; } .ds-ss p { margin: 0 0 16px; font: 600 24px/1.25 Geist, sans-serif; letter-spacing: -0.025em; color: hsl(214 25% 96%); text-shadow: 0 1px 16px rgba(0,0,0,.35); } .ds-ss p i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 10px 4px 0; background: #fff; box-shadow: 0 0 0 3px hsl(214 90% 65% / .32), 0 0 10px hsl(214 95% 72%); } .ds-ss b { color: hsl(214 12% 60%); font-weight: 400; margin: 0 .45em; } .ds-ss a { color: #ffb0a9; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; } .ds-ss a.w { color: #ffb547; } .ds-trk { display: flex; gap: 3px; max-width: 320px; } .ds-trk span { flex: 1; height: 6px; border-radius: 3px; background: hsl(214 30% 90% / .1); overflow: hidden; } .ds-trk .d { background: hsl(214 25% 88% / .4); } .ds-trk .c { background: hsl(214 60% 80% / .14); box-shadow: inset 0 0 0 1px hsl(214 80% 85% / .38); } .ds-trk .k { flex: .45; background: transparent; box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .18); } .ds-trk em { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, hsl(214 75% 72% / .9), #fff); box-shadow: 0 0 10px 0 hsl(214 95% 70% / .7); }"
+      "description": "The first line of a watching page, and a job's stages, with the current one white with the Work glow.",
+      "html": "<div class=\"ds-ss\"><p><i></i>5 jobs moving <b>·</b> <a>✕ 1 failure</a> <b>·</b> <a class=\"w\">! relay-fra degraded</a></p><div class=\"ds-trk\" role=\"progressbar\" aria-label=\"Downloading Dune: Part Two\" aria-valuemin=\"0\" aria-valuemax=\"6\" aria-valuenow=\"1\"><span class=\"d\"></span><span class=\"c\"></span><span></span><span class=\"k\"></span><span></span><span></span></div></div>",
+      "css": ".ds-ss { padding: 20px; background: hsl(214 7% 5%); font-family: Geist, sans-serif; } .ds-ss p { margin: 0 0 16px; font: 600 24px/1.25 Geist, sans-serif; letter-spacing: -0.025em; color: hsl(214 25% 96%); font-variant-numeric: tabular-nums; text-shadow: 0 1px 16px rgb(0 0 0 / .45); } .ds-ss p i { display: inline-block; width: 6px; height: 6px; border-radius: 999px; margin: 0 10px .2em 0; vertical-align: .2em; background: hsl(214 25% 96%); box-shadow: 0 0 0 3px hsl(214 90% 65% / .32), 0 0 10px 0 hsl(214 95% 70% / .7); } .ds-ss b { padding: 0 4px; color: hsl(214 12% 60%); font-weight: 400; } .ds-ss a { color: #ffb0a9; text-decoration: none; text-underline-offset: 4px; cursor: pointer; } .ds-ss a:hover { text-decoration: underline; } .ds-ss a.w { color: #ffb547; } .ds-trk { display: flex; gap: 3px; max-width: 320px; height: 6px; } .ds-trk span { flex: 1; border-radius: 1.5px; background: hsl(214 40% 92% / .1); } .ds-trk .d { background: hsl(214 18% 83%); } .ds-trk .c { background: hsl(214 25% 96%); box-shadow: 0 0 10px 0 hsl(214 95% 70% / .7); } .ds-trk .k { flex: .45; background: transparent; box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .18); }"
     },
     {
       "name": "Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "A dark well with a hairline ring that lights in the Work hue on focus.",
-      "html": "<label class=\"ds-in\"><span>Paste the key</span><input placeholder=\"sk_…\"></label>",
-      "css": ".ds-in { display: grid; gap: 6px; padding: 12px; background: hsl(214 7% 5%); font: 500 11px/1.3 Geist, sans-serif; color: hsl(214 14% 71%); } .ds-in input { height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: hsl(214 30% 4% / .5); box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .18); color: hsl(214 25% 96%); font: 400 13px/1 'Geist Mono', monospace; outline: none; transition: box-shadow .2s; } .ds-in input::placeholder { color: hsl(214 14% 71%); font-family: Geist, sans-serif; } .ds-in input:focus-visible { box-shadow: inset 0 0 0 1.5px hsl(214 85% 72%), 0 0 0 4px hsl(214 80% 58% / .22); }"
+      "description": "A dark well with a hairline ring, under a label in Body at 600. Focus is the standard white ring and halo.",
+      "html": "<label class=\"ds-in\"><span>Display name</span><input placeholder=\"Ada\"></label>",
+      "css": ".ds-in { display: grid; gap: 6px; padding: 12px; background: hsl(214 7% 5%); font: 600 13px/1.45 Geist, sans-serif; color: hsl(214 18% 83%); } .ds-in input { height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: hsl(214 30% 4% / .5); box-shadow: inset 0 0 0 1px hsl(214 40% 88% / .11); color: hsl(214 25% 96%); font: 400 13px/1.45 Geist, sans-serif; outline: none; } .ds-in input::placeholder { color: hsl(214 14% 71%); } .ds-in input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px hsl(214 80% 58% / .5); }"
     },
     {
       "name": "Menu",
       "kind": "nav",
       "refersTo": "menu",
-      "description": "Floating glass, anchored to its trigger. The only kind of thing besides bars and overlays that blurs.",
+      "description": "Floating glass, anchored to its trigger. On phone it becomes an action sheet.",
       "html": "<div class=\"ds-menu\" role=\"menu\"><button role=\"menuitem\">Open Work</button><button role=\"menuitem\">Move up</button><button role=\"menuitem\" class=\"x\">Remove</button></div>",
-      "css": ".ds-menu { display: grid; min-width: 220px; padding: 4px; border-radius: 14px; background: hsl(214 7.7% 12% / .84); backdrop-filter: blur(30px) saturate(1.7); -webkit-backdrop-filter: blur(30px) saturate(1.7); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px hsl(214 40% 88% / .11), 0 18px 40px rgba(0,0,0,.55); } .ds-menu button { height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: hsl(214 25% 96%); font: 400 13px/1 Geist, sans-serif; text-align: left; cursor: pointer; } .ds-menu button:hover, .ds-menu button:focus-visible { background: hsl(214 40% 92% / .12); outline: none; } .ds-menu .x { color: #ffb0a9; }"
+      "css": ".ds-menu { display: grid; min-width: 220px; padding: 4px; border-radius: 14px; background: hsl(214 7.7% 12% / .84); backdrop-filter: blur(30px) saturate(1.7); -webkit-backdrop-filter: blur(30px) saturate(1.7); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px hsl(214 40% 88% / .11), 0 18px 40px rgba(0,0,0,.55); } .ds-menu button { height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: hsl(214 25% 96%); font: 400 13px/1.45 Geist, sans-serif; text-align: left; cursor: default; } .ds-menu button:hover { background: hsl(214 40% 92% / .16); outline: none; } .ds-menu button:focus-visible { background: hsl(214 40% 92% / .16); box-shadow: inset 0 -2px 0 hsl(214 95% 72%); outline: none; } .ds-menu .x { color: #ffb0a9; }"
     },
     {
       "name": "Logo",
@@ -903,7 +933,7 @@
       "Fixed signal hues: red for failure, amber for warning, green for a passed check. None of them ever takes the tint.",
       "Live is luminance. A running job is white with the Work's glow, and Met is solid white.",
       "Translucent tinted surfaces, with glass blur only on floating chrome and overlays.",
-      "Two densities: Console for the Admin desk shell, Touch for the Admin phone shell and the whole portal.",
+      "Two densities: Console for the Admin desktop shell, Touch for the Admin phone shell and the whole portal.",
       "WCAG 2.2 AA is checked for every tint, and an ambient ceiling holds it."
     ],
     "rules": [
@@ -929,7 +959,7 @@
       },
       {
         "name": "The Contrast Proof Rule",
-        "body": "Change a colour token only together with `.impeccable/contrast.py`, and only if the script still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling and checks 32 ink and surface pairs at it.",
+        "body": "Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 32 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.",
         "section": "colors"
       },
       {
@@ -949,7 +979,7 @@
       },
       {
         "name": "The Floating Glass Rule",
-        "body": "Blur means \"this floats above the page\". Nothing that scrolls with the content is blurred. That covers live pills and portal ribbons too.",
+        "body": "Blur means \"this floats above the page\". Nothing that scrolls with the content is blurred. That covers live pills and chips on posters too.",
         "section": "elevation"
       },
       {
@@ -958,15 +988,20 @@
         "section": "elevation"
       },
       {
+        "name": "The Two Dots Rule",
+        "body": "The dots are always the Work's glow or the neutral blue. They never take a signal colour, and the mark never stands in for a status.",
+        "section": "components"
+      },
+      {
         "name": "The Reduce Motion Rule",
-        "body": "Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.",
+        "body": "Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.",
         "section": "components"
       }
     ],
     "dos": [
       "**Do** take every surface and ink from the formulas in Colors, so a Work's hue reaches the whole page.",
       "**Do** hold the ambient at or below relative luminance 0.053, measured per backdrop.",
-      "**Do** run `python3 .impeccable/contrast.py` after changing any colour token, and keep it passing.",
+      "**Do** run `go run ./cmd/release lint` after changing any colour token, and keep its contrast check passing.",
       "**Do** lead every watching page with a status sentence, then failures with their stage, cause and recovery, then live work.",
       "**Do** show live work as white with the Work's glow, and Met as solid white.",
       "**Do** pair every signal colour with an icon and a word.",
@@ -983,7 +1018,7 @@
       "**Don't** add a fourth red. `fail-ink` covers failure text on glass, including the status sentence's link.",
       "**Don't** set a name, a sentence, a count in prose or a step number in Geist Mono.",
       "**Don't** use solid white for a selected segment or tab. Solid white means the primary action or Met.",
-      "**Don't** blur anything that scrolls with the content, such as a live pill or a ribbon on a poster.",
+      "**Don't** blur anything that scrolls with the content, such as a live pill or a chip on a poster.",
       "**Don't** put text over a sharp backdrop unless a mask or scrim holds the ambient ceiling beneath it.",
       "**Don't** use `ink-4` for text.",
       "**Don't** use uppercase outside a failure card's key labels.",

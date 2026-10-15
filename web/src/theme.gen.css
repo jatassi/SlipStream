@@ -1,0 +1,195 @@
+/* Generated from DESIGN.md by go run ./cmd/release gen tokens. Do not edit. */
+
+@property --h {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 214;
+}
+
+@property --s {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 14%;
+}
+
+@theme static {
+  --color-*: initial;
+  --font-*: initial;
+  --font-weight-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --ease-*: initial;
+  --spacing: 4px;
+
+  --color-page: hsl(var(--h) calc(var(--s) * 0.5) 5%);
+  --color-glass: hsl(var(--h) calc(var(--s) * 0.55) 8% / 0.56);
+  --color-glass-raised: hsl(var(--h) calc(var(--s) * 0.6) 13% / 0.6);
+  --color-chrome: hsl(var(--h) calc(var(--s) * 0.5) 6% / 0.64);
+  --color-popover: hsl(var(--h) calc(var(--s) * 0.55) 12% / 0.84);
+  --color-sheet: hsl(var(--h) calc(var(--s) * 0.4) 10% / 0.88);
+  --color-well: hsl(var(--h) 30% 4% / 0.5);
+  --color-fill: hsl(var(--h) 40% 92% / 0.1);
+  --color-fill-hover: hsl(var(--h) 40% 92% / 0.16);
+  --color-selected: hsl(var(--h) 30% 92% / 0.22);
+  --color-live-fill: hsl(var(--h) 50% 26% / 0.7);
+  --color-hairline: hsl(var(--h) 40% 88% / 0.11);
+  --color-hairline-strong: hsl(var(--h) 40% 88% / 0.18);
+  --color-ink-1: hsl(var(--h) 25% 96%);
+  --color-ink-2: hsl(var(--h) 18% 83%);
+  --color-ink-3: hsl(var(--h) 14% 71%);
+  --color-ink-4: hsl(var(--h) 12% 60%);
+  --color-glow: hsl(var(--h) 95% 72%);
+  --color-halo: hsl(var(--h) 80% 58% / 0.5);
+  --color-solid: #f6f4f0;
+  --color-on-solid: #111111;
+  --color-fail: #ff6b61;
+  --color-fail-ink: #ffb0a9;
+  --color-fail-text: #fff3f1;
+  --color-fail-dim: rgba(255, 226, 223, 0.74);
+  --color-fail-deep: #2a0603;
+  --color-fail-card: hsl(3 48% 11% / 0.97);
+  --color-fail-line: rgba(255, 107, 97, 0.46);
+  --color-warn: #ffb547;
+  --color-warn-ink: #ffd391;
+  --color-warn-text: #fff6e9;
+  --color-warn-dim: rgba(255, 238, 212, 0.76);
+  --color-warn-deep: #2b1a00;
+  --color-warn-card: hsl(37 50% 9% / 0.97);
+  --color-warn-line: rgba(255, 181, 71, 0.36);
+  --color-ok: #5fd394;
+  --color-ok-deep: #03230f;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --text-display: 56px;
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 700;
+
+  --text-title-large: 34px;
+  --text-title-large--line-height: 1.15;
+  --text-title-large--letter-spacing: -0.035em;
+  --text-title-large--font-weight: 700;
+
+  --text-numeral: 34px;
+  --text-numeral--line-height: 1;
+  --text-numeral--letter-spacing: -0.04em;
+  --text-numeral--font-weight: 600;
+
+  --text-sentence: 24px;
+  --text-sentence--line-height: 1.25;
+  --text-sentence--letter-spacing: -0.025em;
+  --text-sentence--font-weight: 600;
+
+  --text-title: 20px;
+  --text-title--line-height: 1.2;
+  --text-title--letter-spacing: -0.025em;
+  --text-title--font-weight: 700;
+
+  --text-sentence-touch: 17px;
+  --text-sentence-touch--line-height: 1.35;
+  --text-sentence-touch--letter-spacing: -0.015em;
+  --text-sentence-touch--font-weight: 600;
+
+  --text-card-title: 15px;
+  --text-card-title--line-height: 1.3;
+  --text-card-title--letter-spacing: -0.01em;
+  --text-card-title--font-weight: 600;
+
+  --text-body-touch: 15px;
+  --text-body-touch--line-height: 1.45;
+  --text-body-touch--font-weight: 400;
+
+  --text-input-touch: 17px;
+  --text-input-touch--line-height: 1.3;
+  --text-input-touch--font-weight: 400;
+
+  --text-heading: 14px;
+  --text-heading--line-height: 1.35;
+  --text-heading--letter-spacing: -0.01em;
+  --text-heading--font-weight: 600;
+
+  --text-body: 13px;
+  --text-body--line-height: 1.45;
+  --text-body--font-weight: 400;
+
+  --text-button: 13px;
+  --text-button--line-height: 1;
+  --text-button--font-weight: 600;
+
+  --text-meta: 12px;
+  --text-meta--line-height: 1.4;
+  --text-meta--font-weight: 400;
+
+  --text-chip: 12px;
+  --text-chip--line-height: 1;
+  --text-chip--font-weight: 600;
+
+  --text-label: 11px;
+  --text-label--line-height: 1.3;
+  --text-label--font-weight: 500;
+
+  --text-label-caps: 11px;
+  --text-label-caps--line-height: 1.3;
+  --text-label-caps--letter-spacing: 0.06em;
+  --text-label-caps--font-weight: 600;
+
+  --text-data: 0.92em;
+  --text-data--line-height: 1.45;
+  --text-data--letter-spacing: -0.01em;
+  --text-data--font-weight: 400;
+
+  --radius-chip: 6px;
+  --radius-item: 8px;
+  --radius-card: 14px;
+  --radius-dialog: 20px;
+  --radius-sheet: 24px;
+  --radius-capsule: 999px;
+
+  --shadow-float: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px var(--color-hairline), 0 18px 40px rgba(0,0,0,.55);
+  --shadow-float-large: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px var(--color-hairline), 0 30px 60px rgba(0,0,0,.6);
+  --shadow-signal-lift: inset 0 0 0 1px var(--color-fail-line), 0 18px 40px -24px rgba(0,0,0,.8);
+  --shadow-poster: 0 24px 48px -16px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.08);
+  --shadow-toast: 0 12px 28px rgba(0,0,0,.5);
+  --shadow-live-glow: 0 0 10px 0 hsl(var(--h) 95% 70% / .7);
+
+  --ease-standard: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring: cubic-bezier(.32, .72, 0, 1);
+
+  --duration-ambient: 1.1s;
+  --duration-backdrop-settle: 1.6s;
+  --duration-control: 200ms;
+  --duration-chevron: 250ms;
+  --duration-menu: 180ms;
+  --duration-palette: 220ms;
+  --duration-inspector: 280ms;
+  --duration-sheet-in: 340ms;
+  --duration-sheet-out: 260ms;
+  --duration-dialog: 360ms;
+  --duration-live-tick: 1s;
+  --duration-sheen: 2.4s;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --color-glass: hsl(var(--h) calc(var(--s) * 0.55) 8%);
+    --color-glass-raised: hsl(var(--h) calc(var(--s) * 0.6) 13%);
+    --color-chrome: hsl(var(--h) calc(var(--s) * 0.5) 6%);
+    --color-popover: hsl(var(--h) calc(var(--s) * 0.55) 12%);
+    --color-sheet: hsl(var(--h) calc(var(--s) * 0.4) 10%);
+    --color-well: hsl(var(--h) 30% 4%);
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --color-ink-2: var(--color-ink-1);
+    --color-ink-3: var(--color-ink-1);
+    --color-hairline: hsl(var(--h) 40% 88%);
+    --color-hairline-strong: hsl(var(--h) 40% 88%);
+  }
+}

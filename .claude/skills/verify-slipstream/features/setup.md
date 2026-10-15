@@ -8,11 +8,11 @@ A fresh Node opens on its first-run page. A person types the Setup code from the
 - `setup-wrong-code` a wrong Setup code marks the field invalid with `The Setup code is wrong` and keeps the rest of the form.
 - `setup-link-prefill` the setup link `/setup#code=<code>` fills in the `Setup code` grouped, says `Setup code filled in` under it, and drops the fragment from the address bar (P-282).
 - `setup-create-admin` the right code creates the first Admin and shows the `API key` once.
-- `setup-signed-in` `Continue` lands on the Library signed in, the header shows the display name, and `GET /api/v1/status` answers `{"claim":"controller"}`.
+- `setup-signed-in` `Continue` lands on the Library at `/library` signed in, the sidebar's `Account` button shows the display name, and `GET /api/v1/status` answers `{"claim":"controller"}`.
 
 ## How to get to it (user POV)
 
-- Desk and phone: any URL of an Unclaimed Node redirects to `/setup`, headed `Set up SlipStream`.
+- Desktop and phone: any URL of an Unclaimed Node redirects to `/setup`, headed `Set up SlipStream`.
 - Setup link: `/setup#code=<code>`, the link a Node opens or logs for its first run.
 - API: `POST /api/v1/setup/controller` with the Setup code; `GET /api/v1/status` reads the claim.
 
@@ -29,7 +29,7 @@ Steps:
 
   ```sh
   $FW browser $RUN
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk open --config={runDir}/browser/desk/playwright-cli.json '{nodes.home.browserUrl}/'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop open --config={runDir}/browser/desktop/playwright-cli.json '{nodes.home.browserUrl}/'
   ```
 
 - **Read the Setup code.** It is the `code` of the log record whose `msg` is `setup code`, such as `Q7G9-2NRV-7TG7`.
@@ -41,46 +41,46 @@ Steps:
 - **Try a wrong code.** Fill the form with `0000-0000-0000`. The `Setup code` textbox turns invalid with `The Setup code is wrong`; the other fields keep their values.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk fill 'getByRole("textbox", { name: "Setup code" })' "0000-0000-0000"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk fill 'getByRole("textbox", { name: "Email" })' "grace@example.test"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk fill 'getByRole("textbox", { name: "Display name" })' "Grace Hopper"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("textbox", { name: "PIN", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk type 1357
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("textbox", { name: "PIN again", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk type 1357
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("button", { name: "Create Admin" })'
-  $FW exec $RUN --proof setup/setup-wrong-code -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/setup/setup-wrong-code/form.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Setup code" })' "0000-0000-0000"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Email" })' "grace@example.test"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Display name" })' "Grace Hopper"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("textbox", { name: "PIN", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type 1357
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("textbox", { name: "PIN again", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type 1357
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Create Admin" })'
+  $FW exec $RUN --proof setup/setup-wrong-code -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/setup/setup-wrong-code/form.aria.yml
   ```
 
 - **Open the setup link.** A new tab at `/setup#code=$CODE` shows the `Setup code` textbox holding `$CODE`, described `Setup code filled in`, and its address reads `/setup` with no fragment.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk tab-new "{nodes.home.browserUrl}/setup#code=$CODE"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk run-code 'async page => { await page.waitForURL((url) => url.hash === "", { timeout: 10000 }); }'
-  $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desk eval 'location.href'
-  $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desk snapshot --filename={runDir}/proof/setup/setup-link-prefill/form.aria.yml
-  $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/setup/setup-link-prefill/form.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop tab-new "{nodes.home.browserUrl}/setup#code=$CODE"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.waitForURL((url) => url.hash === "", { timeout: 10000 }); }'
+  $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desktop eval 'location.href'
+  $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/setup/setup-link-prefill/form.aria.yml
+  $FW exec $RUN --proof setup/setup-link-prefill -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-link-prefill/form.png
   ```
 
 - **Create the Admin.** In the setup link's tab, fill the rest of the form and choose `Create Admin`. The page shows a read-only `API key` (`ssk_` and 43 characters) and `Continue`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk fill 'getByRole("textbox", { name: "Email" })' "grace@example.test"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk fill 'getByRole("textbox", { name: "Display name" })' "Grace Hopper"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("textbox", { name: "PIN", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk type 1357
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("textbox", { name: "PIN again", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk type 1357
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("button", { name: "Create Admin" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk run-code 'async page => { await page.getByRole("textbox", { name: "API key" }).waitFor({ timeout: 10000 }); }'
-  $FW exec $RUN --proof setup/setup-create-admin -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/setup/setup-create-admin/api-key.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Email" })' "grace@example.test"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Display name" })' "Grace Hopper"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("textbox", { name: "PIN", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type 1357
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("textbox", { name: "PIN again", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type 1357
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Create Admin" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("textbox", { name: "API key" }).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof setup/setup-create-admin -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-create-admin/api-key.png
   ```
 
-- **Continue.** The Library opens at `/`, the header shows `Grace Hopper` and `Live updates: on`, and the status reads `{"claim":"controller"}`.
+- **Continue.** The Library opens at `/library`, the sidebar's `Account` button shows `Grace Hopper` and `Admin`, and the status reads `{"claim":"controller"}`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk click 'getByRole("button", { name: "Continue" })'
-  $FW exec $RUN --proof setup/setup-signed-in -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/setup/setup-signed-in/library.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
+  $FW exec $RUN --proof setup/setup-signed-in -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-signed-in/library.png
   $FW exec $RUN --proof setup/setup-signed-in -- curl -sS '{nodes.home.url}/api/v1/status'
   ```
 

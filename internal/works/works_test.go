@@ -540,6 +540,9 @@ func TestOpenPanicsOnADescriptionThatBreaksARule(t *testing.T) {
 		"works: content type fixture: field origin has no kind": bad(func(d *works.Description) {
 			d.Fields[0].Kind = 0
 		}),
+		"works: content type fixture: it has no icon": bad(func(d *works.Description) {
+			d.Icon = 0
+		}),
 		"works: content type fixture: noun {One:Box Many:} needs both One and Many": bad(func(d *works.Description) {
 			d.Levels = []works.Noun{{One: "Box"}}
 		}),

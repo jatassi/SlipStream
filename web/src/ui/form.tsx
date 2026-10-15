@@ -11,7 +11,7 @@ function SubmitButton({ label }: { label: string }) {
   return (
     <form.Subscribe selector={(state) => state.isSubmitting}>
       {(submitting) => (
-        <Button type="submit" variant="primary" disabled={submitting}>
+        <Button type="submit" look="primary" busy={submitting}>
           {label}
         </Button>
       )}

@@ -8,7 +8,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
-const movieType = `{"id":"movie","name":"Movies","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},` +
+const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},` +
 	`"fields":[{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"released","label":"Released","tier":"work","kind":"date"},` +
 	`{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"}]}`
 

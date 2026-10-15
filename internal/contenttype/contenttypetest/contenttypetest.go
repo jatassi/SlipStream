@@ -23,6 +23,7 @@ const ID works.TypeID = "fixture"
 
 var Description = works.Description{
 	Name:   "Fixture",
+	Icon:   works.IconShapes,
 	Work:   works.Noun{One: "Shelf", Many: "Shelves"},
 	Levels: []works.Noun{{One: "Box", Many: "Boxes"}},
 	Item:   works.Noun{One: "Thing", Many: "Things"},

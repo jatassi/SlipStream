@@ -1,0 +1,12 @@
+:root {
+  --row-wash: hsl(var(--h) 50% 70% / 0.1);
+  --inspector-well: hsl(var(--h) 40% 92% / 0.045);
+}
+
+[data-density="console"] {
+  --row-height-two: 60px;
+}
+
+[data-density="touch"] {
+  --row-height-two: 64px;
+}

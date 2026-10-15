@@ -36,6 +36,17 @@ func (gr *Grabs) List(ctx context.Context, _ identity.Admin) ([]View, error) {
 	return out, nil
 }
 
+// Moving counts the Grabs not yet imported or failed.
+func (gr *Grabs) Moving(ctx context.Context, _ identity.Admin) (int, error) {
+	var n int64
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		n, err = db.New(r).CountMoving(ctx)
+		return err
+	})
+	return int(n), err
+}
+
 // Get reads Grab id, ErrNoGrab when none has it.
 func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, error) {
 	var g Grab

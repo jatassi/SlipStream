@@ -75,6 +75,7 @@ type fieldSpec struct {
 type contentType struct {
 	ID      string      `json:"id" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Name    string      `json:"name"`
+	Icon    string      `json:"icon" enum:"film,tv,note,open-book,headphones,panels,image,shapes"`
 	Enabled bool        `json:"enabled"`
 	Work    noun        `json:"work"`
 	Levels  []noun      `json:"levels" nullable:"false" doc:"Outermost first; empty when Items hang off the Work"`
@@ -84,7 +85,7 @@ type contentType struct {
 
 func contentTypeOf(t works.ContentType) contentType {
 	out := contentType{
-		ID: string(t.ID), Name: t.Name, Enabled: t.Enabled,
+		ID: string(t.ID), Name: t.Name, Icon: t.Icon.String(), Enabled: t.Enabled,
 		Work: noun(t.Work), Item: noun(t.Item), Levels: []noun{}, Fields: []fieldSpec{},
 	}
 	for _, l := range t.Levels {

@@ -37,6 +37,7 @@ func DefaultEndpoints() Endpoints {
 
 var Description = works.Description{
 	Name:   "Music",
+	Icon:   works.IconNote,
 	Work:   works.Noun{One: "Artist", Many: "Artists"},
 	Levels: []works.Noun{{One: "Album", Many: "Albums"}},
 	Item:   works.Noun{One: "Track", Many: "Tracks"},

@@ -14,6 +14,7 @@ import (
 var (
 	flatShape = works.Description{
 		Name: "Films",
+		Icon: works.IconShapes,
 		Work: works.Noun{One: "Film", Many: "Films"},
 		Item: works.Noun{One: "Cut", Many: "Cuts"},
 		Fields: []works.FieldSpec{
@@ -23,6 +24,7 @@ var (
 	}
 	seasonalShape = works.Description{
 		Name:   "Shows",
+		Icon:   works.IconShapes,
 		Work:   works.Noun{One: "Show", Many: "Shows"},
 		Levels: []works.Noun{{One: "Season", Many: "Seasons"}},
 		Item:   works.Noun{One: "Episode", Many: "Episodes"},
@@ -33,6 +35,7 @@ var (
 	}
 	nestedShape = works.Description{
 		Name:   "Serials",
+		Icon:   works.IconShapes,
 		Work:   works.Noun{One: "Show", Many: "Shows"},
 		Levels: []works.Noun{{One: "Arc", Many: "Arcs"}, {One: "Part", Many: "Parts"}},
 		Item:   works.Noun{One: "Episode", Many: "Episodes"},

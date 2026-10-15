@@ -6,6 +6,7 @@ import { chromium } from "playwright";
 
 import { read } from "../manifest.ts";
 import { signIn } from "../sign-in.ts";
+import { startupPlayedScript } from "../startup.ts";
 
 const usage = "usage: bun web/harness/bin/sign-in.ts <run> <identity> <shell>";
 
@@ -37,6 +38,7 @@ try {
     viewport: { width, height },
     baseURL: controller.browserUrl,
   });
+  await context.addInitScript({ path: startupPlayedScript });
   await signIn(await context.newPage(), manifest.admin);
   const out = join(run, "auth", `${identity}-${shell}.json`);
   await mkdir(dirname(out), { recursive: true });

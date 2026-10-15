@@ -3,8 +3,16 @@ import "../styles.css";
 import { faker } from "@faker-js/faker";
 import { afterAll, beforeAll, beforeEach, onTestFinished } from "vitest";
 
+import { writePref } from "../shell/prefs";
 import { unmountApps } from "./render-app";
+import { restoreViewport } from "./viewport";
 import { worker } from "./worker";
+
+declare module "vitest/browser" {
+  interface BrowserCommands {
+    emulateReducedMotion: (reduce: boolean) => Promise<void>;
+  }
+}
 
 beforeAll(async () => {
   await worker.start({
@@ -16,7 +24,11 @@ beforeAll(async () => {
 // onTestFinished hooks run last-registered first: a test's own hooks release
 // held requests, then its apps settle and unmount, then its handlers go.
 beforeEach(() => {
+  onTestFinished(restoreViewport);
   faker.seed(6);
+  writePref("startupPlayed", true);
+  writePref("sidebarCollapsed", false);
+  writePref("startupOff", false);
   onTestFinished(() => {
     worker.resetHandlers();
   });

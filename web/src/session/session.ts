@@ -29,7 +29,7 @@ export function useAccount(): IdentityAccount {
   const { data } = useSuspenseQuery(sessionQuery);
   if (data === null) {
     throw new Error(
-      "useAccount runs only under routes/_app, whose guard puts the Account in the cache",
+      "useAccount runs only under routes/_app and routes/portal, whose guards put the Account in the cache",
     );
   }
   return data.account;

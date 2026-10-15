@@ -24,8 +24,6 @@ function countRequests() {
   return (key: string) => counts.get(key) ?? 0;
 }
 
-const liveState = () => page.getByText(/^Live updates: /u);
-
 afterEach(() => {
   worker.events.removeAllListeners();
   vi.useRealTimers();
@@ -34,9 +32,9 @@ afterEach(() => {
 test("identity.sessions-changed refetches the session once", async () => {
   const server = liveServer();
   const requests = countRequests();
-  renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/", handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  await expect.poll(() => app.live.getState()).toBe("open");
   await expect.poll(() => requests("GET /api/v1/session")).toBe(2);
 
   server.clients[0]?.send({ event: "identity.sessions-changed", data: { account: ada.id } });
@@ -49,7 +47,7 @@ const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 test("works.changed invalidates the Works, that Work, its cells and every catalog search", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/system", handlers: server.handlers });
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     list: getListWorksQueryKey(),
     work: getGetWorkQueryKey(orchard),
@@ -71,7 +69,7 @@ test("works.changed invalidates the Works, that Work, its cells and every catalo
 test("targets.changed invalidates every Work's cells and no Work", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/system", handlers: server.handlers });
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     orchard: getGetWorkCellsQueryKey(orchard),
     harvest: getGetWorkCellsQueryKey(harvest),
@@ -85,7 +83,7 @@ test("targets.changed invalidates every Work's cells and no Work", async () => {
 test("files.changed invalidates only that Work's cells", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/system", handlers: server.handlers });
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     orchard: getGetWorkCellsQueryKey(orchard),
     harvest: getGetWorkCellsQueryKey(harvest),
@@ -142,7 +140,7 @@ test("an event that fails to parse is reported once and resyncs", async () => {
 test("a refused stream with an expired session goes to sign-in", async () => {
   const server = liveServer();
   const { router } = renderApp({
-    path: "/",
+    path: "/library",
     handlers: [
       http.get("*/api/v1/events", () => {
         server.signOut();
@@ -151,14 +149,16 @@ test("a refused stream with an expired session goes to sign-in", async () => {
       ...server.handlers,
     ],
   });
-  await expect.poll(() => router.state.location.href).toBe("/sign-in?reason=expired&redirect=%2F");
+  await expect
+    .poll(() => router.state.location.href)
+    .toBe("/sign-in?reason=expired&redirect=%2Flibrary");
   await expect.element(page.getByText("Your session ended. Sign in again.")).toBeVisible();
 });
 
 test("a refused stream with a live session reopens after a second", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
   const server = liveServer();
-  renderApp({
+  const app = renderApp({
     path: "/",
     handlers: [
       http.get("*/api/v1/events", () => problem(500, "internal", "Something failed"), {
@@ -167,11 +167,12 @@ test("a refused stream with a live session reopens after a second", async () => 
       ...server.handlers,
     ],
   });
-  await expect.element(liveState()).toHaveTextContent("Live updates: reconnecting");
+  await expect.element(page.getByText("Reconnecting to SlipStream…")).toBeVisible();
   expect(server.clients).toHaveLength(0);
 
   await vi.advanceTimersByTimeAsync(1000);
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect.element(page.getByText("Reconnecting to SlipStream…")).not.toBeInTheDocument();
   expect(server.clients).toHaveLength(1);
 });
 
@@ -184,15 +185,15 @@ test("a hidden tab releases its stream after 10 seconds and reopens when shown",
     document.dispatchEvent(new Event("visibilitychange"));
   };
   const server = liveServer();
-  renderApp({ path: "/", handlers: server.handlers });
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  const app = renderApp({ path: "/", handlers: server.handlers });
+  await expect.poll(() => app.live.getState()).toBe("open");
 
   show("hidden");
   await vi.advanceTimersByTimeAsync(10_000);
-  await expect.element(liveState()).toHaveTextContent("Live updates: paused");
+  await expect.poll(() => app.live.getState()).toBe("paused");
   await expect.poll(() => server.closed).toEqual([0]);
 
   show("visible");
-  await expect.element(liveState()).toHaveTextContent("Live updates: on");
+  await expect.poll(() => app.live.getState()).toBe("open");
   expect(server.clients).toHaveLength(2);
 });

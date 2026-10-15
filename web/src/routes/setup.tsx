@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 
 import { requireEntry } from "../session/gate";
 import { markClaimed } from "../session/session";
+import { EntryPage } from "../shell/entry-page";
 import { Button } from "../ui/button";
+import { Details } from "../ui/details";
 import { ReadOnlyField } from "../ui/read-only-field";
 import { ClaimForm } from "./-setup/claim-form";
 
@@ -35,12 +37,12 @@ function Setup() {
   const linkedSetupCode = useLinkedSetupCode();
   const [apiKey, setApiKey] = useState<string>();
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-12">
-      <h1 className="text-2xl font-bold">Set up SlipStream</h1>
+    <EntryPage title="Set up SlipStream">
       {apiKey === undefined ? (
         <>
           <p>
-            Enter the Setup code from this Node&apos;s console or log, then create the first Admin.
+            Create the first Admin for this Node. The Setup code is in this Node&apos;s console and
+            log.
           </p>
           <ClaimForm
             linkedSetupCode={linkedSetupCode}
@@ -55,13 +57,17 @@ function Setup() {
         </>
       ) : (
         <>
+          <p className="text-ink-1">SlipStream is ready, and you&apos;re its first Admin.</p>
           <ReadOnlyField
             label="API key"
             value={apiKey}
-            description="Scripts send this key in the X-Api-Key header. SlipStream shows it only once."
+            description="SlipStream shows this key only once."
           />
+          <Details summary="Copy it now if scripts or other apps will use SlipStream.">
+            Scripts send the key in the X-Api-Key header of each request.
+          </Details>
           <Button
-            variant="primary"
+            look="primary"
             onClick={() => {
               void navigate({ to: "/" });
             }}
@@ -70,6 +76,6 @@ function Setup() {
           </Button>
         </>
       )}
-    </main>
+    </EntryPage>
   );
 }

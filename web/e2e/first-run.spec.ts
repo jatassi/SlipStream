@@ -1,4 +1,5 @@
 import { expect, expectAccessible, test } from "./fixtures.ts";
+import { isPhone } from "./shell.ts";
 
 test.use({ scenario: "first-run" });
 
@@ -34,12 +35,18 @@ test("a fresh Node takes a person from the Setup code to the first Admin", async
   await page.getByRole("button", { name: "Continue" }).click();
   const signedIn = page.getByRole("heading", { name: "Library" });
   await expect(signedIn).toBeVisible();
-  await expect(page.getByRole("banner").getByText("Grace Hopper")).toBeVisible();
+  if (isPhone(page)) {
+    await page
+      .getByRole("navigation", { name: "Tabs" })
+      .getByRole("button", { name: "More" })
+      .click();
+  }
+  await expect(page.getByText("Grace Hopper")).toBeVisible();
   await page.reload();
   await expect(signedIn).toBeVisible();
   await page.goto("/setup");
   await expect(signedIn).toBeVisible();
-  expect(page.url()).toBe(`${world.baseURL}/`);
+  expect(page.url()).toBe(`${world.baseURL}/library`);
   expect(await world.api("GET", "/api/v1/status")).toEqual({
     status: 200,
     body: { claim: "controller" },

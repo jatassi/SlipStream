@@ -221,7 +221,7 @@ func checkLaunched(t *testing.T, m world.Manifest, runDir, bin string) {
 	}
 	wantBrowser := world.Browser{
 		HostResolverRules: "MAP home.localhost 127.0.0.2",
-		Config:            map[string]string{"desk": "browser/desk/playwright-cli.json", "phone": "browser/phone/playwright-cli.json"},
+		Config:            map[string]string{"desktop": "browser/desktop/playwright-cli.json", "phone": "browser/phone/playwright-cli.json"},
 		Presets:           web.Presets(),
 	}
 	if !reflect.DeepEqual(m.Browser, wantBrowser) {

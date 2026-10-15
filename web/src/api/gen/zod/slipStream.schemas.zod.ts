@@ -594,6 +594,15 @@ export const RootsRootList = zod.object({
 export type RootsRootList = zod.input<typeof RootsRootList>;
 export type RootsRootListOutput = zod.output<typeof RootsRootList>;
 
+export const shellCountsActivityMin = 0;
+
+export const ShellCounts = zod.object({
+  activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
+});
+
+export type ShellCounts = zod.input<typeof ShellCounts>;
+export type ShellCountsOutput = zod.output<typeof ShellCounts>;
+
 export const SystemBuild = zod.object({
   commit: zod.string().exactOptional(),
   fingerprint: zod.string().exactOptional(),
@@ -871,6 +880,7 @@ export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const WorksContentType = zod.object({
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
+  icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
   id: zod.string().regex(worksContentTypeIdRegExp),
   item: WorksNoun,
   levels: zod.array(WorksNoun).describe("Outermost first; empty when Items hang off the Work"),

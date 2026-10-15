@@ -6,7 +6,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
-- The `{runId}-admin-desk` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
+- The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
 - A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup.
 
 ## Conventions
@@ -30,7 +30,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 Each feature file starts with an H1 title and one paragraph describing the user-visible behaviour, then exactly four H2s in this order:
 
 1. `Sub-features` lists each behaviour as a bullet that starts with its unique `` `id` `` and cites the `P-###` parity rows it proves.
-2. `How to get to it (user POV)` lists every entry point, per shell where desk and phone differ, plus the API and host CLI.
+2. `How to get to it (user POV)` lists every entry point, per shell where desktop and phone differ, plus the API and host CLI.
 3. `Driving it with <harness>` starts with `Preconditions:` and pairs each user action with exact commands and the observable result.
 4. `Gotchas` lists traps that waste or invalidate a run.
 
@@ -38,10 +38,11 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 
 ## Features
 
+- [Shell](./shell.md) covers the desktop sidebar and top bar, the phone tab bar and More sheet, the palette, toasts, titles, errors and not-found, the portal and the startup sequence.
 - [Setup](./setup.md) covers the Setup code from the Controller's log, a wrong code, the setup link that fills it in, and creating the first Admin on `first-run`.
 - [Sign-in](./sign-in.md) covers Email and PIN, a wrong PIN, returning to the page asked for, saved state and sign-out.
 - [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
-- [Add a movie](./add-a-movie.md) covers Library, Add movie, catalog search, adding a Work and the Work page.
+- [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.
 - [This Node](./this-node.md) covers the This Node page and `GET /api/v1/system`.
-- [Live updates](./live-updates.md) covers the live status, reconnecting after `fakeworld node kill` and `start`, and the captured stream.
+- [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

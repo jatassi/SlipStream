@@ -19,13 +19,20 @@ function devServer(command: string, mode: string): ServerOptions {
 
 export default defineConfig(({ command, mode }) => ({
   plugins: [
-    tanstackRouter({ target: "react", autoCodeSplitting: true }),
+    // One bundle: a route whose code loads lazily can't open while the Node is
+    // down, so the shell couldn't show the outage, and WebKit keeps the failed
+    // import after the Node returns.
+    tanstackRouter({ target: "react", autoCodeSplitting: false }),
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
   ],
   // src/zod-jitless.ts must run before any module in another chunk builds a
   // Zod schema.
-  build: { rolldownOptions: { output: { strictExecutionOrder: true } } },
-  server: devServer(command, mode),
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rolldownOptions: { output: { strictExecutionOrder: true } },
+  },
+  // The startup sequence and its stage are brand/'s masters, imported as is.
+  server: { ...devServer(command, mode), fs: { allow: [".", "../brand"] } },
 }));

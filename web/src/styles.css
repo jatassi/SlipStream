@@ -1,28 +1,55 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "./theme.gen.css";
 
 @theme {
-  --color-*: initial;
-  --font-*: initial;
-
   --font-sans: "Geist Variable", "Helvetica Neue", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --animate-spinner: spinner 0.8s linear infinite;
+  --animate-sheen: sheen var(--duration-sheen) linear infinite;
 
-  --color-page: hsl(214 7% 5%);
-  --color-ink-1: hsl(214 25% 96%);
-  --color-ink-3: hsl(214 14% 71%);
-  --color-fill: hsl(214 40% 92% / 0.1);
-  --color-hairline: hsl(214 40% 88% / 0.11);
-  --color-solid: #f6f4f0;
-  --color-on-solid: #111111;
-  --color-fail-ink: #ffb0a9;
-  --color-ok: #5fd394;
+  @keyframes spinner {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  @keyframes sheen {
+    from {
+      translate: -100%;
+    }
+    to {
+      translate: 100%;
+    }
+  }
 }
 
 @layer base {
   :root {
     color-scheme: dark;
+  }
+
+  [data-density="console"] {
+    --control-height: 32px;
+    --primary-height: 32px;
+    --input-height: 32px;
+    --icon-button-size: 32px;
+    --row-height: 44px;
+    --menu-item-height: 36px;
+    --body-size: var(--text-body);
+    --body-line-height: var(--text-body--line-height);
+  }
+
+  [data-density="touch"] {
+    --control-height: 44px;
+    --primary-height: 50px;
+    --input-height: 48px;
+    --icon-button-size: 44px;
+    --row-height: 54px;
+    --menu-item-height: 52px;
+    --body-size: var(--text-body-touch);
+    --body-line-height: var(--text-body-touch--line-height);
   }
 
   body {
@@ -32,6 +59,7 @@
   :focus-visible {
     outline: 2px solid #fff;
     outline-offset: 2px;
+    box-shadow: 0 0 0 6px var(--color-halo);
   }
 }
 

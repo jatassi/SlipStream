@@ -11,10 +11,12 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/fakes/world"
+	"github.com/jatassi/slipstream/web"
 )
 
 // cliConfig is a playwright cli config: Chromium reaching every Node by
-// name, one shell's viewport and device, and the run's browser output.
+// name, one shell's viewport and device, every tab past the startup
+// sequence, and the run's browser output.
 type cliConfig struct {
 	Browser   cliBrowser `json:"browser"`
 	OutputDir string     `json:"outputDir"`
@@ -24,6 +26,7 @@ type cliBrowser struct {
 	BrowserName    string            `json:"browserName"`
 	LaunchOptions  cliLaunchOptions  `json:"launchOptions"`
 	ContextOptions cliContextOptions `json:"contextOptions"`
+	InitScript     []string          `json:"initScript"`
 }
 
 type cliLaunchOptions struct {
@@ -54,6 +57,9 @@ func browserCommand(args []string) int {
 		if err != nil {
 			return failed("browser", err), nil
 		}
+		if err := writeFile(startupPlayedPath(m), web.StartupPlayed()); err != nil {
+			return failed("browser", err), nil
+		}
 		files := map[string]string{}
 		for _, shell := range slices.Sorted(maps.Keys(m.Browser.Config)) {
 			rel := m.Browser.Config[shell]
@@ -80,9 +86,14 @@ func cliConfigFor(m world.Manifest, shell string) cliConfig {
 				IsMobile:          p.IsMobile,
 				HasTouch:          p.HasTouch,
 			},
+			InitScript: []string{startupPlayedPath(m)},
 		},
 		OutputDir: filepath.Join(m.RunDir, "browser", "output"),
 	}
+}
+
+func startupPlayedPath(m world.Manifest) string {
+	return filepath.Join(m.RunDir, "browser", "startup-played.js")
 }
 
 func writeCLIConfig(path string, c cliConfig) error {
@@ -90,11 +101,15 @@ func writeCLIConfig(path string, c cliConfig) error {
 	if err != nil {
 		return fmt.Errorf("browser config: %w", err)
 	}
+	return writeFile(path, append(data, '\n'))
+}
+
+func writeFile(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("browser config: %w", err)
+		return fmt.Errorf("browser: %w", err)
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
-		return fmt.Errorf("browser config: %w", err)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("browser: %w", err)
 	}
 	return nil
 }

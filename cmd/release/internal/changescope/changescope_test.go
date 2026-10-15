@@ -31,10 +31,14 @@ func TestOf(t *testing.T) {
 				added(".agents/skills/x/SKILL.md"),
 				added(".claude/rules/x.md"),
 				added(".grok/skills/x.md"),
-				added(".impeccable/mocks/a.png"),
-				added("brand/logo.svg"),
 			},
 			want: Docs,
+		},
+		{
+			name:         "design sources are read by checks",
+			changes:      []nativetouch.Change{modified("DESIGN.md"), modified(".impeccable/design.json"), added("brand/logo.svg")},
+			want:         PR,
+			wantNotInert: []string{"DESIGN.md", ".impeccable/design.json", "brand/logo.svg"},
 		},
 		{
 			name:         "parity matrix is read by a lint",

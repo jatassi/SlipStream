@@ -5,6 +5,7 @@ import { page, userEvent } from "vitest/browser";
 import { CreateSessionBody } from "../api/gen/zod/identity/identity.zod";
 import { ada, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
+import { resize } from "../test/viewport";
 
 function adaServer() {
   let signedIn = false;
@@ -46,7 +47,7 @@ test("a wrong PIN shows the server's title and clears the PIN, and the right one
 
   await typePin("1234");
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(router.state.location.href).toBe("/");
+  expect(router.state.location.href).toBe("/library");
 });
 
 test("an expired session says so", async () => {
@@ -54,4 +55,15 @@ test("an expired session says so", async () => {
   await expect
     .element(page.getByRole("status"))
     .toHaveTextContent("Your session ended. Sign in again.");
+});
+
+test.each([
+  ["a desktop browser", 1440, "32px"],
+  ["a phone", 390, "48px"],
+])("sign-in in %s takes that shell's density", async (_shell, width, inputHeight) => {
+  await resize(width, 844);
+  renderApp({ path: "/sign-in", handlers: [signedOut] });
+  const email = page.getByLabelText("Email");
+  await expect.element(email).toBeVisible();
+  expect(getComputedStyle(email.element()).height).toBe(inputHeight);
 });

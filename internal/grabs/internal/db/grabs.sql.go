@@ -71,6 +71,17 @@ func (q *Queries) Advance(ctx context.Context, arg AdvanceParams) (int64, error)
 	return result.RowsAffected()
 }
 
+const countMoving = `-- name: CountMoving :one
+SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
+`
+
+func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMoving)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const finishSearch = `-- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = ?1, outcome = ?2, candidates = ?3,
     grab_id = ?4

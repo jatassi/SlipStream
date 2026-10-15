@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
+import { signOut } from "./shell.ts";
 
 async function signIn(page: Page, email: string, pin: string) {
   await page.getByLabel("Email").fill(email);
@@ -29,7 +30,7 @@ test("sign-in returns to the page asked for and sign-out ends the session", asyn
   await expectAccessible(page);
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page.getByRole("status").filter({ hasText: "You signed out." })).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/sign-in?reason=signed-out`);
   await page.goBack();
@@ -43,5 +44,5 @@ test("sign-in ignores a redirect to another site", async ({ page, world }) => {
   await page.goto("/sign-in?redirect=//evil.example");
   await signIn(page, email, pin);
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(page.url()).toBe(`${world.baseURL}/`);
+  expect(page.url()).toBe(`${world.baseURL}/library`);
 });

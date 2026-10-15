@@ -31,6 +31,16 @@ export const getListContentTypesResponseMock = (
           tier: faker.helpers.arrayElement(["work", "level", "item"] as const),
         }),
       ),
+      icon: faker.helpers.arrayElement([
+        "film",
+        "tv",
+        "note",
+        "open-book",
+        "headphones",
+        "panels",
+        "image",
+        "shapes",
+      ] as const),
       id: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
       item: {
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -131,6 +141,16 @@ export const getSetContentTypeEnabledResponseMock = (
       tier: faker.helpers.arrayElement(["work", "level", "item"] as const),
     }),
   ),
+  icon: faker.helpers.arrayElement([
+    "film",
+    "tv",
+    "note",
+    "open-book",
+    "headphones",
+    "panels",
+    "image",
+    "shapes",
+  ] as const),
   id: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   item: {
     many: faker.string.alpha({ length: { min: 10, max: 20 } }),

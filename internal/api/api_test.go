@@ -328,6 +328,26 @@ func TestTheWebAppFallsBackToIndexAndCachesHashedAssets(t *testing.T) {
 	}
 }
 
+func TestTheWebAppServesBrandFilesWithTheirTypes(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	r.services.Web = fstest.MapFS{
+		"index.html":           {Data: []byte("index")},
+		"manifest.webmanifest": {Data: []byte(`{"name":"SlipStream"}`)},
+		"icon-192.png":         {Data: []byte("\x89PNG\r\n\x1a\n")},
+		"assets/mark-1a.svg":   {Data: []byte("<svg/>")},
+	}
+	h := r.Handler()
+	for target, want := range map[string]string{
+		"/manifest.webmanifest": "application/manifest+json",
+		"/icon-192.png":         "image/png",
+		"/assets/mark-1a.svg":   "image/svg+xml",
+	} {
+		if got := get(t, h, target).Header().Get("Content-Type"); got != want {
+			t.Errorf("GET %s Content-Type = %q, want %q", target, got, want)
+		}
+	}
+}
+
 func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
 	r := newRouter(t, &bytes.Buffer{})
 	r.services.Web = fstest.MapFS{}

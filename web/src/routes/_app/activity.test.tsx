@@ -1,6 +1,6 @@
-import { sse } from "msw";
+import { HttpResponse, http, sse } from "msw";
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import type { GrabsGrab, GrabsGrabList, WorksListedWork } from "../../api/gen/model";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
@@ -74,50 +74,119 @@ function activityServer() {
   };
 }
 
-const grabs = () => page.getByRole("list", { name: "Grabs" }).getByRole("listitem");
+const sentence = () => page.getByRole("paragraph").filter({ hasText: "moving" });
+const quietOrchard = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
+const harvestCard = () => page.getByRole("article", { name: "Orchard Harvest" });
 
-test("Activity lists each Grab with its Work, release, stage, progress and failure", async () => {
+test("Activity leads with what moves and what failed, then the failure, then each job", async () => {
   renderApp({ path: "/activity", handlers: activityServer().handlers });
   await expect.element(page.getByRole("heading", { name: "Activity" })).toBeVisible();
 
+  await expect.element(sentence()).toHaveTextContent("1 job moving · 1 failure");
   await expect
-    .element(grabs().first())
-    .toHaveTextContent("The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLDownloading");
+    .element(page.getByRole("link", { name: "1 failure" }))
+    .toHaveAttribute("href", `#failed-${failed.id}`);
+  expect(harvestCard().element().closest(`#failed-${failed.id}`)).not.toBeNull();
+
+  await expect.element(harvestCard()).toMatchTextContent(/^Failed at Downloading/u);
   await expect
-    .element(grabs().last())
-    .toHaveTextContent(
-      "Orchard HarvestOrchard.Harvest.2019.720p.HDTVFailedthe Indexer answered 404 for the .torrent",
+    .element(harvestCard())
+    .toMatchTextContent(
+      "Orchard Harvest" +
+        "Cause" +
+        "The Indexer couldn't hand over the release's .torrent file." +
+        "Recovery" +
+        "Search again to pick another release." +
+        "Release" +
+        "Orchard.Harvest.2019.720p.HDTV" +
+        "Detail" +
+        "the Indexer answered 404 for the .torrent",
     );
-  const bar = page.getByRole("progressbar", {
-    name: "Downloading The.Quiet.Orchard.2021.1080p.WEB-DL",
-  });
-  await expect.element(bar).toHaveAttribute("value", "183500800");
-  await expect.element(bar).toHaveAttribute("max", "734003200");
-  expect(page.getByRole("progressbar").all()).toHaveLength(1);
   await expect
-    .element(page.getByRole("link", { name: "Orchard Harvest" }))
-    .toHaveAttribute("href", `/works/${harvestId}`);
+    .element(harvestCard().getByRole("img", { name: "Orchard Harvest failed at Downloading" }))
+    .toBeVisible();
+
+  await expect
+    .element(quietOrchard())
+    .toMatchTextContent(
+      "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLDownloading25%175 MB of 700 MB",
+    );
+  await expect
+    .element(page.getByRole("link", { name: "The Quiet Orchard" }))
+    .toHaveAttribute("href", `/works/${orchardId}`);
+  await expect
+    .element(
+      page.getByRole("progressbar", { name: "Downloading The.Quiet.Orchard.2021.1080p.WEB-DL" }),
+    )
+    .toHaveAttribute("aria-valuenow", "25");
+  await expect
+    .element(page.getByRole("progressbar", { name: "Downloading The Quiet Orchard" }))
+    .toHaveAttribute("aria-valuetext", "Downloading");
+  expect(page.getByRole("progressbar").all()).toHaveLength(2);
 });
 
 test("grabs.changed moves a Grab to Imported without a reload", async () => {
   const server = activityServer();
   renderApp({ path: "/activity", handlers: server.handlers });
   await expect
-    .element(grabs().first())
-    .toHaveTextContent("The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLDownloading");
+    .element(quietOrchard())
+    .toMatchTextContent("The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLDownloading");
 
   server.grabMoves(imported);
 
   await expect
-    .element(grabs().first())
+    .element(quietOrchard())
     .toHaveTextContent("The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLImported");
+  await expect.element(sentence()).toHaveTextContent("Nothing moving · 1 failure · 1 imported");
   expect(page.getByRole("progressbar").all()).toHaveLength(0);
 });
 
-test("Activity with no Grabs says so", async () => {
+test("Search again on a failed Grab searches its Work and says so", async () => {
+  const searched: string[] = [];
+  renderApp({
+    path: "/activity",
+    handlers: [
+      http.post("*/api/v1/works/:workId/search", ({ params }) => {
+        searched.push(String(params["workId"]));
+        return HttpResponse.json({ searchIds: [failed.id] }, { status: 202 });
+      }),
+      ...activityServer().handlers,
+    ],
+  });
+  await userEvent.click(harvestCard().getByRole("button", { name: "Search again" }));
+  await expect
+    .element(page.getByRole("region", { name: "Notifications" }).getByText("Search started"))
+    .toBeVisible();
+  expect(searched).toEqual([harvestId]);
+});
+
+test("Activity with no Grabs says what to do next", async () => {
   renderApp({
     path: "/activity",
     handlers: [getListGrabsMockHandler({ grabs: [] })],
   });
-  await expect.element(page.getByText("No Grabs yet.")).toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        "Nothing is downloading. Open a Work and choose Search to find a release for it.",
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("main").getByRole("button", { name: "Open the Library" }))
+    .toHaveAttribute("href", "/library");
+});
+
+test("a failure that a later Grab for its Item replaced no longer needs you", async () => {
+  const retried: GrabsGrab = { ...downloading, createdAt: "2026-10-12T10:00:00Z" };
+  const replaced: GrabsGrab = { ...failed, workId: orchardId, createdAt: "2026-10-12T09:00:00Z" };
+  renderApp({
+    path: "/activity",
+    handlers: [
+      getListGrabsMockHandler({ grabs: [retried, replaced] }),
+      ...activityServer().handlers,
+    ],
+  });
+  await expect.element(sentence()).toHaveTextContent("1 job moving");
+  await expect.element(page.getByRole("article")).not.toBeInTheDocument();
 });

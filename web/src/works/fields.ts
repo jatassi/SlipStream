@@ -1,4 +1,8 @@
+import { notFound } from "@tanstack/react-router";
+
 import type { WorksContentType, WorksFieldValue } from "../api/gen/model";
+import { adminNav } from "../shell/nav";
+import type { Crumb } from "../shell/titles";
 
 export function fieldText(value: WorksFieldValue): string {
   if (value.kind === "text") {
@@ -19,9 +23,20 @@ export function yearOf(fields: WorksFieldValue[]): string | undefined {
   return year === undefined ? undefined : fieldText(year);
 }
 
-export function enabledType(types: WorksContentType[]): WorksContentType | undefined {
-  return types.find((type) => type.enabled);
+export const addLabel = ({ work }: WorksContentType): string =>
+  `Add ${/^[aeiou]/iu.test(work.one) ? "an" : "a"} ${work.one}`;
+
+export function enabledTypeOf(types: readonly WorksContentType[], id: string): WorksContentType {
+  const type = types.find((candidate) => candidate.id === id && candidate.enabled);
+  if (type === undefined) {
+    // oxlint-disable-next-line typescript/only-throw-error -- the router renders its own notFound() as the not-found page
+    throw notFound();
+  }
+  return type;
 }
+
+export const enabledTypes = (types: readonly WorksContentType[]): WorksContentType[] =>
+  types.filter((type) => type.enabled);
 
 export function typeOf(types: WorksContentType[], id: string): WorksContentType {
   const type = types.find((candidate) => candidate.id === id);
@@ -29,4 +44,13 @@ export function typeOf(types: WorksContentType[], id: string): WorksContentType 
     throw new Error(`no Content Type ${id} is registered`);
   }
   return type;
+}
+
+/** The crumbs above a page of one Content Type's Works: Library, then that type's library while it is enabled. */
+export function libraryTrail(types: readonly WorksContentType[], id: string): Crumb[] {
+  const library = { title: adminNav[0].label, pathname: adminNav[0].to };
+  const type = types.find((candidate) => candidate.id === id && candidate.enabled);
+  return type === undefined
+    ? [library]
+    : [library, { title: type.work.many, pathname: `${library.pathname}/${type.id}` }];
 }

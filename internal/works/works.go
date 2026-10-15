@@ -134,6 +134,9 @@ func validate(d Description) error {
 	if d.Name == "" {
 		return errors.New("its name is empty")
 	}
+	if iconNames[d.Icon] == "" {
+		return errors.New("it has no icon")
+	}
 	nouns := append([]Noun{d.Work, d.Item}, d.Levels...)
 	for _, n := range nouns {
 		if n.One == "" || n.Many == "" {

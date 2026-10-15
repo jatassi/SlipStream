@@ -3,6 +3,7 @@ import type { WorksContentType, WorksTree } from "../api/gen/model";
 export const cinema: WorksContentType = {
   id: "cinema",
   name: "Films",
+  icon: "film",
   enabled: true,
   work: { one: "Film", many: "Films" },
   item: { one: "Film", many: "Films" },

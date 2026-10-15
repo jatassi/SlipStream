@@ -74,7 +74,6 @@ export function ClaimForm(props: Props) {
               autoCapitalize="characters"
               autoComplete="off"
               spellCheck={false}
-              className="font-mono"
               format={displaySetupCode}
               description={props.linkedSetupCode === undefined ? undefined : "Setup code filled in"}
             />

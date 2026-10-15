@@ -133,7 +133,7 @@ func TestStartStop(t *testing.T) {
 func TestStartRecordsTheTestCommand(t *testing.T) {
 	t.Parallel()
 	runDir := worldtest.RunDir(t)
-	command := "bun run --cwd web e2e skeleton.spec.ts:6 --project chromium-desk"
+	command := "bun run --cwd web e2e skeleton.spec.ts:6 --project chromium-desktop"
 	if got := start(t, runDir, "--test-command", command); got.code != 0 {
 		t.Fatalf("start = %+v, want exit 0", got)
 	}

@@ -1,76 +1,45 @@
-import { Logout01Icon } from "@hugeicons/core-free-icons";
-import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute } from "@tanstack/react-router";
+import type { ComponentType, ReactNode } from "react";
 
-import { useDeleteSession } from "../api/gen/query/identity/identity";
-import { LiveStatus } from "../live/live-status";
 import { requireEntry } from "../session/gate";
-import { useAccount } from "../session/session";
-import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
+import { DesktopShell } from "../shell/desktop/layout";
+import { NotFound, ShellError } from "../shell/errors";
+import { adminNav } from "../shell/nav";
+import { Palette } from "../shell/palette/palette";
+import { PhoneShell } from "../shell/phone/layout";
+import { type ShellKind, useShell } from "../ui/shell-context";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
     await requireEntry(context, "app", location);
     await context.live.connect();
   },
-  component: AppLayout,
+  component: () => (
+    <AppFrame>
+      <Outlet />
+    </AppFrame>
+  ),
+  errorComponent: ShellError,
+  notFoundComponent: () => (
+    <AppFrame>
+      <NotFound home={adminNav[0]} />
+    </AppFrame>
+  ),
 });
 
-function AppLayout() {
-  return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <nav aria-label="Main">
-          <ul className="flex gap-4">
-            <li>
-              <Link to="/" className="underline">
-                Library
-              </Link>
-            </li>
-            <li>
-              <Link to="/activity" className="underline">
-                Activity
-              </Link>
-            </li>
-            <li>
-              <Link to="/system" className="underline">
-                This Node
-              </Link>
-            </li>
-          </ul>
-        </nav>
-        <LiveStatus />
-        <SignOut />
-      </header>
-      <main>
-        <Outlet />
-      </main>
-    </div>
-  );
-}
+const shells: { readonly [S in ShellKind]: ComponentType<{ children: ReactNode }> } = {
+  desktop: DesktopShell,
+  phone: PhoneShell,
+};
 
-function SignOut() {
-  const account = useAccount();
-  const { endSession } = Route.useRouteContext();
-  const signOut = useDeleteSession({
-    mutation: {
-      onSuccess: () => {
-        endSession("signed-out");
-      },
-    },
-  });
+function AppFrame({ children }: { children: ReactNode }) {
+  const Shell = shells[useShell()];
+  // The shell's bars stack inside this context, so popups that portal into
+  // body still open above them.
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-ink-3">{account.displayName}</span>
-      <Button
-        onClick={() => {
-          signOut.mutate();
-        }}
-        disabled={signOut.isPending}
-      >
-        <Icon icon={Logout01Icon} />
-        Sign out
-      </Button>
+    <div className="isolate">
+      <Shell>{children}</Shell>
+      <Palette />
     </div>
   );
 }

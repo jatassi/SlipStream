@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { ada } from "../test/handlers";
+import { ada, grace } from "../test/handlers";
 import { type Entry, entryOf, redirectFor } from "./gate";
 import { safeRedirect } from "./safe-redirect";
 
@@ -8,6 +8,7 @@ const setup: Entry = { kind: "setup" };
 const signIn: Entry = { kind: "sign-in" };
 const worker: Entry = { kind: "worker" };
 const app: Entry = { kind: "app", account: ada };
+const portal: Entry = { kind: "portal", account: grace };
 
 describe("redirectFor", () => {
   test.each([
@@ -15,18 +16,27 @@ describe("redirectFor", () => {
     ["app", signIn, "/sign-in?redirect=%2Fsystem%3Fx%3D1"],
     ["app", worker, "/worker"],
     ["app", app, null],
+    ["app", portal, "/portal"],
+    ["portal", setup, "/setup"],
+    ["portal", signIn, "/sign-in?redirect=%2Fsystem%3Fx%3D1"],
+    ["portal", worker, "/worker"],
+    ["portal", app, null],
+    ["portal", portal, null],
     ["sign-in", setup, "/setup"],
     ["sign-in", signIn, null],
     ["sign-in", worker, "/worker"],
     ["sign-in", app, "/system"],
+    ["sign-in", portal, "/system"],
     ["setup", setup, null],
     ["setup", signIn, "/sign-in"],
     ["setup", worker, "/worker"],
     ["setup", app, "/"],
+    ["setup", portal, "/portal"],
     ["worker", setup, "/setup"],
     ["worker", signIn, "/sign-in"],
     ["worker", worker, null],
     ["worker", app, "/"],
+    ["worker", portal, "/portal"],
   ] as const)("wanting %s at entry %o goes to %s", (want, entry, target) => {
     expect(redirectFor(entry, want, "/system?x=1", "/system")).toBe(target);
   });
@@ -47,6 +57,10 @@ describe("entryOf", () => {
 
   test("a Controller with Ada enters the app as Ada", () => {
     expect(entryOf({ claim: "controller" }, ada)).toEqual({ kind: "app", account: ada });
+  });
+
+  test("a Controller with Grace, a Member, enters the portal as Grace", () => {
+    expect(entryOf({ claim: "controller" }, grace)).toEqual({ kind: "portal", account: grace });
   });
 
   test("a Worker is managed elsewhere", () => {

@@ -1,5 +1,3 @@
-import type { Query } from "@tanstack/react-query";
-
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import {
   getGetGrabQueryKey,
@@ -10,6 +8,7 @@ import { getGetSessionQueryKey } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
 import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
+import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getListProfilesQueryKey, getListTargetsQueryKey } from "../api/gen/query/targets/targets";
 import {
   getGetWorkQueryKey,
@@ -19,7 +18,8 @@ import {
 import type { LiveEffects } from "./types";
 
 const everyPath = (pattern: RegExp) => ({
-  predicate: ({ queryKey: [path] }: Query) => typeof path === "string" && pattern.test(path),
+  predicate: ({ queryKey: [path] }: { queryKey: readonly unknown[] }) =>
+    typeof path === "string" && pattern.test(path),
 });
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
@@ -59,6 +59,7 @@ export const effects = {
     void queryClient.invalidateQueries({ queryKey: getListGrabsQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetGrabQueryKey(data.grabId) });
     void queryClient.invalidateQueries({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    void queryClient.invalidateQueries({ queryKey: getGetCountsQueryKey() });
   },
   "grabs.search-changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListSearchesQueryKey(data.workId) });

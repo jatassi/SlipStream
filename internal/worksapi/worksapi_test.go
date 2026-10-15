@@ -177,7 +177,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	req.Header.Set("Cookie", identity.CookieName+"="+s.session)
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, req)
-	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
+	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
 		`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},` +
 		`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"}]}]}` + "\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
@@ -201,7 +201,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String(), "", 404, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
-		`{"id":"fixture","name":"Fixture","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
+		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
 			`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},`+
 			`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"}]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)

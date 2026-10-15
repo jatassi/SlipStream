@@ -1,0 +1,33 @@
+import { faker } from "@faker-js/faker";
+
+import { HttpResponse, http } from "msw";
+import type { RequestHandlerOptions } from "msw";
+
+import type { ShellCounts } from "../../model";
+
+export const getGetCountsResponseMock = (
+  overrideResponse: Partial<Extract<ShellCounts, object>> = {},
+): ShellCounts => ({ activity: faker.number.int({ min: 0 }), ...overrideResponse });
+
+export const getGetCountsMockHandler = (
+  overrideResponse?:
+    | ShellCounts
+    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<ShellCounts> | ShellCounts),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/counts",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetCountsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getShellMock = () => [getGetCountsMockHandler()];

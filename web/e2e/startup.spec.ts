@@ -1,0 +1,93 @@
+import type { Page } from "@playwright/test";
+
+import { expect, test } from "./fixtures.ts";
+
+test.use({ startupSequence: true });
+
+const sequenceOf = (page: Page) => page.getByRole("img", { name: "SlipStream" });
+
+async function drawing(page: Page): Promise<string> {
+  await page.waitForFunction(() => document.fonts.check('600 16px "Geist Variable"'));
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve);
+        });
+      }),
+  );
+  return sequenceOf(page).innerHTML();
+}
+
+test("a new tab plays the startup sequence over a working page until a key skips it", async ({
+  page,
+  world,
+}) => {
+  const sequence = sequenceOf(page);
+  await page.goto("/sign-in");
+  await expect(sequence).toBeVisible();
+  const first = await drawing(page);
+
+  await page.getByLabel("Email").fill(world.admin().email);
+  expect(await drawing(page)).not.toBe(first);
+  await expect(sequence).toBeVisible();
+
+  await page.keyboard.press("Shift");
+  await expect(sequence).toBeHidden();
+  await expect(page.getByLabel("Email")).toHaveValue(world.admin().email);
+  const resources = await page.evaluate(() =>
+    performance.getEntriesByType("resource").map((entry) => new URL(entry.name).pathname),
+  );
+  expect(resources.filter((path) => /^\/assets\/grain-[\w-]+\.png$/u.test(path))).toHaveLength(1);
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
+  await expect(sequence).toHaveCount(0);
+});
+
+// The lockup holds for 600ms, which a few protocol round trips on a loaded
+// engine outlast, so the page compares two frames of the drawn lockup itself.
+test("under reduced motion the finished lockup holds still, then leaves", async ({ page }) => {
+  const sequence = sequenceOf(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/sign-in");
+  await expect(sequence).toBeVisible();
+
+  const frames = await sequence.evaluate(async (stage) => {
+    await new Promise((resolve) => {
+      new MutationObserver((_, observer) => {
+        observer.disconnect();
+        resolve(undefined);
+      }).observe(stage, { childList: true });
+      if (stage.childElementCount > 0) {
+        resolve(undefined);
+      }
+    });
+    await document.fonts.ready;
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve);
+      });
+    });
+    const first = stage.innerHTML;
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve);
+      });
+    });
+    return [first, stage.innerHTML];
+  });
+  expect(frames[0]).not.toBe("");
+  expect(frames[1]).toBe(frames[0]);
+  await expect(sequence).toBeHidden({ timeout: 2000 });
+});
+
+test.describe("with the harness's startup-played script", () => {
+  test.use({ startupSequence: false });
+
+  test("a new tab opens past the sequence", async ({ page }) => {
+    await page.goto("/sign-in");
+    await expect(page.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
+    expect(await sequenceOf(page).count()).toBe(0);
+  });
+});

@@ -9,20 +9,20 @@ type Engine = "chromium" | "firefox" | "webkit";
 
 // Playwright refuses isMobile on Firefox, so there is no firefox-phone.
 const projects = {
-  "chromium-desk": ["chromium", "desk"],
+  "chromium-desktop": ["chromium", "desktop"],
   "chromium-phone": ["chromium", "phone"],
-  "firefox-desk": ["firefox", "desk"],
-  "webkit-desk": ["webkit", "desk"],
+  "firefox-desktop": ["firefox", "desktop"],
+  "webkit-desktop": ["webkit", "desktop"],
   "webkit-phone": ["webkit", "phone"],
 } as const satisfies Record<string, readonly [Engine, keyof typeof presets]>;
 
 type ProjectName = keyof typeof projects;
 
 export const targets = {
-  "linux-amd64": ["chromium-desk", "chromium-phone", "firefox-desk", "webkit-phone"],
-  "linux-arm64": ["chromium-desk"],
-  "darwin-arm64": ["chromium-desk", "webkit-desk", "webkit-phone"],
-  "windows-amd64": ["chromium-desk", "firefox-desk"],
+  "linux-amd64": ["chromium-desktop", "chromium-phone", "firefox-desktop", "webkit-phone"],
+  "linux-arm64": ["chromium-desktop"],
+  "darwin-arm64": ["chromium-desktop", "webkit-desktop", "webkit-phone"],
+  "windows-amd64": ["chromium-desktop", "firefox-desktop"],
 } as const satisfies Record<string, readonly ProjectName[]>;
 
 const goos: Partial<Record<NodeJS.Platform, string>> = {

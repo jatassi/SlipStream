@@ -16,6 +16,8 @@ import { z } from "zod";
 import { type Fakeworld, fw } from "../harness/fakeworld.ts";
 import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
+import { startupPlayedScript } from "../harness/startup.ts";
+// oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
 export { expect };
@@ -38,6 +40,7 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
+  startupSequence: boolean;
   runDir: string;
   world: World;
   newContext: () => Promise<BrowserContext>;
@@ -98,7 +101,12 @@ function testCommand(testInfo: TestInfo): string {
 }
 
 export async function expectAccessible(page: Page): Promise<void> {
-  const { violations } = await new AxeBuilder({ page }).withTags(wcag).analyze();
+  // Base UI gives its focus guards role="button" in WebKit, so VoiceOver can
+  // land on them; they are focus traps, not commands, and have no name.
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(wcag)
+    .exclude("[data-base-ui-focus-guard]")
+    .analyze();
   const found = violations.map(
     (violation) =>
       `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
@@ -140,6 +148,10 @@ async function guard(context: BrowserContext, origin: string): Promise<() => Pro
 
 export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
+
+  // Each test opens a new tab, which plays the startup sequence over the
+  // page, so only tests that use it ask for it.
+  startupSequence: [false, { option: true }],
 
   runDir: [
     async ({ scenario }, use, testInfo) => {
@@ -235,7 +247,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   // Host resolver rules are launch flags and a world's names exist only once
   // it is up, so Chromium launches a browser per test.
   newContext: async (
-    { playwright, headless, launchOptions, contextOptions, world, workerBrowser },
+    { playwright, headless, launchOptions, contextOptions, world, workerBrowser, startupSequence },
     use,
   ) => {
     const browser =
@@ -255,6 +267,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       const context = await browser.newContext({ ...contextOptions, baseURL: world.baseURL });
       contexts.push(context);
       checks.push(await guard(context, origin));
+      if (!startupSequence) {
+        await context.addInitScript({ path: startupPlayedScript });
+      }
       return context;
     });
     await Promise.all(checks.map((check) => check()));

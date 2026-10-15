@@ -15,7 +15,7 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 - Host CLI on the joining machine: `slipstream join --data-dir <dir> <code>` while that Node is stopped.
 - API on the Controller: `POST /api/v1/nodes/join-codes`, `GET /api/v1/nodes`. The skeleton has no Nodes screen.
 - API on an Unclaimed Node: `POST /api/v1/setup/worker` with the Join Code and the Node's Setup code.
-- Desk and phone: the Worker's own URL, which shows only the Worker page.
+- Desktop and phone: the Worker's own URL, which shows only the Worker page.
 
 ## Driving it with fakeworld and the host CLI
 
@@ -58,9 +58,9 @@ Steps:
 - **Open the Worker page.** The URL ends `/worker` and the heading reads `This Node is a Worker. Manage it from its Controller.`
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk goto '{nodes.seedbox.browserUrl}/'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desk run-code 'async page => { await page.waitForURL(/\/worker$/); }'
-  $FW exec $RUN --proof pairing/pairing-worker-page -- $PW cli -s={runId}-admin-desk screenshot --filename={runDir}/proof/pairing/pairing-worker-page/worker.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.seedbox.browserUrl}/'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.waitForURL(/\/worker$/); }'
+  $FW exec $RUN --proof pairing/pairing-worker-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/pairing/pairing-worker-page/worker.png
   ```
 
 ## Gotchas

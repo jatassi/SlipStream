@@ -14,7 +14,7 @@ One Go binary with an embedded React app and libtorrent through cgo ([ADR 0013](
 
 Two audiences carry equal weight.
 
-- **Admins** run SlipStream on their own hardware. The first is the maintainer; v2 is then packaged and documented for strangers who self-host. An Admin adds and monitors Works, tunes Profiles, Targets and Custom Formats, assigns Roles to Nodes, and needs to know at a glance whether everything is moving and what broke. They work at a desk and from a phone.
+- **Admins** run SlipStream on their own hardware. The first is the maintainer; v2 is then packaged and documented for strangers who self-host. An Admin adds and monitors Works, tunes Profiles, Targets and Custom Formats, assigns Roles to Nodes, and needs to know at a glance whether everything is moving and what broke. They work in a desktop browser and on a phone.
 - **Members** are people an Admin invites with a Signup link. They request Works through the portal and learn when those Works are ready to watch. They never see the machinery: Nodes, Roles, Conversions, indexers or Download Clients.
 
 ## Product Purpose
@@ -41,11 +41,11 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 ## Capabilities and Constraints
 
 - Content Types are pluggable. v2 releases with movies and TV; a test-only third type proves extensibility.
-- Every row of [docs/parity-matrix.md](docs/parity-matrix.md) is kept unless the maintainer explicitly agreed to drop it on that row. This includes the wide desk shell and the phone shell (bottom tabs, push navigation, safe areas, 44 px targets, action sheets), global search and the dashboard. Light and system themes are excepted (P-012), so v2 ships one dark theme.
+- Every row of [docs/parity-matrix.md](docs/parity-matrix.md) is kept unless the maintainer explicitly agreed to drop it on that row. This includes the wide desktop shell and the phone shell (bottom tabs, push navigation, safe areas, 44 px targets, action sheets), global search and the dashboard. Light and system themes are excepted (P-012), so v2 ships one dark theme.
 - Identity: one Account system. Admin is a permission on an Account. Sign-in is an email plus a 4-digit PIN or a passkey; only Admins issue Signup and Reset links; a fresh install prints a Setup code. Scripts use an API key. Email goes over generic SMTP.
 - v1 data comes forward through a one-shot importer.
 - Architecture is locked in [docs/adr/](docs/adr/).
-- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25), and [DESIGN.md](DESIGN.md) records the design system distilled from it and the per-surface prototypes ([Design system and DESIGN.md](https://github.com/jatassi/SlipStream/issues/94)). It is re-extracted once the walking skeleton ships.
+- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25), and [DESIGN.md](DESIGN.md) records the design system distilled from it and the per-surface prototypes ([Design system and DESIGN.md](https://github.com/jatassi/SlipStream/issues/94)). [Design system and app shell](https://github.com/jatassi/SlipStream/issues/136) re-extracted it from the shipped kit and shells.
 
 ## Brand Commitments
 
@@ -68,4 +68,4 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 
 ## Accessibility & Inclusion
 
-WCAG 2.2 AA across the desk and phone shells, Admin and Member alike: AA contrast, full keyboard paths, and screen-reader equivalents for any visual that carries state, such as a canvas or animated status display.
+WCAG 2.2 AA across the desktop and phone shells, Admin and Member alike: AA contrast, full keyboard paths, and screen-reader equivalents for any visual that carries state, such as a canvas or animated status display.

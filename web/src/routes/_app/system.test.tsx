@@ -37,5 +37,8 @@ test("a Member gets the server's refusal", async () => {
       http.get("*/api/v1/system", () => problem(403, "needs_admin", "Only an Admin can do this")),
     ],
   });
-  await expect.element(page.getByRole("alert")).toHaveTextContent("Only an Admin can do this");
+  await expect.element(page.getByRole("alert")).toHaveTextContent("This page is for Admins.");
+  await expect
+    .element(page.getByRole("button", { name: "Open the portal" }))
+    .toHaveAttribute("href", "/portal");
 });

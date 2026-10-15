@@ -11,6 +11,7 @@
     "import",
     "promise"
   ],
+  "jsPlugins": ["./lint/restricted-syntax.js"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -22,7 +23,7 @@
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
-  "ignorePatterns": ["src/api/gen/**", "src/routeTree.gen.ts"],
+  "ignorePatterns": ["src/api/gen/**", "src/routeTree.gen.ts", "src/theme.gen.ts"],
   "rules": {
     "eqeqeq": "error",
     "no-console": "error",
@@ -66,11 +67,11 @@
       },
       {
         "name": "localStorage",
-        "message": "server state lives in Query and the session is an HttpOnly cookie"
+        "message": "per-browser preferences live in src/shell/prefs.ts"
       },
       {
         "name": "sessionStorage",
-        "message": "server state lives in Query and the session is an HttpOnly cookie"
+        "message": "per-browser preferences live in src/shell/prefs.ts"
       }
     ],
     "no-restricted-imports": [
@@ -98,6 +99,14 @@
             "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
           },
           {
+            "name": "cmdk",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
+            "name": "vaul",
+            "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+          },
+          {
             "name": "msw",
             "message": "MSW and mocks belong to tests"
           },
@@ -107,6 +116,10 @@
           }
         ],
         "patterns": [
+          {
+            "group": ["@base-ui/react", "@base-ui/react/*"],
+            "message": "compose the kit in src/ui; it carries DESIGN.md"
+          },
           {
             "group": ["@hugeicons-pro/*"],
             "message": "only the Hugeicons free set ships"
@@ -165,7 +178,42 @@
         "allow": ["**/*.css", "./zod-jitless"]
       }
     ],
-    "unicorn/prefer-top-level-await": "off"
+    "unicorn/prefer-top-level-await": "off",
+    "slipstream/no-restricted-syntax": [
+      "error",
+      {
+        "selector": "JSXAttribute[name.name='className'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='style'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='style'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "Literal[value=/\\[(#|rgba?\\(|hsla?\\()/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "TemplateElement[value.raw=/\\[(#|rgba?\\(|hsla?\\()/]",
+        "message": "use a DESIGN.md token class"
+      },
+      {
+        "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
+        "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+      },
+      {
+        "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
+        "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+      }
+    ]
   },
   "overrides": [
     {
@@ -193,11 +241,35 @@
           },
           {
             "name": "localStorage",
-            "message": "server state lives in Query and the session is an HttpOnly cookie"
+            "message": "per-browser preferences live in src/shell/prefs.ts"
           },
           {
             "name": "sessionStorage",
-            "message": "server state lives in Query and the session is an HttpOnly cookie"
+            "message": "per-browser preferences live in src/shell/prefs.ts"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/shell/prefs.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "call the generated client in src/api/gen"
+          },
+          {
+            "name": "XMLHttpRequest",
+            "message": "call the generated client in src/api/gen"
+          },
+          {
+            "name": "EventSource",
+            "message": "live updates come through src/live/stream.ts"
+          },
+          {
+            "name": "WebSocket",
+            "message": "live updates come through src/live/stream.ts"
           }
         ]
       }
@@ -221,11 +293,11 @@
           },
           {
             "name": "localStorage",
-            "message": "server state lives in Query and the session is an HttpOnly cookie"
+            "message": "per-browser preferences live in src/shell/prefs.ts"
           },
           {
             "name": "sessionStorage",
-            "message": "server state lives in Query and the session is an HttpOnly cookie"
+            "message": "per-browser preferences live in src/shell/prefs.ts"
           }
         ]
       }
@@ -234,6 +306,138 @@
       "files": ["src/live/**", "src/session/**", "src/app.tsx"],
       "rules": {
         "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["src/ui/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "axios",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "react-hook-form",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "zustand",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "sonner",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "lucide-react",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "cmdk",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "vaul",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "msw",
+                "message": "MSW and mocks belong to tests"
+              },
+              {
+                "name": "@faker-js/faker",
+                "message": "MSW and mocks belong to tests"
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@hugeicons-pro/*"],
+                "message": "only the Hugeicons free set ships"
+              },
+              {
+                "group": ["**/api/fetch"],
+                "message": "only generated code calls the mutator"
+              },
+              {
+                "group": ["msw/*", "**/*.msw", "**/test/*"],
+                "message": "MSW and mocks belong to tests"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/routes/portal/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "axios",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "react-hook-form",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "zustand",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "sonner",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "lucide-react",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "cmdk",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "vaul",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "msw",
+                "message": "MSW and mocks belong to tests"
+              },
+              {
+                "name": "@faker-js/faker",
+                "message": "MSW and mocks belong to tests"
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@base-ui/react", "@base-ui/react/*"],
+                "message": "compose the kit in src/ui; it carries DESIGN.md"
+              },
+              {
+                "group": ["@hugeicons-pro/*"],
+                "message": "only the Hugeicons free set ships"
+              },
+              {
+                "group": ["**/api/fetch"],
+                "message": "only generated code calls the mutator"
+              },
+              {
+                "group": ["msw/*", "**/*.msw", "**/test/*"],
+                "message": "MSW and mocks belong to tests"
+              },
+              {
+                "group": ["**/_app", "**/_app/**"],
+                "message": "the portal never imports Admin pages"
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -262,9 +466,21 @@
               {
                 "name": "lucide-react",
                 "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "cmdk",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "vaul",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
               }
             ],
             "patterns": [
+              {
+                "group": ["@base-ui/react", "@base-ui/react/*"],
+                "message": "compose the kit in src/ui; it carries DESIGN.md"
+              },
               {
                 "group": ["@hugeicons-pro/*"],
                 "message": "only the Hugeicons free set ships"
@@ -307,6 +523,14 @@
                 "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
               },
               {
+                "name": "cmdk",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "vaul",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
                 "name": "msw",
                 "message": "MSW and mocks belong to tests"
               },
@@ -316,6 +540,10 @@
               }
             ],
             "patterns": [
+              {
+                "group": ["@base-ui/react", "@base-ui/react/*"],
+                "message": "compose the kit in src/ui; it carries DESIGN.md"
+              },
               {
                 "group": ["@hugeicons-pro/*"],
                 "message": "only the Hugeicons free set ships"
@@ -359,9 +587,21 @@
               {
                 "name": "lucide-react",
                 "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "cmdk",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
+              },
+              {
+                "name": "vaul",
+                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
               }
             ],
             "patterns": [
+              {
+                "group": ["@base-ui/react", "@base-ui/react/*"],
+                "message": "compose the kit in src/ui; it carries DESIGN.md"
+              },
               {
                 "group": ["@hugeicons-pro/*"],
                 "message": "only the Hugeicons free set ships"
@@ -423,6 +663,28 @@
       "files": ["e2e/fixtures.ts"],
       "rules": {
         "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["src/ui/**", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
+      "rules": {
+        "slipstream/no-restricted-syntax": [
+          "error",
+          {
+            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
+            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          },
+          {
+            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
+            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/ui/data.tsx"],
+      "rules": {
+        "slipstream/no-restricted-syntax": "off"
       }
     }
   ]

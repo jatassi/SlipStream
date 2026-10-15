@@ -156,7 +156,7 @@ func TestTheReleaseBinaryListsTheMovieType(t *testing.T) {
 	}
 	r := call(t, ready, http.MethodGet, "/api/v1/content-types", "", map[string]string{"Cookie": "slipstream_session=" + session})
 	expectReply(t, r, http.StatusOK, `{"contentTypes":[`+
-		`{"id":"movie","name":"Movies","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},`+
+		`{"id":"movie","name":"Movies","icon":"film","enabled":true,"work":{"one":"Movie","many":"Movies"},"levels":[],"item":{"one":"Movie","many":"Movies"},`+
 		`"fields":[{"key":"year","label":"Year","tier":"work","kind":"number"},{"key":"released","label":"Released","tier":"work","kind":"date"},`+
 		`{"key":"runtime","label":"Runtime","tier":"work","kind":"duration"}]}]}`+"\n")
 }
