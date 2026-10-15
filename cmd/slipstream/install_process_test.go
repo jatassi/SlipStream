@@ -92,6 +92,10 @@ func TestABadMarkerExitsWithTheUsageCodeNamingIt(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		marker = filepath.Join(filepath.Dir(filepath.Dir(bin)), "Resources", "install-kind")
 	}
+	marker, err := filepath.EvalSymlinks(marker)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cmd := exec.CommandContext(t.Context(), bin, "run", "--data-dir", dataDir(t))
 	cmd.Env = childEnv()
 	out, _ := cmd.CombinedOutput()
