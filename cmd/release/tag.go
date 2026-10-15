@@ -19,10 +19,8 @@ func init() {
 	register("tag", "check a release tag vX.Y.Z and write its version, pre-release flag and image tags; -notes writes its release notes", runTag)
 }
 
-// imageRepo is the registry repository both Linux images are pushed to.
 const imageRepo = "ghcr.io/jatassi/slipstream"
 
-// installDoc is the install guide the release notes link to, at the tag.
 const installDoc = "https://github.com/jatassi/SlipStream/blob/%s/docs/install.md"
 
 func runTag(ctx context.Context, args []string) error {
@@ -62,7 +60,6 @@ func runTag(ctx context.Context, args []string) error {
 	return nil
 }
 
-// tagOutputs are the step outputs the release jobs read, in order.
 func tagOutputs(v pack.Version) [][2]string {
 	refs := make([]string, 0, 4)
 	for _, t := range v.ImageTags() {
@@ -76,8 +73,6 @@ func tagOutputs(v pack.Version) [][2]string {
 	}
 }
 
-// releaseNotes states the oldest system each package runs on and links the
-// install guide, which walks through each system's first-launch prompts.
 func releaseNotes(tag string, v pack.Version, in native.Inputs) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %s\n\n## Supported systems\n\n", install.ProductName, v)
@@ -93,7 +88,6 @@ func releaseNotes(tag string, v pack.Version, in native.Inputs) string {
 	return b.String()
 }
 
-// minOS spells a target's min_os, such as "macos 13.0", as a person reads it.
 func minOS(s string) string {
 	name, version, _ := strings.Cut(s, " ")
 	switch name {

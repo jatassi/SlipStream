@@ -13,8 +13,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// browserStub is a $BROWSER that records its arguments in the file it
-// returns, as the AppImage smoke's stub does.
 func browserStub(t *testing.T) (browser, opened string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -26,7 +24,6 @@ func browserStub(t *testing.T) (browser, opened string) {
 	return browser, opened
 }
 
-// awaitOpened is what the browser stub was asked to open.
 func awaitOpened(t *testing.T, opened string) string {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
@@ -42,7 +39,6 @@ func awaitOpened(t *testing.T, opened string) string {
 	}
 }
 
-// logged is how many records with message msg the Node has logged.
 func (p *nodeProc) logged(msg string) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()

@@ -85,9 +85,6 @@ var onlineRoots = []string{"fakes/tmdb/", "fakes/contenttypes/music/", "internal
 // online job checks.
 func Online(changes []nativetouch.Change) bool { return touches(changes, onlineRoots) }
 
-// packagingRoots hold what decides a package's content or how it is built
-// and smoke-tested: the install kinds, the desktop launch, the packaging
-// code and its templates, and the pinned tools and packagers.
 var packagingRoots = []string{
 	"internal/install/", "internal/node/internal/desktop/", "cmd/slipstream-app/",
 	"cmd/release/internal/pack/", "cmd/release/internal/smoke/", "cmd/release/package.go", "cmd/release/smoke.go",

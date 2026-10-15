@@ -1,7 +1,5 @@
 package install
 
-// The names every package and the desktop launch share, so a template, the
-// tray and the release tool never spell one twice.
 const (
 	// ProductName is the app's display name, and SlipStream.app's name.
 	ProductName = "SlipStream"

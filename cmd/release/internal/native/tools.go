@@ -101,8 +101,6 @@ func PinTools(ctx context.Context, archives []ToolArchive) ([]PinnedTool, error)
 	return pinned, nil
 }
 
-// extractTool extracts the regular files of a .tar.xz, .tar.gz or .zip
-// archive, as url names it, into dir.
 func extractTool(archive, url, dir string) error {
 	switch {
 	case strings.HasSuffix(url, ".tar.xz"):

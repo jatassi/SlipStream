@@ -19,8 +19,6 @@ func init() {
 
 const installPkg = "internal/install"
 
-// markerUse is where an install marker function may be named: the dir that
-// may name it and, when set, the one function there.
 type markerUse struct{ dir, fn string }
 
 var markerUses = map[string][]markerUse{

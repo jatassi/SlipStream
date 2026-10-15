@@ -26,8 +26,6 @@ func buildTarball(_ context.Context, in Input, stage string) ([]string, error) {
 	return []string{name}, writeTarGz(filepath.Join(in.Out, name), stage, in.programs())
 }
 
-// System package layout: the unit runs install.SystemExecutable, and
-// /usr/bin holds a link to it.
 const (
 	sysusersPath = "/usr/lib/sysusers.d/slipstream.conf"
 	unitPath     = "/usr/lib/systemd/system/" + install.UnitName
@@ -37,7 +35,6 @@ const (
 	description  = "SlipStream manages a movie and TV library across your machines."
 )
 
-// systemPackage is what the deb and rpm differ in.
 type systemPackage struct {
 	kind    install.Kind
 	arch    map[string]string
@@ -83,7 +80,6 @@ type scriptData struct {
 	Kernel   string
 }
 
-// maintainerScripts renders the preinst, postinst and prerm of p.
 func maintainerScripts(p systemPackage) map[string]string {
 	data := scriptData{
 		names: installNames, Deb: p.kind == install.Deb, Fresh: p.fresh, Unit: install.UnitName,
@@ -138,7 +134,6 @@ func (c nfpmConfig) encode() (string, error) {
 	return b.String(), nil
 }
 
-// systemPackageConfig describes p for nfpm from files staged under root.
 func systemPackageConfig(in Input, p systemPackage, root string, scripts map[string]string) nfpmConfig {
 	libDir := path.Dir(install.SystemExecutable)
 	root = filepath.ToSlash(root)
@@ -196,8 +191,6 @@ func buildSystemPackage(ctx context.Context, in Input, stage string, p systemPac
 		"--config", configPath, "--packager", p.kind.String(), "--target", filepath.Join(in.Out, name))
 }
 
-// desktopArgs is the mode a desktop launch spells out, in the .desktop
-// file and for an AppImage started with no arguments.
 const desktopArgs = "app"
 
 type desktopData struct {
@@ -237,7 +230,6 @@ func buildAppImage(ctx context.Context, in Input, stage string) ([]string, error
 	return []string{name}, in.run(ctx, stage, env, tool, "--no-appstream", "--runtime-file", runtime, appDir, filepath.Join(in.Out, name))
 }
 
-// packager fetches the named packager for in.Target and makes it runnable.
 func (in Input) packager(ctx context.Context, name string) (string, error) {
 	p, err := in.Inputs.Packager(name, in.Target.Name)
 	if err != nil {
@@ -253,7 +245,6 @@ func (in Input) packager(ctx context.Context, name string) (string, error) {
 	return file, nil
 }
 
-// imageDir is where the image keeps the program files.
 const imageDir = "/usr/local/lib/slipstream"
 
 type dockerData struct {
@@ -262,9 +253,6 @@ type dockerData struct {
 	Dir     string
 }
 
-// buildDocker writes the image's build context. The image installs each
-// tool that has a Debian package from it, and links its programs beside
-// the binary; it copies every other program.
 func buildDocker(ctx context.Context, in Input, _ string) ([]string, error) {
 	const contextDir = "docker"
 	dir := filepath.Join(in.Out, contextDir)
@@ -290,9 +278,6 @@ func buildDocker(ctx context.Context, in Input, _ string) ([]string, error) {
 	return []string{contextDir}, writeText(filepath.Join(program, "entrypoint"), render("entrypoint", data), 0o755)
 }
 
-// stageImageTool copies a tool's programs into the image's program dir,
-// or, for a tool with a Debian package, puts the package in the context
-// and links its programs to where the package installs them.
 func (in Input) stageImageTool(ctx context.Context, tool native.Tool, dir, program string) error {
 	if tool.Debian == nil {
 		for _, p := range tool.Programs {

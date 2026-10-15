@@ -102,7 +102,6 @@ func Check(path string, role Role) error {
 	return nil
 }
 
-// binary is what Check reads from an executable. subsystem is a PE's.
 type binary struct {
 	goos      string
 	imports   []Import

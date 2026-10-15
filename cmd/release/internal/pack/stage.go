@@ -23,8 +23,6 @@ import (
 // also ships beside it.
 const NoticesPath = "internal/notices/NOTICES.txt"
 
-// programs are the file names a package ships from dist: the binary, the
-// trampoline where the OS has one, and each tool's programs.
 func (in Input) programs() []string {
 	names := []string{native.Program(in.Target, install.Executable)}
 	if in.Target.GOOS == "windows" || in.Target.GOOS == "darwin" {
@@ -38,8 +36,6 @@ func (in Input) programs() []string {
 	return names
 }
 
-// stagePrograms copies each program from dist into dir and writes the
-// marker of k beside the binary, where install.MarkerPath finds it.
 func (in Input) stagePrograms(dir string, k install.Kind) error {
 	for _, name := range in.programs() {
 		if err := copyFile(filepath.Join(in.Dist, name), filepath.Join(dir, name), 0o755); err != nil {
@@ -50,8 +46,6 @@ func (in Input) stagePrograms(dir string, k install.Kind) error {
 }
 
 func (in Input) writeMarker(exe string, k install.Kind) error {
-	// Layout reads and spells paths the target's way, so a stage on
-	// another host goes in and comes back as slash paths.
 	l := install.Layout{GOOS: in.Target.GOOS, Executable: filepath.ToSlash(exe)}
 	marker := filepath.FromSlash(strings.ReplaceAll(install.MarkerPath(l), `\`, "/"))
 	if err := os.MkdirAll(filepath.Dir(marker), 0o755); err != nil {
@@ -60,7 +54,6 @@ func (in Input) writeMarker(exe string, k install.Kind) error {
 	return install.Write(marker, k)
 }
 
-// stageLegal writes LICENSE and NOTICES.txt into dir.
 func (in Input) stageLegal(dir string) error {
 	if err := copyFile(filepath.Join(in.Root, "LICENSE"), filepath.Join(dir, "LICENSE"), 0o644); err != nil {
 		return err
@@ -103,8 +96,6 @@ func writeText(dst, text string, perm fs.FileMode) error {
 	return writeFile(dst, strings.NewReader(text), perm)
 }
 
-// walkStage visits every file and directory under root, in lexical
-// order, with its slash-separated path below root.
 func walkStage(root string, visit func(rel string, info fs.FileInfo) error) error {
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || p == root {
@@ -126,7 +117,6 @@ func walkStage(root string, visit func(rel string, info fs.FileInfo) error) erro
 	return nil
 }
 
-// writeTarGz archives everything under root into archive with no owner.
 // Each mode is set here, since a Windows host stages no exec bit:
 // directories and programs are 0755, everything else 0644.
 func writeTarGz(archive, root string, programs []string) error {
@@ -165,8 +155,6 @@ func writeTarGz(archive, root string, programs []string) error {
 	return nil
 }
 
-// writeZip archives everything under root into archive, marking programs
-// executable for an unzip that honors Unix modes.
 func writeZip(archive, root string) error {
 	f, err := os.Create(archive)
 	if err != nil {
@@ -216,7 +204,6 @@ func copyInto(w io.Writer, file string) error {
 	return nil
 }
 
-// run runs a packaging program in dir, its output going to the input's log.
 func (in Input) run(ctx context.Context, dir string, env []string, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir

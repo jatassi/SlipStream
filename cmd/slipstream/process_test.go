@@ -80,8 +80,6 @@ func startNode(t *testing.T, dir string, env ...string) *nodeProc {
 	return startBinary(t, testbin.Slipstream(t), dir, env...)
 }
 
-// startBinary runs bin on dir, or on its install's default data dir when
-// dir is "".
 func startBinary(t *testing.T, bin, dir string, env ...string) *nodeProc {
 	t.Helper()
 	args := []string{"run"}
@@ -91,7 +89,6 @@ func startBinary(t *testing.T, bin, dir string, env ...string) *nodeProc {
 	return startArgs(t, bin, args, env...)
 }
 
-// startArgs runs bin with args, a Node subcommand and its flags.
 func startArgs(t *testing.T, bin string, args []string, env ...string) *nodeProc {
 	t.Helper()
 	cmd := exec.CommandContext(context.Background(), bin, args...)

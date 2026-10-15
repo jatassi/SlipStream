@@ -12,8 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 )
 
-// The macOS smoke drives the app as Finder does, and the LaunchAgent the
-// app writes on its first run.
 func smokeApp(ctx context.Context, r *Run, files []string) error {
 	dmg, err := r.path(files[0])
 	if err != nil {
@@ -76,8 +74,6 @@ func smokeApp(ctx context.Context, r *Run, files []string) error {
 	return removeApp(ctx)
 }
 
-// installApp copies the app out of the disk image into place, as a person
-// dragging it to Applications does, and checks its signature.
 func (r *Run) installApp(ctx context.Context, dmg, app string) error {
 	mount, err := os.MkdirTemp("", "slipstream-dmg-")
 	if err != nil {

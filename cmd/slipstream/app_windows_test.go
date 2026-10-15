@@ -64,7 +64,6 @@ func TestTheTrampolineStartsTheAppAndTheConsoleKeepsItsExitCodes(t *testing.T) {
 	}
 }
 
-// awaitReadyLog is the readiness record once the log at path holds it.
 func awaitReadyLog(t *testing.T, path string) node.Ready {
 	t.Helper()
 	deadline := time.Now().Add(60 * time.Second)

@@ -25,8 +25,6 @@ func runLinkage(_ context.Context, args []string) error {
 	return errors.Join(errs...)
 }
 
-// roleOf is the role a binary's name says it has: slipstream-app is the
-// trampoline, every other release binary a Node.
 func roleOf(path string) linkage.Role {
 	if strings.TrimSuffix(filepath.Base(path), ".exe") == install.Trampoline {
 		return linkage.Trampoline

@@ -21,7 +21,6 @@ func xmlEscape(s string) string {
 	return b.String()
 }
 
-// names are the install names every template may use.
 type names struct {
 	Product    string
 	Executable string

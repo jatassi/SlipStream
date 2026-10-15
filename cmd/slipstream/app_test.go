@@ -9,7 +9,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// statusOf is slipstream status on dir, decoded.
 func statusOf(t *testing.T, dir string) map[string]any {
 	t.Helper()
 	res := slipstream(t, childEnv(), "status", "--data-dir", dir)

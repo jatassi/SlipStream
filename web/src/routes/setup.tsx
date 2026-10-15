@@ -17,7 +17,6 @@ function codeInFragment(hash: string): string | undefined {
   return code === null || code.trim() === "" ? undefined : code;
 }
 
-// Replaced, not pushed, so the history entry stops holding the code too.
 function useLinkedSetupCode() {
   const navigate = Route.useNavigate();
   const hash = useLocation({ select: (location) => location.hash });

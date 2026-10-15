@@ -39,13 +39,10 @@ func OnNetworkShare(dir string) (bool, error) {
 	}
 }
 
-// version is a dotted version's major and minor numbers.
 type version struct{ major, minor int }
 
 func (v version) String() string { return fmt.Sprintf("%d.%d", v.major, v.minor) }
 
-// parseVersion reads the leading major.minor of s, such as a kernel
-// release 4.18.0-553.el8.x86_64.
 func parseVersion(s string) (version, error) {
 	major, rest, _ := strings.Cut(s, ".")
 	end := strings.IndexFunc(rest, func(r rune) bool { return r < '0' || r > '9' })

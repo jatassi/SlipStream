@@ -14,8 +14,6 @@ import (
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
 
-// eventRunsEveryTarget says which CI events build every target regardless of
-// the change scope. push means a push to main, and tag a push of a v* tag.
 var eventRunsEveryTarget = map[string]bool{
 	"pr":       false,
 	"push":     true,
@@ -23,8 +21,6 @@ var eventRunsEveryTarget = map[string]bool{
 	"tag":      true,
 }
 
-// eventPackages says which CI events package and smoke-test every target
-// regardless of what the change touches.
 var eventPackages = map[string]bool{"tag": true, "schedule": true}
 
 var scopeGates = map[changescope.Scope][]native.Gate{
@@ -89,16 +85,11 @@ func runPlan(_ context.Context, args []string) error {
 	return githubOutput("package", strconv.FormatBool(p.Package))
 }
 
-// Plan is what CI runs for an event: the targets it builds, and whether
-// each of them also packages and smoke-tests.
 type Plan struct {
 	Matrix  Matrix
 	Package bool
 }
 
-// plan decides the CI run for event. touched says the change touches what
-// the packages are built from; packaging covers every target, since each
-// target builds its own packages.
 func plan(in native.Inputs, event string, scope changescope.Scope, touched bool) (Plan, error) {
 	packaging := eventPackages[event] || touched
 	if eventRunsEveryTarget[event] || packaging {

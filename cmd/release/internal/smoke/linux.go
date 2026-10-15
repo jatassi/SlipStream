@@ -19,8 +19,6 @@ import (
 	"github.com/jatassi/slipstream/internal/joincode"
 )
 
-// joinCode is a well-formed Join Code for a Controller nobody runs. A host
-// command refuses a foreign data dir before it dials anything.
 func joinCode() (string, error) {
 	key, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -33,7 +31,6 @@ func joinCode() (string, error) {
 	return c.String(), nil
 }
 
-// sudo prefixes a command a person runs as root.
 func sudo(args ...string) []string {
 	if os.Geteuid() == 0 {
 		return args
@@ -41,19 +38,12 @@ func sudo(args ...string) []string {
 	return append([]string{"sudo"}, args...)
 }
 
-// system is where a deb or rpm smoke runs its commands: this runner, or
-// a container with systemd as PID 1.
 type system struct {
-	// root and as run a command as root and as another user.
-	root func(args ...string) []string
-	as   func(user string, args ...string) []string
-	// install and remove the package with the distribution's own tool.
+	root            func(args ...string) []string
+	as              func(user string, args ...string) []string
 	install, remove []string
 }
 
-// smokeService proves a system package: installing it leaves a running
-// service owned by the slipstream user, a root host command is refused,
-// and removing it stops the service and keeps the data.
 func (r *Run) smokeService(ctx context.Context, s system, k install.Kind) error {
 	// The journal outlives the package, so only this install's records count.
 	since := "@" + strconv.FormatInt(time.Now().Unix(), 10)
@@ -121,8 +111,6 @@ func smokeDeb(ctx context.Context, r *Run, files []string) error {
 	}, install.Deb)
 }
 
-// The rpm smoke runs in a Rocky Linux 8 container with systemd as PID 1,
-// which also proves the glibc 2.28 floor.
 const (
 	rpmImage     = "slipstream-smoke-rockylinux8"
 	rpmContainer = "slipstream-smoke-rpm"
@@ -190,8 +178,6 @@ func (r *Run) awaitSystemd(ctx context.Context, in func(args ...string) []string
 	}
 }
 
-// userSession gives the smoke what a person's login session has: a
-// systemd user manager, kept by linger, and XDG_RUNTIME_DIR naming it.
 func (r *Run) userSession(ctx context.Context) ([]string, error) {
 	u, err := user.Current()
 	if err != nil {
@@ -211,7 +197,6 @@ func (r *Run) userSession(ctx context.Context) ([]string, error) {
 	return []string{"XDG_RUNTIME_DIR=" + runtime}, nil
 }
 
-// removeUserService clears what an earlier user service smoke left.
 func (r *Run) removeUserService(ctx context.Context, env []string, k install.Kind) error {
 	_, _ = r.exec(ctx, env, "systemctl", "--user", "disable", "--now", install.UnitName)
 	unit, err := install.UserUnitPath(k, layout("linux"))
@@ -232,8 +217,6 @@ func (r *Run) removeUserService(ctx context.Context, env []string, k install.Kin
 	return nil
 }
 
-// smokeUserService proves service install --user on exe: the unit runs,
-// linger is on, a rerun keeps the PID, and uninstall removes the unit.
 func (r *Run) smokeUserService(ctx context.Context, env []string, exe string, k install.Kind) error {
 	out, err := r.must(ctx, env, exe, "service", "install", "--user")
 	if err != nil {
@@ -350,8 +333,6 @@ func smokeAppImage(ctx context.Context, r *Run, files []string) error {
 	return r.smokeBrowserOpen(ctx, placed)
 }
 
-// smokeUserServiceUnit runs the user service smoke on an AppImage, whose
-// unit must start the image itself rather than its mount under /tmp.
 func (r *Run) smokeUserServiceUnit(ctx context.Context, env []string, image string) error {
 	if err := r.smokeUserService(ctx, env, image, install.AppImage); err != nil {
 		return err
@@ -378,8 +359,6 @@ func (r *Run) smokeUserServiceUnit(ctx context.Context, env []string, image stri
 	return err
 }
 
-// smokeBrowserOpen proves the first-run browser open on Linux: app opens
-// the setup page record's URL through $BROWSER, which a stub records.
 func (r *Run) smokeBrowserOpen(ctx context.Context, exe string) error {
 	stubDir, err := os.MkdirTemp("", "slipstream-browser-")
 	if err != nil {
@@ -405,7 +384,6 @@ func (r *Run) smokeBrowserOpen(ctx context.Context, exe string) error {
 	if err := app.Start(); err != nil {
 		return fmt.Errorf("start %s app: %w", exe, err)
 	}
-	// An app that exits early fails the waits at once, naming its exit.
 	running, exitedEarly := context.WithCancelCause(ctx)
 	defer exitedEarly(nil)
 	exited := make(chan error, 1)

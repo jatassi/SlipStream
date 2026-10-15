@@ -34,9 +34,7 @@ type Input struct {
 
 type recipe struct {
 	targets []string
-	// build writes the Kind's packages into in.Out from stage, an empty
-	// directory of its own, and returns their names there.
-	build func(ctx context.Context, in Input, stage string) ([]string, error)
+	build   func(ctx context.Context, in Input, stage string) ([]string, error)
 }
 
 var (

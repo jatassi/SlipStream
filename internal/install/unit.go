@@ -17,8 +17,6 @@ const (
 	SystemUser = "slipstream"
 )
 
-// unitTemplate is one unit for both scopes. TimeoutStopSec is the Node's
-// 30-second stop deadline plus margin.
 var unitTemplate = template.Must(template.New("unit").Parse(`[Unit]
 Description=SlipStream
 {{- if .System}}

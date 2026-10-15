@@ -16,9 +16,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// installedCopy places a copy of the release binary and its tools where
-// an install of the host OS's kind puts them, with the marker holding
-// marker, and returns the copy's path.
 func installedCopy(t *testing.T, marker string) string {
 	t.Helper()
 	root := dataDir(t)
@@ -52,8 +49,6 @@ func installedCopy(t *testing.T, marker string) string {
 	return bin
 }
 
-// hostKind is the host OS's per-user install kind, the environment that
-// points its default data dir into home, and that data dir.
 func hostKind(home string) (kind string, env []string, dir string) {
 	switch runtime.GOOS {
 	case "windows":

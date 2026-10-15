@@ -87,7 +87,6 @@ func TestCheckPassesPureGoBinaries(t *testing.T) {
 	}
 }
 
-// TestCheckPassesTheTrampoline builds slipstream-app as release build does.
 func TestCheckPassesTheTrampoline(t *testing.T) {
 	for _, target := range []struct{ goos, goarch, ldflags string }{
 		{"windows", "amd64", "-s -w -H windowsgui"},

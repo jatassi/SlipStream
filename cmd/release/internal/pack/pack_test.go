@@ -20,8 +20,6 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 )
 
-// fakeRepo is a repository with LICENSE and the notices file, and a dist
-// holding a stand-in for every program of target.
 func fakeRepo(t *testing.T, target native.Target) Input {
 	t.Helper()
 	root, dist := t.TempDir(), t.TempDir()

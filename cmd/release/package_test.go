@@ -11,9 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 )
 
-// TestEveryKindHasAPackageAndASmoke fails while any install Kind but Dev
-// lacks a package recipe or a smoke recipe, so a new Kind cannot ship
-// untested.
 func TestEveryKindHasAPackageAndASmoke(t *testing.T) {
 	in, err := native.LoadInputs("../../" + native.InputsPath)
 	if err != nil {

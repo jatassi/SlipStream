@@ -31,7 +31,6 @@ const (
 	Docker
 )
 
-// dataDirRule is where a Kind keeps its data when no data dir is named.
 type dataDirRule uint8
 
 const (
@@ -45,14 +44,10 @@ const (
 )
 
 type row struct {
-	token string
-	// goos is the only OS the Kind runs on, or "" for any.
-	goos    string
-	proto   linkv1.InstallKind
-	dataDir dataDirRule
-	// selfInstalled is a Kind no package manager installed, so nothing
-	// checked the OS floor and nothing set up a service: the binary warns
-	// about an old host itself and may install its own user service.
+	token         string
+	goos          string
+	proto         linkv1.InstallKind
+	dataDir       dataDirRule
 	selfInstalled bool
 }
 

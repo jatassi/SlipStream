@@ -17,9 +17,6 @@ func init() {
 	})
 }
 
-// processBoundaries read the process's own globals: the Node's runtime
-// hands them to every subsystem, and the trampoline passes its environment
-// to the Node it starts.
 var processBoundaries = []string{"internal/node/", "cmd/slipstream-app/"}
 
 type processGlobal struct {

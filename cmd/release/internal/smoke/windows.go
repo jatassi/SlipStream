@@ -15,26 +15,20 @@ const runKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 
 func exe(name string) string { return name + ".exe" }
 
-// stopWindowsNodes ends any Node an earlier run left, so its files can go.
 func (r *Run) stopWindowsNodes(ctx context.Context) {
 	r.tidy(ctx, "taskkill", "/F", "/IM", exe(install.Trampoline))
 	r.tidy(ctx, "taskkill", "/F", "/IM", exe(install.Executable))
 }
 
-// powershell runs a PowerShell script and returns its output.
 func (r *Run) powershell(ctx context.Context, script string) (string, error) {
 	return r.must(ctx, nil, "powershell", "-NoProfile", "-NonInteractive", "-Command", script)
 }
 
-// launch starts the trampoline the way sign-in and a shortcut do and
-// checks it hands off and exits 0.
 func (r *Run) launch(ctx context.Context, trampoline string) error {
 	_, err := r.must(ctx, nil, trampoline)
 	return err
 }
 
-// windowless checks that no process of the Node or its tools owns a
-// visible window.
 func (r *Run) windowless(ctx context.Context) error {
 	out, err := r.powershell(ctx, `Get-Process -Name slipstream,ffmpeg,ffprobe -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { $_.ProcessName }`)
 	if err != nil {
@@ -46,8 +40,6 @@ func (r *Run) windowless(ctx context.Context) error {
 	return nil
 }
 
-// browserOpened polls for a process whose command line holds url, the
-// trace of the opener handing the setup page to the default browser.
 func (r *Run) browserOpened(ctx context.Context, url string) error {
 	script := fmt.Sprintf(`@(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*%s*' }).Count`, url)
 	deadline := time.Now().Add(waitFor)
@@ -63,9 +55,6 @@ func (r *Run) browserOpened(ctx context.Context, url string) error {
 	}
 }
 
-// consoleExitCodes proves the console contract: a second stop finds no
-// Node and exits 1, which cmd reports as %ERRORLEVEL% and PowerShell as
-// $LASTEXITCODE once the command has finished.
 func (r *Run) consoleExitCodes(ctx context.Context, slipstream string) error {
 	dir, err := os.MkdirTemp("", "slipstream-console-")
 	if err != nil {
@@ -168,8 +157,6 @@ func smokeMSI(ctx context.Context, r *Run, files []string) error {
 	return r.checkMSIUninstall(ctx, dataDir, slipstream, trampoline, shortcut)
 }
 
-// checkMSIUninstall checks the uninstall took the programs, the shortcut
-// and the Run value, and kept the data dir.
 func (r *Run) checkMSIUninstall(ctx context.Context, dataDir string, gone ...string) error {
 	for _, p := range gone {
 		if exists(p) {
@@ -182,9 +169,6 @@ func (r *Run) checkMSIUninstall(ctx context.Context, dataDir string, gone ...str
 	return mustExist(dataDir)
 }
 
-// checkMSIInstall checks what the MSI puts in place before the first
-// launch: the files, the Start menu shortcut, the Run value naming the
-// trampoline, and the program dir on the user PATH.
 func (r *Run) checkMSIInstall(ctx context.Context, programDir, shortcut string) error {
 	trampoline := filepath.Join(programDir, exe(install.Trampoline))
 	files := []string{shortcut, filepath.Join(programDir, install.MarkerName)}

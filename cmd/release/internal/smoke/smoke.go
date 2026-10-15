@@ -66,8 +66,6 @@ func Smoke(ctx context.Context, r *Run) error {
 	return errors.Join(failed...)
 }
 
-// logf writes a progress line to the log, which is only ever the
-// terminal, so a failed write has nobody to tell.
 func (r *Run) logf(format string, args ...any) { _, _ = fmt.Fprintf(r.Log, format, args...) }
 
 func (r *Run) path(name string) (string, error) {
@@ -78,7 +76,6 @@ func (r *Run) path(name string) (string, error) {
 	return p, nil
 }
 
-// result is a finished command as a person at a terminal sees it.
 type result struct {
 	code           int
 	stdout, stderr string
@@ -88,7 +85,6 @@ func (res result) String() string {
 	return fmt.Sprintf("exit %d, stdout %q, stderr %q", res.code, strings.TrimSpace(res.stdout), strings.TrimSpace(res.stderr))
 }
 
-// exec runs argv to its end, with env added to the process's.
 func (r *Run) exec(ctx context.Context, env []string, argv ...string) (result, error) {
 	name, args := argv[0], argv[1:]
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -111,7 +107,6 @@ func (r *Run) exec(ctx context.Context, env []string, argv ...string) (result, e
 	return res, nil
 }
 
-// must runs argv, which has to exit 0, and returns its stdout.
 func (r *Run) must(ctx context.Context, env []string, argv ...string) (string, error) {
 	res, err := r.exec(ctx, env, argv...)
 	if err != nil {
@@ -123,7 +118,6 @@ func (r *Run) must(ctx context.Context, env []string, argv ...string) (string, e
 	return res.stdout, nil
 }
 
-// expect runs argv, which has to exit with code and print want on stderr.
 func (r *Run) expect(ctx context.Context, code int, want string, argv ...string) error {
 	res, err := r.exec(ctx, nil, argv...)
 	if err != nil {
@@ -135,13 +129,10 @@ func (r *Run) expect(ctx context.Context, code int, want string, argv ...string)
 	return nil
 }
 
-// tidy runs a cleanup command whose failure only means there was nothing
-// to clean.
 func (r *Run) tidy(ctx context.Context, argv ...string) {
 	_, _ = r.exec(ctx, nil, argv...)
 }
 
-// status is the status op's reply, as slipstream status prints it.
 type status struct {
 	PID          int    `json:"pid"`
 	Install      string `json:"install"`
@@ -159,7 +150,6 @@ func parseStatus(out string) (status, error) {
 	return s, nil
 }
 
-// statusOf runs argv, a command line ending in status.
 func (r *Run) statusOf(ctx context.Context, argv ...string) (status, error) {
 	out, err := r.must(ctx, nil, argv...)
 	if err != nil {
@@ -168,7 +158,6 @@ func (r *Run) statusOf(ctx context.Context, argv ...string) (status, error) {
 	return parseStatus(out)
 }
 
-// want checks a status against the install kind and mode a smoke expects.
 func (s status) want(k install.Kind, mode string) error {
 	if s.Install != k.String() || s.Mode != mode {
 		return fmt.Errorf("status reports install %q and mode %q, want %q and %q", s.Install, s.Mode, k, mode)
@@ -176,8 +165,6 @@ func (s status) want(k install.Kind, mode string) error {
 	return nil
 }
 
-// wantApp checks a Node a desktop launch started: app mode under kind k,
-// its tray item up, and start at login as the package leaves it.
 func (s status) wantApp(k install.Kind, startAtLogin bool) error {
 	if err := s.want(k, "app"); err != nil {
 		return err
@@ -194,7 +181,6 @@ func (s status) wantApp(k install.Kind, startAtLogin bool) error {
 	return nil
 }
 
-// record is one JSON log line of the Node.
 type record struct {
 	Msg   string `json:"msg"`
 	URL   string `json:"url"`
@@ -204,8 +190,6 @@ type record struct {
 	} `json:"ready"`
 }
 
-// logged holds the records that matter to a smoke: the ready line and the
-// setup page.
 type logged struct {
 	pid       int
 	setupCode string
@@ -214,8 +198,6 @@ type logged struct {
 
 const waitFor = 90 * time.Second
 
-// awaitReady polls read, which returns the Node's log so far, until it
-// holds the ready record, and returns what the log says.
 func awaitReady(ctx context.Context, what string, read func() (string, error)) (logged, error) {
 	deadline := time.Now().Add(waitFor)
 	for {
@@ -266,7 +248,6 @@ func readFile(path string) func() (string, error) {
 	}
 }
 
-// awaitFile polls until path holds text containing want.
 func awaitFile(ctx context.Context, path, want string) error {
 	deadline := time.Now().Add(waitFor)
 	for {
@@ -302,7 +283,6 @@ func mustExist(paths ...string) error {
 	return nil
 }
 
-// layout is this process's facts for install's path rules.
 func layout(goos string) install.Layout {
 	return install.Layout{GOOS: goos, Environ: os.Environ()}
 }

@@ -128,8 +128,6 @@ func processLayout(environ []string) (install.Layout, error) {
 	return install.Layout{GOOS: runtime.GOOS, Executable: exe, Environ: environ}, nil
 }
 
-// checkHost refuses a data dir another user owns, so a host command never
-// leaves files the Node's own user cannot read, and one on a network share.
 func checkHost(dir DataDir, kind install.Kind, cmd string) error {
 	owner, err := host.ForeignOwner(dir.Path())
 	if err != nil {
@@ -496,9 +494,6 @@ func Run(ctx context.Context, env Env) error {
 	return serve(ctx, env, func(*Node, <-chan struct{}) {})
 }
 
-// serve is Run that hands the ready Node to front on the calling goroutine,
-// which front may hold until exit closes: once the Node has stopped or a
-// second signal arrives.
 func serve(ctx context.Context, env Env, front func(n *Node, exit <-chan struct{})) error {
 	prober, err := bundledProber()
 	if err != nil {

@@ -12,8 +12,6 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the golden files under testdata from the templates")
 
-// golden compares got with testdata/name, which a reviewer reads as the
-// literal file a package ships.
 func golden(t *testing.T, name, got string) {
 	t.Helper()
 	path := filepath.Join("testdata", name)

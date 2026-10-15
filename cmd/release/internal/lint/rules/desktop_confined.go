@@ -22,12 +22,9 @@ func init() {
 const (
 	systrayModule = "fyne.io/systray"
 	desktopPkg    = "internal/node/internal/desktop"
-	// appFile is the app subcommand, the one importer of the desktop
-	// package, so run never reaches the tray.
-	appFile = "internal/node/app.go"
+	appFile       = "internal/node/app.go"
 )
 
-// linuxRelease is the Linux release build, which must never link systray.
 var linuxRelease = func() build.Context {
 	c := build.Default
 	c.GOOS, c.GOARCH, c.CgoEnabled, c.BuildTags = "linux", "amd64", true, []string{"release"}
@@ -59,7 +56,6 @@ func checkDesktopConfined(repo *lint.Repo) ([]lint.Finding, error) {
 	return findings, nil
 }
 
-// desktopImport is what is wrong with file importing p, or "".
 func desktopImport(repo *lint.Repo, module, file, p string) (string, error) {
 	dir := path.Dir(file)
 	inDesktop := dir == desktopPkg || strings.HasPrefix(dir, desktopPkg+"/")

@@ -19,7 +19,6 @@ import (
 // HasLoginItem reports whether the OS has a login item the app manages.
 const HasLoginItem = true
 
-// statusPoll is how often the tray asks the Node for its status line.
 const statusPoll = 2 * time.Second
 
 var trayReady atomic.Bool
@@ -70,8 +69,6 @@ func (t *tray) ready() {
 	go t.serve(m)
 }
 
-// serve answers the menu and refreshes the status line until app is done,
-// then quits the tray.
 func (t *tray) serve(m menu) {
 	tick := time.NewTicker(statusPoll)
 	defer tick.Stop()
@@ -132,8 +129,6 @@ func (t *tray) toggleLogin(item *systray.MenuItem) {
 	}
 }
 
-// trampoline is the desktop launcher beside this binary, which shortcuts
-// and the login item start.
 func trampoline() (string, error) {
 	exe, err := os.Executable()
 	if err == nil {

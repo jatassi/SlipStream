@@ -10,8 +10,6 @@ import (
 
 var nativePackages = []string{
 	"internal/torrent/libtorrent",
-	// The macOS alert calls CoreFoundation, the one native call the
-	// desktop layer makes itself; systray's own cgo is a dependency's.
 	"internal/node/internal/desktop",
 }
 

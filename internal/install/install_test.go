@@ -17,8 +17,6 @@ func TestDataNameDiffersFromV1InMoreThanCase(t *testing.T) {
 	}
 }
 
-// TestEveryKindHasARow is the completeness hook: the packaging recipes and
-// smoke recipes add their own checks over Kinds.
 func TestEveryKindHasARow(t *testing.T) {
 	tokens := map[string]Kind{}
 	protos := map[linkv1.InstallKind]Kind{}
@@ -94,8 +92,6 @@ func TestMarkerPath(t *testing.T) {
 	}
 }
 
-// linuxTempDir is a temp dir as a Linux Layout spells it on any host:
-// slash-separated, which Windows opens as well.
 func linuxTempDir(t *testing.T) string { return filepath.ToSlash(t.TempDir()) }
 
 func TestRead(t *testing.T) {

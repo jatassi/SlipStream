@@ -17,8 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 )
 
-// serviceStartWait is how long service install --user waits for the Node
-// to answer status.
 const serviceStartWait = 60 * time.Second
 
 func service(args []string) int {
@@ -98,7 +96,6 @@ func lingerOf(uid int) install.Linger {
 	return install.Linger{UID: uid, On: err == nil && strings.TrimSpace(string(out)) == "yes"}
 }
 
-// readUnit is the user unit file there now, or nil when there is none.
 func readUnit(kind install.Kind, layout install.Layout) ([]byte, error) {
 	p, err := install.UserUnitPath(kind, layout)
 	if err != nil {

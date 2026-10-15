@@ -60,8 +60,6 @@ func infoPlist(in Input) string {
 	return render("Info.plist", plistData{installNames, in.Version.Numeric(), minOS})
 }
 
-// buildApp writes SlipStream.app as a DMG for people and as a zip for
-// the updater, each ad-hoc signed inside out.
 func buildApp(ctx context.Context, in Input, stage string) ([]string, error) {
 	app := filepath.Join(stage, "dmg", install.ProductName+".app")
 	contents := filepath.Join(app, "Contents")

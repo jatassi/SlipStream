@@ -54,8 +54,6 @@ jobs:
         run: go run ./cmd/release scope -explain -base "origin/$BASE" -head HEAD
         env:
           BASE: ${{ github.base_ref || 'main' }}
-      # A tag that is not vX.Y.Z or vX.Y.Z-<pre-release> fails here, before
-      # any target builds.
       - id: tag
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
@@ -167,8 +165,6 @@ jobs:
       # The AppImage smoke mounts the image through FUSE.
       - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
         run: sudo apt-get install -y fuse3
-      # A tag packages only a clean build stamped with that tag. linux-amd64
-      # alone carries the ffmpeg source, which every target's build shares.
       - if: needs.plan.outputs.package == 'true'
         run: |
           args=(-o out)
@@ -306,9 +302,6 @@ jobs:
           PLANNED: ${{ needs.plan.outputs.build }}
           BUILD: ${{ needs.build.result }}
 
-  # Each Linux image builds on its own arch's runner from the context its
-  # build job packaged, and goes up by digest alone; docker-manifest names
-  # the pair.
   image:
     needs: [plan, build]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -350,7 +343,6 @@ jobs:
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
 
-  # X.Y.Z, X.Y, X and latest for a release; beta alone for a pre-release.
   docker-manifest:
     needs: [plan, image]
     runs-on: ubuntu-24.04
@@ -381,9 +373,6 @@ jobs:
           IMAGE: ${{ needs.plan.outputs.image }}
           TAGS: ${{ needs.plan.outputs.image-tags }}
 
-  # SignPath signs the MSI and the ZIP's programs once the project is set
-  # up: until vars.SIGNPATH_PROJECT_SLUG is set this job skips and the
-  # release ships them unsigned.
   sign-windows:
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && vars.SIGNPATH_PROJECT_SLUG != ''
@@ -417,8 +406,6 @@ jobs:
           path: signed
           if-no-files-found: error
 
-  # The release is drafted, filled, then published, so nobody sees one
-  # missing assets. A rerun finds the draft and fills it again.
   publish:
     needs: [plan, build, docker-manifest, sign-windows]
     if: >-
@@ -456,8 +443,6 @@ jobs:
           if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
           gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" "${flags[@]}"
           gh release upload "$GITHUB_REF_NAME" --clobber "${assets[@]}"
-          # #182: the signed update manifest and its signature go up here.
-          # gh release upload "$GITHUB_REF_NAME" --clobber "$RUNNER_TEMP/manifest.json" "$RUNNER_TEMP/manifest.json.sig"
           gh release edit "$GITHUB_REF_NAME" --draft=false
         env:
           GH_TOKEN: ${{ github.token }}

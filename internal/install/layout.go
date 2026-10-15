@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// linuxDataName is DataName as Linux spells a per-user folder.
 var linuxDataName = strings.ToLower(DataName)
 
 // Layout is the process facts a Kind's paths derive from, gathered once at
@@ -29,7 +28,6 @@ func (l Layout) Getenv(name string) string {
 	return v
 }
 
-// under joins elems onto the absolute directory the variable name holds.
 func (l Layout) under(name string, elems ...string) (string, error) {
 	dir := l.Getenv(name)
 	if !l.isAbs(dir) {
@@ -37,9 +35,6 @@ func (l Layout) under(name string, elems ...string) (string, error) {
 	}
 	return l.join(append([]string{dir}, elems...)...), nil
 }
-
-// The path helpers follow l.GOOS rather than the host, accepting either
-// separator on Windows.
 
 func (l Layout) toSlash(p string) string {
 	if l.GOOS == "windows" {

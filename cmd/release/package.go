@@ -20,7 +20,6 @@ func init() {
 	register("package", "build the host target's packages from dist/ into -o: -tag vX.Y.Z refuses any other stamp, -source adds the ffmpeg source, -sign signpath writes the SignPath request", runPackage)
 }
 
-// signPathDir holds the files a SignPath signing request submits.
 const signPathDir = "signpath"
 
 func runPackage(ctx context.Context, args []string) error {
@@ -36,7 +35,6 @@ func runPackage(ctx context.Context, args []string) error {
 	if *out == "" {
 		return errors.New("-o is required")
 	}
-	// Recipes run packagers in their stage directory.
 	outDir, err := filepath.Abs(*out)
 	if err != nil {
 		return fmt.Errorf("find -o: %w", err)
@@ -71,8 +69,6 @@ func runPackage(ctx context.Context, args []string) error {
 	if err := cleanOutput(*out); err != nil {
 		return err
 	}
-	// The manifest marks the directory as packages from the first write, so
-	// a rerun after a failure may clean it.
 	if err := (pack.Manifest{Version: version.String(), Target: target.Name}).Write(*out); err != nil {
 		return err
 	}
@@ -95,8 +91,6 @@ func runPackage(ctx context.Context, args []string) error {
 	return m.Write(*out)
 }
 
-// addExtras writes what the flags ask for beyond the packages: the
-// tools' source archives, which join the assets, and the signing request.
 func addExtras(ctx context.Context, m *pack.Manifest, in native.Inputs, cacheRoot, out string, source bool, sign string) error {
 	if source {
 		sources, err := writeSources(ctx, in, cacheRoot, out)
@@ -111,8 +105,6 @@ func addExtras(ctx context.Context, m *pack.Manifest, in native.Inputs, cacheRoo
 	return nil
 }
 
-// stampVersion is the package version of a binary stamped for target. A
-// release tag takes only a clean build of exactly that tag.
 func stampVersion(stamp buildinfo.Stamp, target native.Target, tag string) (pack.Version, error) {
 	if stamp.Target != target.Name {
 		return "", fmt.Errorf("dist holds a build for %s, and this runner packages %s", stamp.Target, target.Name)
@@ -126,9 +118,6 @@ func stampVersion(stamp buildinfo.Stamp, target native.Target, tag string) (pack
 	return pack.ParseTag(tag)
 }
 
-// cleanOutput empties dir for a fresh set of packages. It refuses a
-// non-empty directory that holds no earlier run's manifest, so a mistyped
-// -o never deletes anything else.
 func cleanOutput(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -156,8 +145,6 @@ func makeOutput(dir string) error {
 	return nil
 }
 
-// writeSources fetches each tool's pinned source archive into out, for a
-// copyleft license's source offer.
 func writeSources(ctx context.Context, in native.Inputs, cacheRoot, out string) ([]string, error) {
 	var names []string
 	for _, tool := range in.Tools {

@@ -15,11 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 )
 
-// app is the desktop launch: run's lifecycle with the tray on the main
-// goroutine, and the setup page in the browser while the Node is
-// Unclaimed. A data dir another Node holds opens that Node's page instead.
-// A failure before ready has no console to read, so it also shows an
-// alert, and exits with run's code.
 func app(args []string, types contenttype.Set) int {
 	env, err := nodeEnv("app", args, types)
 	if err != nil {
@@ -44,8 +39,6 @@ func app(args []string, types contenttype.Set) int {
 	return ExitCode(err)
 }
 
-// appReady turns Start at login on for a macOS app's first launch, which
-// never overrides a person who turned it off, and opens the setup page.
 func (n *Node) appReady(fresh bool) {
 	if fresh && n.env.Install == install.App {
 		if err := desktop.SetStartAtLogin(true); err != nil {
@@ -62,8 +55,6 @@ func (n *Node) appReady(fresh bool) {
 	}()
 }
 
-// openRunning opens the page of the Node that holds env's data dir, so a
-// second launch opens the app rather than failing.
 func openRunning(env Env) int {
 	reply, err := awaitStatus(env)
 	if err != nil {
@@ -77,7 +68,6 @@ func openRunning(env Env) int {
 	return ExitOK
 }
 
-// appStatus adds the tray's state and the login item to an app's status.
 func appStatus(r *StatusReply) error {
 	r.Tray = string(desktop.Tray())
 	if !desktop.HasLoginItem {
@@ -91,7 +81,6 @@ func appStatus(r *StatusReply) error {
 	return nil
 }
 
-// appNode is the Node as the tray drives it.
 type appNode struct {
 	n    *Node
 	exit <-chan struct{}
@@ -109,7 +98,6 @@ func (a appNode) Stop() { a.n.Stop() }
 
 func (a appNode) Done() <-chan struct{} { return a.exit }
 
-// trayLine is the tray's status line.
 func trayLine(s StatusReply) string {
 	switch s.Claim {
 	case system.Controller:

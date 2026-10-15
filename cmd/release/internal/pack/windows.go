@@ -16,8 +16,6 @@ import (
 // removes v1.
 const upgradeCode = "{73394E63-47CD-417B-AEDD-7F50B149F574}"
 
-// wixVersion is the WiX Toolset version, which .config/dotnet-tools.json
-// pins for the wix tool and the UI extension takes here.
 const wixVersion = "5.0.2"
 
 func buildZIP(_ context.Context, in Input, stage string) ([]string, error) {
@@ -45,21 +43,18 @@ type wixFile struct{ ID, Name, Source string }
 
 type wixData struct {
 	names
-	Version     Version
-	Numeric     string
-	UpgradeCode string
-	ProgramsDir string
-	InstallDir  string
-	RegistryKey string
-	RunValue    string
-	// TrampolineExe is what the shortcuts, the Run value and the exit
-	// dialog start.
+	Version       Version
+	Numeric       string
+	UpgradeCode   string
+	ProgramsDir   string
+	InstallDir    string
+	RegistryKey   string
+	RunValue      string
 	TrampolineExe string
 	Files         []wixFile
 	LicenseRTF    string
 }
 
-// wixSource is the MSI's WiX source for the files staged in dir.
 func wixSource(in Input, dir string, files []string) string {
 	programs, installDir, _ := strings.Cut(install.WindowsProgramDir, `\`)
 	data := wixData{

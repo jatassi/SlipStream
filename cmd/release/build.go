@@ -22,9 +22,6 @@ func init() {
 	register("build", "build cmd/slipstream, cmd/slipstream-e2e for test jobs, and cmd/slipstream-app on Windows and macOS, for the host target into dist/", runBuild)
 }
 
-// mains are the binaries build writes. goos, when set, lists the only
-// targets a main ships on: the trampoline exists where the OS launches the
-// app through one, and the AppImage runs slipstream app itself.
 var mains = []struct {
 	pkg, name string
 	role      linkage.Role
@@ -96,9 +93,6 @@ func runBuild(ctx context.Context, args []string) error {
 	return placeTools(bundle, *dist)
 }
 
-// trampolineBuild is the trampoline's go build flags and environment: pure
-// Go, stripped, and with no build stamp or VCS stamp, so its bytes change
-// only with its source or the toolchain. On Windows it is a GUI program.
 func trampolineBuild(goos string) (flags, env []string) {
 	ldflags := "-s -w"
 	if goos == "windows" {

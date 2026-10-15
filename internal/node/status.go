@@ -81,7 +81,6 @@ func (n *Node) Status(ctx context.Context) (StatusReply, error) {
 	case system.Unclaimed:
 		reply.URL = setupURL(n.ready.Listeners.HTTP, n.ready.SetupCode)
 	case system.Worker:
-		// A Join writes pairing.json just before it records it.
 		if rec, ok := n.pairing.Record(); ok {
 			_, live := n.link.State(rec.Controller.Key).(link.Live)
 			reply.Controller = &ControllerStatus{Name: rec.ControllerName, Reachable: live}
@@ -96,8 +95,6 @@ func (n *Node) Status(ctx context.Context) (StatusReply, error) {
 	return reply, nil
 }
 
-// nodeURL is the UI's address for a browser on this machine: localhost
-// when the listener is unspecified or loopback, else the bound address.
 func nodeURL(http netip.AddrPort) string {
 	addr := http.Addr().Unmap()
 	host := addr.String()
