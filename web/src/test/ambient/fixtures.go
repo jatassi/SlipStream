@@ -10,7 +10,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -37,13 +36,13 @@ func main() {
 		}
 		f, err := os.Create(filepath.Join("web", "src", "test", "ambient", name))
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 		if err := png.Encode(f, img); err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 		if err := f.Close(); err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 }
