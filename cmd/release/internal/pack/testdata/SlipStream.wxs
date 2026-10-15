@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="SlipStream" Manufacturer="SlipStream" Version="1.2.0" UpgradeCode="{73394E63-47CD-417B-AEDD-7F50B149F574}" Scope="perUser" Compressed="yes">
+    <SummaryInformation Description="SlipStream 1.2.0-beta.1" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of SlipStream is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="WINDOWS10">
+      <RegistrySearch Id="CurrentMajorVersionNumber" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentMajorVersionNumber" Type="raw" Bitness="always64" />
+    </Property>
+    <Launch Condition="Installed OR WINDOWS10" Message="SlipStream needs Windows 10 or later." />
+
+    <Property Id="ARPCOMMENTS" Value="Licensed under GPL-3.0" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/jatassi/SlipStream" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDir" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="SlipStream" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="Program" Directory="INSTALLFOLDER">
+      <Component Id="ProgramFiles">
+        <RegistryValue Root="HKCU" Key="Software\SlipStream2" Name="ProgramFiles" Type="integer" Value="1" KeyPath="yes" />
+        <File Id="slipstream_exe" Name="slipstream.exe" Source="/stage/slipstream.exe" />
+        <File Id="slipstream_app_exe" Name="slipstream-app.exe" Source="/stage/slipstream-app.exe" />
+        <File Id="ffmpeg_exe" Name="ffmpeg.exe" Source="/stage/ffmpeg.exe" />
+        <File Id="ffprobe_exe" Name="ffprobe.exe" Source="/stage/ffprobe.exe" />
+        <File Id="dovi_tool_exe" Name="dovi_tool.exe" Source="/stage/dovi_tool.exe" />
+        <File Id="install_kind" Name="install-kind" Source="/stage/install-kind" />
+        <File Id="LICENSE" Name="LICENSE" Source="/stage/LICENSE" />
+        <File Id="NOTICES_txt" Name="NOTICES.txt" Source="/stage/NOTICES.txt" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveProgramsDir" Directory="ProgramsDir" On="uninstall" />
+        <Environment Id="UserPath" Name="PATH" Value="[INSTALLFOLDER]" Action="set" Part="last" System="no" Permanent="no" />
+      </Component>
+      <Component Id="RunAtSignIn">
+        <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="SlipStream2" Type="string" Value="&quot;[INSTALLFOLDER]slipstream-app.exe&quot;" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuShortcut" Name="SlipStream" Target="[INSTALLFOLDER]slipstream-app.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\SlipStream2" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="DesktopShortcut" Name="SlipStream" Target="[INSTALLFOLDER]slipstream-app.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\SlipStream2" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="SlipStream" Level="1" AllowAbsent="no" Display="expand">
+      <ComponentGroupRef Id="Program" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <Feature Id="Desktop" Title="Desktop shortcut" Level="2">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="/stage/LICENSE.rtf" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch SlipStream" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="LaunchApp" Directory="INSTALLFOLDER" ExeCommand="&quot;[INSTALLFOLDER]slipstream-app.exe&quot;" Return="asyncNoWait" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApp" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+  </Package>
+</Wix>

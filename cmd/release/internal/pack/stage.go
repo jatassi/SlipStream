@@ -1,0 +1,224 @@
+package pack
+
+import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
+	"context"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/jatassi/slipstream/cmd/release/internal/native"
+	"github.com/jatassi/slipstream/internal/install"
+)
+
+// NoticesPath is the notices file the binary embeds, which every package
+// also ships beside it.
+const NoticesPath = "internal/notices/NOTICES.txt"
+
+// programs are the file names a package ships from dist: the binary, the
+// trampoline where the OS has one, and each tool's programs.
+func (in Input) programs() []string {
+	names := []string{native.Program(in.Target, install.Executable)}
+	if in.Target.GOOS == "windows" || in.Target.GOOS == "darwin" {
+		names = append(names, native.Program(in.Target, install.Trampoline))
+	}
+	for _, tool := range in.Inputs.Tools {
+		for _, p := range tool.Programs {
+			names = append(names, native.Program(in.Target, p))
+		}
+	}
+	return names
+}
+
+// stagePrograms copies each program from dist into dir and writes the
+// marker of k beside the binary, where install.MarkerPath finds it.
+func (in Input) stagePrograms(dir string, k install.Kind) error {
+	for _, name := range in.programs() {
+		if err := copyFile(filepath.Join(in.Dist, name), filepath.Join(dir, name), 0o755); err != nil {
+			return err
+		}
+	}
+	return in.writeMarker(filepath.Join(dir, native.Program(in.Target, install.Executable)), k)
+}
+
+func (in Input) writeMarker(exe string, k install.Kind) error {
+	// MarkerPath spells a path the target's way, which a test on another
+	// host turns back into its own.
+	marker := filepath.FromSlash(strings.ReplaceAll(install.MarkerPath(install.Layout{GOOS: in.Target.GOOS, Executable: exe}), `\`, "/"))
+	if err := os.MkdirAll(filepath.Dir(marker), 0o755); err != nil {
+		return fmt.Errorf("stage the marker: %w", err)
+	}
+	return install.Write(marker, k)
+}
+
+// stageLegal writes LICENSE and NOTICES.txt into dir.
+func (in Input) stageLegal(dir string) error {
+	if err := copyFile(filepath.Join(in.Root, "LICENSE"), filepath.Join(dir, "LICENSE"), 0o644); err != nil {
+		return err
+	}
+	return copyFile(filepath.Join(in.Root, filepath.FromSlash(NoticesPath)), filepath.Join(dir, "NOTICES.txt"), 0o644)
+}
+
+func copyFile(src, dst string, perm fs.FileMode) error {
+	r, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("stage %s: %w", filepath.Base(src), err)
+	}
+	defer func() { _ = r.Close() }()
+	return writeFile(dst, r, perm)
+}
+
+func writeFile(dst string, r io.Reader, perm fs.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("stage %s: %w", filepath.Base(dst), err)
+	}
+	w, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return fmt.Errorf("stage %s: %w", filepath.Base(dst), err)
+	}
+	_, err = io.Copy(w, r)
+	if closeErr := w.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fmt.Errorf("stage %s: %w", filepath.Base(dst), err)
+	}
+	// The umask must not decide a packaged file's mode.
+	if err := os.Chmod(dst, perm); err != nil {
+		return fmt.Errorf("stage %s: %w", filepath.Base(dst), err)
+	}
+	return nil
+}
+
+func writeText(dst, text string, perm fs.FileMode) error {
+	return writeFile(dst, strings.NewReader(text), perm)
+}
+
+// walkStage visits every file and directory under root, in lexical
+// order, with its slash-separated path below root.
+func walkStage(root string, visit func(rel string, info fs.FileInfo) error) error {
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || p == root {
+			return err
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return fmt.Errorf("walk %s: %w", p, err)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("walk %s: %w", p, err)
+		}
+		return visit(filepath.ToSlash(rel), info)
+	})
+	if err != nil {
+		return fmt.Errorf("walk %s: %w", root, err)
+	}
+	return nil
+}
+
+// writeTarGz archives everything under root into archive, with each
+// entry's mode as staged and no owner.
+func writeTarGz(archive, root string) error {
+	f, err := os.Create(archive)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Base(archive), err)
+	}
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
+	err = walkStage(root, func(rel string, info fs.FileInfo) error {
+		hdr := &tar.Header{Name: rel, Mode: int64(info.Mode().Perm()), ModTime: info.ModTime(), Format: tar.FormatPAX}
+		if info.IsDir() {
+			hdr.Typeflag, hdr.Name = tar.TypeDir, rel+"/"
+			if err := tw.WriteHeader(hdr); err != nil {
+				return fmt.Errorf("archive %s: %w", rel, err)
+			}
+			return nil
+		}
+		hdr.Typeflag, hdr.Size = tar.TypeReg, info.Size()
+		if err := tw.WriteHeader(hdr); err != nil {
+			return fmt.Errorf("archive %s: %w", rel, err)
+		}
+		return copyInto(tw, filepath.Join(root, filepath.FromSlash(rel)))
+	})
+	for _, c := range []io.Closer{tw, gz, f} {
+		if closeErr := c.Close(); err == nil {
+			err = closeErr
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Base(archive), err)
+	}
+	return nil
+}
+
+// writeZip archives everything under root into archive, marking programs
+// executable for an unzip that honors Unix modes.
+func writeZip(archive, root string) error {
+	f, err := os.Create(archive)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Base(archive), err)
+	}
+	zw := zip.NewWriter(f)
+	err = walkStage(root, func(rel string, info fs.FileInfo) error {
+		hdr, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return fmt.Errorf("archive %s: %w", rel, err)
+		}
+		hdr.Name = rel
+		if info.IsDir() {
+			hdr.Name += "/"
+		} else {
+			hdr.Method = zip.Deflate
+		}
+		w, err := zw.CreateHeader(hdr)
+		if err != nil {
+			return fmt.Errorf("archive %s: %w", rel, err)
+		}
+		if info.IsDir() {
+			return nil
+		}
+		return copyInto(w, filepath.Join(root, filepath.FromSlash(rel)))
+	})
+	for _, c := range []io.Closer{zw, f} {
+		if closeErr := c.Close(); err == nil {
+			err = closeErr
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Base(archive), err)
+	}
+	return nil
+}
+
+func copyInto(w io.Writer, path string) error {
+	r, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("archive %s: %w", filepath.Base(path), err)
+	}
+	defer func() { _ = r.Close() }()
+	if _, err := io.Copy(w, r); err != nil {
+		return fmt.Errorf("archive %s: %w", filepath.Base(path), err)
+	}
+	return nil
+}
+
+// run runs a packaging program in dir, its output going to the input's log.
+func (in Input) run(ctx context.Context, dir string, env []string, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	if env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	cmd.Stdout, cmd.Stderr = in.Log, in.Log
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+	}
+	return nil
+}
