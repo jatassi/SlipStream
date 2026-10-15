@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { expect, onTestFinished, test, vi } from "vitest";
-import { cdp } from "vitest/browser";
+import { cdp, commands } from "vitest/browser";
 
 import { type Artwork, artworkHandlers, artworkUrl } from "../../test/ambient/fixtures";
 import { worker } from "../../test/worker";
@@ -71,6 +71,9 @@ async function prefer(name: string, value: string) {
   await cdp().send("Emulation.setEmulatedMedia", { features: [{ name, value }] });
   onTestFinished(async () => {
     await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+    // Clearing the features drops the suite's own no-preference too, and a
+    // runner whose OS turns animations off would then report reduce.
+    await commands.emulateReducedMotion(false);
   });
 }
 
