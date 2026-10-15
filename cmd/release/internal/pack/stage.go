@@ -204,14 +204,14 @@ func writeZip(archive, root string) error {
 	return nil
 }
 
-func copyInto(w io.Writer, path string) error {
-	r, err := os.Open(path)
+func copyInto(w io.Writer, file string) error {
+	r, err := os.Open(file)
 	if err != nil {
-		return fmt.Errorf("archive %s: %w", filepath.Base(path), err)
+		return fmt.Errorf("archive %s: %w", filepath.Base(file), err)
 	}
 	defer func() { _ = r.Close() }()
 	if _, err := io.Copy(w, r); err != nil {
-		return fmt.Errorf("archive %s: %w", filepath.Base(path), err)
+		return fmt.Errorf("archive %s: %w", filepath.Base(file), err)
 	}
 	return nil
 }
