@@ -81,6 +81,30 @@
 			"target": "darwin-arm64",
 			"url": "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/jellyfin-ffmpeg_8.1.3-1_portable_macarm64-gpl.tar.xz",
 			"sha256": "22445d7299742749ad2eeb9ce87963d50def0357e45b3e6c7b69987c8365dbf6"
+		},
+		{
+			"tool": "dovi_tool",
+			"target": "linux-amd64",
+			"url": "https://github.com/quietvoid/dovi_tool/releases/download/2.3.4/dovi_tool-2.3.4-x86_64-unknown-linux-musl.tar.gz",
+			"sha256": "1844258e13c26607b32224bf1fa82b595d3b35949f5467405fda560daad32b3f"
+		},
+		{
+			"tool": "dovi_tool",
+			"target": "linux-arm64",
+			"url": "https://github.com/quietvoid/dovi_tool/releases/download/2.3.4/dovi_tool-2.3.4-aarch64-unknown-linux-musl.tar.gz",
+			"sha256": "b4f22a7db56954efe4ed8d02276d0f991799e84602f3584711be6c9df950cb15"
+		},
+		{
+			"tool": "dovi_tool",
+			"target": "windows-amd64",
+			"url": "https://github.com/quietvoid/dovi_tool/releases/download/2.3.4/dovi_tool-2.3.4-x86_64-pc-windows-msvc.zip",
+			"sha256": "0d9733d311dfe49f9dca0c350f7e6d978182673d333c6f07f7365daf9e6c81eb"
+		},
+		{
+			"tool": "dovi_tool",
+			"target": "darwin-arm64",
+			"url": "https://github.com/quietvoid/dovi_tool/releases/download/2.3.4/dovi_tool-2.3.4-universal-macOS.zip",
+			"sha256": "30d4f512eb67b7f1632cd28be5c62989bedad23f4710578aafc20c384b48ece6"
 		}
 	]
 }

@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +27,27 @@ func tarXZ(t *testing.T, files map[string]string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tw := tar.NewWriter(xw)
+	writeTar(t, xw, files)
+	if err := xw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func tarGZ(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	writeTar(t, gw, files)
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func writeTar(t *testing.T, w io.Writer, files map[string]string) {
+	t.Helper()
+	tw := tar.NewWriter(w)
 	for _, name := range slices.Sorted(maps.Keys(files)) {
 		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(files[name])), Typeflag: tar.TypeReg}); err != nil {
 			t.Fatal(err)
@@ -37,10 +59,6 @@ func tarXZ(t *testing.T, files map[string]string) []byte {
 	if err := tw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := xw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return buf.Bytes()
 }
 
 func zipped(t *testing.T, files map[string]string) []byte {
@@ -84,20 +102,23 @@ var (
 func TestFetchToolExtractsEachArchiveKind(t *testing.T) {
 	linux := tarXZ(t, map[string]string{"ffmpeg": "linux ffmpeg", "ffprobe": "linux ffprobe"})
 	windows := zipped(t, map[string]string{"ffmpeg.exe": "windows ffmpeg", "ffprobe.exe": "windows ffprobe"})
-	base := serveArchives(t, map[string][]byte{"/linux.tar.xz": linux, "/windows.zip": windows})
+	gz := tarGZ(t, map[string]string{"./dovi_tool": "linux dovi_tool"})
+	base := serveArchives(t, map[string][]byte{"/linux.tar.xz": linux, "/windows.zip": windows, "/dovi.tar.gz": gz})
 	cache := t.TempDir()
 
 	for _, tc := range []struct {
-		target  Target
-		archive string
-		data    []byte
-		want    map[string]string
+		target   Target
+		archive  string
+		data     []byte
+		programs []string
+		want     map[string]string
 	}{
-		{linuxTarget, "/linux.tar.xz", linux, map[string]string{"ffmpeg": "linux ffmpeg", "ffprobe": "linux ffprobe"}},
-		{windowsTarget, "/windows.zip", windows, map[string]string{"ffmpeg.exe": "windows ffmpeg", "ffprobe.exe": "windows ffprobe"}},
+		{linuxTarget, "/linux.tar.xz", linux, []string{"ffmpeg", "ffprobe"}, map[string]string{"ffmpeg": "linux ffmpeg", "ffprobe": "linux ffprobe"}},
+		{windowsTarget, "/windows.zip", windows, []string{"ffmpeg", "ffprobe"}, map[string]string{"ffmpeg.exe": "windows ffmpeg", "ffprobe.exe": "windows ffprobe"}},
+		{linuxTarget, "/dovi.tar.gz", gz, []string{"dovi_tool"}, map[string]string{"dovi_tool": "linux dovi_tool"}},
 	} {
 		p := PinnedTool{ToolArchive{"ffmpeg", tc.target.Name, base + tc.archive}, sha(tc.data)}
-		dir, err := FetchTool(context.Background(), cache, p, tc.target, []string{"ffmpeg", "ffprobe"})
+		dir, err := FetchTool(context.Background(), cache, p, tc.target, tc.programs)
 		if err != nil {
 			t.Fatal(err)
 		}
