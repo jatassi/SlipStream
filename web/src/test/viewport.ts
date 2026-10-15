@@ -1,6 +1,4 @@
-import { page } from "vitest/browser";
-
-import presets from "../../harness/presets.json" with { type: "json" };
+import { page, server } from "vitest/browser";
 
 let resized = false;
 
@@ -17,13 +15,14 @@ export async function resize(width: number, height: number) {
   await setViewport(width, height);
 }
 
-export const asPhone = () => resize(presets.phone.width, presets.phone.height);
+export const asPhone = () => resize(390, 844);
 
-/** Back to the desktop preset once the test's apps have unmounted. */
+/** Back to the configured desktop preset once the test's apps have unmounted. */
 export async function restoreViewport() {
   if (!resized) {
     return;
   }
   resized = false;
-  await setViewport(presets.desktop.width, presets.desktop.height);
+  const { width, height } = server.config.browser.viewport;
+  await setViewport(width, height);
 }
