@@ -13,6 +13,28 @@
     color-scheme: dark;
   }
 
+  [data-density="console"] {
+    --control-height: 32px;
+    --primary-height: 32px;
+    --input-height: 32px;
+    --icon-button-size: 32px;
+    --row-height: 44px;
+    --menu-item-height: 36px;
+    --body-size: var(--text-body);
+    --body-line-height: var(--text-body--line-height);
+  }
+
+  [data-density="touch"] {
+    --control-height: 44px;
+    --primary-height: 50px;
+    --input-height: 48px;
+    --icon-button-size: 44px;
+    --row-height: 54px;
+    --menu-item-height: 52px;
+    --body-size: var(--text-body-touch);
+    --body-line-height: var(--text-body-touch--line-height);
+  }
+
   body {
     @apply bg-page font-sans text-ink-1;
   }
@@ -20,6 +42,7 @@
   :focus-visible {
     outline: 2px solid #fff;
     outline-offset: 2px;
+    box-shadow: 0 0 0 6px var(--color-halo);
   }
 }
 
