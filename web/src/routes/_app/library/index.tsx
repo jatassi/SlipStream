@@ -7,11 +7,12 @@ import {
   useListWorksSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
+import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
 import { Skeleton } from "../../../ui/skeleton";
 import { enabledTypes } from "../../../works/fields";
 import { WorkList } from "../../../works/work-list";
-import { AddMenu } from "./-add-menu";
+import { AddButton, AddMenu } from "./-add-menu";
 
 export const Route = createFileRoute("/_app/library/")({
   staticData: { title: "Library" },
@@ -25,11 +26,28 @@ export const Route = createFileRoute("/_app/library/")({
 });
 
 function Library() {
-  const types = enabledTypes(useListContentTypesSuspense().data.contentTypes);
+  const { contentTypes } = useListContentTypesSuspense().data;
   const { works } = useListWorksSuspense().data;
+  const enabled = enabledTypes(contentTypes);
   return (
-    <Page action={types.length === 0 ? undefined : <AddMenu types={types} />}>
-      <WorkList works={works} />
+    <Page action={enabled.length === 0 ? undefined : <AddMenu types={enabled} />}>
+      {works.length > 0 ? (
+        <WorkList works={works} />
+      ) : enabled.length === 0 ? (
+        <Empty>Nothing in the library yet. Turn on a Content Type to add Works.</Empty>
+      ) : (
+        <Empty
+          action={
+            <div className="flex flex-wrap gap-2">
+              {enabled.map((type) => (
+                <AddButton key={type.id} type={type} look="default" />
+              ))}
+            </div>
+          }
+        >
+          Nothing in the library yet. Add your first Work to start.
+        </Empty>
+      )}
     </Page>
   );
 }

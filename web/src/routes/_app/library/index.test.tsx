@@ -37,14 +37,30 @@ test("the Library lists each Work with its year and adds a Work of an enabled ty
     ],
   });
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  const work = page.getByRole("main").getByRole("listitem");
-  await expect.element(work).toHaveTextContent("The Quiet Orchard 2021");
+  const work = page.getByRole("list", { name: "Works" }).getByRole("listitem");
+  await expect.element(work).toHaveTextContent("The Quiet Orchard2021");
   await expect
-    .element(work.getByRole("link", { name: "The Quiet Orchard" }))
+    .element(work.getByRole("link", { name: "The Quiet Orchard 2021" }))
     .toHaveAttribute("href", `/works/${orchardId}`);
 
   await userEvent.click(page.getByRole("banner").getByRole("button", { name: "Add" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Add a Film" }));
+  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  expect(router.state.location.href).toBe("/add?contentType=cinema");
+});
+
+test("an empty Library offers to add a Work of each enabled type", async () => {
+  const { router } = renderApp({
+    path: "/library",
+    handlers: [
+      getListContentTypesMockHandler({ contentTypes: [cinema] }),
+      getListWorksMockHandler({ works: [] }),
+    ],
+  });
+  await expect
+    .element(page.getByText("Nothing in the library yet. Add your first Work to start."))
+    .toBeVisible();
+  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a Film" }));
   await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
   expect(router.state.location.href).toBe("/add?contentType=cinema");
 });
@@ -57,6 +73,22 @@ test("an empty Library with every Content Type off offers nothing to add", async
       getListWorksMockHandler({ works: [] }),
     ],
   });
-  await expect.element(page.getByText("Nothing in the library yet.")).toBeVisible();
+  await expect
+    .element(page.getByText("Nothing in the library yet. Turn on a Content Type to add Works."))
+    .toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add" })).not.toBeInTheDocument();
+});
+
+test("a Content Type's empty Library offers to add one", async () => {
+  const { router } = renderApp({
+    path: "/library/cinema",
+    handlers: [
+      getListContentTypesMockHandler({ contentTypes: [cinema] }),
+      getListWorksMockHandler({ works: [] }),
+    ],
+  });
+  await expect.element(page.getByText("No Films in the library yet.")).toBeVisible();
+  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a Film" }));
+  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  expect(router.state.location.href).toBe("/add?contentType=cinema");
 });
