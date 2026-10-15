@@ -86,6 +86,12 @@ func startBinary(t *testing.T, bin, dir string, env ...string) *nodeProc {
 	if dir != "" {
 		args = append(args, "--data-dir", dir)
 	}
+	return startArgs(t, bin, args, env...)
+}
+
+// startArgs runs bin with args, a Node subcommand and its flags.
+func startArgs(t *testing.T, bin string, args []string, env ...string) *nodeProc {
+	t.Helper()
 	cmd := exec.CommandContext(context.Background(), bin, args...)
 	cmd.Env = childEnv(append(slices.Clone(localListeners), env...)...)
 	pipe, err := cmd.StderrPipe()
@@ -203,6 +209,20 @@ func slipstream(t *testing.T, env []string, args ...string) result {
 		t.Fatalf("slipstream %v: %v", args, err)
 	}
 	return result{cmd.ProcessState.ExitCode(), out.String(), errOut.String()}
+}
+
+// statusOf is slipstream status on dir, decoded.
+func statusOf(t *testing.T, dir string) map[string]any {
+	t.Helper()
+	res := slipstream(t, childEnv(), "status", "--data-dir", dir)
+	if res.code != node.ExitOK {
+		t.Fatalf("status: exit %d, stderr %q", res.code, res.stderr)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil {
+		t.Fatalf("status output %q: %v", res.stdout, err)
+	}
+	return got
 }
 
 func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
