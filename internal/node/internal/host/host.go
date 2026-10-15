@@ -37,10 +37,6 @@ func OnNetworkShare(dir string) (bool, error) {
 // version is a dotted version's major and minor numbers.
 type version struct{ major, minor int }
 
-func (v version) less(w version) bool {
-	return v.major < w.major || (v.major == w.major && v.minor < w.minor)
-}
-
 func (v version) String() string { return fmt.Sprintf("%d.%d", v.major, v.minor) }
 
 // parseVersion reads the leading major.minor of s, such as a kernel

@@ -211,20 +211,6 @@ func slipstream(t *testing.T, env []string, args ...string) result {
 	return result{cmd.ProcessState.ExitCode(), out.String(), errOut.String()}
 }
 
-// statusOf is slipstream status on dir, decoded.
-func statusOf(t *testing.T, dir string) map[string]any {
-	t.Helper()
-	res := slipstream(t, childEnv(), "status", "--data-dir", dir)
-	if res.code != node.ExitOK {
-		t.Fatalf("status: exit %d, stderr %q", res.code, res.stderr)
-	}
-	var got map[string]any
-	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil {
-		t.Fatalf("status output %q: %v", res.stdout, err)
-	}
-	return got
-}
-
 func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 	t.Parallel()
 	dirA, dirB := dataDir(t), dataDir(t)
