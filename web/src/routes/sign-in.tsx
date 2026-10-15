@@ -7,6 +7,7 @@ import type { SessionEndReason } from "../live/types";
 import { requireEntry } from "../session/gate";
 import { safeRedirect, signInSearch } from "../session/safe-redirect";
 import { markSignedIn } from "../session/session";
+import { EntryPage } from "../shell/entry-page";
 import { submitErrors, useAppForm } from "../ui/form";
 
 const signInForm = CreateSessionBody.extend({
@@ -53,9 +54,8 @@ function SignIn() {
   const { reason } = Route.useSearch();
   const form = useSignInForm();
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-12">
-      <h1 className="text-2xl font-bold">Sign in to SlipStream</h1>
-      {reason === undefined ? null : <output>{reasonText[reason]}</output>}
+    <EntryPage title="Sign in to SlipStream">
+      {reason === undefined ? null : <output className="text-ink-1">{reasonText[reason]}</output>}
       <form
         noValidate
         className="flex flex-col gap-4"
@@ -75,6 +75,6 @@ function SignIn() {
           <form.SubmitButton label="Sign in" />
         </form.AppForm>
       </form>
-    </main>
+    </EntryPage>
   );
 }
