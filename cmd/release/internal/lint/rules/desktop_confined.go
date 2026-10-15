@@ -45,24 +45,11 @@ func checkDesktopConfined(repo *lint.Repo) ([]lint.Finding, error) {
 	}
 	var findings []lint.Finding
 	for _, f := range files {
-		dir := path.Dir(f.Path)
-		inDesktop := dir == desktopPkg || strings.HasPrefix(dir, desktopPkg+"/")
 		for _, imp := range f.Syntax.Imports {
 			p, _ := strconv.Unquote(imp.Path.Value)
-			var message string
-			switch {
-			case (p == systrayModule || strings.HasPrefix(p, systrayModule+"/")) && !inDesktop:
-				message = "imports " + p + " outside " + desktopPkg
-			case p == systrayModule || strings.HasPrefix(p, systrayModule+"/"):
-				linux, err := linuxRelease.MatchFile(filepath.Join(repo.Root, filepath.FromSlash(dir)), path.Base(f.Path))
-				if err != nil {
-					return nil, fmt.Errorf("%s: %w", f.Path, err)
-				}
-				if linux {
-					message = "imports " + p + " in a file the Linux build compiles; constrain it to windows || darwin"
-				}
-			case p == path.Join(module, desktopPkg) && !inDesktop && f.Path != appFile:
-				message = "imports the desktop package, which only " + appFile + " imports"
+			message, err := desktopImport(repo, module, f.Path, p)
+			if err != nil {
+				return nil, err
 			}
 			if message != "" {
 				findings = append(findings, lint.Finding{Path: f.Path, Line: repo.Fset.Position(imp.Pos()).Line, Message: message})
@@ -70,4 +57,26 @@ func checkDesktopConfined(repo *lint.Repo) ([]lint.Finding, error) {
 		}
 	}
 	return findings, nil
+}
+
+// desktopImport is what is wrong with file importing p, or "".
+func desktopImport(repo *lint.Repo, module, file, p string) (string, error) {
+	dir := path.Dir(file)
+	inDesktop := dir == desktopPkg || strings.HasPrefix(dir, desktopPkg+"/")
+	systray := p == systrayModule || strings.HasPrefix(p, systrayModule+"/")
+	switch {
+	case systray && !inDesktop:
+		return "imports " + p + " outside " + desktopPkg, nil
+	case systray:
+		linux, err := linuxRelease.MatchFile(filepath.Join(repo.Root, filepath.FromSlash(dir)), path.Base(file))
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", file, err)
+		}
+		if linux {
+			return "imports " + p + " in a file the Linux build compiles; constrain it to windows || darwin", nil
+		}
+	case p == path.Join(module, desktopPkg) && !inDesktop && file != appFile:
+		return "imports the desktop package, which only " + appFile + " imports", nil
+	}
+	return "", nil
 }
