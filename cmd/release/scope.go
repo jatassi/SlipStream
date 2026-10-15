@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	register("scope", "print how much CI runs for the changes from base to head: docs, pr or native; also sets the online output when the change touches what the online job checks", runScope)
+	register("scope", "print how much CI runs for the changes from base to head: docs, pr or native; also sets the online output when the change touches what the online job checks, and the package output when it touches what the packages are built from", runScope)
 }
 
 func runScope(ctx context.Context, args []string) error {
@@ -34,17 +34,21 @@ func runScope(ctx context.Context, args []string) error {
 	}
 	scope := changescope.Of(changes)
 	online := changescope.Online(changes)
+	packaging := changescope.Packaging(changes)
 	if *explain {
 		if err := explainScope(os.Stdout, changes, scope); err != nil {
 			return err
 		}
-		fmt.Printf("online: %t\n", online)
+		fmt.Printf("online: %t\npackage: %t\n", online, packaging)
 	}
 	fmt.Println(scope)
 	if err := githubOutput("scope", scope.String()); err != nil {
 		return err
 	}
-	return githubOutput("online", strconv.FormatBool(online))
+	if err := githubOutput("online", strconv.FormatBool(online)); err != nil {
+		return err
+	}
+	return githubOutput("package", strconv.FormatBool(packaging))
 }
 
 func explainScope(w io.Writer, changes []nativetouch.Change, scope changescope.Scope) error {
