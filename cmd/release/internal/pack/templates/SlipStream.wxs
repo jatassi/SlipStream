@@ -20,7 +20,7 @@
     </StandardDirectory>
 
     <ComponentGroup Id="Program" Directory="INSTALLFOLDER">
-      <Component Id="ProgramFiles">
+      <Component Id="ProgramFiles" Guid="{{.ProgramFilesGUID}}">
         <RegistryValue Root="HKCU" Key="{{.RegistryKey}}" Name="ProgramFiles" Type="integer" Value="1" KeyPath="yes" />
 {{- range .Files}}
         <File Id="{{.ID}}" Name="{{.Name}}" Source="{{xml .Source}}" />

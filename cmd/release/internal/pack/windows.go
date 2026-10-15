@@ -16,6 +16,12 @@ import (
 // removes v1.
 const upgradeCode = "{73394E63-47CD-417B-AEDD-7F50B149F574}"
 
+// programFilesGUID is fixed because the program files' component has an
+// HKCU key path, which ICE38 requires of every component under a user's
+// profile folder, and WiX cannot generate the GUID of a component that
+// holds files under a registry key path.
+const programFilesGUID = "{C20646BA-DEE1-4ACA-9C3E-B3E9C252C265}"
+
 const wixVersion = "5.0.2"
 
 func buildZIP(_ context.Context, in Input, stage string) ([]string, error) {
@@ -43,22 +49,23 @@ type wixFile struct{ ID, Name, Source string }
 
 type wixData struct {
 	names
-	Version       Version
-	Numeric       string
-	UpgradeCode   string
-	ProgramsDir   string
-	InstallDir    string
-	RegistryKey   string
-	RunValue      string
-	TrampolineExe string
-	Files         []wixFile
-	LicenseRTF    string
+	Version          Version
+	Numeric          string
+	UpgradeCode      string
+	ProgramFilesGUID string
+	ProgramsDir      string
+	InstallDir       string
+	RegistryKey      string
+	RunValue         string
+	TrampolineExe    string
+	Files            []wixFile
+	LicenseRTF       string
 }
 
 func wixSource(in Input, dir string, files []string) string {
 	programs, installDir, _ := strings.Cut(install.WindowsProgramDir, `\`)
 	data := wixData{
-		names: installNames, Version: in.Version, Numeric: in.Version.Numeric(), UpgradeCode: upgradeCode,
+		names: installNames, Version: in.Version, Numeric: in.Version.Numeric(), UpgradeCode: upgradeCode, ProgramFilesGUID: programFilesGUID,
 		ProgramsDir: programs, InstallDir: installDir, RegistryKey: install.WindowsRegistryKey, RunValue: install.WindowsRunValue,
 		LicenseRTF: filepath.Join(dir, "LICENSE.rtf"), TrampolineExe: native.Program(in.Target, install.Trampoline),
 	}

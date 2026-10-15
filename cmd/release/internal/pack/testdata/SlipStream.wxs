@@ -20,7 +20,7 @@
     </StandardDirectory>
 
     <ComponentGroup Id="Program" Directory="INSTALLFOLDER">
-      <Component Id="ProgramFiles">
+      <Component Id="ProgramFiles" Guid="{C20646BA-DEE1-4ACA-9C3E-B3E9C252C265}">
         <RegistryValue Root="HKCU" Key="Software\SlipStream2" Name="ProgramFiles" Type="integer" Value="1" KeyPath="yes" />
         <File Id="slipstream_exe" Name="slipstream.exe" Source="/stage/slipstream.exe" />
         <File Id="slipstream_app_exe" Name="slipstream-app.exe" Source="/stage/slipstream-app.exe" />
