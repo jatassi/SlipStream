@@ -100,3 +100,24 @@ test("a narrow container stacks the rows", async () => {
   await expect.element(cell).toBeVisible();
   expect(getComputedStyle(cell.element()).display).toBe("block");
 });
+
+test("a stacked row leaves out a cell with nothing in it", async () => {
+  const rated: readonly [Column<Torrent>, ...Column<Torrent>[]] = [
+    { id: "name", header: "Name", cell: (row) => row.name },
+    { id: "rate", header: "Rate", cell: (row) => (row.peers > 10 ? row.rate : null) },
+  ];
+  renderKit(
+    <div style={{ width: 400 }}>
+      <Table
+        label="Torrents"
+        columns={rated}
+        rows={torrents}
+        rowKey={(t) => t.id}
+        stackBelow={500}
+      />
+    </div>,
+  );
+  await expect.element(page.getByText("4.2 MB/s")).toBeVisible();
+  await expect.element(page.getByRole("row").nth(0).getByRole("cell")).toHaveLength(2);
+  await expect.element(page.getByRole("row").nth(1).getByRole("cell")).toHaveLength(1);
+});

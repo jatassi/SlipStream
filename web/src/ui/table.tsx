@@ -41,6 +41,7 @@ function reflow(
   ${scope} tr { padding: 12px 16px; }
   ${scope} tr + tr { box-shadow: inset 0 1px 0 var(--color-hairline); }
   ${scope} td { display: block; height: auto; padding: 2px 0; box-shadow: none; text-align: start; }
+  ${scope} td:empty { display: none; }
   ${scope} td::before { content: attr(data-label); display: block; font-size: var(--text-label); color: var(--color-ink-3); }
 }`,
         ];

@@ -64,7 +64,6 @@ export function Targets({
         rows={work.items}
         rowKey={(item) => item.id}
         lines={cells.some((cell) => cell.state === "met") ? 2 : 1}
-        stackBelow={480}
       />
     </Section>
   );
