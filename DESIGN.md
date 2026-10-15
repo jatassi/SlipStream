@@ -292,7 +292,7 @@ Motion is slow where light moves and quick where controls answer. The tint cross
 - Fixed signal hues: red for failure, amber for warning, green for a passed check. None of them ever takes the tint.
 - Live is luminance. A running job is white with the Work's glow, and Met is solid white.
 - Translucent tinted surfaces, with glass blur only on floating chrome and overlays.
-- Two densities: Console for the Admin desk shell, Touch for the Admin phone shell and the whole portal.
+- Two densities: Console for the Admin desktop shell, Touch for the Admin phone shell and the whole portal.
 - WCAG 2.2 AA is checked for every tint, and an ambient ceiling holds it.
 
 ## Colors
@@ -345,8 +345,8 @@ A sampler draws the poster onto a 24 × 36 canvas. It skips pixels with less tha
 
 Who sets the ambient:
 - **A Work's page.** That Work.
-- **Admin Home.** The most important job, meaning the job closest to Available, with a Member's request breaking ties. The pipeline sorts in that order, so the top row and the tint agree. On desk, hovering or focusing a pipeline row moves the tint to its Work after 90ms, and leaving returns it after 450ms. On phone, the topmost job in the middle band of the viewport sets it.
-- **Portal Home.** The poster under the pointer or focus on desk, with the rest of the wall dimming. At rest, the first Work of the first shelf.
+- **Admin Home.** The most important job, meaning the job closest to Available, with a Member's request breaking ties. The pipeline sorts in that order, so the top row and the tint agree. In a desktop browser, hovering or focusing a pipeline row moves the tint to its Work after 90ms, and leaving returns it after 450ms. On phone, the topmost job in the middle band of the viewport sets it.
+- **Portal Home.** The poster under the pointer or focus in a desktop browser, with the rest of the wall dimming. At rest, the first Work of the first shelf.
 - **Any screen with no Work.** Nodes, Remote access, Settings, Providers and System use the neutral, hue 214 at 14%.
 - **A failed Work never drives the tint.** Failure cards and rows carry no Work for the ambient.
 
@@ -377,7 +377,7 @@ The scale has ten sizes: 11, 12, 13, 14, 15, 17, 20, 24, 34 and 56px. The weight
 - **Display** (700, 56px, 1.02): The portal's search hero headline and a Work's logo fallback on the portal.
 - **Title large** (700, 34px, 1.15): The phone shell's large title.
 - **Numeral** (600, 34px, 1, tabular): Big ordinals and headline figures, such as a provider's rank. Sans, never Mono.
-- **Sentence** (600, 24px, 1.25): The desk status sentence that opens Home, Torrents, Conversions and Remote access. Also the portal's shelf titles.
+- **Sentence** (600, 24px, 1.25): The desktop status sentence that opens Home, Torrents, Conversions and Remote access. Also the portal's shelf titles.
 - **Title** (700, 20px, 1.2): Phone section titles, the inspector title and dialog titles.
 - **Sentence touch** (600, 17px, 1.35): The phone status sentence, sheet items and a recommendation card's title.
 - **Card title** (600, 15px, 1.3): A failure card's subject, a list row's title in Touch, and a sheet's title.
@@ -404,22 +404,22 @@ The system has two shells and two densities. The shell follows the viewport and 
 
 ### Shells
 
-- **Desk shell (768px and up).**
+- **Desktop shell (768px and up).**
   - **Sidebar.** 228px wide, collapsing to a 60px rail. It collapses on its own below 1100px, and the Admin can collapse it at any width (⌘K "Toggle sidebar", remembered per browser).
   - **Nav.** Items are 32px tall with 16px icons, a live count on Activity (a white glowing dot and a number) and plain counts elsewhere. A count can carry an amber or red dot. A separator sits above Nodes, Settings and System.
   - **Top bar.** Sticky, 56px tall, laid out as `1fr minmax(320px, 440px) 1fr`. Breadcrumbs sit on the left, the ⌘K search capsule in the middle, and live rates, the bell and the page's main action on the right.
   - **Content.** Padding is 24px top, 28px sides and 120px bottom, with a 1480px maximum width and 24px between sections.
-  - **Narrow desks.** At 1360px and below, tables tighten their columns, and the legend, the status sentence's right-hand totals and the top bar's rates hide.
+  - **Narrow desktop windows.** At 1360px and below, tables tighten their columns, and the legend, the status sentence's right-hand totals and the top bar's rates hide.
 - **Phone shell (below 768px).** A large-title header (34px title, search and avatar), sections 28px apart with 20px titles, and 16px list gutters.
   - **Admin tab bar.** Home, Library, Activity, Search and More. More opens an action sheet with the rest of the nav and its counts.
   - **Portal tab bar.** Home, Search, Requests and Account.
   - **Navigation.** Push navigation adds a 44px glass nav bar with a back label. Every menu becomes an action sheet, and every Dialog becomes a bottom sheet.
 - **Safe areas.** Bars and sheets pad with `env(safe-area-inset-*)`. Never hard-code the status bar or home indicator height.
-- **Portal on desk.** A 64px top nav that sits transparent over the hero and turns to glass after 24px of scroll. The gutter is `clamp(24px, 3.6vw, 56px)`, and pages run full bleed.
+- **Portal in a desktop browser.** A 64px top nav that sits transparent over the hero and turns to glass after 24px of scroll. The gutter is `clamp(24px, 3.6vw, 56px)`, and pages run full bleed.
 
 ### Densities
 
-- **Console.** The Admin desk shell. 13px body, 32px buttons (28px small), 44px single-line table rows and 60px two-line rows.
+- **Console.** The Admin desktop shell. 13px body, 32px buttons (28px small), 44px single-line table rows and 60px two-line rows.
 - **Touch.** The Admin phone shell and the whole portal on any device. 15px body, 44px minimum targets, 50px primary buttons, 48px inputs and 54px list rows.
 
 ### Rhythm
@@ -500,7 +500,7 @@ A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. 
 
 ### Status sentence
 
-The first line of every page that watches live work. It reads as one sentence of counts and links ("5 jobs moving · 1 failure · relay-fra degraded"). It is set in Sentence type on desk and Sentence touch on phone, over the ambient with a soft text shadow. The live part leads with a glowing white dot. Failure and warning parts are links to the cards below, in `fail-ink` and `warn`. Separators are `ink-4`. A right-hand line of the day's totals shows on wide desks.
+The first line of every page that watches live work. It reads as one sentence of counts and links ("5 jobs moving · 1 failure · relay-fra degraded"). It is set in Sentence type in the desktop shell and Sentence touch on phone, over the ambient with a soft text shadow. The live part leads with a glowing white dot. Failure and warning parts are links to the cards below, in `fail-ink` and `warn`. Separators are `ink-4`. A right-hand line of the day's totals shows in wide desktop windows.
 
 ### Stage track
 
@@ -576,11 +576,11 @@ The phone's bottom sheet. It is glass at `sheet` with a 24px top edge, a 38 × 5
 
 ### Command palette
 
-⌘K or Ctrl+K on desk. It is 640px wide at 12vh from the top, glass with float large and radius 20, with a 60px input row (17px text) and a glow underline while focused. Results are grouped (Works, then Commands), with 44px options and thumbnails. Footer hints show ↑↓, ↵ and Esc. On phone it is full screen with 56px options and a Cancel button.
+⌘K or Ctrl+K in a desktop browser. It is 640px wide at 12vh from the top, glass with float large and radius 20, with a 60px input row (17px text) and a glow underline while focused. Results are grouped (Works, then Commands), with 44px options and thumbnails. Footer hints show ↑↓, ↵ and Esc. On phone it is full screen with 56px options and a Cancel button.
 
 ### Toast
 
-A solid white capsule at 13px and 500. It sits at the top right on desk and the top centre on phone. It enters over 220ms from 8px and stays for 2.8s. A toast says what happened and, when it matters, what happens next ("moved up from New. Estimated start 21:48 on forge").
+A solid white capsule at 13px and 500. It sits at the top right in the desktop shell and the top centre on phone. It enters over 220ms from 8px and stays for 2.8s. A toast says what happened and, when it matters, what happens next ("moved up from New. Estimated start 21:48 on forge").
 
 ### Guided steps
 
@@ -597,7 +597,7 @@ A list whose order is its meaning, such as subtitle providers in search order. E
 
 ### Route
 
-Remote access draws each exposure as a lane of hops: Player, DNS, Relay, TLS, Node link, Origin and Media Server. A hop is a small `fill` tile joined by a 2px connector, and it takes the worst status of its checks. A failing or warning hop takes its signal card and a 3px connector. A hop past a failure shows "not reached", with a dashed outline and a dashed connector. A passing hop carries a green check. Selecting a hop opens its checks in the Inspector on desk and a sheet on phone. Each check shows what was observed, what was expected, what it means and its fix.
+Remote access draws each exposure as a lane of hops: Player, DNS, Relay, TLS, Node link, Origin and Media Server. A hop is a small `fill` tile joined by a 2px connector, and it takes the worst status of its checks. A failing or warning hop takes its signal card and a 3px connector. A hop past a failure shows "not reached", with a dashed outline and a dashed connector. A passing hop carries a green check. Selecting a hop opens its checks in the Inspector in the desktop shell and a sheet on phone. Each check shows what was observed, what was expected, what it means and its fix.
 
 ### Node canvas
 

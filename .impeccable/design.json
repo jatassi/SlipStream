@@ -594,7 +594,7 @@
       },
       "sentence": {
         "displayName": "Sentence",
-        "purpose": "The desk status sentence that opens Home, Torrents, Conversions and Remote access. Also the portal's shelf titles."
+        "purpose": "The desktop status sentence that opens Home, Torrents, Conversions and Remote access. Also the portal's shelf titles."
       },
       "title": {
         "displayName": "Title",
@@ -780,9 +780,9 @@
         "purpose": "Phone shell."
       },
       {
-        "name": "desk",
+        "name": "desktop",
         "value": ">= 768px",
-        "purpose": "Desk shell."
+        "purpose": "Desktop shell."
       },
       {
         "name": "rail",
@@ -903,7 +903,7 @@
       "Fixed signal hues: red for failure, amber for warning, green for a passed check. None of them ever takes the tint.",
       "Live is luminance. A running job is white with the Work's glow, and Met is solid white.",
       "Translucent tinted surfaces, with glass blur only on floating chrome and overlays.",
-      "Two densities: Console for the Admin desk shell, Touch for the Admin phone shell and the whole portal.",
+      "Two densities: Console for the Admin desktop shell, Touch for the Admin phone shell and the whole portal.",
       "WCAG 2.2 AA is checked for every tint, and an ambient ceiling holds it."
     ],
     "rules": [
