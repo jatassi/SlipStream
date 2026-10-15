@@ -496,9 +496,9 @@ func Run(ctx context.Context, env Env) error {
 	return serve(ctx, env, func(*Node, <-chan struct{}) {})
 }
 
-// serve is Run that hands the ready Node to front on the calling goroutine.
-// front returns once exit closes, which it does when the Node has stopped
-// or a second signal arrives.
+// serve is Run that hands the ready Node to front on the calling goroutine,
+// which front may hold until exit closes: once the Node has stopped or a
+// second signal arrives.
 func serve(ctx context.Context, env Env, front func(n *Node, exit <-chan struct{})) error {
 	prober, err := bundledProber()
 	if err != nil {
