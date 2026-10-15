@@ -38,6 +38,12 @@ func TestParseInputsRejectsInconsistentInputs(t *testing.T) {
 			`native inputs: tool ffmpeg: no archive for target linux-amd64`},
 		{`{"tools": [{"name": "ffmpeg", "archives": {"plan9-amd64": "https://example.test/ffmpeg.zip"}}]}`,
 			`native inputs: tool ffmpeg: archive for unknown target "plan9-amd64"`},
+		{`{"tools": [{"name": "ffmpeg", "archives": {}, "source_archive": {"url": "https://example.test/src.tar.gz", "sha256": "abc"}}]}`,
+			`native inputs: source ffmpeg source: sha256 "abc" is not 64 hex digits`},
+		{`{"tools": [{"name": "ffmpeg", "archives": {}, "debian": {"packages": {"plan9-amd64": {}}}}]}`,
+			`native inputs: tool ffmpeg: Debian package for unknown target "plan9-amd64"`},
+		{`{"packagers": [{"name": "appimagetool", "target": "plan9-amd64"}]}`,
+			`native inputs: packager appimagetool: unknown target "plan9-amd64"`},
 	} {
 		if _, err := ParseInputs([]byte(tc.inputs)); err == nil || err.Error() != tc.want {
 			t.Errorf("ParseInputs(%s) err = %v, want %s", tc.inputs, err, tc.want)

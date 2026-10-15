@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import { requireEntry } from "../session/gate";
 import { markClaimed } from "../session/session";
@@ -12,9 +12,27 @@ export const Route = createFileRoute("/setup")({
   component: Setup,
 });
 
+function codeInFragment(hash: string): string | undefined {
+  const code = new URLSearchParams(hash).get("code");
+  return code === null || code.trim() === "" ? undefined : code;
+}
+
+function useLinkedSetupCode() {
+  const navigate = Route.useNavigate();
+  const hash = useLocation({ select: (location) => location.hash });
+  const [linked] = useState(() => codeInFragment(hash));
+  useEffect(() => {
+    if (linked !== undefined) {
+      void navigate({ to: ".", hash: "", replace: true });
+    }
+  }, [linked, navigate]);
+  return linked;
+}
+
 function Setup() {
   const { queryClient } = Route.useRouteContext();
   const navigate = Route.useNavigate();
+  const linkedSetupCode = useLinkedSetupCode();
   const [apiKey, setApiKey] = useState<string>();
   return (
     <main className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-12">
@@ -25,6 +43,7 @@ function Setup() {
             Enter the Setup code from this Node&apos;s console or log, then create the first Admin.
           </p>
           <ClaimForm
+            linkedSetupCode={linkedSetupCode}
             onClaimed={(claimed) => {
               markClaimed(queryClient, claimed);
               setApiKey(claimed.apiKey);

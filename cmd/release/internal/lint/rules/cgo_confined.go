@@ -10,6 +10,7 @@ import (
 
 var nativePackages = []string{
 	"internal/torrent/libtorrent",
+	"internal/node/internal/desktop",
 }
 
 func init() {

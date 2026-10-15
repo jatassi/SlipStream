@@ -62,6 +62,20 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
+			name: "tray and trampoline",
+			changes: []Change{
+				modified("internal/node/internal/desktop/tray.go", "package desktop\n", "package desktop\n\n"),
+				modified("internal/node/app.go", "package node\n", "package node\n\n"),
+				{New: file("cmd/slipstream-app/main.go", "package main\n")},
+				{New: file("internal/node/status.go", "package node\n")},
+			},
+			want: []Match{
+				{"native-root", "internal/node/internal/desktop/tray.go"},
+				{"native-root", "internal/node/app.go"},
+				{"native-root", "cmd/slipstream-app/main.go"},
+			},
+		},
+		{
 			name:    "header outside the native roots",
 			changes: []Change{{New: file("web/vendor/thing.h", "")}},
 			want:    []Match{{"c-family", "web/vendor/thing.h"}},

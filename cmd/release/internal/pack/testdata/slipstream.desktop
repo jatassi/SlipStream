@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SlipStream
+Comment=Manage your movie and TV library
+Exec=slipstream app
+Icon=slipstream
+Terminal=false
+Categories=AudioVideo;Video;

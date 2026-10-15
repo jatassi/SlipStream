@@ -37,26 +37,51 @@ func TestPlan(t *testing.T) {
 		{"push", changescope.PR, all},
 		{"schedule", changescope.Docs, all},
 		{"schedule", changescope.PR, all},
-		{"release", changescope.Docs, all},
-		{"release", changescope.PR, all},
+		{"tag", changescope.Docs, all},
+		{"tag", changescope.PR, all},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, tt.event, tt.scope)
+		got, err := plan(planInputs, tt.event, tt.scope, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(got.Include, tt.want) {
-			t.Errorf("plan(%s, %s) = %v, want %v", tt.event, tt.scope, got.Include, tt.want)
+		if !reflect.DeepEqual(got.Matrix.Include, tt.want) {
+			t.Errorf("plan(%s, %s) = %v, want %v", tt.event, tt.scope, got.Matrix.Include, tt.want)
+		}
+	}
+}
+
+func TestPlanPackages(t *testing.T) {
+	for _, tt := range []struct {
+		event   string
+		scope   changescope.Scope
+		touched bool
+		want    bool
+		targets int
+	}{
+		{"tag", changescope.Docs, false, true, 3},
+		{"schedule", changescope.Docs, false, true, 3},
+		{"push", changescope.PR, false, false, 3},
+		{"pr", changescope.PR, false, false, 1},
+		{"pr", changescope.Docs, false, false, 0},
+		{"pr", changescope.PR, true, true, 3},
+	} {
+		got, err := plan(planInputs, tt.event, tt.scope, tt.touched)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Package != tt.want || len(got.Matrix.Include) != tt.targets {
+			t.Errorf("plan(%s, %s, touched %t) packages %t on %d targets, want %t on %d", tt.event, tt.scope, tt.touched, got.Package, len(got.Matrix.Include), tt.want, tt.targets)
 		}
 	}
 }
 
 func TestPlanJSON(t *testing.T) {
-	m, err := plan(planInputs, "push", changescope.PR)
+	p, err := plan(planInputs, "push", changescope.PR, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := json.Marshal(m)
+	got, err := json.Marshal(p.Matrix)
 	if err != nil {
 		t.Fatal(err)
 	}

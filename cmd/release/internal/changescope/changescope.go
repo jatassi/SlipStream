@@ -83,9 +83,21 @@ var onlineRoots = []string{"fakes/tmdb/", "fakes/contenttypes/music/", "internal
 
 // Online reports whether a change touches, on either side, anything the
 // online job checks.
-func Online(changes []nativetouch.Change) bool {
+func Online(changes []nativetouch.Change) bool { return touches(changes, onlineRoots) }
+
+var packagingRoots = []string{
+	"internal/install/", "internal/node/internal/desktop/", "cmd/slipstream-app/",
+	"cmd/release/internal/pack/", "cmd/release/internal/smoke/", "cmd/release/package.go", "cmd/release/smoke.go",
+	".config/dotnet-tools.json", "native/inputs.json", "LICENSE",
+}
+
+// Packaging reports whether a change touches, on either side, anything
+// the packages are built from.
+func Packaging(changes []nativetouch.Change) bool { return touches(changes, packagingRoots) }
+
+func touches(changes []nativetouch.Change, roots []string) bool {
 	return slices.ContainsFunc(changes, func(c nativetouch.Change) bool {
-		return slices.ContainsFunc(onlineRoots, func(root string) bool {
+		return slices.ContainsFunc(roots, func(root string) bool {
 			return strings.HasPrefix(c.Old.Path, root) || strings.HasPrefix(c.New.Path, root)
 		})
 	})
