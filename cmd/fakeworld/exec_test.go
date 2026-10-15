@@ -129,9 +129,8 @@ func TestExecJournalsAndReplays(t *testing.T) {
 	}
 
 	list := fakeworld(t, "fault", "list", runDir)
-	var live events.Record
-	if err := json.Unmarshal([]byte(list.stdout), &live); list.code != 0 || err != nil || live.Seq != setRec.Seq {
-		t.Fatalf("fault list = %+v, want the tmdb-503 fault.set at seq %d", list, setRec.Seq)
+	if want := (result{0, "", ""}); list != want {
+		t.Fatalf("fault list after tmdb-503 played its one time = %+v, want %+v", list, want)
 	}
 
 	checkReplayTo2(t, runDir, m, want[:5])

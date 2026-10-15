@@ -375,37 +375,67 @@ func (c *Remote) call(ctx context.Context, method, path string, in, out any) err
 }
 
 // LiveFaults reads the run in runDir's event log for the fault.set
-// records of the rules still set, in the order they were set. A rule
-// that finished its Times stays set until it is cleared.
+// records of the rules still set, in the order they were set. A rule that
+// has played its Times drops out, unless its fault holds the connections
+// it took, as a throttle does, which keeps it until it is cleared.
 func LiveFaults(runDir string) ([]events.Record, error) {
 	recs, err := events.Read(runDir)
 	if err != nil {
 		return nil, err
 	}
-	type set struct {
-		id  string
-		rec events.Record
-	}
-	var live []set
+	var live []liveRule
 	for _, rec := range recs {
-		if rec.Kind != events.FaultSet && rec.Kind != events.FaultCleared {
+		if rec.Kind != events.FaultSet && rec.Kind != events.FaultCleared && rec.Kind != events.FaultFired {
 			continue
 		}
-		var d struct {
-			ID string `json:"id"`
-		}
-		if err := json.Unmarshal(rec.Data, &d); err != nil {
+		if live, err = applyFaultRecord(live, rec); err != nil {
 			return nil, fmt.Errorf("%s %d: %w", rec.Kind, rec.Seq, err)
-		}
-		all := rec.Kind == events.FaultCleared && d.ID == ""
-		live = slices.DeleteFunc(live, func(s set) bool { return all || s.id == d.ID })
-		if rec.Kind == events.FaultSet {
-			live = append(live, set{d.ID, rec})
 		}
 	}
 	out := make([]events.Record, len(live))
-	for i, s := range live {
-		out[i] = s.rec
+	for i, l := range live {
+		out[i] = l.set
 	}
 	return out, nil
+}
+
+type liveRule struct {
+	id  string
+	set events.Record
+	// left is the plays before the rule is spent; 0 plays until cleared.
+	left  int
+	holds bool
+}
+
+func applyFaultRecord(live []liveRule, rec events.Record) ([]liveRule, error) {
+	var d struct {
+		ID    string `json:"id"`
+		Rule  string `json:"rule"`
+		Fault string `json:"fault"`
+		Times int    `json:"times"`
+	}
+	if err := json.Unmarshal(rec.Data, &d); err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	switch rec.Kind {
+	case events.FaultSet:
+		f, err := fault.Parse(d.Fault)
+		if err != nil {
+			return nil, err
+		}
+		_, reset := f.(fault.Reset)
+		live = slices.DeleteFunc(live, func(l liveRule) bool { return l.id == d.ID })
+		return append(live, liveRule{id: d.ID, set: rec, left: d.Times, holds: f.Layer() == fault.Conn && !reset}), nil
+	case events.FaultCleared:
+		return slices.DeleteFunc(live, func(l liveRule) bool { return d.ID == "" || l.id == d.ID }), nil
+	}
+	i := slices.IndexFunc(live, func(l liveRule) bool { return l.id == d.Rule && l.left > 0 })
+	if i < 0 {
+		return live, nil
+	}
+	live[i].left--
+	if live[i].left == 0 && !live[i].holds {
+		live = slices.Delete(live, i, i+1)
+	}
+	return live, nil
 }
