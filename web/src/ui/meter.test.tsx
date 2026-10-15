@@ -12,5 +12,7 @@ test.each(["desktop", "phone"] satisfies ShellKind[])(
     const meter = page.getByRole("meter", { name: "Storage used" });
     await expect.element(meter).toHaveAttribute("aria-valuenow", "600");
     await expect.element(meter).toHaveAttribute("aria-valuemax", "1000");
+    await expect.element(meter).toHaveAttribute("aria-valuetext", "60%");
+    expect(meter.element().textContent).toBe("");
   },
 );
