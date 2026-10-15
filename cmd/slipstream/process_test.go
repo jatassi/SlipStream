@@ -36,10 +36,12 @@ func TestMain(m *testing.M) {
 
 // childEnv is explicit, so a stray SLIPSTREAM_ variable in the developer's
 // environment never reaches the strict loader. Windows needs SystemRoot to
-// initialize sockets.
+// initialize sockets, and PowerShell needs PATHEXT to run an .exe and wait
+// for its exit code: without it PowerShell opens the file through
+// ShellExecute, does not wait, and leaves $LASTEXITCODE unset.
 func childEnv(extra ...string) []string {
 	var env []string
-	for _, name := range []string{"PATH", "SystemRoot", "TEMP", "TMP", "TMPDIR", "HOME"} {
+	for _, name := range []string{"PATH", "PATHEXT", "SystemRoot", "TEMP", "TMP", "TMPDIR", "HOME"} {
 		if v, ok := os.LookupEnv(name); ok {
 			env = append(env, name+"="+v)
 		}
@@ -209,20 +211,6 @@ func slipstream(t *testing.T, env []string, args ...string) result {
 		t.Fatalf("slipstream %v: %v", args, err)
 	}
 	return result{cmd.ProcessState.ExitCode(), out.String(), errOut.String()}
-}
-
-// statusOf is slipstream status on dir, decoded.
-func statusOf(t *testing.T, dir string) map[string]any {
-	t.Helper()
-	res := slipstream(t, childEnv(), "status", "--data-dir", dir)
-	if res.code != node.ExitOK {
-		t.Fatalf("status: exit %d, stderr %q", res.code, res.stderr)
-	}
-	var got map[string]any
-	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil {
-		t.Fatalf("status output %q: %v", res.stdout, err)
-	}
-	return got
 }
 
 func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {

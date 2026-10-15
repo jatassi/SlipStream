@@ -36,6 +36,8 @@
       {"name": "/System/Library/Frameworks/Security.framework/Versions/A/Security", "reason": "Go crypto/x509 root verification"},
       {"name": "/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration", "reason": "libtorrent proxy and interface discovery"},
       {"name": "/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa", "reason": "fyne.io/systray's menu bar item: systray_darwin.go links -framework Cocoa"},
+      {"name": "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit", "reason": "fyne.io/systray's NSStatusBar menu bar item, reached through the Cocoa umbrella"},
+      {"name": "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation", "reason": "fyne.io/systray's NSString, NSNumber and NSData calls, reached through the Cocoa umbrella"},
       {"name": "/usr/lib/libobjc.A.dylib", "reason": "the Objective-C runtime fyne.io/systray's systray_darwin.m runs on"}
     ]
   },

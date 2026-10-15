@@ -24,6 +24,10 @@ func mustVersion(s string) version {
 	return v
 }
 
+func (v version) less(w version) bool {
+	return v.major < w.major || (v.major == w.major && v.minor < w.minor)
+}
+
 // BelowFloor names each part of the host older than the floor, or that it
 // cannot read. The binary is static, so glibc's version comes from the
 // host's getconf.

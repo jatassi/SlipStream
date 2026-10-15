@@ -94,10 +94,14 @@ func TestMarkerPath(t *testing.T) {
 	}
 }
 
+// linuxTempDir is a temp dir as a Linux Layout spells it on any host:
+// slash-separated, which Windows opens as well.
+func linuxTempDir(t *testing.T) string { return filepath.ToSlash(t.TempDir()) }
+
 func TestRead(t *testing.T) {
-	dir := t.TempDir()
-	l := Layout{GOOS: "linux", Executable: filepath.Join(dir, "slipstream")}
-	marker := filepath.Join(dir, MarkerName)
+	dir := linuxTempDir(t)
+	l := Layout{GOOS: "linux", Executable: dir + "/slipstream"}
+	marker := dir + "/" + MarkerName
 	if k, err := Read(l); k != Dev || err != nil {
 		t.Fatalf("no marker: %s, %v; want dev", k, err)
 	}
@@ -130,12 +134,12 @@ func TestRead(t *testing.T) {
 }
 
 func TestWriteIsWhatReadReads(t *testing.T) {
-	dir := t.TempDir()
-	l := Layout{GOOS: "linux", Executable: filepath.Join(dir, "slipstream")}
+	dir := linuxTempDir(t)
+	l := Layout{GOOS: "linux", Executable: dir + "/slipstream"}
 	if err := Write(MarkerPath(l), AppImage); err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.ReadFile(filepath.Join(dir, "install-kind"))
+	b, err := os.ReadFile(dir + "/install-kind")
 	if err != nil || string(b) != "appimage\n" {
 		t.Fatalf("marker = %q, %v; want appimage and a newline", b, err)
 	}
