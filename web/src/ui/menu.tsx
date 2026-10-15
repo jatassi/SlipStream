@@ -79,21 +79,21 @@ function ActionSheet({ trigger, label, items }: MenuProps) {
   );
 }
 
-const popup = `max-h-(--available-height) min-w-[220px] overflow-y-auto p-1 ${floatingPanel}`;
+const popup = `group/rows max-h-(--available-height) min-w-[220px] overflow-y-auto p-1 ${floatingPanel}`;
 
 const item =
   "flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-(length:--body-size) leading-(--body-line-height) outline-none select-none data-highlighted:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";
 
-function ItemIcon({ icon, slot }: { icon: IconSvgElement | undefined; slot: boolean }) {
-  if (icon) {
-    return <Icon icon={icon} className="size-4 shrink-0" />;
-  }
-  return slot ? <span aria-hidden="true" className="size-4 shrink-0" /> : null;
+function ItemIcon({ icon }: { icon: IconSvgElement | undefined }) {
+  return icon ? (
+    <Icon icon={icon} className="row-icon size-4 shrink-0" />
+  ) : (
+    <span aria-hidden="true" className="hidden size-4 shrink-0 group-has-[.row-icon]/rows:block" />
+  );
 }
 
 function PopupMenu({ trigger, label, items }: MenuProps) {
   const { density, probe } = usePortalDensity();
-  const iconSlot = items.some((entry) => entry !== "separator" && entry.icon !== undefined);
   return (
     <>
       {probe}
@@ -115,7 +115,7 @@ function PopupMenu({ trigger, label, items }: MenuProps) {
                         }}
                         className={`${item} ${tones.default}`}
                       >
-                        <ItemIcon icon={entry.icon} slot={iconSlot} />
+                        <ItemIcon icon={entry.icon} />
                         <span className="flex-1">{entry.label}</span>
                         <BaseMenu.CheckboxItemIndicator className="text-glow">
                           <Icon icon={Tick02Icon} className="size-4" />
@@ -127,7 +127,7 @@ function PopupMenu({ trigger, label, items }: MenuProps) {
                         onClick={entry.onSelect}
                         className={`${item} ${tones[entry.tone ?? "default"]}`}
                       >
-                        <ItemIcon icon={entry.icon} slot={iconSlot} />
+                        <ItemIcon icon={entry.icon} />
                         {entry.label}
                       </BaseMenu.Item>
                     ),
