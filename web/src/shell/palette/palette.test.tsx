@@ -90,6 +90,22 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
   await expect.element(capsule()).toHaveFocus();
 });
 
+test("the top bar's search capsule is a 32px Console capsule", async () => {
+  renderApp({ path: "/library", handlers: library() });
+  await expect.element(capsule()).toBeVisible();
+  const style = getComputedStyle(capsule().element());
+  expect([style.height, style.borderRadius]).toEqual(["32px", "999px"]);
+});
+
+test("the palette's group labels are Label type, never uppercase", async () => {
+  renderApp({ path: "/library", handlers: library() });
+  await userEvent.click(capsule());
+  const heading = palette().getByText("Commands", { exact: true });
+  await expect.element(heading).toBeVisible();
+  const style = getComputedStyle(heading.element());
+  expect([style.fontSize, style.fontWeight, style.textTransform]).toEqual(["11px", "500", "none"]);
+});
+
 test("Ctrl+K toggles the palette closed", async () => {
   renderApp({ path: "/library", handlers: library() });
   await expect.element(capsule()).toBeVisible();

@@ -102,7 +102,7 @@ export function CommandSearch({
         <Autocomplete.List className="outline-none">
           {(group: PaletteGroup) => (
             <Autocomplete.Group key={group.label} items={group.items} className="not-first:mt-2">
-              <Autocomplete.GroupLabel className="px-3 pt-2 pb-1.5 text-label-caps text-ink-3 uppercase">
+              <Autocomplete.GroupLabel className="px-3 pt-2 pb-1.5 text-label text-ink-3">
                 {group.label}
               </Autocomplete.GroupLabel>
               <Autocomplete.Collection>
