@@ -68,6 +68,7 @@ test("a Console menu's items are 36px and choosing one runs it and closes the me
   renderKit(<TorrentMenu onSelect={onSelect} />);
   await userEvent.click(page.getByRole("button", { name: "Actions" }));
   const remove = page.getByRole("menuitem", { name: "Remove" });
+  await expect.element(remove).toBeVisible();
   expect(height(remove.element())).toBe("36px");
   await userEvent.click(remove);
   expect(onSelect).toHaveBeenCalledWith("Remove");
