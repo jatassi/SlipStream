@@ -6,6 +6,7 @@ ignore ./web/node_modules
 
 require (
 	connectrpc.com/connect/v2 v2.0.0
+	fyne.io/systray v1.12.2
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/gofrs/flock v0.13.1
 	github.com/hashicorp/yamux v0.1.2
@@ -27,6 +28,7 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect

@@ -493,6 +493,13 @@ func bundledProber() (media.FFprobe, error) {
 // one returns ErrInterrupted at once. Losing the reader of stderr does not
 // stop it.
 func Run(ctx context.Context, env Env) error {
+	return serve(ctx, env, func(*Node, <-chan struct{}) {})
+}
+
+// serve is Run that hands the ready Node to front on the calling goroutine.
+// front returns once exit closes, which it does when the Node has stopped
+// or a second signal arrives.
+func serve(ctx context.Context, env Env, front func(n *Node, exit <-chan struct{})) error {
 	prober, err := bundledProber()
 	if err != nil {
 		_, _ = fmt.Fprintln(env.Stderr, err)
@@ -519,16 +526,24 @@ func Run(ctx context.Context, env Env) error {
 	if err != nil {
 		return err
 	}
-	select {
-	case <-n.Done():
-		return n.Err()
-	case <-ctx.Done():
-	}
-	select {
-	case <-n.Done():
-		return n.Err()
-	case <-sigs:
-		n.log.Error("signaled again while stopping, exiting at once")
-		return ErrInterrupted
-	}
+	exit := make(chan struct{})
+	go func() {
+		defer close(exit)
+		select {
+		case <-n.Done():
+			err = n.Err()
+			return
+		case <-ctx.Done():
+		}
+		select {
+		case <-n.Done():
+			err = n.Err()
+		case <-sigs:
+			n.log.Error("signaled again while stopping, exiting at once")
+			err = ErrInterrupted
+		}
+	}()
+	front(n, exit)
+	<-exit
+	return err
 }

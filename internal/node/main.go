@@ -19,6 +19,8 @@ import (
 
 const usageText = `usage: slipstream <command>
   run    [--data-dir <dir>]  run a Node
+  app    [--data-dir <dir>]  run a Node with the tray, opening the setup page
+                             while it is Unclaimed
   stop   [--data-dir <dir>]  stop the Node on <dir> and wait until it releases <dir>
   status [--data-dir <dir>]  print the running Node's status as JSON
   config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
@@ -88,6 +90,8 @@ func run(args []string, types contenttype.Set) int {
 			return ExitFailed
 		}
 		return ExitOK
+	case "app":
+		return app(rest, types)
 	case "status":
 		return status(rest, types)
 	case "join":

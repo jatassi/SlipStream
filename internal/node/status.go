@@ -27,8 +27,9 @@ type StatusRequest struct{}
 
 // StatusReply is the running Node as a smoke test, service install --user,
 // a second app launch or the tray sees it. Controller is set on a Worker.
-// Tray and StartAtLogin are set in app mode only. URL carries the Setup
-// code while the Node is Unclaimed.
+// Tray and StartAtLogin are set in app mode only, StartAtLogin only where
+// the OS has a login item. URL carries the Setup code while the Node is
+// Unclaimed.
 type StatusReply struct {
 	PID          int               `json:"pid"`
 	Version      string            `json:"version"`
@@ -86,6 +87,11 @@ func (n *Node) Status(ctx context.Context) (StatusReply, error) {
 			reply.Controller = &ControllerStatus{Name: rec.ControllerName, Reachable: live}
 		}
 	case system.Controller:
+	}
+	if n.env.Mode == ModeApp {
+		if err := appStatus(&reply); err != nil {
+			return StatusReply{}, err
+		}
 	}
 	return reply, nil
 }
