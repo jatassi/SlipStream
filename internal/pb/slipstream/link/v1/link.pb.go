@@ -37,6 +37,7 @@ const (
 	InstallKind_INSTALL_KIND_WINDOWS_ZIP InstallKind = 6
 	InstallKind_INSTALL_KIND_MACOS_APP   InstallKind = 7
 	InstallKind_INSTALL_KIND_DOCKER      InstallKind = 8
+	InstallKind_INSTALL_KIND_APPIMAGE    InstallKind = 9
 )
 
 // Enum value maps for InstallKind.
@@ -51,6 +52,7 @@ var (
 		6: "INSTALL_KIND_WINDOWS_ZIP",
 		7: "INSTALL_KIND_MACOS_APP",
 		8: "INSTALL_KIND_DOCKER",
+		9: "INSTALL_KIND_APPIMAGE",
 	}
 	InstallKind_value = map[string]int32{
 		"INSTALL_KIND_UNSPECIFIED": 0,
@@ -62,6 +64,7 @@ var (
 		"INSTALL_KIND_WINDOWS_ZIP": 6,
 		"INSTALL_KIND_MACOS_APP":   7,
 		"INSTALL_KIND_DOCKER":      8,
+		"INSTALL_KIND_APPIMAGE":    9,
 	}
 )
 
@@ -1203,7 +1206,7 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x04R\x06offset\"+\n" +
 	"\x15FetchArtifactResponse\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data*\xf0\x01\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data*\x8b\x02\n" +
 	"\vInstallKind\x12\x1c\n" +
 	"\x18INSTALL_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10INSTALL_KIND_DEV\x10\x01\x12\x18\n" +
@@ -1213,7 +1216,8 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\x10INSTALL_KIND_MSI\x10\x05\x12\x1c\n" +
 	"\x18INSTALL_KIND_WINDOWS_ZIP\x10\x06\x12\x1a\n" +
 	"\x16INSTALL_KIND_MACOS_APP\x10\a\x12\x17\n" +
-	"\x13INSTALL_KIND_DOCKER\x10\b*\xe3\x01\n" +
+	"\x13INSTALL_KIND_DOCKER\x10\b\x12\x19\n" +
+	"\x15INSTALL_KIND_APPIMAGE\x10\t*\xe3\x01\n" +
 	"\rRefusedReason\x12\x1e\n" +
 	"\x1aREFUSED_REASON_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREFUSED_REASON_UNKNOWN_KEY\x10\x01\x12$\n" +

@@ -22,9 +22,17 @@ const displaySetupCode = (typed: string) => formatSetupCode(normalizeSetupCode(t
 
 type Outcome = { onClaimed: (claimed: IdentityClaimed) => void; onAlreadyClaimed: () => void };
 
-function useClaimForm({ onClaimed, onAlreadyClaimed }: Outcome) {
+type Props = Outcome & { linkedSetupCode: string | undefined };
+
+function useClaimForm({ onClaimed, onAlreadyClaimed, linkedSetupCode }: Props) {
   return useAppForm({
-    defaultValues: { setupCode: "", email: "", displayName: "", pin: "", pinAgain: "" },
+    defaultValues: {
+      setupCode: displaySetupCode(linkedSetupCode ?? ""),
+      email: "",
+      displayName: "",
+      pin: "",
+      pinAgain: "",
+    },
     validators: { onSubmit: setupForm },
     onSubmit: async ({ value, formApi }) => {
       const { setupCode, pinAgain: _pinAgain, ...body } = setupForm.parse(value);
@@ -47,8 +55,8 @@ function useClaimForm({ onClaimed, onAlreadyClaimed }: Outcome) {
   });
 }
 
-export function ClaimForm(outcome: Outcome) {
-  const form = useClaimForm(outcome);
+export function ClaimForm(props: Props) {
+  const form = useClaimForm(props);
   return (
     <form
       noValidate
@@ -67,6 +75,7 @@ export function ClaimForm(outcome: Outcome) {
               autoComplete="off"
               spellCheck={false}
               format={displaySetupCode}
+              description={props.linkedSetupCode === undefined ? undefined : "Setup code filled in"}
             />
           )}
         </form.AppField>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="{{.Product}}" Manufacturer="{{.Product}}" Version="{{.Numeric}}" UpgradeCode="{{.UpgradeCode}}" Scope="perUser" Compressed="yes">
+    <SummaryInformation Description="{{.Product}} {{.Version}}" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of {{.Product}} is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="WINDOWS10">
+      <RegistrySearch Id="CurrentMajorVersionNumber" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentMajorVersionNumber" Type="raw" Bitness="always64" />
+    </Property>
+    <Launch Condition="Installed OR WINDOWS10" Message="{{.Product}} needs Windows 10 or later." />
+
+    <!-- An upgrade writes the Run value only where it was already there, so turning start at sign-in off outlives upgrades. -->
+    <Property Id="RUNATSIGNIN" Secure="yes">
+      <RegistrySearch Id="RunAtSignInValue" Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="{{.RunValue}}" Type="raw" />
+    </Property>
+
+    <Property Id="ARPCOMMENTS" Value="Licensed under GPL-3.0" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/jatassi/SlipStream" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDir" Name="{{.ProgramsDir}}">
+        <Directory Id="INSTALLFOLDER" Name="{{.InstallDir}}" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="Program" Directory="INSTALLFOLDER">
+      <Component Id="ProgramFiles" Guid="{{.ProgramFilesGUID}}">
+        <RegistryValue Root="HKCU" Key="{{.RegistryKey}}" Name="ProgramFiles" Type="integer" Value="1" KeyPath="yes" />
+{{- range .Files}}
+        <File Id="{{.ID}}" Name="{{.Name}}" Source="{{xml .Source}}" />
+{{- end}}
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveProgramsDir" Directory="ProgramsDir" On="uninstall" />
+        <Environment Id="UserPath" Name="PATH" Value="[INSTALLFOLDER]" Action="set" Part="last" System="no" Permanent="no" />
+      </Component>
+      <Component Id="RunAtSignIn" Condition="NOT WIX_UPGRADE_DETECTED OR RUNATSIGNIN">
+        <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="{{.RunValue}}" Type="string" Value="&quot;[INSTALLFOLDER]{{.TrampolineExe}}&quot;" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuShortcut" Name="{{.Product}}" Target="[INSTALLFOLDER]{{.TrampolineExe}}" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="{{.RegistryKey}}" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="DesktopShortcut" Name="{{.Product}}" Target="[INSTALLFOLDER]{{.TrampolineExe}}" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="{{.RegistryKey}}" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="{{.Product}}" Level="1" AllowAbsent="no" Display="expand">
+      <ComponentGroupRef Id="Program" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <Feature Id="Desktop" Title="Desktop shortcut" Level="2">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="{{xml .LicenseRTF}}" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch {{.Product}}" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="LaunchApp" Directory="INSTALLFOLDER" ExeCommand="&quot;[INSTALLFOLDER]{{.TrampolineExe}}&quot;" Return="asyncNoWait" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApp" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+  </Package>
+</Wix>

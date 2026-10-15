@@ -11,8 +11,13 @@ type InputProps = Omit<ComponentProps<"input">, "value" | "onChange" | "onBlur" 
 export function TextField({
   label,
   format,
+  description,
   ...input
-}: InputProps & { label: string; format?: (value: string) => string }) {
+}: InputProps & {
+  label: string;
+  format?: (value: string) => string;
+  description?: string | undefined;
+}) {
   const field = useFieldContext<string>();
   const error = errorText(field.state.meta.errors);
   return (
@@ -29,7 +34,13 @@ export function TextField({
         onBlur={field.handleBlur}
         className="h-(--input-height) rounded-item bg-well px-3 text-body text-ink-1 ring-1 ring-hairline ring-inset placeholder:text-ink-3 in-data-[density=touch]:text-input-touch"
       />
-      {error === undefined ? null : (
+      {error === undefined ? (
+        description === undefined ? null : (
+          <Field.Description className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
+            {description}
+          </Field.Description>
+        )
+      ) : (
         <Field.Error
           match
           className="flex items-center gap-1.5 text-meta text-fail-ink in-data-[density=touch]:text-body-touch"

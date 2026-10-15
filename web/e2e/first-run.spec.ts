@@ -52,3 +52,27 @@ test("a fresh Node takes a person from the Setup code to the first Admin", async
     body: { claim: "controller" },
   });
 });
+
+test("a setup link fills in the Setup code and drops it from the address bar", async ({
+  page,
+  world,
+}) => {
+  const code = await world.setupCode();
+  await page.goto(`${world.baseURL}/setup#code=${code}`);
+  const setupCode = page.getByLabel("Setup code");
+  await expect(setupCode).toHaveValue(code);
+  await expect(setupCode).toHaveAccessibleDescription("Setup code filled in");
+  await expect.poll(() => page.url()).toBe(`${world.baseURL}/setup`);
+  await expectAccessible(page);
+
+  await page.getByLabel("Email").fill("grace@example.test");
+  await page.getByLabel("Display name").fill("Grace Hopper");
+  await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially("1357");
+  await page.getByRole("textbox", { name: "PIN again", exact: true }).pressSequentially("1357");
+  await page.getByRole("button", { name: "Create Admin" }).click();
+  await expect(page.getByLabel("API key")).toHaveValue(/^ssk_[A-Za-z0-9_-]{43}$/u);
+  expect(await world.api("GET", "/api/v1/status")).toEqual({
+    status: 200,
+    body: { claim: "controller" },
+  });
+});
