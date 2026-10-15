@@ -6,6 +6,7 @@ import { Menu } from "./menu";
 import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
 import { type Stage, StageTrack, stageLabel } from "./stage-track";
+import { WarningLine, type WarningLineProps } from "./warning-line";
 
 export type CardAction = { label: string; onClick: () => void };
 
@@ -102,6 +103,7 @@ export type FailureCardProps = {
   actions?: readonly CardAction[];
   track?: { skipped: readonly Stage[] };
   form?: "full" | "compact";
+  warning?: WarningLineProps;
 };
 
 export function FailureCard({
@@ -113,6 +115,7 @@ export function FailureCard({
   actions = noActions,
   track,
   form = "full",
+  warning,
 }: FailureCardProps) {
   const shown: Form = useShell() === "phone" ? "phone" : form;
   const titleId = useId();
@@ -147,6 +150,7 @@ export function FailureCard({
         </div>
       )}
       {shown === "compact" && <Actions fix={fix} actions={actions} />}
+      {warning && <WarningLine {...warning} />}
     </article>
   );
 }
