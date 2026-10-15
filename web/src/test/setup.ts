@@ -25,6 +25,7 @@ beforeAll(async () => {
 beforeEach(() => {
   faker.seed(6);
   writePref("startupPlayed", true);
+  writePref("sidebarCollapsed", false);
   onTestFinished(() => {
     worker.resetHandlers();
   });
