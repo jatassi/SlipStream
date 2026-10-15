@@ -3,6 +3,7 @@ import { Tick02Icon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { Fragment, type ReactElement } from "react";
 
+import { floatingPanel } from "./floating";
 import { Icon } from "./icon";
 import { usePortalDensity } from "./portal-density";
 import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle, tones, type Tone } from "./sheet";
@@ -78,8 +79,7 @@ function ActionSheet({ trigger, label, items }: MenuProps) {
   );
 }
 
-const popup =
-  "max-h-(--available-height) min-w-[220px] origin-(--transform-origin) overflow-y-auto rounded-card bg-popover p-1 text-ink-1 shadow-float outline-none backdrop-blur-[30px] backdrop-saturate-[1.7] transition-[translate,scale,opacity] duration-(--duration-menu) ease-standard data-starting-style:opacity-0 data-ending-style:opacity-0 motion-safe:data-starting-style:translate-y-2 motion-safe:data-starting-style:scale-[.985] motion-safe:data-ending-style:translate-y-2 motion-safe:data-ending-style:scale-[.985]";
+const popup = `max-h-(--available-height) min-w-[220px] overflow-y-auto p-1 ${floatingPanel}`;
 
 const item =
   "flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-(length:--body-size) leading-(--body-line-height) outline-none select-none data-highlighted:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";

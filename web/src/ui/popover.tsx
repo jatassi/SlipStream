@@ -1,6 +1,7 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import type { ReactElement, ReactNode } from "react";
 
+import { floatingPanel } from "./floating";
 import { usePortalDensity } from "./portal-density";
 
 const opening = {
@@ -15,8 +16,7 @@ export type PopoverProps = {
   children: ReactNode;
 };
 
-const popup =
-  "w-[340px] max-w-(--available-width) origin-(--transform-origin) rounded-card bg-popover p-4 text-(length:--body-size) leading-(--body-line-height) text-ink-1 shadow-float outline-none backdrop-blur-[30px] backdrop-saturate-[1.7] transition-[translate,scale,opacity] duration-(--duration-menu) ease-standard data-starting-style:opacity-0 data-ending-style:opacity-0 motion-safe:data-starting-style:translate-y-2 motion-safe:data-starting-style:scale-[.985] motion-safe:data-ending-style:translate-y-2 motion-safe:data-ending-style:scale-[.985]";
+const popup = `w-[340px] max-w-(--available-width) p-4 text-(length:--body-size) leading-(--body-line-height) ${floatingPanel}`;
 
 export function Popover({ trigger, label, opensOn = "press", children }: PopoverProps) {
   const { density, probe } = usePortalDensity();
