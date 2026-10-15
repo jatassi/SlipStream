@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import { requireEntry } from "../session/gate";
 import { DesktopShell } from "../shell/desktop/layout";
+import { Palette } from "../shell/palette/palette";
 import { PhoneShell } from "../shell/phone/layout";
 import { type ShellKind, useShell } from "../ui/shell-context";
 
@@ -28,6 +29,7 @@ function AppLayout() {
       <Shell>
         <Outlet />
       </Shell>
+      <Palette />
     </div>
   );
 }

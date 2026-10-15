@@ -47,7 +47,7 @@ function CentredDialog({
         <BaseDialog.Portal data-density={density}>
           <BaseDialog.Backdrop className="fixed inset-0 bg-[rgb(0_0_0/0.5)] transition-opacity duration-(--duration-dialog) ease-spring data-starting-style:opacity-0 data-ending-style:opacity-0" />
           <BaseDialog.Viewport className="fixed inset-0 grid place-items-center p-4">
-            <BaseDialog.Popup className={`${popup} ${widths[size]}`}>
+            <BaseDialog.Popup aria-modal="true" className={`${popup} ${widths[size]}`}>
               <BaseDialog.Title className="mb-4 text-title">{title}</BaseDialog.Title>
               {children}
             </BaseDialog.Popup>

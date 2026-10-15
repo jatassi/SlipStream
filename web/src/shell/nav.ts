@@ -3,6 +3,7 @@ import type { IconSvgElement } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { RegisteredRouter } from "@tanstack/react-router";
 
+import type { WorksContentType } from "../api/gen/model";
 import { getListContentTypesQueryKey, listContentTypes } from "../api/gen/query/works/works";
 import type { CountKey } from "./counts";
 import { contentTypeIcons } from "./icons";
@@ -68,13 +69,17 @@ export const adminNav: readonly NavRow[] = [
   },
 ];
 
-function useContentTypeChildren(): NavChild[] {
-  const contentTypes =
+export function useContentTypes(): readonly WorksContentType[] {
+  return (
     useQuery({
       queryKey: getListContentTypesQueryKey(),
       queryFn: ({ signal }) => listContentTypes({ signal }),
-    }).data?.contentTypes ?? [];
-  return contentTypes
+    }).data?.contentTypes ?? []
+  );
+}
+
+function useContentTypeChildren(): NavChild[] {
+  return useContentTypes()
     .filter((type) => type.enabled)
     .map((type) => ({
       id: type.id,

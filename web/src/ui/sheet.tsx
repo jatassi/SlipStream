@@ -35,7 +35,7 @@ export function Sheet({ trigger, title, label, children, ...root }: SheetProps) 
       <Drawer.Portal data-density="touch">
         <Drawer.Backdrop className={scrim} />
         <Drawer.Viewport className="fixed inset-0 flex items-end justify-center">
-          <Drawer.Popup aria-label={label} className={popup}>
+          <Drawer.Popup aria-label={label} aria-modal="true" className={popup}>
             <span
               aria-hidden="true"
               className="mx-auto mb-2 block h-[5px] w-[38px] shrink-0 rounded-capsule bg-ink-4/60"
