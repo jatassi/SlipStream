@@ -19,10 +19,15 @@ type Owner struct {
 }
 
 // OnNetworkShare reports whether dir, or its nearest existing ancestor
-// while dir does not exist yet, is on a network filesystem.
+// while dir does not exist yet, is on a network filesystem. That ancestor
+// must be a directory: Windows reports a path below a file as not existing,
+// where Linux and macOS fail the stat.
 func OnNetworkShare(dir string) (bool, error) {
 	for {
-		_, err := os.Stat(dir)
+		info, err := os.Stat(dir)
+		if err == nil && !info.IsDir() {
+			return false, fmt.Errorf("data dir %s: not a directory", dir)
+		}
 		if err == nil {
 			return networkFS(dir)
 		}
