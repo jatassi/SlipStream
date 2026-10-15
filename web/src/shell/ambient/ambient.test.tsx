@@ -158,9 +158,13 @@ test("the registered --h and --s animate between tints", async () => {
       <Page source={work("red")} />
     </>,
   );
+  const running = () => transitions().map((t) => t.transitionProperty);
+  // The tint reads 360 a frame before the arriving transition ends, so the
+  // return's transitions are only told apart once that one has gone.
   await expect.poll(tint).toEqual({ h: "360", s: "70%" });
+  await expect.poll(running).toEqual([]);
   root.render(<Ambient />);
-  await expect.poll(() => transitions().map((t) => t.transitionProperty)).toEqual(["--h", "--s"]);
+  await expect.poll(running).toEqual(["--h", "--s"]);
   for (const transition of transitions()) {
     transition.pause();
     transition.currentTime = 550;

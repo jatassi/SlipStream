@@ -16,7 +16,9 @@ export default defineConfig((env) =>
     server: { fs: { allow: [".."] } },
     // Scanning every source file up front keeps Vite from finding a dependency
     // mid-run and reloading the browser, which fails the files it was running.
-    optimizeDeps: { entries: ["src/**/*.{ts,tsx}"] },
+    // A kept cache skips the scan, so an import added since the cache was built
+    // (a rebase, a new kit component) is still found mid-run: force the scan.
+    optimizeDeps: { entries: ["src/**/*.{ts,tsx}"], force: true },
     test: {
       include: ["src/**/*.test.{ts,tsx}"],
       setupFiles: ["src/test/setup.ts"],
