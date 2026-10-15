@@ -161,6 +161,10 @@ func TestCheck(t *testing.T) {
 		"    --color-glass: hsl(var(--h) calc(var(--s) * 0.55) 8%);",
 		"    --color-hairline: hsl(var(--h) 40% 88%);",
 		"  initial-value: 14%;",
+		"  --text-*: initial;",
+		"  --radius-*: initial;",
+		"  --shadow-*: initial;",
+		"  --ease-*: initial;",
 	} {
 		if !strings.Contains(string(css), line+"\n") {
 			t.Errorf("theme lacks %q", line)

@@ -39,6 +39,10 @@ func (t *Theme) CSS() []byte {
 	p("  --color-*: initial;")
 	p("  --font-*: initial;")
 	p("  --font-weight-*: initial;")
+	p("  --text-*: initial;")
+	p("  --radius-*: initial;")
+	p("  --shadow-*: initial;")
+	p("  --ease-*: initial;")
 	p("  --spacing: %s;", t.Spacing)
 	p("")
 	for _, c := range t.Colors {

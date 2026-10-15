@@ -126,7 +126,7 @@ function Row<Row>({
               {selection.selected && (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-solid shadow-live-glow"
+                  className="absolute inset-y-2 left-0 w-[3px] rounded-capsule bg-solid shadow-live-glow"
                 />
               )}
               {first.cell(row)}
