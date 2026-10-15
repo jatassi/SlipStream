@@ -45,7 +45,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 - Identity: one Account system. Admin is a permission on an Account. Sign-in is an email plus a 4-digit PIN or a passkey; only Admins issue Signup and Reset links; a fresh install prints a Setup code. Scripts use an API key. Email goes over generic SMTP.
 - v1 data comes forward through a one-shot importer.
 - Architecture is locked in [docs/adr/](docs/adr/).
-- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25), and [DESIGN.md](DESIGN.md) records the design system distilled from it and the per-surface prototypes ([Design system and DESIGN.md](https://github.com/jatassi/SlipStream/issues/94)). It is re-extracted once the walking skeleton ships.
+- The visual direction is settled by [UI redesign direction](https://github.com/jatassi/SlipStream/issues/25), and [DESIGN.md](DESIGN.md) records the design system distilled from it and the per-surface prototypes ([Design system and DESIGN.md](https://github.com/jatassi/SlipStream/issues/94)). [Design system and app shell](https://github.com/jatassi/SlipStream/issues/136) re-extracted it from the shipped kit and shells.
 
 ## Brand Commitments
 

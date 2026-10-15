@@ -288,6 +288,9 @@ components:
     rounded: "{rounded.item}"
     height: "36px"
     padding: "0 12px"
+  menu-item-touch:
+    typography: "{typography.body-touch}"
+    height: "52px"
   dialog:
     backgroundColor: "{colors.popover}"
     rounded: "{rounded.dialog}"
@@ -302,7 +305,7 @@ components:
     padding: "12px 16px"
 ---
 
-<!-- Derived from the reference specs named in Design system and DESIGN.md (https://github.com/jatassi/SlipStream/issues/94), before any v2 code exists. Re-run /impeccable document once the walking skeleton ships, and keep the contrast check in `go run ./cmd/release lint` passing. -->
+<!-- Derived from the reference specs named in Design system and DESIGN.md (https://github.com/jatassi/SlipStream/issues/94), then re-extracted from the shipped kit and shells (web/src/ui, web/src/shell) by Design system and app shell (https://github.com/jatassi/SlipStream/issues/136). The frontmatter generates web/src/theme.gen.css through `go run ./cmd/release gen tokens`. Keep the contrast check in `go run ./cmd/release lint` passing. -->
 
 # Design System: SlipStream
 
@@ -407,23 +410,23 @@ Who sets the ambient:
 
 ### Hierarchy
 
-The scale has ten sizes: 11, 12, 13, 14, 15, 17, 20, 24, 34 and 56px. The weights are 400, 500, 600 and 700. Load static instances, never an in-between weight such as 650.
+The scale has ten sizes: 11, 12, 13, 14, 15, 17, 20, 24, 34 and 56px. Geist and Geist Mono ship as bundled variable fonts (`@fontsource-variable/geist` and `@fontsource-variable/geist-mono`), and nothing loads a font from elsewhere. Use only the weights 400, 500, 600 and 700, never an in-between weight such as 650. `release gen tokens` refuses any other weight in the frontmatter.
 
 - **Display** (700, 56px, 1.02): The portal's search hero headline and a Work's logo fallback on the portal.
 - **Title large** (700, 34px, 1.15): The phone shell's large title.
 - **Numeral** (600, 34px, 1, tabular): Big ordinals and headline figures, such as a provider's rank. Sans, never Mono.
-- **Sentence** (600, 24px, 1.25): The desktop status sentence that opens Home, Torrents, Conversions and Remote access. Also the portal's shelf titles.
-- **Title** (700, 20px, 1.2): Phone section titles, the inspector title and dialog titles.
-- **Sentence touch** (600, 17px, 1.35): The phone status sentence, sheet items and a recommendation card's title.
-- **Card title** (600, 15px, 1.3): A failure card's subject, a list row's title in Touch, and a sheet's title.
+- **Sentence** (600, 24px, 1.25): The desktop status sentence that opens Home, Torrents, Conversions and Remote access, and a page's title in the desktop shell. Also the portal's shelf titles and the wordmark on sign-in and setup.
+- **Title** (700, 20px, 1.2): Phone section titles, the inspector title, dialog titles (a sheet's title too, since a Dialog becomes a sheet on phone) and the title of a sign-in or setup card.
+- **Sentence touch** (600, 17px, 1.35): The phone status sentence, the phone nav bar's title, sheet items and a recommendation card's title.
+- **Card title** (600, 15px, 1.3): A failure card's subject and a list row's title in Touch.
 - **Body touch** (400, 15px, 1.45): Body copy at the Touch density.
 - **Input touch** (400, 17px, 1.3): Text in Touch inputs. iOS zooms the page into any input set below 16px.
 - **Heading** (600, 14px, 1.35): Section and panel headings in Console, and matrix row and column heads.
 - **Body** (400, 13px, 1.45): Console body, table cells and buttons (600). Prose runs to 64ch at most.
 - **Button** (600, 13px, 1): Button labels in Console. Touch buttons use Body touch at 600.
 - **Meta** (400, 12px, 1.4): Secondary lines under titles, timestamps in prose and legends.
-- **Chip** (600, 12px): Chips, badges and ribbons. Signal chips are 700.
-- **Label** (500, 11px, 1.3): Column headers, group labels and nav counts.
+- **Chip** (600, 12px): Chips and badges. Signal chips are 700.
+- **Label** (500, 11px, 1.3): Column headers, group labels, nav counts and the phone tab bar's labels.
 - **Label caps** (600, 11px, 0.06em, uppercase): Only the key column of a key and value list on a failure card. No other text is uppercase.
 - **Data** (Geist Mono 400, 0.92em of its context, tabular): Values under the Copy or Compare Rule.
 
@@ -439,27 +442,32 @@ The system has two shells and two densities. The shell follows the viewport and 
 
 ### Shells
 
-- **Desktop shell (768px and up).**
-  - **Sidebar.** 228px wide, collapsing to a 60px rail. It collapses on its own below 1100px, and the Admin can collapse it at any width (⌘K "Toggle sidebar", remembered per browser).
-  - **Nav.** Items are 32px tall with 16px icons, a live count on Activity (a white glowing dot and a number) and plain counts elsewhere. A count can carry an amber or red dot. A separator sits above Nodes, Settings and System.
-  - **Top bar.** Sticky, 56px tall, laid out as `1fr minmax(320px, 440px) 1fr`. Breadcrumbs sit on the left, the ⌘K search capsule in the middle, and live rates, the bell and the page's main action on the right.
-  - **Content.** Padding is 24px top, 28px sides and 120px bottom, with a 1480px maximum width and 24px between sections.
+- **Desktop shell (768px and up).** Three columns: the sidebar, the content under its top bar, and the Inspector's column when one is open.
+  - **Sidebar.** 228px wide, collapsing to a 60px rail. It collapses on its own below 1100px, and the Admin can collapse it at any width with its button or ⌘K "Toggle sidebar". The choice is remembered per browser and holds at 1100px and up. Expanding the rail below 1100px is not remembered. The sidebar is `chrome` with a hairline on its right edge, and the mark (24px) and wordmark (17px) sit at its top beside the collapse button.
+  - **Nav.** Items are 32px tall with 16px icons, `ink-2` until hovered (`fill`), and `selected` with `ink-1` at 500 when current. Activity carries a live count (a white glowing dot and a number), and other rows carry plain counts. A count shows only above zero and can carry an amber or red dot. Content Type rows nest under Library, indented 32px. The system rows, such as This Node, sit below a separator. On the rail, each row is its icon alone, with a Tooltip on the right carrying the label and count, and the live dot pinned to the icon's top right.
+  - **Account.** The sidebar's foot is a 28px avatar with the Account's initial, the display name and "Admin". It opens a menu with Open the portal, the Startup sequence switch and Sign out.
+  - **Top bar.** Sticky, 56px tall, laid out as `1fr minmax(320px, 440px) 1fr` with 28px sides. Breadcrumbs sit on the left in `ink-3`, with the current page in `ink-1` at 500. The ⌘K search capsule ("Search Works or run a command", with the platform's shortcut) sits in the middle. The right holds slots in a fixed order: the live connection line, shown only while reconnecting, then later controls such as live rates and the bell, then the page's main action.
+  - **Content.** Padding is 24px top, 28px sides and 120px bottom, with a 1480px maximum width and 24px between sections. The page's title opens the content in Sentence type, 24px above what follows.
   - **Narrow desktop windows.** At 1360px and below, tables tighten their columns, and the legend, the status sentence's right-hand totals and the top bar's rates hide.
-- **Phone shell (below 768px).** A large-title header (34px title, search and avatar), sections 28px apart with 20px titles, and 16px list gutters.
-  - **Admin tab bar.** Home, Library, Activity, Search and More. More opens an action sheet with the rest of the nav and its counts.
+- **Phone shell (below 768px).** There is no top bar. A top-level page opens on a large-title row (the 34px title, then search and the avatar, which opens More). Once the title scrolls under the 44px nav bar, the bar turns glass and takes the title in Sentence touch. Sections sit 28px apart with 20px titles, and content keeps 16px gutters.
+  - **Admin tab bar.** Glass, fixed to the bottom, with 49px tabs of a 24px icon over a Label. The current tab is `glow` and the rest are `ink-3`. The tabs are the nav's tab rows (Library, then Activity) followed by Search, which opens the palette, and More. Home takes the first tab when its page lands. A count shows as an 18px solid white badge. A tab keeps its last page and scroll position when switched away and back.
+  - **More.** An action sheet over the current page with the rest of the nav and its counts, the account (name, Open the portal and Sign out), the Startup sequence switch, the version (`SlipStream <version>`) and Cancel. More is never the current tab.
   - **Portal tab bar.** Home, Search, Requests and Account.
-  - **Navigation.** Push navigation adds a 44px glass nav bar with a back label. Every menu becomes an action sheet, and every Dialog becomes a bottom sheet.
-- **Safe areas.** Bars and sheets pad with `env(safe-area-inset-*)`. Never hard-code the status bar or home indicator height.
-- **Portal in a desktop browser.** A 64px top nav that sits transparent over the hero and turns to glass after 24px of scroll. The gutter is `clamp(24px, 3.6vw, 56px)`, and pages run full bleed.
+  - **Navigation.** A page that is not a nav destination is pushed. Its nav bar is glass from the start, with a back link in `glow` labelled with the parent page's title, and the link goes to the parent rather than back in history. Every menu becomes an action sheet, and every Dialog becomes a bottom sheet.
+- **Safe areas.** Bars and sheets pad with `env(safe-area-inset-*)`, and the viewport meta carries `viewport-fit=cover`. Never hard-code the status bar or home indicator height.
+- **Portal in a desktop browser.** A 64px top nav that sits transparent over the hero and turns to glass after 24px of scroll. It holds the wordmark (19px), the four destinations as 40px capsule links in Body touch with `selected` on the current one, and the avatar menu. The gutter is `clamp(24px, 3.6vw, 56px)`, and pages run full bleed.
+- **Sign-in, setup and the Worker page.** No shell. A 400px glass card (radius 14, 24px padding, 20px in Touch) sits centred on the neutral ambient under the wordmark, and its title is Title.
 
 ### Densities
 
-- **Console.** The Admin desktop shell. 13px body, 32px buttons (28px small), 44px single-line table rows and 60px two-line rows.
-- **Touch.** The Admin phone shell and the whole portal on any device. 15px body, 44px minimum targets, 50px primary buttons, 48px inputs and 54px list rows.
+The shell sets the density on the root as `data-density`, and components read its variables, so one component serves both densities. The portal is Touch on every device. Every other page follows the shell.
+
+- **Console.** The Admin desktop shell. 13px body, 32px buttons, icon buttons and inputs (28px small buttons), 44px single-line rows, 60px two-line rows and 36px menu items.
+- **Touch.** The Admin phone shell and the whole portal on any device. 15px body, 44px minimum targets, 50px primary buttons, 48px inputs, 54px single-line list rows, 64px two-line rows and 52px menu and sheet items.
 
 ### Rhythm
 
-Spacing runs on a 4px grid (2, 4, 8, 12, 16, 20, 24, 28, 32), the same as Tailwind's default `--spacing`. Cards pad 16px, list rows pad 12px vertically, and sections sit 24px apart (28px on a Work page and on phone).
+Spacing runs on a 4px grid (2, 4, 8, 12, 16, 20, 24, 28, 32), the same as Tailwind's default `--spacing`. Cards pad 16px. List rows pad 16px at the sides and take their height from the density. Sections sit 24px apart (28px on a Work page and on phone).
 
 ### Named Rules
 
@@ -473,8 +481,8 @@ Depth comes from translucency over the ambient, not from shadows. Surfaces at re
 
 - **Tinted translucent, no blur.** The sidebar (`chrome`), tables, lists, matrix, files, rails and board panels (`glass`), and things raised inside them (`glass-raised`).
 - **Glass, blurred.** Only things that float.
-  - The top bar, the phone tab bar, the nav bar and the status bar use `blur(24px) saturate(1.6)` over `chrome`.
-  - Menus, popovers, the palette, the Inspector, Dialogs and sheets use `blur(30px) saturate(1.7)` over `popover` or `sheet`.
+  - The top bar, the phone tab bar, the nav bar and the status bar use `blur(24px) saturate(1.6)` over `chrome`. So does the portal's top nav once it turns to glass.
+  - Menus, popovers, tooltips, the palette, the Inspector, Dialogs and sheets use `blur(30px) saturate(1.7)` over `popover` or `sheet`.
 - **Solid.** Failure cards and warning lines (`fail-card`, `warn-card` at .97), and every signal chip and button. Solid white on the primary action, Met, toasts and badges.
 - **Artwork.** The blurred ambient behind every page. A sharp, edge-masked backdrop sits behind the header of a Work page and of the portal's Work page.
 
@@ -482,17 +490,18 @@ Depth comes from translucency over the ambient, not from shadows. Surfaces at re
 
 The frontmatter's `shadows` block holds each shadow's value.
 
-- **Float** (`float`): Menus and popovers.
+- **Float** (`float`): Menus, popovers, a Select's list and tooltips.
 - **Float large** (`float-large`): The palette, Dialogs and the Inspector.
-- **Signal lift** (`signal-lift`): Failure cards. Warning lines use `--warn-line` with no drop.
+- **Signal lift** (`signal-lift`): Failure cards and red Signal rows. Warning lines and amber Signal rows use `warn-line` as an inset ring with no drop.
 - **Poster** (`poster`): Large posters and portal poster cards.
 - **Toast** (`toast`).
-- **Live glow** (`live-glow`): The fill of a live bar. The live dot adds a 3px ring at `hsl(var(--h) 90% 65% / .32)`.
-- **Focus** (`outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px var(--halo)`): Every focusable thing except menu items and the palette input, which mark focus with `fill-hover` and a 2px glow underline.
+- **Live glow** (`live-glow`): The fill of a live bar, the current stage segment, the bar on a selected row and the live dot. The live dot adds a 3px ring at `hsl(var(--h) 90% 65% / .32)`.
+- **Segment lift** (`box-shadow: 0 1px 3px rgba(0,0,0,.28)`): The selected segment.
+- **Focus** (`outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px var(--halo)`): Every focusable thing except menu items, sheet items and the palette input, which mark focus with `fill-hover` and a 2px glow underline. A selectable table row draws the outline inside its own edge, with no halo.
 
 ### Named Rules
 
-**The Floating Glass Rule.** Blur means "this floats above the page". Nothing that scrolls with the content is blurred. That covers live pills and portal ribbons too.
+**The Floating Glass Rule.** Blur means "this floats above the page". Nothing that scrolls with the content is blurred. That covers live pills and chips on posters too.
 
 **The Reduce Transparency Rule.** Under `prefers-reduced-transparency: reduce`, every glass and translucent surface turns opaque at the same tint and lightness, and the ambient image hides, leaving the tint wash. Under `prefers-contrast: more`, `ink-2` and `ink-3` rise to `ink-1`, and hairlines rise to `hairline-strong` at full opacity. Under `forced-colors: active`, surfaces drop to system colours, and every state keeps its icon and its word.
 
@@ -505,47 +514,61 @@ Controls are capsules and containers are softly squared. A control a finger or p
 ### Buttons
 
 Capsules that press in.
-- **Shape:** Capsule (999px). Console is 32px tall with 14px sides, small is 28px. Touch is 44px with 18px sides, and the primary is 50px.
+- **Shape:** Capsule (999px). Console is 32px tall with 14px sides, and small is 28px with 12px sides. Touch is 44px with 18px sides and Body touch at 600, the primary is 50px, and a small button keeps the 44px target. A leading icon is 16px.
 - **Default:** `fill` with a `hairline-strong` ring and `ink-1` text at 600. Hover turns `fill-hover`. Press scales to .97. Both transitions run 200ms on the standard ease.
 - **Primary:** Solid white with `on-solid` ink and no ring. One per view.
 - **Ghost:** Transparent with `ink-2`, turning `fill` and `ink-1` on hover.
 - **Fail and Warn:** Solid `fail` or `warn` with deep ink, for the one fix a signal offers. Inside a failure card, the other buttons use `rgba(255,220,216,.1)` with a `.16` ring.
 - **Disabled:** 40% opacity, no hover, no press.
 - **Busy:** The label stays and a 14px spinner replaces the icon.
-- **Icon buttons:** 32px circles in Console and 44px in Touch, `ink-2` until hovered.
+- **Icon buttons:** 32px circles in Console and 44px in Touch, with a 20px icon, `ink-2` until hovered, then `fill` and `ink-1`.
 
 ### Segmented control
 
 An iOS-style choice of view or filter.
 - **Track:** Capsule `fill` with a hairline ring and 2px padding. Options are 28px tall and 500 weight.
-- **Selected:** `selected` fill with `ink-1` and a small lift shadow. Never solid white.
+- **Selected:** `selected` fill with `ink-1` and the segment lift. Never solid white.
 - **Counts:** Every option shows its count, All included, in tabular Geist.
 - **Phone:** Full width with equal options, scrolling sideways when they overflow.
 - **Semantics:** `role="radiogroup"`.
 
 ### Switch
 
-A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target.
+A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target, and a sheet row with a switch is one target.
 
-### Chips, pills and ribbons
+### Checkbox and radio
+
+A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio is a 16px circle (22px in Touch) with a white 6px dot (8px in Touch). Both sit on `well` with a `hairline-strong` ring and fill with the switch's on colour, `hsl(var(--h) 62% 46%)`, when checked. Each sits left of its label, and the label and box together are one target at the control height.
+
+### Fields
+
+- **Text field:** A label in Body at 600 and `ink-2` (Body touch in Touch), then a `well` input with a hairline ring, radius 8 and 12px sides, at the input height. Touch inputs set Input touch. Focus is the standard focus ring.
+- **Description and error:** Meta in `ink-3` under the input (Body touch in Touch). An error replaces the description in `fail-ink` with its 14px alert icon.
+- **Read-only value:** The same input set in Data, selecting all on focus, for a value someone copies.
+- **PIN:** Four 40px slots (48px in Touch), 8px apart, masked and numeric.
+- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item.
+- **Search field:** A `fill` capsule with a hairline ring and a 16px search icon, at the control height.
+
+### Chips and pills
 
 - **Chip:** 24px, radius 6, `fill`, `ink-2`, 12px at 600. A Node chip is outlined.
 - **Signal chips:** Solid `fail`, `warn` or `ok` with deep ink at 700 and a 14px icon. They name a state and its stage ("Failed at Import"), and they never take the tint.
 - **Live chip:** `live-fill` with a hue ring and a white glowing dot.
 - **Met pill:** Solid white capsule, 28px, with a check.
-- **Request ribbons (portal):** Requested, Coming and Ready, as solid capsules at 12px and 600, with no blur. Ready is solid white, Coming is `live-fill`, and Requested is near-black at .9 with a light ring. On a poster, the ribbon sits as a full-width band at the poster's foot, with a 3px live line above it while a Coming job runs.
+- **Count:** A number in Label at `ink-3` with tabular numerals, optionally led by the live dot or a 6px amber or red dot. A screen reader hears the dot as a word.
+- **Request stages (portal):** A Member sees a Request's stage (Pending, Approved, Searching, Downloading, Processing, Available or Denied) and the Delayed flag, as [Requests portal under Editions and Targets](https://github.com/jatassi/SlipStream/issues/88) decided and [ADR 0020](docs/adr/0020-a-request-stores-only-admin-decisions-and-derives-its-stage-from-the-work-tree.md) records. The Member portal's spec draws them. The Requested, Coming and Ready ribbons are retired.
 
 ### Status sentence
 
-The first line of every page that watches live work. It reads as one sentence of counts and links ("5 jobs moving · 1 failure · relay-fra degraded"). It is set in Sentence type in the desktop shell and Sentence touch on phone, over the ambient with a soft text shadow. The live part leads with a glowing white dot. Failure and warning parts are links to the cards below, in `fail-ink` and `warn`. Separators are `ink-4`. A right-hand line of the day's totals shows in wide desktop windows.
+The first line of every page that watches live work. It reads as one sentence of counts and links ("5 jobs moving · 1 failure · relay-fra degraded"). It is set in Sentence type in the desktop shell and Sentence touch on phone, with tabular numerals, over the ambient with a soft text shadow (`0 1px 16px rgb(0 0 0 / .45)`). The live part leads with the live dot. Failure and warning parts are links to the cards below, in `fail-ink` and `warn`, each led by its signal icon. Separators are `ink-4`. A right-hand line of the day's totals shows in wide desktop windows.
 
 ### Stage track
 
 A job's path from Searching to Available, one segment per stage (Searching, Downloading, Transfer, Import, Conversion, Available). Segments are 6px tall (8px on phone and in the Inspector) with 3px gaps.
-- **Done:** Flat ink.
-- **Current:** Holds a live fill.
-- **Ahead:** A faint wash.
-- **Not needed:** A hairline outline at 45% width.
+- **Done:** Flat `ink-2`.
+- **Current:** `ink-1` with the live glow.
+- **Ahead:** `fill`.
+- **Not needed:** A `hairline-strong` outline at 45% width.
 - **Failed:** Solid `fail`.
 
 Running tracks are `role="progressbar"` with a stage-and-title label. Others are `role="img"`.
@@ -554,7 +577,7 @@ Running tracks are `role="progressbar"` with a stage-and-title label. Others are
 
 There are two kinds, and every bar maps to one.
 - **Live.** A white fill rising from the Work's hue, with the live glow. A sheen sweeps it every 2.4s. Width moves linearly each second. The track is a 6px capsule at `hsl(var(--h) 60% 80% / .14)` with a hue ring. Used for downloads, Conversions, Transfers and live matrix cells.
-- **Meter.** Flat ink with no glow and no sheen. Used for storage, provider allowances and seeding goals.
+- **Meter.** Flat `ink-2` on a 4px `fill` capsule, with no glow and no sheen. Used for storage, provider allowances and seeding goals.
   - **Seeding goal.** Two lanes, ratio and seeded time, 4px each in tables and 8px in the Inspector. A 2px tick marks the tracker's minimum. It turns `warn` when a hit and run is at risk, and the goal-met state carries a green chip.
   - **Allowance.** Thin by design.
 - **Spinner.** One spinner: 14px, a white arc on a faint ring, turning every 0.8s.
@@ -562,21 +585,29 @@ There are two kinds, and every bar maps to one.
 ### Failure card
 
 The answer to "what broke". A near-opaque red-black card (`fail-card`, radius 14, signal lift). Its header row is the signal chip with the failed stage, the time in Mono `fail-dim`, and the actions on the right (the fix as a Fail button first). Its body puts the Work and its stage track beside a key and value list. The labels are Label caps in `fail-ink` (Cause, Recovery, Release), and values run to 78ch.
-- **Full:** Home's lead failures and Torrents' problems, which tile at `minmax(360px, 1fr)`.
-- **Compact:** The Work page's Needs you list. It drops the stage track, and its actions stack at the bottom right.
+- **Full:** Home's lead failures and Torrents' problems, which tile at `minmax(360px, 1fr)`. The subject and its track take a third of the body and the key and value list the rest.
+- **Compact:** The Work page's Needs you list. It drops the stage track, and its actions sit in a row at the bottom right.
 - **Phone:** A separate 16px-radius card with its kv in one column and two actions (the fix and More).
 
 ### Signal row
 
-The compact red or amber row for lists that can grow long: the Conversion queue's Needs you band, problems inside a table, and Needs you rows past the first few cards. It is one line of chevron, signal chip, subject, a two-line clamped verdict and the time. It expands in place to the full detail, such as each attempt with its Node, time and error in a `well`. Enter or Space toggles it, with `aria-expanded`.
+The compact red or amber row for lists that can grow long: the Conversion queue's Needs you band, problems inside a table, and Needs you rows past the first few cards. It is one line of chevron, signal chip, subject (600), a two-line clamped verdict and the time, padded 12px by 16px with radius 14. On phone, the chevron, chip and time share the first line, and the subject and verdict wrap below. It expands in place to the full detail, such as each attempt with its Node, time and error in a `well`. Enter or Space toggles it, with `aria-expanded`. The chevron turns over 250ms.
 
 ### Warning line
 
-Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, an amber chip, a bold subject, `warn-dim` detail, "since" time and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
+Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, "since" time and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
+
+### Details
+
+The approachable-first pattern. A plain-language summary leads, then a Details disclosure (a chevron and the word, 500 in `ink-2`) holds the machinery: codes, raw names and scores. The error page uses it.
+
+### Error and not-found pages
+
+An error stands inside the shell, so the sidebar, bars and tab bar stay and only the content shows it. It is a glass card at most 560px wide with 16px padding, leading with one plain sentence in Sentence type (Sentence touch on phone), then Try again, then Details with the code, status and detail (or a client exception's message) as a key and value list in a `well`. A page only Admins may see says so and offers Open the portal instead of Try again. A not-found page is the same card saying "There's nothing at this address." with a button to the audience's first nav row. A crash in the shell itself shows the card centred on the page with a Reload button.
 
 ### Lists and tables
 
-Tables are glass sheets with radius 14 and hairlines between rows. Console rows are 44px for one line and 60px for two. Touch list rows are 54px, in iOS inset groups with 16px gutters. Headers are Label at `ink-3`. Hover and focus wash a row at `hsl(var(--h) 50% 70% / .1)` over 350ms. A selected row adds a 3px white glowing bar on its left edge. A whole row is one target, with arrow keys moving between rows.
+Lists and tables are glass sheets with radius 14, a hairline ring and hairlines between rows. Console rows are 44px for one line and 60px for two. Touch list rows are 54px for one line and 64px for two, in iOS inset groups with 16px gutters, and their hairlines start 16px in from the left. A row's second line is Meta in `ink-3`. Table headers are 32px of Label at `ink-3`. Hover and focus wash a row at `hsl(var(--h) 50% 70% / .1)` over 350ms. A selected row adds a 3px white glowing bar on its left edge. A whole row is one target, with the arrow keys, Home and End moving between rows. A table hides a column below its own container width, and below a set width it stacks each row as a card with its labels above the values.
 
 ### Edition × Target matrix and state squares
 
@@ -597,27 +628,29 @@ Hovering or focusing a square opens a Popover with its detail, and clicking pins
 
 ### Inspector
 
-A non-modal panel on the right, for the detail of a selected row, hop or Node. It is `min(480px, 40vw)` wide with radius 20, glass with float large. It pushes the content left rather than covering it. It enters over 280ms from 16px right. Arrow keys move the selection and the Inspector follows. Its sections are wells at `hsl(var(--h) 40% 92% / .045)` with radius 14. On phone, the Inspector's content is a pushed page.
+A non-modal panel on the right, for the detail of a selected row, hop or Node. It is `min(480px, 40vw)` wide with radius 20, glass with float large, held in the shell's third column 12px from the window's edge. It pushes the content left rather than covering it. It enters over 280ms from 16px right. Its header is the title in Title with a close button. Arrow keys move the selection and the Inspector follows. Its sections are wells at `hsl(var(--h) 40% 92% / .045)` with radius 14, 16px padding and a Heading. On phone, the Inspector's content is a pushed page.
 
 ### Dialog
 
-A centred modal for a decision or a guided task: provider key setup, backfill, removing torrents, Pairing and Handover. Widths are 460, 680 and 940px, with radius 20 on glass with float large, over a .5 black scrim. It enters on the spring over 360ms. Focus is trapped and returns to the opener on close. On phone, a Dialog is a bottom sheet.
+A centred modal for a decision or a guided task: provider key setup, backfill, removing torrents, Pairing and Handover. Widths are 460, 680 and 940px, with 24px padding and radius 20 on glass with float large, over a .5 black scrim. Its title is Title. It fades in from 96% scale on the spring over 360ms. Focus is trapped and returns to the opener on close. On phone, a Dialog is a bottom sheet.
 
 ### Popover and menus
 
-Anchored to their trigger, 6px away, flipping to fit with a 12px viewport margin. A menu is at least 220px wide on glass with float, radius 14 and 4px padding. Its items are 36px with radius 8, and a danger item is `fail-ink`. Detail popovers are 340px wide. Both enter over 180ms, fading up from 8px and 98.5% scale. Hover popovers hide 160ms after the pointer leaves, and Esc closes either kind.
+Anchored to their trigger, 6px away, flipping to fit with a 12px viewport margin. A menu is at least 220px wide on glass with float, radius 14 and 4px padding. Its items are 36px with radius 8 and 16px icons, groups are split by a hairline, a toggle item carries a `glow` check, and a danger item is `fail-ink`. Detail popovers are 340px wide with 16px padding. Both enter over 180ms, fading up from 8px and 98.5% scale. Hover popovers hide 160ms after the pointer leaves, and Esc closes either kind. A popup opened from the portal keeps the Touch density. On phone, a menu is an action sheet.
+
+A tooltip is a small label on glass with float and radius 8, in Meta at 500, fading over 180ms. The collapsed sidebar uses it for each row's label and count.
 
 ### Sheet
 
-The phone's bottom sheet. It is glass at `sheet` with a 24px top edge, a 38 × 5 grabber and grouped items 52px tall with 20px icons. Cancel is a separate 52px block. It rises on the spring (`cubic-bezier(.32,.72,0,1)`, 340ms) and falls over 260ms. It scrolls when taller than the screen, and its padding includes the bottom safe area.
+The phone's bottom sheet. It is glass at `sheet` with a 24px top edge, a 38 × 5 grabber and 16px sides, over a .5 black scrim. Items are 52px tall with 20px icons, grouped on `fill` with radius 14 and hairlines between them. Cancel is a separate 52px block at 600. It rises on the spring (`cubic-bezier(.32,.72,0,1)`, 340ms), falls over 260ms and follows a downward swipe. It stops 12px below the top safe area and scrolls when taller. Its bottom padding is 44px, or the bottom safe area plus 16px when that is larger. A sheet is always Touch.
 
 ### Command palette
 
-⌘K or Ctrl+K in a desktop browser. It is 640px wide at 12vh from the top, glass with float large and radius 20, with a 60px input row (17px text) and a glow underline while focused. Results are grouped (Works, then Commands), with 44px options and thumbnails. Footer hints show ↑↓, ↵ and Esc. On phone it is full screen with 56px options and a Cancel button.
+⌘K on Apple platforms and Ctrl+K elsewhere toggles it, and the top bar's search capsule and the phone's Search open it. In the desktop shell it is 640px wide at 12vh from the top and at most `min(600px, 80vh)` tall, glass with float large and radius 20, over a .5 black scrim. It fades in from 98% scale over 220ms. Its 60px input row sets 17px text and turns `fill-hover` with a glow underline while focused. Results are grouped (Works, then Commands), with 44px options, each led by an 18px icon with its meta in Meta at `ink-3` on the right. Works show 5 at rest and 8 while typing. A 40px footer shows the ↑↓, ↵ and Esc hints. On phone it is full screen inside the safe areas, with 56px options and a Cancel in `glow`.
 
 ### Toast
 
-A solid white capsule at 13px and 500. It sits at the top right in the desktop shell and the top centre on phone. It enters over 220ms from 8px and stays for 2.8s. A toast says what happened and, when it matters, what happens next ("moved up from New. Estimated start 21:48 on forge").
+A solid white capsule at 13px and 500, at most 440px wide, with 12px by 16px padding. It sits under the top bar at the right in the desktop shell and at the top centre on phone, under the safe area. Up to three stack, newest on top. It enters over 220ms from 8px above. A toast without an action stays 2.8s. A toast with an action carries a 28px outlined action and a dismiss button, and stays until one is used. Either kind pauses while hovered or focused, and a swipe up or right dismisses it. A failure toast leads with a fail signal chip. A toast says what happened and, when it matters, what happens next ("moved up from New. Estimated start 21:48 on forge").
 
 ### Guided steps
 
@@ -653,11 +686,14 @@ Emails are the one light surface, because mail clients force it. They are table 
 The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of Node, the Controller and the Relay. It is drawn on a 64-unit grid. The S is one stroke, `M40 14H25a9 9 0 0 0 0 18h14a9 9 0 0 1 0 18H24`, 8 units wide with round caps and joins. The dots are 5.5-unit circles at (52, 14) and (12, 50). The masters live in `brand/`.
 
 - **In the app.** The mark is inline SVG. The S takes `ink-1` and the dots take `glow`, so the dots follow the Work in focus like every other light on the page.
-- **Outside the app.** The favicon, the tray icon, the installer and anything else SlipStream cannot tint use the neutral resolution in `brand/mark.svg` (`#f2f4f7` and `#74affb`). `brand/app-icon.svg` puts that mark at 70% on a `page` tile with a 14-unit radius.
+- **Outside the app.** The favicon, the tray icon, the installer and anything else SlipStream cannot tint use the neutral resolution in `brand/mark.svg` (`#f2f4f7` and `#74affb`). `brand/app-icon.svg` puts that mark at 70% on a `page` tile with a 14-unit radius. The web app links `brand/mark.svg` as its favicon. `go run ./cmd/release gen icons` renders `brand/app-icon.svg` to the 180px Apple touch icon and the web manifest's 192px and 512px icons, and `release lint` checks them against `brand/icons.sha256`. The manifest's colours and the `theme-color` meta are `page`'s neutral, `#0c0d0e`.
 - **On light ground.** Emails and the light Windows taskbar take `brand/mark-light.svg`, with the S in `#1d1d1f`, the email button's ink, and the dots in `#1464cc`.
 - **Wordmark.** The mark sits left of "SlipStream" in Geist, "Slip" at 600 and "Stream" at 400, with -0.03em tracking. The mark's 64-unit box is twice the cap height, and the gap between them is a third of that box.
 - **Size and space.** The smallest size is 16px, where the stroke lands on 2px. Keep clear space of one dot's width on every side.
-- **Startup sequence.** The app opens on a 4.4s sequence built from the mark. The two dots come online over the Nodes canvas dot grid, and the Controller sends a Transfer that draws the S behind it. The Relay answers, the neutral ambient blooms, and the mark slides left as the wordmark wipes out from behind it. It uses the neutral blue, because no Work is in focus yet. Under reduced motion it shows the finished lockup. The master is `brand/startup/startup.html`, and `brand/startup/render.mjs` renders `startup.mp4` from it frame by frame.
+- **Startup sequence.** The app opens on a 4.4s sequence built from the mark. The two dots come online over the Nodes canvas dot grid, and the Controller sends a Transfer that draws the S behind it. The Relay answers, the neutral ambient blooms, and the mark slides left as the wordmark wipes out from behind it. It uses the neutral blue, because no Work is in focus yet.
+  - **Master.** `brand/startup/sequence.js` is the master. It exports the duration, the phase table and `render(t, stage)`. The web app imports it, so the app and the master cannot drift, and it draws with the bundled Geist and `brand/startup/grain.png` from the Node. `brand/startup/startup.html` plays the same module on its own, and `brand/startup/render.mjs` renders `startup.mp4` from that page frame by frame.
+  - **When it plays.** Once per new tab or app window, on whichever page opens first: sign-in, setup, the app or the portal. It is a full-screen layer over the page, which loads underneath it. Any key, click or tap skips to the finished lockup. It never plays while the Startup sequence switch is off, a per-browser choice in the account menu and in More.
+  - **How it ends.** In the Admin app's desktop shell it stops as its exit begins (3.96s), and its mark settles into the sidebar's mark through a 360ms view transition. Everywhere else it plays its full 4.4s and fades over 360ms. Under reduced motion it shows the finished lockup for 0.6s, then fades.
 
 **The Two Dots Rule.** The dots are always the Work's glow or the neutral blue. They never take a signal colour, and the mark never stands in for a status.
 
@@ -665,13 +701,15 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 
 - **Easing.** The standard ease is `cubic-bezier(.16, 1, .3, 1)`, and the spring is `cubic-bezier(.32, .72, 0, 1)`.
 - **Ambient.** The tint (`--h`, `--s`) and the backdrop crossfade over 1.1s on the standard ease. The incoming backdrop settles from 104% scale over 1.6s.
-- **Controls.** Buttons, segments and switches respond in 200 to 280ms. Disclosure chevrons rotate over 250ms. Sections open and close at once, with no height animation.
-- **Overlays.** Menus take 180ms, the palette 220ms, the Inspector 280ms, sheets 340ms in and 260ms out, and Dialogs 360ms.
-- **Live.** Fills move linearly once a second, and the sheen loops every 2.4s.
+- **Controls.** Buttons, segments and switches respond in 200 to 280ms. Disclosure chevrons rotate over 250ms. Sections open and close at once, with no height animation. The phone nav bar and the portal's top nav turn to glass over 200ms.
+- **Overlays.** Menus and tooltips take 180ms, the palette and toasts 220ms, the Inspector 280ms, sheets 340ms in and 260ms out, and Dialogs 360ms.
+- **Shell.** The sidebar collapses and expands over 280ms on the standard ease. A page change in the desktop shell crossfades the content alone over 180ms. On phone, a push slides the new page in from the right over 340ms on the spring while the old page drifts 30% left and dims to 60%, and a pop reverses it. The bars, the sidebar and the tab bar hold still through both. In an installed web app, a drag of 80px or more from the screen's left 20px goes back.
+- **Live.** Fills move linearly once a second, and the sheen loops every 2.4s. The spinner turns every 0.8s.
+- **Startup.** The sequence runs 4.4s and leaves over 360ms, as the Logo section says.
 
-The frontmatter's `motion` block holds these easings and durations.
+The frontmatter's `motion` block holds these easings and the overlay durations. `release gen tokens` writes them to the theme as `--ease-*` and `--duration-*`.
 
-**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.
+**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.
 
 ## Do's and Don'ts
 
@@ -695,7 +733,7 @@ The frontmatter's `motion` block holds these easings and durations.
 - **Don't** add a fourth red. `fail-ink` covers failure text on glass, including the status sentence's link.
 - **Don't** set a name, a sentence, a count in prose or a step number in Geist Mono.
 - **Don't** use solid white for a selected segment or tab. Solid white means the primary action or Met.
-- **Don't** blur anything that scrolls with the content, such as a live pill or a ribbon on a poster.
+- **Don't** blur anything that scrolls with the content, such as a live pill or a chip on a poster.
 - **Don't** put text over a sharp backdrop unless a mask or scrim holds the ambient ceiling beneath it.
 - **Don't** use `ink-4` for text.
 - **Don't** use uppercase outside a failure card's key labels.
