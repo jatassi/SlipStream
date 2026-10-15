@@ -12,7 +12,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox and `Sign out`.
 - `shell-tab-bar` the phone's tab bar `Tabs` holds `Library`, `Activity`, `Search` and `More` (P-004).
 - `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), This Node, the Admin's name, `Open the portal`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
-- `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`); a menu opens as an action sheet (P-016).
+- `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing part of a Work's name lists it under Works, Enter opens it, and Esc returns focus where it was.
 - `shell-palette-commands` with no query the palette lists Go to each nav row and Content Type, `Add a Movie`, `Toggle sidebar` (desktop shell only) and `Sign out`.
 - `shell-palette-empty` an unmatched query reads `Nothing matches "volcano". Try a Work's name, or a command such as Add a Movie.`
@@ -186,7 +186,7 @@ Steps:
   $FW fault set $RUN swarm-hold seeders@seedbox throttle=16KiB/s
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("link", { name: "The Quiet Orchard" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity 1 live" }).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- $PW cli -s={runId}-admin-phone run-code 'async page => { await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Activity 1" }).waitFor({ timeout: 15000 }); }'
   $FW exec $RUN --proof shell/shell-activity-count -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/counts'
@@ -250,7 +250,7 @@ Steps:
 
 ## Gotchas
 
-- `getByRole("button", { name: "Search" })` also matches the capsule `Search Works or run a command` on desktop and the large title's and tab bar's `Search` on phone. Scope it to `getByRole("main")` with `exact: true` for a page's own Search.
+- `getByRole("button", { name: "Search" })` also matches the capsule `Search Works or run a command` on desktop and the large title's and tab bar's `Search` on phone. A page's own Search, such as the Work page's, is its main action: scope it to `getByRole("banner")` with `exact: true` on desktop, where the top bar holds it, and to `getByRole("main")` on phone. The Add page's catalog Search sits in `getByRole("main")` in both shells.
 - On phone, the back link and a tab can share a name (`Library` above `/add` with no Content Type). Scope them to `getByRole("banner")` or `getByRole("navigation", { name: "Tabs" })`.
 - A nav row's accessible name carries its count, as in `Activity 1 live`. `name: "Activity"` matches either; `exact: true` matches only the row with no count.
 - The rail's tooltips have no `tooltip` role; wait for the label's text in the `[data-side=right]` popup.

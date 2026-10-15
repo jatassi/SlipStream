@@ -1,11 +1,11 @@
 # Search and grab
 
-An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the best release, downloads it on the Node that holds Downloading, transfers it to the Node that holds Storage and imports it into the library. An Indexer that answers 429 ends one search with Indexer unavailable, and the next search grabs.
+An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the best release, downloads it on the Node that holds Downloading, transfers it to the Node that holds Storage and imports it into the library. An Indexer that answers 429 ends one search with `The Indexer didn't answer`, and the next search grabs.
 
 ## Sub-features
 
-- `grab-indexer-429` a search whose Indexer answers 429 ends `Indexer unavailable · 0 releases` with no Grab.
-- `grab-search` a search that reaches the fake Indexer ends `Grabbed · 2 releases` and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
+- `grab-indexer-429` a search whose Indexer answers 429 ends `The Indexer didn't answer` with no Grab.
+- `grab-search` a search that reaches the fake Indexer ends `Grabbed a release` with `2 releases found` and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
 - `grab-held` a throttled swarm holds the Grab at `Downloading` with a progress bar, and the seedbox's `started` announce reaches the tracker.
 - `grab-complete-now` clearing the throttle completes the torrent at once while the seedbox's libtorrent still hashes every piece (P-257).
 - `grab-transfer-import` the Grab moves through probing, transferring and importing to `Imported`, and the Admin's live stream carries `grabs.changed`.
@@ -14,8 +14,8 @@ An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Library`, a Work's link, then the `Search` button on the Work page; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name.
-- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Movies`), then `Search`; or the `Search` tab's palette.
+- Desktop shell: the sidebar's `Library`, a Work's link, then `Search`, the Work page's action in the top bar; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name.
+- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Movies`), then `Search` under the nav bar; or the `Search` tab's palette.
 - Desktop shell: the sidebar's `Activity`, which reads `Activity 1 live` while a Grab moves. Phone shell: the `Activity` tab, badged with the same count.
 - API: `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs`.
 
@@ -48,21 +48,21 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   ```
 
-- **Search into the 429.** Choose `Search` on the Work page. The rule fires once for the seedbox, and the Searches list reads `Indexer unavailable · 0 releases` with no Grab.
+- **Search into the 429.** Choose `Search` on the Work page. The rule fires once for the seedbox, and the Searches list reads `The Indexer didn't answer` with no Grab.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
   FIRED=$($FW fault wait $RUN --rule indexer-429 --timeout 30s | jq .seq)
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Indexer unavailable · 0 releases").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText(/^The Indexer didn.t answer$/).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.aria.yml
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.png
   ```
 
-- **Search again.** Choose `Search`. The list gains `Grabbed · 2 releases`, and the seedbox announces `started` to the tracker.
+- **Search again.** Choose `Search`. The list gains `Grabbed a release` with `2 releases found`, and the seedbox announces `started` to the tracker.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed · 2 releases").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a release").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-search/work.png
   $FW announces wait $RUN --node seedbox --where event=started --after $FIRED --timeout 60s
   ```
@@ -84,15 +84,15 @@ Steps:
   $FW sse wait $RUN --as admin --event grabs.changed --timeout 60s
   ```
 
-- **See it imported.** Activity reads `Imported`, and the API's Grab history runs fetching, downloading, probing, transferring, importing, imported.
+- **See it imported.** Activity's `Grabs` table reads `Imported`, and the API's Grab history runs fetching, downloading, probing, transferring, importing, imported.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Grabs" }).getByText("Imported").waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByText("Imported").waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-activity -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-activity/activity.png
   $FW exec $RUN --proof search-and-grab/grab-transfer-import -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
 
-- **Prove the file.** Open the Work from Activity. Files lists `The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv 1920×1080`, and `fs match` exits 0 on the placed file.
+- **Prove the file.** Open the Work from Activity. Files lists `The Quiet Orchard (2021) - 1080p.mkv` in `The Quiet Orchard (2021)` at `1920×1080`, and `fs match` exits 0 on the placed file.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("link", { name: "The Quiet Orchard" })'
@@ -107,7 +107,7 @@ Steps:
 ## Gotchas
 
 - `announces wait` and `sse wait` default `--after` to the previous step's start. The `started` announce arrives while the second search's click or wait step runs, so pass `--after $FIRED`, the seq of the 429's `fault.fired`.
-- The Work page's `Search` shares its name with the top bar's capsule `Search Works or run a command`; scope it to `getByRole("main")` with `exact: true`.
+- The Work page's `Search` is the desktop top bar's page action and shares its name with the capsule `Search Works or run a command`; scope it to `getByRole("banner")` with `exact: true` on desktop and to `getByRole("main")` on phone. The Add page's catalog `Search` stays in `getByRole("main")`.
 - Search outcomes arrive after the click returns. Wait for the Searches text with `run-code`; a snapshot taken at once may read `Searching`.
 - The skeleton doesn't hold off after a 429's `Retry-After`: the second Search grabs at once.
 - At 16 KiB/s the 3.7 MB release takes about four minutes, so clear the throttle once the held state is captured.

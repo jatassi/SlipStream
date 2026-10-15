@@ -8,7 +8,7 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 - `add-no-match` a search with no match reads `Nothing matches “<query>”.`
 - `add-work` `Add The Quiet Orchard` creates the Work and opens its Work page.
 - `add-work-page` the Work page shows Year `2021`, Released `2021-04-16`, Runtime `1h 44m` and a Cells table with the Scenario's `1080p` Target reading `Missing` (P-259).
-- `add-open-existing` a Work already in the library shows an `Open The Quiet Orchard` link in place of `Add`.
+- `add-open-existing` a Work already in the library is a link, `The Quiet Orchard 2021 In the library`, in place of `Add`, and opens its Work page.
 
 ## How to get to it (user POV)
 
@@ -53,7 +53,7 @@ Steps:
   $FW exec $RUN --proof add-a-movie/add-work -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works'
   ```
 
-- **Open an existing Work.** Go back to `/add?contentType=movie&query=quiet+orchard`. The result shows the link `Open The Quiet Orchard`, and the Library lists `The Quiet Orchard 2021`.
+- **Open an existing Work.** Go back to `/add?contentType=movie&query=quiet+orchard`. The result is the link `The Quiet Orchard 2021 In the library`, and the Library lists `The Quiet Orchard 2021`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
@@ -62,7 +62,7 @@ Steps:
 
 ## Gotchas
 
-- The Add page's search button and the Work page's search button are both named `Search`; the first searches the catalog, the second the Indexers. The top bar's capsule `Search Works or run a command` matches `Search` too, so scope to `getByRole("main")` with `exact: true`.
+- The Add page's search button and the Work page's search button are both named `Search`; the first searches the catalog, the second the Indexers. The top bar's capsule `Search Works or run a command` matches `Search` too. Scope the catalog's to `getByRole("main")` with `exact: true`; on desktop the Work page's sits in `getByRole("banner")` as the page's action.
 - `/add` needs `contentType`: without it, or with a type that isn't enabled, the page reads `There's nothing at this address.`
 - `home`'s catalog holds one movie, The Quiet Orchard (2021). Other titles find nothing.
 - Adding a Work is permanent for the run: a recipe that needs an empty library wants a fresh run.
