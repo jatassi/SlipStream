@@ -153,6 +153,20 @@ func TestProcessGlobals(t *testing.T) {
 	})
 }
 
+func TestInstallMarker(t *testing.T) {
+	const (
+		read  = " [install-marker] install.Read named outside its owners; ProcessEnv reads the marker once; use Env.Install"
+		write = " [install-marker] install.Write named outside its owners; only whoever places a binary writes its marker"
+	)
+	assertFindings(t, check(t, "install-marker", fixtureRepo(t, "install-marker")), []string{
+		"cmd/slipstream/main.go:5:" + write,
+		"internal/node/node.go:11:" + read,
+		"internal/node/node.go:17:" + write,
+		"internal/node/node.go:19:" + read,
+		"internal/nodes/nodes.go:5:" + read,
+	})
+}
+
 func TestConfigSections(t *testing.T) {
 	assertFindings(t, check(t, "config-sections", fixtureRepo(t, "config-sections")), []string{
 		"fakes/contenttypes/music/music.go:9: [config-sections] DefaultTimings is never called by internal/node/config.go; wire the section into node.Config",
