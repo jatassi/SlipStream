@@ -27,5 +27,6 @@ export default defineConfig(({ command, mode }) => ({
   // src/zod-jitless.ts must run before any module in another chunk builds a
   // Zod schema.
   build: { rolldownOptions: { output: { strictExecutionOrder: true } } },
-  server: devServer(command, mode),
+  // The startup sequence and its stage are brand/'s masters, imported as is.
+  server: { ...devServer(command, mode), fs: { allow: [".", "../brand"] } },
 }));

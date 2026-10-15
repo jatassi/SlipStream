@@ -1,0 +1,4 @@
+:root:active-view-transition-type(startup)::view-transition-group(*) {
+  animation-duration: 360ms;
+  animation-timing-function: var(--ease-standard);
+}

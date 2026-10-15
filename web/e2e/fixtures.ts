@@ -16,6 +16,8 @@ import { z } from "zod";
 import { type Fakeworld, fw } from "../harness/fakeworld.ts";
 import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
+import { prefKey } from "../src/shell/prefs.ts";
+// oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
 export { expect };
@@ -38,6 +40,7 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
+  startupSequence: boolean;
   runDir: string;
   world: World;
   newContext: () => Promise<BrowserContext>;
@@ -141,6 +144,10 @@ async function guard(context: BrowserContext, origin: string): Promise<() => Pro
 export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
 
+  // Each test opens a new tab, which plays the startup sequence over the
+  // page, so only tests that use it ask for it.
+  startupSequence: [false, { option: true }],
+
   runDir: [
     async ({ scenario }, use, testInfo) => {
       const runDir = testInfo.outputPath("run");
@@ -235,7 +242,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   // Host resolver rules are launch flags and a world's names exist only once
   // it is up, so Chromium launches a browser per test.
   newContext: async (
-    { playwright, headless, launchOptions, contextOptions, world, workerBrowser },
+    { playwright, headless, launchOptions, contextOptions, world, workerBrowser, startupSequence },
     use,
   ) => {
     const browser =
@@ -255,6 +262,16 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       const context = await browser.newContext({ ...contextOptions, baseURL: world.baseURL });
       contexts.push(context);
       checks.push(await guard(context, origin));
+      if (!startupSequence) {
+        await context.addInitScript(
+          ([key, appOrigin]) => {
+            if (location.origin === appOrigin) {
+              sessionStorage.setItem(key, "true");
+            }
+          },
+          [prefKey("startupPlayed"), origin] as const,
+        );
+      }
       return context;
     });
     await Promise.all(checks.map((check) => check()));

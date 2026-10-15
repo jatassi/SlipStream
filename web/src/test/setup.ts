@@ -3,8 +3,15 @@ import "../styles.css";
 import { faker } from "@faker-js/faker";
 import { afterAll, beforeAll, beforeEach, onTestFinished } from "vitest";
 
+import { writePref } from "../shell/prefs";
 import { unmountApps } from "./render-app";
 import { worker } from "./worker";
+
+declare module "vitest/browser" {
+  interface BrowserCommands {
+    emulateReducedMotion: (reduce: boolean) => Promise<void>;
+  }
+}
 
 beforeAll(async () => {
   await worker.start({
@@ -17,6 +24,7 @@ beforeAll(async () => {
 // held requests, then its apps settle and unmount, then its handlers go.
 beforeEach(() => {
   faker.seed(6);
+  writePref("startupPlayed", true);
   onTestFinished(() => {
     worker.resetHandlers();
   });

@@ -1,9 +1,14 @@
 import { playwright } from "@vitest/browser-playwright";
 import { msw } from "msw/vite";
 import { defineConfig, mergeConfig } from "vitest/config";
+import type { BrowserCommand } from "vitest/node";
 
 import presets from "./harness/presets.json" with { type: "json" };
 import viteConfig from "./vite.config.ts";
+
+const emulateReducedMotion: BrowserCommand<[reduce: boolean]> = async ({ page }, reduce) => {
+  await page.emulateMedia({ reducedMotion: reduce ? "reduce" : "no-preference" });
+};
 
 export default defineConfig((env) =>
   mergeConfig(viteConfig(env), {
@@ -21,6 +26,7 @@ export default defineConfig((env) =>
         headless: true,
         provider: playwright(),
         instances: [{ browser: "chromium" }],
+        commands: { emulateReducedMotion },
         viewport: { width: presets.desktop.width, height: presets.desktop.height },
       },
     },
