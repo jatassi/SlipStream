@@ -33,7 +33,7 @@ const (
 // session until it finishes or its deadline passes. Once user32 is loaded
 // the console control handler never sees those events, so the window is the
 // only place they arrive. systray's own handler would stop the app on any
-// WM_ENDSESSION, even one saying another app cancelled the shutdown, so
+// WM_ENDSESSION, even one saying another app canceled the shutdown, so
 // neither message reaches it.
 func watchSessionEnd(app App) error {
 	hwnd, err := systrayWindow()
@@ -45,7 +45,7 @@ func watchSessionEnd(app App) error {
 		switch msg {
 		case wmQueryEndSession:
 			reason, _ := windows.UTF16PtrFromString("Stopping SlipStream")
-			_, _, _ = shutdownBlockReasonCreate.Call(uintptr(h), uintptr(unsafe.Pointer(reason)))
+			_, _, _ = shutdownBlockReasonCreate.Call(uintptr(h), uintptr(unsafe.Pointer(reason))) //nolint:gosec // G103: a UTF-16 string for a Win32 call
 			return 1
 		case wmEndSession:
 			if wParam != 0 {
@@ -78,7 +78,7 @@ func systrayWindow() (windows.HWND, error) {
 		if _, err := windows.GetWindowThreadProcessId(h, &owner); err != nil || owner != pid {
 			return 1
 		}
-		name := make([]uint16, len(systrayClass)+1)
+		var name [len(systrayClass) + 1]uint16
 		n, err := windows.GetClassName(h, &name[0], int32(len(name)))
 		if err != nil || windows.UTF16ToString(name[:n]) != systrayClass {
 			return 1
