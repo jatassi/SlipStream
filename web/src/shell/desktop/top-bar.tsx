@@ -49,7 +49,11 @@ function Breadcrumbs() {
                 {crumb.title}
               </span>
             ) : (
-              <Link to={crumb.pathname} className="truncate rounded-chip hover:text-ink-1">
+              <Link
+                to={crumb.pathname}
+                viewTransition={{ types: ["pop"] }}
+                className="truncate rounded-chip hover:text-ink-1"
+              >
                 {crumb.title}
               </Link>
             )}

@@ -32,6 +32,7 @@ export function NavBar({
           {place === "push" && back !== undefined && (
             <Link
               to={back.pathname}
+              viewTransition={{ types: ["pop"] }}
               className="flex h-11 min-w-0 items-center gap-0.5 rounded-item pr-2 text-body-touch text-glow"
             >
               <Icon icon={ArrowLeft01Icon} className="shrink-0" />
