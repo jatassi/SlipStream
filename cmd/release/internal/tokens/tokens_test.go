@@ -132,7 +132,7 @@ func TestCheck(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "web", "src"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	theme := filepath.Join(root, filepath.FromSlash(themePath))
+	theme := filepath.Join(root, "web", "src", "theme.gen.css")
 	if err := os.WriteFile(theme, []byte("@theme {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -168,6 +168,18 @@ func TestCheck(t *testing.T) {
 	} {
 		if !strings.Contains(string(css), line+"\n") {
 			t.Errorf("theme lacks %q", line)
+		}
+	}
+	ts, err := os.ReadFile(filepath.Join(root, "web", "src", "theme.gen.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		"export const neutralTint = { hue: 214, saturation: 14 } as const;",
+		"export const ceiling = 0.053;",
+	} {
+		if !strings.Contains(string(ts), line+"\n") {
+			t.Errorf("ambient constants lack %q", line)
 		}
 	}
 }

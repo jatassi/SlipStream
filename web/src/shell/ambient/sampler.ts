@@ -1,14 +1,10 @@
+import { ceiling } from "../../theme.gen";
+
 export const sampleWidth = 24;
 export const sampleHeight = 36;
 
 /** The colour a Work lends the page: `--h` in degrees and `--s` in percent. */
 export type Tint = { readonly hue: number; readonly saturation: number };
-
-/** DESIGN.md's ambient.neutral, the registered initial values of `--h` and `--s`. */
-export const neutralTint: Tint = { hue: 214, saturation: 14 };
-
-/** DESIGN.md's ambient.ceiling: the brightest relative luminance the ambient may composite to. */
-export const ceiling = 0.053;
 
 const chromaFloor = 0.04;
 const colourless: Tint = { hue: 220, saturation: 12 };

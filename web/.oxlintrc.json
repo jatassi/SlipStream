@@ -23,7 +23,7 @@
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
-  "ignorePatterns": ["src/api/gen/**", "src/routeTree.gen.ts"],
+  "ignorePatterns": ["src/api/gen/**", "src/routeTree.gen.ts", "src/theme.gen.ts"],
   "rules": {
     "eqeqeq": "error",
     "no-console": "error",

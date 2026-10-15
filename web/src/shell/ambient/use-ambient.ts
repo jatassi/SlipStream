@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { neutralTint, sampleImage, type Tint } from "./sampler";
+import { neutralTint } from "../../theme.gen";
+import { sampleImage, type Tint } from "./sampler";
 
 export type AmbientSource =
   | { readonly kind: "neutral" }

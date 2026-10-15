@@ -9,10 +9,16 @@ import (
 	"strings"
 )
 
-const (
-	themePath       = "web/src/theme.gen.css"
-	generateCommand = "go run ./cmd/release gen tokens"
-)
+const generateCommand = "go run ./cmd/release gen tokens"
+
+// outputs are the files the generator writes, each rendered from the theme.
+var outputs = []struct {
+	path   string
+	render func(*Theme) []byte
+}{
+	{"web/src/theme.gen.css", (*Theme).CSS},
+	{"web/src/theme.gen.ts", (*Theme).TS},
+}
 
 var weightNames = map[int]string{400: "normal", 500: "medium", 600: "semibold", 700: "bold"}
 
@@ -88,44 +94,52 @@ func (t *Theme) CSS() []byte {
 	return []byte(b.String())
 }
 
+// TS renders the ambient's constants for the web app's sampler.
+func (t *Theme) TS() []byte {
+	return []byte(fmt.Sprintf(`/* Generated from DESIGN.md by %s. Do not edit. */
+
+/** DESIGN.md's ambient.neutral, the registered initial values of `+"`--h` and `--s`"+`. */
+export const neutralTint = { hue: %s, saturation: %s } as const;
+
+/** DESIGN.md's ambient.ceiling: the brightest relative luminance the ambient may composite to. */
+export const ceiling = %s;
+`, generateCommand, num(t.Neutral.H), num(t.Neutral.S), num(t.Ceiling)))
+}
+
 // formula is a tinted token's formula, which Parse has checked exists.
 func (t *Theme) formula(name string) Formula {
 	c, _ := t.Color(name)
 	return *c.Formula
 }
 
-func generate(root string) ([]byte, error) {
-	t, err := Load(root)
-	if err != nil {
-		return nil, err
-	}
-	return t.CSS(), nil
-}
-
 // Write regenerates the web theme from DESIGN.md.
 func Write(root string) error {
-	css, err := generate(root)
+	t, err := Load(root)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(root, themePath), css, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", themePath, err)
+	for _, out := range outputs {
+		if err := os.WriteFile(filepath.Join(root, out.path), out.render(t), 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", out.path, err)
+		}
 	}
 	return nil
 }
 
-// Check reports a committed web theme that DESIGN.md no longer generates.
+// Check reports a committed web theme file that DESIGN.md no longer generates.
 func Check(root string) error {
-	want, err := generate(root)
+	t, err := Load(root)
 	if err != nil {
 		return err
 	}
-	got, err := os.ReadFile(filepath.Join(root, themePath))
-	if err != nil {
-		return fmt.Errorf("read %s: %w", themePath, err)
-	}
-	if !bytes.Equal(got, want) {
-		return fmt.Errorf("%s is stale; run %s", themePath, generateCommand)
+	for _, out := range outputs {
+		got, err := os.ReadFile(filepath.Join(root, out.path))
+		if err != nil {
+			return fmt.Errorf("read %s: %w", out.path, err)
+		}
+		if !bytes.Equal(got, out.render(t)) {
+			return fmt.Errorf("%s is stale; run %s", out.path, generateCommand)
+		}
 	}
 	return nil
 }

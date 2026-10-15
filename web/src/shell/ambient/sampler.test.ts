@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
 
 import { artwork } from "../../test/ambient/fixtures";
-import { ceiling, compositeLuminance, sampleHeight, sampleImage, sampleWidth } from "./sampler";
+import { ceiling } from "../../theme.gen";
+import { compositeLuminance, sampleHeight, sampleImage, sampleWidth } from "./sampler";
 
 test.each([
   { name: "white", hue: 220, saturation: 12, luminance: 1, brightness: 0.255 },
