@@ -51,8 +51,8 @@ function catalogServer() {
 
 test("searching puts the term in the URL and lists each candidate with its year", async () => {
   const server = catalogServer();
-  const { router } = renderApp({ path: "/add", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "Add film" })).toBeVisible();
+  const { router } = renderApp({ path: "/add?contentType=cinema", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
 
   await userEvent.fill(page.getByRole("searchbox", { name: "Title" }), "  quiet orchard ");
   await userEvent.click(page.getByRole("button", { name: "Search" }));
@@ -60,7 +60,7 @@ test("searching puts the term in the URL and lists each candidate with its year"
   const results = page.getByRole("list", { name: "Results" }).getByRole("listitem");
   await expect.element(results.first()).toHaveTextContent("The Quiet Orchard 2021Add");
   await expect.element(results.last()).toHaveTextContent("Orchard Harvest 2019Open");
-  expect(router.state.location.href).toBe("/add?query=quiet+orchard");
+  expect(router.state.location.href).toBe("/add?contentType=cinema&query=quiet+orchard");
   expect(server.searched).toEqual(["/api/v1/content-types/cinema/catalog?query=quiet+orchard"]);
   await expect
     .element(page.getByRole("link", { name: "Open Orchard Harvest" }))
@@ -69,7 +69,10 @@ test("searching puts the term in the URL and lists each candidate with its year"
 
 test("Add adds the Work monitored and opens its page", async () => {
   const server = catalogServer();
-  const { router } = renderApp({ path: "/add?query=quiet", handlers: server.handlers });
+  const { router } = renderApp({
+    path: "/add?contentType=cinema&query=quiet",
+    handlers: server.handlers,
+  });
 
   await userEvent.click(page.getByRole("button", { name: "Add The Quiet Orchard" }));
 
@@ -81,7 +84,7 @@ test("Add adds the Work monitored and opens its page", async () => {
 test("a failed Add shows the server's reason", async () => {
   const server = catalogServer();
   renderApp({
-    path: "/add?query=quiet",
+    path: "/add?contentType=cinema&query=quiet",
     handlers: [
       http.post("*/api/v1/works", () =>
         problem(502, "metadata_unavailable", "The metadata source didn't answer. Try again later."),
@@ -93,4 +96,16 @@ test("a failed Add shows the server's reason", async () => {
   await expect
     .element(page.getByRole("alert"))
     .toHaveTextContent("The metadata source didn't answer. Try again later.");
+});
+
+test.each([
+  ["a disabled", "/add?contentType=cinema"],
+  ["an unknown", "/add?contentType=nothing"],
+])("%s Content Type has no Add page", async (_kind, path) => {
+  renderApp({
+    path,
+    handlers: [getListContentTypesMockHandler({ contentTypes: [{ ...cinema, enabled: false }] })],
+  });
+  await expect.element(page.getByText("Not Found")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: /^Add/u })).not.toBeInTheDocument();
 });

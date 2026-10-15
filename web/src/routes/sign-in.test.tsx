@@ -46,7 +46,7 @@ test("a wrong PIN shows the server's title and clears the PIN, and the right one
 
   await typePin("1234");
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(router.state.location.href).toBe("/");
+  expect(router.state.location.href).toBe("/library");
 });
 
 test("an expired session says so", async () => {

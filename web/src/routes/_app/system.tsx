@@ -5,10 +5,12 @@ import {
   useGetSystemSuspense,
 } from "../../api/gen/query/system/system";
 import { ensureQuery } from "../../api/query-client";
+import { Page } from "../../shell/page";
 import { Skeleton } from "../../ui/skeleton";
 import { Data } from "../../ui/data";
 
 export const Route = createFileRoute("/_app/system")({
+  staticData: { title: "This Node" },
   loader: ({ context }) => ensureQuery(context.queryClient, getGetSystemSuspenseQueryOptions()),
   pendingComponent: () => <Skeleton label="Loading This Node" />,
   component: SystemPage,
@@ -25,8 +27,7 @@ function SystemPage() {
     ["Control socket", data.listeners.control],
   ] as const;
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">This Node</h1>
+    <Page>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
         {rows.map(([term, value]) => (
           <div key={term} className="contents">
@@ -37,6 +38,6 @@ function SystemPage() {
           </div>
         ))}
       </dl>
-    </section>
+    </Page>
   );
 }

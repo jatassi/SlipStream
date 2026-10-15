@@ -10,10 +10,13 @@ import {
 } from "../../api/gen/query/works/works";
 import { ensureQuery } from "../../api/query-client";
 import { GrabStatus } from "../../grabs/grab-status";
+import { Page } from "../../shell/page";
 import { Skeleton } from "../../ui/skeleton";
 import { Data } from "../../ui/data";
 
 export const Route = createFileRoute("/_app/activity")({
+  staticData: { title: "Activity" },
+
   loader: ({ context }) =>
     Promise.all([
       ensureQuery(context.queryClient, getListGrabsSuspenseQueryOptions()),
@@ -27,8 +30,7 @@ function Activity() {
   const { grabs } = useListGrabsSuspense().data;
   const labels = new Map(useListWorksSuspense().data.works.map((work) => [work.id, work.label]));
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">Activity</h1>
+    <Page>
       {grabs.length === 0 ? (
         <p className="text-ink-3">No Grabs yet.</p>
       ) : (
@@ -44,6 +46,6 @@ function Activity() {
           ))}
         </ul>
       )}
-    </section>
+    </Page>
   );
 }

@@ -16,7 +16,10 @@ import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
 import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
+import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
+import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
+import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 
 const AppRoute = AppRouteImport.update({
@@ -53,10 +56,25 @@ const AppAddRoute = AppAddRouteImport.update({
   path: "/add",
   getParentRoute: () => AppRoute,
 } as any);
+const AppLibraryRouteRoute = AppLibraryRouteRouteImport.update({
+  id: "/library",
+  path: "/library",
+  getParentRoute: () => AppRoute,
+} as any);
 const AppSystemRoute = AppSystemRouteImport.update({
   id: "/system",
   path: "/system",
   getParentRoute: () => AppRoute,
+} as any);
+const AppLibraryIndexRoute = AppLibraryIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AppLibraryRouteRoute,
+} as any);
+const AppLibraryContentTypeRoute = AppLibraryContentTypeRouteImport.update({
+  id: "/$contentType",
+  path: "/$contentType",
+  getParentRoute: () => AppLibraryRouteRoute,
 } as any);
 const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   id: "/works/$workId",
@@ -69,10 +87,13 @@ export interface FileRoutesByFullPath {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
+  "/library": typeof AppLibraryRouteRouteWithChildren;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
+  "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/library/": typeof AppLibraryIndexRoute;
 }
 export interface FileRoutesByTo {
   "/setup": typeof SetupRoute;
@@ -82,7 +103,9 @@ export interface FileRoutesByTo {
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
   "/": typeof AppIndexRoute;
+  "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/library": typeof AppLibraryIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -90,11 +113,14 @@ export interface FileRoutesById {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
+  "/_app/library": typeof AppLibraryRouteRouteWithChildren;
   "/_app/activity": typeof AppActivityRoute;
   "/_app/add": typeof AppAddRoute;
   "/_app/system": typeof AppSystemRoute;
   "/_app/": typeof AppIndexRoute;
+  "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
+  "/_app/library/": typeof AppLibraryIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -103,10 +129,13 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/worker"
+    | "/library"
     | "/activity"
     | "/add"
     | "/system"
-    | "/works/$workId";
+    | "/library/$contentType"
+    | "/works/$workId"
+    | "/library/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/setup"
@@ -116,18 +145,23 @@ export interface FileRouteTypes {
     | "/add"
     | "/system"
     | "/"
-    | "/works/$workId";
+    | "/library/$contentType"
+    | "/works/$workId"
+    | "/library";
   id:
     | "__root__"
     | "/_app"
     | "/setup"
     | "/sign-in"
     | "/worker"
+    | "/_app/library"
     | "/_app/activity"
     | "/_app/add"
     | "/_app/system"
     | "/_app/"
-    | "/_app/works/$workId";
+    | "/_app/library/$contentType"
+    | "/_app/works/$workId"
+    | "/_app/library/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -188,12 +222,33 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppAddRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/_app/library": {
+      id: "/_app/library";
+      path: "/library";
+      fullPath: "/library";
+      preLoaderRoute: typeof AppLibraryRouteRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/system": {
       id: "/_app/system";
       path: "/system";
       fullPath: "/system";
       preLoaderRoute: typeof AppSystemRouteImport;
       parentRoute: typeof AppRoute;
+    };
+    "/_app/library/": {
+      id: "/_app/library/";
+      path: "/";
+      fullPath: "/library/";
+      preLoaderRoute: typeof AppLibraryIndexRouteImport;
+      parentRoute: typeof AppLibraryRouteRoute;
+    };
+    "/_app/library/$contentType": {
+      id: "/_app/library/$contentType";
+      path: "/$contentType";
+      fullPath: "/library/$contentType";
+      preLoaderRoute: typeof AppLibraryContentTypeRouteImport;
+      parentRoute: typeof AppLibraryRouteRoute;
     };
     "/_app/works/$workId": {
       id: "/_app/works/$workId";
@@ -205,7 +260,22 @@ declare module "@tanstack/react-router" {
   }
 }
 
+interface AppLibraryRouteRouteChildren {
+  AppLibraryContentTypeRoute: typeof AppLibraryContentTypeRoute;
+  AppLibraryIndexRoute: typeof AppLibraryIndexRoute;
+}
+
+const AppLibraryRouteRouteChildren: AppLibraryRouteRouteChildren = {
+  AppLibraryContentTypeRoute: AppLibraryContentTypeRoute,
+  AppLibraryIndexRoute: AppLibraryIndexRoute,
+};
+
+const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
+  AppLibraryRouteRouteChildren,
+);
+
 interface AppRouteChildren {
+  AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
   AppActivityRoute: typeof AppActivityRoute;
   AppAddRoute: typeof AppAddRoute;
   AppSystemRoute: typeof AppSystemRoute;
@@ -214,6 +284,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
   AppActivityRoute: AppActivityRoute,
   AppAddRoute: AppAddRoute,
   AppSystemRoute: AppSystemRoute,
