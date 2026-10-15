@@ -67,7 +67,7 @@ test("a page that throws in the browser says it couldn't load and shows the mess
   });
   await expect.element(page.getByRole("alert")).toHaveTextContent("This page couldn't load.");
   await userEvent.click(page.getByRole("button", { name: "Details" }));
-  await expect.element(page.getByText(/^Cannot read properties of undefined/u)).toBeVisible();
+  await expect.element(page.getByText("Invalid time value")).toBeVisible();
   await expect.element(mainNav()).toBeVisible();
 });
 
