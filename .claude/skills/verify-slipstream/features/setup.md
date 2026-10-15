@@ -7,7 +7,7 @@ A fresh Node opens on its first-run page. A person types the Setup code from the
 - `setup-code-read` the Setup code is read from the Controller's log, as a real Admin reads it.
 - `setup-wrong-code` a wrong Setup code marks the field invalid with `The Setup code is wrong` and keeps the rest of the form.
 - `setup-create-admin` the right code creates the first Admin and shows the `API key` once.
-- `setup-signed-in` `Continue` lands on the Library signed in, the header shows the display name, and `GET /api/v1/status` answers `{"claim":"controller"}`.
+- `setup-signed-in` `Continue` lands on the Library at `/library` signed in, the sidebar's `Account` button shows the display name, and `GET /api/v1/status` answers `{"claim":"controller"}`.
 
 ## How to get to it (user POV)
 
@@ -59,7 +59,7 @@ Steps:
   $FW exec $RUN --proof setup/setup-create-admin -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/setup/setup-create-admin/api-key.png
   ```
 
-- **Continue.** The Library opens at `/`, the header shows `Grace Hopper` and `Live updates: on`, and the status reads `{"claim":"controller"}`.
+- **Continue.** The Library opens at `/library`, the sidebar's `Account` button shows `Grace Hopper` and `Admin`, and the status reads `{"claim":"controller"}`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'

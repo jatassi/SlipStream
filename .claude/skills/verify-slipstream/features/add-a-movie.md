@@ -1,6 +1,6 @@
 # Add a movie
 
-An Admin searches the metadata catalog from the Library's Add movie link and adds a movie as a monitored Work. The Work page shows its fields and a cell for each Target, and the Library lists it.
+An Admin searches the metadata catalog from the Library's `Add` menu and adds a movie as a monitored Work. The Work page shows its fields and a cell for each Target, and the Library lists it.
 
 ## Sub-features
 
@@ -12,8 +12,10 @@ An Admin searches the metadata catalog from the Library's Add movie link and add
 
 ## How to get to it (user POV)
 
-- Desktop and phone: the `Add movie` link beside the Library heading, which opens `/add`.
-- Desktop and phone: `/add?query=<title>` runs the search directly.
+- Desktop shell: on the Library (the sidebar's `Library`), the top bar's `Add`, then `Add a Movie`; on the Movies library (the sidebar's `Movies`), the top bar's `Add a Movie`. Both open `/add?contentType=movie`.
+- Phone shell: on the `Library` tab, `Add` beside the large title opens the action sheet `Add a Work` with `Add a Movie`.
+- Both shells: the palette's `Add a Movie` (Ctrl+K or ⌘K on desktop, the `Search` tab on phone).
+- Both shells: `/add?contentType=movie&query=<title>` runs the search directly. The Library at `/library` (`/` redirects there) lists the added Work.
 - API: `GET /api/v1/content-types/{contentType}/catalog?query=`, `POST /api/v1/works`, `GET /api/v1/works`.
 
 ## Driving it with fakeworld and playwright cli
@@ -24,41 +26,43 @@ Preconditions:
 
 Steps:
 
-- **Search the catalog.** Choose `Add movie`, fill `Title` with `quiet orchard` and choose `Search`. The `Results` list reads `The Quiet Orchard 2021` with `Add`.
+- **Search the catalog.** Choose `Add`, then `Add a Movie`, fill `Title` with `quiet orchard` and choose `Search`. The `Results` list reads `The Quiet Orchard 2021` with `Add`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "Add movie" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Add" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Add a Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("searchbox", { name: "Title" })' "quiet orchard"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Search" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof add-a-movie/add-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-search/results.aria.yml
   ```
 
-- **No match.** Go to `/add?query=volcano`. The page reads `Nothing matches “volcano”.`
+- **No match.** Go to `/add?contentType=movie&query=volcano`. The page reads `Nothing matches “volcano”.`
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?query=volcano'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=volcano'
   $FW exec $RUN --proof add-a-movie/add-no-match -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-no-match/results.aria.yml
   ```
 
 - **Add the Work.** Search again and choose `Add The Quiet Orchard`. The Work page opens, headed `The Quiet Orchard`, with its fields and the `1080p` cell reading `Missing`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?query=quiet+orchard'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-work-page/work.aria.yml
   $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/add-a-movie/add-work-page/work.png
   $FW exec $RUN --proof add-a-movie/add-work -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works'
   ```
 
-- **Open an existing Work.** Go back to `/add?query=quiet+orchard`. The result shows the link `Open The Quiet Orchard`, and the Library lists `The Quiet Orchard 2021`.
+- **Open an existing Work.** Go back to `/add?contentType=movie&query=quiet+orchard`. The result shows the link `Open The Quiet Orchard`, and the Library lists `The Quiet Orchard 2021`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?query=quiet+orchard'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
   $FW exec $RUN --proof add-a-movie/add-open-existing -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-open-existing/results.aria.yml
   ```
 
 ## Gotchas
 
-- The Add page's search button and the Work page's search button are both named `Search`; the first searches the catalog, the second the Indexers.
+- The Add page's search button and the Work page's search button are both named `Search`; the first searches the catalog, the second the Indexers. The top bar's capsule `Search Works or run a command` matches `Search` too, so scope to `getByRole("main")` with `exact: true`.
+- `/add` needs `contentType`: without it, or with a type that isn't enabled, the page reads `There's nothing at this address.`
 - `home`'s catalog holds one movie, The Quiet Orchard (2021). Other titles find nothing.
 - Adding a Work is permanent for the run: a recipe that needs an empty library wants a fresh run.

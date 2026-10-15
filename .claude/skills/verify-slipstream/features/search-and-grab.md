@@ -14,11 +14,11 @@ An Admin searches a Work's Indexers from the Work page, and SlipStream grabs the
 
 ## How to get to it (user POV)
 
-- Desktop and phone: Library, a Work's link, then the `Search` button on the Work page.
-- Desktop and phone: the `Activity` link in the header for every Grab.
+- Desktop shell: the sidebar's `Library`, a Work's link, then the `Search` button on the Work page; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name.
+- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Library`), then `Search`; or the `Search` tab's palette.
+- Desktop shell: the sidebar's `Activity`, which reads `Activity 1 live` while a Grab moves. Phone shell: the `Activity` tab, badged with the same count.
 - API: `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs`.
 
-The skeleton has one layout for both shells, so the phone shows the same links at 390×844.
 
 ## Driving it with fakeworld and playwright cli
 
@@ -41,16 +41,17 @@ Steps:
 - **Add the Work.** Add The Quiet Orchard as in [add-a-movie.md](add-a-movie.md). The Work page shows `No searches yet.`
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "Add movie" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Add" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Add a Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("searchbox", { name: "Title" })' "quiet orchard"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Search" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   ```
 
 - **Search into the 429.** Choose `Search` on the Work page. The rule fires once for the seedbox, and the Searches list reads `Indexer unavailable · 0 releases` with no Grab.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Search" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   FIRED=$($FW fault wait $RUN --rule indexer-429 --timeout 30s | jq .seq)
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Indexer unavailable · 0 releases").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.aria.yml
@@ -60,16 +61,16 @@ Steps:
 - **Search again.** Choose `Search`. The list gains `Grabbed · 2 releases`, and the seedbox announces `started` to the tracker.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Search" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed · 2 releases").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-search/work.png
   $FW announces wait $RUN --node seedbox --where event=started --after $FIRED --timeout 60s
   ```
 
-- **Watch the held download.** Open `Activity`. The Grab reads `Downloading` with a progress bar named `Downloading The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW`, and the API reads stage `downloading` with `progress.done` below `progress.total`.
+- **Watch the held download.** Choose `Activity` in the sidebar. The Grab reads `Downloading` with a progress bar named `Downloading The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW`, and the API reads stage `downloading` with `progress.done` below `progress.total`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "Activity" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" })'
   $FW exec $RUN --proof search-and-grab/grab-held -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-held/activity.aria.yml
   $FW exec $RUN --proof search-and-grab/grab-held -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-held/activity.png
   $FW exec $RUN --proof search-and-grab/grab-held -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
@@ -94,18 +95,19 @@ Steps:
 - **Prove the file.** Open the Work from Activity. Files lists `The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv 1920×1080`, and `fs match` exits 0 on the placed file.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "The Quiet Orchard" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("link", { name: "The Quiet Orchard" })'
   $FW exec $RUN --proof search-and-grab/grab-files -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-files/work.aria.yml
   $FW exec $RUN --proof search-and-grab/grab-files -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-files/work.png
   $FW exec $RUN --proof search-and-grab/grab-files -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop tracing-stop
   ```
 
-- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`, go to `{nodes.home.browserUrl}/activity`, and screenshot the same Grab into `proof/search-and-grab/grab-activity/activity-phone.png`.
+- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`, choose the `Activity` tab, and screenshot the same Grab into `proof/search-and-grab/grab-activity/activity-phone.png`.
 
 ## Gotchas
 
 - `announces wait` and `sse wait` default `--after` to the previous step's start. The `started` announce arrives while the second search's click or wait step runs, so pass `--after $FIRED`, the seq of the 429's `fault.fired`.
+- The Work page's `Search` shares its name with the top bar's capsule `Search Works or run a command`; scope it to `getByRole("main")` with `exact: true`.
 - Search outcomes arrive after the click returns. Wait for the Searches text with `run-code`; a snapshot taken at once may read `Searching`.
 - The skeleton doesn't hold off after a 429's `Retry-After`: the second Search grabs at once.
 - At 16 KiB/s the 3.7 MB release takes about four minutes, so clear the throttle once the held state is captured.

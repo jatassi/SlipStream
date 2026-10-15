@@ -62,7 +62,16 @@ $FW exec $RUN -- $PW cli -s={runId}-admin-desktop state-load {runDir}/auth/admin
 $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/
 ```
 
-The session name carries the run id, so another agent's sessions in the same worktree stay apart. Swap `desktop` for `phone` for the phone shell. Then follow the feature file's recipe. Target elements by role and accessible name, as in `click 'getByRole("button", { name: "Search" })'`; snapshot refs change on every snapshot.
+The session name carries the run id, so another agent's sessions in the same worktree stay apart. Swap `desktop` for `phone` for the phone shell. `{nodes.home.browserUrl}/` redirects to `/library`. Then follow the feature file's recipe. Target elements by role and accessible name, scoped to a landmark where a name repeats, as in `click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'`; snapshot refs change on every snapshot.
+
+Every new tab plays the 4.4s startup sequence over the page. Verify sessions start past it: `fakeworld browser` writes `browser/startup-played.js` (a copy of `web/harness/startup-played.js`) and names it as each config's `initScript`, which marks every tab as played before the app loads, as the browser tier's fixtures and `bin/sign-in.ts` do. To see the sequence on purpose, open a session from a copy of the config without the init script; the tab then plays it once, and any key, click or tap skips it:
+
+```sh
+jq 'del(.browser.initScript)' $RUN/browser/desktop/playwright-cli.json > $RUN/browser/desktop/startup-on.json
+$FW exec $RUN -- $PW cli -s={runId}-startup-desktop open --config={runDir}/browser/desktop/startup-on.json
+```
+
+[features/shell.md](features/shell.md) drives it from there.
 
 ## Evidence
 
@@ -93,6 +102,6 @@ ls $RUN/proof $RUN/summary.md
 ## Helpers
 
 - `bun .claude/skills/verify-slipstream/bin/check-map.ts` checks the feature map: the README's index against the files, each file's H1, paragraph and four H2s, unique sub-feature ids, and that every cited `P-###` row exists and is neither out of scope nor excepted. It prints shipped parity rows no sub-feature cites and exits 1 on a problem. Run it after editing anything under `features/`.
-- `bun web/harness/bin/sign-in.ts <run> <identity> <shell>` signs the identity in through the real sign-in page and writes `<run>/auth/<identity>-<shell>.json` for `state-load`.
+- `bun web/harness/bin/sign-in.ts <run> <identity> <shell>` signs the identity in through the real sign-in page, past the startup sequence, and writes `<run>/auth/<identity>-<shell>.json` for `state-load`.
 - `$FW` with no arguments prints every verb, including the capture readers.
 - `web/harness/fakeworld.ts` (`fw(runDir)`) drives the same verbs from TypeScript, for a script too long for the shell.

@@ -38,10 +38,11 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 
 ## Features
 
+- [Shell](./shell.md) covers the desktop sidebar and top bar, the phone tab bar and More sheet, the palette, toasts, titles, errors and not-found, the portal and the startup sequence.
 - [Setup](./setup.md) covers the Setup code from the Controller's log, a wrong code, and creating the first Admin on `first-run`.
 - [Sign-in](./sign-in.md) covers Email and PIN, a wrong PIN, returning to the page asked for, saved state and sign-out.
 - [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
-- [Add a movie](./add-a-movie.md) covers Library, Add movie, catalog search, adding a Work and the Work page.
+- [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.
 - [This Node](./this-node.md) covers the This Node page and `GET /api/v1/system`.
-- [Live updates](./live-updates.md) covers the live status, reconnecting after `fakeworld node kill` and `start`, and the captured stream.
+- [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

@@ -9,7 +9,9 @@ This Node shows the Node the browser is talking to: its build version, data dir 
 
 ## How to get to it (user POV)
 
-- Desktop and phone: the `This Node` link in the header, which opens `/system`.
+- Desktop shell: the sidebar's `This Node`, below the separator, which opens `/system`.
+- Phone shell: the `More` tab, then `This Node`.
+- Both shells: the palette's `Go to This Node`.
 - API: `GET /api/v1/system`.
 - Host CLI: `slipstream version` prints the same build stamp.
 
@@ -21,10 +23,10 @@ Preconditions:
 
 Steps:
 
-- **Open This Node.** Choose `This Node`. The page is headed `This Node`, Version reads the binary's short commit, and Data dir reads the manifest's `{nodes.home.dataDir}`.
+- **Open This Node.** Choose `This Node` in the sidebar. The page is headed `This Node`, Version reads the binary's short commit, and Data dir reads the manifest's `{nodes.home.dataDir}`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "This Node" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Main" }).getByRole("link", { name: "This Node" })'
   $FW exec $RUN --proof this-node/this-node-page -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/this-node/this-node-page/system.aria.yml
   $FW exec $RUN --proof this-node/this-node-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/this-node/this-node-page/system.png
   ```

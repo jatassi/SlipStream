@@ -13,7 +13,7 @@ A person signs in on the Controller with their email and four-digit PIN. A wrong
 ## How to get to it (user POV)
 
 - Desktop and phone: any page of a signed-out browser on the Controller redirects to `/sign-in`, headed `Sign in to SlipStream`.
-- Desktop and phone: the `Sign out` button in the header.
+- Desktop shell: the sidebar's `Account` button, then `Sign out`. Phone shell: the `More` tab, then `Sign out`. Both shells: the palette's `Sign out`.
 - API: `POST /api/v1/session` with email and PIN; `DELETE /api/v1/session`.
 
 ## Driving it with fakeworld and playwright cli
@@ -49,15 +49,16 @@ Steps:
   $FW exec $RUN --proof sign-in/sign-in-redirect -- $PW cli -s={runId}-ada-desktop screenshot --filename={runDir}/proof/sign-in/sign-in-redirect/this-node.png
   ```
 
-- **Sign out.** Choose `Sign out`. The page reads `Sign in to SlipStream` with the status `You signed out.` at `/sign-in?reason=signed-out`.
+- **Sign out.** Choose `Account`, then `Sign out`. The page reads `Sign in to SlipStream` with the status `You signed out.` at `/sign-in?reason=signed-out`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop click 'getByRole("button", { name: "Sign out" })'
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop click 'getByRole("button", { name: "Account" })'
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop click 'getByRole("menuitem", { name: "Sign out" })'
   $FW exec $RUN --proof sign-in/sign-out -- $PW cli -s={runId}-ada-desktop snapshot --filename={runDir}/proof/sign-in/sign-out/sign-in.aria.yml
   $FW exec $RUN -- $PW cli -s={runId}-ada-desktop close
   ```
 
-- **Saved state.** Run the skill's Drive block for `admin desktop`. `goto {nodes.home.browserUrl}/` shows the Library heading and `Ada Okafor` in the header without a sign-in page.
+- **Saved state.** Run the skill's Drive block for `admin desktop`. `goto {nodes.home.browserUrl}/` lands on `/library` with the Library heading and `Ada Okafor` on the sidebar's `Account` button, without a sign-in page.
 
 ## Gotchas
 
