@@ -12,7 +12,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -256,5 +258,46 @@ func TestWixVersionMatchesTheDotnetToolPin(t *testing.T) {
 	}
 	if got := manifest.Tools["wix"].Version; got != wixVersion {
 		t.Fatalf(".config/dotnet-tools.json pins wix %s, and the UI extension takes %s", got, wixVersion)
+	}
+}
+
+func TestAppSignsTheBundleAfterEveryNestedProgram(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake signing tools are shell scripts")
+	}
+	in := fakeRepo(t, native.Target{Name: "darwin-arm64", GOOS: "darwin"})
+	bin, calls := t.TempDir(), filepath.Join(t.TempDir(), "calls")
+	for _, tool := range []string{"codesign", "hdiutil", "ditto"} {
+		script := "#!/bin/sh\necho \"" + tool + " $*\" >> " + strconv.Quote(calls) + "\n"
+		if err := os.WriteFile(filepath.Join(bin, tool), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	stage := t.TempDir()
+	if _, err := buildApp(t.Context(), in, stage); err != nil {
+		t.Fatal(err)
+	}
+	log, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var signed []string
+	for line := range strings.Lines(string(log)) {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "codesign "); ok {
+			signed = append(signed, strings.ReplaceAll(rest, stage+"/dmg/", ""))
+		}
+	}
+	const sign = "--force --sign - --timestamp=none "
+	want := []string{
+		sign + "SlipStream.app/Contents/MacOS/slipstream",
+		sign + "SlipStream.app/Contents/MacOS/ffmpeg",
+		sign + "SlipStream.app/Contents/MacOS/ffprobe",
+		sign + "SlipStream.app/Contents/MacOS/dovi_tool",
+		sign + "SlipStream.app",
+		"--verify --deep --strict SlipStream.app",
+	}
+	if !slices.Equal(signed, want) {
+		t.Fatalf("codesign calls:\n%s\nwant:\n%s", strings.Join(signed, "\n"), strings.Join(want, "\n"))
 	}
 }

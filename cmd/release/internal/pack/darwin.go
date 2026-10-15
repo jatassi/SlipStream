@@ -81,7 +81,12 @@ func buildApp(ctx context.Context, in Input, stage string) ([]string, error) {
 	if err := writeText(filepath.Join(contents, "Info.plist"), infoPlist(in), 0o644); err != nil {
 		return nil, err
 	}
+	// codesign seals every other Mach-O in Contents/MacOS into the bundle's
+	// executable, so each must be signed before the bundle is.
 	for _, p := range in.programs() {
+		if p == install.Trampoline {
+			continue
+		}
 		if err := in.run(ctx, stage, nil, "codesign", "--force", "--sign", "-", "--timestamp=none", filepath.Join(macOS, p)); err != nil {
 			return nil, err
 		}
