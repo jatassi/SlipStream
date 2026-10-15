@@ -18,13 +18,18 @@ import (
 )
 
 const usageText = `usage: slipstream <command>
-  run    --data-dir <dir>  run a Node
-  stop   --data-dir <dir>  stop the Node on <dir> and wait until it releases <dir>
-  config --data-dir <dir>  print the resolved configuration and endpoints census as JSON
-  join   --data-dir <dir> <code>
-                           join this Node to the Controller a Join Code names
-  version                  print the build stamp
-  notices                  print the third-party notices`
+  run    [--data-dir <dir>]  run a Node
+  stop   [--data-dir <dir>]  stop the Node on <dir> and wait until it releases <dir>
+  status [--data-dir <dir>]  print the running Node's status as JSON
+  config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
+  join   [--data-dir <dir>] <code>
+                             join this Node to the Controller a Join Code names
+  service install|uninstall --user [--data-dir <dir>]
+                             run the Node as a systemd user service, or remove it
+                             (tarball and AppImage installs)
+  version                    print the build stamp
+  notices                    print the third-party notices
+The data dir is --data-dir, else SLIPSTREAM_DATA_DIR, else the install's default.`
 
 // Main is the slipstream command: args are os.Args, and types the Content
 // Types the binary registers. It returns the exit code. Two types sharing an
@@ -54,6 +59,7 @@ func run(args []string, types contenttype.Set) int {
 		if err != nil {
 			return usage(err)
 		}
+		env.Mode = ModeRun
 		return ExitCode(Run(context.Background(), env))
 	case "stop":
 		env, err := nodeEnv(name, rest, types)
@@ -82,8 +88,12 @@ func run(args []string, types contenttype.Set) int {
 			return ExitFailed
 		}
 		return ExitOK
+	case "status":
+		return status(rest, types)
 	case "join":
 		return join(rest, types)
+	case "service":
+		return service(rest)
 	default:
 		return usage(fmt.Errorf("unknown command %q", name))
 	}
@@ -99,7 +109,7 @@ func nodeEnv(name string, args []string, types contenttype.Set) (Env, error) {
 	if fs.NArg() > 0 {
 		return Env{}, fmt.Errorf("%s: unexpected argument %q", name, fs.Arg(0))
 	}
-	env, err := ProcessEnv(*dataDir)
+	env, err := ProcessEnv(name, *dataDir)
 	if err != nil {
 		return Env{}, fmt.Errorf("%s: %w", name, err)
 	}
@@ -130,7 +140,7 @@ func join(args []string, types contenttype.Set) int {
 		_, _ = fmt.Fprintf(os.Stderr, "slipstream join: %v\n", err)
 		return ExitUsage
 	}
-	env, err := ProcessEnv(*dataDir)
+	env, err := ProcessEnv("join", *dataDir)
 	if err != nil {
 		return usage(fmt.Errorf("join: %w", err))
 	}
@@ -151,6 +161,24 @@ func join(args []string, types contenttype.Set) int {
 		return ExitOK
 	}
 	return joinFailed(err)
+}
+
+func status(args []string, types contenttype.Set) int {
+	env, err := nodeEnv("status", args, types)
+	if err != nil {
+		return usage(err)
+	}
+	reply, err := Call(context.Background(), env.Net, env.DataDir, StatusOp, StatusRequest{})
+	if err == nil {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(reply)
+	}
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream status: %v\n", err)
+		return ExitFailed
+	}
+	return ExitOK
 }
 
 func joinFailed(err error) int {
