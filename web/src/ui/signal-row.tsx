@@ -1,22 +1,15 @@
 import { Collapsible } from "@base-ui/react/collapsible";
-import { Alert02Icon, AlertCircleIcon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import type { ReactNode } from "react";
 
+import { Chevron } from "./chevron";
 import { Data } from "./data";
-import { Icon } from "./icon";
 import { useShell } from "./shell-context";
+import { SignalChip } from "./signal-chip";
 
 const signalLook = {
-  fail: {
-    row: "bg-fail-card text-fail-text shadow-signal-lift",
-    chip: "bg-fail text-fail-deep",
-    icon: AlertCircleIcon,
-    dim: "text-fail-dim",
-  },
+  fail: { row: "bg-fail-card text-fail-text shadow-signal-lift", dim: "text-fail-dim" },
   warn: {
     row: "bg-warn-card text-warn-text ring-1 ring-warn-line ring-inset",
-    chip: "bg-warn text-warn-deep",
-    icon: Alert02Icon,
     dim: "text-warn-dim",
   },
 } as const;
@@ -47,15 +40,11 @@ export function SignalRow({
             : "grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,2fr)_auto] [grid-template-areas:'chevron_chip_subject_verdict_time']"
         }`}
       >
-        <Icon
-          icon={ArrowRight01Icon}
-          className="size-4 text-ink-4 transition-transform duration-(--duration-chevron) ease-standard [grid-area:chevron] group-data-panel-open:rotate-90 motion-reduce:transition-none"
-        />
-        <span
-          className={`inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap justify-self-start rounded-chip px-2 text-chip font-bold [grid-area:chip] ${look.chip}`}
-        >
-          <Icon icon={look.icon} className="size-3.5" />
-          {chip}
+        <span className="flex text-ink-4 [grid-area:chevron]">
+          <Chevron />
+        </span>
+        <span className="flex justify-self-start [grid-area:chip]">
+          <SignalChip kind={signal}>{chip}</SignalChip>
         </span>
         <span className="truncate font-semibold [grid-area:subject]">{subject}</span>
         <span className={`line-clamp-2 [grid-area:verdict] ${look.dim}`}>{verdict}</span>

@@ -5,7 +5,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Icon } from "./icon";
 import { Spinner } from "./spinner";
 
-export type ButtonLook = "default" | "primary" | "ghost" | "fail" | "warn";
+export type ButtonLook = "default" | "primary" | "ghost" | "fail" | "warn" | "on-fail";
 export type ButtonSize = "default" | "small";
 
 const looks: { readonly [L in ButtonLook]: string } = {
@@ -16,6 +16,8 @@ const looks: { readonly [L in ButtonLook]: string } = {
     "bg-transparent text-ink-2 not-data-disabled:hover:bg-fill not-data-disabled:hover:text-ink-1",
   fail: "bg-fail text-fail-deep",
   warn: "bg-warn text-warn-deep",
+  "on-fail":
+    "bg-[rgba(255,220,216,.1)] text-fail-text ring-1 ring-[rgba(255,220,216,.16)] ring-inset",
 };
 
 const smallHeight = "h-7 px-3 in-data-[density=touch]:h-(--control-height)";

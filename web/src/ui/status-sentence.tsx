@@ -1,9 +1,9 @@
-import { Alert02Icon, AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { Fragment } from "react";
 
 import { Icon } from "./icon";
-import "./rows.css";
+import { LiveDot } from "./live-chip";
 import { useShell } from "./shell-context";
+import { signals } from "./signal-chip";
 
 export type StatusPart =
   | { kind: "live"; text: string }
@@ -12,18 +12,17 @@ export type StatusPart =
   | { kind: "warning"; text: string; href: string };
 
 const signalLink = {
-  failure: { icon: AlertCircleIcon, ink: "text-fail-ink" },
-  warning: { icon: Alert02Icon, ink: "text-warn" },
+  failure: { icon: signals.fail.icon, ink: "text-fail-ink" },
+  warning: { icon: signals.warn.icon, ink: "text-warn" },
 } as const;
 
 function Part({ part }: { part: StatusPart }) {
   if (part.kind === "live") {
     return (
       <span>
-        <span
-          aria-hidden="true"
-          className="mr-2.5 inline-block size-2 rounded-full align-[0.15em] bg-solid shadow-[var(--shadow-live-glow),0_0_0_3px_var(--live-ring)]"
-        />
+        <span className="mr-2.5 inline-flex align-[0.2em]">
+          <LiveDot />
+        </span>
         {part.text}
       </span>
     );

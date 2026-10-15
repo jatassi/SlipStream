@@ -1,7 +1,7 @@
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useId } from "react";
 
-import { Icon } from "./icon";
+import { IconButton } from "./icon-button";
 import "./rows.css";
 
 export function InspectorSection({ title, children }: { title?: string; children: ReactNode }) {
@@ -36,14 +36,7 @@ export function Inspector({
         <h2 id={titleId} className="min-w-0 flex-1 truncate text-title">
           {title}
         </h2>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="inline-flex size-(--icon-button-size) items-center justify-center rounded-capsule text-ink-2 transition-colors duration-(--duration-control) ease-standard hover:bg-fill hover:text-ink-1"
-        >
-          <Icon icon={Cancel01Icon} className="size-4" />
-        </button>
+        <IconButton icon={Cancel01Icon} label="Close" onClick={onClose} />
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
         <InspectorBody>{children}</InspectorBody>

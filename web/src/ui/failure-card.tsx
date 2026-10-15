@@ -1,9 +1,10 @@
-import { AlertCircleIcon } from "@hugeicons/core-free-icons";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId } from "react";
 
+import { Button } from "./button";
 import { Data } from "./data";
-import { Icon } from "./icon";
+import { Menu } from "./menu";
 import { useShell } from "./shell-context";
+import { SignalChip } from "./signal-chip";
 import { type Stage, StageTrack, stageLabel } from "./stage-track";
 
 export type CardAction = { label: string; onClick: () => void };
@@ -13,41 +14,6 @@ export type Fact = { label: string; value: ReactNode };
 type Form = "full" | "compact" | "phone";
 
 const noActions: readonly CardAction[] = [];
-
-const actionLook = {
-  fix: "bg-fail text-fail-deep",
-  other: "bg-[rgba(255,220,216,.1)] text-fail-text ring-1 ring-[rgba(255,220,216,.16)] ring-inset",
-} as const;
-
-function CardButton({
-  look,
-  children,
-  ...props
-}: {
-  look: keyof typeof actionLook;
-  children: ReactNode;
-  onClick: () => void;
-  "aria-expanded"?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className={`inline-flex h-(--control-height) items-center rounded-capsule px-3.5 text-(length:--body-size) leading-none font-semibold whitespace-nowrap transition-transform duration-(--duration-control) ease-standard active:scale-97 motion-reduce:transition-none ${actionLook[look]}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function FailChip({ stage }: { stage: Stage }) {
-  return (
-    <span className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip bg-fail px-2 text-chip font-bold text-fail-deep">
-      <Icon icon={AlertCircleIcon} className="size-3.5" />
-      Failed at {stageLabel[stage]}
-    </span>
-  );
-}
 
 function Facts({ facts, columns }: { facts: readonly Fact[]; columns: "pair" | "one" }) {
   return (
@@ -73,33 +39,17 @@ function Facts({ facts, columns }: { facts: readonly Fact[]; columns: "pair" | "
 }
 
 function PhoneActions({ fix, actions }: { fix: CardAction; actions: readonly CardAction[] }) {
-  const [more, setMore] = useState(false);
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
-        <CardButton look="fix" onClick={fix.onClick}>
-          {fix.label}
-        </CardButton>
-        {actions.length > 0 && (
-          <CardButton
-            look="other"
-            aria-expanded={more}
-            onClick={() => {
-              setMore(!more);
-            }}
-          >
-            More
-          </CardButton>
-        )}
-      </div>
-      {more && (
-        <div className="flex flex-wrap gap-2">
-          {actions.map(({ label, onClick }) => (
-            <CardButton key={label} look="other" onClick={onClick}>
-              {label}
-            </CardButton>
-          ))}
-        </div>
+    <div className="flex gap-2">
+      <Button look="fail" onClick={fix.onClick}>
+        {fix.label}
+      </Button>
+      {actions.length > 0 && (
+        <Menu
+          label="More actions"
+          trigger={<Button look="on-fail">More</Button>}
+          items={actions.map(({ label, onClick }) => ({ label, onSelect: onClick }))}
+        />
       )}
     </div>
   );
@@ -108,13 +58,13 @@ function PhoneActions({ fix, actions }: { fix: CardAction; actions: readonly Car
 function Actions({ fix, actions }: { fix: CardAction; actions: readonly CardAction[] }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      <CardButton look="fix" onClick={fix.onClick}>
+      <Button look="fail" onClick={fix.onClick}>
         {fix.label}
-      </CardButton>
+      </Button>
       {actions.map(({ label, onClick }) => (
-        <CardButton key={label} look="other" onClick={onClick}>
+        <Button key={label} look="on-fail" onClick={onClick}>
           {label}
-        </CardButton>
+        </Button>
       ))}
     </div>
   );
@@ -176,7 +126,7 @@ export function FailureCard({
       className={`flex flex-col gap-4 bg-fail-card px-5 pt-4 pb-5 text-(length:--body-size) leading-(--body-line-height) text-fail-text shadow-signal-lift ${shown === "phone" ? "rounded-[16px]" : "rounded-card"}`}
     >
       <header className="flex flex-wrap items-center gap-3">
-        <FailChip stage={stage} />
+        <SignalChip kind="fail">Failed at {stageLabel[stage]}</SignalChip>
         <Data className="text-fail-dim">{time}</Data>
         {shown === "full" && (
           <div className="ml-auto">

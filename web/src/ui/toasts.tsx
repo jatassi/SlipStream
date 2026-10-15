@@ -1,8 +1,9 @@
 import { Toast } from "@base-ui/react/toast";
-import { AlertCircleIcon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 
 import { Icon } from "./icon";
 import { useShell } from "./shell-context";
+import { SignalChip } from "./signal-chip";
 import { toastManager } from "./toast";
 
 const place = {
@@ -32,12 +33,7 @@ const onSolidButton =
 function ToastList() {
   return Toast.useToastManager().toasts.map((item) => (
     <Toast.Root key={item.id} toast={item} swipeDirection={["up", "right"]} className={capsule}>
-      {item.type === "fail" && (
-        <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-chip bg-fail px-2 text-chip text-fail-deep">
-          <Icon icon={AlertCircleIcon} className="size-3.5" />
-          Failed
-        </span>
-      )}
+      {item.type === "fail" && <SignalChip kind="fail">Failed</SignalChip>}
       <Toast.Title render={<p className="min-w-0 flex-1" />} />
       {item.actionProps && (
         <>
