@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
+	"github.com/jatassi/slipstream/internal/shellapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -59,6 +60,7 @@ type Node interface {
 	indexersapi.Registry
 	filesapi.Library
 	grabsapi.Pipeline
+	shellapi.Pipeline
 }
 
 // Services are what the operations run against. Document passes none.
@@ -82,6 +84,7 @@ func Mount(r *api.Router, s Services) {
 	indexersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)
 	grabsapi.Routes(r, s.Node)
+	shellapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

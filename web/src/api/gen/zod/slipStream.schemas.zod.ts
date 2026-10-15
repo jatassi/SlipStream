@@ -594,6 +594,15 @@ export const RootsRootList = zod.object({
 export type RootsRootList = zod.input<typeof RootsRootList>;
 export type RootsRootListOutput = zod.output<typeof RootsRootList>;
 
+export const shellCountsActivityMin = 0;
+
+export const ShellCounts = zod.object({
+  activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
+});
+
+export type ShellCounts = zod.input<typeof ShellCounts>;
+export type ShellCountsOutput = zod.output<typeof ShellCounts>;
+
 export const SystemBuild = zod.object({
   commit: zod.string().exactOptional(),
   fingerprint: zod.string().exactOptional(),

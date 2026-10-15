@@ -5,6 +5,7 @@ export * from "./indexers/indexers.ts";
 export * from "./nodes/nodes.ts";
 export * from "./pairing/pairing.ts";
 export * from "./roots/roots.ts";
+export * from "./shell/shell.ts";
 export * from "./system/system.ts";
 export * from "./targets/targets.ts";
 export * from "./works/works.ts";

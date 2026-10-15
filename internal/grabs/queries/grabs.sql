@@ -40,6 +40,9 @@ SELECT * FROM grabs_grab ORDER BY created_at DESC, id DESC;
 -- name: ListOpenGrabs :many
 SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
+-- name: CountMoving :one
+SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed');
+
 -- name: GetGrab :one
 SELECT * FROM grabs_grab WHERE id = sqlc.arg(id);
 
