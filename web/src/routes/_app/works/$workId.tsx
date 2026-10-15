@@ -13,7 +13,6 @@ import {
 import { ensureQuery } from "../../../api/query-client";
 import { useAmbient } from "../../../shell/ambient/use-ambient";
 import { loaderTitle } from "../../../shell/titles";
-import { Page } from "../../../shell/page";
 import { Skeleton } from "../../../ui/skeleton";
 import { WorkBody } from "./-work-body";
 
@@ -37,11 +36,7 @@ function WorkPage() {
   const { workId } = Route.useParams();
   const work = useGetWorkSuspense(workId).data;
   useAmbient(neutral);
-  return (
-    <Page title={work.label}>
-      <WorkBody workId={workId} work={work} />
-    </Page>
-  );
+  return <WorkBody workId={workId} work={work} />;
 }
 
 const neutral = { kind: "neutral" } as const;

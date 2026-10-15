@@ -266,7 +266,7 @@ test("a pushed page goes back to its tab, and a tab returns to where it was", as
     path: "/library/cinema",
     handlers: [...server.handlers, getListWorksMockHandler({ works: [{ ...orchard }] })],
   });
-  await userEvent.click(page.getByRole("link", { name: "The Quiet Orchard" }));
+  await userEvent.click(page.getByRole("link", { name: "The Quiet Orchard 2021" }));
   const back = page.getByRole("banner").getByRole("link", { name: "Library" });
   await expect.element(back).toHaveAttribute("href", "/library");
   await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
