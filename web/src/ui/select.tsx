@@ -1,11 +1,12 @@
 import { Select as BaseSelect } from "@base-ui/react/select";
 import { Tick02Icon, UnfoldMoreIcon } from "@hugeicons/core-free-icons";
+import type { ReactNode } from "react";
 
 import { floatingPanel } from "./floating";
 import { Icon } from "./icon";
 import { usePortalDensity } from "./portal-density";
 
-export type SelectOption<V extends string> = { value: V; label: string };
+export type SelectOption<V extends string> = { value: V; label: string; leading?: ReactNode };
 
 export function Select<V extends string>({
   label,
@@ -19,6 +20,7 @@ export function Select<V extends string>({
   onValueChange: (value: V) => void;
 }) {
   const { density, probe } = usePortalDensity();
+  const chosen = options.find((option) => option.value === value);
   return (
     <BaseSelect.Root
       items={options}
@@ -35,7 +37,14 @@ export function Select<V extends string>({
         </BaseSelect.Label>
         {probe}
         <BaseSelect.Trigger className="flex h-(--input-height) cursor-default items-center justify-between gap-3 rounded-item bg-well pr-2 pl-3 text-body text-ink-1 ring-1 ring-hairline ring-inset select-none in-data-[density=touch]:text-input-touch">
-          <BaseSelect.Value />
+          <BaseSelect.Value className="flex min-w-0 items-center gap-2">
+            {() => (
+              <>
+                {chosen?.leading}
+                <span className="truncate">{chosen?.label}</span>
+              </>
+            )}
+          </BaseSelect.Value>
           <BaseSelect.Icon className="flex text-ink-3">
             <Icon icon={UnfoldMoreIcon} className="size-4" />
           </BaseSelect.Icon>
@@ -74,6 +83,7 @@ function SelectPopup<V extends string>({
                     <Icon icon={Tick02Icon} className="size-4" />
                   </BaseSelect.ItemIndicator>
                 </span>
+                {option.leading}
                 <BaseSelect.ItemText>{option.label}</BaseSelect.ItemText>
               </BaseSelect.Item>
             ))}

@@ -532,6 +532,12 @@ An iOS-style choice of view or filter.
 - **Phone:** Full width with equal options, scrolling sideways when they overflow.
 - **Semantics:** `role="radiogroup"`.
 
+### Page tabs
+
+The row of links under a page's title that moves between the page's sections, such as a Node's Overview, Web and API, Logs and Log settings. Each section is a route, so the row is a `nav` landmark named for the page's subject, holding links with `aria-current="page"`, never ARIA tabs.
+- **Desktop:** Links are 36px tall in Body at 500, 24px apart, on a hairline that runs the row's width, with 24px below the row. A link is `ink-3`, turning `ink-1` on hover. The current link is `ink-1` with a 2px `glow` underline.
+- **Phone:** No row. The page lists its sections as Touch rows with a chevron, and each section is a pushed page whose back link names the nav destination ("Nodes").
+
 ### Switch
 
 A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target, and a sheet row with a switch is one target.
@@ -544,9 +550,9 @@ A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio i
 
 - **Text field:** A label in Body at 600 and `ink-2` (Body touch in Touch), then a `well` input with a hairline ring, radius 8 and 12px sides, at the input height. Touch inputs set Input touch. Focus is the standard focus ring.
 - **Description and error:** Meta in `ink-3` under the input (Body touch in Touch). An error replaces the description in `fail-ink` with its 14px alert icon.
-- **Read-only value:** The same input set in Data, selecting all on focus, for a value someone copies.
+- **Read-only value:** The same input set in Data, selecting all on focus, for a value someone copies. It can carry a default Copy button beside the input, which toasts "<Label> copied". The button shows only in a secure context, because the browser's clipboard needs one, and a Node on a LAN often answers plain http.
 - **PIN:** Four 40px slots (48px in Touch), 8px apart, masked and numeric.
-- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item.
+- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item. An option can lead with a mark, such as a Node's status dot, and the trigger repeats the chosen option's mark. A mark that means something carries its word for a screen reader.
 - **Search field:** A `fill` capsule with a hairline ring and a 16px search icon, at the control height.
 
 ### Chips and pills
@@ -595,7 +601,7 @@ The compact red or amber row for lists that can grow long: the Conversion queue'
 
 ### Warning line
 
-Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, "since" time and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
+Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, a "since" time when the warning has a start, and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
 
 ### Details
 
@@ -608,6 +614,8 @@ An error stands inside the shell, so the sidebar, bars and tab bar stay and only
 ### Lists and tables
 
 Lists and tables are glass sheets with radius 14, a hairline ring and hairlines between rows. Console rows are 44px for one line and 60px for two. Touch list rows are 54px for one line and 64px for two, in iOS inset groups with 16px gutters, and their hairlines start 16px in from the left. A row's second line is Meta in `ink-3`. Table headers are 32px of Label at `ink-3`. Hover and focus wash a row at `hsl(var(--h) 50% 70% / .1)` over 350ms. A selected row adds a 3px white glowing bar on its left edge. A whole row is one target, with the arrow keys, Home and End moving between rows. A table hides a column below its own container width, and below a set width it stacks each row as a card with its labels above the values.
+
+A list too long to draw whole, such as a Node's log, draws only the rows near its view (`VirtualRows`). It follows the tail while scrolled to the end, stops following once scrolled up, and follows again when scrolled back down.
 
 ### Edition × Target matrix and state squares
 
