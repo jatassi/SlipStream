@@ -4,7 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -44,9 +43,7 @@ func TestARestartedNodeKeepsItsPort(t *testing.T) {
 	worldtest.Until(t, "home lists seedbox's link up", func() (bool, error) {
 		return row(t, a.Nodes("home"), box.NodeID).Link.State == "up", nil
 	})
-	if r := world.Doctor(worldtest.Context(t), run.Manifest().RunDir, testbin.ModuleRoot(t)); !r.OK {
-		t.Fatalf("doctor after the restart:\n%s", r)
-	}
+	doctor(t, run)
 }
 
 func TestWipedWorkerPairsAgain(t *testing.T) {

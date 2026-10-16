@@ -20,6 +20,9 @@ $FW node stop $RUN seedbox     # slipstream stop on its data dir: a clean shutdo
 $FW node kill $RUN seedbox     # kill the recorded PID: the machine losing power
 $FW node wipe $RUN seedbox     # a stopped Node's data dir emptied but config.yaml: Unclaimed again
 $FW node start $RUN seedbox    # a stopped, killed or exited Node back on its first address and port
+$FW node restart $RUN seedbox  # slipstream restart on its data dir: back once its next ready record is in
 ```
+
+The world follows a restart however it was asked for, the API included: each readiness record after a process's first logs `node.restarted` with the old and new PID, then `node.ready`, and rewrites the manifest entry.
 
 A restarted Node keeps its HTTP, link and torrent ports, so browser URLs, saved sign-ins and Pairing records stay valid. `start` fails with the bind error when another process took the port meanwhile. Run doctor after any of these; check 3 reports a Node a cue stopped without failing.

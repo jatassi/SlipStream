@@ -443,7 +443,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		}
 		n.env = env
 		n.log = filepath.Join(r.runDir, "nodes", name+".log")
-		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor, Append: r.appendRecord, Exited: func() { r.nodeExited(i) }})
+		n.life = lifecycle.New(lifecycle.Config{Name: name, Binary: r.binary.Path, DataDir: n.dataDir, Env: env, Log: n.log, Record: r.recordFor, Append: r.appendRecord, Changed: func() { r.nodeChanged(i) }})
 		resolved, err := r.resolve(ctx, name, n.dataDir.Path(), env)
 		if err != nil {
 			return err
@@ -706,8 +706,8 @@ func (r *Run) buildManifest() (Manifest, error) {
 	for _, rel := range r.releases.Releases {
 		m.Releases = append(m.Releases, Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:])})
 	}
-	for i, n := range r.nodes {
-		entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, State: n.life.State(), Ready: n.life.Ready(), DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
+	for i := range r.nodes {
+		entry, err := r.entry(i)
 		if err != nil {
 			return Manifest{}, err
 		}
@@ -715,6 +715,15 @@ func (r *Run) buildManifest() (Manifest, error) {
 	}
 	m.Browser = browserFor(m.Nodes)
 	return m, nil
+}
+
+// entry is Node i's manifest entry as its latest readiness record and
+// its state make it.
+func (r *Run) entry(i int) (Node, error) {
+	n := r.nodes[i]
+	entry, err := setup.Entry(setup.Ran{Spec: n.spec, Address: n.addr, State: n.life.State(), Ready: n.life.Ready(), DataDir: n.dataDir.Path(), Log: n.log}, r.claims.Members[i])
+	entry.PID = n.life.PID()
+	return entry, err
 }
 
 // browserFor maps every Node's name to its address, since a browser

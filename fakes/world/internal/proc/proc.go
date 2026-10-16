@@ -58,6 +58,18 @@ func (p *Process) Kill() error {
 	return nil
 }
 
+// Kill kills the process pid, which need not be this process's child.
+func Kill(pid int) error {
+	p, err := os.FindProcess(pid)
+	if err == nil {
+		err = p.Kill()
+	}
+	if err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return fmt.Errorf("kill PID %d: %w", pid, err)
+	}
+	return nil
+}
+
 // Tail is the last TailLines lines of stderr.
 func (p *Process) Tail() []string { return p.stderr.tail() }
 
