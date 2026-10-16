@@ -9,4 +9,5 @@ export * from "./roots/roots.zod.ts";
 export * from "./shell/shell.zod.ts";
 export * from "./system/system.zod.ts";
 export * from "./targets/targets.zod.ts";
+export * from "./tasks/tasks.zod.ts";
 export * from "./works/works.zod.ts";

@@ -83,6 +83,7 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
     "Go to This Node",
     "Go to Accounts",
     "Go to Settings",
+    "Go to Tasks",
     "Add a Film",
     "Toggle sidebar",
     "New Signup link",

@@ -112,8 +112,8 @@ func TestTheSMTPSettingCarriesEveryEmail(t *testing.T) {
 	port := strconv.Itoa(int(n.smtp.Address.AddrPort.Port()))
 	expect(t, n.admin(http.MethodPatch, "/api/v1/mail/settings", `{"host":"127.0.0.1","port":`+port+`,"username":"slipstream","password":"hunter2","fromAddress":"slipstream@media-pc.example"}`), 200,
 		`{"host":"127.0.0.1","port":`+port+`,"security":"starttls","username":"slipstream","passwordSet":true,"fromAddress":"slipstream@media-pc.example","fromName":"SlipStream"}`)
-	if w := n.admin(http.MethodPatch, "/api/v1/identity/settings", `{"address":"http://media-pc:8484"}`); w.Code != http.StatusOK {
-		t.Fatalf("updateIdentitySettings = %d %s", w.Code, w.Body)
+	if w := n.admin(http.MethodPut, "/api/v1/identity/address", `{"address":"http://media-pc:8484"}`); w.Code != http.StatusOK {
+		t.Fatalf("setAddress = %d %s", w.Code, w.Body)
 	}
 	expect(t, n.admin(http.MethodPost, "/api/v1/mail/test", ""), 200, `{"outcome":"sent"}`)
 	var got []smtp.Message

@@ -70,7 +70,7 @@ test("the sidebar lists Library with each enabled Content Type, Activity and the
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Library", "Films", "Activity", "This Node", "Accounts", "Settings"]);
+  ).toEqual(["Library", "Films", "Activity", "This Node", "Accounts", "Settings", "Tasks"]);
   await expect
     .element(mainNav().getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");

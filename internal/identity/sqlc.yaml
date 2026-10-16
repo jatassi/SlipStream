@@ -68,3 +68,19 @@ sql:
           - column: identity_settings.id
             go_type:
               type: Singleton
+          - column: "identity_settings.*_seconds"
+            go_type:
+              type: int64
+              pointer: true
+          - column: identity_settings.pin_wait_after
+            go_type:
+              type: int64
+              pointer: true
+          - column: identity_settings.pin_off_after
+            go_type:
+              type: int64
+              pointer: true
+          - column: identity_settings.address_failures
+            go_type:
+              type: int64
+              pointer: true

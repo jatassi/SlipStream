@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 
 import {
   getGetAPIKeySuspenseQueryOptions,
+  getGetAddressSuspenseQueryOptions,
   getGetIdentitySettingsSuspenseQueryOptions,
 } from "../api/gen/query/identity/identity";
 import { getGetMailSettingsSuspenseQueryOptions } from "../api/gen/query/mail/mail";
@@ -11,6 +12,7 @@ import { freshQuery } from "../api/query-client";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
+import { SignInSection } from "./sign-in";
 
 export type SettingsSection = {
   readonly id: string;
@@ -25,7 +27,7 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
     id: "address",
     label: "Address",
     load: async (queryClient) => {
-      await freshQuery(queryClient, getGetIdentitySettingsSuspenseQueryOptions());
+      await freshQuery(queryClient, getGetAddressSuspenseQueryOptions());
     },
     component: AddressSection,
   },
@@ -36,6 +38,14 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
       await freshQuery(queryClient, getGetMailSettingsSuspenseQueryOptions());
     },
     component: EmailSection,
+  },
+  {
+    id: "sign-in",
+    label: "Sign-in",
+    load: async (queryClient) => {
+      await freshQuery(queryClient, getGetIdentitySettingsSuspenseQueryOptions());
+    },
+    component: SignInSection,
   },
   {
     id: "api-key",

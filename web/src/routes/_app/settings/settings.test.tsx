@@ -2,10 +2,10 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { IdentitySettings, MailSettings } from "../../../api/gen/model";
+import type { IdentityAddress, IdentitySettings, MailSettings } from "../../../api/gen/model";
 import {
   getGetAPIKeyMockHandler,
-  getGetIdentitySettingsMockHandler,
+  getGetAddressMockHandler,
   getRegenerateAPIKeyMockHandler,
 } from "../../../api/gen/query/identity/identity.msw";
 import {
@@ -15,19 +15,46 @@ import {
 import { problem } from "../../../test/handlers";
 import { renderApp } from "../../../test/render-app";
 
+const noAddress: IdentityAddress = { address: "", suggestedAddress: "http://media-pc:8484" };
+
+const about = { source: "database", applies: "live", isDefault: true } as const;
+const wrongPINs = { one: "wrong PIN", many: "wrong PINs" };
+
+const count = (key: string, label: string, value: number, min: number, max: number) => ({
+  ...about,
+  kind: "count" as const,
+  key: `identity.${key}`,
+  label,
+  value,
+  default: value,
+  min,
+  max,
+  unit: wrongPINs,
+});
+
+const duration = (key: string, label: string, value: number) => ({
+  ...about,
+  kind: "duration" as const,
+  key: `identity.${key}`,
+  label,
+  value,
+  default: value,
+  min: 60,
+  max: 2_592_000,
+  step: 60,
+});
+
 const identitySettings: IdentitySettings = {
-  address: "",
-  suggestedAddress: "http://media-pc:8484",
-  pinWaitAfter: 5,
-  pinWaitSeconds: 900,
-  pinOffAfter: 10,
-  addressFailures: 30,
-  addressWindowSeconds: 900,
-  reconfirmWindowSeconds: 900,
-  sessionLifetimeSeconds: 2_592_000,
-  signupLinkLifetimeSeconds: 604_800,
-  resetLinkLifetimeSeconds: 86_400,
-  emailLinkLifetimeSeconds: 86_400,
+  pinWaitAfter: count("pinWaitAfter", "Wrong PINs before a wait", 5, 3, 10),
+  pinWait: duration("pinWait", "Wait after too many wrong PINs", 900),
+  pinOffAfter: count("pinOffAfter", "Wrong PINs in a row before the PIN turns off", 10, 6, 20),
+  addressFailures: count("addressFailures", "Failed attempts per address", 30, 10, 1000),
+  addressWindow: duration("addressWindow", "Per-address window", 900),
+  reconfirmWindow: duration("reconfirmWindow", "Re-confirm window", 900),
+  sessionLifetime: duration("sessionLifetime", "Session lifetime", 2_592_000),
+  signupLinkLifetime: duration("signupLinkLifetime", "Signup link lifetime", 604_800),
+  resetLinkLifetime: duration("resetLinkLifetime", "Reset link lifetime", 86_400),
+  emailLinkLifetime: duration("emailLinkLifetime", "Email confirm link lifetime", 86_400),
 };
 
 const mail: MailSettings = {
@@ -45,7 +72,7 @@ const field = (name: string) => page.getByRole("textbox", { name, exact: true })
 test("/settings opens on Address, which suggests the address in use while none is set", async () => {
   const { router } = renderApp({
     path: "/settings",
-    handlers: [getGetIdentitySettingsMockHandler(identitySettings)],
+    handlers: [getGetAddressMockHandler(noAddress)],
   });
   await expect.element(page.getByRole("heading", { name: "Address" })).toBeVisible();
   expect(router.state.location.pathname).toBe("/settings/address");
@@ -54,7 +81,7 @@ test("/settings opens on Address, which suggests the address in use while none i
       .getByRole("radio")
       .all()
       .map((option) => option.element().textContent),
-  ).toEqual(["Address", "Email", "API key"]);
+  ).toEqual(["Address", "Email", "Sign-in", "API key"]);
   await expect.element(field("Address")).toHaveValue("http://media-pc:8484");
   await expect
     .element(
@@ -70,13 +97,13 @@ test("saving the address sends it, and an IP address is refused on the field", a
   renderApp({
     path: "/settings/address",
     handlers: [
-      getGetIdentitySettingsMockHandler(identitySettings),
-      http.patch("*/api/v1/identity/settings", async ({ request }) => {
+      getGetAddressMockHandler(noAddress),
+      http.put("*/api/v1/identity/address", async ({ request }) => {
         const body: unknown = await request.json();
         sent.push(body);
         return sent.length === 1
           ? problem(422, "address_ip", "The address must be a name, not an IP address")
-          : HttpResponse.json({ ...identitySettings, address: "https://media.example.test" });
+          : HttpResponse.json({ ...noAddress, address: "https://media.example.test" });
       }),
     ],
   });
@@ -196,7 +223,44 @@ test("Regenerate asks first, then shows the new key once with Copy", async () =>
   await expect.element(dialog).not.toBeInTheDocument();
 });
 
+test("Sign-in groups its settings and saves one, reading them again after", async () => {
+  const sent: unknown[] = [];
+  let reads = 0;
+  renderApp({
+    path: "/settings/sign-in",
+    handlers: [
+      http.get("*/api/v1/identity/settings", () => {
+        reads += 1;
+        return HttpResponse.json(identitySettings);
+      }),
+      http.patch("*/api/v1/identity/settings", async ({ request }) => {
+        sent.push(await request.json());
+        return HttpResponse.json(identitySettings);
+      }),
+    ],
+  });
+  await expect.element(page.getByRole("heading", { name: "Sign-in", level: 1 })).toBeVisible();
+  expect(
+    page
+      .getByRole("heading", { level: 2 })
+      .all()
+      .map((heading) => heading.element().textContent),
+  ).toEqual([
+    "Wrong PINs",
+    "Failed attempts from one address",
+    "Sessions and re-confirm",
+    "Link lifetimes",
+  ]);
+  const readsBefore = reads;
+  await userEvent.fill(page.getByRole("textbox", { name: "Wrong PINs before a wait" }), "4");
+  await userEvent.click(
+    page.getByRole("region", { name: "Wrong PINs" }).getByRole("button", { name: "Save" }).first(),
+  );
+  await expect.poll(() => sent).toEqual([{ pinWaitAfter: 4 }]);
+  await expect.poll(() => reads).toBe(readsBefore + 1);
+});
+
 test("an unknown section is not found", async () => {
-  renderApp({ path: "/settings/sign-in" });
+  renderApp({ path: "/settings/passwords" });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
 });

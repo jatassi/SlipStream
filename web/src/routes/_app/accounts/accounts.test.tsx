@@ -8,7 +8,7 @@ import type {
   IdentityPendingLink,
 } from "../../../api/gen/model";
 import {
-  getGetIdentitySettingsMockHandler,
+  getGetAddressMockHandler,
   getGetSignupLinkMockHandler,
   getListAccountsMockHandler,
   getListSignupLinksMockHandler,
@@ -51,20 +51,7 @@ const accountsPage = (links: IdentityPendingLink[] = [pending]) => [
   getListSignupLinksMockHandler({ links }),
 ];
 
-const noAddress = {
-  address: "",
-  suggestedAddress: "http://media-pc:8484",
-  pinWaitAfter: 5,
-  pinWaitSeconds: 900,
-  pinOffAfter: 10,
-  addressFailures: 30,
-  addressWindowSeconds: 900,
-  reconfirmWindowSeconds: 900,
-  sessionLifetimeSeconds: 2_592_000,
-  signupLinkLifetimeSeconds: 604_800,
-  resetLinkLifetimeSeconds: 86_400,
-  emailLinkLifetimeSeconds: 86_400,
-};
+const noAddress = { address: "", suggestedAddress: "http://media-pc:8484" };
 
 const actions = () => page.getByRole("button", { name: "Actions for lin@example.test" });
 
@@ -150,9 +137,9 @@ test("with no address set, the dialog asks for it, saves it and then makes the l
     path: "/accounts?newLink=true",
     handlers: [
       ...accountsPage(),
-      getGetIdentitySettingsMockHandler(noAddress),
-      http.patch("*/api/v1/identity/settings", async ({ request }) => {
-        calls.push(`PATCH ${JSON.stringify(await request.json())}`);
+      getGetAddressMockHandler(noAddress),
+      http.put("*/api/v1/identity/address", async ({ request }) => {
+        calls.push(`PUT ${JSON.stringify(await request.json())}`);
         addressSet = true;
         return HttpResponse.json({});
       }),
@@ -185,7 +172,7 @@ test("with no address set, the dialog asks for it, saves it and then makes the l
     .toHaveValue("https://media.example.test/signup#token=abc123");
   expect(calls).toEqual([
     "POST signup-links",
-    'PATCH {"address":"https://media.example.test"}',
+    'PUT {"address":"https://media.example.test"}',
     "POST signup-links",
   ]);
 });

@@ -32,6 +32,7 @@ const moreButtons = [
   "This Node",
   "Accounts",
   "Settings",
+  "Tasks",
   "Open the portal",
   "Sign out",
   "Cancel",

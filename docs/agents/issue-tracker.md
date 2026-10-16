@@ -14,6 +14,10 @@ Issues and specs for `jatassi/SlipStream` live as GitHub issues. Use the `gh` CL
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Feature branches
+
+A spec's integration branch is cut by dispatching the `link-branch` workflow with the spec issue, the branch name and the base: `gh workflow run link-branch.yml -f issue=<n> -f branch=feature/<slug> -f base=main`, or, in a session without `gh`, the GitHub MCP's `actions_run_trigger` on `link-branch.yml` at ref `main`. The branch then shows in the issue's Development sidebar. GitHub's API can only link a branch at the moment it creates it, so never create the branch first by pushing. The build PR body says `Closes #<issue>`; a phrase like "Builds #N" doesn't link.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

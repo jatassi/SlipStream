@@ -1,61 +1,65 @@
-package identity
+package identity_test
 
 import (
 	"context"
+	"log/slog"
+	"path/filepath"
 	"testing"
 
-	"github.com/jatassi/slipstream/internal/identity/internal/db"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-func TestTheTableRefusesWhatBoundsRefuse(t *testing.T) {
-	lib := storagetest.Library(t, Schema())
-	fields := map[string]func(*db.SaveSettingsParams) *int64{
-		"pinWaitAfter":              func(p *db.SaveSettingsParams) *int64 { return &p.PinWaitAfter },
-		"pinWaitSeconds":            func(p *db.SaveSettingsParams) *int64 { return &p.PinWaitSeconds },
-		"pinOffAfter":               func(p *db.SaveSettingsParams) *int64 { return &p.PinOffAfter },
-		"addressFailures":           func(p *db.SaveSettingsParams) *int64 { return &p.AddressFailures },
-		"addressWindowSeconds":      func(p *db.SaveSettingsParams) *int64 { return &p.AddressWindowSeconds },
-		"reconfirmWindowSeconds":    func(p *db.SaveSettingsParams) *int64 { return &p.ReconfirmWindowSeconds },
-		"sessionLifetimeSeconds":    func(p *db.SaveSettingsParams) *int64 { return &p.SessionLifetimeSeconds },
-		"signupLinkLifetimeSeconds": func(p *db.SaveSettingsParams) *int64 { return &p.SignupLinkLifetimeSeconds },
-		"resetLinkLifetimeSeconds":  func(p *db.SaveSettingsParams) *int64 { return &p.ResetLinkLifetimeSeconds },
-		"emailLinkLifetimeSeconds":  func(p *db.SaveSettingsParams) *int64 { return &p.EmailLinkLifetimeSeconds },
-	}
-	defaults := func() db.SaveSettingsParams {
-		var p db.SaveSettingsParams
-		for _, b := range Bounds {
-			*fields[b.Field](&p) = b.Default
-		}
-		return p
-	}
-	save := func(p db.SaveSettingsParams) error {
-		return lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error {
-			return db.New(tx).SaveSettings(ctx, p)
-		})
-	}
-	if len(fields) != len(Bounds) {
-		t.Fatalf("%d fields for %d Bounds", len(fields), len(Bounds))
-	}
-	for _, b := range Bounds {
-		for v, ok := range map[int64]bool{b.Floor - 1: false, b.Floor: true, b.Ceiling: true, b.Ceiling + 1: false} {
-			p := defaults()
-			switch b.Field {
-			case "pinWaitAfter":
-				p.PinOffAfter = 20
-			case "pinOffAfter":
-				p.PinWaitAfter = 3
-			}
-			*fields[b.Field](&p) = v
-			if err := save(p); (err == nil) != ok {
-				t.Errorf("%s = %d saved with %v, want accepted %v", b.Field, v, err, ok)
-			}
+func TestEverySignInSettingIsDeclaredSoundly(t *testing.T) {
+	for _, d := range []interface{ Check() error }{
+		identity.PINWaitAfter, identity.PINWaitLength, identity.PINOffAfter, identity.AddressFailures,
+		identity.AddressWindow, identity.ReconfirmWindow, identity.SessionLifetime,
+		identity.SignupLinkLifetime, identity.ResetLinkLifetime, identity.EmailLinkLifetime,
+	} {
+		if err := d.Check(); err != nil {
+			t.Error(err)
 		}
 	}
-	p := defaults()
-	p.PinOffAfter = p.PinWaitAfter
-	if err := save(p); err == nil {
-		t.Error("pinOffAfter equal to pinWaitAfter was saved")
+}
+
+func TestTheOverrideMigrationKeepsOnlyChangedSettings(t *testing.T) {
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	log := slog.New(slog.DiscardHandler)
+	old, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{identity.Schema().Through(2)}, nil, storage.DefaultTimings(), log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = old.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, "UPDATE identity_settings SET pin_wait_after = 4, session_lifetime_seconds = 3600, address = 'https://media.example.com'")
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lib, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{identity.Schema()}, nil, storage.DefaultTimings(), log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = lib.Close() })
+	var row struct {
+		pinWaitAfter, pinWait, pinOffAfter, sessionLifetime *int64
+		address                                             string
+	}
+	err = lib.QueryRowContext(t.Context(), "SELECT pin_wait_after, pin_wait_seconds, pin_off_after, session_lifetime_seconds, address FROM identity_settings").
+		Scan(&row.pinWaitAfter, &row.pinWait, &row.pinOffAfter, &row.sessionLifetime, &row.address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.pinWaitAfter == nil || *row.pinWaitAfter != 4 || row.sessionLifetime == nil || *row.sessionLifetime != 3600 {
+		t.Errorf("changed settings = %v, %v, want 4 and 3600 kept", row.pinWaitAfter, row.sessionLifetime)
+	}
+	if row.pinWait != nil || row.pinOffAfter != nil {
+		t.Errorf("default settings = %v, %v, want null", row.pinWait, row.pinOffAfter)
+	}
+	if row.address != "https://media.example.com" {
+		t.Errorf("address = %q, want it kept", row.address)
 	}
 }

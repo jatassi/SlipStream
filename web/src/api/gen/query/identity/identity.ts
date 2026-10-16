@@ -123,6 +123,10 @@ import type {
   GetAccount409,
   GetAccount422,
   GetAccount500,
+  GetAddress401,
+  GetAddress403,
+  GetAddress409,
+  GetAddress500,
   GetEmailLinkByToken422,
   GetEmailLinkByToken500,
   GetIdentitySettings401,
@@ -146,6 +150,8 @@ import type {
   IdentityAccountDetail,
   IdentityAccountRow,
   IdentityAccountRows,
+  IdentityAddress,
+  IdentityAddressChange,
   IdentityApiKeyMade,
   IdentityCeremony,
   IdentityClaimBody,
@@ -219,6 +225,11 @@ import type {
   ResendSignupLink422,
   ResendSignupLink500,
   ResetLinkInputBody,
+  SetAddress401,
+  SetAddress403,
+  SetAddress409,
+  SetAddress422,
+  SetAddress500,
   StartEmailChange401,
   StartEmailChange403,
   StartEmailChange409,
@@ -2018,12 +2029,224 @@ export const useConfirmEmail = <
 > => {
   return useMutation(getConfirmEmailMutationOptions(options), queryClient);
 };
+export const getGetAddressUrl = () => {
+  return `/api/v1/identity/address`;
+};
+
+/**
+ * @summary Get the address links use, and the one Settings > Address suggests
+ */
+export const getAddress = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityAddress> => {
+  return apiFetch<IdentityAddress>(getGetAddressUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAddressQueryKey = () => {
+  return [`/api/v1/identity/address`] as const;
+};
+
+export const getGetAddressSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAddress>>,
+  TError = ErrorType<GetAddress401 | GetAddress403 | GetAddress409 | GetAddress500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getAddress>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAddressQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAddress>>> = ({ signal }) =>
+    getAddress({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getAddress>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetAddressSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getAddress>>>;
+export type GetAddressSuspenseQueryError = ErrorType<
+  GetAddress401 | GetAddress403 | GetAddress409 | GetAddress500
+>;
+
+export function useGetAddressSuspense<
+  TData = Awaited<ReturnType<typeof getAddress>>,
+  TError = ErrorType<GetAddress401 | GetAddress403 | GetAddress409 | GetAddress500>,
+>(
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getAddress>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetAddressSuspense<
+  TData = Awaited<ReturnType<typeof getAddress>>,
+  TError = ErrorType<GetAddress401 | GetAddress403 | GetAddress409 | GetAddress500>,
+>(
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getAddress>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetAddressSuspense<
+  TData = Awaited<ReturnType<typeof getAddress>>,
+  TError = ErrorType<GetAddress401 | GetAddress403 | GetAddress409 | GetAddress500>,
+>(
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getAddress>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the address links use, and the one Settings > Address suggests
+ */
+
+export function useGetAddressSuspense<
+  TData = Awaited<ReturnType<typeof getAddress>>,
+  TError = ErrorType<GetAddress401 | GetAddress403 | GetAddress409 | GetAddress500>,
+>(
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getAddress>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetAddressSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSetAddressUrl = () => {
+  return `/api/v1/identity/address`;
+};
+
+/**
+ * @summary Set the address links use
+ */
+export const setAddress = async (
+  identityAddressChange: IdentityAddressChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityAddress> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IdentityAddress>(getSetAddressUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(identityAddressChange),
+  });
+};
+
+export const getSetAddressMutationKey = () => ["setAddress"] as const;
+
+export const getSetAddressMutationOptions = <
+  TError = ErrorType<SetAddress401 | SetAddress403 | SetAddress409 | SetAddress422 | SetAddress500>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAddress>>,
+    TError,
+    SetAddressMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setAddress>>,
+  TError,
+  SetAddressMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetAddressMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setAddress>>,
+    SetAddressMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setAddress(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetAddressMutationResult = NonNullable<Awaited<ReturnType<typeof setAddress>>>;
+export type SetAddressMutationBody = IdentityAddressChange;
+export type SetAddressMutationError = ErrorType<
+  SetAddress401 | SetAddress403 | SetAddress409 | SetAddress422 | SetAddress500
+>;
+export type SetAddressMutationVariables = { data: IdentityAddressChange };
+
+/**
+ * @summary Set the address links use
+ */
+export const useSetAddress = <
+  TError = ErrorType<SetAddress401 | SetAddress403 | SetAddress409 | SetAddress422 | SetAddress500>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setAddress>>,
+      TError,
+      SetAddressMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setAddress>>,
+  TError,
+  SetAddressMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetAddressMutationOptions(options), queryClient);
+};
 export const getGetIdentitySettingsUrl = () => {
   return `/api/v1/identity/settings`;
 };
 
 /**
- * @summary Get the sign-in limits and lifetimes, and the address links use
+ * @summary Get the sign-in limits and lifetimes
  */
 export const getIdentitySettings = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -2129,7 +2352,7 @@ export function useGetIdentitySettingsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get the sign-in limits and lifetimes, and the address links use
+ * @summary Get the sign-in limits and lifetimes
  */
 
 export function useGetIdentitySettingsSuspense<
@@ -2164,7 +2387,7 @@ export const getUpdateIdentitySettingsUrl = () => {
 };
 
 /**
- * @summary Change the sign-in limits and lifetimes, or the address links use
+ * @summary Change the sign-in limits and lifetimes
  */
 export const updateIdentitySettings = async (
   identitySettingsPatch: IdentitySettingsPatch,
@@ -2255,7 +2478,7 @@ export type UpdateIdentitySettingsMutationError = ErrorType<
 export type UpdateIdentitySettingsMutationVariables = { data: IdentitySettingsPatch };
 
 /**
- * @summary Change the sign-in limits and lifetimes, or the address links use
+ * @summary Change the sign-in limits and lifetimes
  */
 export const useUpdateIdentitySettings = <
   TError = ErrorType<

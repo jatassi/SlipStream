@@ -1,10 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 
-import {
-  updateIdentitySettings,
-  useGetIdentitySettingsSuspense,
-} from "../api/gen/query/identity/identity";
+import { setAddress, useGetAddressSuspense } from "../api/gen/query/identity/identity";
 import { submitErrors, useAppForm } from "../ui/form";
 import { toast } from "../ui/toast";
 
@@ -20,18 +17,16 @@ function describe(address: string, saved: string): string {
 }
 
 export function AddressSection() {
-  const { address, suggestedAddress } = useGetIdentitySettingsSuspense().data;
+  const { address, suggestedAddress } = useGetAddressSuspense().data;
   const router = useRouter();
   const form = useAppForm({
     defaultValues: { address: address === "" ? suggestedAddress : address },
     validators: { onSubmit: addressForm },
     onSubmit: async ({ value, formApi }) => {
-      const saved = await updateIdentitySettings(addressForm.parse(value)).catch(
-        (error: unknown) => {
-          formApi.setErrorMap({ onSubmit: submitErrors(error, { address_ip: "address" }) });
-          return null;
-        },
-      );
+      const saved = await setAddress(addressForm.parse(value)).catch((error: unknown) => {
+        formApi.setErrorMap({ onSubmit: submitErrors(error, { address_ip: "address" }) });
+        return null;
+      });
       if (saved !== null) {
         formApi.reset({ address: saved.address });
         toast("Saved the address");

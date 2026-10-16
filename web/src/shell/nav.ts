@@ -6,6 +6,7 @@ import {
   ServerStack01Icon,
   Settings01Icon,
   Task01Icon,
+  TimeScheduleIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
@@ -28,6 +29,7 @@ export type NavId =
   | "this-node"
   | "accounts"
   | "settings"
+  | "tasks"
   | "home"
   | "search"
   | "requests"
@@ -102,6 +104,14 @@ export const adminNav: NavTable = [
     label: "Settings",
     icon: Settings01Icon,
     to: "/settings",
+    audience: "admin",
+    place: "system",
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    icon: TimeScheduleIcon,
+    to: "/tasks",
     audience: "admin",
     place: "system",
   },

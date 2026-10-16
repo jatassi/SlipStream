@@ -7,6 +7,7 @@ import type {
   IdentityAccountDetail,
   IdentityAccountRow,
   IdentityAccountRows,
+  IdentityAddress,
   IdentityApiKeyMade,
   IdentityCeremony,
   IdentityClaimed,
@@ -227,39 +228,429 @@ export const getGetEmailLinkByTokenResponseMock = (): IdentityLinkView =>
     { ...getGetEmailLinkByTokenResponseIdentityDeadLinkMock() },
   ]);
 
+export const getGetAddressResponseMock = (
+  overrideResponse: Partial<Extract<IdentityAddress, object>> = {},
+): IdentityAddress => ({
+  address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  suggestedAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
+export const getSetAddressResponseMock = (
+  overrideResponse: Partial<Extract<IdentityAddress, object>> = {},
+): IdentityAddress => ({
+  address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  suggestedAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
 export const getGetIdentitySettingsResponseMock = (
   overrideResponse: Partial<Extract<IdentitySettings, object>> = {},
 ): IdentitySettings => ({
-  address: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  addressFailures: faker.number.int(),
-  addressWindowSeconds: faker.number.int(),
-  emailLinkLifetimeSeconds: faker.number.int(),
-  pinOffAfter: faker.number.int(),
-  pinWaitAfter: faker.number.int(),
-  pinWaitSeconds: faker.number.int(),
-  reconfirmWindowSeconds: faker.number.int(),
-  resetLinkLifetimeSeconds: faker.number.int(),
-  sessionLifetimeSeconds: faker.number.int(),
-  signupLinkLifetimeSeconds: faker.number.int(),
-  suggestedAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  addressFailures: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+  },
+  addressWindow: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  emailLinkLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  pinOffAfter: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+  },
+  pinWait: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  pinWaitAfter: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+  },
+  reconfirmWindow: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  resetLinkLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  sessionLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  signupLinkLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
   ...overrideResponse,
 });
 
 export const getUpdateIdentitySettingsResponseMock = (
   overrideResponse: Partial<Extract<IdentitySettings, object>> = {},
 ): IdentitySettings => ({
-  address: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  addressFailures: faker.number.int(),
-  addressWindowSeconds: faker.number.int(),
-  emailLinkLifetimeSeconds: faker.number.int(),
-  pinOffAfter: faker.number.int(),
-  pinWaitAfter: faker.number.int(),
-  pinWaitSeconds: faker.number.int(),
-  reconfirmWindowSeconds: faker.number.int(),
-  resetLinkLifetimeSeconds: faker.number.int(),
-  sessionLifetimeSeconds: faker.number.int(),
-  signupLinkLifetimeSeconds: faker.number.int(),
-  suggestedAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  addressFailures: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+  },
+  addressWindow: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  emailLinkLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  pinOffAfter: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+  },
+  pinWait: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  pinWaitAfter: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+  },
+  reconfirmWindow: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  resetLinkLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  sessionLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  signupLinkLifetime: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    source: faker.helpers.arrayElement(["database"] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
   ...overrideResponse,
 });
 
@@ -923,6 +1314,54 @@ export const getConfirmEmailMockHandler = (
   );
 };
 
+export const getGetAddressMockHandler = (
+  overrideResponse?:
+    | IdentityAddress
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentityAddress> | IdentityAddress),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/identity/address",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetAddressResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetAddressMockHandler = (
+  overrideResponse?:
+    | IdentityAddress
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<IdentityAddress> | IdentityAddress),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/identity/address",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetAddressResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGetIdentitySettingsMockHandler = (
   overrideResponse?:
     | IdentitySettings
@@ -1575,6 +2014,8 @@ export const getIdentityMock = () => [
   getRegenerateAPIKeyMockHandler(),
   getGetEmailLinkByTokenMockHandler(),
   getConfirmEmailMockHandler(),
+  getGetAddressMockHandler(),
+  getSetAddressMockHandler(),
   getGetIdentitySettingsMockHandler(),
   getUpdateIdentitySettingsMockHandler(),
   getListPasskeysMockHandler(),

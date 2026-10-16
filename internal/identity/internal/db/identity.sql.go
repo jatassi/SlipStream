@@ -35,17 +35,11 @@ func (q *Queries) ConfirmSession(ctx context.Context, arg ConfirmSessionParams) 
 }
 
 const deleteIdleSessions = `-- name: DeleteIdleSessions :exec
-DELETE FROM identity_session
-WHERE account_id = ?1 AND last_seen_at < ?2
+DELETE FROM identity_session WHERE last_seen_at < ?1
 `
 
-type DeleteIdleSessionsParams struct {
-	AccountID  AccountID
-	SeenBefore storage.Time
-}
-
-func (q *Queries) DeleteIdleSessions(ctx context.Context, arg DeleteIdleSessionsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteIdleSessions, arg.AccountID, arg.SeenBefore)
+func (q *Queries) DeleteIdleSessions(ctx context.Context, seenBefore storage.Time) error {
+	_, err := q.db.ExecContext(ctx, deleteIdleSessions, seenBefore)
 	return err
 }
 
@@ -157,8 +151,8 @@ type GetSessionRow struct {
 	DisplayName            string
 	Admin                  bool
 	KeyPrompt              KeyPrompt
-	SessionLifetimeSeconds int64
-	ReconfirmWindowSeconds int64
+	SessionLifetimeSeconds *int64
+	ReconfirmWindowSeconds *int64
 }
 
 func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionRow, error) {
@@ -189,7 +183,7 @@ WHERE s.id = ?1
 
 type GetSessionUseRow struct {
 	LastSeenAt             storage.Time
-	SessionLifetimeSeconds int64
+	SessionLifetimeSeconds *int64
 }
 
 func (q *Queries) GetSessionUse(ctx context.Context, id SessionID) (GetSessionUseRow, error) {
@@ -312,6 +306,39 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 	return err
 }
 
+const listIdleSessions = `-- name: ListIdleSessions :many
+SELECT id, account_id FROM identity_session WHERE last_seen_at < ?1
+ORDER BY account_id, id
+`
+
+type ListIdleSessionsRow struct {
+	ID        SessionID
+	AccountID AccountID
+}
+
+func (q *Queries) ListIdleSessions(ctx context.Context, seenBefore storage.Time) ([]ListIdleSessionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIdleSessions, seenBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdleSessionsRow
+	for rows.Next() {
+		var i ListIdleSessionsRow
+		if err := rows.Scan(&i.ID, &i.AccountID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const replaceAPIKey = `-- name: ReplaceAPIKey :exec
 UPDATE identity_api_key SET token_hash = ?1, created_at = ?2 WHERE id = 1
 `
@@ -349,54 +376,6 @@ func (q *Queries) SavePINLedger(ctx context.Context, arg SavePINLedgerParams) er
 	return err
 }
 
-const saveSettings = `-- name: SaveSettings :exec
-UPDATE identity_settings
-SET
-    pin_wait_after = ?1,
-    pin_wait_seconds = ?2,
-    pin_off_after = ?3,
-    address_failures = ?4,
-    address_window_seconds = ?5,
-    reconfirm_window_seconds = ?6,
-    session_lifetime_seconds = ?7,
-    signup_link_lifetime_seconds = ?8,
-    reset_link_lifetime_seconds = ?9,
-    email_link_lifetime_seconds = ?10,
-    address = ?11
-WHERE id = 1
-`
-
-type SaveSettingsParams struct {
-	PinWaitAfter              int64
-	PinWaitSeconds            int64
-	PinOffAfter               int64
-	AddressFailures           int64
-	AddressWindowSeconds      int64
-	ReconfirmWindowSeconds    int64
-	SessionLifetimeSeconds    int64
-	SignupLinkLifetimeSeconds int64
-	ResetLinkLifetimeSeconds  int64
-	EmailLinkLifetimeSeconds  int64
-	Address                   string
-}
-
-func (q *Queries) SaveSettings(ctx context.Context, arg SaveSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, saveSettings,
-		arg.PinWaitAfter,
-		arg.PinWaitSeconds,
-		arg.PinOffAfter,
-		arg.AddressFailures,
-		arg.AddressWindowSeconds,
-		arg.ReconfirmWindowSeconds,
-		arg.SessionLifetimeSeconds,
-		arg.SignupLinkLifetimeSeconds,
-		arg.ResetLinkLifetimeSeconds,
-		arg.EmailLinkLifetimeSeconds,
-		arg.Address,
-	)
-	return err
-}
-
 const setAddress = `-- name: SetAddress :exec
 UPDATE identity_settings SET address = ?1 WHERE id = 1
 `
@@ -419,6 +398,51 @@ type SetPINParams struct {
 
 func (q *Queries) SetPIN(ctx context.Context, arg SetPINParams) error {
 	_, err := q.db.ExecContext(ctx, setPIN, arg.PinHash, arg.ID)
+	return err
+}
+
+const setSignInSettings = `-- name: SetSignInSettings :exec
+UPDATE identity_settings
+SET
+    pin_wait_after = ?1,
+    pin_wait_seconds = ?2,
+    pin_off_after = ?3,
+    address_failures = ?4,
+    address_window_seconds = ?5,
+    reconfirm_window_seconds = ?6,
+    session_lifetime_seconds = ?7,
+    signup_link_lifetime_seconds = ?8,
+    reset_link_lifetime_seconds = ?9,
+    email_link_lifetime_seconds = ?10
+WHERE id = 1
+`
+
+type SetSignInSettingsParams struct {
+	PinWaitAfter              *int64
+	PinWaitSeconds            *int64
+	PinOffAfter               *int64
+	AddressFailures           *int64
+	AddressWindowSeconds      *int64
+	ReconfirmWindowSeconds    *int64
+	SessionLifetimeSeconds    *int64
+	SignupLinkLifetimeSeconds *int64
+	ResetLinkLifetimeSeconds  *int64
+	EmailLinkLifetimeSeconds  *int64
+}
+
+func (q *Queries) SetSignInSettings(ctx context.Context, arg SetSignInSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setSignInSettings,
+		arg.PinWaitAfter,
+		arg.PinWaitSeconds,
+		arg.PinOffAfter,
+		arg.AddressFailures,
+		arg.AddressWindowSeconds,
+		arg.ReconfirmWindowSeconds,
+		arg.SessionLifetimeSeconds,
+		arg.SignupLinkLifetimeSeconds,
+		arg.ResetLinkLifetimeSeconds,
+		arg.EmailLinkLifetimeSeconds,
+	)
 	return err
 }
 

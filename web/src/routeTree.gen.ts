@@ -21,6 +21,7 @@ import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
+import { Route as AppTasksRouteRouteImport } from "./routes/_app/tasks/route";
 import { Route as PortalIndexRouteImport } from "./routes/portal/index";
 import { Route as PortalSplatRouteImport } from "./routes/portal/$";
 import { Route as PortalAccountRouteImport } from "./routes/portal/account";
@@ -32,6 +33,8 @@ import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
 import { Route as AppSettingsIndexRouteImport } from "./routes/_app/settings/index";
 import { Route as AppSettingsSectionRouteImport } from "./routes/_app/settings/$section";
+import { Route as AppTasksIndexRouteImport } from "./routes/_app/tasks/index";
+import { Route as AppTasksTaskIdRouteImport } from "./routes/_app/tasks/$taskId";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 
 const AppRoute = AppRouteImport.update({
@@ -93,6 +96,11 @@ const AppSystemRoute = AppSystemRouteImport.update({
   path: "/system",
   getParentRoute: () => AppRoute,
 } as any);
+const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
+  id: "/tasks",
+  path: "/tasks",
+  getParentRoute: () => AppRoute,
+} as any);
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -148,6 +156,16 @@ const AppSettingsSectionRoute = AppSettingsSectionRouteImport.update({
   path: "/settings/$section",
   getParentRoute: () => AppRoute,
 } as any);
+const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AppTasksRouteRoute,
+} as any);
+const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
+  id: "/$taskId",
+  path: "/$taskId",
+  getParentRoute: () => AppTasksRouteRoute,
+} as any);
 const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   id: "/works/$workId",
   path: "/works/$workId",
@@ -162,6 +180,7 @@ export interface FileRoutesByFullPath {
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
   "/library": typeof AppLibraryRouteRouteWithChildren;
+  "/tasks": typeof AppTasksRouteRouteWithChildren;
   "/$": typeof AppSplatRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
@@ -174,10 +193,12 @@ export interface FileRoutesByFullPath {
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
+  "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/accounts/": typeof AppAccountsIndexRoute;
   "/library/": typeof AppLibraryIndexRoute;
   "/settings/": typeof AppSettingsIndexRoute;
+  "/tasks/": typeof AppTasksIndexRoute;
 }
 export interface FileRoutesByTo {
   "/new-pin": typeof NewPinRoute;
@@ -197,10 +218,12 @@ export interface FileRoutesByTo {
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
+  "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/accounts": typeof AppAccountsIndexRoute;
   "/library": typeof AppLibraryIndexRoute;
   "/settings": typeof AppSettingsIndexRoute;
+  "/tasks": typeof AppTasksIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -211,6 +234,7 @@ export interface FileRoutesById {
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
+  "/_app/tasks": typeof AppTasksRouteRouteWithChildren;
   "/_app/$": typeof AppSplatRoute;
   "/_app/activity": typeof AppActivityRoute;
   "/_app/add": typeof AppAddRoute;
@@ -224,10 +248,12 @@ export interface FileRoutesById {
   "/_app/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
+  "/_app/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
   "/_app/accounts/": typeof AppAccountsIndexRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
   "/_app/settings/": typeof AppSettingsIndexRoute;
+  "/_app/tasks/": typeof AppTasksIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -239,6 +265,7 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/worker"
     | "/library"
+    | "/tasks"
     | "/$"
     | "/activity"
     | "/add"
@@ -251,10 +278,12 @@ export interface FileRouteTypes {
     | "/accounts/$accountId"
     | "/library/$contentType"
     | "/settings/$section"
+    | "/tasks/$taskId"
     | "/works/$workId"
     | "/accounts/"
     | "/library/"
-    | "/settings/";
+    | "/settings/"
+    | "/tasks/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/new-pin"
@@ -274,10 +303,12 @@ export interface FileRouteTypes {
     | "/accounts/$accountId"
     | "/library/$contentType"
     | "/settings/$section"
+    | "/tasks/$taskId"
     | "/works/$workId"
     | "/accounts"
     | "/library"
-    | "/settings";
+    | "/settings"
+    | "/tasks";
   id:
     | "__root__"
     | "/_app"
@@ -287,6 +318,7 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/worker"
     | "/_app/library"
+    | "/_app/tasks"
     | "/_app/$"
     | "/_app/activity"
     | "/_app/add"
@@ -300,10 +332,12 @@ export interface FileRouteTypes {
     | "/_app/accounts/$accountId"
     | "/_app/library/$contentType"
     | "/_app/settings/$section"
+    | "/_app/tasks/$taskId"
     | "/_app/works/$workId"
     | "/_app/accounts/"
     | "/_app/library/"
-    | "/_app/settings/";
+    | "/_app/settings/"
+    | "/_app/tasks/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -401,6 +435,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSystemRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/_app/tasks": {
+      id: "/_app/tasks";
+      path: "/tasks";
+      fullPath: "/tasks";
+      preLoaderRoute: typeof AppTasksRouteRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/portal/": {
       id: "/portal/";
       path: "/";
@@ -478,6 +519,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSettingsSectionRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/_app/tasks/": {
+      id: "/_app/tasks/";
+      path: "/";
+      fullPath: "/tasks/";
+      preLoaderRoute: typeof AppTasksIndexRouteImport;
+      parentRoute: typeof AppTasksRouteRoute;
+    };
+    "/_app/tasks/$taskId": {
+      id: "/_app/tasks/$taskId";
+      path: "/$taskId";
+      fullPath: "/tasks/$taskId";
+      preLoaderRoute: typeof AppTasksTaskIdRouteImport;
+      parentRoute: typeof AppTasksRouteRoute;
+    };
     "/_app/works/$workId": {
       id: "/_app/works/$workId";
       path: "/works/$workId";
@@ -502,8 +557,23 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
   AppLibraryRouteRouteChildren,
 );
 
+interface AppTasksRouteRouteChildren {
+  AppTasksTaskIdRoute: typeof AppTasksTaskIdRoute;
+  AppTasksIndexRoute: typeof AppTasksIndexRoute;
+}
+
+const AppTasksRouteRouteChildren: AppTasksRouteRouteChildren = {
+  AppTasksTaskIdRoute: AppTasksTaskIdRoute,
+  AppTasksIndexRoute: AppTasksIndexRoute,
+};
+
+const AppTasksRouteRouteWithChildren = AppTasksRouteRoute._addFileChildren(
+  AppTasksRouteRouteChildren,
+);
+
 interface AppRouteChildren {
   AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
+  AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren;
   AppSplatRoute: typeof AppSplatRoute;
   AppActivityRoute: typeof AppActivityRoute;
   AppAddRoute: typeof AppAddRoute;
@@ -518,6 +588,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
+  AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppSplatRoute: AppSplatRoute,
   AppActivityRoute: AppActivityRoute,
   AppAddRoute: AppAddRoute,

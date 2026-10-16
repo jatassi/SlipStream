@@ -4,11 +4,7 @@ import { z } from "zod";
 
 import { isProblem } from "../api/errors";
 import type { IdentityIssuedSignupLink } from "../api/gen/model";
-import {
-  createSignupLink,
-  getIdentitySettings,
-  updateIdentitySettings,
-} from "../api/gen/query/identity/identity";
+import { createSignupLink, getAddress, setAddress } from "../api/gen/query/identity/identity";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose } from "../ui/dialog";
 import { submitErrors, useAppForm } from "../ui/form";
@@ -28,13 +24,13 @@ function useSignupLinkForm(onIssued: (issued: IdentityIssuedSignupLink) => void)
       const { email, address } = linkForm.parse(value);
       try {
         if (needsAddress) {
-          await updateIdentitySettings({ address });
+          await setAddress({ address });
           setNeedsAddress(false);
         }
         onIssued(await createSignupLink({ email }));
       } catch (error) {
         if (isProblem(error, "address_unset")) {
-          const { suggestedAddress } = await getIdentitySettings();
+          const { suggestedAddress } = await getAddress();
           formApi.setFieldValue("address", suggestedAddress);
           setNeedsAddress(true);
         }

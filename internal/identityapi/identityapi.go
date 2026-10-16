@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/settingapi"
 )
 
 // Library is the Node's library.db as identity's operations reach it.
@@ -510,7 +511,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "getIdentitySettings",
 		Method:  http.MethodGet,
 		Path:    "/identity/settings",
-		Summary: "Get the sign-in limits and lifetimes, and the address links use",
+		Summary: "Get the sign-in limits and lifetimes",
 		Status:  http.StatusOK,
 	}, getSettings(lib))
 
@@ -518,8 +519,25 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "updateIdentitySettings",
 		Method:  http.MethodPatch,
 		Path:    "/identity/settings",
-		Summary: "Change the sign-in limits and lifetimes, or the address links use",
+		Summary: "Change the sign-in limits and lifetimes",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{settingOutOfRange, addressIP},
+		Errors:  []*api.Code{settingapi.ErrOutOfRange},
 	}, updateSettings(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getAddress",
+		Method:  http.MethodGet,
+		Path:    "/identity/address",
+		Summary: "Get the address links use, and the one Settings > Address suggests",
+		Status:  http.StatusOK,
+	}, getAddress(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "setAddress",
+		Method:  http.MethodPut,
+		Path:    "/identity/address",
+		Summary: "Set the address links use",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{addressIP},
+	}, setAddress(lib))
 }
