@@ -7,6 +7,7 @@ import { NotFound, ShellError } from "../shell/errors";
 import { adminNav } from "../shell/nav";
 import { Palette } from "../shell/palette/palette";
 import { PhoneShell } from "../shell/phone/layout";
+import { SignOutDialog } from "../shell/sign-out";
 import { type ShellKind, useShell } from "../ui/shell-context";
 
 export const Route = createFileRoute("/_app")({
@@ -40,6 +41,7 @@ function AppFrame({ children }: { children: ReactNode }) {
     <div className="isolate">
       <Shell>{children}</Shell>
       <Palette />
+      <SignOutDialog />
     </div>
   );
 }

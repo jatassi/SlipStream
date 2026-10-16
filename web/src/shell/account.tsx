@@ -1,22 +1,6 @@
 import { LibraryIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { useRouteContext } from "@tanstack/react-router";
 
-import { useDeleteSession } from "../api/gen/query/identity/identity";
 import { usePref, writePref } from "./prefs";
-
-export function useSignOut(): () => void {
-  const endSession = useRouteContext({ from: "__root__", select: (context) => context.endSession });
-  const signOut = useDeleteSession({
-    mutation: {
-      onSuccess: () => {
-        endSession("signed-out");
-      },
-    },
-  });
-  return () => {
-    signOut.mutate();
-  };
-}
 
 export const startupLabel = "Startup sequence";
 
