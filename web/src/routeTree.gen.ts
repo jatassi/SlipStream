@@ -26,8 +26,12 @@ import { Route as PortalSplatRouteImport } from "./routes/portal/$";
 import { Route as PortalAccountRouteImport } from "./routes/portal/account";
 import { Route as PortalRequestsRouteImport } from "./routes/portal/requests";
 import { Route as PortalSearchRouteImport } from "./routes/portal/search";
+import { Route as AppAccountsIndexRouteImport } from "./routes/_app/accounts/index";
+import { Route as AppAccountsAccountIdRouteImport } from "./routes/_app/accounts/$accountId";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
+import { Route as AppSettingsIndexRouteImport } from "./routes/_app/settings/index";
+import { Route as AppSettingsSectionRouteImport } from "./routes/_app/settings/$section";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 
 const AppRoute = AppRouteImport.update({
@@ -114,6 +118,16 @@ const PortalSearchRoute = PortalSearchRouteImport.update({
   path: "/search",
   getParentRoute: () => PortalRoute,
 } as any);
+const AppAccountsIndexRoute = AppAccountsIndexRouteImport.update({
+  id: "/accounts/",
+  path: "/accounts/",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAccountsAccountIdRoute = AppAccountsAccountIdRouteImport.update({
+  id: "/accounts/$accountId",
+  path: "/accounts/$accountId",
+  getParentRoute: () => AppRoute,
+} as any);
 const AppLibraryIndexRoute = AppLibraryIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -123,6 +137,16 @@ const AppLibraryContentTypeRoute = AppLibraryContentTypeRouteImport.update({
   id: "/$contentType",
   path: "/$contentType",
   getParentRoute: () => AppLibraryRouteRoute,
+} as any);
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: "/settings/",
+  path: "/settings/",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppSettingsSectionRoute = AppSettingsSectionRouteImport.update({
+  id: "/settings/$section",
+  path: "/settings/$section",
+  getParentRoute: () => AppRoute,
 } as any);
 const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   id: "/works/$workId",
@@ -147,9 +171,13 @@ export interface FileRoutesByFullPath {
   "/portal/requests": typeof PortalRequestsRoute;
   "/portal/search": typeof PortalSearchRoute;
   "/portal/": typeof PortalIndexRoute;
+  "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/settings/$section": typeof AppSettingsSectionRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/accounts/": typeof AppAccountsIndexRoute;
   "/library/": typeof AppLibraryIndexRoute;
+  "/settings/": typeof AppSettingsIndexRoute;
 }
 export interface FileRoutesByTo {
   "/new-pin": typeof NewPinRoute;
@@ -166,9 +194,13 @@ export interface FileRoutesByTo {
   "/portal/search": typeof PortalSearchRoute;
   "/": typeof AppIndexRoute;
   "/portal": typeof PortalIndexRoute;
+  "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/settings/$section": typeof AppSettingsSectionRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/accounts": typeof AppAccountsIndexRoute;
   "/library": typeof AppLibraryIndexRoute;
+  "/settings": typeof AppSettingsIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -189,9 +221,13 @@ export interface FileRoutesById {
   "/portal/search": typeof PortalSearchRoute;
   "/_app/": typeof AppIndexRoute;
   "/portal/": typeof PortalIndexRoute;
+  "/_app/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/_app/settings/$section": typeof AppSettingsSectionRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
+  "/_app/accounts/": typeof AppAccountsIndexRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
+  "/_app/settings/": typeof AppSettingsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -212,9 +248,13 @@ export interface FileRouteTypes {
     | "/portal/requests"
     | "/portal/search"
     | "/portal/"
+    | "/accounts/$accountId"
     | "/library/$contentType"
+    | "/settings/$section"
     | "/works/$workId"
-    | "/library/";
+    | "/accounts/"
+    | "/library/"
+    | "/settings/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/new-pin"
@@ -231,9 +271,13 @@ export interface FileRouteTypes {
     | "/portal/search"
     | "/"
     | "/portal"
+    | "/accounts/$accountId"
     | "/library/$contentType"
+    | "/settings/$section"
     | "/works/$workId"
-    | "/library";
+    | "/accounts"
+    | "/library"
+    | "/settings";
   id:
     | "__root__"
     | "/_app"
@@ -253,9 +297,13 @@ export interface FileRouteTypes {
     | "/portal/search"
     | "/_app/"
     | "/portal/"
+    | "/_app/accounts/$accountId"
     | "/_app/library/$contentType"
+    | "/_app/settings/$section"
     | "/_app/works/$workId"
-    | "/_app/library/";
+    | "/_app/accounts/"
+    | "/_app/library/"
+    | "/_app/settings/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -388,6 +436,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof PortalSearchRouteImport;
       parentRoute: typeof PortalRoute;
     };
+    "/_app/accounts/": {
+      id: "/_app/accounts/";
+      path: "/accounts";
+      fullPath: "/accounts/";
+      preLoaderRoute: typeof AppAccountsIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/accounts/$accountId": {
+      id: "/_app/accounts/$accountId";
+      path: "/accounts/$accountId";
+      fullPath: "/accounts/$accountId";
+      preLoaderRoute: typeof AppAccountsAccountIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/library/": {
       id: "/_app/library/";
       path: "/";
@@ -401,6 +463,20 @@ declare module "@tanstack/react-router" {
       fullPath: "/library/$contentType";
       preLoaderRoute: typeof AppLibraryContentTypeRouteImport;
       parentRoute: typeof AppLibraryRouteRoute;
+    };
+    "/_app/settings/": {
+      id: "/_app/settings/";
+      path: "/settings";
+      fullPath: "/settings/";
+      preLoaderRoute: typeof AppSettingsIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/settings/$section": {
+      id: "/_app/settings/$section";
+      path: "/settings/$section";
+      fullPath: "/settings/$section";
+      preLoaderRoute: typeof AppSettingsSectionRouteImport;
+      parentRoute: typeof AppRoute;
     };
     "/_app/works/$workId": {
       id: "/_app/works/$workId";
@@ -433,7 +509,11 @@ interface AppRouteChildren {
   AppAddRoute: typeof AppAddRoute;
   AppSystemRoute: typeof AppSystemRoute;
   AppIndexRoute: typeof AppIndexRoute;
+  AppAccountsAccountIdRoute: typeof AppAccountsAccountIdRoute;
+  AppSettingsSectionRoute: typeof AppSettingsSectionRoute;
   AppWorksWorkIdRoute: typeof AppWorksWorkIdRoute;
+  AppAccountsIndexRoute: typeof AppAccountsIndexRoute;
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute;
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -443,7 +523,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppAddRoute: AppAddRoute,
   AppSystemRoute: AppSystemRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAccountsAccountIdRoute: AppAccountsAccountIdRoute,
+  AppSettingsSectionRoute: AppSettingsSectionRoute,
   AppWorksWorkIdRoute: AppWorksWorkIdRoute,
+  AppAccountsIndexRoute: AppAccountsIndexRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
 };
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
