@@ -211,11 +211,6 @@ func (s *Scheduler) look(ctx context.Context) (look, error) {
 	return l, err
 }
 
-func (l look) reaches(node role.NodeID) bool {
-	n, ok := l.nodes[node]
-	return ok && (n.Link == nodes.Local || n.Link == nodes.Up)
-}
-
 func (l look) name(node role.NodeID) string { return l.nodes[node].Name }
 
 // Overview is every shown task with its status, the sentence and the
@@ -314,7 +309,7 @@ func (s *Scheduler) views(l look, now time.Time) []View {
 		started = s.started
 	}
 	s.mu.Unlock()
-	states, k := s.states(l.snap, started, nil, l.reaches)
+	states, k := s.states(l.snap, started, nil)
 	p := plan(now, k, states)
 	rows := map[TaskID]db.TasksTask{}
 	for _, row := range l.snap.rows {
@@ -357,12 +352,13 @@ func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status 
 	}
 	s.mu.Unlock()
 	for _, u := range units {
-		if u.Place.kind != tiedTo || l.reaches(u.Place.node) {
+		if u.Place.kind != tiedTo || s.reaches(u.Place.node) {
 			return Idle{Next: next}
 		}
 	}
-	n := l.nodes[units[0].Place.node]
-	return Waiting{Node: n.Name, Link: n.Link, Since: n.Since}
+	node := units[0].Place.node
+	link, since := s.cfg.Roster.Reach(node)
+	return Waiting{Node: l.name(node), Link: link, Since: since}
 }
 
 func (l look) runOf(row db.TasksRun) Run {

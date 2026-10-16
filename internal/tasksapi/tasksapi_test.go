@@ -37,6 +37,13 @@ type roster struct{}
 
 func (roster) Self() role.NodeID { return home }
 
+func (roster) Reach(node role.NodeID) (nodes.LinkState, time.Time) {
+	if node == home {
+		return nodes.Local, time.Time{}
+	}
+	return nodes.Down, offline
+}
+
 func (r roster) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
 	list, err := r.List(ctx)
 	for _, n := range list {

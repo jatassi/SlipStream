@@ -36,6 +36,8 @@ func (roster) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
 	return nodes.Node{ID: home, Name: "home", Self: true, Link: nodes.Local}, nil
 }
 
+func (roster) Reach(role.NodeID) (nodes.LinkState, time.Time) { return nodes.Local, time.Time{} }
+
 func (r roster) List(ctx context.Context) ([]nodes.Node, error) {
 	n, err := r.Get(ctx, home)
 	return []nodes.Node{n}, err
@@ -329,6 +331,15 @@ func (l *links) set(link nodes.LinkState) {
 }
 
 func (*links) Self() role.NodeID { return home }
+
+func (l *links) Reach(node role.NodeID) (nodes.LinkState, time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if node == home {
+		return nodes.Local, time.Time{}
+	}
+	return l.link, time.Time{}
+}
 
 func (l *links) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
 	list, err := l.List(ctx)

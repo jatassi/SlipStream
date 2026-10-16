@@ -28,6 +28,8 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("tasks", sch
 // Roster is the Nodes units run on.
 type Roster interface {
 	Self() role.NodeID
+	// Reach is how the Controller reaches node now and since when.
+	Reach(node role.NodeID) (nodes.LinkState, time.Time)
 	Get(ctx context.Context, id role.NodeID) (nodes.Node, error)
 	List(ctx context.Context) ([]nodes.Node, error)
 }

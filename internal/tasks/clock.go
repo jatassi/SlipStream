@@ -189,17 +189,16 @@ func (s *Scheduler) read(ctx context.Context, started time.Time, atStart map[Tas
 	if err != nil {
 		return nil, knobs{}, err
 	}
-	states, k := s.states(snap, started, atStart, func(node role.NodeID) bool { return s.reaches(ctx, node) })
+	states, k := s.states(snap, started, atStart)
 	return states, k, nil
 }
 
-// states is each catalog task's state for plan. reaches says whether a
-// Node can start work now.
-func (s *Scheduler) states(snap snapshot, started time.Time, atStart map[TaskID]bool, reaches func(role.NodeID) bool) ([]state, knobs) {
+// states is each catalog task's state for plan.
+func (s *Scheduler) states(snap snapshot, started time.Time, atStart map[TaskID]bool) ([]state, knobs) {
 	k := s.knobs(snap.settings, started)
 	returned := map[TaskID]bool{}
 	for _, u := range snap.due {
-		if !returned[u.TaskID] && reaches(u.TiedTo) {
+		if !returned[u.TaskID] && s.reaches(u.TiedTo) {
 			returned[u.TaskID] = true
 		}
 	}
@@ -248,21 +247,25 @@ func (s *Scheduler) knobs(row db.TasksSetting, started time.Time) knobs {
 	}
 }
 
-// reaches is whether node can start work now: this Node, or a Node whose
-// link is up and on this build.
-func (s *Scheduler) reaches(ctx context.Context, node role.NodeID) bool {
-	_, ok := s.preflight(ctx, node)
-	return ok
+// reaches is the one preflight: whether node can start work now, as this
+// Node or a Node whose link is up and on this build.
+func (s *Scheduler) reaches(node role.NodeID) bool {
+	link, _ := s.cfg.Roster.Reach(node)
+	return link == nodes.Local || link == nodes.Up
 }
 
-// preflight is node as a unit's summary names it, and whether it can
-// start work now.
-func (s *Scheduler) preflight(ctx context.Context, node role.NodeID) (nodes.Node, bool) {
+// peerOf is node as a unit's cause names it; the zero peer when it is no
+// longer paired.
+func (s *Scheduler) peerOf(ctx context.Context, node role.NodeID) peer {
 	n, err := s.cfg.Roster.Get(ctx, node)
 	if err != nil {
-		return nodes.Node{}, false
+		return peer{}
 	}
-	return n, n.Link == nodes.Local || n.Link == nodes.Up
+	p := peer{name: n.Name}
+	if n.Build != nil {
+		p.version = n.Build.Version
+	}
+	return p
 }
 
 var errNoUnits = errors.New("the task lists no units")
@@ -346,7 +349,7 @@ func (s *Scheduler) returning(ctx context.Context, task TaskID, units []Unit) ([
 	for _, u := range units {
 		node, _ := u.Place.Node()
 		for _, d := range due {
-			if d.TaskID == task && d.UnitKey == u.Key && s.reaches(ctx, node) {
+			if d.TaskID == task && d.UnitKey == u.Key && s.reaches(node) {
 				out = append(out, u)
 			}
 		}
@@ -433,10 +436,11 @@ func (s *Scheduler) runnable(ctx context.Context, task TaskID, units []Unit) err
 		if u.Place.kind != tiedTo {
 			return nil
 		}
-		if _, ok := s.preflight(ctx, u.Place.node); ok {
+		if s.reaches(u.Place.node) {
 			return nil
 		}
 	}
-	n, _ := s.preflight(ctx, units[0].Place.node)
-	return &ErrWaiting{Node: n.Name, Link: n.Link, Since: n.Since}
+	node := units[0].Place.node
+	link, since := s.cfg.Roster.Reach(node)
+	return &ErrWaiting{Node: s.peerOf(ctx, node).name, Link: link, Since: since}
 }

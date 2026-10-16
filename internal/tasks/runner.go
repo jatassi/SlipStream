@@ -105,19 +105,15 @@ func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, p *prog
 		node = s.self
 	}
 	var res result
-	n, ok := s.preflight(ctx, node)
-	who := peer{name: n.Name}
-	if n.Build != nil {
-		who.version = n.Build.Version
-	}
-	switch {
-	case !remote || ok:
+	link, _ := s.cfg.Roster.Reach(node)
+	switch who := s.peerOf(ctx, node); {
+	case !remote || link == nodes.Local || link == nodes.Up:
 		err := r.task.Run(runCtx, u, &Progress{step: p.step})
 		res = classify(runCtx, err, u.Place, who)
-	case n.Link == nodes.Mismatched:
-		res = unsent(rpc.Mismatched, "", u.Place, who)
-	case n.Name == "":
+	case who.name == "":
 		res = unsent(rpc.NotHolder, "", u.Place, peer{name: "the Node"})
+	case link == nodes.Mismatched:
+		res = unsent(rpc.Mismatched, "", u.Place, who)
 	default:
 		res = unsent(rpc.Disconnected, "", u.Place, who)
 	}
