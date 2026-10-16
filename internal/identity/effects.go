@@ -51,6 +51,9 @@ func (fx *effects) passkeysChanged(account AccountID) {
 	fx.accountsChanged()
 }
 
+// passkeyUsed reaches account's streams, for a passkey's last use.
+func (fx *effects) passkeyUsed(account AccountID) { fx.passkeys[account] = struct{}{} }
+
 // regate records that account's access changed: its streams end with
 // live.access-changed, and its tabs read the session again.
 func (fx *effects) regate(account AccountID) {

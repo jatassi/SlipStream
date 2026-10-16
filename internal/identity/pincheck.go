@@ -38,11 +38,10 @@ type pinPass struct {
 // before it queues for a hash slot, so however many run at once no more
 // than the hard stop's number are ever verified.
 func (s *Service) checkPIN(ctx context.Context, c client, sub subject, pin PIN, set Settings) (pinPass, error) {
-	now := time.Now()
-	if until, blocked := s.limiter.blocked(c.address, set.AddressFailures, set.AddressWindow, now); blocked {
-		return pinPass{}, &WaitError{Kind: TooManyAttempts, Until: until}
+	if err := s.admit(c, set); err != nil {
+		return pinPass{}, err
 	}
-	r, err := s.reserve(ctx, sub, limitsOf(set), now)
+	r, err := s.reserve(ctx, sub, limitsOf(set), time.Now())
 	if err != nil {
 		return pinPass{}, err
 	}
@@ -53,13 +52,26 @@ func (s *Service) checkPIN(ctx context.Context, c client, sub subject, pin PIN, 
 	if ok && sub.known() {
 		return pinPass{account: sub.account, r: r}, nil
 	}
-	s.limiter.fail(c.address, set.AddressFailures, set.AddressWindow, time.Now())
+	s.fail(c, set)
 	if r.reachedOff && sub.known() {
 		if err := post(s, sub.mailbox(), pinOffMail, pinOffData{Email: sub.email, Count: r.n}); err != nil {
 			return pinPass{}, err
 		}
 	}
 	return pinPass{}, ErrPINWrong
+}
+
+// admit refuses c's address once it failed the limit's number of times
+// inside the window: a wrong PIN or a passkey that didn't check out.
+func (s *Service) admit(c client, set Settings) error {
+	if until, blocked := s.limiter.blocked(c.address, set.AddressFailures, set.AddressWindow, time.Now()); blocked {
+		return &WaitError{Kind: TooManyAttempts, Until: until}
+	}
+	return nil
+}
+
+func (s *Service) fail(c client, set Settings) {
+	s.limiter.fail(c.address, set.AddressFailures, set.AddressWindow, time.Now())
 }
 
 func (s *Service) reserve(ctx context.Context, sub subject, lim limits, now time.Time) (reservation, error) {

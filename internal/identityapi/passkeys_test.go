@@ -3,10 +3,12 @@ package identityapi_test
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -231,4 +233,191 @@ func TestTheSignupAndResetFlowsAddPasskeysOnTheirNewSession(t *testing.T) {
 	if n.heard(grace, identity.PasskeysChangedEvent.Name()) != before+1 {
 		t.Fatal("removing the passkeys by Reset link reached no stream")
 	}
+}
+
+var passkeyFailed = problem(401, "passkey_failed", "The passkey did not check out")
+
+// passkeySignIn runs a passkey sign-in at origin from the peer from,
+// answered by key.
+func (n *node) passkeySignIn(origin, from string, key *passkeytest.Authenticator) *httptest.ResponseRecorder {
+	n.t.Helper()
+	s := decode[started](n.t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/passkeys/assertion", from: from}), http.StatusOK)
+	response, err := key.Assert(origin, s.Options)
+	if err != nil {
+		n.t.Fatal(err)
+	}
+	return n.do(call{method: http.MethodPost, target: origin + "/api/v1/passkeys/assertion/" + s.Ceremony, from: from, body: string(response)})
+}
+
+func (n *node) passkeyReconfirm(origin, session string, key *passkeytest.Authenticator) *httptest.ResponseRecorder {
+	n.t.Helper()
+	s := decode[started](n.t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/session/reconfirm/passkey", session: session}), http.StatusOK)
+	response, err := key.Assert(origin, s.Options)
+	if err != nil {
+		n.t.Fatal(err)
+	}
+	return n.do(call{method: http.MethodPost, target: origin + "/api/v1/session/reconfirm/passkey/" + s.Ceremony, session: session, body: string(response)})
+}
+
+// graceWithPasskeys joins Grace and adds key's passkey for her at each
+// origin.
+func (n *node) graceWithPasskeys(admin string, key *passkeytest.Authenticator, origins ...string) (id, session string) {
+	n.t.Helper()
+	id, session = n.grace(admin)
+	for _, origin := range origins {
+		if w := n.addPasskey(origin, session, key, nil); w.Code != http.StatusCreated {
+			n.t.Fatalf("adding Grace's passkey at %s = %d %s", origin, w.Code, w.Body)
+		}
+	}
+	return id, session
+}
+
+func graceSignedIn(id string, pinRequired bool) string {
+	return `{"account":{"id":"` + id + `","email":"grace@example.com","displayName":"Grace Hopper","admin":false},"pinRequired":` +
+		map[bool]string{true: "true", false: "false"}[pinRequired] + `,"keyPrompt":"ask","passkeyPrompt":false}` + "\n"
+}
+
+func TestAPasskeySignsInWhereTheAddressCanHoldOne(t *testing.T) {
+	n := newNode(t)
+	_, a := n.claimed()
+	n.setAddress(a)
+	key := &passkeytest.Authenticator{}
+	grace, _ := n.graceWithPasskeys(a, key, home, named)
+	for origin, secure := range map[string]bool{home: false, named: true} {
+		w := n.passkeySignIn(origin, "192.0.2.1:1", key)
+		expect(t, w, 200, graceSignedIn(grace, false))
+		if got := strings.Contains(w.Header().Get("Set-Cookie"), "; Secure"); got != secure {
+			t.Errorf("signing in at %s set %q, want Secure %v", origin, w.Header().Get("Set-Cookie"), secure)
+		}
+		if s := n.getSession(sessionOf(t, w)); s.Code != http.StatusOK {
+			t.Fatalf("the passkey's session at %s = %d %s", origin, s.Code, s.Body)
+		}
+	}
+	for _, origin := range []string{"https://192.168.1.20:8484", "http://media.example.com"} {
+		expect(t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/passkeys/assertion"}), 409, passkeyUnavailable)
+		expect(t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/passkeys/assertion/ABC", body: "{}"}), 409, passkeyUnavailable)
+	}
+
+	s := decode[started](t, n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/assertion"}), http.StatusOK)
+	response, err := key.Assert(home, s.Options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, n.do(call{method: http.MethodPost, target: named + "/api/v1/passkeys/assertion/" + s.Ceremony, body: string(response)}), 401, passkeyFailed)
+	expect(t, n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/assertion/" + s.Ceremony, body: string(response)}), 401, passkeyFailed)
+}
+
+// TestEachSignInSavesTheSignCountAndLastUse: a copy of the authenticator, as a
+// cloned one would be, answers with a count the stored one passed.
+func TestEachSignInSavesTheSignCountAndLastUse(t *testing.T) {
+	n := newNode(t)
+	_, a := n.claimed()
+	n.setAddress(a)
+	key := &passkeytest.Authenticator{}
+	_, g := n.graceWithPasskeys(a, key, home, named)
+	clone := key.Clone()
+	for range 2 {
+		if w := n.passkeySignIn(home, "192.0.2.1:1", key); w.Code != http.StatusOK {
+			t.Fatalf("passkey sign-in = %d %s", w.Code, w.Body)
+		}
+	}
+	expect(t, n.passkeySignIn(home, "192.0.2.1:1", clone), 401, passkeyFailed)
+	keys := n.passkeys(g)
+	if len(keys) != 2 || keys[0].LastUsedAt == nil || keys[1].LastUsedAt != nil {
+		t.Fatalf("passkeys = %+v, want the one at home used and the other not", keys)
+	}
+}
+
+func TestATurnedOffPINSignsInByPasskeyToSetANewOne(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t)
+		_, a := n.claimed()
+		n.setAddress(a)
+		key := onePassword(t)
+		grace, _ := n.graceWithPasskeys(a, key, home)
+		for i := 1; i <= 10; i++ {
+			n.signInFrom("192.0.2.1:1", "grace@example.com", "0000", nil)
+			if i >= 5 {
+				time.Sleep(15 * time.Minute)
+			}
+		}
+		want(t, "the right PIN once off", n.signInFrom("192.0.2.1:1", "grace@example.com", "1357", nil), offAnswer)
+		w := n.passkeySignIn(home, "192.0.2.1:1", key)
+		expect(t, w, 200, graceSignedIn(grace, true))
+		s := sessionOf(t, w)
+		expect(t, n.as(s, http.MethodGet, "/api/v1/passkeys", ""), 403, pinRequired)
+		want(t, "a new PIN", answerOf(n.changePIN(s, `{"new":"2468"}`)), answer{status: 204})
+		if keys := n.passkeys(s); len(keys) != 1 {
+			t.Fatalf("passkeys after the new PIN = %+v", keys)
+		}
+		if got := n.signInFrom("192.0.2.1:1", "grace@example.com", "2468", nil); got.status != http.StatusOK {
+			t.Fatalf("sign-in with the new PIN = %d %s", got.status, got.body)
+		}
+	})
+}
+
+func TestATurnedOffAccountCantSignInByPasskey(t *testing.T) {
+	n := newNode(t)
+	_, a := n.claimed()
+	n.setAddress(a)
+	key := onePassword(t)
+	grace, _ := n.graceWithPasskeys(a, key, named)
+	if w := n.as(a, http.MethodPatch, "/api/v1/accounts/"+grace, `{"disabled":true}`); w.Code != http.StatusOK {
+		t.Fatalf("turning Grace off = %d %s", w.Code, w.Body)
+	}
+	expect(t, n.passkeySignIn(named, "192.0.2.1:1", key), 403, accountDisabled)
+	if w := n.as(a, http.MethodPatch, "/api/v1/accounts/"+grace, `{"disabled":false}`); w.Code != http.StatusOK {
+		t.Fatalf("turning Grace on = %d %s", w.Code, w.Body)
+	}
+	expect(t, n.passkeySignIn(named, "192.0.2.1:1", key), 200, graceSignedIn(grace, false))
+}
+
+// TestFailedPasskeysCountWithWrongPINsPerAddress fails fifteen PINs and
+// fifteen passkeys from one address, which then waits out the window.
+func TestFailedPasskeysCountWithWrongPINsPerAddress(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t)
+		_, a := n.claimed()
+		n.setAddress(a)
+		key := onePassword(t)
+		n.graceWithPasskeys(a, key, home)
+		for i := range 15 {
+			want(t, "a wrong PIN", n.signInFrom("192.0.2.10:1", fmt.Sprintf("guess%d@example.com", i), "9999", nil), wrongAnswer)
+			expect(t, n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/assertion/NOSUCHCEREMONY", from: "192.0.2.10:1", body: "{}"}), 401, passkeyFailed)
+		}
+		blocked := tooManyAnswer(time.Now().Add(15 * time.Minute))
+		want(t, "starting a passkey sign-in", answerOf(n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/assertion", from: "192.0.2.10:1"})), blocked)
+		want(t, "finishing one", answerOf(n.do(call{method: http.MethodPost, target: home + "/api/v1/passkeys/assertion/NOSUCHCEREMONY", from: "192.0.2.10:1", body: "{}"})), blocked)
+		want(t, "the right PIN", n.signInFrom("192.0.2.10:1", "grace@example.com", "1357", nil), blocked)
+		if w := n.passkeySignIn(home, "192.0.2.11:1", key); w.Code != http.StatusOK {
+			t.Fatalf("a passkey from the neighbor = %d %s", w.Code, w.Body)
+		}
+		time.Sleep(15 * time.Minute)
+		if w := n.passkeySignIn(home, "192.0.2.10:1", key); w.Code != http.StatusOK {
+			t.Fatalf("a passkey once the window passed = %d %s", w.Code, w.Body)
+		}
+	})
+}
+
+func TestAPasskeyReconfirmsTheSession(t *testing.T) {
+	n := newNode(t)
+	res, a := n.claimed()
+	key := onePassword(t)
+	if w := n.addPasskey(named, a, key, nil); w.Code != http.StatusCreated {
+		t.Fatalf("addPasskey = %d %s", w.Code, w.Body)
+	}
+	lapsed := identitytest.LapsedSession(t, n.lib, identity.AccountID{UUID: uuid(t, res.Account.ID)})
+	needsReconfirm := problem(403, "needs_reconfirm", "Confirm it's you to continue")
+	expect(t, n.do(call{method: http.MethodPost, target: named + "/api/v1/passkeys/registration", session: lapsed}), 403, needsReconfirm)
+	for _, origin := range []string{home, "https://192.168.1.20:8484"} {
+		expect(t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/session/reconfirm/passkey", session: lapsed}), 409, passkeyUnavailable)
+	}
+	expect(t, n.passkeyReconfirm(named, lapsed, key), 204, "")
+	if w := n.do(call{method: http.MethodPost, target: named + "/api/v1/passkeys/registration", session: lapsed}); w.Code != http.StatusOK {
+		t.Fatalf("after re-confirm, startPasskeyRegistration = %d %s", w.Code, w.Body)
+	}
+	if keys := n.passkeys(a); len(keys) != 1 || keys[0].LastUsedAt == nil {
+		t.Fatalf("passkeys = %+v, want the one used to re-confirm", keys)
+	}
+	expect(t, n.do(call{method: http.MethodPost, target: named + "/api/v1/session/reconfirm/passkey/NOSUCHCEREMONY", session: lapsed, body: "{}"}), 401, passkeyFailed)
 }

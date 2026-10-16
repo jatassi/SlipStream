@@ -280,6 +280,29 @@ export const getListPasskeysResponseMock = (
   ...overrideResponse,
 });
 
+export const getStartPasskeySignInResponseMock = (
+  overrideResponse: Partial<Extract<IdentityCeremony, object>> = {},
+): IdentityCeremony => ({
+  ceremony: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  options: {},
+  ...overrideResponse,
+});
+
+export const getFinishPasskeySignInResponseMock = (
+  overrideResponse: Partial<Extract<IdentitySignedIn, object>> = {},
+): IdentitySignedIn => ({
+  account: {
+    admin: faker.datatype.boolean(),
+    displayName: faker.string.alpha({ length: { min: 1, max: 100 } }),
+    email: faker.internet.email(),
+    id: faker.string.uuid(),
+  },
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
+  passkeyPrompt: faker.datatype.boolean(),
+  pinRequired: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
 export const getStartPasskeyRegistrationResponseMock = (
   overrideResponse: Partial<Extract<IdentityCeremony, object>> = {},
 ): IdentityCeremony => ({
@@ -395,6 +418,14 @@ export const getCreateSessionResponseMock = (
   keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getStartPasskeyReconfirmResponseMock = (
+  overrideResponse: Partial<Extract<IdentityCeremony, object>> = {},
+): IdentityCeremony => ({
+  ceremony: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  options: {},
   ...overrideResponse,
 });
 
@@ -964,6 +995,54 @@ export const getListPasskeysMockHandler = (
   );
 };
 
+export const getStartPasskeySignInMockHandler = (
+  overrideResponse?:
+    | IdentityCeremony
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IdentityCeremony> | IdentityCeremony),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/passkeys/assertion",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getStartPasskeySignInResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getFinishPasskeySignInMockHandler = (
+  overrideResponse?:
+    | IdentitySignedIn
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IdentitySignedIn> | IdentitySignedIn),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/passkeys/assertion/:ceremony",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getFinishPasskeySignInResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getStartPasskeyRegistrationMockHandler = (
   overrideResponse?:
     | IdentityCeremony
@@ -1178,6 +1257,49 @@ export const getReconfirmSessionMockHandler = (
 ) => {
   return http.post(
     "*/api/v1/session/reconfirm",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getStartPasskeyReconfirmMockHandler = (
+  overrideResponse?:
+    | IdentityCeremony
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IdentityCeremony> | IdentityCeremony),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/session/reconfirm/passkey",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getStartPasskeyReconfirmResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getFinishPasskeyReconfirmMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/session/reconfirm/passkey/:ceremony",
     async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
       if (typeof overrideResponse === "function") {
         await overrideResponse(info);
@@ -1456,6 +1578,8 @@ export const getIdentityMock = () => [
   getGetIdentitySettingsMockHandler(),
   getUpdateIdentitySettingsMockHandler(),
   getListPasskeysMockHandler(),
+  getStartPasskeySignInMockHandler(),
+  getFinishPasskeySignInMockHandler(),
   getStartPasskeyRegistrationMockHandler(),
   getFinishPasskeyRegistrationMockHandler(),
   getDeletePasskeyMockHandler(),
@@ -1466,6 +1590,8 @@ export const getIdentityMock = () => [
   getGetSessionMockHandler(),
   getCreateSessionMockHandler(),
   getReconfirmSessionMockHandler(),
+  getStartPasskeyReconfirmMockHandler(),
+  getFinishPasskeyReconfirmMockHandler(),
   getEndOtherSessionsMockHandler(),
   getListSessionsMockHandler(),
   getEndSessionMockHandler(),

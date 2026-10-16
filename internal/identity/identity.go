@@ -227,11 +227,7 @@ func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (
 			disabled = true
 			return nil
 		}
-		idle := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
-		if err := q.DeleteIdleSessions(ctx, db.DeleteIdleSessionsParams{AccountID: sub.account, SeenBefore: idle}); err != nil {
-			return err
-		}
-		out, err = startSession(ctx, q, fx, a.client, row, token, false)
+		out, err = signInAs(ctx, q, fx, a.client, row, token, set, false)
 		return err
 	})
 	if err != nil {
@@ -242,6 +238,16 @@ func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (
 	}
 	out.Cookie = cookie(token, a.https, set.SessionLifetime)
 	return out, nil
+}
+
+// signInAs starts row's session, first deleting the ones it left idle
+// past the lifetime.
+func signInAs(ctx context.Context, q *db.Queries, fx *effects, c client, row db.IdentityAccount, token string, set Settings, pinRequired bool) (SignedIn, error) {
+	idle := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
+	if err := q.DeleteIdleSessions(ctx, db.DeleteIdleSessionsParams{AccountID: row.ID, SeenBefore: idle}); err != nil {
+		return SignedIn{}, err
+	}
+	return startSession(ctx, q, fx, c, row, token, pinRequired)
 }
 
 // signInBy runs fn, which names the Account a link signs in, and starts

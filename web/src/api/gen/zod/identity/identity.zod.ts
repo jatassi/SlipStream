@@ -179,6 +179,26 @@ export const UpdateIdentitySettingsResponse = IdentitySettings;
 export const ListPasskeysResponse = IdentityPasskeyRows;
 
 /**
+ * @summary Start signing in with a passkey for this address
+ */
+export const StartPasskeySignInResponse = IdentityCeremony;
+
+/**
+ * @summary Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first
+ */
+export const finishPasskeySignInPathCeremonyMax = 64;
+
+export const FinishPasskeySignInParams = zod.object({
+  ceremony: zod.string().max(finishPasskeySignInPathCeremonyMax),
+});
+
+export const FinishPasskeySignInBody = zod
+  .unknown()
+  .describe("The browser's PublicKeyCredential, as its toJSON() answers");
+
+export const FinishPasskeySignInResponse = IdentitySignedIn;
+
+/**
  * @summary Start adding a passkey for this address
  */
 export const StartPasskeyRegistrationResponse = IdentityCeremony;
@@ -265,6 +285,26 @@ export const CreateSessionResponse = IdentitySignedIn;
 export const ReconfirmSessionBody = IdentityReconfirmation;
 
 export const ReconfirmSessionResponse = zod.void();
+
+/**
+ * @summary Start confirming it's you with one of your passkeys for this address
+ */
+export const StartPasskeyReconfirmResponse = IdentityCeremony;
+
+/**
+ * @summary Confirm it's you with the browser's passkey answer
+ */
+export const finishPasskeyReconfirmPathCeremonyMax = 64;
+
+export const FinishPasskeyReconfirmParams = zod.object({
+  ceremony: zod.string().max(finishPasskeyReconfirmPathCeremonyMax),
+});
+
+export const FinishPasskeyReconfirmBody = zod
+  .unknown()
+  .describe("The browser's PublicKeyCredential, as its toJSON() answers");
+
+export const FinishPasskeyReconfirmResponse = zod.void();
 
 /**
  * @summary Sign out every device but this one

@@ -46,8 +46,10 @@ func pinWaitAnswer(until time.Time, seconds int) answer {
 	return waitProblem("pin_wait", "Too many wrong PINs. Wait before trying again.", until, seconds)
 }
 
-func tooManyAnswer(until time.Time, seconds int) answer {
-	return waitProblem("too_many_attempts", "Too many failed attempts from this address. Wait before trying again.", until, seconds)
+// tooManyAnswer is the refusal of an address whose window of failures ends
+// at until, fifteen minutes away.
+func tooManyAnswer(until time.Time) answer {
+	return waitProblem("too_many_attempts", "Too many failed attempts from this address. Wait before trying again.", until, 900)
 }
 
 func want(t *testing.T, step string, got, want answer) {
@@ -171,7 +173,7 @@ func TestEachAddressCountsItsFailures(t *testing.T) {
 		}
 		fail("[2001:db8:1:1::1]:1")
 		until := time.Now().Add(15 * time.Minute)
-		blocked := tooManyAnswer(until, 900)
+		blocked := tooManyAnswer(until)
 		want(t, "the right PIN past the limit", n.signInFrom("[2001:db8:1:1::1]:1", "admin@example.com", "1234", nil), blocked)
 		want(t, "another address in the /64", n.signInFrom("[2001:db8:1:1:ffff:ffff:ffff:ffff]:1", "admin@example.com", "1234", nil), blocked)
 		signedIn("the next /64", "[2001:db8:1:2::1]:1")
@@ -203,7 +205,7 @@ func TestOnlyATrustedProxyNamesTheClient(t *testing.T) {
 			want(t, "a failure through the proxy", n.signInFrom("10.1.2.3:1", fmt.Sprintf("guess%d@example.com", i), "9999", forwarded("198.51.100.7")), wrongAnswer)
 		}
 		until := time.Now().Add(15 * time.Minute)
-		want(t, "that client again", n.signInFrom("10.1.2.3:1", "admin@example.com", "1234", forwarded("198.51.100.7")), tooManyAnswer(until, 900))
+		want(t, "that client again", n.signInFrom("10.1.2.3:1", "admin@example.com", "1234", forwarded("198.51.100.7")), tooManyAnswer(until))
 		other := n.do(call{method: http.MethodPost, target: "/api/v1/session", from: "10.1.2.3:1", headers: forwarded("198.51.100.8"),
 			body: `{"email":"admin@example.com","pin":"1234"}`})
 		if other.Code != http.StatusOK || !strings.HasSuffix(other.Header().Get("Set-Cookie"), "; HttpOnly; Secure; SameSite=Lax") {
@@ -218,7 +220,7 @@ func TestOnlyATrustedProxyNamesTheClient(t *testing.T) {
 			forged := map[string]string{"X-Forwarded-For": fmt.Sprintf("198.51.100.%d", i)}
 			want(t, "a failure with a forged header", n.signInFrom("192.0.2.51:1", fmt.Sprintf("guess%d@example.com", i), "9999", forged), wrongAnswer)
 		}
-		want(t, "the peer that forged it", n.signInFrom("192.0.2.51:1", "admin@example.com", "1234", forwarded("198.51.100.9")), tooManyAnswer(until, 900))
+		want(t, "the peer that forged it", n.signInFrom("192.0.2.51:1", "admin@example.com", "1234", forwarded("198.51.100.9")), tooManyAnswer(until))
 	})
 }
 

@@ -96,11 +96,23 @@ import type {
   EndSession409,
   EndSession422,
   EndSession500,
+  FinishPasskeyReconfirm401,
+  FinishPasskeyReconfirm403,
+  FinishPasskeyReconfirm409,
+  FinishPasskeyReconfirm422,
+  FinishPasskeyReconfirm429,
+  FinishPasskeyReconfirm500,
   FinishPasskeyRegistration401,
   FinishPasskeyRegistration403,
   FinishPasskeyRegistration409,
   FinishPasskeyRegistration422,
   FinishPasskeyRegistration500,
+  FinishPasskeySignIn401,
+  FinishPasskeySignIn403,
+  FinishPasskeySignIn409,
+  FinishPasskeySignIn422,
+  FinishPasskeySignIn429,
+  FinishPasskeySignIn500,
   GetAPIKey401,
   GetAPIKey403,
   GetAPIKey409,
@@ -212,10 +224,18 @@ import type {
   StartEmailChange409,
   StartEmailChange422,
   StartEmailChange500,
+  StartPasskeyReconfirm401,
+  StartPasskeyReconfirm403,
+  StartPasskeyReconfirm409,
+  StartPasskeyReconfirm429,
+  StartPasskeyReconfirm500,
   StartPasskeyRegistration401,
   StartPasskeyRegistration403,
   StartPasskeyRegistration409,
   StartPasskeyRegistration500,
+  StartPasskeySignIn409,
+  StartPasskeySignIn429,
+  StartPasskeySignIn500,
   UpdateAccount401,
   UpdateAccount403,
   UpdateAccount404,
@@ -2377,6 +2397,208 @@ export function useListPasskeysSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getStartPasskeySignInUrl = () => {
+  return `/api/v1/passkeys/assertion`;
+};
+
+/**
+ * @summary Start signing in with a passkey for this address
+ */
+export const startPasskeySignIn = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityCeremony> => {
+  return apiFetch<IdentityCeremony>(getStartPasskeySignInUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStartPasskeySignInMutationKey = () => ["startPasskeySignIn"] as const;
+
+export const getStartPasskeySignInMutationOptions = <
+  TError = ErrorType<StartPasskeySignIn409 | StartPasskeySignIn429 | StartPasskeySignIn500>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startPasskeySignIn>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<Awaited<ReturnType<typeof startPasskeySignIn>>, TError, void, TContext> => {
+  const mutationKey = getStartPasskeySignInMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof startPasskeySignIn>>, void> = () => {
+    return startPasskeySignIn(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartPasskeySignInMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startPasskeySignIn>>
+>;
+
+export type StartPasskeySignInMutationError = ErrorType<
+  StartPasskeySignIn409 | StartPasskeySignIn429 | StartPasskeySignIn500
+>;
+
+/**
+ * @summary Start signing in with a passkey for this address
+ */
+export const useStartPasskeySignIn = <
+  TError = ErrorType<StartPasskeySignIn409 | StartPasskeySignIn429 | StartPasskeySignIn500>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof startPasskeySignIn>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof startPasskeySignIn>>, TError, void, TContext> => {
+  return useMutation(getStartPasskeySignInMutationOptions(options), queryClient);
+};
+export const getFinishPasskeySignInUrl = (ceremony: string) => {
+  return `/api/v1/passkeys/assertion/${ceremony}`;
+};
+
+/**
+ * @summary Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first
+ */
+export const finishPasskeySignIn = async (
+  ceremony: string,
+  finishPasskeySignInBody: unknown,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentitySignedIn> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IdentitySignedIn>(getFinishPasskeySignInUrl(ceremony), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(finishPasskeySignInBody),
+  });
+};
+
+export const getFinishPasskeySignInMutationKey = () => ["finishPasskeySignIn"] as const;
+
+export const getFinishPasskeySignInMutationOptions = <
+  TError = ErrorType<
+    | FinishPasskeySignIn401
+    | FinishPasskeySignIn403
+    | FinishPasskeySignIn409
+    | FinishPasskeySignIn422
+    | FinishPasskeySignIn429
+    | FinishPasskeySignIn500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finishPasskeySignIn>>,
+    TError,
+    FinishPasskeySignInMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof finishPasskeySignIn>>,
+  TError,
+  FinishPasskeySignInMutationVariables,
+  TContext
+> => {
+  const mutationKey = getFinishPasskeySignInMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof finishPasskeySignIn>>,
+    FinishPasskeySignInMutationVariables
+  > = (props) => {
+    const { ceremony, data } = props ?? {};
+
+    return finishPasskeySignIn(ceremony, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FinishPasskeySignInMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finishPasskeySignIn>>
+>;
+export type FinishPasskeySignInMutationBody = unknown;
+export type FinishPasskeySignInMutationError = ErrorType<
+  | FinishPasskeySignIn401
+  | FinishPasskeySignIn403
+  | FinishPasskeySignIn409
+  | FinishPasskeySignIn422
+  | FinishPasskeySignIn429
+  | FinishPasskeySignIn500
+>;
+export type FinishPasskeySignInMutationVariables = { ceremony: string; data: unknown };
+
+/**
+ * @summary Sign in with the browser's passkey answer; on a turned-off PIN the session must set a new one first
+ */
+export const useFinishPasskeySignIn = <
+  TError = ErrorType<
+    | FinishPasskeySignIn401
+    | FinishPasskeySignIn403
+    | FinishPasskeySignIn409
+    | FinishPasskeySignIn422
+    | FinishPasskeySignIn429
+    | FinishPasskeySignIn500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof finishPasskeySignIn>>,
+      TError,
+      FinishPasskeySignInMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof finishPasskeySignIn>>,
+  TError,
+  FinishPasskeySignInMutationVariables,
+  TContext
+> => {
+  return useMutation(getFinishPasskeySignInMutationOptions(options), queryClient);
+};
 export const getStartPasskeyRegistrationUrl = () => {
   return `/api/v1/passkeys/registration`;
 };
@@ -3482,6 +3704,232 @@ export const useReconfirmSession = <
   TContext
 > => {
   return useMutation(getReconfirmSessionMutationOptions(options), queryClient);
+};
+export const getStartPasskeyReconfirmUrl = () => {
+  return `/api/v1/session/reconfirm/passkey`;
+};
+
+/**
+ * @summary Start confirming it's you with one of your passkeys for this address
+ */
+export const startPasskeyReconfirm = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityCeremony> => {
+  return apiFetch<IdentityCeremony>(getStartPasskeyReconfirmUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStartPasskeyReconfirmMutationKey = () => ["startPasskeyReconfirm"] as const;
+
+export const getStartPasskeyReconfirmMutationOptions = <
+  TError = ErrorType<
+    | StartPasskeyReconfirm401
+    | StartPasskeyReconfirm403
+    | StartPasskeyReconfirm409
+    | StartPasskeyReconfirm429
+    | StartPasskeyReconfirm500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startPasskeyReconfirm>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startPasskeyReconfirm>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getStartPasskeyReconfirmMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startPasskeyReconfirm>>,
+    void
+  > = () => {
+    return startPasskeyReconfirm(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartPasskeyReconfirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startPasskeyReconfirm>>
+>;
+
+export type StartPasskeyReconfirmMutationError = ErrorType<
+  | StartPasskeyReconfirm401
+  | StartPasskeyReconfirm403
+  | StartPasskeyReconfirm409
+  | StartPasskeyReconfirm429
+  | StartPasskeyReconfirm500
+>;
+
+/**
+ * @summary Start confirming it's you with one of your passkeys for this address
+ */
+export const useStartPasskeyReconfirm = <
+  TError = ErrorType<
+    | StartPasskeyReconfirm401
+    | StartPasskeyReconfirm403
+    | StartPasskeyReconfirm409
+    | StartPasskeyReconfirm429
+    | StartPasskeyReconfirm500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof startPasskeyReconfirm>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof startPasskeyReconfirm>>, TError, void, TContext> => {
+  return useMutation(getStartPasskeyReconfirmMutationOptions(options), queryClient);
+};
+export const getFinishPasskeyReconfirmUrl = (ceremony: string) => {
+  return `/api/v1/session/reconfirm/passkey/${ceremony}`;
+};
+
+/**
+ * @summary Confirm it's you with the browser's passkey answer
+ */
+export const finishPasskeyReconfirm = async (
+  ceremony: string,
+  finishPasskeyReconfirmBody: unknown,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<void>(getFinishPasskeyReconfirmUrl(ceremony), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(finishPasskeyReconfirmBody),
+  });
+};
+
+export const getFinishPasskeyReconfirmMutationKey = () => ["finishPasskeyReconfirm"] as const;
+
+export const getFinishPasskeyReconfirmMutationOptions = <
+  TError = ErrorType<
+    | FinishPasskeyReconfirm401
+    | FinishPasskeyReconfirm403
+    | FinishPasskeyReconfirm409
+    | FinishPasskeyReconfirm422
+    | FinishPasskeyReconfirm429
+    | FinishPasskeyReconfirm500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finishPasskeyReconfirm>>,
+    TError,
+    FinishPasskeyReconfirmMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof finishPasskeyReconfirm>>,
+  TError,
+  FinishPasskeyReconfirmMutationVariables,
+  TContext
+> => {
+  const mutationKey = getFinishPasskeyReconfirmMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof finishPasskeyReconfirm>>,
+    FinishPasskeyReconfirmMutationVariables
+  > = (props) => {
+    const { ceremony, data } = props ?? {};
+
+    return finishPasskeyReconfirm(ceremony, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FinishPasskeyReconfirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finishPasskeyReconfirm>>
+>;
+export type FinishPasskeyReconfirmMutationBody = unknown;
+export type FinishPasskeyReconfirmMutationError = ErrorType<
+  | FinishPasskeyReconfirm401
+  | FinishPasskeyReconfirm403
+  | FinishPasskeyReconfirm409
+  | FinishPasskeyReconfirm422
+  | FinishPasskeyReconfirm429
+  | FinishPasskeyReconfirm500
+>;
+export type FinishPasskeyReconfirmMutationVariables = { ceremony: string; data: unknown };
+
+/**
+ * @summary Confirm it's you with the browser's passkey answer
+ */
+export const useFinishPasskeyReconfirm = <
+  TError = ErrorType<
+    | FinishPasskeyReconfirm401
+    | FinishPasskeyReconfirm403
+    | FinishPasskeyReconfirm409
+    | FinishPasskeyReconfirm422
+    | FinishPasskeyReconfirm429
+    | FinishPasskeyReconfirm500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof finishPasskeyReconfirm>>,
+      TError,
+      FinishPasskeyReconfirmMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof finishPasskeyReconfirm>>,
+  TError,
+  FinishPasskeyReconfirmMutationVariables,
+  TContext
+> => {
+  return useMutation(getFinishPasskeyReconfirmMutationOptions(options), queryClient);
 };
 export const getEndOtherSessionsUrl = (params: EndOtherSessionsParams) => {
   const normalizedParams = new URLSearchParams();

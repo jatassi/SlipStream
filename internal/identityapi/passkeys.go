@@ -125,3 +125,47 @@ func deletePasskey(lib Library) func(context.Context, identity.Account, *passkey
 		return nil, answer(open(lib).DeletePasskey(ctx, a, id))
 	}
 }
+
+func startPasskeySignIn(lib Library) func(context.Context, identity.Anyone, *struct{}) (*ceremonyOutput, error) {
+	return func(ctx context.Context, a identity.Anyone, _ *struct{}) (*ceremonyOutput, error) {
+		s, ok := lib.Identity()
+		if !ok {
+			return nil, passkeyUnavailable
+		}
+		c, err := s.BeginPasskeySignIn(ctx, a)
+		if err != nil {
+			return nil, answer(err)
+		}
+		return ceremonyOf(c), nil
+	}
+}
+
+func finishPasskeySignIn(lib Library) func(context.Context, identity.Anyone, *finishInput) (*signedInOutput, error) {
+	return func(ctx context.Context, a identity.Anyone, in *finishInput) (*signedInOutput, error) {
+		s, ok := lib.Identity()
+		if !ok {
+			return nil, passkeyUnavailable
+		}
+		got, err := s.FinishPasskeySignIn(ctx, a, identity.CeremonyID(in.Ceremony), in.Body)
+		if err != nil {
+			return nil, answer(err)
+		}
+		return signedInOf(got), nil
+	}
+}
+
+func startPasskeyReconfirm(lib Library) func(context.Context, identity.Account, *struct{}) (*ceremonyOutput, error) {
+	return func(ctx context.Context, a identity.Account, _ *struct{}) (*ceremonyOutput, error) {
+		c, err := open(lib).BeginPasskeyReconfirm(ctx, a)
+		if err != nil {
+			return nil, answer(err)
+		}
+		return ceremonyOf(c), nil
+	}
+}
+
+func finishPasskeyReconfirm(lib Library) func(context.Context, identity.Account, *finishInput) (*struct{}, error) {
+	return func(ctx context.Context, a identity.Account, in *finishInput) (*struct{}, error) {
+		return nil, answer(open(lib).FinishPasskeyReconfirm(ctx, a, identity.CeremonyID(in.Ceremony), in.Body))
+	}
+}
