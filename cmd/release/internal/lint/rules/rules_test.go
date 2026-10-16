@@ -305,6 +305,15 @@ func TestMailConfined(t *testing.T) {
 	})
 }
 
+func TestWebauthnConfined(t *testing.T) {
+	const outside = " go-webauthn imported outside internal/identity/passkey; run ceremonies through passkey.Ceremonies"
+	assertFindings(t, check(t, "webauthn-confined", fixtureRepo(t, "webauthn-confined")), []string{
+		"internal/identity/passkey/passkeytest/passkeytest.go:3: [webauthn-confined]" + outside,
+		"internal/identity/passkeys.go:6: [webauthn-confined]" + outside,
+		"internal/identityapi/passkeys.go:3: [webauthn-confined]" + outside,
+	})
+}
+
 func TestRoutesPlacement(t *testing.T) {
 	assertFindings(t, check(t, "routes-placement", fixtureRepo(t, "routes-placement")), []string{
 		"internal/nodes/nodes.go:6: [routes-placement] api.RegisterStream outside <owner>api.Routes",
