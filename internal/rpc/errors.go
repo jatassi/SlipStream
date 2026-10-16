@@ -98,6 +98,14 @@ func Lost(err error) bool {
 	return code == CodeUnavailable || code == CodeCanceled
 }
 
+// Answered reports an error the called Node's handler returned, as against
+// one the link or the caller's side gave: a response cut short as the
+// peer's link closed reads as neither an answer nor Lost.
+func Answered(err error) bool {
+	ce, ok := errors.AsType[*connect.Error](err)
+	return ok && ce.IsRemote()
+}
+
 type callerKey struct{}
 
 // CallerOf is the key of the Node whose call ctx serves: this Node's own on

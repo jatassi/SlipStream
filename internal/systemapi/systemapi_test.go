@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/system"
@@ -46,7 +47,17 @@ type node struct {
 	code string
 }
 
-func newNode(t *testing.T, f system.Facts) *node {
+// controller is a Controller's claim, reaching Nodes through systems.
+type controller struct {
+	identitytest.Node
+	systems *nodesystem.Nodes
+}
+
+func (c controller) Systems() (*nodesystem.Nodes, bool) { return c.systems, true }
+
+func newNode(t *testing.T, f system.Facts) *node { return newController(t, f, nil) }
+
+func newController(t *testing.T, f system.Facts, systems *nodesystem.Nodes) *node {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema())
@@ -66,7 +77,7 @@ func newNode(t *testing.T, f system.Facts) *node {
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Node{Service: svc}, Gate: gate, Web: fstest.MapFS{}, Log: log})
 	identityapi.Routes(r, identitytest.Node{Service: svc})
-	systemapi.Routes(r, f, identitytest.Node{Service: svc})
+	systemapi.Routes(r, f, controller{identitytest.Node{Service: svc}, systems})
 	return &node{t: t, h: r.Handler(), code: code}
 }
 
@@ -139,6 +150,7 @@ type worker struct{}
 
 func (worker) Claim(context.Context) (system.Claim, error) { return system.Worker, nil }
 func (worker) Identity() (*identity.Service, bool)         { return nil, false }
+func (worker) Systems() (*nodesystem.Nodes, bool)          { return nil, false }
 
 func TestAWorkerReportsItsClaimAndSendsAdminsToItsController(t *testing.T) {
 	log := slog.New(slog.DiscardHandler)

@@ -20,6 +20,7 @@ export const getListNodesResponseMock = (
               { length: faker.number.int({ min: 1, max: 10 }) },
               (_, i) => i + 1,
             ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+            httpAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
             restarting: Array.from(
               { length: faker.number.int({ min: 1, max: 10 }) },
               (_, i) => i + 1,
@@ -161,6 +162,7 @@ export const getGetNodeResponseMock = (
             { length: faker.number.int({ min: 1, max: 10 }) },
             (_, i) => i + 1,
           ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          httpAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
           restarting: Array.from(
             { length: faker.number.int({ min: 1, max: 10 }) },
             (_, i) => i + 1,
@@ -221,6 +223,7 @@ export const getSetNodeRolesResponseMock = (
             { length: faker.number.int({ min: 1, max: 10 }) },
             (_, i) => i + 1,
           ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          httpAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
           restarting: Array.from(
             { length: faker.number.int({ min: 1, max: 10 }) },
             (_, i) => i + 1,

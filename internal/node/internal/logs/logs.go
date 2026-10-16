@@ -1,6 +1,6 @@
-// Package logs builds one Node's logger: JSON records fanned out to stderr
-// and to a size-rotated file, at the level and rotation its log section
-// sets.
+// Package logs builds one Node's logger: JSON records fanned out to stderr,
+// to a size-rotated file and to the viewer's ring, at the level, rotation
+// and ring size its log section sets.
 package logs
 
 import (
@@ -16,8 +16,10 @@ import (
 
 type Log struct {
 	*slog.Logger
+	dir   string
 	level *slog.LevelVar
 	file  sink
+	ring  *ring
 }
 
 // sink is the log file.
@@ -39,7 +41,7 @@ func Open(dir string, stderr io.Writer, s Settings) (*Log, error) {
 	if err := r.rotate(s); err != nil {
 		return nil, err
 	}
-	return newLog(stderr, r, s), nil
+	return newLog(dir, stderr, r, s), nil
 }
 
 // OpenFile opens one log file in dir that never rotates. Rotation runs a
@@ -52,21 +54,24 @@ func OpenFile(dir string, stderr io.Writer, s Settings) (*Log, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open log file: %w", err)
 	}
-	return newLog(stderr, plain{f}, s), nil
+	return newLog(dir, stderr, plain{f}, s), nil
 }
 
-func newLog(stderr io.Writer, file sink, s Settings) *Log {
+func newLog(dir string, stderr io.Writer, file sink, s Settings) *Log {
 	level := new(slog.LevelVar)
 	level.Set(levels[s.Level])
 	opts := &slog.HandlerOptions{Level: level}
-	h := slog.NewMultiHandler(slog.NewJSONHandler(stderr, opts), slog.NewJSONHandler(file, opts))
-	return &Log{Logger: slog.New(h), level: level, file: file}
+	r := newRing(s.ViewerLines)
+	h := slog.NewMultiHandler(slog.NewJSONHandler(stderr, opts), slog.NewJSONHandler(file, opts), newRingHandler(r, level))
+	return &Log{Logger: slog.New(h), dir: dir, level: level, file: file, ring: r}
 }
 
-// Apply sets the level and the rotation. An unchanged rotation keeps the
-// open file.
+// Apply sets the level, the rotation and the ring's size. An unchanged
+// rotation keeps the open file, and a smaller ring drops the oldest
+// records.
 func (l *Log) Apply(s Settings) error {
 	l.level.Set(levels[s.Level])
+	l.ring.resize(s.ViewerLines)
 	return l.file.rotate(s)
 }
 

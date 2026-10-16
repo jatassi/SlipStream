@@ -19,8 +19,8 @@ import (
 )
 
 // startHTTP binds http.listen, or a later port, and serves every operation
-// on it. Its stop closes the hub first, ending every stream, so Shutdown
-// never waits out the stop deadline on one.
+// on it. Its stop ends every stream and log read first, so Shutdown never
+// waits out the stop deadline on one.
 func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.Services, gate *identity.Gate) error {
 	ln, err := bindHTTP(n.env.Net.Listen, cfg.HTTP.Listen, cfg.HTTP.PortsToTry)
 	if err != nil {
@@ -31,7 +31,7 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 	if l.HTTP.Port() != cfg.HTTP.Listen.Port() && cfg.HTTP.Listen.Port() != 0 {
 		log.Warn("web port taken, serving on a later one", "configured", cfg.HTTP.Listen.String(), "bound", l.HTTP.String())
 	}
-	s.System = system.Facts{
+	facts := system.Facts{
 		DataDir:        n.env.DataDir.Path(),
 		LogsDir:        n.env.DataDir.LogsDir(),
 		PID:            os.Getpid(),
@@ -41,8 +41,11 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 		Listeners:      system.Listeners{HTTP: l.HTTP, Torrent: l.Torrent, Link: l.Link, Control: l.Control},
 	}
 	if stamp, ok := buildinfo.Current(); ok {
-		s.System.Build = &stamp
+		facts.Build = &stamp
 	}
+	s.System = facts
+	n.host.facts.Store(&facts)
+	n.reportHost()
 	r := api.NewRouter(api.Services{
 		Node:           s.Node,
 		Gate:           gate,
@@ -60,6 +63,8 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 	})
 	n.stack.OnStop("http-shutdown", func(ctx context.Context) error {
 		s.Hub.Close()
+		r.EndStreams()
+		n.logs.EndReads()
 		return srv.Shutdown(ctx)
 	})
 	return nil

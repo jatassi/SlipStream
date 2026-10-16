@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net/netip"
 	"slices"
 	"sync"
 	"time"
@@ -53,6 +54,22 @@ type Holding struct {
 	facts   map[string]*anypb.Any
 	unsent  map[string]bool
 	runs    map[Name]*run
+	host    Host
+}
+
+// Host is what the holder half reports about its Node beyond its Roles.
+type Host struct {
+	HTTPAddress      netip.AddrPort
+	SettingsRevision string
+}
+
+// SetHost records v for the node scope's facts, which supervise sends
+// when they changed.
+func (h *Holding) SetHost(v Host) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.host = v
+	h.wake()
 }
 
 type cached struct {

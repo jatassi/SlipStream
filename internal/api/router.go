@@ -60,6 +60,9 @@ type Router struct {
 	mux      *http.ServeMux
 	owners   map[string]bool
 	ops      map[string]string
+	// streams ends at EndStreams, and every stream's context with it.
+	streams    context.Context //nolint:containedctx // the lifetime of every stream the Router serves
+	endStreams context.CancelFunc
 }
 
 func NewRouter(s Services) *Router {
@@ -83,7 +86,8 @@ func NewRouter(s Services) *Router {
 		DefaultFormat: "application/json",
 	}, humago.NewAdapter(mux, Prefix))
 	registry.Schema(reflect.TypeFor[Problem](), true, "Problem")
-	return &Router{services: s, huma: h, mux: mux, owners: map[string]bool{}, ops: map[string]string{}}
+	streams, endStreams := context.WithCancel(context.Background())
+	return &Router{services: s, huma: h, mux: mux, owners: map[string]bool{}, ops: map[string]string{}, streams: streams, endStreams: endStreams}
 }
 
 var tagShape = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
@@ -283,14 +287,17 @@ func (r *Router) refusedByClaim(ctx context.Context, a *access) error {
 func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error) error {
 	attrs := []any{"method", op.Method, "path", Prefix + op.Path}
 	code, isCode := err.(*Code) //nolint:errorlint // a handler returns its code itself, never wrapped
-	detail := ""
-	if e, ok := err.(*explained); ok { //nolint:errorlint // as for a bare code
-		code, isCode, detail = e.code, true, e.detail
+	var e explained
+	if ex, ok := err.(*explained); ok { //nolint:errorlint // as for a bare code
+		code, isCode, e = ex.code, true, *ex
 	}
 	switch {
 	case isCode && slices.Contains(declared, code):
 		p := code.problem()
-		p.Detail = detail
+		p.Detail = e.detail
+		if e.field != "" {
+			p.Errors = []FieldError{{Location: "body." + e.field, Message: e.detail}}
+		}
 		return p
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)

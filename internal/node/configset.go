@@ -51,9 +51,19 @@ func changesOf(cs []ConfigChange) []nodesystem.Change {
 }
 
 // setConfig writes changes to config.yaml and applies each live row whose
-// saved value now differs from the running one. A restart row keeps its
-// running value until the Node restarts.
+// saved value now differs from the running one, then reports the new
+// settings revision. A restart row keeps its running value until the Node
+// restarts.
 func (n *Node) setConfig(changes []nodesystem.Change) ([]Key, error) {
+	keys, err := n.saveConfig(changes)
+	if err != nil {
+		return nil, err
+	}
+	n.reportHost()
+	return keys, nil
+}
+
+func (n *Node) saveConfig(changes []nodesystem.Change) ([]Key, error) {
 	n.cfgMu.Lock()
 	defer n.cfgMu.Unlock()
 	saved, keys, err := n.env.configFile().set(changes)

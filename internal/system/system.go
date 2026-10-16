@@ -3,6 +3,7 @@
 package system
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"time"
@@ -29,6 +30,60 @@ type Listeners struct {
 	Torrent netip.AddrPort
 	Link    netip.AddrPort
 	Control string
+}
+
+// LogRecord is one record of a Node's log as its viewer reads it.
+type LogRecord struct {
+	// Seq counts up from the serving process's start in Unix microseconds.
+	Seq       uint64
+	Time      time.Time
+	Level     string
+	Subsystem string
+	Message   string
+	// Attrs is every other attribute as one JSON object.
+	Attrs json.RawMessage
+}
+
+// ResetReason is why a log read could not go on from its reader's last
+// record.
+type ResetReason uint8
+
+const (
+	// Lapped: the ring dropped records the reader had not read.
+	Lapped ResetReason = iota + 1
+	// Restarted: the reader's last record came from an earlier process.
+	Restarted
+)
+
+var resetReasons = [...]string{Lapped: "lapped", Restarted: "restarted"}
+
+func (r ResetReason) String() string { return resetReasons[r] }
+
+func (r ResetReason) MarshalText() ([]byte, error) { return []byte(r.String()), nil }
+
+func (r *ResetReason) UnmarshalText(b []byte) error {
+	for i, name := range resetReasons {
+		if name != "" && name == string(b) {
+			*r = ResetReason(i)
+			return nil
+		}
+	}
+	return fmt.Errorf("reset reason %q is not lapped or restarted", b)
+}
+
+// LogReset starts a read over: its records follow After, the ring's
+// oldest less one.
+type LogReset struct {
+	Reason ResetReason
+	// StartedAt is when the serving process opened its log.
+	StartedAt time.Time
+	After     uint64
+}
+
+// LogBatch is one read of a Node's log, empty when nothing came in time.
+type LogBatch struct {
+	Reset   *LogReset
+	Records []LogRecord
 }
 
 // Claim is what a Node is, computed on every read and never stored: a
