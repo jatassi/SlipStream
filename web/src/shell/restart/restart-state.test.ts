@@ -118,6 +118,7 @@ test("a port move links to the new port only when the browser reached the Node o
     href: "http://[::1]:9000/",
   });
   expect(moveFor(undefined, 8484, new URL("http://media.local:8484/"))).toBeUndefined();
+  expect(moveFor(8484, 8484, new URL("http://media.local:8484/"))).toBeUndefined();
 });
 
 test("the store notifies on a change and stays quiet on an event that changes nothing", () => {
