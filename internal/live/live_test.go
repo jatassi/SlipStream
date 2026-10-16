@@ -381,3 +381,45 @@ func TestEventsListsEveryEventWithTheControlEvents(t *testing.T) {
 		t.Fatalf("Events = %s, want %s", got, want)
 	}
 }
+
+func TestWatchWakesOnceForEveryPublishSinceItLastReceived(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h, p := newHub(t)
+		ctx, stop := context.WithCancel(t.Context())
+		woken := h.Watch(ctx, nodesChangedEvent, noticeEvent)
+		p.sessions.Publish(t.Context(), alice, sessionsChanged{Account: alice})
+		if pending(woken) != 0 {
+			t.Fatal("an event it doesn't watch woke the watch")
+		}
+		p.nodes.Publish(t.Context(), nodesChanged{Node: "seedbox"})
+		p.notices.Publish(t.Context(), notice{Text: "hi"})
+		p.nodes.Publish(t.Context(), nodesChanged{Node: "home"})
+		if got := pending(woken); got != 1 {
+			t.Fatalf("three publishes woke the watch %d times, want 1", got)
+		}
+		stop()
+		synctest.Wait()
+		p.nodes.Publish(t.Context(), nodesChanged{Node: "seedbox"})
+		if got := pending(woken); got != 0 {
+			t.Fatalf("a publish after the watch's context ended woke it %d times", got)
+		}
+	})
+}
+
+// pending drains woken and counts what it held.
+func pending(woken <-chan struct{}) int {
+	for n := 0; ; n++ {
+		select {
+		case <-woken:
+		default:
+			return n
+		}
+	}
+}
+
+func TestWatchOfAnUnlistedEventPanics(t *testing.T) {
+	h := live.NewHub([]live.Event{sessionsChangedEvent})
+	assertPanics(t, "live: event nodes.changed is not in surface.Events", func() {
+		h.Watch(t.Context(), nodesChangedEvent)
+	})
+}
