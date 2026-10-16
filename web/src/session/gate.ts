@@ -14,6 +14,9 @@ export type Entry =
 
 export type EntryKind = Entry["kind"];
 
+/** What a route lets in: an entry kind, or `link` for a public link page anyone may open. */
+export type Want = EntryKind | "link";
+
 const signedIn = (account: IdentityAccount): Entry =>
   account.admin ? { kind: "app", account } : { kind: "portal", account };
 
@@ -33,7 +36,7 @@ const render: Cell = () => null;
 const toSignIn: Cell = (href) => `/sign-in?redirect=${encodeURIComponent(href)}`;
 const toRedirect: Cell = (_href, to) => safeRedirect(to);
 
-const redirects: { readonly [W in EntryKind]: { readonly [E in EntryKind]: Cell } } = {
+const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } = {
   app: {
     setup: () => "/setup",
     "sign-in": toSignIn,
@@ -69,18 +72,21 @@ const redirects: { readonly [W in EntryKind]: { readonly [E in EntryKind]: Cell 
     app: () => "/",
     portal: () => "/portal",
   },
+  link: {
+    setup: render,
+    "sign-in": render,
+    worker: render,
+    app: render,
+    portal: render,
+  },
 };
 
-export const redirectFor = (
-  entry: Entry,
-  want: EntryKind,
-  href: string,
-  to?: string,
-): string | null => redirects[want][entry.kind](href, to);
+export const redirectFor = (entry: Entry, want: Want, href: string, to?: string): string | null =>
+  redirects[want][entry.kind](href, to);
 
 export async function requireEntry(
   { queryClient }: { queryClient: QueryClient },
-  want: EntryKind,
+  want: Want,
   location: ParsedLocation,
   to?: string,
 ): Promise<Entry> {

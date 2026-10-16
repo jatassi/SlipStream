@@ -37,6 +37,11 @@ describe("redirectFor", () => {
     ["worker", worker, null],
     ["worker", app, "/"],
     ["worker", portal, "/portal"],
+    ["link", setup, null],
+    ["link", signIn, null],
+    ["link", worker, null],
+    ["link", app, null],
+    ["link", portal, null],
   ] as const)("wanting %s at entry %o goes to %s", (want, entry, target) => {
     expect(redirectFor(entry, want, "/system?x=1", "/system")).toBe(target);
   });
