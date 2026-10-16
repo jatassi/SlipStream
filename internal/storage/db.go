@@ -92,6 +92,17 @@ func (d *DB[F]) Read(ctx context.Context, fn func(ctx context.Context, r Reader[
 	return fn(ctx, &snapshot[F]{Tx[F]{tx: sqlTx}})
 }
 
+// Optimize runs PRAGMA optimize on the file's writer connection, which
+// refreshes the statistics SQLite's query planner reads where they have
+// gone stale. Inside a Write on F it panics as a nested Write does.
+func (d *DB[F]) Optimize(ctx context.Context) error {
+	ctx = claimWriter[F](ctx)
+	if _, err := d.write.ExecContext(ctx, "PRAGMA optimize"); err != nil {
+		return fmt.Errorf("%s: optimize: %w", policyOf[F]().name, err)
+	}
+	return nil
+}
+
 func (d *DB[F]) Close() error {
 	name := policyOf[F]().name
 	var errs []error
