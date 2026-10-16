@@ -5,6 +5,7 @@ import {
   Search01Icon,
   ServerStack01Icon,
   Task01Icon,
+  TimeScheduleIcon,
   UserCircleIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -24,6 +25,7 @@ export type NavId =
   | "library"
   | "activity"
   | "this-node"
+  | "tasks"
   | "home"
   | "search"
   | "requests"
@@ -81,6 +83,14 @@ export const adminNav: NavTable = [
     label: "This Node",
     icon: ServerStack01Icon,
     to: "/system",
+    audience: "admin",
+    place: "system",
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    icon: TimeScheduleIcon,
+    to: "/tasks",
     audience: "admin",
     place: "system",
   },

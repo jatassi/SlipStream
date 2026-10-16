@@ -13,6 +13,8 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -145,7 +147,7 @@ type roles struct {
 }
 
 type settings struct {
-	JoinCodeLifetimeSeconds int64 `json:"joinCodeLifetimeSeconds" minimum:"600" maximum:"604800"`
+	JoinCodeLifetime setting.DurationField `json:"joinCodeLifetime"`
 }
 
 type settingsOutput struct {
@@ -157,7 +159,7 @@ type settingsInput struct {
 }
 
 type settingsPatch struct {
-	JoinCodeLifetimeSeconds *int64 `json:"joinCodeLifetimeSeconds,omitempty" minimum:"600" maximum:"604800"`
+	JoinCodeLifetime api.Patch[int64] `json:"joinCodeLifetime,omitempty" doc:"Seconds; null resets it to its default"`
 }
 
 func nodeID(s string) (nodes.ID, error) {
@@ -223,6 +225,7 @@ func Routes(r *api.Router, roster Roster) {
 		Path:    "/nodes/settings",
 		Summary: "Change the nodes settings",
 		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange},
 	}, h.updateNodeSettings)
 }
 
@@ -289,8 +292,12 @@ func (h handlers) setNodeRoles(ctx context.Context, _ identity.Admin, in *rolesI
 
 func (h handlers) updateNodeSettings(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
 	s := open(h.roster)
-	if v := in.Body.JoinCodeLifetimeSeconds; v != nil {
-		if err := s.SetJoinCodeLifetime(ctx, time.Duration(*v)*time.Second); err != nil {
+	if p := in.Body.JoinCodeLifetime; p.Sent() {
+		v, err := nodes.JoinCodeLifetime.Parse(p.Value())
+		if err != nil {
+			return nil, settingapi.Refused(err)
+		}
+		if err := s.SetJoinCodeLifetime(ctx, v); err != nil {
 			return nil, err
 		}
 	}
@@ -298,9 +305,9 @@ func (h handlers) updateNodeSettings(ctx context.Context, _ identity.Admin, in *
 }
 
 func currentSettings(ctx context.Context, s *nodes.Service) (*settingsOutput, error) {
-	d, err := s.JoinCodeLifetime(ctx)
+	lifetime, err := s.JoinCodeLifetimeField(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &settingsOutput{Body: settings{JoinCodeLifetimeSeconds: int64(d / time.Second)}}, nil
+	return &settingsOutput{Body: settings{JoinCodeLifetime: lifetime}}, nil
 }

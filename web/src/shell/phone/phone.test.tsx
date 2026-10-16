@@ -47,6 +47,16 @@ test("the phone shell has a tab bar, with the Activity count as a badge", async 
   await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
 });
 
+const moreButtons = [
+  "Films",
+  "This Node",
+  "Tasks",
+  "Your Account",
+  "Open the portal",
+  "Sign out",
+  "Cancel",
+];
+
 test("More opens a sheet with the rest of the nav and the version, and Cancel closes it", async () => {
   await asPhone();
   const { router } = renderApp({
@@ -78,7 +88,7 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
       .getByRole("button")
       .all()
       .map((button) => button.element().textContent),
-  ).toEqual(["Films", "This Node", "Your Account", "Open the portal", "Sign out", "Cancel"]);
+  ).toEqual(moreButtons);
   const startup = sheet.getByRole("switch", { name: "Startup sequence" });
   await expect.element(startup).toBeChecked();
   await userEvent.click(sheet.getByText("Startup sequence"));

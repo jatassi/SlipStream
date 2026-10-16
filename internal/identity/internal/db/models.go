@@ -78,15 +78,15 @@ type IdentitySession struct {
 
 type IdentitySetting struct {
 	ID                        Singleton
-	PinWaitAfter              int64
-	PinWaitSeconds            int64
-	PinOffAfter               int64
-	AddressFailures           int64
-	AddressWindowSeconds      int64
-	ReconfirmWindowSeconds    int64
-	SessionLifetimeSeconds    int64
-	SignupLinkLifetimeSeconds int64
-	ResetLinkLifetimeSeconds  int64
-	EmailLinkLifetimeSeconds  int64
+	PinWaitAfter              *int64
+	PinWaitSeconds            *int64
+	PinOffAfter               *int64
+	AddressFailures           *int64
+	AddressWindowSeconds      *int64
+	ReconfirmWindowSeconds    *int64
+	SessionLifetimeSeconds    *int64
+	SignupLinkLifetimeSeconds *int64
+	ResetLinkLifetimeSeconds  *int64
+	EmailLinkLifetimeSeconds  *int64
 	Address                   string
 }

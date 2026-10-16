@@ -13,7 +13,6 @@ var (
 	pinWait            = api.NewCode(http.StatusTooManyRequests, "pin_wait", "Too many wrong PINs. Wait before trying again.")
 	pinOff             = api.NewCode(http.StatusForbidden, "pin_off", "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.")
 	tooManyAttempts    = api.NewCode(http.StatusTooManyRequests, "too_many_attempts", "Too many failed attempts from this address. Wait before trying again.")
-	settingOutOfRange  = api.NewCode(http.StatusUnprocessableEntity, "setting_out_of_range", "A setting is outside its range")
 	addressIP          = api.NewCode(http.StatusUnprocessableEntity, "address_ip", "The address must be a name, not an IP address")
 	accountDisabled    = api.NewCode(http.StatusForbidden, "account_disabled", "This Account is turned off. Ask an Admin to turn it back on.")
 	addressUnset       = api.NewCode(http.StatusConflict, "address_unset", "Set SlipStream's address first, so links point somewhere people can reach")
@@ -60,13 +59,6 @@ func answer(err error) error {
 			return tooManyAttempts.Until(wait.Until)
 		}
 		return pinWait.Until(wait.Until)
-	}
-	if out, ok := errors.AsType[*identity.OutOfRangeError](err); ok {
-		fields := make([]api.FieldError, len(out.Fields))
-		for i, f := range out.Fields {
-			fields[i] = api.FieldError{Location: "body." + f.Field, Message: f.Message}
-		}
-		return settingOutOfRange.Fields(fields...)
 	}
 	if _, ok := errors.AsType[*identity.DeadError](err); ok {
 		return linkDead

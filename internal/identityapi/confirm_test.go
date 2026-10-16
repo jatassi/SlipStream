@@ -46,7 +46,7 @@ func TestAConfirmLastsTheWindowAndReconfirmRenewsIt(t *testing.T) {
 			t.Fatalf("a lapsed confirm still reads its session, got %d %s", w.Code, w.Body)
 		}
 		want(t, "re-confirm with the right PIN", n.reconfirm(session, "1234"), answer{status: 204})
-		if w := n.patchSettingsAs(session, `{"reconfirmWindowSeconds":3600}`); w.Code != http.StatusOK {
+		if w := n.patchSettingsAs(session, `{"reconfirmWindow":3600}`); w.Code != http.StatusOK {
 			t.Fatalf("after re-confirm, updateIdentitySettings = %d %s", w.Code, w.Body)
 		}
 		time.Sleep(59 * time.Minute)

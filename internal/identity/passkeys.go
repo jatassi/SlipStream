@@ -290,7 +290,7 @@ func (s *Service) FinishPasskeySignIn(ctx context.Context, a Anyone, id Ceremony
 		if err := recordUse(ctx, q, fx, account, asserted.Credential); err != nil {
 			return err
 		}
-		out, err = signInAs(ctx, q, fx, a.client, row, token, set, !row.PinDisabledAt.IsZero())
+		out, err = startSession(ctx, q, fx, a.client, row, token, !row.PinDisabledAt.IsZero())
 		return err
 	})
 	if err != nil {

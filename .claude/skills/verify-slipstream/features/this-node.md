@@ -9,8 +9,8 @@ This Node shows the Node the browser is talking to: its build version, data dir 
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `This Node`, below the separator, which opens `/system`.
-- Phone shell: the `More` tab, then `This Node`.
+- Desktop shell: the sidebar's `This Node`, below the separator and above `Tasks`, which opens `/system`.
+- Phone shell: the `More` tab, then `This Node`, listed above `Tasks`.
 - Both shells: the palette's `Go to This Node`.
 - API: `GET /api/v1/system`.
 - Host CLI: `slipstream version` prints the same build stamp.

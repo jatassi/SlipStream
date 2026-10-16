@@ -11,12 +11,17 @@ export type Column<Row> = {
   align?: "start" | "end";
 };
 
+export type RowTone = "warn";
+
 export type Selection<Row> = {
   selected: string | undefined;
   onSelect: (row: Row) => void;
 };
 
 const lineHeight = { 1: "h-(--row-height)", 2: "h-(--row-height-two)" } as const;
+
+const rowLook =
+  "relative transition-colors duration-350 ease-standard *:shadow-[inset_0_1px_0_var(--color-hairline)] hover:bg-(--row-wash) has-focus-visible:bg-(--row-wash) has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-solid data-[tone=warn]:bg-warn-card/60 data-[tone=warn]:*:shadow-[inset_0_1px_0_var(--color-warn-line)]";
 
 const alignLook = { start: "text-left", end: "text-right" } as const;
 
@@ -97,15 +102,17 @@ function Row<Row>({
   row,
   columns: [first, ...rest],
   lines,
+  tone,
   selection,
 }: {
   row: Row;
   columns: readonly [Column<Row>, ...Column<Row>[]];
   lines: 1 | 2;
+  tone: RowTone | undefined;
   selection: { selected: boolean; onSelect: (row: Row) => void } | undefined;
 }) {
   return (
-    <tr className="relative transition-colors duration-350 ease-standard *:shadow-[inset_0_1px_0_var(--color-hairline)] hover:bg-(--row-wash) has-focus-visible:bg-(--row-wash) has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-solid">
+    <tr data-tone={tone} className={rowLook}>
       <Cell
         column={first}
         row={row}
@@ -149,6 +156,7 @@ export function Table<Row>({
   rowKey,
   lines = 1,
   stackBelow,
+  tone,
   selection,
 }: {
   label: string;
@@ -157,6 +165,7 @@ export function Table<Row>({
   rowKey: (row: Row) => string;
   lines?: 1 | 2;
   stackBelow?: number;
+  tone?: (row: Row) => RowTone | undefined;
   selection?: Selection<Row>;
 }) {
   const id = useId();
@@ -173,6 +182,7 @@ export function Table<Row>({
                 row={row}
                 columns={columns}
                 lines={lines}
+                tone={tone?.(row)}
                 selection={
                   selection && { ...selection, selected: selection.selected === rowKey(row) }
                 }

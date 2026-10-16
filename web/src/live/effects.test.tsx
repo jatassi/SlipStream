@@ -11,6 +11,14 @@ import {
   getListSessionsQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
+import { getListWorksQueryKey } from "../api/gen/query/works/works";
+import {
+  getGetTaskQueryKey,
+  getGetTaskSettingsQueryKey,
+  getListOpenTaskRunsQueryKey,
+  getListTasksQueryKey,
+} from "../api/gen/query/tasks/tasks";
 import { liveServer, seeded } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 
@@ -94,4 +102,59 @@ test("identity.passkeys-changed invalidates your passkey list", async () => {
     data: { account: "1b3d5f7a-9c1e-4a3c-8e5a-7c9e1b3d5f7a" },
   });
   await expect.poll(invalidated).toEqual({ passkeys: true, sessions: false });
+});
+
+test("tasks.changed invalidates every tasks query and nothing else", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/system", handlers: server.handlers });
+  await expect.poll(() => app.live.getState()).toBe("open");
+  const invalidated = seeded(app, {
+    list: getListTasksQueryKey(),
+    task: getGetTaskQueryKey("housekeeping"),
+    settings: getGetTaskSettingsQueryKey(),
+    open: getListOpenTaskRunsQueryKey(),
+    works: getListWorksQueryKey(),
+  });
+
+  server.clients[0]?.send({ event: "tasks.changed", data: { taskId: "" } });
+  await expect
+    .poll(invalidated)
+    .toEqual({ list: true, task: true, settings: true, open: true, works: false });
+});
+
+const openRun = (runId: number, taskId: string) => ({
+  runId,
+  taskId,
+  name: taskId,
+  noun: { one: "step", many: "steps" },
+  trigger: "run-now" as const,
+  startedAt: "2026-10-16T14:02:00Z",
+  nodes: ["home"],
+  done: 0,
+  total: 6,
+});
+
+test("tasks.progress moves that open run in place", async () => {
+  const server = liveServer();
+  const open = { headerDelaySeconds: 5, runs: [openRun(1, "housekeeping"), openRun(2, "tidy")] };
+  const app = renderApp({
+    path: "/system",
+    handlers: [...server.handlers, getListOpenTaskRunsMockHandler(open)],
+  });
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect
+    .poll(() => app.queryClient.getQueryData(getListOpenTaskRunsQueryKey()))
+    .toEqual(open);
+
+  server.clients[0]?.send({
+    event: "tasks.progress",
+    data: { runId: 1, taskId: "housekeeping", done: 3, total: 6 },
+  });
+  await expect
+    .poll(() => app.queryClient.getQueryData(getListOpenTaskRunsQueryKey()))
+    .toEqual({
+      headerDelaySeconds: 5,
+      runs: [{ ...openRun(1, "housekeeping"), done: 3 }, openRun(2, "tidy")],
+    });
+  expect(app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.isInvalidated).toBe(false);
 });

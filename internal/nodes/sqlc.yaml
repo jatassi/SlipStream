@@ -35,3 +35,7 @@ sql:
           - column: nodes_settings.id
             go_type:
               type: Singleton
+          - column: nodes_settings.join_code_lifetime_seconds
+            go_type:
+              type: int64
+              pointer: true

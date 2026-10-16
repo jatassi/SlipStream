@@ -68,9 +68,12 @@ UPDATE identity_session SET pin_required = 0 WHERE account_id = sqlc.arg(account
 -- name: DeleteSession :exec
 DELETE FROM identity_session WHERE id = sqlc.arg(id);
 
+-- name: ListIdleSessions :many
+SELECT id, account_id FROM identity_session WHERE last_seen_at < sqlc.arg(seen_before)
+ORDER BY account_id, id;
+
 -- name: DeleteIdleSessions :exec
-DELETE FROM identity_session
-WHERE account_id = sqlc.arg(account_id) AND last_seen_at < sqlc.arg(seen_before);
+DELETE FROM identity_session WHERE last_seen_at < sqlc.arg(seen_before);
 
 -- name: InsertAPIKey :exec
 INSERT INTO identity_api_key (id, token_hash, created_at) VALUES (1, sqlc.arg(token_hash), sqlc.arg(created_at));
@@ -87,20 +90,19 @@ SELECT created_at FROM identity_api_key WHERE id = 1;
 -- name: GetSettings :one
 SELECT * FROM identity_settings WHERE id = 1;
 
--- name: SaveSettings :exec
+-- name: SetSignInSettings :exec
 UPDATE identity_settings
 SET
-    pin_wait_after = sqlc.arg(pin_wait_after),
-    pin_wait_seconds = sqlc.arg(pin_wait_seconds),
-    pin_off_after = sqlc.arg(pin_off_after),
-    address_failures = sqlc.arg(address_failures),
-    address_window_seconds = sqlc.arg(address_window_seconds),
-    reconfirm_window_seconds = sqlc.arg(reconfirm_window_seconds),
-    session_lifetime_seconds = sqlc.arg(session_lifetime_seconds),
-    signup_link_lifetime_seconds = sqlc.arg(signup_link_lifetime_seconds),
-    reset_link_lifetime_seconds = sqlc.arg(reset_link_lifetime_seconds),
-    email_link_lifetime_seconds = sqlc.arg(email_link_lifetime_seconds),
-    address = sqlc.arg(address)
+    pin_wait_after = sqlc.narg(pin_wait_after),
+    pin_wait_seconds = sqlc.narg(pin_wait_seconds),
+    pin_off_after = sqlc.narg(pin_off_after),
+    address_failures = sqlc.narg(address_failures),
+    address_window_seconds = sqlc.narg(address_window_seconds),
+    reconfirm_window_seconds = sqlc.narg(reconfirm_window_seconds),
+    session_lifetime_seconds = sqlc.narg(session_lifetime_seconds),
+    signup_link_lifetime_seconds = sqlc.narg(signup_link_lifetime_seconds),
+    reset_link_lifetime_seconds = sqlc.narg(reset_link_lifetime_seconds),
+    email_link_lifetime_seconds = sqlc.narg(email_link_lifetime_seconds)
 WHERE id = 1;
 
 -- name: SetAddress :exec

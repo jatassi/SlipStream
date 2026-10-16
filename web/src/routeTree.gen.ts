@@ -25,6 +25,7 @@ import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
+import { Route as AppTasksRouteRouteImport } from "./routes/_app/tasks/route";
 import { Route as PortalIndexRouteImport } from "./routes/portal/index";
 import { Route as PortalSplatRouteImport } from "./routes/portal/$";
 import { Route as PortalAccountRouteImport } from "./routes/portal/account";
@@ -32,6 +33,8 @@ import { Route as PortalRequestsRouteImport } from "./routes/portal/requests";
 import { Route as PortalSearchRouteImport } from "./routes/portal/search";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
+import { Route as AppTasksIndexRouteImport } from "./routes/_app/tasks/index";
+import { Route as AppTasksTaskIdRouteImport } from "./routes/_app/tasks/$taskId";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 import { Route as AccountPasskeysNewRouteImport } from "./routes/account.passkeys.new";
 
@@ -114,6 +117,11 @@ const AppSystemRoute = AppSystemRouteImport.update({
   path: "/system",
   getParentRoute: () => AppRoute,
 } as any);
+const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
+  id: "/tasks",
+  path: "/tasks",
+  getParentRoute: () => AppRoute,
+} as any);
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -149,6 +157,16 @@ const AppLibraryContentTypeRoute = AppLibraryContentTypeRouteImport.update({
   path: "/$contentType",
   getParentRoute: () => AppLibraryRouteRoute,
 } as any);
+const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AppTasksRouteRoute,
+} as any);
+const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
+  id: "/$taskId",
+  path: "/$taskId",
+  getParentRoute: () => AppTasksRouteRoute,
+} as any);
 const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   id: "/works/$workId",
   path: "/works/$workId",
@@ -171,6 +189,7 @@ export interface FileRoutesByFullPath {
   "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/library": typeof AppLibraryRouteRouteWithChildren;
+  "/tasks": typeof AppTasksRouteRouteWithChildren;
   "/$": typeof AppSplatRoute;
   "/account": typeof AppAccountRoute;
   "/activity": typeof AppActivityRoute;
@@ -182,9 +201,11 @@ export interface FileRoutesByFullPath {
   "/portal/search": typeof PortalSearchRoute;
   "/portal/": typeof PortalIndexRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/library/": typeof AppLibraryIndexRoute;
+  "/tasks/": typeof AppTasksIndexRoute;
 }
 export interface FileRoutesByTo {
   "/confirm-email": typeof ConfirmEmailRoute;
@@ -206,9 +227,11 @@ export interface FileRoutesByTo {
   "/": typeof AppIndexRoute;
   "/portal": typeof PortalIndexRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/library": typeof AppLibraryIndexRoute;
+  "/tasks": typeof AppTasksIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -222,6 +245,7 @@ export interface FileRoutesById {
   "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
+  "/_app/tasks": typeof AppTasksRouteRouteWithChildren;
   "/_app/$": typeof AppSplatRoute;
   "/_app/account": typeof AppAccountRoute;
   "/_app/activity": typeof AppActivityRoute;
@@ -234,9 +258,11 @@ export interface FileRoutesById {
   "/_app/": typeof AppIndexRoute;
   "/portal/": typeof PortalIndexRoute;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/_app/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
   "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
+  "/_app/tasks/": typeof AppTasksIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -251,6 +277,7 @@ export interface FileRouteTypes {
     | "/signup"
     | "/worker"
     | "/library"
+    | "/tasks"
     | "/$"
     | "/account"
     | "/activity"
@@ -262,9 +289,11 @@ export interface FileRouteTypes {
     | "/portal/search"
     | "/portal/"
     | "/library/$contentType"
+    | "/tasks/$taskId"
     | "/works/$workId"
     | "/account/passkeys/new"
-    | "/library/";
+    | "/library/"
+    | "/tasks/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/confirm-email"
@@ -286,9 +315,11 @@ export interface FileRouteTypes {
     | "/"
     | "/portal"
     | "/library/$contentType"
+    | "/tasks/$taskId"
     | "/works/$workId"
     | "/account/passkeys/new"
-    | "/library";
+    | "/library"
+    | "/tasks";
   id:
     | "__root__"
     | "/_app"
@@ -301,6 +332,7 @@ export interface FileRouteTypes {
     | "/signup"
     | "/worker"
     | "/_app/library"
+    | "/_app/tasks"
     | "/_app/$"
     | "/_app/account"
     | "/_app/activity"
@@ -313,9 +345,11 @@ export interface FileRouteTypes {
     | "/_app/"
     | "/portal/"
     | "/_app/library/$contentType"
+    | "/_app/tasks/$taskId"
     | "/_app/works/$workId"
     | "/account/passkeys/new"
-    | "/_app/library/";
+    | "/_app/library/"
+    | "/_app/tasks/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -445,6 +479,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSystemRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/_app/tasks": {
+      id: "/_app/tasks";
+      path: "/tasks";
+      fullPath: "/tasks";
+      preLoaderRoute: typeof AppTasksRouteRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/portal/": {
       id: "/portal/";
       path: "/";
@@ -494,6 +535,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppLibraryContentTypeRouteImport;
       parentRoute: typeof AppLibraryRouteRoute;
     };
+    "/_app/tasks/": {
+      id: "/_app/tasks/";
+      path: "/";
+      fullPath: "/tasks/";
+      preLoaderRoute: typeof AppTasksIndexRouteImport;
+      parentRoute: typeof AppTasksRouteRoute;
+    };
+    "/_app/tasks/$taskId": {
+      id: "/_app/tasks/$taskId";
+      path: "/$taskId";
+      fullPath: "/tasks/$taskId";
+      preLoaderRoute: typeof AppTasksTaskIdRouteImport;
+      parentRoute: typeof AppTasksRouteRoute;
+    };
     "/_app/works/$workId": {
       id: "/_app/works/$workId";
       path: "/works/$workId";
@@ -525,8 +580,23 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
   AppLibraryRouteRouteChildren,
 );
 
+interface AppTasksRouteRouteChildren {
+  AppTasksTaskIdRoute: typeof AppTasksTaskIdRoute;
+  AppTasksIndexRoute: typeof AppTasksIndexRoute;
+}
+
+const AppTasksRouteRouteChildren: AppTasksRouteRouteChildren = {
+  AppTasksTaskIdRoute: AppTasksTaskIdRoute,
+  AppTasksIndexRoute: AppTasksIndexRoute,
+};
+
+const AppTasksRouteRouteWithChildren = AppTasksRouteRoute._addFileChildren(
+  AppTasksRouteRouteChildren,
+);
+
 interface AppRouteChildren {
   AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
+  AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren;
   AppSplatRoute: typeof AppSplatRoute;
   AppAccountRoute: typeof AppAccountRoute;
   AppActivityRoute: typeof AppActivityRoute;
@@ -538,6 +608,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
+  AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppSplatRoute: AppSplatRoute,
   AppAccountRoute: AppAccountRoute,
   AppActivityRoute: AppActivityRoute,

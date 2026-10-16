@@ -3,7 +3,6 @@ package identity
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/netip"
 	"net/url"
@@ -12,10 +11,54 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
+	"github.com/jatassi/slipstream/internal/setting"
 )
 
-// Settings is identity_settings: every limit and lifetime, and the address
-// links are built on. Each is read at use, so a change applies at once.
+const day = 24 * time.Hour
+
+var wrongPINs = setting.Noun{One: "wrong PIN", Many: "wrong PINs"}
+
+// The sign-in settings. Each floor keeps a setting from locking everyone
+// out and each ceiling keeps it from loosening ADR 0005 into something
+// guessable. PINOffAfter's floor is also one more than PINWaitAfter's
+// value; PINLimits applies it.
+var (
+	PINWaitAfter       = setting.Count{Key: "identity.pinWaitAfter", Label: "Wrong PINs before a wait", Default: 5, Min: 3, Max: 10, Unit: wrongPINs}
+	PINWaitLength      = setting.Duration{Key: "identity.pinWait", Label: "Wait after too many wrong PINs", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
+	PINOffAfter        = setting.Count{Key: "identity.pinOffAfter", Label: "Wrong PINs in a row before the PIN turns off", Default: 10, Min: 4, Max: 20, Unit: wrongPINs}
+	AddressFailures    = setting.Count{Key: "identity.addressFailures", Label: "Failed attempts per address", Default: 30, Min: 10, Max: 1000, Unit: setting.Noun{One: "attempt", Many: "attempts"}}
+	AddressWindow      = setting.Duration{Key: "identity.addressWindow", Label: "Per-address window", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
+	ReconfirmWindow    = setting.Duration{Key: "identity.reconfirmWindow", Label: "Re-confirm window", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
+	SessionLifetime    = setting.Duration{Key: "identity.sessionLifetime", Label: "Session lifetime", Default: 30 * day, Min: time.Hour, Max: 365 * day, Step: time.Hour}
+	SignupLinkLifetime = setting.Duration{Key: "identity.signupLinkLifetime", Label: "Signup link lifetime", Default: 7 * day, Min: time.Minute, Max: 30 * day, Step: time.Minute}
+	ResetLinkLifetime  = setting.Duration{Key: "identity.resetLinkLifetime", Label: "Reset link lifetime", Default: day, Min: time.Minute, Max: 7 * day, Step: time.Minute}
+	EmailLinkLifetime  = setting.Duration{Key: "identity.emailLinkLifetime", Label: "Email confirm link lifetime", Default: day, Min: time.Minute, Max: 7 * day, Step: time.Minute}
+)
+
+// PINLimits is PINWaitAfter and PINOffAfter narrowed by each other's value
+// under o, so the PIN turns off at least one wrong PIN after the wait.
+func PINLimits(o SignInOverrides) (wait, off setting.Count) {
+	wait, off = PINWaitAfter, PINOffAfter
+	off.Min = max(off.Min, PINWaitAfter.Value(o.PINWaitAfter)+1)
+	wait.Max = min(wait.Max, PINOffAfter.Value(o.PINOffAfter)-1)
+	return wait, off
+}
+
+// SignInOverrides is each sign-in setting's stored override, nil at its
+// default.
+type SignInOverrides struct {
+	PINWaitAfter, PINWait, PINOffAfter, AddressFailures, AddressWindow, ReconfirmWindow *int64
+	SessionLifetime, SignupLinkLifetime, ResetLinkLifetime, EmailLinkLifetime           *int64
+}
+
+// SignInChange is the sign-in settings to store, each nil to leave.
+type SignInChange struct {
+	PINWaitAfter, PINWait, PINOffAfter, AddressFailures, AddressWindow, ReconfirmWindow *setting.Stored[int64]
+	SessionLifetime, SignupLinkLifetime, ResetLinkLifetime, EmailLinkLifetime           *setting.Stored[int64]
+}
+
+// Settings is every limit and lifetime's value, and the address links are
+// built on. Each is read at use, so a change applies at once.
 type Settings struct {
 	PINWaitAfter       int
 	PINWait            time.Duration
@@ -30,85 +73,27 @@ type Settings struct {
 	Address            Address
 }
 
-type BoundKind uint8
-
-const (
-	Count BoundKind = iota
-	// Duration is carried in whole seconds.
-	Duration
-)
-
-// Bound is one setting's default, floor and ceiling, in the unit the API
-// carries it in. The floors keep a setting from locking everyone out and
-// the ceilings keep it from loosening ADR 0005 into something guessable.
-type Bound struct {
-	Field   string
-	Kind    BoundKind
-	Default int64
-	Floor   int64
-	Ceiling int64
-	get     func(Settings) int64
-}
-
-func seconds(d time.Duration) int64 { return int64(d / time.Second) }
-
-// Bounds lists every bounded setting. identity_settings' CHECKs hold the
-// same floors and ceilings.
-var Bounds = []Bound{
-	{"pinWaitAfter", Count, 5, 3, 10, func(s Settings) int64 { return int64(s.PINWaitAfter) }},
-	{"pinWaitSeconds", Duration, 900, 60, 86400, func(s Settings) int64 { return seconds(s.PINWait) }},
-	{"pinOffAfter", Count, 10, 4, 20, func(s Settings) int64 { return int64(s.PINOffAfter) }},
-	{"addressFailures", Count, 30, 10, 1000, func(s Settings) int64 { return int64(s.AddressFailures) }},
-	{"addressWindowSeconds", Duration, 900, 60, 86400, func(s Settings) int64 { return seconds(s.AddressWindow) }},
-	{"reconfirmWindowSeconds", Duration, 900, 60, 86400, func(s Settings) int64 { return seconds(s.ReconfirmWindow) }},
-	{"sessionLifetimeSeconds", Duration, 2592000, 3600, 31536000, func(s Settings) int64 { return seconds(s.SessionLifetime) }},
-	{"signupLinkLifetimeSeconds", Duration, 604800, 60, 2592000, func(s Settings) int64 { return seconds(s.SignupLinkLifetime) }},
-	{"resetLinkLifetimeSeconds", Duration, 86400, 60, 604800, func(s Settings) int64 { return seconds(s.ResetLinkLifetime) }},
-	{"emailLinkLifetimeSeconds", Duration, 86400, 60, 604800, func(s Settings) int64 { return seconds(s.EmailLinkLifetime) }},
-}
-
-// FieldError names a field by its name in the API.
-type FieldError struct{ Field, Message string }
-
-type OutOfRangeError struct{ Fields []FieldError }
-
-func (e *OutOfRangeError) Error() string {
-	parts := make([]string, len(e.Fields))
-	for i, f := range e.Fields {
-		parts[i] = f.Field + ": " + f.Message
+func overridesOf(row db.IdentitySetting) SignInOverrides {
+	return SignInOverrides{
+		PINWaitAfter: row.PinWaitAfter, PINWait: row.PinWaitSeconds, PINOffAfter: row.PinOffAfter,
+		AddressFailures: row.AddressFailures, AddressWindow: row.AddressWindowSeconds, ReconfirmWindow: row.ReconfirmWindowSeconds,
+		SessionLifetime: row.SessionLifetimeSeconds, SignupLinkLifetime: row.SignupLinkLifetimeSeconds,
+		ResetLinkLifetime: row.ResetLinkLifetimeSeconds, EmailLinkLifetime: row.EmailLinkLifetimeSeconds,
 	}
-	return "identity: " + strings.Join(parts, "; ")
-}
-
-func (s Settings) validate() error {
-	var fields []FieldError
-	for _, b := range Bounds {
-		if v := b.get(s); v < b.Floor || v > b.Ceiling {
-			fields = append(fields, FieldError{b.Field, fmt.Sprintf("expected %d to %d", b.Floor, b.Ceiling)})
-		}
-	}
-	if s.PINOffAfter <= s.PINWaitAfter {
-		fields = append(fields, FieldError{"pinOffAfter", "expected more than pinWaitAfter"})
-	}
-	if len(fields) > 0 {
-		return &OutOfRangeError{Fields: fields}
-	}
-	return nil
 }
 
 func settingsOf(row db.IdentitySetting) Settings {
-	d := func(n int64) time.Duration { return time.Duration(n) * time.Second }
 	return Settings{
-		PINWaitAfter:       int(row.PinWaitAfter),
-		PINWait:            d(row.PinWaitSeconds),
-		PINOffAfter:        int(row.PinOffAfter),
-		AddressFailures:    int(row.AddressFailures),
-		AddressWindow:      d(row.AddressWindowSeconds),
-		ReconfirmWindow:    d(row.ReconfirmWindowSeconds),
-		SessionLifetime:    d(row.SessionLifetimeSeconds),
-		SignupLinkLifetime: d(row.SignupLinkLifetimeSeconds),
-		ResetLinkLifetime:  d(row.ResetLinkLifetimeSeconds),
-		EmailLinkLifetime:  d(row.EmailLinkLifetimeSeconds),
+		PINWaitAfter:       int(PINWaitAfter.Value(row.PinWaitAfter)),
+		PINWait:            PINWaitLength.Value(row.PinWaitSeconds),
+		PINOffAfter:        int(PINOffAfter.Value(row.PinOffAfter)),
+		AddressFailures:    int(AddressFailures.Value(row.AddressFailures)),
+		AddressWindow:      AddressWindow.Value(row.AddressWindowSeconds),
+		ReconfirmWindow:    ReconfirmWindow.Value(row.ReconfirmWindowSeconds),
+		SessionLifetime:    SessionLifetime.Value(row.SessionLifetimeSeconds),
+		SignupLinkLifetime: SignupLinkLifetime.Value(row.SignupLinkLifetimeSeconds),
+		ResetLinkLifetime:  ResetLinkLifetime.Value(row.ResetLinkLifetimeSeconds),
+		EmailLinkLifetime:  EmailLinkLifetime.Value(row.EmailLinkLifetimeSeconds),
 		Address:            Address{origin: row.Address},
 	}
 }
@@ -121,38 +106,80 @@ func readSettings(ctx context.Context, q *db.Queries) (Settings, error) {
 	return settingsOf(row), nil
 }
 
-func (s *Service) Settings(ctx context.Context, _ Admin) (Settings, error) {
-	return readSettings(ctx, db.New(s.lib))
+func (s *Service) SignInSettings(ctx context.Context, _ Admin) (SignInOverrides, error) {
+	row, err := db.New(s.lib).GetSettings(ctx)
+	return overridesOf(row), err
 }
 
-// UpdateSettings applies change to the settings in one Write, refusing the
-// result with *OutOfRangeError when a value is outside its Bound.
-func (s *Service) UpdateSettings(ctx context.Context, _ Admin, change func(*Settings)) (Settings, error) {
-	var out Settings
+// SetSignInSettings stores c in one Write, refusing with
+// *setting.RangeError a change that breaks PINLimits.
+func (s *Service) SetSignInSettings(ctx context.Context, _ Admin, c SignInChange) (SignInOverrides, error) {
+	var o SignInOverrides
 	err := s.write(ctx, func(ctx context.Context, q *db.Queries, _ *effects) error {
-		var err error
-		if out, err = readSettings(ctx, q); err != nil {
+		row, err := q.GetSettings(ctx)
+		if err != nil {
 			return err
 		}
-		change(&out)
-		if err := out.validate(); err != nil {
+		o = overridesOf(row)
+		for _, f := range []struct {
+			change   *setting.Stored[int64]
+			override **int64
+		}{
+			{c.PINWaitAfter, &o.PINWaitAfter},
+			{c.PINWait, &o.PINWait},
+			{c.PINOffAfter, &o.PINOffAfter},
+			{c.AddressFailures, &o.AddressFailures},
+			{c.AddressWindow, &o.AddressWindow},
+			{c.ReconfirmWindow, &o.ReconfirmWindow},
+			{c.SessionLifetime, &o.SessionLifetime},
+			{c.SignupLinkLifetime, &o.SignupLinkLifetime},
+			{c.ResetLinkLifetime, &o.ResetLinkLifetime},
+			{c.EmailLinkLifetime, &o.EmailLinkLifetime},
+		} {
+			if f.change != nil {
+				*f.override = f.change.Override()
+			}
+		}
+		if err := pinLimitsHold(o, c.PINOffAfter != nil); err != nil {
 			return err
 		}
-		return q.SaveSettings(ctx, db.SaveSettingsParams{
-			PinWaitAfter:              int64(out.PINWaitAfter),
-			PinWaitSeconds:            seconds(out.PINWait),
-			PinOffAfter:               int64(out.PINOffAfter),
-			AddressFailures:           int64(out.AddressFailures),
-			AddressWindowSeconds:      seconds(out.AddressWindow),
-			ReconfirmWindowSeconds:    seconds(out.ReconfirmWindow),
-			SessionLifetimeSeconds:    seconds(out.SessionLifetime),
-			SignupLinkLifetimeSeconds: seconds(out.SignupLinkLifetime),
-			ResetLinkLifetimeSeconds:  seconds(out.ResetLinkLifetime),
-			EmailLinkLifetimeSeconds:  seconds(out.EmailLinkLifetime),
-			Address:                   out.Address.origin,
+		return q.SetSignInSettings(ctx, db.SetSignInSettingsParams{
+			PinWaitAfter: o.PINWaitAfter, PinWaitSeconds: o.PINWait, PinOffAfter: o.PINOffAfter,
+			AddressFailures: o.AddressFailures, AddressWindowSeconds: o.AddressWindow, ReconfirmWindowSeconds: o.ReconfirmWindow,
+			SessionLifetimeSeconds: o.SessionLifetime, SignupLinkLifetimeSeconds: o.SignupLinkLifetime,
+			ResetLinkLifetimeSeconds: o.ResetLinkLifetime, EmailLinkLifetimeSeconds: o.EmailLinkLifetime,
 		})
 	})
-	return out, err
+	return o, err
+}
+
+// pinLimitsHold refuses o when the PIN would turn off no later than the
+// wait, blaming PINOffAfter when the change set it and PINWaitAfter
+// otherwise.
+func pinLimitsHold(o SignInOverrides, offChanged bool) error {
+	wait, off := PINLimits(o)
+	waitAfter, offAfter := PINWaitAfter.Value(o.PINWaitAfter), PINOffAfter.Value(o.PINOffAfter)
+	if offAfter > waitAfter {
+		return nil
+	}
+	if offChanged {
+		_, err := off.Parse(&offAfter)
+		return err
+	}
+	_, err := wait.Parse(&waitAfter)
+	return err
+}
+
+// Address is the address links are built on, zero until set.
+func (s *Service) Address(ctx context.Context, _ Admin) (Address, error) {
+	set, err := readSettings(ctx, db.New(s.lib))
+	return set.Address, err
+}
+
+func (s *Service) SetAddress(ctx context.Context, _ Admin, address Address) error {
+	return s.write(ctx, func(ctx context.Context, q *db.Queries, _ *effects) error {
+		return q.SetAddress(ctx, address.origin)
+	})
 }
 
 // Address is the configured name, scheme://host[:port], whose host is a

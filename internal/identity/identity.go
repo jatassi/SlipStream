@@ -12,6 +12,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -227,7 +228,7 @@ func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (
 			disabled = true
 			return nil
 		}
-		out, err = signInAs(ctx, q, fx, a.client, row, token, set, false)
+		out, err = startSession(ctx, q, fx, a.client, row, token, false)
 		return err
 	})
 	if err != nil {
@@ -238,16 +239,6 @@ func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (
 	}
 	out.Cookie = cookie(token, a.https, set.SessionLifetime)
 	return out, nil
-}
-
-// signInAs starts row's session, first deleting the ones it left idle
-// past the lifetime.
-func signInAs(ctx context.Context, q *db.Queries, fx *effects, c client, row db.IdentityAccount, token string, set Settings, pinRequired bool) (SignedIn, error) {
-	idle := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
-	if err := q.DeleteIdleSessions(ctx, db.DeleteIdleSessionsParams{AccountID: row.ID, SeenBefore: idle}); err != nil {
-		return SignedIn{}, err
-	}
-	return startSession(ctx, q, fx, c, row, token, pinRequired)
 }
 
 // signInBy runs fn, which names the Account a link signs in, and starts
@@ -355,7 +346,7 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	if err != nil {
 		return Caller{}, nil, err
 	}
-	lifetime := time.Duration(row.SessionLifetimeSeconds) * time.Second
+	lifetime := SessionLifetime.Value(row.SessionLifetimeSeconds)
 	u, err := s.use(ctx, row.SessionID, row.AccountID, row.LastSeenAt, lifetime)
 	if err != nil {
 		return Caller{}, nil, err
@@ -363,7 +354,7 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	if u == expired {
 		return c, clearCookie(r.HTTPS), nil
 	}
-	window := time.Duration(row.ReconfirmWindowSeconds) * time.Second
+	window := ReconfirmWindow.Value(row.ReconfirmWindowSeconds)
 	c.kind = sessionCaller
 	c.s = signedIn{
 		profile:     Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
@@ -388,7 +379,7 @@ func (s *Service) Renew(ctx context.Context, a Account) error {
 	if err != nil {
 		return err
 	}
-	u, err := s.use(ctx, a.s.session, a.s.profile.ID, row.LastSeenAt, time.Duration(row.SessionLifetimeSeconds)*time.Second)
+	u, err := s.use(ctx, a.s.session, a.s.profile.ID, row.LastSeenAt, SessionLifetime.Value(row.SessionLifetimeSeconds))
 	if err != nil {
 		return err
 	}
@@ -425,6 +416,30 @@ func (s *Service) use(ctx context.Context, session SessionID, account AccountID,
 		return slid, err
 	}
 	return current, nil
+}
+
+// PruneSessions deletes every session idle past the session lifetime, for
+// every Account, and ends its streams as a use of it would.
+func (s *Service) PruneSessions(ctx context.Context) error {
+	err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		set, err := readSettings(ctx, q)
+		if err != nil {
+			return err
+		}
+		before := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
+		pruned, err := q.ListIdleSessions(ctx, before)
+		if err != nil {
+			return err
+		}
+		for _, p := range pruned {
+			fx.endSession(p.AccountID, p.ID, live.Expired)
+		}
+		return q.DeleteIdleSessions(ctx, before)
+	})
+	if err != nil {
+		return fmt.Errorf("prune idle sessions: %w", err)
+	}
+	return nil
 }
 
 // cookie builds the session cookie: slipstream_session=<token>; Path=/;

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
-	"github.com/jatassi/slipstream/internal/identity"
 )
 
 type answer struct {
@@ -237,7 +236,7 @@ func TestALifetimeChangeAppliesWithoutARestart(t *testing.T) {
 		if w := n.getSession(a); w.Code != http.StatusOK {
 			t.Fatalf("getSession two hours on = %d %s", w.Code, w.Body)
 		}
-		if w := n.patchSettings(res.APIKey, `{"sessionLifetimeSeconds":3600}`); w.Code != http.StatusOK {
+		if w := n.patchSettings(res.APIKey, `{"sessionLifetime":3600}`); w.Code != http.StatusOK {
 			t.Fatalf("updateIdentitySettings = %d %s", w.Code, w.Body)
 		}
 		time.Sleep(time.Hour + time.Second)
@@ -254,59 +253,97 @@ func TestALifetimeChangeAppliesWithoutARestart(t *testing.T) {
 	})
 }
 
+func outOfRange(detail string) string {
+	return fmt.Sprintf(`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":%q}`, detail) + "\n"
+}
+
 func TestEverySettingHasAFloorAndACeiling(t *testing.T) {
 	n := newNode(t)
 	res, _ := n.claimed()
 	w := n.do(call{method: http.MethodGet, target: "/api/v1/identity/settings", headers: map[string]string{"X-Api-Key": res.APIKey}})
-	var defaults map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &defaults); err != nil || w.Code != http.StatusOK {
+	var fields map[string]struct {
+		Value     int64
+		IsDefault bool
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &fields); err != nil || w.Code != http.StatusOK {
 		t.Fatalf("getIdentitySettings = %d %s", w.Code, w.Body)
 	}
-	for _, b := range identity.Bounds {
-		if got := defaults[b.Field]; got != float64(b.Default) {
-			t.Errorf("%s defaults to %v, want %d", b.Field, got, b.Default)
+	for _, s := range []struct {
+		field                   string
+		value, floor, ceiling   int64
+		companion, outsideRange string
+	}{
+		{"pinWaitAfter", 5, 3, 10, `,"pinOffAfter":20`, "Between 3 and 10 wrong PINs."},
+		{"pinWait", 900, 60, 86400, "", "Between 1 min and 1 day."},
+		{"pinOffAfter", 10, 4, 20, `,"pinWaitAfter":3`, "Between 4 and 20 wrong PINs."},
+		{"addressFailures", 30, 10, 1000, "", "Between 10 and 1000 attempts."},
+		{"addressWindow", 900, 60, 86400, "", "Between 1 min and 1 day."},
+		{"reconfirmWindow", 900, 60, 86400, "", "Between 1 min and 1 day."},
+		{"sessionLifetime", 2592000, 3600, 31536000, "", "Between 1 h and 365 days."},
+		{"signupLinkLifetime", 604800, 60, 2592000, "", "Between 1 min and 30 days."},
+		{"resetLinkLifetime", 86400, 60, 604800, "", "Between 1 min and 7 days."},
+		{"emailLinkLifetime", 86400, 60, 604800, "", "Between 1 min and 7 days."},
+	} {
+		if got := fields[s.field]; got.Value != s.value || !got.IsDefault {
+			t.Errorf("%s = %+v, want the default %d", s.field, got, s.value)
 		}
-	}
-	companion := map[string]string{"pinWaitAfter": `,"pinOffAfter":20`, "pinOffAfter": `,"pinWaitAfter":3`}
-	for _, b := range identity.Bounds {
-		for v, ok := range map[int64]bool{b.Floor - 1: false, b.Floor: true, b.Ceiling: true, b.Ceiling + 1: false} {
-			w := n.patchSettings(res.APIKey, fmt.Sprintf(`{%q:%d%s}`, b.Field, v, companion[b.Field]))
-			switch {
-			case ok && (w.Code != http.StatusOK || !strings.Contains(w.Body.String(), fmt.Sprintf(`%q:%d,`, b.Field, v))):
-				t.Errorf("%s = %d: %d %s, want it saved", b.Field, v, w.Code, w.Body)
-			case !ok && (w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(),
-				fmt.Sprintf(`"code":"setting_out_of_range","title":"A setting is outside its range","errors":[{"location":"body.%s","message":"expected %d to %d"}`, b.Field, b.Floor, b.Ceiling))):
-				t.Errorf("%s = %d: %d %s, want setting_out_of_range", b.Field, v, w.Code, w.Body)
+		for _, v := range []int64{s.floor, s.ceiling} {
+			w := n.patchSettings(res.APIKey, fmt.Sprintf(`{%q:%d%s}`, s.field, v, s.companion))
+			saved := map[string]struct {
+				Key       string
+				Value     int64
+				IsDefault bool
+			}{}
+			if err := json.Unmarshal(w.Body.Bytes(), &saved); err != nil || w.Code != http.StatusOK ||
+				saved[s.field].Key != "identity."+s.field || saved[s.field].Value != v || saved[s.field].IsDefault {
+				t.Errorf("%s = %d: %d %s, want it saved", s.field, v, w.Code, w.Body)
 			}
 		}
+		for _, v := range []int64{s.floor - 1, s.ceiling + 1} {
+			expect(t, n.patchSettings(res.APIKey, fmt.Sprintf(`{%q:%d%s}`, s.field, v, s.companion)), 422, outOfRange(s.outsideRange))
+		}
 	}
-	expect(t, n.patchSettings(res.APIKey, `{"pinWaitAfter":6,"pinOffAfter":6}`), 422,
-		`{"status":422,"code":"setting_out_of_range","title":"A setting is outside its range","errors":[{"location":"body.pinOffAfter","message":"expected more than pinWaitAfter"}]}`+"\n")
+}
+
+func TestThePINTurnsOffOnlyAfterTheWait(t *testing.T) {
+	n := newNode(t)
+	res, _ := n.claimed()
+	expect(t, n.patchSettings(res.APIKey, `{"pinWaitAfter":6,"pinOffAfter":6}`), 422, outOfRange("Between 7 and 20 wrong PINs."))
+	expect(t, n.patchSettings(res.APIKey, `{"pinWaitAfter":10}`), 422, outOfRange("Between 3 and 9 wrong PINs."))
+	w := n.patchSettings(res.APIKey, `{"pinWaitAfter":8}`)
+	var got struct {
+		PINWaitAfter, PINOffAfter struct{ Value, Min, Max int64 }
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != http.StatusOK {
+		t.Fatalf("updateIdentitySettings = %d %s", w.Code, w.Body)
+	}
+	if want := (struct{ Value, Min, Max int64 }{10, 9, 20}); got.PINOffAfter != want {
+		t.Errorf("pinOffAfter = %+v beside a wait after 8, want %+v", got.PINOffAfter, want)
+	}
+	if want := (struct{ Value, Min, Max int64 }{8, 3, 9}); got.PINWaitAfter != want {
+		t.Errorf("pinWaitAfter = %+v beside the PIN turning off after 10, want %+v", got.PINWaitAfter, want)
+	}
+	expect(t, n.patchSettings(res.APIKey, `{"pinOffAfter":8}`), 422, outOfRange("Between 9 and 20 wrong PINs."))
+	if w := n.patchSettings(res.APIKey, `{"pinWaitAfter":null,"pinOffAfter":null}`); w.Code != http.StatusOK || strings.Contains(w.Body.String(), `"isDefault":false`) {
+		t.Fatalf("resetting both = %d %s, want every setting at its default", w.Code, w.Body)
+	}
 }
 
 func TestTheAddressIsAnOriginWithAName(t *testing.T) {
 	n := newNode(t)
 	res, _ := n.claimed()
-	address := func(w *httptest.ResponseRecorder) string {
-		t.Helper()
-		var s struct{ Address, SuggestedAddress string }
-		if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil || w.Code != http.StatusOK {
-			t.Fatalf("settings = %d %s", w.Code, w.Body)
-		}
-		return s.Address
+	apiKey := map[string]string{"X-Api-Key": res.APIKey}
+	put := func(body string) *httptest.ResponseRecorder {
+		return n.do(call{method: http.MethodPut, target: "/api/v1/identity/address", host: "media.example.com:8484", body: body, headers: apiKey})
 	}
-	get := n.do(call{method: http.MethodGet, target: "/api/v1/identity/settings", host: "media.example.com:8484", headers: map[string]string{"X-Api-Key": res.APIKey}})
-	if address(get) != "" || !strings.Contains(get.Body.String(), `"suggestedAddress":"http://media.example.com:8484"`) {
-		t.Fatalf("an unset address = %s, want it empty and this request's address suggested", get.Body)
-	}
-	if got := address(n.patchSettings(res.APIKey, `{"address":"HTTPS://Media.Example.com:443/"}`)); got != "https://media.example.com" {
-		t.Fatalf("address = %q, want https://media.example.com", got)
-	}
-	expect(t, n.patchSettings(res.APIKey, `{"address":"http://192.168.1.4:8484"}`), 422,
+	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/identity/address", host: "media.example.com:8484", headers: apiKey}), 200,
+		`{"address":"","suggestedAddress":"http://media.example.com:8484"}`+"\n")
+	expect(t, put(`{"address":"HTTPS://Media.Example.com:443/"}`), 200,
+		`{"address":"https://media.example.com","suggestedAddress":"http://media.example.com:8484"}`+"\n")
+	expect(t, put(`{"address":"http://192.168.1.4:8484"}`), 422,
 		problem(422, "address_ip", "The address must be a name, not an IP address"))
-	expect(t, n.patchSettings(res.APIKey, `{"address":"ftp://media.example.com"}`), 422,
+	expect(t, put(`{"address":"ftp://media.example.com"}`), 422,
 		`{"status":422,"code":"invalid","title":"Some fields are invalid","errors":[{"location":"body.address","message":"expected http:// or https:// then a host name and an optional port"}]}`+"\n")
-	if got := address(n.patchSettings(res.APIKey, `{"pinWaitAfter":4}`)); got != "https://media.example.com" {
-		t.Fatalf("address after another change = %q, want it kept", got)
-	}
+	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/identity/address", host: "media.example.com:8484", headers: apiKey}), 200,
+		`{"address":"https://media.example.com","suggestedAddress":"http://media.example.com:8484"}`+"\n")
 }
