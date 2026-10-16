@@ -56,8 +56,8 @@ type Env struct {
 	// link dial.
 	Net    link.Network
 	Engine func(engine.Config) (engine.Engine, error)
-	// OpenLog opens the log in dir, mirrored to stderr.
-	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
+	// OpenLog opens the log in dir with s, mirrored to stderr.
+	OpenLog func(dir string, stderr io.Writer, s logs.Settings) (*logs.Log, error)
 	Types   contenttype.Set
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
@@ -155,6 +155,7 @@ func checkHost(dir DataDir, kind install.Kind, cmd string) error {
 type Node struct {
 	env      Env
 	started  time.Time
+	logs     *logs.Log
 	rootLog  *slog.Logger
 	log      *slog.Logger
 	stack    *Stack
@@ -257,11 +258,12 @@ func (n *Node) start(ctx context.Context) error {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return err
 	}
-	log, err := n.env.OpenLog(n.env.DataDir.LogsDir(), n.env.Stderr)
+	log, err := n.env.OpenLog(n.env.DataDir.LogsDir(), n.env.Stderr, Defaults(n.env.Types, n.env.Install).Log)
 	if err != nil {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return errors.Join(err, lk.Release())
 	}
+	n.logs = log
 	n.rootLog = log.Logger
 	n.log = n.rootLog.With("subsystem", "node")
 	n.stack = newStack(n.log)
@@ -288,6 +290,9 @@ func (n *Node) start(ctx context.Context) error {
 func (n *Node) startLogged(ctx context.Context) error {
 	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types, n.env.Install)
 	if err != nil {
+		return err
+	}
+	if err := n.logs.Apply(cfg.Log); err != nil {
 		return err
 	}
 	n.deadline = cfg.Timings.Node.StopDeadline

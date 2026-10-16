@@ -27,27 +27,27 @@ var nodeSettings = []settingRow{
 	},
 	choiceRow{
 		desc:  setting.Choice[logs.Level]{Key: "log.level", Label: "Level", Options: logLevels},
-		rowOf: rowOf[logs.Level]{at: func(c *Config) *logs.Level { return &c.Log.Level }},
+		rowOf: rowOf[logs.Level]{at: func(c *Config) *logs.Level { return &c.Log.Level }, applier: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.max_size_mb", Label: "Rotate at", Min: 1, Max: 1000, Unit: "MB"},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxSizeMB }},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxSizeMB }, applier: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.max_files", Label: "Files kept", Min: 0, Max: 100, Unit: "files", Zero: "No limit"},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxFiles }},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxFiles }, applier: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.max_age_days", Label: "Days kept", Min: 0, Max: 3650, Unit: "days", Zero: "No limit"},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxAgeDays }},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxAgeDays }, applier: applyLog},
 	},
 	switchRow{
 		desc:  setting.Switch{Key: "log.compress", Label: "Compress rotated files"},
-		rowOf: rowOf[bool]{at: func(c *Config) *bool { return &c.Log.Compress }},
+		rowOf: rowOf[bool]{at: func(c *Config) *bool { return &c.Log.Compress }, applier: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.viewer_lines", Label: "Lines kept for the viewer", Min: 100, Max: 50000, Unit: "lines"},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.ViewerLines }},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.ViewerLines }, applier: applyLog},
 	},
 }
 
@@ -57,6 +57,8 @@ var logLevels = []setting.Option[logs.Level]{
 	{Value: logs.Warn, Label: "Warn"},
 	{Value: logs.Error, Label: "Error"},
 }
+
+func applyLog(n *Node, saved Config) error { return n.logs.Apply(saved.Log) }
 
 func settingRowOf(key string) (settingRow, bool) {
 	for _, r := range nodeSettings {

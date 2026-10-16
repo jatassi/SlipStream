@@ -56,7 +56,7 @@ func TestConfigSetGoesThroughTheRunningNode(t *testing.T) {
 	p.ready()
 
 	res := slipstream(t, childEnv(), "config", "set", "--data-dir", dir, "log.max_size_mb", "20")
-	if want := "log.max_size_mb: 20, applies after restart\n"; res.code != node.ExitOK || res.stdout != want {
+	if want := "log.max_size_mb: 20\n"; res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("exit %d, stdout %q, stderr %q; want %q", res.code, res.stdout, res.stderr, want)
 	}
 	if got, want := configYAML(t, dir), "log:\n  max_size_mb: 20\n"; got != want {
