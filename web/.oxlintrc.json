@@ -59,11 +59,11 @@
       },
       {
         "name": "EventSource",
-        "message": "live updates come through src/live/stream.ts"
+        "message": "live updates come through src/live/source.ts"
       },
       {
         "name": "WebSocket",
-        "message": "live updates come through src/live/stream.ts"
+        "message": "live updates come through src/live/source.ts"
       },
       {
         "name": "localStorage",
@@ -233,11 +233,11 @@
           },
           {
             "name": "EventSource",
-            "message": "live updates come through src/live/stream.ts"
+            "message": "live updates come through src/live/source.ts"
           },
           {
             "name": "WebSocket",
-            "message": "live updates come through src/live/stream.ts"
+            "message": "live updates come through src/live/source.ts"
           },
           {
             "name": "localStorage",
@@ -265,17 +265,17 @@
           },
           {
             "name": "EventSource",
-            "message": "live updates come through src/live/stream.ts"
+            "message": "live updates come through src/live/source.ts"
           },
           {
             "name": "WebSocket",
-            "message": "live updates come through src/live/stream.ts"
+            "message": "live updates come through src/live/source.ts"
           }
         ]
       }
     },
     {
-      "files": ["src/live/stream.ts"],
+      "files": ["src/live/source.ts"],
       "rules": {
         "no-restricted-globals": [
           "error",
@@ -289,7 +289,7 @@
           },
           {
             "name": "WebSocket",
-            "message": "live updates come through src/live/stream.ts"
+            "message": "live updates come through src/live/source.ts"
           },
           {
             "name": "localStorage",
