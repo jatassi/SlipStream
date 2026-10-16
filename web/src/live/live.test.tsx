@@ -1,9 +1,9 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { http } from "msw";
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
-import { getGetSystemQueryKey } from "../api/gen/query/system/system";
 import {
   getGetWorkQueryKey,
   getListWorksQueryKey,
@@ -17,7 +17,11 @@ import { worker } from "../test/worker";
 function countRequests() {
   const counts = new Map<string, number>();
   const count = ({ request }: { request: Request }) => {
-    const key = `${request.method} ${new URL(request.url).pathname}`;
+    const path = new URL(request.url).pathname.replace(
+      /^\/api\/v1\/nodes\/[^/]+\//u,
+      "/api/v1/nodes/:id/",
+    );
+    const key = `${request.method} ${path}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   };
   worker.events.on("request:start", count);
@@ -28,6 +32,13 @@ afterEach(() => {
   worker.events.removeAllListeners();
   vi.useRealTimers();
 });
+
+const nodeReads = (queryClient: QueryClient) =>
+  queryClient
+    .getQueryCache()
+    .findAll({ predicate: ({ queryKey }) => String(queryKey[0]).startsWith("/api/v1/nodes") });
+
+const overview = "GET /api/v1/nodes/:id/system";
 
 test("identity.sessions-changed refetches the session once", async () => {
   const server = liveServer();
@@ -99,7 +110,7 @@ test("live.resync refetches every active query once", async () => {
   renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
   const reads = () => ({
-    system: requests("GET /api/v1/system"),
+    system: requests(overview),
     session: requests("GET /api/v1/session"),
   });
   await expect.poll(reads).toEqual({ system: 1, session: 2 });
@@ -119,8 +130,8 @@ test("live.session-ended clears this tab and every other tab", async () => {
   server.clients[0]?.send({ event: "live.session-ended", data: { reason: "signed-out" } });
   await expect.poll(() => first.router.state.location.href).toBe("/sign-in?reason=signed-out");
   await expect.poll(() => second.router.state.location.href).toBe("/sign-in?reason=signed-out");
-  expect(first.queryClient.getQueryData(getGetSystemQueryKey())).toBeUndefined();
-  expect(second.queryClient.getQueryData(getGetSystemQueryKey())).toBeUndefined();
+  expect(nodeReads(first.queryClient)).toEqual([]);
+  expect(nodeReads(second.queryClient)).toEqual([]);
 });
 
 test("an event that fails to parse is reported once and resyncs", async () => {
@@ -133,7 +144,7 @@ test("an event that fails to parse is reported once and resyncs", async () => {
   server.clients[0]?.dispatchEvent(
     new MessageEvent("identity.sessions-changed", { data: JSON.stringify({ account: 42 }) }),
   );
-  await expect.poll(() => requests("GET /api/v1/system")).toBe(2);
+  await expect.poll(() => requests(overview)).toBe(2);
   expect(reported).toHaveBeenCalledOnce();
 });
 
