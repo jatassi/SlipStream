@@ -16,7 +16,6 @@ export type PinInputProps = {
   name?: string;
   autoSubmit?: boolean;
   onComplete?: (value: string) => void;
-  onBlur?: () => void;
   keypad?: boolean;
   className?: string;
 };
@@ -30,7 +29,6 @@ export function PinInput({
   name,
   autoSubmit = false,
   onComplete,
-  onBlur,
   keypad = false,
   className = "",
 }: PinInputProps) {
@@ -59,7 +57,6 @@ export function PinInput({
           <OTPField.Input
             key={slot}
             aria-label={slot === 0 ? undefined : `${label} digit ${slot + 1} of ${pinLength}`}
-            onBlur={onBlur}
             className="h-(--input-height) w-10 rounded-item bg-well text-center text-body text-ink-1 tabular-nums ring-1 ring-hairline ring-inset in-data-[density=touch]:w-12 in-data-[density=touch]:text-input-touch"
           />
         ))}
@@ -99,7 +96,6 @@ export function PinField({
       onValueChange={(value) => {
         field.handleChange(value);
       }}
-      onBlur={field.handleBlur}
       autoComplete={autoComplete}
       autoSubmit={autoSubmit}
       error={errorText(field.state.meta.errors)}

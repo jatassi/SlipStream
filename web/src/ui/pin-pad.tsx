@@ -116,7 +116,6 @@ export function PinPad({
             submit();
           }
         }}
-        onBlur={field.handleBlur}
         autoComplete={autoComplete}
         error={errorText(field.state.meta.errors)}
       />
