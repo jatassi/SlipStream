@@ -3,6 +3,7 @@ package sim_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -286,8 +287,9 @@ type searches struct{ ended chan error }
 
 func (s searches) Search(ctx context.Context, _ *rpctestv1.SearchRequest) (*rpctestv1.SearchResponse, error) {
 	<-ctx.Done()
-	s.ended <- ctx.Err()
-	return nil, ctx.Err()
+	err := context.Cause(ctx)
+	s.ended <- err
+	return nil, fmt.Errorf("search: %w", err)
 }
 
 // searching is a test-only task whose one unit calls rpctest's Search on
@@ -339,7 +341,7 @@ func TestAPortableUnitWaitsForItsNextSlotAndCancelReachesTheWorker(t *testing.T)
 		synctest.Wait()
 		select {
 		case err := <-handler.ended:
-			if err != context.Canceled {
+			if !errors.Is(err, context.Canceled) {
 				t.Fatalf("seedbox's handler ended with %v, want context.Canceled", err)
 			}
 		default:
