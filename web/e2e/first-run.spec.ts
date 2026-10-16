@@ -3,6 +3,11 @@ import { isPhone } from "./shell.ts";
 
 test.use({ scenario: "first-run" });
 
+const claimed = {
+  status: 200,
+  body: { claim: "controller", passkeys: { available: false, reason: "ip_address" } },
+};
+
 test("a fresh Node takes a person from the Setup code to the first Admin", async ({
   page,
   world,
@@ -29,7 +34,9 @@ test("a fresh Node takes a person from the Setup code to the first Admin", async
   await setupCode.clear();
   await setupCode.pressSequentially((await world.setupCode()).toLowerCase().replaceAll("-", " "));
   await page.getByRole("button", { name: "Create Admin" }).click();
-  await expect(page.getByLabel("API key")).toHaveValue(/^ssk_[A-Za-z0-9_-]{43}$/u);
+  await expect(page.getByRole("textbox", { name: "API key" })).toHaveValue(
+    /^ssk_[A-Za-z0-9_-]{43}$/u,
+  );
   await expectAccessible(page);
 
   await page.getByRole("button", { name: "Continue" }).click();
@@ -47,10 +54,7 @@ test("a fresh Node takes a person from the Setup code to the first Admin", async
   await page.goto("/setup");
   await expect(signedIn).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/library`);
-  expect(await world.api("GET", "/api/v1/status")).toEqual({
-    status: 200,
-    body: { claim: "controller" },
-  });
+  expect(await world.api("GET", "/api/v1/status")).toEqual(claimed);
 });
 
 test("a setup link fills in the Setup code and drops it from the address bar", async ({
@@ -70,9 +74,8 @@ test("a setup link fills in the Setup code and drops it from the address bar", a
   await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially("1357");
   await page.getByRole("textbox", { name: "PIN again", exact: true }).pressSequentially("1357");
   await page.getByRole("button", { name: "Create Admin" }).click();
-  await expect(page.getByLabel("API key")).toHaveValue(/^ssk_[A-Za-z0-9_-]{43}$/u);
-  expect(await world.api("GET", "/api/v1/status")).toEqual({
-    status: 200,
-    body: { claim: "controller" },
-  });
+  await expect(page.getByRole("textbox", { name: "API key" })).toHaveValue(
+    /^ssk_[A-Za-z0-9_-]{43}$/u,
+  );
+  expect(await world.api("GET", "/api/v1/status")).toEqual(claimed);
 });
