@@ -1,0 +1,99 @@
+name: link-branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Spec issue number to link the branch to
+        type: number
+        required: true
+      branch:
+        description: Branch to create, e.g. feature/scheduled-tasks
+        type: string
+        required: true
+      base:
+        description: Branch to cut it from
+        type: string
+        default: main
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  link:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create linked branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue }}
+          BRANCH: ${{ inputs.branch }}
+          BASE: ${{ inputs.base }}
+          LOOKUP: |
+            query($owner: String!, $name: String!, $issue: Int!, $base: String!, $head: String!) {
+              repository(owner: $owner, name: $name) {
+                id
+                issue(number: $issue) {
+                  id
+                  state
+                  linkedBranches(first: 20) { nodes { ref { name } } }
+                }
+                base: ref(qualifiedName: $base) { target { oid } }
+                head: ref(qualifiedName: $head) { name }
+              }
+            }
+          LINK: |
+            mutation($issueId: ID!, $repositoryId: ID!, $name: String!, $oid: GitObjectID!) {
+              createLinkedBranch(input: {issueId: $issueId, repositoryId: $repositoryId, name: $name, oid: $oid}) {
+                linkedBranch { ref { name } }
+              }
+            }
+        run: |
+          set -euo pipefail
+
+          state=$(gh api graphql \
+            -f query="$LOOKUP" \
+            -f owner="${GITHUB_REPOSITORY%/*}" \
+            -f name="${GITHUB_REPOSITORY#*/}" \
+            -F issue="$ISSUE" \
+            -f base="refs/heads/$BASE" \
+            -f head="refs/heads/$BRANCH" \
+            --jq '.data.repository')
+
+          if jq -e --arg b "$BRANCH" 'any(.issue.linkedBranches.nodes[]; .ref.name == $b)' <<<"$state" >/dev/null; then
+            echo "$BRANCH is already linked to #$ISSUE"
+            exit 0
+          fi
+
+          if [[ $(jq -r '.issue.state' <<<"$state") != OPEN ]]; then
+            echo "::error::#$ISSUE is not open"
+            exit 1
+          fi
+
+          if [[ $(jq -r '.head != null' <<<"$state") == true ]]; then
+            echo "::error::$BRANCH already exists. GitHub can only link a branch it creates, so link it by hand from the Development sidebar of #$ISSUE"
+            exit 1
+          fi
+
+          oid=$(jq -r '.base.target.oid // empty' <<<"$state")
+          if [[ -z $oid ]]; then
+            echo "::error::base branch $BASE does not exist"
+            exit 1
+          fi
+
+          linked=$(gh api graphql \
+            -f query="$LINK" \
+            -f issueId="$(jq -r '.issue.id' <<<"$state")" \
+            -f repositoryId="$(jq -r '.id' <<<"$state")" \
+            -f name="$BRANCH" \
+            -f oid="$oid" \
+            --jq '.data.createLinkedBranch.linkedBranch.ref.name // empty')
+
+          if [[ -z $linked ]]; then
+            echo "::error::createLinkedBranch returned no linked branch for $BRANCH on #$ISSUE"
+            exit 1
+          fi
+
+          echo "linked $linked to #$ISSUE at ${oid:0:7}" | tee -a "$GITHUB_STEP_SUMMARY"
