@@ -1,12 +1,12 @@
-import { Alert02Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useState } from "react";
 
-import { UnreachableError, isApiError } from "../api/errors";
 import { Button } from "./button";
 import { Icon } from "./icon";
 import { Popover } from "./popover";
 import type { Fields, SettingKind, Values } from "./setting-kind";
 import { kinds } from "./setting-kinds";
+import { Hints, Lock, Refusal, appliesHint, useSave } from "./setting-parts";
 import { Sheet, SheetCancel } from "./sheet";
 import { useShell } from "./shell-context";
 
@@ -14,59 +14,6 @@ export type { Setting, SettingKind } from "./setting-kind";
 
 /** Saves a value, or null to reset to the default; rejects with the server's refusal. */
 export type SettingSave<K extends SettingKind> = (value: Values[K] | null) => Promise<unknown>;
-
-function refusal(error: unknown): string {
-  if (isApiError(error)) {
-    return error.detail ?? error.title;
-  }
-  if (error instanceof UnreachableError) {
-    return error.message;
-  }
-  throw error;
-}
-
-function useSave<K extends SettingKind>(onSave: SettingSave<K>, onSaved: () => void) {
-  const [error, setError] = useState<string>();
-  const [busy, setBusy] = useState(false);
-  const send = async (value: Values[K] | null) => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      await onSave(value);
-      onSaved();
-    } catch (failure: unknown) {
-      setError(refusal(failure));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { error, setError, busy, send };
-}
-
-function Refusal({ error }: { error: string }) {
-  return (
-    <p
-      role="alert"
-      className="flex items-center gap-1.5 text-meta text-fail-ink in-data-[density=touch]:text-body-touch"
-    >
-      <Icon icon={Alert02Icon} className="size-3.5 shrink-0" />
-      {error}
-    </p>
-  );
-}
-
-function Hints({ hints, reset }: { hints: readonly string[]; reset: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-      <div className="flex min-w-0 flex-col gap-0.5 text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-        {hints.map((hint) => (
-          <p key={hint}>{hint}</p>
-        ))}
-      </div>
-      {reset}
-    </div>
-  );
-}
 
 type BodyProps<K extends SettingKind> = {
   kind: K;
@@ -78,6 +25,7 @@ type BodyProps<K extends SettingKind> = {
 function Body<K extends SettingKind>({ kind, field, onSave, onSaved }: BodyProps<K>) {
   const { error, setError, busy, send } = useSave(onSave, onSaved);
   const { Control, hints } = kinds[kind];
+  const locked = field.lockedBy;
   return (
     <div className="flex flex-col gap-2">
       <Control
@@ -85,6 +33,7 @@ function Body<K extends SettingKind>({ kind, field, onSave, onSaved }: BodyProps
         field={field}
         busy={busy}
         invalid={error !== undefined}
+        disabled={locked !== undefined}
         submit={(draft) => {
           if ("refused" in draft) {
             setError(draft.refused);
@@ -97,10 +46,12 @@ function Body<K extends SettingKind>({ kind, field, onSave, onSaved }: BodyProps
         }}
       />
       {error !== undefined && <Refusal error={error} />}
+      {locked !== undefined && <Lock variable={locked} />}
       <Hints
-        hints={hints(field)}
+        hints={[...hints(field), ...appliesHint[field.applies]]}
         reset={
-          !field.isDefault && (
+          !field.isDefault &&
+          locked === undefined && (
             <Button
               look="ghost"
               size="small"
