@@ -62,7 +62,7 @@ func (s *stream) run(ctx context.Context, sub *live.Subscription) error {
 	// now catches it.
 	err := s.sessions.Renew(ctx, s.account)
 	if errors.Is(err, identity.ErrSignedOut) {
-		s.write(api.StreamMessage{Data: live.SessionEnded{Reason: "signed-out"}})
+		s.write(api.StreamMessage{Data: live.SessionEnded{Reason: live.SignedOut}})
 		return nil
 	}
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *stream) run(ctx context.Context, sub *live.Subscription) error {
 func (s *stream) heartbeat(ctx context.Context) (bool, error) {
 	err := s.sessions.Renew(ctx, s.account)
 	if errors.Is(err, identity.ErrSignedOut) {
-		s.write(api.StreamMessage{Data: live.SessionEnded{Reason: "expired"}})
+		s.write(api.StreamMessage{Data: live.SessionEnded{Reason: live.Expired}})
 		return true, nil
 	}
 	if err != nil {

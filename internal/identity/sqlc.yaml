@@ -12,17 +12,53 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: "*.*_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
           - column: identity_account.id
             go_type:
               type: AccountID
           - column: identity_account.admin
             go_type: bool
+          - column: identity_account.pin_wait_until
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
           - column: identity_session.id
             go_type:
               type: SessionID
           - column: identity_session.account_id
             go_type:
               type: AccountID
+          - column: identity_session.pin_required
+            go_type: bool
+          - column: identity_session.prompted
+            go_type: bool
+          - column: identity_passkey.id
+            go_type:
+              type: PasskeyID
+          - column: identity_passkey.account_id
+            go_type:
+              type: AccountID
+          - column: identity_passkey.credential_id
+            go_type:
+              type: CredentialID
+          - column: identity_passkey.backup_eligible
+            go_type: bool
+          - column: identity_passkey.backup_state
+            go_type: bool
+          - column: identity_link.id
+            go_type:
+              type: LinkID
+          - column: identity_link.account_id
+            go_type:
+              type: AccountID
+          - column: identity_link.issued_by
+            go_type:
+              type: AccountID
+          - column: identity_link.remove_passkeys
+            go_type: bool
           - column: identity_api_key.id
             go_type:
               type: Singleton

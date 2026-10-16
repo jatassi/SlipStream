@@ -27,11 +27,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-type noEvents struct{}
-
-func (noEvents) Publish(context.Context, storage.UUID, identity.SessionsChanged) {}
-func (noEvents) EndSession(storage.UUID)                                         {}
-
 func newRouter(t *testing.T, log *bytes.Buffer) *Router {
 	t.Helper()
 	r, _ := newRouterOn(t, log)
@@ -41,7 +36,7 @@ func newRouter(t *testing.T, log *bytes.Buffer) *Router {
 func newRouterOn(t *testing.T, log *bytes.Buffer) (*Router, *storage.DB[storage.Library]) {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema())
-	svc, err := identity.New(t.Context(), lib, make([]byte, 32), noEvents{}, noEvents{})
+	svc, err := identity.New(t.Context(), identity.Config{Library: lib, Pepper: make([]byte, 32), Hub: identitytest.Hub(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -23,44 +24,32 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-type recorder struct {
-	mu        sync.Mutex
-	published []string
-	ended     []string
-}
-
-func (r *recorder) Publish(_ context.Context, account storage.UUID, v identity.SessionsChanged) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if v.Account != account.String() {
-		panic("SessionsChanged names another Account than it is published to")
-	}
-	r.published = append(r.published, account.String())
-}
-
-func (r *recorder) EndSession(session storage.UUID) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.ended = append(r.ended, session.String())
-}
-
 type node struct {
-	t      *testing.T
-	lib    *storage.DB[storage.Library]
-	h      http.Handler
-	doc    []byte
-	code   string
-	events *recorder
+	t     *testing.T
+	lib   *storage.DB[storage.Library]
+	h     http.Handler
+	doc   []byte
+	code  string
+	hub   *live.Hub
+	start string
 }
 
 var fixtureAdmin = struct{ ID, Path string }{"getFixture", "/fixture"}
 
-func newNode(t *testing.T, origins ...api.Origin) *node {
+type nodeOptions struct {
+	origins []api.Origin
+	proxies []api.Proxy
+}
+
+func newNode(t *testing.T) *node { return newNodeWith(t, nodeOptions{}) }
+
+func newNodeWith(t *testing.T, o nodeOptions) *node {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema())
@@ -68,8 +57,8 @@ func newNode(t *testing.T, origins ...api.Origin) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	events := &recorder{}
-	svc, err := identity.New(ctx, lib, keys.PINPepper(), events, events)
+	hub := identitytest.Hub(t)
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,19 +71,59 @@ func newNode(t *testing.T, origins ...api.Origin) *node {
 		Node:           identitytest.Node{Service: svc},
 		Gate:           gate,
 		Web:            fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
-		TrustedOrigins: origins,
+		TrustedOrigins: o.origins,
+		TrustedProxies: o.proxies,
 		Log:            log,
 	})
 	identityapi.Routes(r, identitytest.Node{Service: svc})
 	api.Register(r.Owner("fixture", api.Admin), api.Admin, api.Op{ID: fixtureAdmin.ID, Method: http.MethodGet, Path: fixtureAdmin.Path},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
-	return &node{t: t, lib: lib, h: r.Handler(), doc: r.Document(), code: code, events: events}
+	return &node{t: t, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
+}
+
+// head is the id of the hub's newest event, which a subscription with no
+// Last-Event-ID resyncs at.
+func head(t *testing.T, hub *live.Hub) string {
+	t.Helper()
+	sub := hub.Subscribe(live.Viewer{}, "")
+	defer sub.Close()
+	msg, err := sub.Next(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strconv.FormatInt(msg.ID, 10)
+}
+
+// published is how many times identity.sessions-changed reached account's
+// streams since the node started.
+func (n *node) published(account string) int {
+	n.t.Helper()
+	id, err := storage.ParseUUID(account)
+	if err != nil {
+		n.t.Fatal(err)
+	}
+	sub := n.hub.Subscribe(live.Viewer{Account: id}, n.start)
+	defer sub.Close()
+	done, cancel := context.WithCancel(n.t.Context())
+	cancel()
+	count := 0
+	for {
+		msg, err := sub.Next(done)
+		if err != nil {
+			return count
+		}
+		if msg.Name == identity.SessionsChangedEvent.Name() {
+			count++
+		}
+	}
 }
 
 type call struct {
 	method, target, body string
 	headers              map[string]string
 	session              string
+	// from is the TCP peer, host the Host header.
+	from, host string
 }
 
 func (n *node) do(c call) *httptest.ResponseRecorder {
@@ -105,6 +134,12 @@ func (n *node) do(c call) *httptest.ResponseRecorder {
 	}
 	for k, v := range c.headers {
 		req.Header.Set(k, v)
+	}
+	if c.from != "" {
+		req.RemoteAddr = c.from
+	}
+	if c.host != "" {
+		req.Host = c.host
 	}
 	if c.session != "" {
 		req.Header.Set("Cookie", identity.CookieName+"="+c.session)
@@ -207,8 +242,8 @@ func TestClaimController(t *testing.T) {
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}
-	if strings.Join(n.events.published, ",") != res.Account.ID {
-		t.Fatalf("published to %v, want [%s]", n.events.published, res.Account.ID)
+	if got := n.published(res.Account.ID); got != 1 {
+		t.Fatalf("sessions-changed reached the Admin %d times, want once", got)
 	}
 	expect(t, n.claim(n.code, "1234"), 409, alreadyClaimed)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/session", session: sessionOf(t, w)}), 200,
@@ -269,8 +304,8 @@ func TestCreateSession(t *testing.T) {
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}
-	if len(n.events.published) != 2 {
-		t.Fatalf("published %v, want one per sign-in", n.events.published)
+	if got := n.published(res.Account.ID); got != 2 {
+		t.Fatalf("sessions-changed reached the Admin %d times, want once per sign-in", got)
 	}
 }
 
@@ -290,14 +325,14 @@ func TestTheGatesCodes(t *testing.T) {
 
 func TestDeleteSession(t *testing.T) {
 	n := newNode(t)
-	_, a := n.claimed()
+	res, a := n.claimed()
 	w := n.do(call{method: http.MethodDelete, target: "/api/v1/session", session: a})
 	expect(t, w, 204, "")
 	if got := w.Header().Get("Set-Cookie"); got != clearingCookie {
 		t.Fatalf("Set-Cookie = %q, want %q", got, clearingCookie)
 	}
-	if len(n.events.ended) != 1 || len(n.events.published) != 2 {
-		t.Fatalf("ended %v and published %v, want one session ended and two changes", n.events.ended, n.events.published)
+	if got := n.published(res.Account.ID); got != 2 {
+		t.Fatalf("sessions-changed reached the Admin %d times, want at sign-in and sign-out", got)
 	}
 	w = n.getSession(a)
 	expect(t, w, 401, signedOut)
@@ -348,7 +383,7 @@ func TestASessionIdleThirtyDaysAndASecondIsSignedOut(t *testing.T) {
 }
 
 func TestCrossSiteRequestsAreRefused(t *testing.T) {
-	n := newNode(t, origin(t, "https://media.example.com"))
+	n := newNodeWith(t, nodeOptions{origins: []api.Origin{origin(t, "https://media.example.com")}})
 	res, _ := n.claimed()
 	crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
 	body := `{"email":"admin@example.com","pin":"1235"}`

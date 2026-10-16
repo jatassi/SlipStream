@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"example.com/app/internal/node"
 	"example.com/app/fakes/contenttypes/music"
+	"example.com/app/internal/node"
 )
 
 func main() {

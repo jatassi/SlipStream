@@ -725,6 +725,130 @@
         ],
         "type": "object"
       },
+      "IdentitySettings": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The origin links are built on, empty until set",
+            "type": "string"
+          },
+          "addressFailures": {
+            "description": "Failed sign-in attempts one address may make in the window",
+            "format": "int64",
+            "type": "integer"
+          },
+          "addressWindowSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "emailLinkLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinOffAfter": {
+            "description": "Wrong PINs in a row before the PIN turns off",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinWaitAfter": {
+            "description": "Wrong PINs before a wait",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinWaitSeconds": {
+            "description": "The wait after too many wrong PINs",
+            "format": "int64",
+            "type": "integer"
+          },
+          "reconfirmWindowSeconds": {
+            "description": "How long a confirm with the PIN or a passkey lasts",
+            "format": "int64",
+            "type": "integer"
+          },
+          "resetLinkLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sessionLifetimeSeconds": {
+            "description": "How long a session lasts unused",
+            "format": "int64",
+            "type": "integer"
+          },
+          "signupLinkLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "suggestedAddress": {
+            "description": "The address this request reached SlipStream at, or this machine's name when that was an IP address",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pinWaitAfter",
+          "pinWaitSeconds",
+          "pinOffAfter",
+          "addressFailures",
+          "addressWindowSeconds",
+          "reconfirmWindowSeconds",
+          "sessionLifetimeSeconds",
+          "signupLinkLifetimeSeconds",
+          "resetLinkLifetimeSeconds",
+          "emailLinkLifetimeSeconds",
+          "address",
+          "suggestedAddress"
+        ],
+        "type": "object"
+      },
+      "IdentitySettingsPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "addressFailures": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "addressWindowSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "emailLinkLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinOffAfter": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinWaitAfter": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinWaitSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reconfirmWindowSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "resetLinkLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sessionLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "signupLinkLifetimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "IdentitySignInBody": {
         "additionalProperties": false,
         "properties": {
@@ -895,7 +1019,8 @@
           "reason": {
             "enum": [
               "signed-out",
-              "expired"
+              "expired",
+              "revoked"
             ],
             "type": "string"
           }
@@ -3812,6 +3937,307 @@
         "x-slipstream-access": "public"
       }
     },
+    "/identity/settings": {
+      "get": {
+        "operationId": "getIdentitySettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the sign-in limits and lifetimes, and the address links use",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateIdentitySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentitySettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "address_ip",
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change the sign-in limits and lifetimes, or the address links use",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/indexers": {
       "get": {
         "operationId": "listIndexers",
@@ -6293,6 +6719,31 @@
             },
             "description": "Unauthorized"
           },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "pin_off"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -6317,6 +6768,32 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "pin_wait",
+                            "too_many_attempts"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "500": {
             "content": {

@@ -4,8 +4,22 @@ import {
   IdentityClaimBody,
   IdentityClaimed,
   IdentitySession,
+  IdentitySettings,
+  IdentitySettingsPatch,
   IdentitySignInBody,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary Get the sign-in limits and lifetimes, and the address links use
+ */
+export const GetIdentitySettingsResponse = IdentitySettings;
+
+/**
+ * @summary Change the sign-in limits and lifetimes, or the address links use
+ */
+export const UpdateIdentitySettingsBody = IdentitySettingsPatch;
+
+export const UpdateIdentitySettingsResponse = IdentitySettings;
 
 /**
  * @summary Sign out

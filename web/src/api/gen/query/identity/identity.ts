@@ -22,12 +22,18 @@ import type {
   ClaimController422,
   ClaimController500,
   CreateSession401,
+  CreateSession403,
   CreateSession422,
+  CreateSession429,
   CreateSession500,
   DeleteSession401,
   DeleteSession403,
   DeleteSession409,
   DeleteSession500,
+  GetIdentitySettings401,
+  GetIdentitySettings403,
+  GetIdentitySettings409,
+  GetIdentitySettings500,
   GetSession401,
   GetSession403,
   GetSession409,
@@ -35,7 +41,14 @@ import type {
   IdentityClaimBody,
   IdentityClaimed,
   IdentitySession,
+  IdentitySettings,
+  IdentitySettingsPatch,
   IdentitySignInBody,
+  UpdateIdentitySettings401,
+  UpdateIdentitySettings403,
+  UpdateIdentitySettings409,
+  UpdateIdentitySettings422,
+  UpdateIdentitySettings500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -58,6 +71,273 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getGetIdentitySettingsUrl = () => {
+  return `/api/v1/identity/settings`;
+};
+
+/**
+ * @summary Get the sign-in limits and lifetimes, and the address links use
+ */
+export const getIdentitySettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentitySettings> => {
+  return apiFetch<IdentitySettings>(getGetIdentitySettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIdentitySettingsQueryKey = () => {
+  return [`/api/v1/identity/settings`] as const;
+};
+
+export const getGetIdentitySettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIdentitySettings>>,
+  TError = ErrorType<
+    | GetIdentitySettings401
+    | GetIdentitySettings403
+    | GetIdentitySettings409
+    | GetIdentitySettings500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIdentitySettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetIdentitySettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getIdentitySettings>>> = ({ signal }) =>
+    getIdentitySettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIdentitySettings>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetIdentitySettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIdentitySettings>>
+>;
+export type GetIdentitySettingsSuspenseQueryError = ErrorType<
+  GetIdentitySettings401 | GetIdentitySettings403 | GetIdentitySettings409 | GetIdentitySettings500
+>;
+
+export function useGetIdentitySettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIdentitySettings>>,
+  TError = ErrorType<
+    | GetIdentitySettings401
+    | GetIdentitySettings403
+    | GetIdentitySettings409
+    | GetIdentitySettings500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIdentitySettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetIdentitySettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIdentitySettings>>,
+  TError = ErrorType<
+    | GetIdentitySettings401
+    | GetIdentitySettings403
+    | GetIdentitySettings409
+    | GetIdentitySettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIdentitySettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetIdentitySettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIdentitySettings>>,
+  TError = ErrorType<
+    | GetIdentitySettings401
+    | GetIdentitySettings403
+    | GetIdentitySettings409
+    | GetIdentitySettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIdentitySettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the sign-in limits and lifetimes, and the address links use
+ */
+
+export function useGetIdentitySettingsSuspense<
+  TData = Awaited<ReturnType<typeof getIdentitySettings>>,
+  TError = ErrorType<
+    | GetIdentitySettings401
+    | GetIdentitySettings403
+    | GetIdentitySettings409
+    | GetIdentitySettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getIdentitySettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetIdentitySettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateIdentitySettingsUrl = () => {
+  return `/api/v1/identity/settings`;
+};
+
+/**
+ * @summary Change the sign-in limits and lifetimes, or the address links use
+ */
+export const updateIdentitySettings = async (
+  identitySettingsPatch: IdentitySettingsPatch,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentitySettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IdentitySettings>(getUpdateIdentitySettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(identitySettingsPatch),
+  });
+};
+
+export const getUpdateIdentitySettingsMutationKey = () => ["updateIdentitySettings"] as const;
+
+export const getUpdateIdentitySettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateIdentitySettings401
+    | UpdateIdentitySettings403
+    | UpdateIdentitySettings409
+    | UpdateIdentitySettings422
+    | UpdateIdentitySettings500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateIdentitySettings>>,
+    TError,
+    UpdateIdentitySettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateIdentitySettings>>,
+  TError,
+  UpdateIdentitySettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateIdentitySettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateIdentitySettings>>,
+    UpdateIdentitySettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateIdentitySettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateIdentitySettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateIdentitySettings>>
+>;
+export type UpdateIdentitySettingsMutationBody = IdentitySettingsPatch;
+export type UpdateIdentitySettingsMutationError = ErrorType<
+  | UpdateIdentitySettings401
+  | UpdateIdentitySettings403
+  | UpdateIdentitySettings409
+  | UpdateIdentitySettings422
+  | UpdateIdentitySettings500
+>;
+export type UpdateIdentitySettingsMutationVariables = { data: IdentitySettingsPatch };
+
+/**
+ * @summary Change the sign-in limits and lifetimes, or the address links use
+ */
+export const useUpdateIdentitySettings = <
+  TError = ErrorType<
+    | UpdateIdentitySettings401
+    | UpdateIdentitySettings403
+    | UpdateIdentitySettings409
+    | UpdateIdentitySettings422
+    | UpdateIdentitySettings500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateIdentitySettings>>,
+      TError,
+      UpdateIdentitySettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateIdentitySettings>>,
+  TError,
+  UpdateIdentitySettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateIdentitySettingsMutationOptions(options), queryClient);
+};
 export const getDeleteSessionUrl = () => {
   return `/api/v1/session`;
 };
@@ -266,7 +546,9 @@ export const createSession = async (
 export const getCreateSessionMutationKey = () => ["createSession"] as const;
 
 export const getCreateSessionMutationOptions = <
-  TError = ErrorType<CreateSession401 | CreateSession422 | CreateSession500>,
+  TError = ErrorType<
+    CreateSession401 | CreateSession403 | CreateSession422 | CreateSession429 | CreateSession500
+  >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -304,7 +586,7 @@ export const getCreateSessionMutationOptions = <
 export type CreateSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createSession>>>;
 export type CreateSessionMutationBody = IdentitySignInBody;
 export type CreateSessionMutationError = ErrorType<
-  CreateSession401 | CreateSession422 | CreateSession500
+  CreateSession401 | CreateSession403 | CreateSession422 | CreateSession429 | CreateSession500
 >;
 export type CreateSessionMutationVariables = { data: IdentitySignInBody };
 
@@ -312,7 +594,9 @@ export type CreateSessionMutationVariables = { data: IdentitySignInBody };
  * @summary Sign in with email and PIN
  */
 export const useCreateSession = <
-  TError = ErrorType<CreateSession401 | CreateSession422 | CreateSession500>,
+  TError = ErrorType<
+    CreateSession401 | CreateSession403 | CreateSession422 | CreateSession429 | CreateSession500
+  >,
   TContext = unknown,
 >(
   options?: {

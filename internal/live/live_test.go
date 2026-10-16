@@ -242,10 +242,10 @@ func TestEndSessionEndsOnlyThatSessionsSubscriptions(t *testing.T) {
 		tab2 := h.Subscribe(member, "946684800000000")
 		other := h.Subscribe(live.Viewer{Account: alice, Session: aliceTab2}, "946684800000000")
 		pub.notices.Publish(t.Context(), notice{Text: "before"})
-		h.EndSession(aliceSession)
+		h.EndSession(t.Context(), aliceSession, live.Revoked)
 		pub.notices.Publish(t.Context(), notice{Text: "after"})
 		for _, s := range []*live.Subscription{tab1, tab2} {
-			expect(t, s, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: "signed-out"}})
+			expect(t, s, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.Revoked}})
 			if _, err := s.Next(t.Context()); !errors.Is(err, live.ErrEnded) {
 				t.Errorf("Next after session-ended = %v, want %v", err, live.ErrEnded)
 			}
@@ -264,8 +264,8 @@ func TestEndSessionWakesAWaitingReader(t *testing.T) {
 		got := make(chan live.Message)
 		go func() { got <- next(t, s) }()
 		synctest.Wait()
-		h.EndSession(aliceSession)
-		if msg, want := <-got, (live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: "signed-out"}}); msg != want {
+		h.EndSession(t.Context(), aliceSession, live.SignedOut)
+		if msg, want := <-got, (live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.SignedOut}}); msg != want {
 			t.Errorf("Next = %+v, want %+v", msg, want)
 		}
 	})
@@ -365,6 +365,17 @@ func TestPublishInsideWritePanics(t *testing.T) {
 	assertPanics(t, "live: Publish inside Write; publish after the commit", func() {
 		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
 			pub.notices.Publish(ctx, notice{Text: "too soon"})
+			return nil
+		})
+	})
+}
+
+func TestEndSessionInsideWritePanics(t *testing.T) {
+	h, _ := newHub(t)
+	lib := storagetest.Library(t)
+	assertPanics(t, "live: EndSession inside Write; end sessions after the commit", func() {
+		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
+			h.EndSession(ctx, aliceSession, live.Revoked)
 			return nil
 		})
 	})

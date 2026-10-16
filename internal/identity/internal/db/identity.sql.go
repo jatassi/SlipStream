@@ -11,6 +11,29 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const clearPINRequired = `-- name: ClearPINRequired :exec
+UPDATE identity_session SET pin_required = 0 WHERE account_id = ?1
+`
+
+func (q *Queries) ClearPINRequired(ctx context.Context, accountID AccountID) error {
+	_, err := q.db.ExecContext(ctx, clearPINRequired, accountID)
+	return err
+}
+
+const confirmSession = `-- name: ConfirmSession :exec
+UPDATE identity_session SET confirmed_at = ?1 WHERE id = ?2
+`
+
+type ConfirmSessionParams struct {
+	ConfirmedAt storage.Time
+	ID          SessionID
+}
+
+func (q *Queries) ConfirmSession(ctx context.Context, arg ConfirmSessionParams) error {
+	_, err := q.db.ExecContext(ctx, confirmSession, arg.ConfirmedAt, arg.ID)
+	return err
+}
+
 const deleteIdleSessions = `-- name: DeleteIdleSessions :exec
 DELETE FROM identity_session
 WHERE account_id = ?1 AND last_seen_at < ?2
@@ -35,6 +58,17 @@ func (q *Queries) DeleteSession(ctx context.Context, id SessionID) error {
 	return err
 }
 
+const getAPIKeyCreatedAt = `-- name: GetAPIKeyCreatedAt :one
+SELECT created_at FROM identity_api_key WHERE id = 1
+`
+
+func (q *Queries) GetAPIKeyCreatedAt(ctx context.Context) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, getAPIKeyCreatedAt)
+	var created_at storage.Time
+	err := row.Scan(&created_at)
+	return created_at, err
+}
+
 const getAPIKeyHash = `-- name: GetAPIKeyHash :one
 SELECT token_hash FROM identity_api_key WHERE id = 1
 `
@@ -46,8 +80,32 @@ func (q *Queries) GetAPIKeyHash(ctx context.Context) ([]byte, error) {
 	return token_hash, err
 }
 
+const getAccount = `-- name: GetAccount :one
+SELECT id, email, display_name, admin, pin_hash, created_at, disabled_at, pin_failures, pin_wait_until, pin_disabled_at, key_prompt, last_sign_in_at FROM identity_account WHERE id = ?1
+`
+
+func (q *Queries) GetAccount(ctx context.Context, id AccountID) (IdentityAccount, error) {
+	row := q.db.QueryRowContext(ctx, getAccount, id)
+	var i IdentityAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.Admin,
+		&i.PinHash,
+		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.PinFailures,
+		&i.PinWaitUntil,
+		&i.PinDisabledAt,
+		&i.KeyPrompt,
+		&i.LastSignInAt,
+	)
+	return i, err
+}
+
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, email, display_name, admin, pin_hash, created_at FROM identity_account WHERE email = ?1
+SELECT id, email, display_name, admin, pin_hash, created_at, disabled_at, pin_failures, pin_wait_until, pin_disabled_at, key_prompt, last_sign_in_at FROM identity_account WHERE email = ?1
 `
 
 func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (IdentityAccount, error) {
@@ -60,6 +118,12 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (Identity
 		&i.Admin,
 		&i.PinHash,
 		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.PinFailures,
+		&i.PinWaitUntil,
+		&i.PinDisabledAt,
+		&i.KeyPrompt,
+		&i.LastSignInAt,
 	)
 	return i, err
 }
@@ -68,22 +132,31 @@ const getSession = `-- name: GetSession :one
 SELECT
     s.id AS session_id,
     s.last_seen_at,
+    s.confirmed_at,
+    s.pin_required,
     a.id AS account_id,
     a.email,
     a.display_name,
-    a.admin
+    a.admin,
+    st.session_lifetime_seconds,
+    st.reconfirm_window_seconds
 FROM identity_session AS s
 JOIN identity_account AS a ON a.id = s.account_id
+JOIN identity_settings AS st ON st.id = 1
 WHERE s.token_hash = ?1
 `
 
 type GetSessionRow struct {
-	SessionID   SessionID
-	LastSeenAt  storage.Time
-	AccountID   AccountID
-	Email       string
-	DisplayName string
-	Admin       bool
+	SessionID              SessionID
+	LastSeenAt             storage.Time
+	ConfirmedAt            storage.Time
+	PinRequired            bool
+	AccountID              AccountID
+	Email                  string
+	DisplayName            string
+	Admin                  bool
+	SessionLifetimeSeconds int64
+	ReconfirmWindowSeconds int64
 }
 
 func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionRow, error) {
@@ -92,34 +165,59 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 	err := row.Scan(
 		&i.SessionID,
 		&i.LastSeenAt,
+		&i.ConfirmedAt,
+		&i.PinRequired,
 		&i.AccountID,
 		&i.Email,
 		&i.DisplayName,
 		&i.Admin,
+		&i.SessionLifetimeSeconds,
+		&i.ReconfirmWindowSeconds,
 	)
 	return i, err
 }
 
-const getSessionLastSeen = `-- name: GetSessionLastSeen :one
-SELECT last_seen_at FROM identity_session WHERE id = ?1
+const getSessionUse = `-- name: GetSessionUse :one
+SELECT s.last_seen_at, st.session_lifetime_seconds
+FROM identity_session AS s
+JOIN identity_settings AS st ON st.id = 1
+WHERE s.id = ?1
 `
 
-func (q *Queries) GetSessionLastSeen(ctx context.Context, id SessionID) (storage.Time, error) {
-	row := q.db.QueryRowContext(ctx, getSessionLastSeen, id)
-	var last_seen_at storage.Time
-	err := row.Scan(&last_seen_at)
-	return last_seen_at, err
+type GetSessionUseRow struct {
+	LastSeenAt             storage.Time
+	SessionLifetimeSeconds int64
 }
 
-const getSessionLifetimeDays = `-- name: GetSessionLifetimeDays :one
-SELECT session_lifetime_days FROM identity_settings WHERE id = 1
+func (q *Queries) GetSessionUse(ctx context.Context, id SessionID) (GetSessionUseRow, error) {
+	row := q.db.QueryRowContext(ctx, getSessionUse, id)
+	var i GetSessionUseRow
+	err := row.Scan(&i.LastSeenAt, &i.SessionLifetimeSeconds)
+	return i, err
+}
+
+const getSettings = `-- name: GetSettings :one
+SELECT id, pin_wait_after, pin_wait_seconds, pin_off_after, address_failures, address_window_seconds, reconfirm_window_seconds, session_lifetime_seconds, signup_link_lifetime_seconds, reset_link_lifetime_seconds, email_link_lifetime_seconds, address FROM identity_settings WHERE id = 1
 `
 
-func (q *Queries) GetSessionLifetimeDays(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getSessionLifetimeDays)
-	var session_lifetime_days int64
-	err := row.Scan(&session_lifetime_days)
-	return session_lifetime_days, err
+func (q *Queries) GetSettings(ctx context.Context) (IdentitySetting, error) {
+	row := q.db.QueryRowContext(ctx, getSettings)
+	var i IdentitySetting
+	err := row.Scan(
+		&i.ID,
+		&i.PinWaitAfter,
+		&i.PinWaitSeconds,
+		&i.PinOffAfter,
+		&i.AddressFailures,
+		&i.AddressWindowSeconds,
+		&i.ReconfirmWindowSeconds,
+		&i.SessionLifetimeSeconds,
+		&i.SignupLinkLifetimeSeconds,
+		&i.ResetLinkLifetimeSeconds,
+		&i.EmailLinkLifetimeSeconds,
+		&i.Address,
+	)
+	return i, err
 }
 
 const hasAdmin = `-- name: HasAdmin :one
@@ -174,8 +272,8 @@ func (q *Queries) InsertAccount(ctx context.Context, arg InsertAccountParams) er
 }
 
 const insertSession = `-- name: InsertSession :exec
-INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?5)
 `
 
 type InsertSessionParams struct {
@@ -196,6 +294,121 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.CreatedAt,
 		arg.LastSeenAt,
 	)
+	return err
+}
+
+const replaceAPIKey = `-- name: ReplaceAPIKey :exec
+UPDATE identity_api_key SET token_hash = ?1, created_at = ?2 WHERE id = 1
+`
+
+type ReplaceAPIKeyParams struct {
+	TokenHash []byte
+	CreatedAt storage.Time
+}
+
+func (q *Queries) ReplaceAPIKey(ctx context.Context, arg ReplaceAPIKeyParams) error {
+	_, err := q.db.ExecContext(ctx, replaceAPIKey, arg.TokenHash, arg.CreatedAt)
+	return err
+}
+
+const savePINLedger = `-- name: SavePINLedger :exec
+UPDATE identity_account
+SET pin_failures = ?1, pin_wait_until = ?2, pin_disabled_at = ?3
+WHERE id = ?4
+`
+
+type SavePINLedgerParams struct {
+	PinFailures   int64
+	PinWaitUntil  storage.Time
+	PinDisabledAt storage.Time
+	ID            AccountID
+}
+
+func (q *Queries) SavePINLedger(ctx context.Context, arg SavePINLedgerParams) error {
+	_, err := q.db.ExecContext(ctx, savePINLedger,
+		arg.PinFailures,
+		arg.PinWaitUntil,
+		arg.PinDisabledAt,
+		arg.ID,
+	)
+	return err
+}
+
+const saveSettings = `-- name: SaveSettings :exec
+UPDATE identity_settings
+SET
+    pin_wait_after = ?1,
+    pin_wait_seconds = ?2,
+    pin_off_after = ?3,
+    address_failures = ?4,
+    address_window_seconds = ?5,
+    reconfirm_window_seconds = ?6,
+    session_lifetime_seconds = ?7,
+    signup_link_lifetime_seconds = ?8,
+    reset_link_lifetime_seconds = ?9,
+    email_link_lifetime_seconds = ?10,
+    address = ?11
+WHERE id = 1
+`
+
+type SaveSettingsParams struct {
+	PinWaitAfter              int64
+	PinWaitSeconds            int64
+	PinOffAfter               int64
+	AddressFailures           int64
+	AddressWindowSeconds      int64
+	ReconfirmWindowSeconds    int64
+	SessionLifetimeSeconds    int64
+	SignupLinkLifetimeSeconds int64
+	ResetLinkLifetimeSeconds  int64
+	EmailLinkLifetimeSeconds  int64
+	Address                   string
+}
+
+func (q *Queries) SaveSettings(ctx context.Context, arg SaveSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, saveSettings,
+		arg.PinWaitAfter,
+		arg.PinWaitSeconds,
+		arg.PinOffAfter,
+		arg.AddressFailures,
+		arg.AddressWindowSeconds,
+		arg.ReconfirmWindowSeconds,
+		arg.SessionLifetimeSeconds,
+		arg.SignupLinkLifetimeSeconds,
+		arg.ResetLinkLifetimeSeconds,
+		arg.EmailLinkLifetimeSeconds,
+		arg.Address,
+	)
+	return err
+}
+
+const setPIN = `-- name: SetPIN :exec
+UPDATE identity_account
+SET pin_hash = ?1, pin_failures = 0, pin_wait_until = NULL, pin_disabled_at = NULL
+WHERE id = ?2
+`
+
+type SetPINParams struct {
+	PinHash string
+	ID      AccountID
+}
+
+func (q *Queries) SetPIN(ctx context.Context, arg SetPINParams) error {
+	_, err := q.db.ExecContext(ctx, setPIN, arg.PinHash, arg.ID)
+	return err
+}
+
+const stampSignIn = `-- name: StampSignIn :exec
+UPDATE identity_account SET last_sign_in_at = ?1 WHERE id = ?2
+`
+
+type StampSignInParams struct {
+	LastSignInAt storage.Time
+	ID           AccountID
+}
+
+func (q *Queries) StampSignIn(ctx context.Context, arg StampSignInParams) error {
+	_, err := q.db.ExecContext(ctx, stampSignIn, arg.LastSignInAt, arg.ID)
 	return err
 }
 

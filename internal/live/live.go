@@ -121,9 +121,21 @@ func (p EveryonePublisher[T]) Publish(ctx context.Context, v T) {
 // Resync means refetch everything: events may have been missed.
 type Resync struct{}
 
+// EndReason is why a session's streams end.
+type EndReason string
+
+const (
+	// SignedOut is this device's own Sign out.
+	SignedOut EndReason = "signed-out"
+	Expired   EndReason = "expired"
+	// Revoked is a session ended from somewhere else: another device, an
+	// Admin or a Reset link.
+	Revoked EndReason = "revoked"
+)
+
 // SessionEnded means the stream's session ended and the stream closes.
 type SessionEnded struct {
-	Reason string `json:"reason" enum:"signed-out,expired"`
+	Reason EndReason `json:"reason" enum:"signed-out,expired,revoked"`
 }
 
 var (
@@ -270,13 +282,17 @@ func (h *Hub) Subscribe(viewer Viewer, lastEventID string) *Subscription {
 }
 
 // EndSession makes each of the session's subscriptions return
-// SessionEnded{"signed-out"} and then ErrEnded.
-func (h *Hub) EndSession(session storage.UUID) {
+// SessionEnded{why} and then ErrEnded. Like Publish it panics inside a
+// Write: a rolled-back delete must not have ended anyone's stream.
+func (h *Hub) EndSession(ctx context.Context, session storage.UUID, why EndReason) {
+	if storage.InWrite(ctx) {
+		panic("live: EndSession inside Write; end sessions after the commit")
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for s := range h.subs {
 		if s.viewer.Session == session {
-			s.state = signingOut
+			s.state, s.ending = ending, why
 		}
 	}
 	h.wake()
@@ -297,7 +313,7 @@ type subscriptionState uint8
 
 const (
 	reading subscriptionState = iota
-	signingOut
+	ending
 	ended
 )
 
@@ -307,6 +323,7 @@ type Subscription struct {
 	hub    *Hub
 	viewer Viewer
 	state  subscriptionState
+	ending EndReason
 	next   int64
 	resync bool
 }
@@ -338,9 +355,9 @@ func (s *Subscription) take() (Message, bool, error) {
 	case reading:
 	case ended:
 		return Message{}, false, ErrEnded
-	case signingOut:
+	case ending:
 		s.end()
-		return Message{Name: SessionEndedEvent.Name(), Data: SessionEnded{Reason: "signed-out"}}, true, nil
+		return Message{Name: SessionEndedEvent.Name(), Data: SessionEnded{Reason: s.ending}}, true, nil
 	}
 	if s.next < h.oldest() {
 		s.next = h.head + 1

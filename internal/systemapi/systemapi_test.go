@@ -53,7 +53,7 @@ func newNode(t *testing.T, f system.Facts) *node {
 		t.Fatal(err)
 	}
 	hub := live.NewHub([]live.Event{identity.SessionsChangedEvent})
-	svc, err := identity.New(ctx, lib, keys.PINPepper(), identity.SessionsChangedEvent.Bind(hub), hub)
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
 	if err != nil {
 		t.Fatal(err)
 	}

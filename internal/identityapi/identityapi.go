@@ -1,5 +1,5 @@
-// Package identityapi holds identity's operations: claiming a fresh Node
-// and signing in and out.
+// Package identityapi holds identity's operations: claiming a fresh Node,
+// signing in and out, and the sign-in settings.
 package identityapi
 
 import (
@@ -30,8 +30,6 @@ func open(lib Library) *identity.Service {
 	}
 	return s
 }
-
-var pinWrong = api.NewCode(http.StatusUnauthorized, "pin_wrong", "The email or PIN is wrong")
 
 type account struct {
 	ID          string `json:"id" format:"uuid"`
@@ -128,7 +126,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/session",
 		Summary: "Sign in with email and PIN",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{pinWrong},
+		Errors:  pinChecked,
 	}, func(ctx context.Context, a identity.Anyone, in *signInInput) (*sessionOutput, error) {
 		pin, err := identity.ParsePIN(in.Body.PIN)
 		if err != nil {
@@ -139,11 +137,8 @@ func Routes(r *api.Router, lib Library) {
 			return nil, pinWrong
 		}
 		profile, cookie, err := s.SignIn(ctx, a, in.Body.Email, pin)
-		if errors.Is(err, identity.ErrPINWrong) {
-			return nil, pinWrong
-		}
 		if err != nil {
-			return nil, err
+			return nil, answer(err)
 		}
 		return &sessionOutput{SetCookie: cookie.String(), Body: session{Account: accountOf(profile)}}, nil
 	})
@@ -171,4 +166,21 @@ func Routes(r *api.Router, lib Library) {
 		}
 		return &signOutOutput{SetCookie: cookie.String()}, nil
 	})
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getIdentitySettings",
+		Method:  http.MethodGet,
+		Path:    "/identity/settings",
+		Summary: "Get the sign-in limits and lifetimes, and the address links use",
+		Status:  http.StatusOK,
+	}, getSettings(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateIdentitySettings",
+		Method:  http.MethodPatch,
+		Path:    "/identity/settings",
+		Summary: "Change the sign-in limits and lifetimes, or the address links use",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingOutOfRange, addressIP},
+	}, updateSettings(lib))
 }

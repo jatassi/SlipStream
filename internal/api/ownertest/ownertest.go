@@ -4,7 +4,6 @@ package ownertest
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,12 +29,6 @@ type Owner struct {
 	Log     *bytes.Buffer
 }
 
-type sessions struct{}
-
-func (sessions) Publish(context.Context, storage.UUID, identity.SessionsChanged) {}
-
-func (sessions) EndSession(storage.UUID) {}
-
 // Serve claims a Controller over lib, which holds at least the secret
 // and identity schemas, and mounts the owner's Routes.
 func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Router)) *Owner {
@@ -51,7 +44,7 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := identity.New(t.Context(), lib, keys.PINPepper(), sessions{}, sessions{})
+	svc, err := identity.New(t.Context(), identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: identitytest.Hub(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

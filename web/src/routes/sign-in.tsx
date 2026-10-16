@@ -17,6 +17,7 @@ const signInForm = CreateSessionBody.extend({
 const reasonText: Record<SessionEndReason, string> = {
   "signed-out": "You signed out.",
   expired: "Your session ended. Sign in again.",
+  revoked: "This device was signed out.",
 };
 
 export const Route = createFileRoute("/sign-in")({

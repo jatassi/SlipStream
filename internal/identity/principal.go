@@ -5,14 +5,17 @@ import (
 	"net/netip"
 )
 
-// client is the connection a request arrived on. The Relay Node later
-// supplies the original client address for relayed requests.
+// client is who a request came from, after http.trusted_proxies.
 type client struct {
 	address netip.Addr
-	tls     bool
+	https   bool
+	host    string
 }
 
 func (c client) Address() netip.Addr { return c.address }
+
+// SuggestedAddress is what Settings > Address offers this caller.
+func (c client) SuggestedAddress() string { return suggestAddress(c) }
 
 // Anyone is whoever called a public operation.
 type Anyone struct{ client }

@@ -49,7 +49,7 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	if err != nil {
 		return nil, err
 	}
-	ids, err := identity.New(ctx, db, keys.PINPepper(), identity.SessionsChangedEvent.Bind(n.hub), n.hub)
+	ids, err := identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Hub: n.hub})
 	if err != nil {
 		return nil, err
 	}

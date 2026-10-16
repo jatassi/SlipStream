@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"reflect"
 )
 
 const (
@@ -78,7 +79,7 @@ func TestSealingDrawsAFreshNonceEachTime(t *testing.T) {
 	a, b := s.Seal([]byte("hunter2"), ad), s.Seal([]byte("hunter2"), ad)
 	av, _ := a.Value()
 	bv, _ := b.Value()
-	if bytes.Equal(av.([]byte), bv.([]byte)) {
+	if reflect.DeepEqual(av, bv) {
 		t.Fatal("two seals of one value are the same bytes")
 	}
 	for _, v := range []secret.Sealed{a, b} {

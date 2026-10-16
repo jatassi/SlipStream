@@ -309,6 +309,47 @@ export const IdentitySessionsChanged = zod.object({
 export type IdentitySessionsChanged = zod.input<typeof IdentitySessionsChanged>;
 export type IdentitySessionsChangedOutput = zod.output<typeof IdentitySessionsChanged>;
 
+export const IdentitySettings = zod.object({
+  address: zod.string().describe("The origin links are built on, empty until set"),
+  addressFailures: zod.int().describe("Failed sign-in attempts one address may make in the window"),
+  addressWindowSeconds: zod.int(),
+  emailLinkLifetimeSeconds: zod.int(),
+  pinOffAfter: zod.int().describe("Wrong PINs in a row before the PIN turns off"),
+  pinWaitAfter: zod.int().describe("Wrong PINs before a wait"),
+  pinWaitSeconds: zod.int().describe("The wait after too many wrong PINs"),
+  reconfirmWindowSeconds: zod.int().describe("How long a confirm with the PIN or a passkey lasts"),
+  resetLinkLifetimeSeconds: zod.int(),
+  sessionLifetimeSeconds: zod.int().describe("How long a session lasts unused"),
+  signupLinkLifetimeSeconds: zod.int(),
+  suggestedAddress: zod
+    .string()
+    .describe(
+      "The address this request reached SlipStream at, or this machine's name when that was an IP address",
+    ),
+});
+
+export type IdentitySettings = zod.input<typeof IdentitySettings>;
+export type IdentitySettingsOutput = zod.output<typeof IdentitySettings>;
+
+export const identitySettingsPatchAddressMax = 2048;
+
+export const IdentitySettingsPatch = zod.object({
+  address: zod.string().max(identitySettingsPatchAddressMax).exactOptional(),
+  addressFailures: zod.int().exactOptional(),
+  addressWindowSeconds: zod.int().exactOptional(),
+  emailLinkLifetimeSeconds: zod.int().exactOptional(),
+  pinOffAfter: zod.int().exactOptional(),
+  pinWaitAfter: zod.int().exactOptional(),
+  pinWaitSeconds: zod.int().exactOptional(),
+  reconfirmWindowSeconds: zod.int().exactOptional(),
+  resetLinkLifetimeSeconds: zod.int().exactOptional(),
+  sessionLifetimeSeconds: zod.int().exactOptional(),
+  signupLinkLifetimeSeconds: zod.int().exactOptional(),
+});
+
+export type IdentitySettingsPatch = zod.input<typeof IdentitySettingsPatch>;
+export type IdentitySettingsPatchOutput = zod.output<typeof IdentitySettingsPatch>;
+
 export const identitySignInBodyEmailMax = 254;
 
 export const identitySignInBodyPinRegExp = new RegExp("^[0-9]{4}$");
@@ -395,7 +436,7 @@ export type LiveResync = zod.input<typeof LiveResync>;
 export type LiveResyncOutput = zod.output<typeof LiveResync>;
 
 export const LiveSessionEnded = zod.object({
-  reason: zod.enum(["signed-out", "expired"]),
+  reason: zod.enum(["signed-out", "expired", "revoked"]),
 });
 
 export type LiveSessionEnded = zod.input<typeof LiveSessionEnded>;

@@ -5,16 +5,25 @@
 package db
 
 import (
+	"database/sql"
+
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 type IdentityAccount struct {
-	ID          AccountID
-	Email       string
-	DisplayName string
-	Admin       bool
-	PinHash     string
-	CreatedAt   storage.Time
+	ID            AccountID
+	Email         string
+	DisplayName   string
+	Admin         bool
+	PinHash       string
+	CreatedAt     storage.Time
+	DisabledAt    storage.Time
+	PinFailures   int64
+	PinWaitUntil  storage.Time
+	PinDisabledAt storage.Time
+	KeyPrompt     string
+	LastSignInAt  storage.Time
 }
 
 type IdentityApiKey struct {
@@ -23,16 +32,61 @@ type IdentityApiKey struct {
 	CreatedAt storage.Time
 }
 
+type IdentityLink struct {
+	ID             LinkID
+	Kind           string
+	TokenHash      []byte
+	TokenSealed    secret.Sealed
+	Email          string
+	AccountID      AccountID
+	RemovePasskeys bool
+	IssuedBy       AccountID
+	IssuedAt       storage.Time
+	ExpiresAt      storage.Time
+	EndedAt        storage.Time
+	EndReason      sql.NullString
+}
+
+type IdentityPasskey struct {
+	ID             PasskeyID
+	AccountID      AccountID
+	RelyingParty   string
+	CredentialID   CredentialID
+	PublicKey      []byte
+	SignCount      int64
+	Aaguid         []byte
+	Transports     string
+	BackupEligible bool
+	BackupState    bool
+	Name           string
+	CreatedAt      storage.Time
+	LastUsedAt     storage.Time
+}
+
 type IdentitySession struct {
-	ID         SessionID
-	TokenHash  []byte
-	AccountID  AccountID
-	Address    string
-	CreatedAt  storage.Time
-	LastSeenAt storage.Time
+	ID          SessionID
+	TokenHash   []byte
+	AccountID   AccountID
+	Address     string
+	CreatedAt   storage.Time
+	LastSeenAt  storage.Time
+	ConfirmedAt storage.Time
+	Device      string
+	PinRequired bool
+	Prompted    bool
 }
 
 type IdentitySetting struct {
-	ID                  Singleton
-	SessionLifetimeDays int64
+	ID                        Singleton
+	PinWaitAfter              int64
+	PinWaitSeconds            int64
+	PinOffAfter               int64
+	AddressFailures           int64
+	AddressWindowSeconds      int64
+	ReconfirmWindowSeconds    int64
+	SessionLifetimeSeconds    int64
+	SignupLinkLifetimeSeconds int64
+	ResetLinkLifetimeSeconds  int64
+	EmailLinkLifetimeSeconds  int64
+	Address                   string
 }

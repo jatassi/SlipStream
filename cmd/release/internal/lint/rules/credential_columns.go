@@ -12,7 +12,7 @@ import (
 	"testing/fstest"
 
 	"github.com/pressly/goose/v3"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // the driver the migrations are applied with
 
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 )
@@ -102,13 +102,13 @@ func finalColumns(fsys fstest.MapFS) ([]tableColumn, error) {
 	ctx := context.Background()
 	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open an in-memory database: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 	conn.SetMaxOpenConns(1)
 	prov, err := goose.NewProvider(goose.DialectSQLite3, conn, fsys, goose.WithDisableGlobalRegistry(true), goose.WithLogger(goose.NopLogger()))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read the migrations: %w", err)
 	}
 	if _, err := prov.Up(ctx); err != nil {
 		return nil, fmt.Errorf("apply the migrations: %w", err)
@@ -116,22 +116,25 @@ func finalColumns(fsys fstest.MapFS) ([]tableColumn, error) {
 	rows, err := conn.QueryContext(ctx, `SELECT m.name, p.name FROM sqlite_schema AS m, pragma_table_info(m.name) AS p
 		WHERE m.type = 'table' AND m.name NOT LIKE 'goose%' AND m.name NOT LIKE 'sqlite%' ORDER BY m.name, p.cid`)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read the schema: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 	var out []tableColumn
 	for rows.Next() {
 		var c tableColumn
 		if err := rows.Scan(&c.table, &c.column); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read the schema: %w", err)
 		}
 		out = append(out, c)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read the schema: %w", err)
+	}
+	return out, nil
 }
 
 // introduced is the first line of the set's migrations that names column.
-func introduced(column string, migrations, sources []string) (string, int) {
+func introduced(column string, migrations, sources []string) (file string, line int) {
 	word := regexp.MustCompile(`\b` + regexp.QuoteMeta(column) + `\b`)
 	for i, src := range sources {
 		for n, line := range strings.Split(src, "\n") {

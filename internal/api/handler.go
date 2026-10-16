@@ -4,7 +4,6 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"net/netip"
 	"path"
 	"strings"
 	"time"
@@ -84,8 +83,8 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 // caller of a Node whose library.db is closed, which holds no session or
 // API key to match.
 func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates bool) (identity.Caller, bool) {
-	peer, _ := netip.ParseAddrPort(req.RemoteAddr)
-	creds := identity.Request{Address: peer.Addr().Unmap(), TLS: req.TLS != nil}
+	addr, https := proxies(r.services.TrustedProxies).clientOf(req)
+	creds := identity.Request{Address: addr, HTTPS: https, Host: req.Host}
 	if !authenticates {
 		return creds.Unauthenticated(), true
 	}

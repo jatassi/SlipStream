@@ -171,7 +171,6 @@ func TestEachIndexersErrorAnswersItsProblem(t *testing.T) {
 	}
 }
 
-
 // TestAKeyTheSealingMigrationDroppedIsEnteredAgain opens a library.db an
 // Indexer was added to before keys were sealed: the key is gone until an
 // Admin enters it again.
