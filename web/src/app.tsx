@@ -21,7 +21,9 @@ type Parts = {
 };
 
 function end({ queryClient, router, live }: Parts, reason: SessionEndReason): boolean {
-  if (!queryClient.getQueryData(sessionQuery.queryKey)) {
+  // A tab whose session read already came back signed out still follows the
+  // others to Sign in. Only a cleared cache means this tab has ended.
+  if (queryClient.getQueryData(sessionQuery.queryKey) === undefined) {
     return false;
   }
   const { href } = router.state.location;

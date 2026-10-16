@@ -114,8 +114,10 @@ test("live.session-ended clears this tab and every other tab", async () => {
   await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
   const second = renderApp({ path: "/" });
   await expect.poll(() => server.clients.length).toBe(2);
+  await expect.poll(() => second.queryClient.isFetching()).toBe(0);
 
   server.signOut();
+  await second.queryClient.refetchQueries();
   server.clients[0]?.send({ event: "live.session-ended", data: { reason: "signed-out" } });
   await expect.poll(() => first.router.state.location.href).toBe("/sign-in?reason=signed-out");
   await expect.poll(() => second.router.state.location.href).toBe("/sign-in?reason=signed-out");
