@@ -144,7 +144,6 @@ type runNow struct {
 	Reason    string `json:"reason,omitempty" enum:"running,waiting" doc:"Why Run now is unavailable; absent when it is available"`
 }
 
-// task is a shown task. Group is the Controller's or a Role Group.
 type task struct {
 	ID      string              `json:"id"`
 	Name    string              `json:"name"`

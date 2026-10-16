@@ -111,7 +111,6 @@ type InWindow struct {
 func (Every) cadence()    {}
 func (InWindow) cadence() {}
 
-// Setting is the task's cadence descriptor.
 func (t Task) Setting() setting.Duration {
 	switch c := t.Cadence.(type) {
 	case Every:
@@ -129,7 +128,6 @@ type Unit struct {
 	Place Place
 }
 
-// Place is where a unit runs.
 type Place struct {
 	kind placeKind
 	node role.NodeID
@@ -143,7 +141,6 @@ const (
 	portableOn
 )
 
-// OnController runs a unit in process on the Controller.
 func OnController() Place { return Place{} }
 
 // TiedTo runs a unit on node and never elsewhere; one that couldn't run is

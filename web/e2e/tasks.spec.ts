@@ -7,7 +7,6 @@ import { isPhone, navigate, pageAction } from "./shell.ts";
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 120_000 });
 
-// A table row on desktop, a list row on phone.
 const housekeepingRow = (page: Page) =>
   isPhone(page)
     ? page

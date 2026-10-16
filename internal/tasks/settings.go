@@ -104,7 +104,6 @@ func (s *Scheduler) SetCadence(ctx context.Context, id TaskID, v setting.Stored[
 	})
 }
 
-// SetOverdue stores the task's overdue rule override.
 func (s *Scheduler) SetOverdue(ctx context.Context, id TaskID, v setting.Stored[Overdue]) error {
 	return s.setTask(ctx, id, func(ctx context.Context, q *db.Queries) error {
 		return q.SetTaskOverdue(ctx, db.SetTaskOverdueParams{ID: id, Overdue: v.Override()})

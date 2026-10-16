@@ -40,7 +40,6 @@ type Changed struct {
 	TaskID TaskID `json:"taskId"`
 }
 
-// Progressed is a running run's progress.
 type Progressed struct {
 	RunID  RunID  `json:"runId"`
 	TaskID TaskID `json:"taskId"`

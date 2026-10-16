@@ -125,7 +125,6 @@ type Noun struct {
 	Many string `json:"many"`
 }
 
-// Of is the word for n of it.
 func (u Noun) Of(n int64) string {
 	if n == 1 {
 		return u.One
