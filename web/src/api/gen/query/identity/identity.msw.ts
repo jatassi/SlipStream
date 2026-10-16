@@ -3,7 +3,28 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
-import type { IdentityClaimed, IdentitySession, IdentitySettings } from "../../model";
+import type {
+  IdentityApiKeyMade,
+  IdentityClaimed,
+  IdentityRegeneratedAPIKey,
+  IdentitySession,
+  IdentitySettings,
+} from "../../model";
+
+export const getGetAPIKeyResponseMock = (
+  overrideResponse: Partial<Extract<IdentityApiKeyMade, object>> = {},
+): IdentityApiKeyMade => ({
+  createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...overrideResponse,
+});
+
+export const getRegenerateAPIKeyResponseMock = (
+  overrideResponse: Partial<Extract<IdentityRegeneratedAPIKey, object>> = {},
+): IdentityRegeneratedAPIKey => ({
+  apiKey: faker.helpers.fromRegExp("^ssk_[A-Za-z0-9_-]{43}$"),
+  createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...overrideResponse,
+});
 
 export const getGetIdentitySettingsResponseMock = (
   overrideResponse: Partial<Extract<IdentitySettings, object>> = {},
@@ -50,6 +71,7 @@ export const getGetSessionResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
 });
 
@@ -62,6 +84,7 @@ export const getCreateSessionResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
 });
 
@@ -77,6 +100,73 @@ export const getClaimControllerResponseMock = (
   apiKey: faker.helpers.fromRegExp("^ssk_[A-Za-z0-9_-]{43}$"),
   ...overrideResponse,
 });
+
+export const getChangePINMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/account/pin",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getGetAPIKeyMockHandler = (
+  overrideResponse?:
+    | IdentityApiKeyMade
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentityApiKeyMade> | IdentityApiKeyMade),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/api-key",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetAPIKeyResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getRegenerateAPIKeyMockHandler = (
+  overrideResponse?:
+    | IdentityRegeneratedAPIKey
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IdentityRegeneratedAPIKey> | IdentityRegeneratedAPIKey),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/api-key",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRegenerateAPIKeyResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 
 export const getGetIdentitySettingsMockHandler = (
   overrideResponse?:
@@ -193,6 +283,25 @@ export const getCreateSessionMockHandler = (
   );
 };
 
+export const getReconfirmSessionMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/session/reconfirm",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
 export const getClaimControllerMockHandler = (
   overrideResponse?:
     | IdentityClaimed
@@ -217,10 +326,14 @@ export const getClaimControllerMockHandler = (
   );
 };
 export const getIdentityMock = () => [
+  getChangePINMockHandler(),
+  getGetAPIKeyMockHandler(),
+  getRegenerateAPIKeyMockHandler(),
   getGetIdentitySettingsMockHandler(),
   getUpdateIdentitySettingsMockHandler(),
   getDeleteSessionMockHandler(),
   getGetSessionMockHandler(),
   getCreateSessionMockHandler(),
+  getReconfirmSessionMockHandler(),
   getClaimControllerMockHandler(),
 ];

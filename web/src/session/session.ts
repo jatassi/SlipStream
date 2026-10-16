@@ -41,6 +41,6 @@ export function markSignedIn(queryClient: QueryClient, session: IdentitySession)
 
 export function markClaimed(queryClient: QueryClient, claimed: IdentityClaimed): void {
   queryClient.setQueryData(statusQuery.queryKey, { claim: "controller" });
-  const session: IdentitySession = { account: claimed.account };
+  const session: IdentitySession = { account: claimed.account, pinRequired: false };
   queryClient.setQueryData(sessionQuery.queryKey, session);
 }

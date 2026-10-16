@@ -1,1 +1,1 @@
-export type GetIdentitySettings403Code = "needs_admin";
+export type GetIdentitySettings403Code = "needs_admin" | "pin_required";

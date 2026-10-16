@@ -15,7 +15,7 @@ function claimServer(answer: () => Response) {
   const handlers = [
     http.get("*/api/v1/session", () =>
       claimed
-        ? HttpResponse.json({ account: ada })
+        ? HttpResponse.json({ account: ada, pinRequired: false })
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     http.get("*/api/v1/status", () =>

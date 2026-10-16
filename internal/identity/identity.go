@@ -113,7 +113,7 @@ func (s *Service) HasAdmin(ctx context.Context) (bool, error) {
 // the cookie of its new session.
 type Claimed struct {
 	Profile Profile
-	APIKey  string
+	APIKey  APIKey
 	Cookie  *http.Cookie
 }
 
@@ -125,7 +125,7 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		return Claimed{}, err
 	}
 	profile := Profile{ID: AccountID{UUID: storage.NewUUID()}, Email: normalizeEmail(email), DisplayName: displayName, Admin: true}
-	apiKey := apiKeyPrefix + newToken()
+	apiKey := newAPIKey()
 	token := newToken()
 	var lifetime time.Duration
 	err = s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
@@ -152,7 +152,7 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		if err != nil {
 			return err
 		}
-		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(apiKey), CreatedAt: fx.now}); err != nil {
+		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(apiKey.token), CreatedAt: fx.now}); err != nil {
 			return err
 		}
 		return startSession(ctx, q, fx, c.client, profile.ID, token)
@@ -209,17 +209,17 @@ func profileOf(row db.IdentityAccount) Profile {
 	return Profile{ID: row.ID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin}
 }
 
-// SignOut ends a's session and its open streams and returns the cookie
+// SignOut ends b's session and its open streams and returns the cookie
 // that clears it.
-func (s *Service) SignOut(ctx context.Context, a Account) (*http.Cookie, error) {
+func (s *Service) SignOut(ctx context.Context, b Bearer) (*http.Cookie, error) {
 	err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
-		fx.endSession(a.profile.ID, a.session, live.SignedOut)
-		return q.DeleteSession(ctx, a.session)
+		fx.endSession(b.s.profile.ID, b.s.session, live.SignedOut)
+		return q.DeleteSession(ctx, b.s.session)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return clearCookie(a.https), nil
+	return clearCookie(b.https), nil
 }
 
 // Request is what authentication reads from an HTTP request.
@@ -275,11 +275,13 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	if u == expired {
 		return c, clearCookie(r.HTTPS), nil
 	}
+	window := time.Duration(row.ReconfirmWindowSeconds) * time.Second
 	c.kind = sessionCaller
-	c.account = Account{
-		client:  c.client,
-		profile: Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
-		session: row.SessionID,
+	c.s = signedIn{
+		profile:     Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
+		session:     row.SessionID,
+		confirmed:   time.Since(row.ConfirmedAt.Time()) <= window,
+		pinRequired: row.PinRequired,
 	}
 	if u == slid {
 		return c, cookie(r.Session, r.HTTPS, lifetime), nil
@@ -290,14 +292,14 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 // Renew counts a's open stream as use of its session, under the same rule
 // as a request. A session that expired or is gone returns ErrSignedOut.
 func (s *Service) Renew(ctx context.Context, a Account) error {
-	row, err := db.New(s.lib).GetSessionUse(ctx, a.session)
+	row, err := db.New(s.lib).GetSessionUse(ctx, a.s.session)
 	if errors.Is(err, storage.ErrNoRows) {
 		return ErrSignedOut
 	}
 	if err != nil {
 		return err
 	}
-	u, err := s.use(ctx, a.session, a.profile.ID, row.LastSeenAt, time.Duration(row.SessionLifetimeSeconds)*time.Second)
+	u, err := s.use(ctx, a.s.session, a.s.profile.ID, row.LastSeenAt, time.Duration(row.SessionLifetimeSeconds)*time.Second)
 	if err != nil {
 		return err
 	}
@@ -365,12 +367,13 @@ func clearCookie(secure bool) *http.Cookie {
 // Account's last sign-in.
 func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account AccountID, token string) error {
 	err := q.InsertSession(ctx, db.InsertSessionParams{
-		ID:         SessionID{UUID: storage.NewUUID()},
-		TokenHash:  digest(token),
-		AccountID:  account,
-		Address:    c.address.String(),
-		CreatedAt:  fx.now,
-		LastSeenAt: fx.now,
+		ID:          SessionID{UUID: storage.NewUUID()},
+		TokenHash:   digest(token),
+		AccountID:   account,
+		Address:     c.address.String(),
+		CreatedAt:   fx.now,
+		LastSeenAt:  fx.now,
+		ConfirmedAt: fx.now,
 	})
 	if err != nil {
 		return err

@@ -1,1 +1,1 @@
-export type UpdateIdentitySettings403Code = "needs_admin";
+export type UpdateIdentitySettings403Code = "needs_admin" | "needs_reconfirm" | "pin_required";

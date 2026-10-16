@@ -270,6 +270,13 @@ export const IdentityAccount = zod.object({
 export type IdentityAccount = zod.input<typeof IdentityAccount>;
 export type IdentityAccountOutput = zod.output<typeof IdentityAccount>;
 
+export const IdentityApiKeyMade = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+export type IdentityApiKeyMade = zod.input<typeof IdentityApiKeyMade>;
+export type IdentityApiKeyMadeOutput = zod.output<typeof IdentityApiKeyMade>;
+
 export const identityClaimBodyDisplayNameMax = 100;
 
 export const identityClaimBodyEmailMax = 254;
@@ -295,8 +302,47 @@ export const IdentityClaimed = zod.object({
 export type IdentityClaimed = zod.input<typeof IdentityClaimed>;
 export type IdentityClaimedOutput = zod.output<typeof IdentityClaimed>;
 
+export const identityPinChangeCurrentRegExp = new RegExp("^[0-9]{4}$");
+export const identityPinChangeNewRegExp = new RegExp("^[0-9]{4}$");
+
+export const IdentityPinChange = zod.object({
+  current: zod
+    .string()
+    .regex(identityPinChangeCurrentRegExp)
+    .exactOptional()
+    .describe("The current PIN, left out only by a session that must set a new PIN"),
+  new: zod.string().regex(identityPinChangeNewRegExp),
+});
+
+export type IdentityPinChange = zod.input<typeof IdentityPinChange>;
+export type IdentityPinChangeOutput = zod.output<typeof IdentityPinChange>;
+
+export const identityReconfirmationPinRegExp = new RegExp("^[0-9]{4}$");
+
+export const IdentityReconfirmation = zod.object({
+  pin: zod.string().regex(identityReconfirmationPinRegExp),
+});
+
+export type IdentityReconfirmation = zod.input<typeof IdentityReconfirmation>;
+export type IdentityReconfirmationOutput = zod.output<typeof IdentityReconfirmation>;
+
+export const identityRegeneratedAPIKeyApiKeyRegExp = new RegExp("^ssk_[A-Za-z0-9_-]{43}$");
+
+export const IdentityRegeneratedAPIKey = zod.object({
+  apiKey: zod.string().regex(identityRegeneratedAPIKeyApiKeyRegExp),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+export type IdentityRegeneratedAPIKey = zod.input<typeof IdentityRegeneratedAPIKey>;
+export type IdentityRegeneratedAPIKeyOutput = zod.output<typeof IdentityRegeneratedAPIKey>;
+
 export const IdentitySession = zod.object({
   account: IdentityAccount,
+  pinRequired: zod
+    .boolean()
+    .describe(
+      "The session must set a new PIN before anything but reading the session and signing out",
+    ),
 });
 
 export type IdentitySession = zod.input<typeof IdentitySession>;

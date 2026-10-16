@@ -94,7 +94,7 @@ func claimed(t *testing.T, lib *storage.DB[storage.Library], log *slog.Logger) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	return svc, gate, admin.APIKey
+	return svc, gate, admin.APIKey.Reveal()
 }
 
 func TestAJoinCodeNeedsALinkAddress(t *testing.T) {

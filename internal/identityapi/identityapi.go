@@ -1,5 +1,6 @@
 // Package identityapi holds identity's operations: claiming a fresh Node,
-// signing in and out, and the sign-in settings.
+// signing in and out, re-confirm and the PIN, the API key, and the sign-in
+// settings.
 package identityapi
 
 import (
@@ -77,7 +78,8 @@ type sessionOutput struct {
 }
 
 type session struct {
-	Account account `json:"account"`
+	Account     account `json:"account"`
+	PINRequired bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
 }
 
 type getSessionOutput struct {
@@ -116,7 +118,7 @@ func Routes(r *api.Router, lib Library) {
 		}
 		return &claimOutput{
 			SetCookie: res.Cookie.String(),
-			Body:      claimed{Account: accountOf(res.Profile), APIKey: res.APIKey},
+			Body:      claimed{Account: accountOf(res.Profile), APIKey: res.APIKey.Reveal()},
 		}, nil
 	})
 
@@ -143,29 +145,63 @@ func Routes(r *api.Router, lib Library) {
 		return &sessionOutput{SetCookie: cookie.String(), Body: session{Account: accountOf(profile)}}, nil
 	})
 
-	api.Register(o, api.Account, api.Op{
+	api.Register(o, api.Bearer, api.Op{
 		ID:      "getSession",
 		Method:  http.MethodGet,
 		Path:    "/session",
 		Summary: "Get the signed-in Account",
 		Status:  http.StatusOK,
-	}, func(_ context.Context, a identity.Account, _ *struct{}) (*getSessionOutput, error) {
-		return &getSessionOutput{Body: session{Account: accountOf(a.Profile())}}, nil
+	}, func(_ context.Context, b identity.Bearer, _ *struct{}) (*getSessionOutput, error) {
+		return &getSessionOutput{Body: session{Account: accountOf(b.Profile()), PINRequired: b.PINRequired()}}, nil
 	})
 
-	api.Register(o, api.Account, api.Op{
+	api.Register(o, api.Bearer, api.Op{
 		ID:      "deleteSession",
 		Method:  http.MethodDelete,
 		Path:    "/session",
 		Summary: "Sign out",
 		Status:  http.StatusNoContent,
-	}, func(ctx context.Context, a identity.Account, _ *struct{}) (*signOutOutput, error) {
-		cookie, err := open(lib).SignOut(ctx, a)
+	}, func(ctx context.Context, b identity.Bearer, _ *struct{}) (*signOutOutput, error) {
+		cookie, err := open(lib).SignOut(ctx, b)
 		if err != nil {
 			return nil, err
 		}
 		return &signOutOutput{SetCookie: cookie.String()}, nil
 	})
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "reconfirmSession",
+		Method:  http.MethodPost,
+		Path:    "/session/reconfirm",
+		Summary: "Confirm it's you with your PIN, for actions that change who can get in",
+		Status:  http.StatusNoContent,
+		Errors:  pinChecked,
+	}, reconfirm(lib))
+
+	api.Register(o, api.Bearer, api.Op{
+		ID:      "changePIN",
+		Method:  http.MethodPost,
+		Path:    "/account/pin",
+		Summary: "Change your PIN, or set a new one after a passkey sign-in on a turned-off PIN",
+		Status:  http.StatusNoContent,
+		Errors:  pinChecked,
+	}, changePIN(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getAPIKey",
+		Method:  http.MethodGet,
+		Path:    "/api-key",
+		Summary: "Get when the API key was made",
+		Status:  http.StatusOK,
+	}, getAPIKey(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "regenerateAPIKey",
+		Method:  http.MethodPost,
+		Path:    "/api-key",
+		Summary: "Replace the API key, shown this once; the old one stops working",
+		Status:  http.StatusOK,
+	}, regenerateAPIKey(lib))
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getIdentitySettings",
@@ -175,7 +211,7 @@ func Routes(r *api.Router, lib Library) {
 		Status:  http.StatusOK,
 	}, getSettings(lib))
 
-	api.Register(o, api.Admin, api.Op{
+	api.Register(o, api.Reconfirmed, api.Op{
 		ID:      "updateIdentitySettings",
 		Method:  http.MethodPatch,
 		Path:    "/identity/settings",

@@ -72,7 +72,7 @@ func TestRegisterRefusesALevelBelowItsOwnersFloor(t *testing.T) {
 		Register(o, Account, Op{ID: "listNodes", Method: http.MethodGet, Path: "/nodes"},
 			func(context.Context, identity.Account, *struct{}) (*struct{}, error) { return nil, nil })
 	})
-	if want := "listNodes: owner nodes admits admin operations only; level is account"; got != want {
+	if want := "listNodes: owner nodes admits admin and reconfirmed operations only; level is account"; got != want {
 		t.Fatalf("panic = %q, want %q", got, want)
 	}
 }

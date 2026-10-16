@@ -43,6 +43,8 @@ func answer(err error) error {
 		return pinOff
 	case errors.Is(err, identity.ErrAddressIP):
 		return addressIP
+	case errors.Is(err, identity.ErrCurrentPINMissing):
+		return api.Invalid.Fields(api.FieldError{Location: "body.current", Message: "expected the current PIN"})
 	case errors.Is(err, identity.ErrAddressShape):
 		return api.Invalid.Fields(api.FieldError{Location: "body.address", Message: "expected http:// or https:// then a host name and an optional port"})
 	}

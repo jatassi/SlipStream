@@ -65,7 +65,7 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	routes(r)
-	return &Owner{handler: r.Handler(), apiKey: admin.APIKey, Log: logged}
+	return &Owner{handler: r.Handler(), apiKey: admin.APIKey.Reveal(), Log: logged}
 }
 
 func (o *Owner) Call(t *testing.T, method, path, body string) (status int, reply string) {

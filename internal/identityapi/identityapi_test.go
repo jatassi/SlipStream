@@ -247,7 +247,7 @@ func TestClaimController(t *testing.T) {
 	}
 	expect(t, n.claim(n.code, "1234"), 409, alreadyClaimed)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/session", session: sessionOf(t, w)}), 200,
-		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true}}`+"\n")
+		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}`+"\n")
 }
 
 // The gate turns busy before the body is read, so a second setup request
@@ -300,7 +300,7 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("a wrong PIN and an unknown email differ: %v and %v", wrong.Header(), unknown.Header())
 	}
 	w := n.signIn(" Admin@Example.COM ", "1234")
-	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true}}`+"\n")
+	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}`+"\n")
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}
@@ -460,9 +460,12 @@ func TestTheAccessWalkPassesOnAClaimedNode(t *testing.T) {
 	admin := identity.AccountID{UUID: mustUUID(t, res.Account.ID)}
 	member := identitytest.Member(t, n.lib, "member@example.com")
 	breaches := apitest.CheckAccess(n.h, n.doc, apitest.Credentials{
-		Member: func() string { return identitytest.Session(t, n.lib, member) },
-		Admin:  func() string { return identitytest.Session(t, n.lib, admin) },
-		APIKey: res.APIKey,
+		Member:       func() string { return identitytest.Session(t, n.lib, member) },
+		Admin:        func() string { return identitytest.Session(t, n.lib, admin) },
+		LapsedMember: func() string { return identitytest.LapsedSession(t, n.lib, member) },
+		LapsedAdmin:  func() string { return identitytest.LapsedSession(t, n.lib, admin) },
+		PINRequired:  func() string { return identitytest.PINRequiredSession(t, n.lib, admin) },
+		APIKey:       func() string { return identitytest.APIKey(t, n.lib) },
 	})
 	if len(breaches) != 0 {
 		t.Fatalf("breaches:\n%s", strings.Join(breaches, "\n"))

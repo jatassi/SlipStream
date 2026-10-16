@@ -12,7 +12,7 @@ function adaServer() {
   return [
     http.get("*/api/v1/session", () =>
       signedIn
-        ? HttpResponse.json({ account: ada })
+        ? HttpResponse.json({ account: ada, pinRequired: false })
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     http.post("*/api/v1/session", async ({ request }) => {
@@ -21,7 +21,7 @@ function adaServer() {
         return problem(401, "pin_wrong", "The email or PIN is wrong");
       }
       signedIn = true;
-      return HttpResponse.json({ account: ada });
+      return HttpResponse.json({ account: ada, pinRequired: false });
     }),
   ];
 }

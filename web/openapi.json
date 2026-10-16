@@ -658,6 +658,19 @@
         ],
         "type": "object"
       },
+      "IdentityApiKeyMade": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "createdAt"
+        ],
+        "type": "object"
+      },
       "IdentityClaimBody": {
         "additionalProperties": false,
         "properties": {
@@ -700,15 +713,69 @@
         ],
         "type": "object"
       },
+      "IdentityPinChange": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "description": "The current PIN, left out only by a session that must set a new PIN",
+            "pattern": "^[0-9]{4}$",
+            "type": "string"
+          },
+          "new": {
+            "pattern": "^[0-9]{4}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new"
+        ],
+        "type": "object"
+      },
+      "IdentityReconfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "pin": {
+            "pattern": "^[0-9]{4}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pin"
+        ],
+        "type": "object"
+      },
+      "IdentityRegeneratedAPIKey": {
+        "additionalProperties": false,
+        "properties": {
+          "apiKey": {
+            "pattern": "^ssk_[A-Za-z0-9_-]{43}$",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "apiKey",
+          "createdAt"
+        ],
+        "type": "object"
+      },
       "IdentitySession": {
         "additionalProperties": false,
         "properties": {
           "account": {
             "$ref": "#/components/schemas/IdentityAccount"
+          },
+          "pinRequired": {
+            "description": "The session must set a new PIN before anything but reading the session and signing out",
+            "type": "boolean"
           }
         },
         "required": [
-          "account"
+          "account",
+          "pinRequired"
         ],
         "type": "object"
       },
@@ -2384,6 +2451,458 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/account/pin": {
+      "post": {
+        "operationId": "changePIN",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityPinChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "pin_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_off"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "pin_wait",
+                            "too_many_attempts"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Change your PIN, or set a new one after a passkey sign-in on a turned-off PIN",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "bearer"
+      }
+    },
+    "/api-key": {
+      "get": {
+        "operationId": "getAPIKey",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityApiKeyMade"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get when the API key was made",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "regenerateAPIKey",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityRegeneratedAPIKey"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Replace the API key, shown this once; the old one stops working",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
     "/content-types": {
       "get": {
         "operationId": "listContentTypes",
@@ -2436,7 +2955,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_account"
+                            "needs_account",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -2585,7 +3105,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -2815,7 +3336,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -2999,7 +3521,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -3461,7 +3984,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_account"
+                            "needs_account",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -3614,7 +4138,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -3758,7 +4283,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -3989,7 +4515,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -4130,7 +4657,9 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -4224,7 +4753,8 @@
         "security": [
           {
             "session": [
-              "admin"
+              "admin",
+              "reconfirmed"
             ]
           },
           {
@@ -4235,7 +4765,7 @@
         "tags": [
           "identity"
         ],
-        "x-slipstream-access": "admin"
+        "x-slipstream-access": "reconfirmed"
       }
     },
     "/indexers": {
@@ -4290,7 +4820,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -4431,7 +4962,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -4638,7 +5170,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -4847,7 +5380,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -4980,7 +5514,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -5114,7 +5649,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -5255,7 +5791,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -5424,7 +5961,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -5628,7 +6166,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -5811,7 +6350,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -5952,7 +6492,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -6137,7 +6678,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -6278,7 +6820,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -6536,7 +7079,7 @@
         "tags": [
           "identity"
         ],
-        "x-slipstream-access": "account"
+        "x-slipstream-access": "bearer"
       },
       "get": {
         "operationId": "getSession",
@@ -6662,7 +7205,7 @@
         "tags": [
           "identity"
         ],
-        "x-slipstream-access": "account"
+        "x-slipstream-access": "bearer"
       },
       "post": {
         "operationId": "createSession",
@@ -6827,6 +7370,191 @@
           "identity"
         ],
         "x-slipstream-access": "public"
+      }
+    },
+    "/session/reconfirm": {
+      "post": {
+        "operationId": "reconfirmSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityReconfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "pin_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_off",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "pin_wait",
+                            "too_many_attempts"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Confirm it's you with your PIN, for actions that change who can get in",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "account"
       }
     },
     "/setup/controller": {
@@ -7292,7 +8020,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -7425,7 +8154,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -7566,7 +8296,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -7736,7 +8467,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -7927,7 +8659,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -8149,7 +8882,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -8343,7 +9077,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -8537,7 +9272,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -8758,7 +9494,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }
@@ -8956,7 +9693,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "needs_admin"
+                            "needs_admin",
+                            "pin_required"
                           ],
                           "type": "string"
                         }

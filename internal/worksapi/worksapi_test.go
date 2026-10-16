@@ -89,7 +89,7 @@ func serve(t *testing.T) *server {
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	worksapi.Routes(r, shelf{w})
-	return &server{handler: r.Handler(), fx: fx, apiKey: admin.APIKey, session: admin.Cookie.Value, log: logged}
+	return &server{handler: r.Handler(), fx: fx, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {

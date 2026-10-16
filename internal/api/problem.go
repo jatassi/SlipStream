@@ -91,6 +91,8 @@ var (
 	AlreadyClaimed = NewCode(http.StatusConflict, "already_claimed", "This Node is already set up")
 	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site cannot do this")
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
+	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")
+	NeedsReconfirm = NewCode(http.StatusForbidden, "needs_reconfirm", "Confirm it's you to continue")
 )
 
 var humaStatusCodes = map[int]*Code{
@@ -115,6 +117,8 @@ var identityCodes = []struct {
 	{identity.ErrSetupBusy, SetupBusy},
 	{identity.ErrAlreadyClaimed, AlreadyClaimed},
 	{identity.ErrWorkerNode, WorkerNode},
+	{identity.ErrPINRequired, PINRequired},
+	{identity.ErrNeedsReconfirm, NeedsReconfirm},
 }
 
 func identityCode(err error) (*Code, bool) {
