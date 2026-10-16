@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -135,6 +136,18 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
+	scheduler, err := tasks.Open(ctx, tasks.Config{
+		Library:    lib.db,
+		Roster:     side,
+		Zone:       n.zone(),
+		Rand:       n.tasksRand,
+		Changed:    unannounced[tasks.Changed]{},
+		Progressed: unannounced[tasks.Progressed]{},
+		Log:        n.rootLog.With("subsystem", "tasks"),
+	})
+	if err != nil {
+		return err
+	}
 	n.setHalf(&half{
 		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
@@ -145,9 +158,23 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("grabs", pipeline.Run)
+	n.claimed.Go("tasks", scheduler.Run)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
 	return nil
 }
+
+func (n *Node) zone() *time.Location {
+	if n.env.Zone == nil {
+		return time.Local
+	}
+	return n.env.Zone
+}
+
+// unannounced publishes nothing: the tasks events wait for their place in
+// surface.Events.
+type unannounced[T any] struct{}
+
+func (unannounced[T]) Publish(context.Context, T) {}
 
 // httpClient is the half's client for every host the Node reaches, dialing
 // through the Node's network and trusting the OS roots.

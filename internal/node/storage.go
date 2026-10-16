@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -30,6 +31,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		indexers.Schema(),
 		grabs.Schema(),
 		files.Schema(),
+		tasks.Schema(),
 	}
 	return append(core, types.Schemas()...)
 }
