@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1/rpctestv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -89,7 +90,7 @@ func TestRollUp(t *testing.T) {
 		{"some succeeded, one failed and one skipped", []result{ok, locked, offline, ok}, false, [3]string{"partial", "2 of 4 steps, 1 failed, seedbox offline", "database is locked"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r, summary, cause := rollUp("step", tc.results, tc.canceled)
+			r, summary, cause := rollUp(setting.Noun{One: "step", Many: "steps"}, tc.results, tc.canceled)
 			if got := [3]string{string(r), summary, cause}; got != tc.want {
 				t.Fatalf("rollUp = %q, want %q", got, tc.want)
 			}

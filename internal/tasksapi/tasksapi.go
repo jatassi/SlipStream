@@ -150,6 +150,7 @@ type task struct {
 	Name    string              `json:"name"`
 	About   string              `json:"about"`
 	Group   string              `json:"group" enum:"controller,acquire,store,process,connect,reach"`
+	Noun    setting.Noun        `json:"noun" doc:"What its progress counts: 3 of 12 steps"`
 	Cadence cadence             `json:"cadence"`
 	Overdue setting.ChoiceField `json:"overdue"`
 	State   api.OneOf[state]    `json:"state"`
@@ -161,7 +162,7 @@ type task struct {
 func taskOf(v tasks.View) task {
 	_, inWindow := v.Task.Cadence.(tasks.InWindow)
 	out := task{
-		ID: string(v.Task.ID), Name: v.Task.Name, About: v.Task.About, Group: v.Task.Group.String(),
+		ID: string(v.Task.ID), Name: v.Task.Name, About: v.Task.About, Group: v.Task.Group.String(), Noun: v.Task.Noun,
 		Cadence: cadence{Words: v.Cadence(), InWindow: inWindow, Field: v.CadenceField()},
 		Overdue: v.OverdueField(), State: stateOf(v.Status), Nodes: nonNil(v.Nodes), RunNow: runNow{Available: true},
 	}
@@ -348,14 +349,15 @@ type schedulePatchInput struct {
 }
 
 type openRun struct {
-	RunID     int64     `json:"runId"`
-	TaskID    string    `json:"taskId"`
-	Name      string    `json:"name" doc:"The task's name"`
-	Trigger   string    `json:"trigger" enum:"schedule,catch-up,run-now,returned"`
-	StartedAt time.Time `json:"startedAt"`
-	Nodes     []string  `json:"nodes" nullable:"false" doc:"The Nodes its units run on"`
-	Done      int       `json:"done" minimum:"0"`
-	Total     int       `json:"total" minimum:"0"`
+	RunID     int64        `json:"runId"`
+	TaskID    string       `json:"taskId"`
+	Name      string       `json:"name" doc:"The task's name"`
+	Noun      setting.Noun `json:"noun" doc:"What its progress counts: 3 of 12 steps"`
+	Trigger   string       `json:"trigger" enum:"schedule,catch-up,run-now,returned"`
+	StartedAt time.Time    `json:"startedAt"`
+	Nodes     []string     `json:"nodes" nullable:"false" doc:"The Nodes its units run on"`
+	Done      int          `json:"done" minimum:"0"`
+	Total     int          `json:"total" minimum:"0"`
 }
 
 type openRuns struct {
@@ -596,7 +598,7 @@ func (h handlers) listOpenTaskRuns(ctx context.Context, _ identity.Admin, _ *str
 	out := openRuns{HeaderDelaySeconds: int64(tasks.HeaderDelay.Value(sched.HeaderDelay) / time.Second), Runs: []openRun{}}
 	for _, a := range running {
 		out.Runs = append(out.Runs, openRun{
-			RunID: int64(a.Run), TaskID: string(a.Task), Name: a.Name, Trigger: string(a.Trigger),
+			RunID: int64(a.Run), TaskID: string(a.Task), Name: a.Name, Noun: a.Noun, Trigger: string(a.Trigger),
 			StartedAt: a.Since, Nodes: nonNil(a.Nodes), Done: a.Done, Total: a.Total,
 		})
 	}

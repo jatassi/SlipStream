@@ -64,8 +64,8 @@ type Task struct {
 	Cadence Cadence
 	// Overdue is the task's rule when its override is null.
 	Overdue Overdue
-	// Noun counts units in a run's summary: "step" gives "5 of 6 steps".
-	Noun string
+	// Noun counts units in a run's summary and its progress: "5 of 6 steps".
+	Noun setting.Noun
 	// Units lists what a run acts on, in the order the units run.
 	Units func(ctx context.Context, r storage.Reader[storage.Library]) ([]Unit, error)
 	// Run does one unit's work. The runner classifies its error.

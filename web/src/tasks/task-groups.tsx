@@ -20,12 +20,14 @@ function columnsOf(multinode: boolean, live: Live): Columns {
     {
       id: "last",
       header: "Last run",
-      cell: (task) => <LastRun run={task.lastRun} now={live.now} />,
+      cell: (task) => <LastRun run={task.lastRun} clock={live.clock} />,
     },
     {
       id: "next",
       header: "Next",
-      cell: (task) => <TaskState task={task} progress={progressOf(task, live)} now={live.now} />,
+      cell: (task) => (
+        <TaskState task={task} progress={progressOf(task, live)} clock={live.clock} />
+      ),
     },
     ...nodes,
     { id: "action", header: "", align: "end", cell: (task) => <TaskAction task={task} /> },

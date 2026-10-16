@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import type { TasksOpenRun } from "../api/gen/model";
 import { getListGrabsMockHandler } from "../api/gen/query/grabs/grabs.msw";
 import { renderApp } from "../test/render-app";
-import { housekeeping, taskServer, tasksNow } from "../test/tasks";
+import { housekeeping, steps, taskServer, tasksNow } from "../test/tasks";
 import { asPhone } from "../test/viewport";
 
 afterEach(() => {
@@ -15,6 +15,7 @@ const backlogRun: TasksOpenRun = {
   runId: 7,
   taskId: "backlog",
   name: "Backlog search",
+  noun: { one: "search", many: "searches" },
   trigger: "run-now",
   startedAt: tasksNow.toISOString(),
   nodes: ["home"],
@@ -26,6 +27,7 @@ const housekeepingRun: TasksOpenRun = {
   runId: 8,
   taskId: "housekeeping",
   name: "Housekeeping",
+  noun: steps,
   trigger: "schedule",
   startedAt: tasksNow.toISOString(),
   nodes: ["home", "seedbox"],
@@ -68,10 +70,12 @@ test("the capsule lists each run with its Nodes and progress, and Cancel deletes
   renderApp({ path: "/tasks", handlers: tasks.handlers });
   await userEvent.click(capsule());
   const list = page.getByRole("dialog", { name: "Running tasks" });
-  await expect.element(list.getByRole("listitem").nth(0)).toMatchTextContent("home · 3 of 12");
+  await expect
+    .element(list.getByRole("listitem").nth(0))
+    .toMatchTextContent("home · 3 of 12 searches");
   await expect
     .element(list.getByRole("listitem").nth(1))
-    .toMatchTextContent("home, seedbox · 0 of 6");
+    .toMatchTextContent("home, seedbox · 0 of 6 steps");
   await expect
     .element(list.getByRole("meter", { name: "Backlog search progress" }))
     .toHaveAttribute("aria-valuenow", "25");

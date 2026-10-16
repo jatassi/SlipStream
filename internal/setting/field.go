@@ -35,7 +35,7 @@ type CountField struct {
 	Default int64  `json:"default"`
 	Min     int64  `json:"min"`
 	Max     int64  `json:"max"`
-	Unit    string `json:"unit"`
+	Unit    Noun   `json:"unit"`
 	Floor   string `json:"floor,omitempty" doc:"Why the minimum protects someone outside the install"`
 }
 

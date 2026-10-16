@@ -44,7 +44,7 @@ func Task(cfg Config) tasks.Task {
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.InWindow{Days: cadence},
 		Overdue: tasks.Wait,
-		Noun:    "step",
+		Noun:    setting.Noun{One: "step", Many: "steps"},
 		Units:   units,
 		Run:     cfg.run,
 	}

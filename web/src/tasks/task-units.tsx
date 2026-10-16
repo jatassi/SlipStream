@@ -1,5 +1,5 @@
 import type { TasksUnit } from "../api/gen/model";
-import { sinceWords } from "../format";
+import { type Clock, sinceWords } from "../format";
 import { Data } from "../ui/data";
 import { Section } from "../ui/section";
 import { type Column, Table } from "../ui/table";
@@ -9,7 +9,7 @@ import { unitsAnchor } from "./task-head";
 const causeOf = (unit: TasksUnit) =>
   unit.dueOnReturn ? `${unit.cause ?? "Skipped"}. Runs when ${unit.node} returns.` : unit.cause;
 
-function columnsOf(now: Date): readonly [Column<TasksUnit>, ...Column<TasksUnit>[]] {
+function columnsOf(clock: Clock): readonly [Column<TasksUnit>, ...Column<TasksUnit>[]] {
   return [
     { id: "unit", header: "Unit", cell: (unit) => unit.label },
     { id: "node", header: "Node", cell: (unit) => unit.node },
@@ -30,7 +30,7 @@ function columnsOf(now: Date): readonly [Column<TasksUnit>, ...Column<TasksUnit>
         unit.lastSuccessAt === null ? (
           <span className="text-ink-3">Never</span>
         ) : (
-          <Data>{sinceWords(unit.lastSuccessAt, now)}</Data>
+          <Data>{sinceWords(unit.lastSuccessAt, clock)}</Data>
         ),
     },
     {
@@ -42,7 +42,7 @@ function columnsOf(now: Date): readonly [Column<TasksUnit>, ...Column<TasksUnit>
   ];
 }
 
-export function TaskUnits({ units, now }: { units: readonly TasksUnit[]; now: Date }) {
+export function TaskUnits({ units, clock }: { units: readonly TasksUnit[]; clock: Clock }) {
   return (
     <Section id={unitsAnchor} title="Units" count={units.length}>
       <Table
@@ -51,7 +51,7 @@ export function TaskUnits({ units, now }: { units: readonly TasksUnit[]; now: Da
         rowKey={(unit) => unit.key}
         stackBelow={560}
         tone={(unit) => (unit.dueOnReturn ? "warn" : undefined)}
-        columns={columnsOf(now)}
+        columns={columnsOf(clock)}
       />
     </Section>
   );

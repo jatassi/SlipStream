@@ -106,6 +106,7 @@ const openRun = (runId: number, taskId: string) => ({
   runId,
   taskId,
   name: taskId,
+  noun: { one: "step", many: "steps" },
   trigger: "run-now" as const,
   startedAt: "2026-10-16T14:02:00Z",
   nodes: ["home"],

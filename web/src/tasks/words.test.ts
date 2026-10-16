@@ -9,6 +9,7 @@ const run = (trigger: TasksOpenRun["trigger"]): TasksOpenRun => ({
   runId: 1,
   taskId: "housekeeping",
   name: "Housekeeping",
+  noun: { one: "step", many: "steps" },
   trigger,
   startedAt: startedAt.toISOString(),
   nodes: [],

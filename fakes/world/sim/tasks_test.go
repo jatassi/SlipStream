@@ -241,7 +241,7 @@ func held(release <-chan struct{}) tasks.Task {
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.Every{Interval: setting.Duration{Key: "tasks.held.cadence", Default: time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
 		Overdue: tasks.Wait,
-		Noun:    "step",
+		Noun:    setting.Noun{One: "step", Many: "steps"},
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return []tasks.Unit{{Key: "held", Label: "Held", Place: tasks.OnController()}}, nil
 		},
@@ -301,7 +301,7 @@ func searching(h node.Half) tasks.Task {
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.Every{Interval: setting.Duration{Key: "tasks.searching.cadence", Default: 24 * time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
 		Overdue: tasks.Wait,
-		Noun:    "search",
+		Noun:    setting.Noun{One: "search", Many: "searches"},
 		Units: func(ctx context.Context, r storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			named, err := nodes.Names(ctx, r)
 			if err != nil {

@@ -1,11 +1,21 @@
 import { expect, test } from "vitest";
 
-import { atWords, countWords, durationWords, inWords, lengthWords, sinceWords } from "./format";
+import {
+  atWords,
+  countWords,
+  durationWords,
+  inWords,
+  knownZone,
+  lengthWords,
+  sinceWords,
+} from "./format";
 
 const local = (day: number, hours: number, minutes = 0) =>
   new Date(2026, 9, day, hours, minutes).toISOString();
 
 const at = (day: number, hours: number, minutes = 0) => new Date(2026, 9, day, hours, minutes);
+
+const browser = (now: Date) => ({ now, zone: undefined });
 
 test.each([
   [5, "5 s"],
@@ -19,8 +29,13 @@ test.each([
   expect(durationWords(seconds)).toBe(words);
 });
 
-test("countWords writes a percentage without a space and other units after one", () => {
-  expect([countWords(10, "%"), countWords(50, "runs")]).toEqual(["10%", "50 runs"]);
+test("countWords writes a percentage without a space and one of a unit in the singular", () => {
+  const runs = { one: "run", many: "runs" };
+  expect([
+    countWords(10, { one: "%", many: "%" }),
+    countWords(50, runs),
+    countWords(1, runs),
+  ]).toEqual(["10%", "50 runs", "1 run"]);
 });
 
 test.each([
@@ -43,7 +58,7 @@ test.each([
   ["this morning, for 04:00 in three days", at(16, 9), local(19, 4), "Mon at 04:00"],
   ["for a run due already", at(16, 9), local(16, 8), "Due now"],
 ])("atWords %s", (_case, now, iso, words) => {
-  expect(atWords(iso, now)).toBe(words);
+  expect(atWords(iso, browser(now))).toBe(words);
 });
 
 test.each([
@@ -58,7 +73,24 @@ test.each([
 
 test("sinceWords gives the time today and the date before today", () => {
   expect([
-    sinceWords(local(16, 9, 5), at(16, 14)),
-    sinceWords(local(15, 21, 31), at(16, 14)),
+    sinceWords(local(16, 9, 5), browser(at(16, 14))),
+    sinceWords(local(15, 21, 31), browser(at(16, 14))),
   ]).toEqual(["09:05", "Oct 15, 21:31"]);
+});
+
+const afternoonInNewYork = { now: new Date("2026-10-16T18:00:00Z"), zone: "America/New_York" };
+
+test("time words read the clock in the zone given, whatever the browser's", () => {
+  expect([
+    atWords("2026-10-17T08:00:00Z", afternoonInNewYork),
+    atWords("2026-10-17T08:00:00Z", { now: afternoonInNewYork.now, zone: "Asia/Tokyo" }),
+    sinceWords("2026-10-16T13:05:00Z", afternoonInNewYork),
+    sinceWords("2026-10-16T01:31:00Z", afternoonInNewYork),
+  ]).toEqual(["Tonight at 04:00", "Today at 17:00", "09:05", "Oct 15, 21:31"]);
+});
+
+test("a zone Intl doesn't know by name falls back to the browser's", () => {
+  expect(
+    ["Europe/London", "UTC", "BST", "CEST", "Mars/Olympus"].map((name) => knownZone(name)),
+  ).toEqual(["Europe/London", "UTC", undefined, undefined, undefined]);
 });

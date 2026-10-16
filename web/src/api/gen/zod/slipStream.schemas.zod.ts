@@ -637,6 +637,14 @@ export const SettingChoiceField = zod.object({
 export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
 export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
 
+export const SettingNoun = zod.object({
+  many: zod.string(),
+  one: zod.string(),
+});
+
+export type SettingNoun = zod.input<typeof SettingNoun>;
+export type SettingNounOutput = zod.output<typeof SettingNoun>;
+
 export const SettingCountField = zod.object({
   applies: zod.enum(["live", "restart"]),
   default: zod.int(),
@@ -657,7 +665,7 @@ export const SettingCountField = zod.object({
   max: zod.int(),
   min: zod.int(),
   source: zod.enum(["database"]),
-  unit: zod.string(),
+  unit: SettingNoun,
   value: zod.int(),
 });
 
@@ -942,6 +950,7 @@ export const TasksTask = zod.object({
   lastRun: TasksRun.exactOptional().describe("The latest finished run, absent before one has"),
   name: zod.string(),
   nodes: zod.array(zod.string()).describe("The Nodes its units run on"),
+  noun: SettingNoun.describe("What its progress counts: 3 of 12 steps"),
   overdue: SettingChoiceField,
   runNow: TasksRunNow,
   state: TasksState,
@@ -1013,6 +1022,7 @@ export const TasksOpenRun = zod.object({
   done: zod.int().min(tasksOpenRunDoneMin),
   name: zod.string().describe("The task's name"),
   nodes: zod.array(zod.string()).describe("The Nodes its units run on"),
+  noun: SettingNoun.describe("What its progress counts: 3 of 12 steps"),
   runId: zod.int(),
   startedAt: zod.iso.datetime({ offset: true }),
   taskId: zod.string(),

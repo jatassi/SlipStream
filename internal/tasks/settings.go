@@ -11,11 +11,11 @@ import (
 
 var (
 	MaintenanceWindow = setting.Window{Key: "tasks.window", Label: "Maintenance window", Default: setting.Span{Start: 4 * 60, End: 6 * 60}}
-	JitterPercent     = setting.Count{Key: "tasks.jitterPercent", Label: "Jitter", Default: 10, Min: 0, Max: 50, Unit: "%"}
+	JitterPercent     = setting.Count{Key: "tasks.jitterPercent", Label: "Jitter", Default: 10, Min: 0, Max: 50, Unit: setting.Noun{One: "%", Many: "%"}}
 	JitterCap         = setting.Duration{Key: "tasks.jitterCap", Label: "Longest jitter", Default: 5 * time.Minute, Min: 0, Max: time.Hour, Step: time.Second}
-	RunsKept          = setting.Count{Key: "tasks.runsKept", Label: "Runs kept per task", Default: 50, Min: 1, Max: 1000, Unit: "runs"}
+	RunsKept          = setting.Count{Key: "tasks.runsKept", Label: "Runs kept per task", Default: 50, Min: 1, Max: 1000, Unit: setting.Noun{One: "run", Many: "runs"}}
 	HeaderDelay       = setting.Duration{Key: "tasks.headerDelay", Label: "Show a scheduled run in the header after", Default: 5 * time.Second, Min: 0, Max: 5 * time.Minute, Step: time.Second}
-	PartialWarnAfter  = setting.Count{Key: "tasks.partialWarnIntervals", Label: "Warn when a unit has not succeeded for", Default: 3, Min: 1, Max: 100, Unit: "intervals"}
+	PartialWarnAfter  = setting.Count{Key: "tasks.partialWarnIntervals", Label: "Warn when a unit has not succeeded for", Default: 3, Min: 1, Max: 100, Unit: setting.Noun{One: "interval", Many: "intervals"}}
 	OverdueRule       = setting.Choice[Overdue]{Key: "tasks.overdue", Label: "Overdue tasks", Default: CatchUp, Options: overdueOptions}
 )
 

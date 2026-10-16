@@ -193,6 +193,10 @@ export const getListTasksResponseMock = (
           nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
             () => faker.string.alpha({ length: { min: 10, max: 20 } }),
           ),
+          noun: {
+            many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
           overdue: {
             applies: faker.helpers.arrayElement(["live", "restart"] as const),
             default: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -291,7 +295,10 @@ export const getListTasksResponseMock = (
       max: faker.number.int(),
       min: faker.number.int(),
       source: faker.helpers.arrayElement(["database"] as const),
-      unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      unit: {
+        many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
       value: faker.number.int(),
     },
     overdue: {
@@ -329,7 +336,10 @@ export const getListTasksResponseMock = (
       max: faker.number.int(),
       min: faker.number.int(),
       source: faker.helpers.arrayElement(["database"] as const),
-      unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      unit: {
+        many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
       value: faker.number.int(),
     },
     runsKept: {
@@ -348,7 +358,10 @@ export const getListTasksResponseMock = (
       max: faker.number.int(),
       min: faker.number.int(),
       source: faker.helpers.arrayElement(["database"] as const),
-      unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      unit: {
+        many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
       value: faker.number.int(),
     },
     window: {
@@ -385,6 +398,10 @@ export const getListOpenTaskRunsResponseMock = (
     nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
+    noun: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     runId: faker.number.int(),
     startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     taskId: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -451,7 +468,10 @@ export const getGetTaskSettingsResponseMock = (
     max: faker.number.int(),
     min: faker.number.int(),
     source: faker.helpers.arrayElement(["database"] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
   },
   overdue: {
@@ -489,7 +509,10 @@ export const getGetTaskSettingsResponseMock = (
     max: faker.number.int(),
     min: faker.number.int(),
     source: faker.helpers.arrayElement(["database"] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
   },
   runsKept: {
@@ -508,7 +531,10 @@ export const getGetTaskSettingsResponseMock = (
     max: faker.number.int(),
     min: faker.number.int(),
     source: faker.helpers.arrayElement(["database"] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
   },
   window: {
@@ -591,7 +617,10 @@ export const getUpdateTaskSettingsResponseMock = (
     max: faker.number.int(),
     min: faker.number.int(),
     source: faker.helpers.arrayElement(["database"] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
   },
   overdue: {
@@ -629,7 +658,10 @@ export const getUpdateTaskSettingsResponseMock = (
     max: faker.number.int(),
     min: faker.number.int(),
     source: faker.helpers.arrayElement(["database"] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
   },
   runsKept: {
@@ -648,7 +680,10 @@ export const getUpdateTaskSettingsResponseMock = (
     max: faker.number.int(),
     min: faker.number.int(),
     source: faker.helpers.arrayElement(["database"] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
   },
   window: {
@@ -844,6 +879,10 @@ export const getGetTaskResponseMock = (
     nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
+    noun: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     overdue: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
       default: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1023,6 +1062,10 @@ export const getUpdateTaskResponseMock = (
   nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  noun: {
+    many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
   overdue: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.string.alpha({ length: { min: 10, max: 20 } }),

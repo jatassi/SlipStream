@@ -119,11 +119,25 @@ func Words(d time.Duration) string {
 	return fmt.Sprintf("%d s", d/time.Second)
 }
 
+// Noun is a unit's word for one and for many: "run", "runs".
+type Noun struct {
+	One  string `json:"one"`
+	Many string `json:"many"`
+}
+
+// Of is the word for n of it.
+func (u Noun) Of(n int64) string {
+	if n == 1 {
+		return u.One
+	}
+	return u.Many
+}
+
 // Count is a whole number of Unit between Min and Max.
 type Count struct {
 	Key, Label        string
 	Default, Min, Max int64
-	Unit              string
+	Unit              Noun
 	Floor             string
 }
 
@@ -149,10 +163,10 @@ func (c Count) Parse(n *int64) (Stored[int64], error) {
 }
 
 func (c Count) words(n int64) string {
-	if c.Unit == "%" {
+	if c.Unit.Many == "%" {
 		return fmt.Sprintf("%d%%", n)
 	}
-	return fmt.Sprintf("%d %s", n, c.Unit)
+	return fmt.Sprintf("%d %s", n, c.Unit.Of(n))
 }
 
 func (c Count) Field(override *int64) CountField {

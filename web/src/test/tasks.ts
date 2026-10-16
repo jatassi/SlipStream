@@ -11,12 +11,18 @@ import type {
   TasksTask,
 } from "../api/gen/model";
 
-/** A local time on a day of October 2026, as the server sends it. */
-export const local = (day: number, hours: number, minutes = 0): string =>
-  new Date(2026, 9, day, hours, minutes).toISOString();
+// Mid-October 2026 the Controller's zone, Europe/London, is on summer
+// time: an hour ahead of UTC, whatever zone the test browser runs in.
+const toUTC = 1;
 
-/** The browser's clock in task tests: 23:00 on Friday 16 October 2026. */
-export const tasksNow = new Date(2026, 9, 16, 23, 0);
+/** A time on the Controller's clock on a day of October 2026, as the server sends it. */
+export const local = (day: number, hours: number, minutes = 0): string =>
+  new Date(Date.UTC(2026, 9, day, hours - toUTC, minutes)).toISOString();
+
+/** Now in task tests: 23:00 on Friday 16 October 2026 on the Controller's clock. */
+export const tasksNow = new Date(local(16, 23));
+
+export const steps = { one: "step", many: "steps" } as const;
 
 const about = { source: "database", applies: "live", isDefault: true } as const;
 
@@ -67,6 +73,7 @@ export const housekeeping: TasksTask = {
   name: "Housekeeping",
   about: "Prunes old runs, Join Codes and sessions, then tidies every database.",
   group: "controller",
+  noun: steps,
   cadence: { words: "Daily in the Maintenance window", inWindow: true, field: dailyCadence },
   overdue: waitOverdue,
   state: { kind: "idle", next: local(17, 4) },
@@ -101,7 +108,7 @@ export const schedule: TasksSchedule = {
     default: 50,
     min: 1,
     max: 1000,
-    unit: "runs",
+    unit: { one: "run", many: "runs" },
   },
   jitterPercent: {
     ...about,
@@ -112,7 +119,7 @@ export const schedule: TasksSchedule = {
     default: 10,
     min: 0,
     max: 50,
-    unit: "%",
+    unit: { one: "%", many: "%" },
   },
   jitterCap: {
     ...about,
@@ -145,7 +152,7 @@ export const schedule: TasksSchedule = {
     default: 3,
     min: 1,
     max: 100,
-    unit: "intervals",
+    unit: { one: "interval", many: "intervals" },
   },
 };
 

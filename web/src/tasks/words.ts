@@ -7,7 +7,7 @@ import type {
   TasksUnitOutcome,
   TasksWaitingState,
 } from "../api/gen/model";
-import { atWords, inWords, sinceWords } from "../format";
+import { type Clock, type Noun, atWords, inWords, nounOf, sinceWords } from "../format";
 import type { Signal } from "../ui/signal-chip";
 
 export const groupTitles: { readonly [G in TasksGroupGroup]: string } = {
@@ -37,17 +37,19 @@ const links: { readonly [L in TasksWaitingState["link"]]: string } = {
   mismatched: "on another version",
 };
 
-export const waitingWords = (state: TasksWaitingState, now: Date): string =>
-  `Waiting for ${state.node} · ${links[state.link]} since ${sinceWords(state.since, now)}`;
+export const waitingWords = (state: TasksWaitingState, clock: Clock): string =>
+  `Waiting for ${state.node} · ${links[state.link]} since ${sinceWords(state.since, clock)}`;
 
-export const nextWords = (task: TasksTask, next: string, now: Date): string =>
-  task.cadence.inWindow ? atWords(next, now) : inWords(next, now);
+export const nextWords = (task: TasksTask, next: string, clock: Clock): string =>
+  task.cadence.inWindow ? atWords(next, clock) : inWords(next, clock.now);
 
-export const runningWords = (since: string, now: Date): string =>
-  `Running since ${sinceWords(since, now)}`;
+export const runningWords = (since: string, clock: Clock): string =>
+  `Running since ${sinceWords(since, clock)}`;
 
-export const progressWords = ({ done, total }: { done: number; total: number }): string =>
-  `${done} of ${total}`;
+export const progressWords = (
+  { done, total }: { done: number; total: number },
+  noun: Noun,
+): string => `${done} of ${total} ${nounOf(total, noun)}`;
 
 export const percentOf = ({ done, total }: { done: number; total: number }): number =>
   total === 0 ? 0 : Math.floor((done / total) * 100);

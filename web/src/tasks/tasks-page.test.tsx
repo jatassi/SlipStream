@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import type { TasksTask } from "../api/gen/model";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
-import { housekeeping, local, succeededRun, taskServer, tasksNow } from "../test/tasks";
+import { housekeeping, local, steps, succeededRun, taskServer, tasksNow } from "../test/tasks";
 import { asPhone } from "../test/viewport";
 
 afterEach(() => {
@@ -159,6 +159,7 @@ test("a tasks.progress frame moves a running row's bar", async () => {
           runId: 7,
           taskId: "backlog",
           name: "Backlog search",
+          noun: steps,
           trigger: "schedule",
           startedAt: local(16, 14, 2),
           nodes: ["home"],
@@ -178,7 +179,7 @@ test("a tasks.progress frame moves a running row's bar", async () => {
     data: { runId: 7, taskId: "backlog", done: 9, total: 12 },
   });
   await expect.element(bar).toHaveAttribute("aria-valuenow", "75");
-  await expect.element(row("Backlog search")).toMatchTextContent("9 of 12");
+  await expect.element(row("Backlog search")).toMatchTextContent("9 of 12 steps");
 });
 
 test("one cadence, two surfaces: a change on the row shows on the detail page after tasks.changed", async () => {

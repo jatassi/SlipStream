@@ -1,5 +1,5 @@
 import type { TasksRun, TasksRunTrigger, TasksRunUnit } from "../api/gen/model";
-import { lengthWords, sinceWords } from "../format";
+import { type Clock, lengthWords, sinceWords } from "../format";
 import { Data } from "../ui/data";
 import { ExpandList, ExpandRow } from "../ui/expand-list";
 import { Section } from "../ui/section";
@@ -13,8 +13,8 @@ const triggers: { readonly [T in TasksRunTrigger]: string } = {
   returned: "Node returned",
 };
 
-function RunHead({ run, now }: { run: TasksRun; now: Date }) {
-  const ended = run.endedAt === null ? now.getTime() : Date.parse(run.endedAt);
+function RunHead({ run, clock }: { run: TasksRun; clock: Clock }) {
+  const ended = run.endedAt === null ? clock.now.getTime() : Date.parse(run.endedAt);
   return (
     <span className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-0.5 @[720px]:grid-cols-[6.5rem_minmax(0,1fr)_7rem_8rem_6rem_minmax(0,9rem)]">
       <span className="flex">
@@ -23,7 +23,7 @@ function RunHead({ run, now }: { run: TasksRun; now: Date }) {
       <span className="truncate">{run.summary === "" ? "Running now" : run.summary}</span>
       <span className="col-span-2 flex flex-wrap gap-x-2 text-meta text-ink-3 @[720px]:contents @[720px]:text-(length:--body-size) @[720px]:text-ink-2">
         <span>{triggers[run.trigger]}</span>
-        <Data>{sinceWords(run.startedAt, now)}</Data>
+        <Data>{sinceWords(run.startedAt, clock)}</Data>
         <Data>{lengthWords(ended - Date.parse(run.startedAt))}</Data>
         <span className="truncate">{run.nodes.join(", ")}</span>
       </span>
@@ -59,7 +59,7 @@ function RunUnits({ run }: { run: TasksRun }) {
   );
 }
 
-export function TaskRuns({ runs, now }: { runs: readonly TasksRun[]; now: Date }) {
+export function TaskRuns({ runs, clock }: { runs: readonly TasksRun[]; clock: Clock }) {
   return (
     <Section id={runsAnchor} title="Runs" count={runs.length}>
       {runs.length === 0 ? (
@@ -67,7 +67,7 @@ export function TaskRuns({ runs, now }: { runs: readonly TasksRun[]; now: Date }
       ) : (
         <ExpandList label="Runs">
           {runs.map((run) => (
-            <ExpandRow key={run.id} head={<RunHead run={run} now={now} />}>
+            <ExpandRow key={run.id} head={<RunHead run={run} clock={clock} />}>
               {run.cause !== null && <p className="mb-2 text-fail-ink">{run.cause}</p>}
               <RunUnits run={run} />
             </ExpandRow>

@@ -165,6 +165,7 @@ type Active struct {
 	Run         RunID
 	Task        TaskID
 	Name        string
+	Noun        setting.Noun
 	Trigger     Trigger
 	Since       time.Time
 	Done, Total int
@@ -275,7 +276,7 @@ func (s *Scheduler) Running(ctx context.Context) ([]Active, error) {
 	for _, a := range s.running {
 		done, total := a.progress.now()
 		out = append(out, Active{
-			Run: a.run.id, Task: a.run.task.ID, Name: a.run.task.Name, Trigger: a.run.trigger,
+			Run: a.run.id, Task: a.run.task.ID, Name: a.run.task.Name, Noun: a.run.task.Noun, Trigger: a.run.trigger,
 			Since: a.run.started.Time(), Done: done, Total: total, Nodes: s.names(l, a.run.units),
 		})
 	}

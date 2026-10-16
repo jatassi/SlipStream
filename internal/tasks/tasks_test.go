@@ -60,7 +60,7 @@ func tidy(release <-chan struct{}) tasks.Task {
 	return tasks.Task{
 		ID:      "tidy",
 		Name:    "Tidy",
-		Noun:    "step",
+		Noun:    setting.Noun{One: "step", Many: "steps"},
 		Cadence: tasks.Every{Interval: setting.Duration{Key: "tasks.tidy.cadence", Label: "Tidy", Default: 8 * time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
 		Overdue: tasks.Wait,
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {

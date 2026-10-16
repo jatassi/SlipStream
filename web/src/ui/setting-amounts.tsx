@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { SettingCountField, SettingDurationField } from "../api/gen/model";
-import { countWords, durationWords } from "../format";
+import { countWords, durationWords, nounOf } from "../format";
 import { Segmented } from "./segmented";
 import {
   AmountInput,
@@ -16,10 +16,10 @@ import {
 } from "./setting-kind";
 
 const durationUnits = [
-  { seconds: 86_400, label: "days" },
-  { seconds: 3600, label: "h" },
-  { seconds: 60, label: "min" },
-  { seconds: 1, label: "s" },
+  { seconds: 86_400, one: "day", many: "days" },
+  { seconds: 3600, one: "h", many: "h" },
+  { seconds: 60, one: "min", many: "min" },
+  { seconds: 1, one: "s", many: "s" },
 ] as const;
 
 type DurationUnit = (typeof durationUnits)[number];
@@ -73,22 +73,25 @@ function UnitPicker({
   field,
   units,
   unit,
+  amount,
   onPick,
 }: {
   field: SettingDurationField;
   units: readonly DurationUnit[];
   unit: DurationUnit;
+  amount: string;
   onPick: (unit: DurationUnit) => void;
 }) {
+  const wordOf = (candidate: DurationUnit) => nounOf(Number(amount), candidate);
   return units.length === 1 ? (
-    <span className={unitLook}>{unit.label}</span>
+    <span className={unitLook}>{wordOf(unit)}</span>
   ) : (
     <Segmented
       label={`${field.label} unit`}
-      options={units.map(({ label }) => ({ value: label, label }))}
-      value={unit.label}
-      onValueChange={(label) => {
-        onPick(units.find((candidate) => candidate.label === label) ?? unit);
+      options={units.map((candidate) => ({ value: candidate.many, label: wordOf(candidate) }))}
+      value={unit.many}
+      onValueChange={(many) => {
+        onPick(units.find((candidate) => candidate.many === many) ?? unit);
       }}
     />
   );
@@ -119,6 +122,7 @@ function DurationControl({ field, busy, invalid, submit, onEdit }: ControlProps<
         field={field}
         units={units}
         unit={unit}
+        amount={amount}
         onPick={(picked) => {
           setUnit(picked);
           onEdit();
@@ -176,7 +180,7 @@ function CountControl({ field, busy, invalid, submit, onEdit }: ControlProps<"co
           onEdit();
         }}
       />
-      <span className={unitLook}>{field.unit}</span>
+      <span className={unitLook}>{nounOf(Number(amount), field.unit)}</span>
       <SaveButton shown={amount.trim() !== String(field.value)} busy={busy} />
     </form>
   );

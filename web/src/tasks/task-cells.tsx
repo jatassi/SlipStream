@@ -2,7 +2,7 @@ import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
 
 import type { TasksRun, TasksTask } from "../api/gen/model";
-import { sinceWords } from "../format";
+import { type Clock, sinceWords } from "../format";
 import { Data } from "../ui/data";
 import { Icon } from "../ui/icon";
 import { LiveBar } from "../ui/live-bar";
@@ -11,7 +11,7 @@ import { nextWords, percentOf, progressWords, runningWords, waitingWords } from 
 
 export type Progress = { done: number; total: number };
 
-export type Live = { now: Date; progress: ReadonlyMap<number, Progress> };
+export type Live = { clock: Clock; progress: ReadonlyMap<number, Progress> };
 
 export const progressOf = (task: TasksTask, { progress }: Live): Progress | undefined =>
   task.state.kind === "running" ? progress.get(task.state.runId) : undefined;
@@ -31,11 +31,11 @@ export function TaskName({ task }: { task: TasksTask }) {
   );
 }
 
-export function LastRun({ run, now }: { run: TasksRun | undefined; now: Date }) {
+export function LastRun({ run, clock }: { run: TasksRun | undefined; clock: Clock }) {
   if (run === undefined) {
     return <span className="text-ink-3">Not run yet</span>;
   }
-  const ended = run.endedAt === null ? [] : [sinceWords(run.endedAt, now)];
+  const ended = run.endedAt === null ? [] : [sinceWords(run.endedAt, clock)];
   return (
     <span className="flex min-w-0 flex-col items-start gap-1">
       <OutcomeChip outcome={run.result} />
@@ -50,18 +50,18 @@ function Running({
   task,
   since,
   progress,
-  now,
+  clock,
 }: {
   task: TasksTask;
   since: string;
   progress: Progress;
-  now: Date;
+  clock: Clock;
 }) {
   return (
     <span className="flex max-w-[240px] min-w-0 flex-col gap-1.5">
       <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
-        <span className="truncate">{runningWords(since, now)}</span>
-        <Data className="text-ink-1">{progressWords(progress)}</Data>
+        <span className="truncate">{runningWords(since, clock)}</span>
+        <Data className="text-ink-1">{progressWords(progress, task.noun)}</Data>
       </span>
       <LiveBar label={`${task.name} progress`} value={percentOf(progress)} />
     </span>
@@ -71,23 +71,23 @@ function Running({
 export function TaskState({
   task,
   progress,
-  now,
+  clock,
 }: {
   task: TasksTask;
   progress: Progress | undefined;
-  now: Date;
+  clock: Clock;
 }) {
   const { state } = task;
   if (state.kind === "running") {
-    return <Running task={task} since={state.since} progress={progress ?? state} now={now} />;
+    return <Running task={task} since={state.since} progress={progress ?? state} clock={clock} />;
   }
   if (state.kind === "waiting") {
     return (
       <span className="flex items-center gap-1.5 font-medium text-warn-ink">
         <Icon icon={Alert02Icon} className="size-4 shrink-0" />
-        {waitingWords(state, now)}
+        {waitingWords(state, clock)}
       </span>
     );
   }
-  return <span>{nextWords(task, state.next, now)}</span>;
+  return <span>{nextWords(task, state.next, clock)}</span>;
 }

@@ -22,7 +22,7 @@ export function useVisibleRuns(): TasksOpenRun[] {
 export const runMeterLabel = (run: TasksOpenRun): string => `${run.name} progress`;
 
 function RunMeta({ run }: { run: TasksOpenRun }) {
-  const words = [run.nodes.join(", "), ...(run.total > 0 ? [progressWords(run)] : [])];
+  const words = [run.nodes.join(", "), ...(run.total > 0 ? [progressWords(run, run.noun)] : [])];
   return (
     <span className="flex flex-col gap-1.5 pt-0.5">
       <span className="truncate">{words.filter(Boolean).join(" · ")}</span>

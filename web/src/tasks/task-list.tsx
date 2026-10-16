@@ -48,7 +48,7 @@ export function TaskList({
             <span className="flex min-w-0 items-center gap-1.5">
               {task.state.kind === "idle" && <LastWord task={task} />}
               <span className="min-w-0 truncate">
-                <TaskState task={task} progress={progressOf(task, live)} now={live.now} />
+                <TaskState task={task} progress={progressOf(task, live)} clock={live.clock} />
               </span>
             </span>
           }

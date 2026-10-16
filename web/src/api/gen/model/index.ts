@@ -504,6 +504,7 @@ export * from "./settingDurationField.ts";
 export * from "./settingDurationFieldApplies.ts";
 export * from "./settingDurationFieldKind.ts";
 export * from "./settingDurationFieldSource.ts";
+export * from "./settingNoun.ts";
 export * from "./settingTimes.ts";
 export * from "./settingWindowField.ts";
 export * from "./settingWindowFieldApplies.ts";

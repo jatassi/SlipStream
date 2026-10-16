@@ -10,7 +10,7 @@ import { ensureQuery } from "../../../api/query-client";
 import { Page } from "../../../shell/page";
 import { Schedule } from "../../../tasks/schedule";
 import { TaskGroup } from "../../../tasks/task-groups";
-import { useNow } from "../../../tasks/use-now";
+import { useClock } from "../../../tasks/use-now";
 import { Skeleton } from "../../../ui/skeleton";
 import { StatusSentence } from "../../../ui/status-sentence";
 
@@ -30,7 +30,10 @@ const wordsTick = 15_000;
 function TasksPage() {
   const { sentence, groups, multinode, settings } = useListTasksSuspense().data;
   const { runs } = useListOpenTaskRunsSuspense().data;
-  const live = { now: useNow(wordsTick), progress: new Map(runs.map((run) => [run.runId, run])) };
+  const live = {
+    clock: useClock(wordsTick, settings.window.zone),
+    progress: new Map(runs.map((run) => [run.runId, run])),
+  };
   return (
     <Page>
       <div className="mb-6">

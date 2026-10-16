@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/setting"
 )
 
 // peer is a unit's Node as the roster named it when the unit ended.
@@ -70,7 +71,7 @@ func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {
 
 // rollUp is a run's result, summary and cause from its units' results, in
 // unit order. noun counts the units.
-func rollUp(noun string, results []result, canceled bool) (run Result, summary, cause string) {
+func rollUp(noun setting.Noun, results []result, canceled bool) (run Result, summary, cause string) {
 	total := len(results)
 	counts := map[Outcome]int{}
 	var nodes, shorts []string
@@ -84,10 +85,7 @@ func rollUp(noun string, results []result, canceled bool) (run Result, summary, 
 			shorts = appendNew(shorts, r.short)
 		}
 	}
-	nouns := noun
-	if total != 1 {
-		nouns += "s"
-	}
+	nouns := noun.Of(int64(total))
 	done := fmt.Sprintf("%d of %d %s", counts[Succeeded], total, nouns)
 	switch {
 	case canceled:

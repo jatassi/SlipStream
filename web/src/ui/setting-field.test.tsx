@@ -50,7 +50,7 @@ const runsKept: SettingCountField = {
   default: 50,
   min: 1,
   max: 1000,
-  unit: "runs",
+  unit: { one: "run", many: "runs" },
 };
 
 const overdue: SettingChoiceField = {
@@ -144,6 +144,20 @@ test("a duration stepped in days refuses part of a day and has no unit picker", 
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect.element(page.getByRole("alert")).toHaveTextContent("In whole days.");
   expect(onSave).not.toHaveBeenCalled();
+});
+
+test("one of a unit reads in the singular", async () => {
+  renderKit(
+    <>
+      <SettingField field={housekeeping} onSave={saving()} />
+      <SettingField field={runsKept} onSave={saving()} />
+    </>,
+  );
+  await expect.element(page.getByText("days", { exact: true })).toBeVisible();
+  await userEvent.fill(page.getByRole("textbox", { name: "Housekeeping" }), "1");
+  await userEvent.fill(page.getByRole("textbox", { name: "Runs kept" }), "1");
+  await expect.element(page.getByText("day", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("run", { exact: true })).toBeVisible();
 });
 
 test("Reset to default sends null and shows only off the default", async () => {

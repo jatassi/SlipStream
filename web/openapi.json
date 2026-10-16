@@ -1420,7 +1420,7 @@
             "type": "string"
           },
           "unit": {
-            "type": "string"
+            "$ref": "#/components/schemas/SettingNoun"
           },
           "value": {
             "format": "int64",
@@ -1520,6 +1520,22 @@
           "source",
           "applies",
           "isDefault"
+        ],
+        "type": "object"
+      },
+      "SettingNoun": {
+        "additionalProperties": false,
+        "properties": {
+          "many": {
+            "type": "string"
+          },
+          "one": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "one",
+          "many"
         ],
         "type": "object"
       },
@@ -2060,6 +2076,10 @@
             },
             "type": "array"
           },
+          "noun": {
+            "$ref": "#/components/schemas/SettingNoun",
+            "description": "What its progress counts: 3 of 12 steps"
+          },
           "runId": {
             "format": "int64",
             "type": "integer"
@@ -2090,6 +2110,7 @@
           "runId",
           "taskId",
           "name",
+          "noun",
           "trigger",
           "startedAt",
           "nodes",
@@ -2579,6 +2600,10 @@
             },
             "type": "array"
           },
+          "noun": {
+            "$ref": "#/components/schemas/SettingNoun",
+            "description": "What its progress counts: 3 of 12 steps"
+          },
           "overdue": {
             "$ref": "#/components/schemas/SettingChoiceField"
           },
@@ -2594,6 +2619,7 @@
           "name",
           "about",
           "group",
+          "noun",
           "cadence",
           "overdue",
           "state",
