@@ -44,12 +44,16 @@ export function targetProjects(): readonly ProjectName[] {
 
 export const engineOf = (name: ProjectName): Engine => projects[name][0];
 
+// Specs of the desktop shell's own controls, such as the account menu.
+const desktopOnly = ["restart.spec.ts"];
+
 function project(name: ProjectName): Project {
   const [engine, preset] = projects[name];
   const { width, height, ...device } = presets[preset];
   return {
     name,
     use: { browserName: engine, contextOptions: { viewport: { width, height }, ...device } },
+    ...(preset === "phone" && { testIgnore: desktopOnly }),
   };
 }
 
