@@ -35,15 +35,19 @@ type Key struct {
 	Value   string `json:"value"`
 	Default string `json:"default"`
 	Source  Source `json:"source"`
+	// Env is the variable that sets the key from .env or the environment.
+	Env string `json:"env"`
 }
 
 // Problem is one reason a configuration cannot load. Line is 0 for the
-// process environment and for a value no file set.
+// process environment and for a value no file set. Err is the error a leaf
+// or CheckConfig gave, nil for a problem with a layer's shape.
 type Problem struct {
 	Source Source
 	Line   int
 	Key    string
 	Msg    string
+	Err    error
 }
 
 func (p Problem) String() string {
@@ -90,6 +94,11 @@ type loader struct {
 // dir/config.yaml, then dir/.env, then environ, each layer overriding the
 // one before it per key. Neither file has to exist.
 func Load(tree any, dir string, environ []string) ([]Key, error) {
+	return LoadFS(tree, os.DirFS(dir), environ)
+}
+
+// LoadFS is Load with config.yaml and .env read from fsys.
+func LoadFS(tree any, fsys fs.FS, environ []string) ([]Key, error) {
 	l := &loader{
 		leaves:   Walk(tree),
 		byPath:   map[string]Leaf{},
@@ -108,7 +117,6 @@ func Load(tree any, dir string, environ []string) ([]Key, error) {
 		}
 	}
 
-	fsys := os.DirFS(dir)
 	if err := l.loadYAML(fsys); err != nil {
 		return nil, err
 	}
@@ -130,13 +138,17 @@ func Load(tree any, dir string, environ []string) ([]Key, error) {
 		if !ok {
 			o.source = SourceDefault
 		}
-		keys[i] = Key{Key: leaf.Path, Value: leaf.String(), Default: defaults[i], Source: o.source}
+		keys[i] = Key{Key: leaf.Path, Value: leaf.String(), Default: defaults[i], Source: o.source, Env: leaf.Env()}
 	}
 	return keys, nil
 }
 
 func (l *loader) problem(src Source, line int, key, format string, args ...any) {
 	l.problems = append(l.problems, Problem{Source: src, Line: line, Key: key, Msg: fmt.Sprintf(format, args...)})
+}
+
+func (l *loader) failed(src Source, line int, key string, err error) {
+	l.problems = append(l.problems, Problem{Source: src, Line: line, Key: key, Msg: err.Error(), Err: err})
 }
 
 // readOptional reads a layer file, which is empty when missing.
@@ -222,7 +234,7 @@ func (l *loader) yamlLeaf(leaf Leaf, k, v *yaml.Node) {
 		err = errors.New("expected a single value")
 	}
 	if err != nil {
-		l.problem(SourceYAML, k.Line, leaf.Path, "%v", err)
+		l.failed(SourceYAML, k.Line, leaf.Path, err)
 		return
 	}
 	l.origins[leaf.Path] = origin{SourceYAML, k.Line}
@@ -279,7 +291,7 @@ func (l *loader) applyVar(src Source, v envVar) {
 		return
 	}
 	if err := leaf.setText(v.value); err != nil {
-		l.problem(src, v.line, v.name, "%v", err)
+		l.failed(src, v.line, v.name, err)
 		return
 	}
 	l.origins[leaf.Path] = origin{src, v.line}
@@ -320,7 +332,7 @@ func (l *loader) check(tree any) {
 		if !ok {
 			o.source = SourceDefault
 		}
-		l.problem(o.source, o.line, key, "%v", err)
+		l.failed(o.source, o.line, key, err)
 	})
 }
 

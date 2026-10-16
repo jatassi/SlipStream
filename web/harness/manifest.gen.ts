@@ -50,6 +50,7 @@ export const manifestSchema = z.strictObject({
           value: z.string(),
           default: z.string(),
           source: z.string(),
+          env: z.string(),
         }),
       ),
       nodeKey: z.string(),

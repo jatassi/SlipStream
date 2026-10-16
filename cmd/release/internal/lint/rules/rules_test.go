@@ -214,6 +214,13 @@ func TestConfigSections(t *testing.T) {
 	})
 }
 
+func TestConfigWriter(t *testing.T) {
+	assertFindings(t, check(t, "config-writer", fixtureRepo(t, "config-writer")), []string{
+		"internal/node/settings.go:11: [config-writer] WriteFile writes config.yaml; change keys through config.Edit",
+		"internal/node/settings.go:14: [config-writer] Write writes config.yaml; change keys through config.Edit",
+	})
+}
+
 func TestMigrationVersions(t *testing.T) {
 	repo := fixtureRepo(t, "migration-versions")
 	untracked := filepath.Join(repo.Root, "internal", "library", "schema", "00003_untracked.sql")

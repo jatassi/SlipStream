@@ -54,7 +54,7 @@ func TestLoadConfigDrawsASeedOnlyWhenNoneIsSet(t *testing.T) {
 	if !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(cfg.Seed) {
 		t.Fatalf("drawn seed %q is not 32 hex characters", cfg.Seed)
 	}
-	if got, want := keys[0], (Key{Key: "seed", Value: cfg.Seed, Default: "", Source: config.SourceRandom}); got != want {
+	if got, want := keys[0], (Key{Key: "seed", Value: cfg.Seed, Default: "", Source: config.SourceRandom, Env: "SLIPSTREAM_SEED"}); got != want {
 		t.Fatalf("seed key = %+v, want %+v", got, want)
 	}
 	if got := overrides(keys); len(got) != 0 {
@@ -65,7 +65,7 @@ func TestLoadConfigDrawsASeedOnlyWhenNoneIsSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Key{{Key: "seed", Value: "fixed", Default: "", Source: config.SourceEnv}}
+	want := []Key{{Key: "seed", Value: "fixed", Default: "", Source: config.SourceEnv, Env: "SLIPSTREAM_SEED"}}
 	if cfg.Seed != "fixed" || !slices.Equal(overrides(keys), want) {
 		t.Fatalf("seed = %q, overrides = %v, want fixed and %v", cfg.Seed, overrides(keys), want)
 	}
@@ -107,7 +107,7 @@ func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Key{{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: config.SourceEnv}}
+	want := []Key{{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: config.SourceEnv, Env: "SLIPSTREAM_JOIN_CODE"}}
 	if cfg.Join.Code.String() != goldenCode || !slices.Equal(overrides(keys), want) {
 		t.Fatalf("join.code = %s, overrides %v; want the code read and %v", cfg.Join.Code, overrides(keys), want)
 	}
@@ -135,7 +135,7 @@ func TestLinkAdvertiseIsAPeerAddressRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Key{{Key: "link.advertise", Value: "203.0.113.5:443,[2001:db8::5]:443", Default: "", Source: config.SourceEnv}}
+	want := []Key{{Key: "link.advertise", Value: "203.0.113.5:443,[2001:db8::5]:443", Default: "", Source: config.SourceEnv, Env: "SLIPSTREAM_LINK_ADVERTISE"}}
 	if got := fmt.Sprint(cfg.Link.Advertise); got != "[203.0.113.5:443 [2001:db8::5]:443]" || !slices.Equal(overrides(keys), want) {
 		t.Fatalf("link.advertise = %s, overrides %v; want both addresses and %v", got, overrides(keys), want)
 	}
@@ -176,7 +176,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault}
+	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
 	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
 		t.Fatalf("resolved = %+v; want %+v, the key in the census and contentTypes [fixture]", resolved, key)
 	}
@@ -186,7 +186,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv}
+	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
 	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api"}) {
 		t.Fatalf("resolved = %+v; want %+v and only endpoints.tmdb.api in the census", resolved, key)
 	}

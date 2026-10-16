@@ -82,7 +82,7 @@ func TestSingleMachine(t *testing.T) {
 		t.Fatalf("the manifest has home as %s holding %v, want %s holding %v", home.NodeID, home.Roles, rows[0].ID, every)
 	}
 
-	want := node.Key{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"}
+	want := node.Key{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"}
 	if !slices.Contains(home.Overrides, want) {
 		t.Fatalf("overrides = %+v, want %+v among them", home.Overrides, want)
 	}
