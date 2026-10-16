@@ -176,6 +176,19 @@ func TestACodeBecauseAReasonAnswersItAsTheDetail(t *testing.T) {
 	}
 }
 
+func TestACodeOnAMemberAnswersItAsAFieldError(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
+		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
+			return nil, fixtureGone.On("log.level", "Debug, Info, Warn or Error.")
+		})
+	w := get(t, r.Handler(), "/api/v1/fixture")
+	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"Debug, Info, Warn or Error.","errors":[{"location":"body.log.level","message":"Debug, Info, Warn or Error."}]}` + "\n"
+	if w.Code != http.StatusGone || w.Body.String() != want {
+		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
+	}
+}
+
 func TestAPlainErrorIsScrubbedAndLogged(t *testing.T) {
 	var log bytes.Buffer
 	r := newRouter(t, &log)

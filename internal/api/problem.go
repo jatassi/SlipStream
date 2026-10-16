@@ -34,9 +34,16 @@ func (c *Code) problem() *Problem {
 // Because answers c with detail, a reason a person reads beside the title.
 func (c *Code) Because(detail string) error { return &explained{code: c, detail: detail} }
 
+// On answers c about the request body's member field: the problem's
+// detail and its one field error, at body.<field>, are detail.
+func (c *Code) On(field, detail string) error {
+	return &explained{code: c, detail: detail, field: field}
+}
+
 type explained struct {
 	code   *Code
 	detail string
+	field  string
 }
 
 func (e *explained) Error() string { return e.code.name + ": " + e.detail }

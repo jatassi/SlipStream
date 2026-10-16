@@ -19,8 +19,8 @@ import (
 )
 
 // startHTTP binds http.listen, or a later port, and serves every operation
-// on it. Its stop closes the hub first, ending every stream, so Shutdown
-// never waits out the stop deadline on one.
+// on it. Its stop ends every stream and log read first, so Shutdown never
+// waits out the stop deadline on one.
 func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.Services, gate *identity.Gate) error {
 	ln, err := bindHTTP(n.env.Net.Listen, cfg.HTTP.Listen, cfg.HTTP.PortsToTry)
 	if err != nil {
@@ -60,6 +60,8 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 	})
 	n.stack.OnStop("http-shutdown", func(ctx context.Context) error {
 		s.Hub.Close()
+		r.EndStreams()
+		n.logs.EndReads()
 		return srv.Shutdown(ctx)
 	})
 	return nil
