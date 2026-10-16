@@ -4,6 +4,7 @@ import { useReconfirmSession } from "../api/gen/query/identity/identity";
 import { ReconfirmSessionBody } from "../api/gen/zod/identity/identity.zod";
 import { settleReconfirm, useReconfirmAsk } from "../api/reconfirm";
 import { pinErrors } from "../session/pin-errors";
+import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { useAppForm } from "../ui/form";
@@ -38,22 +39,31 @@ function useReconfirmForm() {
   });
 }
 
-function PasskeyButton({ passkey }: { passkey: () => Promise<boolean> }) {
+function usePasskeyConfirm(passkey: () => Promise<boolean>) {
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string>();
   const confirm = async () => {
-    if (await passkey()) {
-      settleReconfirm(true);
+    setBusy(true);
+    setRefusal(undefined);
+    try {
+      if (await passkey()) {
+        settleReconfirm(true);
+      }
+    } catch (error) {
+      setRefusal(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
     }
   };
-  return (
-    <Button look="ghost" onClick={() => void confirm()}>
-      Use a passkey
-    </Button>
-  );
+  return { busy, refusal, confirm };
 }
+
+const noPasskey = () => Promise.resolve(false);
 
 function ReconfirmForm({ passkey }: ReconfirmDialogProps) {
   const form = useReconfirmForm();
   const stacked = useShell() === "phone";
+  const passkeyConfirm = usePasskeyConfirm(passkey ?? noPasskey);
   return (
     <form
       noValidate
@@ -69,8 +79,17 @@ function ReconfirmForm({ passkey }: ReconfirmDialogProps) {
           {(field) => <field.PinPad label="PIN" autoComplete="current-password" autoSubmit />}
         </form.AppField>
         <form.FormAlert />
+        {passkeyConfirm.refusal !== undefined && <AlertLine text={passkeyConfirm.refusal} />}
         <div className={`flex gap-2 ${stacked ? "flex-col-reverse" : "justify-end"}`}>
-          {passkey && <PasskeyButton passkey={passkey} />}
+          {passkey && (
+            <Button
+              look="ghost"
+              busy={passkeyConfirm.busy}
+              onClick={() => void passkeyConfirm.confirm()}
+            >
+              Use a passkey
+            </Button>
+          )}
           <Button
             onClick={() => {
               settleReconfirm(false);

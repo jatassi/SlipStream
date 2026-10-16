@@ -1,18 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 
-import { useCreateSession } from "../api/gen/query/identity/identity";
-import { CreateSessionBody } from "../api/gen/zod/identity/identity.zod";
+import type { IdentitySignedIn } from "../api/gen/model";
 import type { SessionEndReason } from "../live/types";
 import { requireEntry } from "../session/gate";
-import { safeRedirect, signInSearch } from "../session/safe-redirect";
-import { markSignedIn } from "../session/session";
+import { signInSearch } from "../session/safe-redirect";
 import { EntryPage } from "../shell/entry-page";
-import { submitErrors, useAppForm } from "../ui/form";
-
-const signInForm = CreateSessionBody.extend({
-  email: z.string().trim().pipe(CreateSessionBody.shape.email),
-});
+import { SignInForm } from "./-sign-in/sign-in-form";
+import { signedInTo } from "./-sign-in/signed-in";
 
 const reasonText: Record<SessionEndReason, string> = {
   "signed-out": "You signed out.",
@@ -27,55 +21,18 @@ export const Route = createFileRoute("/sign-in")({
   component: SignIn,
 });
 
-function useSignInForm() {
-  const { redirect } = Route.useSearch();
+function SignIn() {
+  const { reason, redirect } = Route.useSearch();
   const { queryClient } = Route.useRouteContext();
   const navigate = Route.useNavigate();
-  const createSession = useCreateSession();
-  return useAppForm({
-    defaultValues: { email: "", pin: "" },
-    validators: { onSubmit: signInForm },
-    onSubmit: async ({ value, formApi }) => {
-      const session = await createSession
-        .mutateAsync({ data: signInForm.parse(value) })
-        .catch((error: unknown) => {
-          formApi.setFieldValue("pin", "");
-          formApi.setErrorMap({ onSubmit: submitErrors(error) });
-          return null;
-        });
-      if (session !== null) {
-        markSignedIn(queryClient, session);
-        await navigate({ href: safeRedirect(redirect) });
-      }
-    },
-  });
-}
-
-function SignIn() {
-  const { reason } = Route.useSearch();
-  const form = useSignInForm();
+  const signedIn = async (session: IdentitySignedIn) => {
+    await navigate({ href: signedInTo(queryClient, session, redirect) });
+  };
   return (
     <EntryPage title="Sign in to SlipStream">
       {reason === undefined ? null : <output className="text-ink-1">{reasonText[reason]}</output>}
-      <form
-        noValidate
-        className="flex flex-col gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.handleSubmit();
-        }}
-      >
-        <form.AppForm>
-          <form.AppField name="email">
-            {(field) => <field.TextField label="Email" type="email" autoComplete="username" />}
-          </form.AppField>
-          <form.AppField name="pin">
-            {(field) => <field.PinField label="PIN" autoComplete="current-password" autoSubmit />}
-          </form.AppField>
-          <form.FormAlert />
-          <form.SubmitButton label="Sign in" />
-        </form.AppForm>
-      </form>
+      <SignInForm signedIn={signedIn} />
+      <p className="text-meta text-ink-3">Forgot your PIN? Ask an Admin for a Reset link.</p>
     </EntryPage>
   );
 }

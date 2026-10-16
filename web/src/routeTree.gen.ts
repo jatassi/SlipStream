@@ -10,13 +10,17 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AppRouteImport } from "./routes/_app";
+import { Route as ConfirmEmailRouteImport } from "./routes/confirm-email";
 import { Route as NewPinRouteImport } from "./routes/new-pin";
 import { Route as PortalRouteImport } from "./routes/portal";
+import { Route as ResetRouteImport } from "./routes/reset";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
+import { Route as SignupRouteImport } from "./routes/signup";
 import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
 import { Route as AppSplatRouteImport } from "./routes/_app/$";
+import { Route as AppAccountRouteImport } from "./routes/_app/account";
 import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
@@ -29,9 +33,15 @@ import { Route as PortalSearchRouteImport } from "./routes/portal/search";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
+import { Route as AccountPasskeysNewRouteImport } from "./routes/account.passkeys.new";
 
 const AppRoute = AppRouteImport.update({
   id: "/_app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
+  id: "/confirm-email",
+  path: "/confirm-email",
   getParentRoute: () => rootRouteImport,
 } as any);
 const NewPinRoute = NewPinRouteImport.update({
@@ -44,6 +54,11 @@ const PortalRoute = PortalRouteImport.update({
   path: "/portal",
   getParentRoute: () => rootRouteImport,
 } as any);
+const ResetRoute = ResetRouteImport.update({
+  id: "/reset",
+  path: "/reset",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const SetupRoute = SetupRouteImport.update({
   id: "/setup",
   path: "/setup",
@@ -52,6 +67,11 @@ const SetupRoute = SetupRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: "/sign-in",
   path: "/sign-in",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SignupRoute = SignupRouteImport.update({
+  id: "/signup",
+  path: "/signup",
   getParentRoute: () => rootRouteImport,
 } as any);
 const WorkerRoute = WorkerRouteImport.update({
@@ -67,6 +87,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppSplatRoute = AppSplatRouteImport.update({
   id: "/$",
   path: "/$",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAccountRoute = AppAccountRouteImport.update({
+  id: "/account",
+  path: "/account",
   getParentRoute: () => AppRoute,
 } as any);
 const AppActivityRoute = AppActivityRouteImport.update({
@@ -129,16 +154,25 @@ const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   path: "/works/$workId",
   getParentRoute: () => AppRoute,
 } as any);
+const AccountPasskeysNewRoute = AccountPasskeysNewRouteImport.update({
+  id: "/account/passkeys/new",
+  path: "/account/passkeys/new",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute;
+  "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
+  "/reset": typeof ResetRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/library": typeof AppLibraryRouteRouteWithChildren;
   "/$": typeof AppSplatRoute;
+  "/account": typeof AppAccountRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
@@ -149,14 +183,19 @@ export interface FileRoutesByFullPath {
   "/portal/": typeof PortalIndexRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/library/": typeof AppLibraryIndexRoute;
 }
 export interface FileRoutesByTo {
+  "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
+  "/reset": typeof ResetRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/$": typeof AppSplatRoute;
+  "/account": typeof AppAccountRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
@@ -168,18 +207,23 @@ export interface FileRoutesByTo {
   "/portal": typeof PortalIndexRoute;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/library": typeof AppLibraryIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_app": typeof AppRouteWithChildren;
+  "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
+  "/reset": typeof ResetRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
   "/_app/$": typeof AppSplatRoute;
+  "/_app/account": typeof AppAccountRoute;
   "/_app/activity": typeof AppActivityRoute;
   "/_app/add": typeof AppAddRoute;
   "/_app/system": typeof AppSystemRoute;
@@ -191,19 +235,24 @@ export interface FileRoutesById {
   "/portal/": typeof PortalIndexRoute;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
+  "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/confirm-email"
     | "/new-pin"
     | "/portal"
+    | "/reset"
     | "/setup"
     | "/sign-in"
+    | "/signup"
     | "/worker"
     | "/library"
     | "/$"
+    | "/account"
     | "/activity"
     | "/add"
     | "/system"
@@ -214,14 +263,19 @@ export interface FileRouteTypes {
     | "/portal/"
     | "/library/$contentType"
     | "/works/$workId"
+    | "/account/passkeys/new"
     | "/library/";
   fileRoutesByTo: FileRoutesByTo;
   to:
+    | "/confirm-email"
     | "/new-pin"
+    | "/reset"
     | "/setup"
     | "/sign-in"
+    | "/signup"
     | "/worker"
     | "/$"
+    | "/account"
     | "/activity"
     | "/add"
     | "/system"
@@ -233,17 +287,22 @@ export interface FileRouteTypes {
     | "/portal"
     | "/library/$contentType"
     | "/works/$workId"
+    | "/account/passkeys/new"
     | "/library";
   id:
     | "__root__"
     | "/_app"
+    | "/confirm-email"
     | "/new-pin"
     | "/portal"
+    | "/reset"
     | "/setup"
     | "/sign-in"
+    | "/signup"
     | "/worker"
     | "/_app/library"
     | "/_app/$"
+    | "/_app/account"
     | "/_app/activity"
     | "/_app/add"
     | "/_app/system"
@@ -255,16 +314,21 @@ export interface FileRouteTypes {
     | "/portal/"
     | "/_app/library/$contentType"
     | "/_app/works/$workId"
+    | "/account/passkeys/new"
     | "/_app/library/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren;
+  ConfirmEmailRoute: typeof ConfirmEmailRoute;
   NewPinRoute: typeof NewPinRoute;
   PortalRoute: typeof PortalRouteWithChildren;
+  ResetRoute: typeof ResetRoute;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
+  SignupRoute: typeof SignupRoute;
   WorkerRoute: typeof WorkerRoute;
+  AccountPasskeysNewRoute: typeof AccountPasskeysNewRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -274,6 +338,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof AppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/confirm-email": {
+      id: "/confirm-email";
+      path: "/confirm-email";
+      fullPath: "/confirm-email";
+      preLoaderRoute: typeof ConfirmEmailRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/new-pin": {
@@ -290,6 +361,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof PortalRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/reset": {
+      id: "/reset";
+      path: "/reset";
+      fullPath: "/reset";
+      preLoaderRoute: typeof ResetRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/setup": {
       id: "/setup";
       path: "/setup";
@@ -302,6 +380,13 @@ declare module "@tanstack/react-router" {
       path: "/sign-in";
       fullPath: "/sign-in";
       preLoaderRoute: typeof SignInRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/signup": {
+      id: "/signup";
+      path: "/signup";
+      fullPath: "/signup";
+      preLoaderRoute: typeof SignupRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/worker": {
@@ -323,6 +408,13 @@ declare module "@tanstack/react-router" {
       path: "/$";
       fullPath: "/$";
       preLoaderRoute: typeof AppSplatRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/account": {
+      id: "/_app/account";
+      path: "/account";
+      fullPath: "/account";
+      preLoaderRoute: typeof AppAccountRouteImport;
       parentRoute: typeof AppRoute;
     };
     "/_app/activity": {
@@ -409,6 +501,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppWorksWorkIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/account/passkeys/new": {
+      id: "/account/passkeys/new";
+      path: "/account/passkeys/new";
+      fullPath: "/account/passkeys/new";
+      preLoaderRoute: typeof AccountPasskeysNewRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -429,6 +528,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 interface AppRouteChildren {
   AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
   AppSplatRoute: typeof AppSplatRoute;
+  AppAccountRoute: typeof AppAccountRoute;
   AppActivityRoute: typeof AppActivityRoute;
   AppAddRoute: typeof AppAddRoute;
   AppSystemRoute: typeof AppSystemRoute;
@@ -439,6 +539,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
   AppSplatRoute: AppSplatRoute,
+  AppAccountRoute: AppAccountRoute,
   AppActivityRoute: AppActivityRoute,
   AppAddRoute: AppAddRoute,
   AppSystemRoute: AppSystemRoute,
@@ -469,11 +570,15 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ConfirmEmailRoute: ConfirmEmailRoute,
   NewPinRoute: NewPinRoute,
   PortalRoute: PortalRouteWithChildren,
+  ResetRoute: ResetRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
+  SignupRoute: SignupRoute,
   WorkerRoute: WorkerRoute,
+  AccountPasskeysNewRoute: AccountPasskeysNewRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

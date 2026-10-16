@@ -1,4 +1,4 @@
-import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { Logout01Icon, UserCircleIcon } from "@hugeicons/core-free-icons";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useAccount } from "../../session/session";
@@ -25,6 +25,13 @@ export function AccountFoot({ collapsed }: { collapsed: boolean }) {
           </button>
         }
         items={[
+          {
+            label: "Your Account",
+            icon: UserCircleIcon,
+            onSelect: () => {
+              void navigate({ to: "/account" });
+            },
+          },
           {
             label: toPortal.label,
             icon: toPortal.icon,

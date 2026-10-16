@@ -1,4 +1,10 @@
-import { Add01Icon, Logout01Icon, SidebarLeftIcon } from "@hugeicons/core-free-icons";
+import {
+  Add01Icon,
+  FingerPrintAddIcon,
+  Logout01Icon,
+  SidebarLeftIcon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 
@@ -30,6 +36,24 @@ const commands: readonly Command[] = [
     audience: "admin",
     shell: "desktop",
     run: toggleSidebar,
+  },
+  {
+    id: "your-account",
+    label: "Your Account",
+    icon: UserCircleIcon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/account" });
+    },
+  },
+  {
+    id: "add-passkey",
+    label: "Add a passkey",
+    icon: FingerPrintAddIcon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/account", search: { add: "passkey" } });
+    },
   },
   {
     id: "sign-out",
