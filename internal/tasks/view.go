@@ -24,7 +24,6 @@ var (
 // Status is what a shown task does now: Idle, Running or Waiting.
 type Status interface{ status() }
 
-// Idle is a task between runs, next due at Next.
 type Idle struct{ Next time.Time }
 
 type Running struct {
@@ -46,7 +45,6 @@ func (Idle) status()    {}
 func (Running) status() {}
 func (Waiting) status() {}
 
-// View is a shown task as an Admin reads it.
 type View struct {
 	Task Task
 	// Every and Overdue are the task's overrides, nil at their defaults.
@@ -105,7 +103,6 @@ type Run struct {
 	Lines []Line
 }
 
-// Line is one unit's outcome in a finished run.
 type Line struct {
 	Key     UnitKey
 	Label   string
@@ -126,7 +123,6 @@ type UnitView struct {
 	DueOnReturn      bool
 }
 
-// PartKind is how the Tasks page's sentence shows a part.
 type PartKind string
 
 const (
@@ -146,8 +142,7 @@ type Part struct {
 // Overview is the Tasks page: every shown task in catalog order, the
 // sentence that opens it and the schedule settings.
 type Overview struct {
-	Tasks []View
-	// Multinode is whether the install has more than one Node.
+	Tasks     []View
 	Multinode bool
 	Sentence  []Part
 	Schedule  Schedule
@@ -160,7 +155,6 @@ type Detail struct {
 	Runs  []Run
 }
 
-// Active is an open run as the header lists it.
 type Active struct {
 	Run         RunID
 	Task        TaskID
@@ -172,8 +166,6 @@ type Active struct {
 	Nodes       []string
 }
 
-// look is what one read of the tasks shows: the snapshot the clock plans
-// from, each task's units now and its unit rows, and the roster.
 type look struct {
 	snap   snapshot
 	listed map[TaskID][]Unit
@@ -212,8 +204,6 @@ func (s *Scheduler) look(ctx context.Context) (look, error) {
 
 func (l look) name(node role.NodeID) string { return l.nodes[node].Name }
 
-// Overview is every shown task with its status, the sentence and the
-// schedule settings.
 func (s *Scheduler) Overview(ctx context.Context) (Overview, error) {
 	l, err := s.look(ctx)
 	if err != nil {
@@ -299,8 +289,6 @@ func (s *Scheduler) names(l look, units []Unit) []string {
 	return out
 }
 
-// views is every shown task in catalog order: each task whose units list
-// is not empty.
 func (s *Scheduler) views(l look, now time.Time) []View {
 	started := now
 	s.mu.Lock()
@@ -385,8 +373,6 @@ func (l look) runOf(row db.TasksRun) Run {
 	return r
 }
 
-// sentence opens the Tasks page: each failure, each Partial warning and
-// the tasks waiting for each Node, or that every task ran as scheduled.
 func (s *Scheduler) sentence(l look, views []View, now time.Time) []Part {
 	var parts []Part
 	for _, v := range views {
@@ -421,7 +407,6 @@ func (s *Scheduler) sentence(l look, views []View, now time.Time) []Part {
 
 func href(id TaskID) string { return "/tasks/" + string(id) }
 
-// warning is the Health warning v's latest run raises.
 func (s *Scheduler) warning(l look, v View, now time.Time) (Warning, bool) {
 	if v.Last == nil {
 		return Warning{}, false
@@ -431,8 +416,6 @@ func (s *Scheduler) warning(l look, v View, now time.Time) (Warning, bool) {
 	return warn(v.Task, l2, sinceOf(l.rows[v.Task.ID]), v.Task.Setting().Value(v.Every), intervals, now, s.cfg.Zone)
 }
 
-// Warnings is the Health warning each shown task's latest finished run
-// raises.
 func (s *Scheduler) Warnings(ctx context.Context) ([]Warning, error) {
 	l, err := s.look(ctx)
 	if err != nil {

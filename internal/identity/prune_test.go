@@ -16,7 +16,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-// recorder records whose sessions changed and which streams ended.
 type recorder struct {
 	mu        sync.Mutex
 	published []string

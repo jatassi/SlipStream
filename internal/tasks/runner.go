@@ -25,7 +25,6 @@ var errCanceled = errors.New("an Admin canceled the run")
 
 const progressEvery = 500 * time.Millisecond
 
-// active is a run this process runs.
 type active struct {
 	run      openRun
 	cancel   context.CancelCauseFunc
@@ -61,10 +60,6 @@ func (s *Scheduler) Cancel(id RunID) error {
 	return nil
 }
 
-// run runs r's units one at a time per Node, Nodes in parallel, records
-// each unit's outcome as it ends, then closes the run with its task row.
-// When ctx ends first, the Node is stopping: the run stays open for the
-// next Open to close as cut short.
 func (s *Scheduler) run(ctx, runCtx context.Context, r openRun, p *progress) {
 	results := make([]result, len(r.units))
 	byNode := map[role.NodeID][]int{}
@@ -98,7 +93,6 @@ func (s *Scheduler) run(ctx, runCtx context.Context, r openRun, p *progress) {
 	s.close(ctx, r, results, errors.Is(context.Cause(runCtx), errCanceled))
 }
 
-// unit runs one unit after its preflight and records its outcome.
 func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, p *progress) result {
 	node, remote := u.Place.Node()
 	if !remote {
@@ -151,8 +145,6 @@ func (s *Scheduler) record(ctx context.Context, r openRun, u Unit, node role.Nod
 	})
 }
 
-// close closes r with its result and, for a slot run, advances the task's
-// slot to the run's start with a new jitter draw, in one Write.
 func (s *Scheduler) close(ctx context.Context, r openRun, results []result, canceled bool) {
 	outcome, summary, cause := rollUp(r.task.Noun, results, canceled)
 	lines := make([]line, len(r.units))
@@ -185,8 +177,6 @@ func (s *Scheduler) drawJitter() *float64 {
 	return new(s.cfg.Rand.Float64())
 }
 
-// progress is a run's progress: units finished, and the share a long unit
-// reported of itself, published at most every progressEvery.
 type progress struct {
 	ctx   context.Context
 	s     *Scheduler
@@ -209,8 +199,6 @@ func (p *progress) finished() {
 	p.publish()
 }
 
-// step scales a unit's own done of total into the run's units, so the
-// bar moves inside a long unit.
 func (p *progress) step(done, total int) {
 	p.mu.Lock()
 	p.frame.Done, p.frame.Total = p.done*total+done, len(p.run.units)*total

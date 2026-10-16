@@ -39,7 +39,6 @@ var labels = map[Name]string{
 	Relaying: "Relaying", Serving: "Serving",
 }
 
-// Label is the Role's name as a person reads it.
 func (n Name) Label() string { return labels[n] }
 
 func ParseName(s string) (Name, error) {

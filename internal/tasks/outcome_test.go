@@ -17,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// knows is a roster holding one Node, which holds no Role.
 type knows struct{ node role.NodeID }
 
 func (k knows) Key(node role.NodeID) (link.Key, bool) { return link.Key{1}, node == k.node }

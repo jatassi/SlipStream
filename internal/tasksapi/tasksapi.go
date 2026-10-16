@@ -1,6 +1,3 @@
-// Package tasksapi is the Scheduled tasks operations: the Tasks page, one
-// task with its units and runs, Run now and Cancel, each task's cadence
-// and overdue rule, the schedule settings and the runs the header lists.
 package tasksapi
 
 import (
@@ -20,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks"
 )
 
-// Clock is the Node's tasks owner as its operations reach it.
 type Clock interface {
 	// Tasks is the tasks owner, false unless the Node is a Controller.
 	Tasks() (*tasks.Scheduler, bool)
@@ -238,8 +234,6 @@ type group struct {
 	Tasks []task `json:"tasks" nullable:"false" minItems:"1"`
 }
 
-// groupOrder is the Tasks page's order: the Controller's tasks, then each
-// Role Group's.
 var groupOrder = append([]tasks.Group{tasks.ControllerGroup}, groupsOf(role.Groups())...)
 
 func groupsOf(gs []role.Group) []tasks.Group {
@@ -536,7 +530,6 @@ func (h handlers) updateTaskSettings(ctx context.Context, _ identity.Admin, in *
 	return currentSchedule(ctx, s)
 }
 
-// scheduleChange parses each sent member: all or none are stored.
 func scheduleChange(b schedulePatch) (tasks.ScheduleChange, error) {
 	var c tasks.ScheduleChange
 	if p := b.Window; p.Sent() {

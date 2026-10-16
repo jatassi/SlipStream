@@ -31,8 +31,6 @@ const stepWords: Readonly<Record<number, string>> = {
   86_400: "days",
 };
 
-// A unit is offered when a whole number of it is a whole number of steps,
-// and it fits under the maximum.
 function unitsOf(field: SettingDurationField): readonly DurationUnit[] {
   return durationUnits.filter(
     (unit) =>

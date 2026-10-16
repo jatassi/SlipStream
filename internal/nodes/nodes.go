@@ -82,7 +82,6 @@ var (
 	ErrNoLinkAddress = errors.New("the link has no address to advertise")
 )
 
-// JoinCodeLifetime is how long a new Join Code is accepted.
 var JoinCodeLifetime = setting.Duration{
 	Key:     "nodes.joinCodeLifetime",
 	Label:   "Join Code lifetime",

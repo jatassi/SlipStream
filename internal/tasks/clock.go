@@ -14,10 +14,8 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks/internal/db"
 )
 
-// retry is how soon the clock tries again after it couldn't read or open.
 const retry = time.Minute
 
-// ask is a Run now the clock answers, as the only opener of runs.
 type ask struct {
 	task  TaskID
 	by    storage.UUID
@@ -57,9 +55,6 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	}
 }
 
-// follow plans again and tells open pages that task changed after each
-// of events, until ctx ends. An empty task is every task: a Node changing
-// changes which wait for it.
 func (s *Scheduler) follow(ctx context.Context, task TaskID, events ...live.Event) {
 	woken := s.cfg.Hub.Watch(ctx, events...)
 	s.runs.Go(func() {
@@ -75,8 +70,6 @@ func (s *Scheduler) follow(ctx context.Context, task TaskID, events ...live.Even
 	})
 }
 
-// sleep waits for wake, a zero wake waiting for an event alone, and
-// answers whether ctx ended.
 func (s *Scheduler) sleep(ctx context.Context, wake time.Time) bool {
 	var timer <-chan time.Time
 	if !wake.IsZero() {
@@ -96,7 +89,6 @@ func (s *Scheduler) sleep(ctx context.Context, wake time.Time) bool {
 	return false
 }
 
-// tick opens every run the plan says is due and answers when to plan next.
 func (s *Scheduler) tick(ctx context.Context, started time.Time, atStart map[TaskID]bool) time.Time {
 	now := time.Now()
 	states, k, err := s.read(ctx, started, atStart)
@@ -246,15 +238,11 @@ func (s *Scheduler) knobs(row db.TasksSetting, started time.Time) knobs {
 	}
 }
 
-// reaches is the one preflight: whether node can start work now, as this
-// Node or a Node whose link is up and on this build.
 func (s *Scheduler) reaches(node role.NodeID) bool {
 	link, _ := s.cfg.Roster.Reach(node)
 	return link == nodes.Local || link == nodes.Up
 }
 
-// peerOf is node as a unit's cause names it; the zero peer when it is no
-// longer paired.
 func (s *Scheduler) peerOf(ctx context.Context, node role.NodeID) peer {
 	n, err := s.cfg.Roster.Get(ctx, node)
 	if err != nil {
@@ -269,10 +257,6 @@ func (s *Scheduler) peerOf(ctx context.Context, node role.NodeID) peer {
 
 var errNoUnits = errors.New("the task lists no units")
 
-// open opens a run of t: it lists t's units, syncs tasks_unit to them and
-// inserts the run in one Write, which tasks_run_open refuses while one is
-// open, then starts the run. An empty list opens nothing and passes a
-// slot run's slot, so a hidden task keeps its cadence.
 func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storage.UUID) (RunID, error) {
 	all, units, err := s.units(ctx, t, trigger)
 	if err != nil {
@@ -302,8 +286,6 @@ func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storag
 	return r.id, nil
 }
 
-// units is every unit t lists, and those the run acts on: all of them, or
-// for a returned run those due whose Node can start work again.
 func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, run []Unit, err error) {
 	err = s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
@@ -356,8 +338,6 @@ func (s *Scheduler) returning(ctx context.Context, task TaskID, units []Unit) ([
 	return out, nil
 }
 
-// syncUnits makes task's unit rows the units listed: new ones are added,
-// vanished ones deleted, and labels and Nodes updated.
 func syncUnits(ctx context.Context, q *db.Queries, task TaskID, units []Unit) error {
 	rows, err := q.ListUnits(ctx, task)
 	if err != nil {
@@ -414,9 +394,6 @@ func (s *Scheduler) runNow(ctx context.Context, a ask) (RunID, error) {
 	return id, err
 }
 
-// runnable refuses Run now while the task has a run open, and while
-// every unit is tied to a Node that can't start work, so no hidden run
-// fires once it returns.
 func (s *Scheduler) runnable(ctx context.Context, task TaskID, units []Unit) error {
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		run, err := db.New(r).GetOpenRun(ctx, task)

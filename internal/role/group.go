@@ -5,7 +5,6 @@ import (
 	"slices"
 )
 
-// Group is a Role Group: the Roles an Admin ticks together.
 type Group string
 
 const (
@@ -34,7 +33,6 @@ var groups = map[Name]Group{
 	Serving:         Reach,
 }
 
-// Group is the Role Group n belongs to.
 func (n Name) Group() Group {
 	g, ok := groups[n]
 	if !ok {

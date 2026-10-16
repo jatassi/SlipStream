@@ -11,15 +11,11 @@ import type {
   TasksTask,
 } from "../api/gen/model";
 
-// Mid-October 2026 the Controller's zone, Europe/London, is on summer
-// time: an hour ahead of UTC, whatever zone the test browser runs in.
 const toUTC = 1;
 
-/** A time on the Controller's clock on a day of October 2026, as the server sends it. */
 export const local = (day: number, hours: number, minutes = 0): string =>
   new Date(Date.UTC(2026, 9, day, hours - toUTC, minutes)).toISOString();
 
-/** Now in task tests: 23:00 on Friday 16 October 2026 on the Controller's clock. */
 export const tasksNow = new Date(local(16, 23));
 
 export const steps = { one: "step", many: "steps" } as const;
@@ -206,10 +202,6 @@ const detailOf = (state: TaskState, id: string): TasksDetail | undefined => {
   return task && { task, units: detailUnits, runs: state.runs };
 };
 
-/**
- * A Controller's tasks that tests change between live events, recording the
- * body of every write.
- */
 export function taskServer({
   tasks,
   multinode = true,

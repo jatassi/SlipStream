@@ -53,9 +53,6 @@ func (still) Publish(context.Context, tasks.Progressed) {}
 
 var admin = storage.NewUUID()
 
-// tidy is a task of three Controller units whose second blocks until
-// release closes or its run ends. Its Wait rule keeps the clock from
-// opening it at start.
 func tidy(release <-chan struct{}) tasks.Task {
 	return tasks.Task{
 		ID:      "tidy",
@@ -107,7 +104,6 @@ func openOn(t *testing.T, lib *storage.DB[storage.Library], r tasks.Roster, hub 
 	return s
 }
 
-// clock runs s's clock until the returned stop is called or the test ends.
 func clock(t *testing.T, s *tasks.Scheduler) (stop func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -123,7 +119,6 @@ func clock(t *testing.T, s *tasks.Scheduler) (stop func()) {
 	return stop
 }
 
-// rows is every row query returns, each as its values joined by "|".
 func rows(t *testing.T, lib *storage.DB[storage.Library], query string) []string {
 	t.Helper()
 	r, err := lib.QueryContext(t.Context(), query)
@@ -316,7 +311,6 @@ func TestPruneRunsKeepsRunsKeptAndEveryOpenRun(t *testing.T) {
 
 func equal(a, b []string) bool { return strings.Join(a, "\n") == strings.Join(b, "\n") }
 
-// links is home and seedbox, whose link a test sets.
 type links struct {
 	mu   sync.Mutex
 	link nodes.LinkState

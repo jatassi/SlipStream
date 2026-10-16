@@ -119,7 +119,6 @@ function formatsOf(timeZone: string | undefined): Formats {
   return formats;
 }
 
-/** The date's calendar day, counted from the epoch, and hour on the clock. */
 function wallOf(date: Date, zone: string | undefined): { day: number; hour: number } {
   const parts = new Map(
     formatsOf(zone)
@@ -136,8 +135,6 @@ function wallOf(date: Date, zone: string | undefined): { day: number; hour: numb
 const daysFrom = (from: Date, to: Date, zone: string | undefined) =>
   wallOf(to, zone).day - wallOf(from, zone).day;
 
-// The evening a time belongs to, counted in days from now's date: a night
-// runs from 18:00 to 06:00 the next morning.
 function eveningOf(date: Date, { now, zone }: Clock): number | undefined {
   const hours = wallOf(date, zone).hour;
   if (hours >= 18) {

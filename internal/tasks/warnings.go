@@ -21,16 +21,11 @@ type latest struct {
 	cause  string
 }
 
-// unitSince is a unit's last success, or when it was first seen if it never
-// succeeded.
 type unitSince struct {
 	label string
 	at    time.Time
 }
 
-// warn derives t's warning: a Failed run raises one; a Partial run raises
-// one only when a unit has gone intervals of the task's interval without
-// success. Skipped and Canceled runs raise nothing.
 func warn(t Task, run latest, units []unitSince, interval time.Duration, intervals int64, now time.Time, zone *time.Location) (Warning, bool) {
 	w := Warning{Task: t.ID, Category: t.Health}
 	if w.Category == "" {

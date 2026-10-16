@@ -25,10 +25,8 @@ var schemaFiles embed.FS
 
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("tasks", schemaFiles) }
 
-// Roster is the Nodes units run on.
 type Roster interface {
 	Self() role.NodeID
-	// Reach is how the Controller reaches node now and since when.
 	Reach(node role.NodeID) (nodes.LinkState, time.Time)
 	Get(ctx context.Context, id role.NodeID) (nodes.Node, error)
 	List(ctx context.Context) ([]nodes.Node, error)
@@ -47,8 +45,6 @@ type Progressed struct {
 	Total  int    `json:"total"`
 }
 
-// Hub is where the clock follows the events that change what it plans
-// or what a task lists.
 type Hub interface {
 	Watch(ctx context.Context, events ...live.Event) <-chan struct{}
 }
@@ -68,8 +64,7 @@ type Config struct {
 	Catalog []Task
 	Roster  Roster
 	// Zone is where the Maintenance window's wall-clock times are kept.
-	Zone *time.Location
-	// Rand draws each slot's jitter.
+	Zone       *time.Location
 	Rand       *rand.Rand
 	Hub        Hub
 	Changed    ChangedPublisher
@@ -101,8 +96,6 @@ func (e *ErrWaiting) Error() string {
 
 const crashCause = "SlipStream stopped mid-run"
 
-// Scheduler is the tasks owner: the clock, the runs it runs, and the
-// schedule settings.
 type Scheduler struct {
 	cfg  Config
 	byID map[TaskID]Task
@@ -114,8 +107,7 @@ type Scheduler struct {
 	mu      sync.Mutex
 	started time.Time
 	running map[RunID]*active
-	// cut is the tasks whose slot run a stop cut short, until they rerun.
-	cut map[TaskID]bool
+	cut     map[TaskID]bool
 }
 
 // Open checks the catalog, drops rows of tasks it no longer lists, adds
@@ -188,9 +180,6 @@ func catalogByID(catalog []Task) map[TaskID]Task {
 	return byID
 }
 
-// closeCut closes a run a stop cut short: units that reported keep their
-// outcomes and the rest are Canceled. Its slot stays, so a slot run
-// reruns once at start.
 func (s *Scheduler) closeCut(ctx context.Context, q *db.Queries, r db.TasksRun) error {
 	units, err := q.ListUnits(ctx, r.TaskID)
 	if err != nil {
@@ -224,8 +213,6 @@ func (s *Scheduler) closeCut(ctx context.Context, q *db.Queries, r db.TasksRun) 
 	return nil
 }
 
-// line is one unit's outcome in a run's history, kept after the unit is
-// gone.
 type line struct {
 	Key     UnitKey `json:"key"`
 	Label   string  `json:"label"`

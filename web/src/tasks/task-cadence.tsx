@@ -1,10 +1,6 @@
 import { useListTasksSuspense, useUpdateTask } from "../api/gen/query/tasks/tasks";
 import { SettingField } from "../ui/setting-field";
 
-/**
- * A task's cadence, saved to the task's own row. Every surface that edits a
- * cadence renders this, so tasks.changed brings each the same value.
- */
 export function TaskCadence({ task, variant = "row" }: { task: string; variant?: "row" | "full" }) {
   const shown = useListTasksSuspense({
     query: {

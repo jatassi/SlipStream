@@ -24,8 +24,6 @@ const seedboxUnit = (page: Page) =>
 
 const progress = /home, seedbox · \d of 6 steps/u;
 
-// Housekeeping finishes in well under a second, so a latency on the Node
-// link holds its seedbox unit open while the page shows the run.
 async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
   await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=1500ms" });
   return () => world.fw.fault.clear("slow-link");
@@ -37,7 +35,6 @@ test("Tasks shows Housekeeping in the Controller group with its cadence, next ru
   await navigate(page, "Tasks");
   await expect(page.getByRole("heading", { level: 2, name: "Controller" })).toBeVisible();
   const row = housekeepingRow(page);
-  // Between 04:00 and 06:00 the window is open, so the next one is tomorrow's.
   await expect(row).toContainText(/(Tonight|Tomorrow) at 04:00/u);
   if (isPhone(page)) {
     return;

@@ -180,8 +180,6 @@ type Hub struct {
 	closed   bool
 }
 
-// watcher is one Watch: its events' names and the channel a publish of
-// any of them fills.
 type watcher struct {
 	names map[string]bool
 	woken chan struct{}

@@ -406,7 +406,6 @@ func TestWatchWakesOnceForEveryPublishSinceItLastReceived(t *testing.T) {
 	})
 }
 
-// pending drains woken and counts what it held.
 func pending(woken <-chan struct{}) int {
 	for n := 0; ; n++ {
 		select {

@@ -12,10 +12,8 @@ type knobs struct {
 	window        setting.Span
 	jitterPercent int64
 	jitterCap     time.Duration
-	// overdue is the global rule, CatchUp or Wait.
-	overdue Overdue
-	// started is when the clock started: a slot before it was missed.
-	started time.Time
+	overdue       Overdue
+	started       time.Time
 }
 
 type state struct {
@@ -23,27 +21,19 @@ type state struct {
 	every     *int64
 	override  *Overdue
 	firstSeen time.Time
-	// slot is when the last schedule or catch-up run that closed started,
-	// zero before one has.
 	slot      time.Time
 	jitter    float64
 	lastEnded time.Time
 	open      bool
-	// cut: a stop cut the task's slot run short, so it reruns once.
-	cut bool
-	// atStart: the task runs at clock start and hasn't since this start.
-	atStart bool
-	// returned: a unit due on return can run now.
-	returned bool
+	cut       bool
+	atStart   bool
+	returned  bool
 }
 
-// Plan is what the clock does now and when it next looks.
 type Plan struct {
 	Open []Opening
 	Pass []Passed
-	// Next is each idle task's next slot, absent while it runs.
 	Next map[TaskID]time.Time
-	// Wake is the earliest Next still ahead, zero when none is.
 	Wake time.Time
 }
 
@@ -52,7 +42,6 @@ type Opening struct {
 	Trigger Trigger
 }
 
-// Passed records a missed slot as run, so the next one follows it.
 type Passed struct {
 	Task TaskID
 	Slot time.Time
@@ -68,9 +57,6 @@ func (k knobs) rule(s state) Overdue {
 	return k.overdue
 }
 
-// plan decides, from states in catalog order, which runs open now, which
-// missed slots pass, and when each idle task is next due. Window tasks
-// open one at a time.
 func plan(now time.Time, k knobs, states []state) Plan {
 	p := Plan{Next: map[TaskID]time.Time{}}
 	windowBusy := slices.ContainsFunc(states, func(s state) bool { return s.open && inWindow(s.task) })
@@ -98,7 +84,6 @@ func plan(now time.Time, k knobs, states []state) Plan {
 	return p
 }
 
-// serialize holds a window task's slot run while another window task runs.
 func serialize(t Task, trigger Trigger, windowBusy bool) (Trigger, bool) {
 	switch {
 	case !inWindow(t) || (trigger != BySchedule && trigger != ByCatchUp):
@@ -114,8 +99,6 @@ func inWindow(t Task) bool {
 	return ok
 }
 
-// decide is the slot run s opens now, if any, its next slot, and the
-// missed slot it passes under Wait.
 func (k knobs) decide(now time.Time, s state) (trigger Trigger, next time.Time, pass *time.Time) {
 	switch {
 	case s.cut:
@@ -143,8 +126,6 @@ func (k knobs) decide(now time.Time, s state) (trigger Trigger, next time.Time, 
 	return BySchedule, due, nil
 }
 
-// missed is a slot missed while the clock was down, or a task's first:
-// Catch up runs it once now, and Wait passes the latest missed slot.
 func (k knobs) missed(now time.Time, s state, due time.Time, interval time.Duration) (trigger Trigger, next time.Time, pass *time.Time) {
 	if k.rule(s) == CatchUp {
 		return ByCatchUp, due, nil
@@ -159,8 +140,6 @@ func (k knobs) missed(now time.Time, s state, due time.Time, interval time.Durat
 
 const day = 24 * time.Hour
 
-// after is the first interval slot past the task's latest run, so a slot
-// that fell due mid-run is skipped rather than queued.
 func (k knobs) after(s state, interval time.Duration) time.Time {
 	next := s.slot.Add(interval + k.jitter(s, interval))
 	if next.Before(s.lastEnded) {

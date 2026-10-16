@@ -29,7 +29,6 @@ export type SettingKind = keyof Fields;
 
 export type Setting = Fields[SettingKind];
 
-/** A value the field accepted, or the sentence that refuses it. */
 export type Draft<K extends SettingKind> = { value: Values[K] } | { refused: string };
 
 export type ControlProps<K extends SettingKind> = {
@@ -40,7 +39,6 @@ export type ControlProps<K extends SettingKind> = {
   onEdit: () => void;
 };
 
-/** What a kind of setting brings: its value in words, its hints and its control. */
 export type Kind<K extends SettingKind> = {
   words: (field: Fields[K]) => string;
   hints: (field: Fields[K]) => readonly string[];

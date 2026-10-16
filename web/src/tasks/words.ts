@@ -21,7 +21,6 @@ export const groupTitles: { readonly [G in TasksGroupGroup]: string } = {
 
 export type Outcome = NonNullable<TasksRunResult> | NonNullable<TasksUnitOutcome>;
 
-/** Skipped and Cancelled raise nothing, so they carry no signal colour. */
 export const outcomes: {
   readonly [O in Outcome]: { readonly word: string; readonly signal: Signal | undefined };
 } = {

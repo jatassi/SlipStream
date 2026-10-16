@@ -1,6 +1,3 @@
-// Package tasks owns Scheduled tasks on the Controller: library set tasks,
-// the catalog of declared tasks, the clock that opens their runs, and the
-// runner that runs each unit where it belongs and records the result.
 package tasks
 
 import (
@@ -77,8 +74,6 @@ type Task struct {
 	Health string
 }
 
-// Group is where the Tasks page lists a task: the Controller's group, or
-// a Role Group.
 type Group struct{ roles role.Group }
 
 // ControllerGroup holds tasks no Role does.
@@ -121,7 +116,6 @@ func (t Task) Setting() setting.Duration {
 	panic("tasks: a task without a cadence")
 }
 
-// Unit is one object a run acts on.
 type Unit struct {
 	Key   UnitKey
 	Label string
@@ -154,10 +148,8 @@ func PortableOn(node role.NodeID) Place { return Place{kind: portableOn, node: n
 // Node is the Node the unit runs on, false on the Controller.
 func (p Place) Node() (role.NodeID, bool) { return p.node, p.kind != onController }
 
-// Progress reports a long unit's progress inside its run.
 type Progress struct {
 	step func(done, total int)
 }
 
-// Step reports done of total inside the unit.
 func (p *Progress) Step(done, total int) { p.step(done, total) }

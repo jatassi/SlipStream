@@ -49,7 +49,6 @@ type taskDetail struct {
 	} `json:"runs"`
 }
 
-// runs is each run newest first as "trigger|result|summary".
 func (d taskDetail) runs() []string {
 	out := []string{}
 	for _, r := range d.Runs {
@@ -58,7 +57,6 @@ func (d taskDetail) runs() []string {
 	return out
 }
 
-// units is the newest run's units as "label|node|outcome|cause".
 func (d taskDetail) units() []string {
 	out := []string{}
 	for _, u := range d.Runs[0].Units {
@@ -119,12 +117,8 @@ func expect(t *testing.T, what string, got, want []string) {
 	}
 }
 
-// inUTC keeps the Maintenance window in UTC on every Node, whatever zone
-// the machine running the test is in.
 var inUTC = sim.Edit(func(_ string, e *node.Env) { e.Zone = time.UTC })
 
-// partition stalls the path between home and seedbox until home lists
-// seedbox down, and returns when it went down.
 func partition(t *testing.T, w *sim.World) time.Time {
 	t.Helper()
 	flip(t, w.Path("home", "seedbox"), fault.Stall{})
@@ -134,8 +128,6 @@ func partition(t *testing.T, w *sim.World) time.Time {
 	return time.Now()
 }
 
-// heal clears the path a minute after down and returns once seedbox's
-// re-dial lands.
 func heal(w *sim.World, down time.Time) {
 	healed := down.Add(time.Minute)
 	time.Sleep(time.Until(healed))
@@ -152,11 +144,6 @@ func at(clock string) time.Time {
 	return t
 }
 
-// TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker runs the
-// production catalog on home and seedbox: Housekeeping opens with the
-// Maintenance window and tidies both local.db files, a Run now while
-// seedbox is down ends Partial with seedbox's unit due on return, and
-// seedbox's return runs that unit alone.
 func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
@@ -190,8 +177,6 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 	})
 }
 
-// TestHousekeepingSkipsAWorkerOnAnotherBuild restarts seedbox on another
-// build: its unit is Skipped, naming the version it runs.
 func TestHousekeepingSkipsAWorkerOnAnotherBuild(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
@@ -210,9 +195,6 @@ func TestHousekeepingSkipsAWorkerOnAnotherBuild(t *testing.T) {
 	})
 }
 
-// TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals keeps seedbox
-// partitioned after Housekeeping's first run: the Partial runs raise a
-// warning only once seedbox's unit has gone three days without success.
 func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
@@ -232,8 +214,6 @@ func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 	})
 }
 
-// held is a test-only task on home whose one unit, on the Controller,
-// waits until release closes or its run is canceled.
 func held(release <-chan struct{}) tasks.Task {
 	return tasks.Task{
 		ID:      "held",
@@ -256,9 +236,6 @@ func held(release <-chan struct{}) tasks.Task {
 	}
 }
 
-// TestAControllerRestartMidRunCatchesUpOnce stops home while a scheduled
-// run waits in its unit: the run closes Canceled and the restarted clock
-// opens one catch-up for it, although the task waits when overdue.
 func TestAControllerRestartMidRunCatchesUpOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		release := make(chan struct{})
@@ -282,7 +259,6 @@ func TestAControllerRestartMidRunCatchesUpOnce(t *testing.T) {
 	})
 }
 
-// searches answers Search once its call is canceled, and says so.
 type searches struct{ ended chan error }
 
 func (s searches) Search(ctx context.Context, _ *rpctestv1.SearchRequest) (*rpctestv1.SearchResponse, error) {
@@ -292,8 +268,6 @@ func (s searches) Search(ctx context.Context, _ *rpctestv1.SearchRequest) (*rpct
 	return nil, fmt.Errorf("search: %w", err)
 }
 
-// searching is a test-only task whose one unit calls rpctest's Search on
-// seedbox, which holds searching, as a portable unit.
 func searching(h node.Half) tasks.Task {
 	return tasks.Task{
 		ID:      "searching",
@@ -321,10 +295,6 @@ func searching(h node.Half) tasks.Task {
 	}
 }
 
-// TestAPortableUnitWaitsForItsNextSlotAndCancelReachesTheWorker runs a
-// test-only task whose unit searches on seedbox: a Cancel mid-unit ends
-// the handler's context on seedbox, and a unit Skipped while seedbox is
-// down is not due on its return.
 func TestAPortableUnitWaitsForItsNextSlotAndCancelReachesTheWorker(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC, sim.Edit(func(name string, e *node.Env) {

@@ -119,7 +119,6 @@ func Words(d time.Duration) string {
 	return fmt.Sprintf("%d s", d/time.Second)
 }
 
-// Noun is a unit's word for one and for many: "run", "runs".
 type Noun struct {
 	One  string `json:"one"`
 	Many string `json:"many"`
@@ -132,7 +131,6 @@ func (u Noun) Of(n int64) string {
 	return u.Many
 }
 
-// Count is a whole number of Unit between Min and Max.
 type Count struct {
 	Key, Label        string
 	Default, Min, Max int64
@@ -195,7 +193,6 @@ func checkRange[T int64 | time.Duration](key string, def, lo, hi, step T) error 
 	return nil
 }
 
-// Option is one value a Choice offers, with the words a person reads.
 type Option[T ~string] struct {
 	Value T
 	Label string

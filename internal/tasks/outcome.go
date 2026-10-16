@@ -11,22 +11,17 @@ import (
 	"github.com/jatassi/slipstream/internal/setting"
 )
 
-// peer is a unit's Node as the roster named it when the unit ended.
 type peer struct {
 	name, version string
 }
 
 type result struct {
-	outcome Outcome
-	// cause is the unit's own line: "seedbox is offline".
-	cause string
-	// node and short name a skip in the run's summary: "seedbox offline".
+	outcome     Outcome
+	cause       string
 	node, short string
 	dueOnReturn bool
 }
 
-// classify turns what a unit's Run returned into its outcome. A canceled
-// run reads before the link, whose errors a cancel also produces.
 func classify(ctx context.Context, err error, place Place, p peer) result {
 	switch {
 	case err == nil:
@@ -43,8 +38,6 @@ func classify(ctx context.Context, err error, place Place, p peer) result {
 	return result{outcome: Failed, cause: err.Error()}
 }
 
-// unsent is a unit skipped because its Node couldn't start it: a call
-// that never ran, or a preflight that never called.
 func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {
 	r := result{outcome: Skipped, node: p.name, dueOnReturn: place.kind == tiedTo}
 	switch why {
@@ -69,8 +62,6 @@ func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {
 	return r
 }
 
-// rollUp is a run's result, summary and cause from its units' results, in
-// unit order. noun counts the units.
 func rollUp(noun setting.Noun, results []result, canceled bool) (run Result, summary, cause string) {
 	total := len(results)
 	counts := map[Outcome]int{}

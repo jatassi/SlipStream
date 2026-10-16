@@ -1,6 +1,3 @@
-// Package housekeeping is the Housekeeping task: it prunes what the
-// library keeps past its use and tidies every Node's local.db and then
-// library.db. Each Node serves HousekeepingService over its own local.db.
 package housekeeping
 
 import (

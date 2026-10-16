@@ -1,8 +1,5 @@
 package setting
 
-// About is what every kind of field carries. Source and Applies are the
-// shapes System settings also uses: a database setting is never locked and
-// applies live.
 type About struct {
 	Key         string `json:"key"`
 	Label       string `json:"label"`
@@ -61,7 +58,6 @@ type WindowField struct {
 	Zone    string `json:"zone" doc:"The time zone's name, such as Europe/London"`
 }
 
-// Times is a window's start and end as "HH:MM".
 type Times struct {
 	Start string `json:"start" doc:"HH:MM"`
 	End   string `json:"end" doc:"HH:MM, before start when the window crosses midnight"`

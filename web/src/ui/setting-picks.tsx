@@ -20,7 +20,6 @@ import {
 const optionWords = (field: SettingChoiceField, value: string) =>
   field.options.find((option) => option.value === value)?.label ?? value;
 
-// Segments read best while every option fits on one line.
 const segmentsAtMost = 3;
 
 function ChoiceControl({ field, submit }: ControlProps<"choice">) {

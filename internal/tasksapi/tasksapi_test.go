@@ -28,11 +28,9 @@ import (
 var (
 	home    = role.NodeID{UUID: storage.NewUUID()}
 	seedbox = role.NodeID{UUID: storage.NewUUID()}
-	// offline is when seedbox's link went down.
 	offline = time.Date(2026, 10, 16, 21, 31, 0, 0, time.UTC)
 )
 
-// roster is home, and seedbox offline since offline.
 type roster struct{}
 
 func (roster) Self() role.NodeID { return home }
@@ -71,8 +69,6 @@ func (c clock) Tasks() (*tasks.Scheduler, bool) { return c.s, true }
 
 var tidyCadence = setting.Duration{Key: "tasks.tidy.cadence", Label: "Runs every", Default: 8 * time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}
 
-// task is a task of units, each of whose Run blocks until its run ends.
-// Its Wait rule keeps the clock from opening it at start.
 func task(id tasks.TaskID, units ...tasks.Unit) tasks.Task {
 	return tasks.Task{
 		ID:      id,
@@ -95,7 +91,6 @@ func onController(key tasks.UnitKey) tasks.Unit {
 	return tasks.Unit{Key: key, Label: strings.ToUpper(string(key)), Place: tasks.OnController()}
 }
 
-// serve serves the tasks operations over a running clock of catalog.
 func serve(t *testing.T, catalog ...tasks.Task) *ownertest.Owner {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), tasks.Schema())
@@ -123,8 +118,6 @@ func serve(t *testing.T, catalog ...tasks.Task) *ownertest.Owner {
 
 const overdueOptions = `"options":[{"value":"catch-up","label":"Catch up"},{"value":"wait","label":"Wait"}]`
 
-// tidyTask is the wire task tidy, its cadence every hours, its state,
-// last run and Run now as given.
 func tidyTask(hours int, state, lastRun, runNow string) string {
 	isDefault := hours == 8
 	return fmt.Sprintf(`{"id":"tidy","name":"Tidy","about":"Tidies up.","group":"controller","noun":{"one":"step","many":"steps"},`+
@@ -202,8 +195,6 @@ func TestTheScheduleSettingsSaveAndReset(t *testing.T) {
 	})
 }
 
-// schedule is the schedule settings with the window, the runs kept and the
-// overdue rule as given.
 func schedule(window, runsKept, overdue string) string {
 	about := `"source":"database","applies":"live",`
 	return `{"window":{"key":"tasks.window","label":"Maintenance window",` + about + window + `,"default":{"start":"04:00","end":"06:00"},"zone":"UTC"},` +
