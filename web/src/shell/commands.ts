@@ -2,6 +2,7 @@ import { Add01Icon, Logout01Icon, SidebarLeftIcon } from "@hugeicons/core-free-i
 import type { IconSvgElement } from "@hugeicons/react";
 import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 
+import { useNodeSectionCommands } from "../routes/_app/nodes/-commands";
 import { type ShellKind, useShell } from "../ui/shell-context";
 import { addLabel } from "../works/fields";
 import { useSignOut } from "./account";
@@ -89,7 +90,12 @@ export function useCommandContext(): CommandContext {
 
 export function useAdminCommands(): Command[] {
   const shell = useShell();
-  return [...useGoToCommands(), ...useAddCommands(), ...commands].filter(
+  return [
+    ...useGoToCommands(),
+    ...useNodeSectionCommands(),
+    ...useAddCommands(),
+    ...commands,
+  ].filter(
     (command) =>
       command.audience === "admin" && (command.shell === undefined || command.shell === shell),
   );

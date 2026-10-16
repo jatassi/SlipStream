@@ -44,7 +44,7 @@ test("nodes.changed invalidates the Node list and that Node", async () => {
 
 test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/system", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     grabs: getListGrabsQueryKey(),
@@ -62,7 +62,7 @@ test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells"
 
 test("grabs.search-changed invalidates only that Work's searches", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/system", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     orchard: getListSearchesQueryKey(orchard),

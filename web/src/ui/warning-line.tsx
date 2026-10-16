@@ -12,7 +12,7 @@ export type WarningLineProps = {
   chip: string;
   subject: string;
   detail: string;
-  since: string;
+  since?: string;
   action: { label: string; onClick: () => void };
 };
 
@@ -29,7 +29,7 @@ function DesktopLine({ chip, subject, detail, since, action }: WarningLineProps)
       <SignalChip kind="warn">{chip}</SignalChip>
       <span className="font-bold">{subject}</span>
       <span className="min-w-0 flex-[1_1_16ch] text-warn-dim">{detail}</span>
-      <Since since={since} />
+      {since !== undefined && <Since since={since} />}
       <Button look="warn" onClick={action.onClick}>
         {action.label}
       </Button>
@@ -58,7 +58,7 @@ function WarningRow({ chip, subject, detail, since, action }: WarningLineProps) 
       <div className={`flex flex-col items-start gap-3 p-4 ${line}`}>
         <SignalChip kind="warn">{chip}</SignalChip>
         <p className="text-warn-dim">{detail}</p>
-        <Since since={since} />
+        {since !== undefined && <Since since={since} />}
       </div>
       <Button
         look="warn"

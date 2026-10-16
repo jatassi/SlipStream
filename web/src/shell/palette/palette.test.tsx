@@ -8,6 +8,7 @@ import {
   getListWorksMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../test/library";
+import { homeId } from "../../test/nodes";
 import { asPhone } from "../../test/viewport";
 import { paletteShortcut } from "../palette-state";
 import { renderApp } from "../../test/render-app";
@@ -76,15 +77,21 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
     )
     .toEqual(["Works", "Commands"]);
   expect(optionTexts("Works")).toEqual(["The Quiet OrchardFilm", "Dune: Part TwoFilm"]);
-  expect(optionTexts("Commands")).toEqual([
-    "Go to Library",
-    "Go to FilmsLibrary",
-    "Go to Activity",
-    "Go to This Node",
-    "Add a Film",
-    "Toggle sidebar",
-    "Sign out",
-  ]);
+  await expect
+    .poll(() => optionTexts("Commands"))
+    .toEqual([
+      "Go to Library",
+      "Go to FilmsLibrary",
+      "Go to Activity",
+      "Go to Nodes",
+      "Go to Overviewhome",
+      "Go to Web and APIhome",
+      "Go to Logshome",
+      "Go to Log settingshome",
+      "Add a Film",
+      "Toggle sidebar",
+      "Sign out",
+    ]);
   await expect.element(palette().getByText("Esc")).toBeVisible();
 
   await userEvent.keyboard("{Escape}");
@@ -146,6 +153,20 @@ test("Add a Film opens the Add page for its Content Type", async () => {
   await userEvent.click(capsule());
   await userEvent.click(group("Commands").getByRole("option", { name: "Add a Film" }));
   await expect.poll(() => router.state.location.href).toBe("/add?contentType=cinema");
+});
+
+test("Go to Log settings opens that section of the browser's own Node", async () => {
+  const { router } = renderApp({ path: "/library", handlers: library() });
+  await userEvent.click(capsule());
+  await userEvent.keyboard("log set");
+  await expect.poll(() => optionTexts("Commands")).toEqual(["Go to Log settingshome"]);
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/log-settings`);
+  await expect
+    .element(
+      page.getByRole("navigation", { name: "home" }).getByRole("link", { name: "Log settings" }),
+    )
+    .toHaveAttribute("aria-current", "page");
 });
 
 test("an unmatched query suggests what to try", async () => {

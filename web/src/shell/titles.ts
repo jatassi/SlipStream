@@ -1,5 +1,8 @@
 import { type AnyRouteMatch, useMatches } from "@tanstack/react-router";
 
+import { useShell } from "../ui/shell-context";
+import { landings } from "./nav";
+
 /** A page's title that comes from its data: its loader returns `{ title }`. */
 export const loaderTitle: unique symbol = Symbol("the loader's title");
 
@@ -47,7 +50,25 @@ export function breadcrumbs(matches: readonly AnyRouteMatch[]): Crumb[] {
   return crumbs;
 }
 
-export const useBreadcrumbs = (): Crumb[] => breadcrumbs(useMatches());
+// On phone a nav row's landing page is the destination itself, so it takes
+// the row's label: a pushed page under it says "Nodes", not the Node's name.
+type Placed = { readonly fullPath: string; readonly pathname: string };
+
+function landed(crumbs: readonly Crumb[], matches: readonly Placed[]): Crumb[] {
+  const labels = new Map(
+    matches.flatMap((match) => {
+      const label = landings.get(placeOf(match.fullPath));
+      return label === undefined ? [] : [[placeOf(match.pathname), label] as const];
+    }),
+  );
+  return crumbs.map((crumb) => ({ ...crumb, title: labels.get(crumb.pathname) ?? crumb.title }));
+}
+
+export function useBreadcrumbs(): Crumb[] {
+  const matches = useMatches();
+  const crumbs = breadcrumbs(matches);
+  return useShell() === "phone" ? landed(crumbs, matches) : crumbs;
+}
 
 export const useRouteTitle = (): string | undefined => useBreadcrumbs().at(-1)?.title;
 

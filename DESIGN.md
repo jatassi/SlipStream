@@ -444,7 +444,7 @@ The system has two shells and two densities. The shell follows the viewport and 
 
 - **Desktop shell (768px and up).** Three columns: the sidebar, the content under its top bar, and the Inspector's column when one is open.
   - **Sidebar.** 228px wide, collapsing to a 60px rail. It collapses on its own below 1100px, and the Admin can collapse it at any width with its button or ⌘K "Toggle sidebar". The choice is remembered per browser and holds at 1100px and up. Expanding the rail below 1100px is not remembered. The sidebar is `chrome` with a hairline on its right edge, and the mark (24px) and wordmark (17px) sit at its top beside the collapse button.
-  - **Nav.** Items are 32px tall with 16px icons, `ink-2` until hovered (`fill`), and `selected` with `ink-1` at 500 when current. Activity carries a live count (a white glowing dot and a number), and other rows carry plain counts. A count shows only above zero and can carry an amber or red dot. Content Type rows nest under Library, indented 32px. The system rows, such as This Node, sit below a separator. On the rail, each row is its icon alone, with a Tooltip on the right carrying the label and count, and the live dot pinned to the icon's top right.
+  - **Nav.** Items are 32px tall with 16px icons, `ink-2` until hovered (`fill`), and `selected` with `ink-1` at 500 when current. Activity carries a live count (a white glowing dot and a number), and other rows carry plain counts. A count shows only above zero and can carry an amber or red dot. Content Type rows nest under Library, indented 32px. The system rows, such as Nodes, sit below a separator. A row that lands on a page below its own, as Nodes lands on the Node the browser talks to, stays current on every page under it. On the rail, each row is its icon alone, with a Tooltip on the right carrying the label and count, and the live dot pinned to the icon's top right.
   - **Account.** The sidebar's foot is a 28px avatar with the Account's initial, the display name and "Admin". It opens a menu with Open the portal, the Startup sequence switch and Sign out.
   - **Top bar.** Sticky, 56px tall, laid out as `1fr minmax(320px, 440px) 1fr` with 28px sides. Breadcrumbs sit on the left in `ink-3`, with the current page in `ink-1` at 500. The ⌘K search capsule ("Search Works or run a command", with the platform's shortcut) sits in the middle. The right holds slots in a fixed order: the live connection line, shown only while reconnecting, then later controls such as live rates and the bell, then the page's main action.
   - **Content.** Padding is 24px top, 28px sides and 120px bottom, with a 1480px maximum width and 24px between sections. The page's title opens the content in Sentence type, 24px above what follows.
@@ -453,7 +453,7 @@ The system has two shells and two densities. The shell follows the viewport and 
   - **Admin tab bar.** Glass, fixed to the bottom, with 49px tabs of a 24px icon over a Label. The current tab is `glow` and the rest are `ink-3`. The tabs are the nav's tab rows (Library, then Activity) followed by Search, which opens the palette, and More. Home takes the first tab when its page lands. A count shows as an 18px solid white badge. A tab keeps its last page and scroll position when switched away and back.
   - **More.** An action sheet over the current page with the rest of the nav and its counts, the account (name, Open the portal and Sign out), the Startup sequence switch, the version (`SlipStream <version>`) and Cancel. More is never the current tab.
   - **Portal tab bar.** Home, Search, Requests and Account.
-  - **Navigation.** A page that is not a nav destination is pushed. Its nav bar is glass from the start, with a back link in `glow` labelled with the parent page's title, and the link goes to the parent rather than back in history. Every menu becomes an action sheet, and every Dialog becomes a bottom sheet.
+  - **Navigation.** A page that is not a nav destination is pushed. Its nav bar is glass from the start, with a back link in `glow` labelled with the parent page's title, and the link goes to the parent rather than back in history. A nav row's landing page is that destination's top page and takes the row's label, so a Node's page is titled Nodes and its pushed sections link back to Nodes. Every menu becomes an action sheet, and every Dialog becomes a bottom sheet.
 - **Safe areas.** Bars and sheets pad with `env(safe-area-inset-*)`, and the viewport meta carries `viewport-fit=cover`. Never hard-code the status bar or home indicator height.
 - **Portal in a desktop browser.** A 64px top nav that sits transparent over the hero and turns to glass after 24px of scroll. It holds the wordmark (19px), the four destinations as 40px capsule links in Body touch with `selected` on the current one, and the avatar menu. The gutter is `clamp(24px, 3.6vw, 56px)`, and pages run full bleed.
 - **Sign-in, setup and the Worker page.** No shell. A 400px glass card (radius 14, 24px padding, 20px in Touch) sits centred on the neutral ambient under the wordmark, and its title is Title.
@@ -532,6 +532,12 @@ An iOS-style choice of view or filter.
 - **Phone:** Full width with equal options, scrolling sideways when they overflow.
 - **Semantics:** `role="radiogroup"`.
 
+### Page tabs
+
+The row of links under a page's title that moves between the page's sections, such as a Node's Overview, Web and API, Logs and Log settings. Each section is a route, so the row is a `nav` landmark named for the page's subject, holding links with `aria-current="page"`, never ARIA tabs.
+- **Desktop:** Links are 36px tall in Body at 500, 24px apart, on a hairline that runs the row's width, with 24px below the row. A link is `ink-3`, turning `ink-1` on hover. The current link is `ink-1` with a 2px `glow` underline.
+- **Phone:** No row. The page lists its sections as Touch rows with a chevron, and each section is a pushed page whose back link names the nav destination ("Nodes").
+
 ### Switch
 
 A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. The track is `hsl(var(--h) 20% 90% / .22)` off and `hsl(var(--h) 62% 46%)` on. The track fades over 250ms and the knob slides over 280ms. The whole labelled capsule is the switch target, and a sheet row with a switch is one target.
@@ -544,9 +550,9 @@ A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio i
 
 - **Text field:** A label in Body at 600 and `ink-2` (Body touch in Touch), then a `well` input with a hairline ring, radius 8 and 12px sides, at the input height. Touch inputs set Input touch. Focus is the standard focus ring.
 - **Description and error:** Meta in `ink-3` under the input (Body touch in Touch). An error replaces the description in `fail-ink` with its 14px alert icon.
-- **Read-only value:** The same input set in Data, selecting all on focus, for a value someone copies.
+- **Read-only value:** The same input set in Data, selecting all on focus, for a value someone copies. It can carry a default Copy button beside the input, which toasts "<Label> copied". The button shows only in a secure context, because the browser's clipboard needs one, and a Node on a LAN often answers plain http.
 - **PIN:** Four 40px slots (48px in Touch), 8px apart, masked and numeric.
-- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item.
+- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item. An option can lead with a mark, such as a Node's status dot, and the trigger repeats the chosen option's mark. A mark that means something carries its word for a screen reader.
 - **Search field:** A `fill` capsule with a hairline ring and a 16px search icon, at the control height.
 
 ### Chips and pills
@@ -595,7 +601,7 @@ The compact red or amber row for lists that can grow long: the Conversion queue'
 
 ### Warning line
 
-Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, "since" time and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
+Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, a "since" time when the warning has a start, and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
 
 ### Details
 
@@ -608,6 +614,8 @@ An error stands inside the shell, so the sidebar, bars and tab bar stay and only
 ### Lists and tables
 
 Lists and tables are glass sheets with radius 14, a hairline ring and hairlines between rows. Console rows are 44px for one line and 60px for two. Touch list rows are 54px for one line and 64px for two, in iOS inset groups with 16px gutters, and their hairlines start 16px in from the left. A row's second line is Meta in `ink-3`. Table headers are 32px of Label at `ink-3`. Hover and focus wash a row at `hsl(var(--h) 50% 70% / .1)` over 350ms. A selected row adds a 3px white glowing bar on its left edge. A whole row is one target, with the arrow keys, Home and End moving between rows. A table hides a column below its own container width, and below a set width it stacks each row as a card with its labels above the values.
+
+A list too long to draw whole, such as a Node's log, draws only the rows near its view (`VirtualRows`). It follows the tail while scrolled to the end, stops following once scrolled up, and follows again when scrolled back down.
 
 ### Edition × Target matrix and state squares
 
