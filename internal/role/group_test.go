@@ -7,14 +7,14 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 )
 
-func TestEveryRoleIsInItsGlossaryGroup(t *testing.T) {
+func TestEveryRoleHasItsGlossaryLabelAndGroup(t *testing.T) {
 	var got []string
 	for _, n := range role.Names() {
-		got = append(got, string(n)+":"+string(n.Group()))
+		got = append(got, n.Label()+":"+string(n.Group()))
 	}
 	want := []string{
-		"searching:acquire", "downloading:acquire", "storage:store", "converting:process", "subtitles:process",
-		"metadata:connect", "media-server-link:connect", "notifying:connect", "relaying:reach", "serving:reach",
+		"Searching:acquire", "Downloading:acquire", "Storage:store", "Converting:process", "Subtitles:process",
+		"Metadata:connect", "Media Server link:connect", "Notifying:connect", "Relaying:reach", "Serving:reach",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("groups = %v, want %v", got, want)
