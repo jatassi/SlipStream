@@ -23,6 +23,8 @@ const usageText = `usage: slipstream <command>
   app    [--data-dir <dir>]  run a Node with the tray, opening the setup page
                              while it is Unclaimed
   stop   [--data-dir <dir>]  stop the Node on <dir> and wait until it releases <dir>
+  restart [--data-dir <dir>] restart the Node on <dir> and print its address once
+                             it answers again
   status [--data-dir <dir>]  print the running Node's status as JSON
   config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
   config set [--data-dir <dir>] <key> <value>
@@ -84,6 +86,8 @@ func run(args []string, types contenttype.Set) int {
 		return app(rest, types)
 	case "status":
 		return status(rest, types)
+	case "restart":
+		return restart(rest, types)
 	case "join":
 		return join(rest, types)
 	case "service":
@@ -232,6 +236,20 @@ func changedLine(key string, keys []Key, online bool) string {
 		line += ", applies after restart"
 	}
 	return line
+}
+
+func restart(args []string, types contenttype.Set) int {
+	env, err := nodeEnv("restart", args, types)
+	if err != nil {
+		return usage(err)
+	}
+	reply, err := RestartNode(context.Background(), env)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream restart: %v\n", err)
+		return ExitFailed
+	}
+	fmt.Println(reply.URL)
+	return ExitOK
 }
 
 func status(args []string, types contenttype.Set) int {

@@ -12,3 +12,8 @@ import (
 var icon []byte
 
 func (t *tray) osReady() { systray.SetTemplateIcon(icon, icon) }
+
+// RestartOnMainThread is true because AppKit owns the main thread and
+// exits the process once the tray's exit hook returns, so a restart's exec
+// runs in that hook.
+const RestartOnMainThread = true
