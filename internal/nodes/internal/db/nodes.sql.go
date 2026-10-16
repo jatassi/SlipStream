@@ -21,6 +21,15 @@ func (q *Queries) DeleteAddresses(ctx context.Context, nodeID role.NodeID) error
 	return err
 }
 
+const deleteJoinCodesExpiredBefore = `-- name: DeleteJoinCodesExpiredBefore :exec
+DELETE FROM nodes_join_code WHERE expires_at < ?1
+`
+
+func (q *Queries) DeleteJoinCodesExpiredBefore(ctx context.Context, expiresAt storage.Time) error {
+	_, err := q.db.ExecContext(ctx, deleteJoinCodesExpiredBefore, expiresAt)
+	return err
+}
+
 const deleteRole = `-- name: DeleteRole :exec
 DELETE FROM nodes_role WHERE node_id = ?1 AND role = ?2
 `
