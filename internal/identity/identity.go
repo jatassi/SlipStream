@@ -11,8 +11,10 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 
@@ -166,13 +168,7 @@ func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (
 	}
 	token := newToken()
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		now := storage.Now()
-		idle := storage.FromTime(now.Time().Add(-s.lifetime))
-		if err := q.DeleteIdleSessions(ctx, db.DeleteIdleSessionsParams{AccountID: row.ID, SeenBefore: idle}); err != nil {
-			return err
-		}
-		return insertSession(ctx, q, row.ID, token, a.address, now)
+		return insertSession(ctx, db.New(tx), row.ID, token, a.address, storage.Now())
 	})
 	if err != nil {
 		return Profile{}, nil, err
@@ -308,6 +304,29 @@ func (s *Service) use(ctx context.Context, session SessionID, account AccountID,
 		return slid, err
 	}
 	return current, nil
+}
+
+// PruneSessions deletes every session idle past the session lifetime, for
+// every Account, and ends its streams as a use of it would.
+func (s *Service) PruneSessions(ctx context.Context) error {
+	var pruned []db.DeleteIdleSessionsRow
+	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
+		pruned, err = db.New(tx).DeleteIdleSessions(ctx, storage.FromTime(time.Now().Add(-s.lifetime)))
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("prune idle sessions: %w", err)
+	}
+	var accounts []AccountID
+	for _, p := range pruned {
+		s.ends.EndSession(p.ID.UUID)
+		if !slices.Contains(accounts, p.AccountID) {
+			accounts = append(accounts, p.AccountID)
+			s.sessionsChanged(ctx, p.AccountID)
+		}
+	}
+	return nil
 }
 
 func (s *Service) sessionsChanged(ctx context.Context, account AccountID) {

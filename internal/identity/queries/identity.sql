@@ -33,9 +33,9 @@ UPDATE identity_session SET last_seen_at = sqlc.arg(last_seen_at) WHERE id = sql
 -- name: DeleteSession :exec
 DELETE FROM identity_session WHERE id = sqlc.arg(id);
 
--- name: DeleteIdleSessions :exec
-DELETE FROM identity_session
-WHERE account_id = sqlc.arg(account_id) AND last_seen_at < sqlc.arg(seen_before);
+-- name: DeleteIdleSessions :many
+DELETE FROM identity_session WHERE last_seen_at < sqlc.arg(seen_before)
+RETURNING id, account_id;
 
 -- name: InsertAPIKey :exec
 INSERT INTO identity_api_key (id, token_hash, created_at) VALUES (1, sqlc.arg(token_hash), sqlc.arg(created_at));

@@ -11,19 +11,37 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-const deleteIdleSessions = `-- name: DeleteIdleSessions :exec
-DELETE FROM identity_session
-WHERE account_id = ?1 AND last_seen_at < ?2
+const deleteIdleSessions = `-- name: DeleteIdleSessions :many
+DELETE FROM identity_session WHERE last_seen_at < ?1
+RETURNING id, account_id
 `
 
-type DeleteIdleSessionsParams struct {
-	AccountID  AccountID
-	SeenBefore storage.Time
+type DeleteIdleSessionsRow struct {
+	ID        SessionID
+	AccountID AccountID
 }
 
-func (q *Queries) DeleteIdleSessions(ctx context.Context, arg DeleteIdleSessionsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteIdleSessions, arg.AccountID, arg.SeenBefore)
-	return err
+func (q *Queries) DeleteIdleSessions(ctx context.Context, seenBefore storage.Time) ([]DeleteIdleSessionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, deleteIdleSessions, seenBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DeleteIdleSessionsRow
+	for rows.Next() {
+		var i DeleteIdleSessionsRow
+		if err := rows.Scan(&i.ID, &i.AccountID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteSession = `-- name: DeleteSession :exec
