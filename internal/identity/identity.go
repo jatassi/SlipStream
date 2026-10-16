@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
-	"slices"
 	"strings"
 	"time"
 
@@ -309,20 +308,22 @@ func (s *Service) use(ctx context.Context, session SessionID, account AccountID,
 // PruneSessions deletes every session idle past the session lifetime, for
 // every Account, and ends its streams as a use of it would.
 func (s *Service) PruneSessions(ctx context.Context) error {
-	var pruned []db.DeleteIdleSessionsRow
+	var pruned []db.ListIdleSessionsRow
 	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		before := storage.FromTime(time.Now().Add(-s.lifetime))
 		var err error
-		pruned, err = db.New(tx).DeleteIdleSessions(ctx, storage.FromTime(time.Now().Add(-s.lifetime)))
-		return err
+		if pruned, err = q.ListIdleSessions(ctx, before); err != nil {
+			return err
+		}
+		return q.DeleteIdleSessions(ctx, before)
 	})
 	if err != nil {
 		return fmt.Errorf("prune idle sessions: %w", err)
 	}
-	var accounts []AccountID
-	for _, p := range pruned {
+	for i, p := range pruned {
 		s.ends.EndSession(p.ID.UUID)
-		if !slices.Contains(accounts, p.AccountID) {
-			accounts = append(accounts, p.AccountID)
+		if i == 0 || pruned[i-1].AccountID != p.AccountID {
 			s.sessionsChanged(ctx, p.AccountID)
 		}
 	}

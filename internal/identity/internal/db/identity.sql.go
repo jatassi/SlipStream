@@ -11,37 +11,13 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-const deleteIdleSessions = `-- name: DeleteIdleSessions :many
+const deleteIdleSessions = `-- name: DeleteIdleSessions :exec
 DELETE FROM identity_session WHERE last_seen_at < ?1
-RETURNING id, account_id
 `
 
-type DeleteIdleSessionsRow struct {
-	ID        SessionID
-	AccountID AccountID
-}
-
-func (q *Queries) DeleteIdleSessions(ctx context.Context, seenBefore storage.Time) ([]DeleteIdleSessionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, deleteIdleSessions, seenBefore)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DeleteIdleSessionsRow
-	for rows.Next() {
-		var i DeleteIdleSessionsRow
-		if err := rows.Scan(&i.ID, &i.AccountID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeleteIdleSessions(ctx context.Context, seenBefore storage.Time) error {
+	_, err := q.db.ExecContext(ctx, deleteIdleSessions, seenBefore)
+	return err
 }
 
 const deleteSession = `-- name: DeleteSession :exec
@@ -215,6 +191,39 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.LastSeenAt,
 	)
 	return err
+}
+
+const listIdleSessions = `-- name: ListIdleSessions :many
+SELECT id, account_id FROM identity_session WHERE last_seen_at < ?1
+ORDER BY account_id, id
+`
+
+type ListIdleSessionsRow struct {
+	ID        SessionID
+	AccountID AccountID
+}
+
+func (q *Queries) ListIdleSessions(ctx context.Context, seenBefore storage.Time) ([]ListIdleSessionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIdleSessions, seenBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdleSessionsRow
+	for rows.Next() {
+		var i ListIdleSessionsRow
+		if err := rows.Scan(&i.ID, &i.AccountID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const touchSession = `-- name: TouchSession :exec
