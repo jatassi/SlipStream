@@ -22,7 +22,7 @@ import (
 var nodeSettings = []settingRow{
 	portRow{desc: setting.Port{Key: "http.listen", Label: "Port"}, rowOf: rowOf[netip.AddrPort]{at: func(c *Config) *netip.AddrPort { return &c.HTTP.Listen }}},
 	countRow{
-		desc:  setting.Count{Key: "http.ports_to_try", Label: "Ports to try", Min: 1, Max: 100, Unit: "ports"},
+		desc:  setting.Count{Key: "http.ports_to_try", Label: "Ports to try", Min: 1, Max: 100, Unit: setting.Noun{One: "port", Many: "ports"}},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.HTTP.PortsToTry }},
 	},
 	choiceRow{
@@ -30,15 +30,15 @@ var nodeSettings = []settingRow{
 		rowOf: rowOf[logs.Level]{at: func(c *Config) *logs.Level { return &c.Log.Level }, applier: applyLog},
 	},
 	countRow{
-		desc:  setting.Count{Key: "log.max_size_mb", Label: "Rotate at", Min: 1, Max: 1000, Unit: "MB"},
+		desc:  setting.Count{Key: "log.max_size_mb", Label: "Rotate at", Min: 1, Max: 1000, Unit: setting.Noun{One: "MB", Many: "MB"}},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxSizeMB }, applier: applyLog},
 	},
 	countRow{
-		desc:  setting.Count{Key: "log.max_files", Label: "Files kept", Min: 0, Max: 100, Unit: "files", Zero: "No limit"},
+		desc:  setting.Count{Key: "log.max_files", Label: "Files kept", Min: 0, Max: 100, Unit: setting.Noun{One: "file", Many: "files"}, Zero: "No limit"},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxFiles }, applier: applyLog},
 	},
 	countRow{
-		desc:  setting.Count{Key: "log.max_age_days", Label: "Days kept", Min: 0, Max: 3650, Unit: "days", Zero: "No limit"},
+		desc:  setting.Count{Key: "log.max_age_days", Label: "Days kept", Min: 0, Max: 3650, Unit: setting.Noun{One: "day", Many: "days"}, Zero: "No limit"},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxAgeDays }, applier: applyLog},
 	},
 	switchRow{
@@ -46,7 +46,7 @@ var nodeSettings = []settingRow{
 		rowOf: rowOf[bool]{at: func(c *Config) *bool { return &c.Log.Compress }, applier: applyLog},
 	},
 	countRow{
-		desc:  setting.Count{Key: "log.viewer_lines", Label: "Lines kept for the viewer", Min: 100, Max: 50000, Unit: "lines"},
+		desc:  setting.Count{Key: "log.viewer_lines", Label: "Lines kept for the viewer", Min: 100, Max: 50000, Unit: setting.Noun{One: "line", Many: "lines"}},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.ViewerLines }, applier: applyLog},
 	},
 }

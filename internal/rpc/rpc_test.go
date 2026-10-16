@@ -230,15 +230,15 @@ func TestCallsThatNeverRan(t *testing.T) {
 		c.roster.holders[role.Searching] = []role.NodeID{c.controllerID}
 		_, err = rpctestv1connect.SearchService.On(c.cluster, c.workerID).Search(t.Context(), &rpctestv1.SearchRequest{})
 		want := "failed_precondition: node " + c.workerID.String() + " does not hold the searching Role"
-		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != want {
-			t.Errorf("a Role call the roster refuses = %v, NotSent %v %v", err, why, ok)
+		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != want || rpc.Unheld(err) != role.Searching {
+			t.Errorf("a Role call the roster refuses = %v, NotSent %v %v, Unheld %q", err, why, ok, rpc.Unheld(err))
 		}
 
 		c.roster.holders[role.Searching] = []role.NodeID{c.controllerID, c.workerID}
 		c.workerHolds.Store(false)
 		_, err = rpctestv1connect.SearchService.On(c.cluster, c.workerID).Search(t.Context(), &rpctestv1.SearchRequest{})
-		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != "failed_precondition: this Node does not hold the searching Role" || rpc.Lost(err) {
-			t.Errorf("a Role call the target refuses = %v, NotSent %v %v", err, why, ok)
+		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != "failed_precondition: this Node does not hold the searching Role" || rpc.Lost(err) || rpc.Unheld(err) != role.Searching {
+			t.Errorf("a Role call the target refuses = %v, NotSent %v %v, Unheld %q", err, why, ok, rpc.Unheld(err))
 		}
 		if got := c.searchers[c.workerID].calls.Load(); got != 0 {
 			t.Errorf("the Worker's searcher ran %d times", got)
@@ -246,8 +246,8 @@ func TestCallsThatNeverRan(t *testing.T) {
 
 		stranger := role.NodeID{UUID: storage.NewUUID()}
 		_, err = rpctestv1connect.PingService.On(c.cluster, stranger).Ping(t.Context(), &rpctestv1.PingRequest{})
-		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != "failed_precondition: node "+stranger.String()+" is not in the roster" {
-			t.Errorf("a call to a Node outside the roster = %v, NotSent %v %v", err, why, ok)
+		if why, ok := rpc.NotSent(err); why != rpc.NotHolder || !ok || err.Error() != "failed_precondition: node "+stranger.String()+" is not in the roster" || rpc.Unheld(err) != "" {
+			t.Errorf("a call to a Node outside the roster = %v, NotSent %v %v, Unheld %q", err, why, ok, rpc.Unheld(err))
 		}
 	})
 }

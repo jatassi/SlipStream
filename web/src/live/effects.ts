@@ -6,17 +6,15 @@ import {
 } from "../api/gen/query/grabs/grabs";
 import { getGetSessionQueryKey } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
-import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
 import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
-import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListProfilesQueryKey, getListTargetsQueryKey } from "../api/gen/query/targets/targets";
 import {
   getGetWorkQueryKey,
   getListContentTypesQueryKey,
   getListWorksQueryKey,
 } from "../api/gen/query/works/works";
-// oxlint-disable-next-line import/max-dependencies -- every owner's events invalidate that owner's queries
+import { systemEffects } from "./system-effects";
 import type { LiveEffects } from "./types";
 
 const everyPath = (pattern: RegExp) => ({
@@ -27,17 +25,9 @@ const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 
 export const effects = {
+  ...systemEffects,
   "identity.sessions-changed": (_data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
-  },
-  "nodes.changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListNodesQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
-  },
-  "node.settings-changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
   },
   "works.changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListWorksQueryKey() });

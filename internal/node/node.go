@@ -18,6 +18,9 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	// The Maintenance window names its zone where the OS has no zone
+	// database: Windows and a container with TZ set.
+	_ "time/tzdata"
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -69,6 +72,9 @@ type Env struct {
 	// RestartOf is the PID this process follows after a restart, which
 	// may still hold the data dir; 0 otherwise.
 	RestartOf int
+	// Zone is where the Maintenance window's wall-clock times are kept;
+	// nil is the process's own, time.Local.
+	Zone *time.Location
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -190,6 +196,7 @@ type Node struct {
 	lockstep  *http.ServeMux
 	roleRand  *rand.Rand
 	grabsRand *rand.Rand
+	tasksRand *rand.Rand
 	// systemRand draws the Controller's waits on an offline Node's log.
 	systemRand *rand.Rand
 	// host is what NodeSystemService serves for this Node, and hostMu
@@ -379,6 +386,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.grabsRand = streams.Stream("grabs")
 	n.systemRand = streams.Stream("system")
 	n.host = &nodeHost{n: n}
+	n.tasksRand = streams.Stream("tasks")
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
 		return 0, "", err
 	}

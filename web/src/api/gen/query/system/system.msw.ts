@@ -87,7 +87,10 @@ export const getGetNodeConfigResponseSettingCountFieldMock = (
       ".env",
       "env",
     ] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -320,7 +323,10 @@ export const getUpdateNodeConfigResponseSettingCountFieldMock = (
       ".env",
       "env",
     ] as const),
-    unit: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     value: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }

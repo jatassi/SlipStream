@@ -98,7 +98,6 @@ var (
 	ErrNoLinkAddress = errors.New("the link has no address to advertise")
 )
 
-// JoinCodeLifetime is how long a new Join Code is accepted.
 var JoinCodeLifetime = setting.Duration{
 	Key:     "nodes.joinCodeLifetime",
 	Label:   "Join Code lifetime",
@@ -405,6 +404,24 @@ func (s *Service) MintJoinCode(ctx context.Context) (JoinCode, error) {
 	return JoinCode{Code: code, ExpiresAt: expires.Time()}, nil
 }
 
+// PruneJoinCodes deletes every Join Code that expired more than one Join
+// Code lifetime ago. The grace keeps Pair's answer to a late retry of a
+// used code.
+func (s *Service) PruneJoinCodes(ctx context.Context) error {
+	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		lifetime, err := q.GetJoinCodeLifetime(ctx)
+		if err != nil {
+			return err
+		}
+		return q.DeleteJoinCodesExpiredBefore(ctx, storage.FromTime(time.Now().Add(-JoinCodeLifetime.Value(lifetime))))
+	})
+	if err != nil {
+		return fmt.Errorf("prune Join Codes: %w", err)
+	}
+	return nil
+}
+
 func (s *Service) JoinCodeLifetimeField(ctx context.Context) (setting.DurationField, error) {
 	lifetime, err := db.New(s.cfg.Library).GetJoinCodeLifetime(ctx)
 	if err != nil {
@@ -510,15 +527,36 @@ func (s *Service) AwaitInStep(ctx context.Context, node ID) error {
 }
 
 func (s *Service) inStep(node ID) bool {
+	state, _ := s.Reach(node)
+	return state == Local || state == Up
+}
+
+// Reach is how the Controller reaches node now and since when: Local for
+// itself, Up when its link is live and on this build, Mismatched when live
+// on another, and Down otherwise. A Node that can start work is Local or
+// Up.
+func (s *Service) Reach(node ID) (LinkState, time.Time) {
 	if node == s.self {
-		return true
+		return Local, s.opened
 	}
 	key, ok := s.Key(node)
 	if !ok {
-		return false
+		return Down, s.opened
+	}
+	s.mu.Lock()
+	since, ok := s.since[key]
+	s.mu.Unlock()
+	if !ok {
+		since = s.opened
 	}
 	up, ok := s.cfg.Link.State(key).(link.Live)
-	return ok && up.Matched
+	switch {
+	case !ok:
+		return Down, since
+	case !up.Matched:
+		return Mismatched, since
+	}
+	return Up, since
 }
 
 func (s *Service) awaitChange(node ID) <-chan struct{} {
@@ -640,6 +678,25 @@ type Node struct {
 	Facts *nodev1.NodeFacts
 }
 
+type Named struct {
+	ID   ID
+	Name string
+}
+
+// Names is every Node's id and name in id order, so the Controller's own
+// row, the first paired, comes first.
+func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
+	rows, err := db.New(r).ListNodes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the Nodes: %w", err)
+	}
+	out := make([]Named, len(rows))
+	for i, row := range rows {
+		out[i] = Named{ID: row.ID, Name: row.Name}
+	}
+	return out, nil
+}
+
 // List is every Node, in id order.
 func (s *Service) List(ctx context.Context) ([]Node, error) {
 	q := db.New(s.cfg.Library)
@@ -734,27 +791,19 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 		Addresses: addrs,
 		Roles:     roles,
 		Version:   version,
-		Since:     s.opened,
 	}
 	n.Facts, _ = s.controls.NodeFacts(row.ID)
+	n.Link, n.Since = s.Reach(row.ID)
 	if n.Self {
 		own := s.cfg.Node
-		n.Link, n.Build = Local, &own
+		n.Build = &own
 		if advertised, ok := s.cfg.Link.Advertised(); ok {
 			n.Addresses = advertised
 		}
 		return n, nil
 	}
-	s.mu.Lock()
-	if since, ok := s.since[key]; ok {
-		n.Since = since
-	}
-	s.mu.Unlock()
 	if up, ok := s.cfg.Link.State(key).(link.Live); ok {
-		n.Link, n.Build = Up, &up.Peer
-		if !up.Matched {
-			n.Link = Mismatched
-		}
+		n.Build = &up.Peer
 	}
 	return n, nil
 }

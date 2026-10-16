@@ -663,6 +663,14 @@ export const SettingChoiceField = zod.object({
 export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
 export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
 
+export const SettingNoun = zod.object({
+  many: zod.string(),
+  one: zod.string(),
+});
+
+export type SettingNoun = zod.input<typeof SettingNoun>;
+export type SettingNounOutput = zod.output<typeof SettingNoun>;
+
 export const SettingCountField = zod.object({
   applies: zod.enum(["live", "restart"]),
   default: zod.int(),
@@ -691,7 +699,7 @@ export const SettingCountField = zod.object({
     .describe("The saved value differs from the running one until the Node restarts"),
   running: zod.int(),
   source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  unit: zod.string(),
+  unit: SettingNoun,
   value: zod.int(),
   zero: zod.string().exactOptional().describe("The words for 0, such as No limit"),
 });
@@ -990,6 +998,315 @@ export const TargetsTargetList = zod.object({
 
 export type TargetsTargetList = zod.input<typeof TargetsTargetList>;
 export type TargetsTargetListOutput = zod.output<typeof TargetsTargetList>;
+
+export const TasksCadence = zod.object({
+  field: SettingDurationField,
+  inWindow: zod
+    .boolean()
+    .describe("The task starts in the Maintenance window, every field.value seconds in whole days"),
+  words: zod.string().describe("The cadence as the Tasks page says it, such as Every 8 h"),
+});
+
+export type TasksCadence = zod.input<typeof TasksCadence>;
+export type TasksCadenceOutput = zod.output<typeof TasksCadence>;
+
+export const TasksChanged = zod.object({
+  taskId: zod.string(),
+});
+
+export type TasksChanged = zod.input<typeof TasksChanged>;
+export type TasksChangedOutput = zod.output<typeof TasksChanged>;
+
+export const TasksRunUnit = zod.object({
+  cause: zod.string().nullable().describe("Why it failed or was skipped, null when it succeeded"),
+  key: zod.string(),
+  label: zod.string(),
+  node: zod.string().describe("Empty when the Node is no longer paired"),
+  outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
+});
+
+export type TasksRunUnit = zod.input<typeof TasksRunUnit>;
+export type TasksRunUnitOutput = zod.output<typeof TasksRunUnit>;
+
+export const TasksRun = zod.object({
+  cause: zod.string().nullable().describe("The first failure's cause, null when none"),
+  endedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while it runs"),
+  id: zod.int(),
+  nodes: zod.array(zod.string()).describe("The Nodes its units ran on"),
+  result: zod
+    .union([
+      zod.literal("succeeded"),
+      zod.literal("partial"),
+      zod.literal("failed"),
+      zod.literal("skipped"),
+      zod.literal("canceled"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null while it runs"),
+  startedAt: zod.iso.datetime({ offset: true }),
+  summary: zod.string().describe("Such as 5 of 6 steps, seedbox offline; empty while it runs"),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  units: zod
+    .array(TasksRunUnit)
+    .describe(
+      "Each unit's outcome as the run ended, kept after the unit is gone; empty while it runs",
+    ),
+});
+
+export type TasksRun = zod.input<typeof TasksRun>;
+export type TasksRunOutput = zod.output<typeof TasksRun>;
+
+export const TasksRunNow = zod.object({
+  available: zod.boolean(),
+  reason: zod
+    .enum(["running", "waiting"])
+    .exactOptional()
+    .describe("Why Run now is unavailable; absent when it is available"),
+});
+
+export type TasksRunNow = zod.input<typeof TasksRunNow>;
+export type TasksRunNowOutput = zod.output<typeof TasksRunNow>;
+
+export const TasksIdleState = zod.object({
+  kind: zod.enum(["idle"]),
+  next: zod.iso
+    .datetime({ offset: true })
+    .describe("When the next run is due; now when it is due already"),
+});
+
+export type TasksIdleState = zod.input<typeof TasksIdleState>;
+export type TasksIdleStateOutput = zod.output<typeof TasksIdleState>;
+
+export const tasksRunningStateDoneMin = 0;
+
+export const tasksRunningStateTotalMin = 0;
+
+export const TasksRunningState = zod.object({
+  done: zod.int().min(tasksRunningStateDoneMin),
+  kind: zod.enum(["running"]),
+  runId: zod.int(),
+  since: zod.iso.datetime({ offset: true }),
+  total: zod.int().min(tasksRunningStateTotalMin),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+});
+
+export type TasksRunningState = zod.input<typeof TasksRunningState>;
+export type TasksRunningStateOutput = zod.output<typeof TasksRunningState>;
+
+export const TasksWaitingState = zod.object({
+  kind: zod.enum(["waiting"]),
+  link: zod.enum(["down", "mismatched"]),
+  node: zod.string().describe("The Node every unit waits for"),
+  since: zod.iso.datetime({ offset: true }).describe("When the Node's link entered that state"),
+});
+
+export type TasksWaitingState = zod.input<typeof TasksWaitingState>;
+export type TasksWaitingStateOutput = zod.output<typeof TasksWaitingState>;
+
+export const TasksState = zod.discriminatedUnion("kind", [
+  TasksIdleState,
+  TasksRunningState,
+  TasksWaitingState,
+]);
+
+export type TasksState = zod.input<typeof TasksState>;
+export type TasksStateOutput = zod.output<typeof TasksState>;
+
+export const TasksTask = zod.object({
+  about: zod.string(),
+  cadence: TasksCadence,
+  group: zod.enum(["controller", "acquire", "store", "process", "connect", "reach"]),
+  id: zod.string(),
+  lastRun: TasksRun.exactOptional().describe("The latest finished run, absent before one has"),
+  name: zod.string(),
+  nodes: zod.array(zod.string()).describe("The Nodes its units run on"),
+  noun: SettingNoun.describe("What its progress counts: 3 of 12 steps"),
+  overdue: SettingChoiceField,
+  runNow: TasksRunNow,
+  state: TasksState,
+});
+
+export type TasksTask = zod.input<typeof TasksTask>;
+export type TasksTaskOutput = zod.output<typeof TasksTask>;
+
+export const TasksUnit = zod.object({
+  cause: zod.string().nullable().describe("Why it last failed or was skipped, null otherwise"),
+  dueOnReturn: zod.boolean().describe("It runs once when its Node returns"),
+  endedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When it last ended, null before it has run"),
+  key: zod.string(),
+  label: zod.string(),
+  lastSuccessAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null before it has succeeded"),
+  node: zod.string().describe("The Node it runs on"),
+  outcome: zod
+    .union([
+      zod.literal("succeeded"),
+      zod.literal("failed"),
+      zod.literal("skipped"),
+      zod.literal("canceled"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Its last outcome, null before it has run"),
+});
+
+export type TasksUnit = zod.input<typeof TasksUnit>;
+export type TasksUnitOutput = zod.output<typeof TasksUnit>;
+
+export const TasksDetail = zod.object({
+  runs: zod.array(TasksRun).describe("Its runs, newest first, up to the runs kept"),
+  task: TasksTask,
+  units: zod.array(TasksUnit).describe("Each unit it lists now, in run order"),
+});
+
+export type TasksDetail = zod.input<typeof TasksDetail>;
+export type TasksDetailOutput = zod.output<typeof TasksDetail>;
+
+export const TasksFailurePart = zod.object({
+  href: zod.string().describe("The task's page"),
+  kind: zod.enum(["failure"]),
+  text: zod.string(),
+});
+
+export type TasksFailurePart = zod.input<typeof TasksFailurePart>;
+export type TasksFailurePartOutput = zod.output<typeof TasksFailurePart>;
+
+export const TasksGroup = zod.object({
+  group: zod.enum(["controller", "acquire", "store", "process", "connect", "reach"]),
+  tasks: zod.array(TasksTask).min(1),
+});
+
+export type TasksGroup = zod.input<typeof TasksGroup>;
+export type TasksGroupOutput = zod.output<typeof TasksGroup>;
+
+export const tasksOpenRunDoneMin = 0;
+
+export const tasksOpenRunTotalMin = 0;
+
+export const TasksOpenRun = zod.object({
+  done: zod.int().min(tasksOpenRunDoneMin),
+  name: zod.string().describe("The task's name"),
+  nodes: zod.array(zod.string()).describe("The Nodes its units run on"),
+  noun: SettingNoun.describe("What its progress counts: 3 of 12 steps"),
+  runId: zod.int(),
+  startedAt: zod.iso.datetime({ offset: true }),
+  taskId: zod.string(),
+  total: zod.int().min(tasksOpenRunTotalMin),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+});
+
+export type TasksOpenRun = zod.input<typeof TasksOpenRun>;
+export type TasksOpenRunOutput = zod.output<typeof TasksOpenRun>;
+
+export const TasksOpenRuns = zod.object({
+  headerDelaySeconds: zod
+    .int()
+    .describe(
+      "How long a scheduled run is open before the header shows it; a run-now run shows at once",
+    ),
+  runs: zod.array(TasksOpenRun).describe("Oldest first"),
+});
+
+export type TasksOpenRuns = zod.input<typeof TasksOpenRuns>;
+export type TasksOpenRunsOutput = zod.output<typeof TasksOpenRuns>;
+
+export const TasksPlainPart = zod.object({
+  kind: zod.enum(["plain"]),
+  text: zod.string(),
+});
+
+export type TasksPlainPart = zod.input<typeof TasksPlainPart>;
+export type TasksPlainPartOutput = zod.output<typeof TasksPlainPart>;
+
+export const TasksWarningPart = zod.object({
+  href: zod.string().describe("The task's page"),
+  kind: zod.enum(["warning"]),
+  text: zod.string(),
+});
+
+export type TasksWarningPart = zod.input<typeof TasksWarningPart>;
+export type TasksWarningPartOutput = zod.output<typeof TasksWarningPart>;
+
+export const TasksPart = zod.discriminatedUnion("kind", [
+  TasksPlainPart,
+  TasksWarningPart,
+  TasksFailurePart,
+]);
+
+export type TasksPart = zod.input<typeof TasksPart>;
+export type TasksPartOutput = zod.output<typeof TasksPart>;
+
+export const TasksSchedule = zod.object({
+  headerDelay: SettingDurationField,
+  jitterCap: SettingDurationField,
+  jitterPercent: SettingCountField,
+  overdue: SettingChoiceField,
+  partialWarnIntervals: SettingCountField,
+  runsKept: SettingCountField,
+  window: SettingWindowField,
+});
+
+export type TasksSchedule = zod.input<typeof TasksSchedule>;
+export type TasksScheduleOutput = zod.output<typeof TasksSchedule>;
+
+export const TasksOverview = zod.object({
+  groups: zod.array(TasksGroup).describe("Each group with a shown task, in the page's fixed order"),
+  multinode: zod
+    .boolean()
+    .describe("The install has more than one Node, so the Tasks page shows a Node column"),
+  sentence: zod.array(TasksPart).min(1).describe("The status sentence's parts, in order"),
+  settings: TasksSchedule,
+});
+
+export type TasksOverview = zod.input<typeof TasksOverview>;
+export type TasksOverviewOutput = zod.output<typeof TasksOverview>;
+
+export const TasksProgressed = zod.object({
+  done: zod.int(),
+  runId: zod.int(),
+  taskId: zod.string(),
+  total: zod.int(),
+});
+
+export type TasksProgressed = zod.input<typeof TasksProgressed>;
+export type TasksProgressedOutput = zod.output<typeof TasksProgressed>;
+
+export const TasksRunStarted = zod.object({
+  runId: zod.int(),
+});
+
+export type TasksRunStarted = zod.input<typeof TasksRunStarted>;
+export type TasksRunStartedOutput = zod.output<typeof TasksRunStarted>;
+
+export const TasksSchedulePatch = zod.object({
+  headerDelay: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  jitterCap: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  jitterPercent: zod.int().nullish().describe("null resets it to its default"),
+  overdue: zod.string().nullish().describe("catch-up or wait; null resets it to its default"),
+  partialWarnIntervals: zod.int().nullish().describe("null resets it to its default"),
+  runsKept: zod.int().nullish().describe("null resets it to its default"),
+  window: zod
+    .union([SettingTimes, zod.null()])
+    .exactOptional()
+    .describe("null resets it to its default"),
+});
+
+export type TasksSchedulePatch = zod.input<typeof TasksSchedulePatch>;
+export type TasksSchedulePatchOutput = zod.output<typeof TasksSchedulePatch>;
+
+export const TasksTaskPatch = zod.object({
+  cadence: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  overdue: zod.string().nullish().describe("catch-up or wait; null resets it to its default"),
+});
+
+export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
+export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
 
 export const WorksTextValue = zod.object({
   key: zod.string(),
@@ -1323,6 +1640,22 @@ export const LiveEventTargetsChanged = zod.object({
 export type LiveEventTargetsChanged = zod.input<typeof LiveEventTargetsChanged>;
 export type LiveEventTargetsChangedOutput = zod.output<typeof LiveEventTargetsChanged>;
 
+export const LiveEventTasksChanged = zod.object({
+  event: zod.enum(["tasks.changed"]),
+  data: TasksChanged,
+});
+
+export type LiveEventTasksChanged = zod.input<typeof LiveEventTasksChanged>;
+export type LiveEventTasksChangedOutput = zod.output<typeof LiveEventTasksChanged>;
+
+export const LiveEventTasksProgress = zod.object({
+  event: zod.enum(["tasks.progress"]),
+  data: TasksProgressed,
+});
+
+export type LiveEventTasksProgress = zod.input<typeof LiveEventTasksProgress>;
+export type LiveEventTasksProgressOutput = zod.output<typeof LiveEventTasksProgress>;
+
 export const LiveEventWorksChanged = zod.object({
   event: zod.enum(["works.changed"]),
   data: WorksWorkChanged,
@@ -1353,6 +1686,8 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventNodesChanged,
   LiveEventRootsChanged,
   LiveEventTargetsChanged,
+  LiveEventTasksChanged,
+  LiveEventTasksProgress,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
 ]);

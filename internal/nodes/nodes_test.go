@@ -418,3 +418,68 @@ func TestTheLifetimeMigrationKeepsOnlyAnOverride(t *testing.T) {
 		})
 	}
 }
+
+func TestPruneJoinCodesKeepsAnExpiredCodeOneLifetime(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		c.mint(t)
+		time.Sleep(90 * time.Minute)
+		c.mint(t)
+		expiries := func() []string {
+			var out []string
+			for _, v := range cells(t, c.lib, "SELECT datetime(expires_at / 1000000, 'unixepoch') FROM nodes_join_code ORDER BY expires_at") {
+				out = append(out, string(v))
+			}
+			return out
+		}
+		for _, step := range []struct {
+			at   string
+			want []string
+		}{
+			{"2000-01-01T02:00:00Z", []string{"2000-01-01 01:00:00", "2000-01-01 02:30:00"}},
+			{"2000-01-01T02:00:01Z", []string{"2000-01-01 02:30:00"}},
+		} {
+			at, err := time.Parse(time.RFC3339, step.at)
+			if err != nil {
+				t.Fatal(err)
+			}
+			time.Sleep(time.Until(at))
+			if err := c.svc.PruneJoinCodes(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if got := expiries(); !slices.Equal(got, step.want) {
+				t.Fatalf("codes left after a prune at %s expire at %q, want %q", step.at, got, step.want)
+			}
+		}
+	})
+}
+
+func TestReachIsEachNodesLinkAndWhenItEnteredIt(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		opened := time.Now()
+		w := c.worker(t, "box", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "box")
+		reach := func(node role.NodeID, link nodes.LinkState, since time.Time) {
+			t.Helper()
+			if got, at := c.svc.Reach(node); got != link || !at.Equal(since) {
+				t.Errorf("Reach(%s) = %s since %s, want %s since %s", node, got, at, link, since)
+			}
+		}
+		synctest.Wait()
+		reach(c.svc.Self(), nodes.Local, opened)
+		reach(id, nodes.Up, opened)
+		reach(role.NodeID{UUID: storage.NewUUID()}, nodes.Down, opened)
+		time.Sleep(time.Minute)
+		w.Drop(c.node.Key)
+		synctest.Wait()
+		reach(id, nodes.Down, opened.Add(time.Minute))
+		time.Sleep(time.Minute)
+		w.Keep(c.node.Target())
+		if err := c.svc.AwaitInStep(t.Context(), id); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		reach(id, nodes.Up, opened.Add(2*time.Minute))
+	})
+}

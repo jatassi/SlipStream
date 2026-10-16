@@ -6,9 +6,11 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connectproto"
 
 	"github.com/jatassi/slipstream/internal/link"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 // Code is a call's error code, the same on the wire and in process.
@@ -86,6 +88,21 @@ func NotSent(err error) (Why, bool) {
 		}
 	}
 	return 0, false
+}
+
+// Unheld is the Role a NotHolder refusal names, "" when err is none or
+// names no Role, as for a Node the roster lacks.
+func Unheld(err error) role.Name {
+	if ce, ok := errors.AsType[*connect.Error](err); ok {
+		for _, d := range ce.Details() {
+			if v, err := connectproto.UnmarshalErrorDetail(d); err == nil {
+				if nh, ok := v.(*nodev1.NotHolder); ok {
+					return role.Name(nh.GetRole())
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // Lost reports a call whose request left before the link died or the call

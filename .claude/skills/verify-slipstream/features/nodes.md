@@ -11,8 +11,8 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Nodes`, below the separator, which opens `/nodes` and lands on `/nodes/<id>`; the page tabs `Overview`, `Web and API`, `Logs` and `Log settings` sit under the Node's name. The `Nodes` row stays current on every Node page.
-- Phone shell: the `More` tab, then `Nodes`, then a section's row.
+- Desktop shell: the sidebar's `Nodes`, below the separator and above `Tasks`, which opens `/nodes` and lands on `/nodes/<id>`; the page tabs `Overview`, `Web and API`, `Logs` and `Log settings` sit under the Node's name. The `Nodes` row stays current on every Node page.
+- Phone shell: the `More` tab, then `Nodes`, listed above `Tasks`, then a section's row.
 - Both shells: the palette's `Go to Nodes`, and `Go to Overview`, `Go to Web and API`, `Go to Logs` and `Go to Log settings` for the browser's own Node.
 - API: `GET /api/v1/system`, and `GET /api/v1/nodes` for the Node ids.
 - Host CLI: `slipstream version` prints the same build stamp.

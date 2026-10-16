@@ -50,7 +50,7 @@ type CountField struct {
 	Default int64  `json:"default"`
 	Min     int64  `json:"min"`
 	Max     int64  `json:"max"`
-	Unit    string `json:"unit"`
+	Unit    Noun   `json:"unit"`
 	Zero    string `json:"zero,omitempty" doc:"The words for 0, such as No limit"`
 	Floor   string `json:"floor,omitempty" doc:"Why the minimum protects someone outside the install"`
 }
@@ -79,7 +79,6 @@ type WindowField struct {
 	Zone    string `json:"zone" doc:"The time zone's name, such as Europe/London"`
 }
 
-// Times is a window's start and end as "HH:MM".
 type Times struct {
 	Start string `json:"start" doc:"HH:MM"`
 	End   string `json:"end" doc:"HH:MM, before start when the window crosses midnight"`

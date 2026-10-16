@@ -68,9 +68,9 @@ func (d Duration) Parse(seconds *int64) (Stored[int64], error) {
 	v := time.Duration(*seconds) * time.Second
 	switch {
 	case v < d.Min && d.Floor != "":
-		return Stored[int64]{}, refuse(d.Key, "No faster than %s. %s", words(d.Min), d.Floor)
+		return Stored[int64]{}, refuse(d.Key, "No faster than %s. %s", Words(d.Min), d.Floor)
 	case v < d.Min || v > d.Max:
-		return Stored[int64]{}, refuse(d.Key, "Between %s and %s.", words(d.Min), words(d.Max))
+		return Stored[int64]{}, refuse(d.Key, "Between %s and %s.", Words(d.Min), Words(d.Max))
 	case v%d.Step != 0:
 		return Stored[int64]{}, refuse(d.Key, "In whole %s.", stepWords[d.Step])
 	}
@@ -105,8 +105,8 @@ var stepWords = map[time.Duration]string{time.Second: "seconds", time.Minute: "m
 
 func seconds(d time.Duration) int64 { return int64(d / time.Second) }
 
-// words writes d in its largest whole unit: "1 day", "8 h", "10 min", "5 s".
-func words(d time.Duration) string {
+// Words writes d in its largest whole unit: "1 day", "8 h", "10 min", "5 s".
+func Words(d time.Duration) string {
 	switch {
 	case d == day:
 		return "1 day"
@@ -120,12 +120,22 @@ func words(d time.Duration) string {
 	return fmt.Sprintf("%d s", d/time.Second)
 }
 
-// Count is a whole number of Unit between Min and Max. Zero, when set, is
-// the words for 0, such as "No limit".
+type Noun struct {
+	One  string `json:"one"`
+	Many string `json:"many"`
+}
+
+func (u Noun) Of(n int64) string {
+	if n == 1 {
+		return u.One
+	}
+	return u.Many
+}
+
 type Count struct {
 	Key, Label        string
 	Default, Min, Max int64
-	Unit              string
+	Unit              Noun
 	Zero              string
 	Floor             string
 }
@@ -152,10 +162,10 @@ func (c Count) Parse(n *int64) (Stored[int64], error) {
 }
 
 func (c Count) words(n int64) string {
-	if c.Unit == "%" {
+	if c.Unit.Many == "%" {
 		return fmt.Sprintf("%d%%", n)
 	}
-	return fmt.Sprintf("%d %s", n, c.Unit)
+	return fmt.Sprintf("%d %s", n, c.Unit.Of(n))
 }
 
 func (c Count) Field(override *int64) CountField {
@@ -187,7 +197,6 @@ func checkRange[T int64 | time.Duration](key string, def, lo, hi, step T) error 
 	return nil
 }
 
-// Option is one value a Choice offers, with the words a person reads.
 type Option[T ~string] struct {
 	Value T
 	Label string

@@ -1,7 +1,3 @@
-// Package settingapi is the wire side of setting descriptors: the field
-// union SettingField renders and the code that refuses a value outside
-// its setting's range. Each owner's operations serve and save its own
-// settings with them.
 package settingapi
 
 import (

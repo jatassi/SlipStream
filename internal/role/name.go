@@ -33,6 +33,14 @@ var names = []Name{Searching, Downloading, Storage, Converting, Subtitles, Metad
 // Names is every Role, in the glossary's order.
 func Names() []Name { return slices.Clone(names) }
 
+var labels = map[Name]string{
+	Searching: "Searching", Downloading: "Downloading", Storage: "Storage", Converting: "Converting",
+	Subtitles: "Subtitles", Metadata: "Metadata", MediaServerLink: "Media Server link", Notifying: "Notifying",
+	Relaying: "Relaying", Serving: "Serving",
+}
+
+func (n Name) Label() string { return labels[n] }
+
 func ParseName(s string) (Name, error) {
 	if n := Name(s); slices.Contains(names, n) {
 		return n, nil

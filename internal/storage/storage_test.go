@@ -635,3 +635,19 @@ func TestInWriteReportsEitherFilesWriter(t *testing.T) {
 		t.Errorf("InWrite inside library, local, both = %v; want all true", got)
 	}
 }
+
+func TestOptimizeRunsOnBothFiles(t *testing.T) {
+	lib := storagetest.Library(t, shelf.Schema())
+	local := storagetest.Local(t, outbox())
+	if err := lib.Optimize(t.Context()); err != nil {
+		t.Errorf("library.db: %v", err)
+	}
+	if err := local.Optimize(t.Context()); err != nil {
+		t.Errorf("local.db: %v", err)
+	}
+	assertPanics(t, "storage: Write inside Write on library.db deadlocks; pass the Tx", func() {
+		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
+			return lib.Optimize(ctx)
+		})
+	})
+}

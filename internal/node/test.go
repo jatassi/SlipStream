@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/transfers"
 )
 
@@ -28,6 +29,9 @@ type Test struct {
 	// Held is the holder halves this Node runs beside the binary's own,
 	// given its local.db, each time a half starts.
 	Held func(local *storage.DB[storage.Local]) []role.Held
+	// Tasks is Scheduled tasks the Controller runs after the binary's own,
+	// given the Controller half before it runs.
+	Tasks func(Half) []tasks.Task
 	// Started sees each half once it runs.
 	Started func(Half)
 	// Lockstep wraps the handler the link serves lockstep requests with.
@@ -54,6 +58,13 @@ func (t Test) held(local *storage.DB[storage.Local]) []role.Held {
 		return nil
 	}
 	return t.Held(local)
+}
+
+func (t Test) tasks(h Half) []tasks.Task {
+	if t.Tasks == nil {
+		return nil
+	}
+	return t.Tasks(h)
 }
 
 func (t Test) lockstep(h http.Handler) http.Handler {

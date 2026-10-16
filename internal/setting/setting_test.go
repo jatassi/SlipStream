@@ -65,8 +65,9 @@ func TestDurationParse(t *testing.T) {
 }
 
 func TestCountParse(t *testing.T) {
-	jitter := setting.Count{Key: "tasks.jitterPercent", Label: "Jitter", Default: 10, Min: 0, Max: 50, Unit: "%"}
-	runs := setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: "runs"}
+	jitter := setting.Count{Key: "tasks.jitterPercent", Label: "Jitter", Default: 10, Min: 0, Max: 50, Unit: setting.Noun{One: "%", Many: "%"}}
+	runs := setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: setting.Noun{One: "run", Many: "runs"}}
+	floored := setting.Count{Key: "tasks.retries", Label: "Retries", Default: 3, Min: 1, Max: 5, Unit: setting.Noun{One: "try", Many: "tries"}, Floor: "One try at least."}
 	for _, tc := range []struct {
 		name    string
 		c       setting.Count
@@ -76,6 +77,7 @@ func TestCountParse(t *testing.T) {
 		{"inside", runs, 1000, ""},
 		{"below", runs, 0, "Between 1 and 1000 runs."},
 		{"above a percentage", jitter, 51, "Between 0 and 50%."},
+		{"below a floor of one", floored, 0, "At least 1 try. One try at least."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := tc.c.Parse(&tc.n)
@@ -153,16 +155,16 @@ func TestFieldReportsIsDefault(t *testing.T) {
 			`{"key":"tasks.rss.cadence","label":"RSS sync","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":900,"min":600,"max":7200,"step":60,"floor":"Private trackers ban for hammering."}`,
 		},
 		{
-			"a count", setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: "runs"}.Field(ptr[int64](20)),
-			`{"key":"tasks.runsKept","label":"Runs kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":20,"running":20,"default":50,"min":1,"max":1000,"unit":"runs"}`,
+			"a count", setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: setting.Noun{One: "run", Many: "runs"}}.Field(ptr[int64](20)),
+			`{"key":"tasks.runsKept","label":"Runs kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":20,"running":20,"default":50,"min":1,"max":1000,"unit":{"one":"run","many":"runs"}}`,
 		},
 		{
 			"a choice following another setting", setting.Choice[overdue]{Key: "tasks.housekeeping.overdue", Label: "When overdue", Default: "wait", DefaultFrom: "Scheduled tasks", Options: rule.Options}.Field(nil),
 			`{"key":"tasks.housekeeping.overdue","label":"When overdue","defaultFrom":"Scheduled tasks","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"wait","running":"wait","default":"wait","options":[{"value":"catch-up","label":"Catch up"},{"value":"wait","label":"Wait"}]}`,
 		},
 		{
-			"a count with words for zero", setting.Count{Key: "log.max_files", Label: "Files kept", Default: 5, Max: 100, Unit: "files", Zero: "No limit"}.Field(ptr[int64](0)),
-			`{"key":"log.max_files","label":"Files kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":0,"running":0,"default":5,"min":0,"max":100,"unit":"files","zero":"No limit"}`,
+			"a count with words for zero", setting.Count{Key: "log.max_files", Label: "Files kept", Default: 5, Max: 100, Unit: setting.Noun{One: "file", Many: "files"}, Zero: "No limit"}.Field(ptr[int64](0)),
+			`{"key":"log.max_files","label":"Files kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":0,"running":0,"default":5,"min":0,"max":100,"unit":{"one":"file","many":"files"},"zero":"No limit"}`,
 		},
 		{
 			"a port", setting.Port{Key: "http.listen", Label: "Port", Default: 8484}.Field(ptr[uint16](9000)),

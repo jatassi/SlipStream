@@ -170,13 +170,19 @@ func (e entry) visibleTo(v Viewer) bool {
 type Hub struct {
 	events map[string]Event
 
-	mu     sync.Mutex
-	ring   [ringSize]entry
-	base   int64
-	head   int64
-	notify chan struct{}
-	subs   map[*Subscription]struct{}
-	closed bool
+	mu       sync.Mutex
+	ring     [ringSize]entry
+	base     int64
+	head     int64
+	notify   chan struct{}
+	subs     map[*Subscription]struct{}
+	watchers map[*watcher]struct{}
+	closed   bool
+}
+
+type watcher struct {
+	names map[string]bool
+	woken chan struct{}
 }
 
 // NewHub builds a hub over every declared event. It panics on a duplicate
@@ -199,12 +205,33 @@ func NewHub(events []Event) *Hub {
 	}
 	base := time.Now().UnixMicro()
 	return &Hub{
-		events: byName,
-		base:   base,
-		head:   base,
-		notify: make(chan struct{}),
-		subs:   make(map[*Subscription]struct{}),
+		events:   byName,
+		base:     base,
+		head:     base,
+		notify:   make(chan struct{}),
+		subs:     make(map[*Subscription]struct{}),
+		watchers: make(map[*watcher]struct{}),
 	}
+}
+
+// Watch is a wake for Go code that follows events: the channel receives
+// after one or more of events is published, however many were since it
+// last received, until ctx ends.
+func (h *Hub) Watch(ctx context.Context, events ...Event) <-chan struct{} {
+	w := &watcher{names: map[string]bool{}, woken: make(chan struct{}, 1)}
+	for _, e := range events {
+		h.mustDeclare(e)
+		w.names[e.Name()] = true
+	}
+	h.mu.Lock()
+	h.watchers[w] = struct{}{}
+	h.mu.Unlock()
+	context.AfterFunc(ctx, func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		delete(h.watchers, w)
+	})
+	return w.woken
 }
 
 // Events is every event the hub carries, its two control events included,
@@ -232,6 +259,14 @@ func (h *Hub) publish(ctx context.Context, e Event, account storage.UUID, data a
 		account:  account,
 	}
 	h.wake()
+	for w := range h.watchers {
+		if w.names[e.Name()] {
+			select {
+			case w.woken <- struct{}{}:
+			default:
+			}
+		}
+	}
 }
 
 // wake runs under mu. Closing the channel wakes every waiting reader at

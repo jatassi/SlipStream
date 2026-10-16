@@ -8,10 +8,12 @@ const shellLook = {
 } as const;
 
 export function Section({
+  id,
   title,
   count,
   children,
 }: {
+  id?: string;
   title: string;
   count?: number;
   children: ReactNode;
@@ -19,7 +21,7 @@ export function Section({
   const look = shellLook[useShell()];
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className={look.section}>
+    <section id={id} aria-labelledby={titleId} className={`scroll-mt-20 ${look.section}`}>
       <h2 className={`mb-3 flex items-baseline gap-2 text-ink-1 ${look.title}`}>
         <span id={titleId}>{title}</span>
         {count !== undefined && (

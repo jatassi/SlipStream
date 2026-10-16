@@ -1,6 +1,7 @@
 import type { SettingCountFieldApplies } from "./settingCountFieldApplies.ts";
 import type { SettingCountFieldKind } from "./settingCountFieldKind.ts";
 import type { SettingCountFieldSource } from "./settingCountFieldSource.ts";
+import type { SettingNoun } from "./settingNoun.ts";
 
 export interface SettingCountField {
   applies: SettingCountFieldApplies;
@@ -22,7 +23,7 @@ export interface SettingCountField {
   pendingRestart: boolean;
   running: number;
   source: SettingCountFieldSource;
-  unit: string;
+  unit: SettingNoun;
   value: number;
   /** The words for 0, such as No limit */
   zero?: string;

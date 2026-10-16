@@ -84,6 +84,7 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
       "Go to FilmsLibrary",
       "Go to Activity",
       "Go to Nodes",
+      "Go to Tasks",
       "Go to Overviewhome",
       "Go to Web and APIhome",
       "Go to Logshome",

@@ -55,7 +55,7 @@ const listed = (count: number): WorksListedWork[] =>
     label: `Orchard ${index + 1}`,
   }));
 
-test("the sidebar lists Library with each enabled Content Type, Activity and Nodes", async () => {
+test("the sidebar lists Library with each enabled Content Type, Activity, Nodes and Tasks", async () => {
   const server = liveServer();
   let contentTypes = [cinema, shows];
   renderApp({
@@ -70,7 +70,7 @@ test("the sidebar lists Library with each enabled Content Type, Activity and Nod
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Library", "Films", "Activity", "Nodes"]);
+  ).toEqual(["Library", "Films", "Activity", "Nodes", "Tasks"]);
   await expect
     .element(mainNav().getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");

@@ -1,0 +1,17 @@
+// HousekeepingService tidies what a Node keeps for itself, so the
+// Controller's Housekeeping task reaches every Node's local.db.
+syntax = "proto3";
+
+package slipstream.housekeeping.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service HousekeepingService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  // Tidy runs PRAGMA optimize on the Node's local.db.
+  rpc Tidy(TidyRequest) returns (TidyResponse);
+}
+
+message TidyRequest {}
+
+message TidyResponse {}
