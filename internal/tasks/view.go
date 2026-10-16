@@ -27,7 +27,6 @@ type Status interface{ status() }
 // Idle is a task between runs, next due at Next.
 type Idle struct{ Next time.Time }
 
-// Running is a task with a run open.
 type Running struct {
 	Run         RunID
 	Trigger     Trigger
@@ -62,7 +61,6 @@ type View struct {
 	Nodes []string
 }
 
-// CadenceField is the task's cadence as a setting field.
 func (v View) CadenceField() setting.DurationField { return v.Task.Setting().Field(v.Every) }
 
 // OverdueSetting is the task's overdue rule as a setting whose default is

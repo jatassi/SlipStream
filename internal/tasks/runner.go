@@ -218,7 +218,6 @@ func (p *progress) step(done, total int) {
 	p.publish()
 }
 
-// now is the run's progress: done of total.
 func (p *progress) now() (done, total int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

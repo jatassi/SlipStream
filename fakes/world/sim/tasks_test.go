@@ -97,7 +97,6 @@ func runNow(t *testing.T, a *worldtest.API, id tasks.TaskID) int64 {
 	return started.RunID
 }
 
-// sentence is the Tasks page's sentence as its parts' texts.
 func sentence(t *testing.T, a *worldtest.API) []string {
 	t.Helper()
 	overview := decode[struct {

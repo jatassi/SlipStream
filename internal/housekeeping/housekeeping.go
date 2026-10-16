@@ -20,11 +20,8 @@ import (
 
 const day = 24 * time.Hour
 
-// Cadence is how many days apart Housekeeping starts in the Maintenance
-// window.
-var Cadence = setting.Duration{Key: "tasks.housekeeping.cadence", Label: "Runs every", Default: day, Min: day, Max: 7 * day, Step: day}
+var cadence = setting.Duration{Key: "tasks.housekeeping.cadence", Label: "Runs every", Default: day, Min: day, Max: 7 * day, Step: day}
 
-// The Controller's units, by key.
 const (
 	runHistory tasks.UnitKey = "run-history"
 	joinCodes  tasks.UnitKey = "join-codes"
@@ -32,24 +29,20 @@ const (
 	library    tasks.UnitKey = "library"
 )
 
-// Config is what Housekeeping's units reach on the Controller.
 type Config struct {
 	Library  *storage.DB[storage.Library]
 	Nodes    *nodes.Service
 	Identity *identity.Service
-	// Tidy is HousekeepingService on a Node.
-	Tidy func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler
+	Tidy     func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler
 }
 
-// Task is Housekeeping: run history, Join Codes and sessions on the
-// Controller, then each Node's local.db where it lies, then library.db.
 func Task(cfg Config) tasks.Task {
 	return tasks.Task{
 		ID:      "housekeeping",
 		Name:    "Housekeeping",
 		About:   "Prunes old runs, expired Join Codes and idle sessions, then tidies every database.",
 		Group:   tasks.ControllerGroup,
-		Cadence: tasks.InWindow{Days: Cadence},
+		Cadence: tasks.InWindow{Days: cadence},
 		Overdue: tasks.Wait,
 		Noun:    "step",
 		Units:   units,
@@ -89,7 +82,6 @@ func (c Config) run(ctx context.Context, u tasks.Unit, _ *tasks.Progress) error 
 	return err
 }
 
-// Service is HousekeepingService on this Node, over its own local.db.
 type Service struct {
 	Local *storage.DB[storage.Local]
 }

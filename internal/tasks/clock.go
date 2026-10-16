@@ -193,7 +193,6 @@ func (s *Scheduler) read(ctx context.Context, started time.Time, atStart map[Tas
 	return states, k, nil
 }
 
-// states is each catalog task's state for plan.
 func (s *Scheduler) states(snap snapshot, started time.Time, atStart map[TaskID]bool) ([]state, knobs) {
 	k := s.knobs(snap.settings, started)
 	returned := map[TaskID]bool{}

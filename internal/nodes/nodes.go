@@ -648,7 +648,6 @@ type Node struct {
 	Facts *nodev1.NodeFacts
 }
 
-// Named is a Node's id and name.
 type Named struct {
 	ID   ID
 	Name string
