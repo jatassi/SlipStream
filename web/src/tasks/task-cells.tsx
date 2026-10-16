@@ -61,7 +61,9 @@ function Running({
     <span className="flex max-w-[240px] min-w-0 flex-col gap-1.5">
       <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
         <span className="truncate">{runningWords(since, clock)}</span>
-        <Data className="text-ink-1">{progressWords(progress, task.noun)}</Data>
+        <Data className="shrink-0 whitespace-nowrap text-ink-1">
+          {progressWords(progress, task.noun)}
+        </Data>
       </span>
       <LiveBar label={`${task.name} progress`} value={percentOf(progress)} />
     </span>
