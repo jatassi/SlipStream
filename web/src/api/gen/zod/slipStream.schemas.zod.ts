@@ -1073,6 +1073,19 @@ export const SystemListeners = zod.object({
 export type SystemListeners = zod.input<typeof SystemListeners>;
 export type SystemListenersOutput = zod.output<typeof SystemListeners>;
 
+export const SystemPasskeys = zod.object({
+  available: zod.boolean(),
+  reason: zod
+    .enum(["ip_address", "plain_http", "not_a_domain"])
+    .exactOptional()
+    .describe(
+      "Why it can't: an IP address, a name over plain HTTP other than localhost, or a host that is not a domain name",
+    ),
+});
+
+export type SystemPasskeys = zod.input<typeof SystemPasskeys>;
+export type SystemPasskeysOutput = zod.output<typeof SystemPasskeys>;
+
 export const SystemReport = zod.object({
   build: SystemBuild,
   dataDir: zod.string(),
@@ -1087,6 +1100,9 @@ export type SystemReportOutput = zod.output<typeof SystemReport>;
 
 export const SystemStatus = zod.object({
   claim: zod.enum(["unclaimed", "controller", "worker"]),
+  passkeys: SystemPasskeys.describe(
+    "Whether the address this request reached SlipStream at can hold a passkey",
+  ),
 });
 
 export type SystemStatus = zod.input<typeof SystemStatus>;

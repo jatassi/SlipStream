@@ -446,8 +446,8 @@ func clearCookie(secure bool) *http.Cookie {
 // when it shows the passkey prompt.
 func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account db.IdentityAccount, token string, pinRequired bool) (SignedIn, error) {
 	prompt := false
-	if rp, ok := passkeyHost(c); ok && account.KeyPrompt == KeyPromptAsk {
-		held, err := q.CountPasskeysAt(ctx, db.CountPasskeysAtParams{AccountID: account.ID, RelyingParty: rp})
+	if rp, v := c.relyingParty(); v.Available && account.KeyPrompt == KeyPromptAsk {
+		held, err := q.CountPasskeysAt(ctx, db.CountPasskeysAtParams{AccountID: account.ID, RelyingParty: rp.ID()})
 		if err != nil {
 			return SignedIn{}, err
 		}

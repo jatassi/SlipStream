@@ -287,7 +287,7 @@ func CheckHome(t *testing.T, a *API) {
 	if link := netip.MustParseAddrPort(box.Listeners["link"]).Addr(); box.Claim != world.ClaimWorker || box.Setup != scenario.SetupJoin || link != netip.MustParseAddr("127.0.0.3") {
 		t.Fatalf("the manifest has seedbox with claim %s, setup %s and listeners.link on %s; want worker, join and 127.0.0.3", box.Claim, box.Setup, link)
 	}
-	Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), Reply{200, `{"claim":"worker"}` + "\n"})
+	Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), Reply{200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	Expect(t, "seedbox GET /api/v1/system", a.Admin("seedbox", http.MethodGet, "/api/v1/system", ""),
 		Reply{409, `{"status":409,"code":"worker_node","title":"This Node is a Worker. Manage it from its Controller."}` + "\n"})
 

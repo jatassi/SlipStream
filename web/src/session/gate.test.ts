@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { ada, grace } from "../test/handlers";
+import { ada, grace, noPasskeys } from "../test/handlers";
 import { type Entry, entryOf, redirectFor } from "./gate";
 import { safeRedirect } from "./safe-redirect";
 
@@ -48,23 +48,31 @@ describe("redirectFor", () => {
 
 describe("entryOf", () => {
   test("an Unclaimed Node sets up", () => {
-    expect(entryOf({ claim: "unclaimed" }, null)).toEqual({ kind: "setup" });
+    expect(entryOf({ claim: "unclaimed", passkeys: noPasskeys }, null)).toEqual({ kind: "setup" });
   });
 
   test("a Controller with no session signs in", () => {
-    expect(entryOf({ claim: "controller" }, null)).toEqual({ kind: "sign-in" });
+    expect(entryOf({ claim: "controller", passkeys: noPasskeys }, null)).toEqual({
+      kind: "sign-in",
+    });
   });
 
   test("a Controller with Ada enters the app as Ada", () => {
-    expect(entryOf({ claim: "controller" }, ada)).toEqual({ kind: "app", account: ada });
+    expect(entryOf({ claim: "controller", passkeys: noPasskeys }, ada)).toEqual({
+      kind: "app",
+      account: ada,
+    });
   });
 
   test("a Controller with Grace, a Member, enters the portal as Grace", () => {
-    expect(entryOf({ claim: "controller" }, grace)).toEqual({ kind: "portal", account: grace });
+    expect(entryOf({ claim: "controller", passkeys: noPasskeys }, grace)).toEqual({
+      kind: "portal",
+      account: grace,
+    });
   });
 
   test("a Worker is managed elsewhere", () => {
-    expect(entryOf({ claim: "worker" }, null)).toEqual({ kind: "worker" });
+    expect(entryOf({ claim: "worker", passkeys: noPasskeys }, null)).toEqual({ kind: "worker" });
   });
 });
 

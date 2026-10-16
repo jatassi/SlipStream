@@ -1,7 +1,7 @@
 import { HttpResponse, type RequestHandler, http, sse } from "msw";
 import { onTestFinished } from "vitest";
 
-import type { IdentityAccount } from "../api/gen/model";
+import type { IdentityAccount, SystemPasskeys } from "../api/gen/model";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
@@ -54,7 +54,9 @@ export function problem(status: number, code: string, title: string) {
 
 export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 
-const controller = getGetStatusMockHandler({ claim: "controller" });
+export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_http" };
+
+const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
 const nothingMoving = getGetCountsMockHandler({ activity: 0 });
 const signedInAsAda = getGetSessionMockHandler({
   account: ada,

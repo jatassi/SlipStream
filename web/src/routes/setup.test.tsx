@@ -3,10 +3,13 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { ada, problem, signedOut } from "../test/handlers";
+import { ada, noPasskeys, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 
-const unclaimed = [signedOut, getGetStatusMockHandler({ claim: "unclaimed" })];
+const unclaimed = [
+  signedOut,
+  getGetStatusMockHandler({ claim: "unclaimed", passkeys: noPasskeys }),
+];
 const apiKey = `ssk_${"A".repeat(43)}`;
 
 function claimServer(answer: () => Response) {

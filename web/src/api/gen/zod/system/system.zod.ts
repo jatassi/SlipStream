@@ -6,7 +6,7 @@ import { SystemHealth, SystemReport, SystemStatus } from "../slipStream.schemas.
 export const GetHealthResponse = SystemHealth;
 
 /**
- * @summary Report whether the Node is Unclaimed, a Controller or a Worker
+ * @summary Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey
  */
 export const GetStatusResponse = SystemStatus;
 

@@ -1,7 +1,12 @@
 import { type QueryClient, queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 
 import { isProblem } from "../api/errors";
-import type { IdentityAccount, IdentityClaimed, IdentitySession } from "../api/gen/model";
+import type {
+  IdentityAccount,
+  IdentityClaimed,
+  IdentitySession,
+  SystemStatus,
+} from "../api/gen/model";
 import { getGetSessionQueryKey, getSession } from "../api/gen/query/identity/identity";
 import { getGetStatusQueryKey, getStatus } from "../api/gen/query/system/system";
 
@@ -40,7 +45,10 @@ export function markSignedIn(queryClient: QueryClient, session: IdentitySession)
 }
 
 export function markClaimed(queryClient: QueryClient, claimed: IdentityClaimed): void {
-  queryClient.setQueryData(statusQuery.queryKey, { claim: "controller" });
+  queryClient.setQueryData(
+    statusQuery.queryKey,
+    (status): SystemStatus | undefined => status && { ...status, claim: "controller" },
+  );
   const session: IdentitySession = {
     account: claimed.account,
     pinRequired: false,

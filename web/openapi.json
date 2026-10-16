@@ -2258,6 +2258,27 @@
         ],
         "type": "object"
       },
+      "SystemPasskeys": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Why it can't: an IP address, a name over plain HTTP other than localhost, or a host that is not a domain name",
+            "enum": [
+              "ip_address",
+              "plain_http",
+              "not_a_domain"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "type": "object"
+      },
       "SystemReport": {
         "additionalProperties": false,
         "properties": {
@@ -2302,10 +2323,15 @@
               "worker"
             ],
             "type": "string"
+          },
+          "passkeys": {
+            "$ref": "#/components/schemas/SystemPasskeys",
+            "description": "Whether the address this request reached SlipStream at can hold a passkey"
           }
         },
         "required": [
-          "claim"
+          "claim",
+          "passkeys"
         ],
         "type": "object"
       },
@@ -13091,7 +13117,7 @@
           }
         },
         "security": [],
-        "summary": "Report whether the Node is Unclaimed, a Controller or a Worker",
+        "summary": "Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey",
         "tags": [
           "system"
         ],

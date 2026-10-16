@@ -3,6 +3,8 @@ package identity
 import (
 	"errors"
 	"net/netip"
+
+	"github.com/jatassi/slipstream/internal/identity/passkey"
 )
 
 // client is who a request came from, after http.trusted_proxies.
@@ -17,6 +19,17 @@ func (c client) Address() netip.Addr { return c.address }
 
 // SuggestedAddress is what Settings > Address offers this caller.
 func (c client) SuggestedAddress() string { return suggestAddress(c) }
+
+// Passkeys is whether the address c reached SlipStream at can hold a
+// passkey, and why not.
+func (c client) Passkeys() passkey.Verdict {
+	_, v := c.relyingParty()
+	return v
+}
+
+// relyingParty is the relying party c's passkey ceremonies run as: its
+// host, after http.trusted_proxies for the scheme.
+func (c client) relyingParty() (passkey.RP, passkey.Verdict) { return passkey.Decide(c.host, c.https) }
 
 // Anyone is whoever called a public operation.
 type Anyone struct{ client }
@@ -194,8 +207,3 @@ func (c Caller) Reconfirmed() (Admin, error) {
 	}
 	return a, nil
 }
-
-// passkeyHost is the RP ID c's address would hold a passkey at. It answers
-// that no address can until passkeys are wired, so the passkey prompt
-// never shows yet.
-func passkeyHost(client) (string, bool) { return "", false }

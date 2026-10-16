@@ -21,7 +21,13 @@ type healthOutput struct {
 }
 
 type status struct {
-	Claim string `json:"claim" enum:"unclaimed,controller,worker"`
+	Claim    string   `json:"claim" enum:"unclaimed,controller,worker"`
+	Passkeys passkeys `json:"passkeys" doc:"Whether the address this request reached SlipStream at can hold a passkey"`
+}
+
+type passkeys struct {
+	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty" enum:"ip_address,plain_http,not_a_domain" doc:"Why it can't: an IP address, a name over plain HTTP other than localhost, or a host that is not a domain name"`
 }
 
 type statusOutput struct {
@@ -110,14 +116,15 @@ func Routes(r *api.Router, facts system.Facts, claims Claims) {
 		ID:      "getStatus",
 		Method:  http.MethodGet,
 		Path:    "/status",
-		Summary: "Report whether the Node is Unclaimed, a Controller or a Worker",
+		Summary: "Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey",
 		Status:  http.StatusOK,
-	}, func(ctx context.Context, _ identity.Anyone, _ *struct{}) (*statusOutput, error) {
+	}, func(ctx context.Context, a identity.Anyone, _ *struct{}) (*statusOutput, error) {
 		claim, err := claims.Claim(ctx)
 		if err != nil {
 			return nil, err
 		}
-		return &statusOutput{Body: status{Claim: claim.String()}}, nil
+		v := a.Passkeys()
+		return &statusOutput{Body: status{Claim: claim.String(), Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}}}, nil
 	})
 
 	api.Register(o, api.Admin, api.Op{

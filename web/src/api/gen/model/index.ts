@@ -782,6 +782,8 @@ export * from "./systemBuild.ts";
 export * from "./systemHealth.ts";
 export * from "./systemHealthStatus.ts";
 export * from "./systemListeners.ts";
+export * from "./systemPasskeys.ts";
+export * from "./systemPasskeysReason.ts";
 export * from "./systemReport.ts";
 export * from "./systemStatus.ts";
 export * from "./systemStatusClaim.ts";
