@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 
 	gomail "github.com/wneessen/go-mail"
+	"github.com/wneessen/go-mail/smtp"
 
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -61,10 +62,37 @@ func (s SMTP) Send(ctx context.Context, m Message) (Outcome, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.Timings.Send)
 	defer cancel()
-	if err := client.DialAndSendWithContext(ctx, msg); err != nil {
+	conn, err := client.DialToSMTPClientWithContext(ctx)
+	if err != nil {
+		return Outcome{Kind: Failed, Reply: reply(err)}, nil
+	}
+	defer func() { _ = client.CloseWithSMTPClient(conn) }()
+	if err := s.deliver(conn, m.To, msg); err != nil {
 		return Outcome{Kind: Failed, Reply: reply(err)}, nil
 	}
 	return Outcome{Kind: Sent}, nil
+}
+
+// deliver runs the envelope and the data itself rather than through
+// go-mail's Send, whose errors hide the server's reply.
+func (s SMTP) deliver(c *smtp.Client, to Address, msg *gomail.Msg) error {
+	if err := c.Mail(s.Server.From.Email); err != nil {
+		return fmt.Errorf("MAIL FROM: %w", err)
+	}
+	if err := c.Rcpt(to.Email); err != nil {
+		return fmt.Errorf("RCPT TO: %w", err)
+	}
+	w, err := c.Data()
+	if err != nil {
+		return fmt.Errorf("DATA: %w", err)
+	}
+	if _, err := msg.WriteTo(w); err != nil {
+		return fmt.Errorf("DATA: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("DATA: %w", err)
+	}
+	return nil
 }
 
 func (s SMTP) message(m Message) (*gomail.Msg, error) {

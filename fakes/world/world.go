@@ -391,7 +391,7 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 		fctx, cancel := context.WithCancel(r.life)
 		f.cancel, f.done = cancel, make(chan error, 1)
 		go func() { f.done <- server.Serve(fctx, f.inbox) }()
-		r.log.Info("fake started", "fake", f.spec.Name, "url", f.at.URL(""))
+		r.log.Info("fake started", "fake", f.spec.Name, "url", f.spec.URL(f.at))
 		undo.push(func() {
 			if err := f.stop(); err != nil {
 				r.log.Error("fake stopped", "fake", f.spec.Name, "err", err.Error())
@@ -699,12 +699,12 @@ func (r *Run) buildManifest() (Manifest, error) {
 		m.Admin = &Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
 	for _, f := range r.fakes {
-		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL(""), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...), Cues: append([]fake.CueSpec{}, f.spec.Cues...)})
+		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.spec.URL(f.at), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...), Cues: append([]fake.CueSpec{}, f.spec.Cues...)})
 	}
 	for _, f := range r.table {
 		entry := Front{Target: string(f.Target), Node: f.Node, Address: f.Address.AddrPort.String()}
-		if slices.ContainsFunc(r.fakes, func(fr *fakeRun) bool { return fault.Target(fr.spec.Name) == f.Target }) {
-			entry.URL = f.Address.URL("")
+		if i := slices.IndexFunc(r.fakes, func(fr *fakeRun) bool { return fault.Target(fr.spec.Name) == f.Target }); i >= 0 {
+			entry.URL = r.fakes[i].spec.URL(f.Address)
 		}
 		m.Fronts = append(m.Fronts, entry)
 	}

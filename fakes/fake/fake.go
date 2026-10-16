@@ -37,6 +37,9 @@ const (
 type Spec struct {
 	Name string
 	TLS  TLSMode
+	// Scheme is the URL scheme of a fake that doesn't speak HTTP, such as
+	// smtp, and empty for one that does.
+	Scheme string
 	// ContentType is the id of the Content Type whose metadata source the
 	// fake serves, empty for a core boundary. The world starts such a fake
 	// only for a binary that registers the type.
@@ -59,6 +62,18 @@ type Spec struct {
 	// answers the body of a 200. doctor checks each is the fake's front for
 	// the Node that dials it. nil is a fake no Admin types.
 	Entered func(get func(path string) ([]byte, error)) ([]Entered, error)
+}
+
+// ErrNotFound is what Entered's get answers for a path the Controller
+// doesn't serve.
+var ErrNotFound = errors.New("not found")
+
+// URL is the URL of the fake at at.
+func (s Spec) URL(at Address) string {
+	if s.Scheme != "" {
+		return s.Scheme + "://" + at.AddrPort.String()
+	}
+	return at.URL("")
 }
 
 // Entered is one address an Admin typed: what a person calls it, its URL
