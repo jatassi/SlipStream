@@ -176,6 +176,9 @@
                 },
                 "source": {
                   "type": "string"
+                },
+                "env": {
+                  "type": "string"
                 }
               },
               "additionalProperties": false,
@@ -184,7 +187,8 @@
                 "key",
                 "value",
                 "default",
-                "source"
+                "source",
+                "env"
               ]
             },
             "type": "array"

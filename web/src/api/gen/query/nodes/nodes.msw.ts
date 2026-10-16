@@ -91,9 +91,20 @@ export const getGetNodeSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["duration"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     step: faker.number.int(),
     value: faker.number.int(),
   },
@@ -116,9 +127,20 @@ export const getUpdateNodeSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["duration"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     step: faker.number.int(),
     value: faker.number.int(),
   },

@@ -77,6 +77,7 @@ func TestAppOpensTheSetupPageAndASecondLaunchOpensItAgain(t *testing.T) {
 	t.Parallel()
 	browser, opened := browserStub(t)
 	dir := dataDir(t)
+	launched := time.Now()
 	p := startArgs(t, testbin.Slipstream(t), []string{"app", "--data-dir", dir}, "BROWSER="+browser)
 	ready := p.ready()
 	url, ok := p.record("setup page")["url"].(string)
@@ -90,7 +91,9 @@ func TestAppOpensTheSetupPageAndASecondLaunchOpensItAgain(t *testing.T) {
 		t.Fatalf("tray record = %v, want state none", rec)
 	}
 	want := map[string]any{"pid": float64(ready.PID), "version": ready.Version, "install": "dev", "mode": "app", "claim": "unclaimed", "tray": "none", "url": url}
-	if got := statusOf(t, dir); !maps.Equal(got, want) {
+	got := statusOf(t, dir)
+	startedSince(t, got, launched)
+	if !maps.Equal(got, want) {
 		t.Fatalf("status = %v, want %v", got, want)
 	}
 

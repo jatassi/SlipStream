@@ -23,6 +23,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"unicode"
@@ -118,6 +119,9 @@ func (c Code) Redacted() string {
 	}
 	return prefix + "-[redacted]"
 }
+
+// LogValue is the code as every log record shows it: Redacted.
+func (c Code) LogValue() slog.Value { return slog.StringValue(c.Redacted()) }
 
 // Parse reads a code as an emailed or retyped copy may arrive: ignoring
 // case, whitespace and dashes after the prefix, and reading O as 0 and I

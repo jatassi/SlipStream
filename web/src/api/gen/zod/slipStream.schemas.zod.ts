@@ -508,9 +508,17 @@ export const SettingDurationField = zod.object({
   key: zod.string(),
   kind: zod.enum(["duration"]),
   label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
   max: zod.int().describe("Seconds"),
   min: zod.int().describe("Seconds"),
-  source: zod.enum(["database"]),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Seconds"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
   step: zod.int().describe("Seconds: a second, minute, hour or day"),
   value: zod.int().describe("Seconds"),
 });
@@ -637,6 +645,15 @@ export const SystemHealth = zod.object({
 export type SystemHealth = zod.input<typeof SystemHealth>;
 export type SystemHealthOutput = zod.output<typeof SystemHealth>;
 
+export const SystemHttpFacts = zod.object({
+  configured: zod
+    .string()
+    .describe("http.listen at start; listeners.http differs after a fallback to a later port"),
+});
+
+export type SystemHttpFacts = zod.input<typeof SystemHttpFacts>;
+export type SystemHttpFactsOutput = zod.output<typeof SystemHttpFacts>;
+
 export const SystemListeners = zod.object({
   control: zod.string(),
   http: zod.string(),
@@ -650,7 +667,9 @@ export type SystemListenersOutput = zod.output<typeof SystemListeners>;
 export const SystemReport = zod.object({
   build: SystemBuild,
   dataDir: zod.string(),
+  http: SystemHttpFacts,
   listeners: SystemListeners,
+  logsDir: zod.string(),
   pid: zod.int(),
   seed: zod.string(),
   startedAt: zod.iso.datetime({ offset: true }),

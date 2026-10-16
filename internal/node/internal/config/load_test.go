@@ -72,10 +72,10 @@ func TestLayersOverrideInOrder(t *testing.T) {
 		remove string
 		want   config.Key
 	}{
-		{"", config.Key{Key: "name", Value: "from-env", Default: "default", Source: config.SourceEnv}},
-		{"env", config.Key{Key: "name", Value: "from-dotenv", Default: "default", Source: config.SourceDotEnv}},
-		{".env", config.Key{Key: "name", Value: "from-yaml", Default: "default", Source: config.SourceYAML}},
-		{"config.yaml", config.Key{Key: "name", Value: "default", Default: "default", Source: config.SourceDefault}},
+		{"", config.Key{Key: "name", Value: "from-env", Default: "default", Source: config.SourceEnv, Env: "SLIPSTREAM_NAME"}},
+		{"env", config.Key{Key: "name", Value: "from-dotenv", Default: "default", Source: config.SourceDotEnv, Env: "SLIPSTREAM_NAME"}},
+		{".env", config.Key{Key: "name", Value: "from-yaml", Default: "default", Source: config.SourceYAML, Env: "SLIPSTREAM_NAME"}},
+		{"config.yaml", config.Key{Key: "name", Value: "default", Default: "default", Source: config.SourceDefault, Env: "SLIPSTREAM_NAME"}},
 	}
 	for _, step := range steps {
 		switch step.remove {
@@ -266,7 +266,7 @@ func TestARedactedLeafNeverShowsItsValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := config.Key{Key: "join.passphrase", Value: "[redacted]", Default: "", Source: config.SourceEnv}
+	want := config.Key{Key: "join.passphrase", Value: "[redacted]", Default: "", Source: config.SourceEnv, Env: "SLIPSTREAM_JOIN_PASSPHRASE"}
 	if keys[0] != want || cfg.Join.Passphrase.text != "correct horse" {
 		t.Fatalf("key = %+v holding %q, want %+v holding the passphrase", keys[0], cfg.Join.Passphrase.text, want)
 	}
@@ -277,5 +277,36 @@ func TestARedactedLeafNeverShowsItsValue(t *testing.T) {
 	want2 := "config.yaml:2: join.passphrase: the passphrase is too short\nenv: SLIPSTREAM_JOIN_PASSPHRASE: the passphrase is too short"
 	if err == nil || err.Error() != want2 {
 		t.Fatalf("err = %v, want %q", err, want2)
+	}
+}
+
+type clashError struct{ other string }
+
+func (e *clashError) Error() string { return "the same port as " + e.other }
+
+type ports struct {
+	Web  int `yaml:"web"`
+	Peer int `yaml:"peer"`
+}
+
+func (p *ports) CheckConfig(fail func(string, error)) {
+	if p.Web == p.Peer {
+		fail("web", &clashError{other: "peer"})
+	}
+}
+
+func TestAProblemKeepsTheErrorThatRaisedIt(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "config.yaml", "peer: 7\nweb: 7\n")
+	p := ports{Web: 1, Peer: 2}
+	_, err := config.Load(&p, dir, nil)
+	loadErr, ok := errors.AsType[*config.Error](err)
+	if !ok || len(loadErr.Problems) != 1 {
+		t.Fatalf("err = %v, want one problem", err)
+	}
+	problem := loadErr.Problems[0]
+	clash, ok := errors.AsType[*clashError](problem.Err)
+	if !ok || clash.other != "peer" || problem.String() != "config.yaml:2: web: the same port as peer" {
+		t.Fatalf("problem = %s holding %#v, want the clash with peer on line 2", problem, problem.Err)
 	}
 }

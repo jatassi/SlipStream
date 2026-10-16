@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -34,7 +35,7 @@ func TestDivergencesRefuseAPlantedKey(t *testing.T) {
 
 func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	var defaults yaml.Node
-	if err := defaults.Encode(node.Defaults(contenttype.Set{})); err != nil {
+	if err := defaults.Encode(node.Defaults(contenttype.Set{}, install.Dev)); err != nil {
 		t.Fatal(err)
 	}
 	var probe node.Resolved
@@ -72,7 +73,7 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 }
 
 func fakeEndpoints(s scenario.Scenario) node.EndpointsBlock {
-	e := node.Defaults(contenttype.Set{}).Endpoints
+	e := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
 	at := fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:1"), TLS: true}
 	for _, spec := range fakes {
 		if spec.ContentType == "" || slices.Contains(s.ContentTypes(), spec.ContentType) {

@@ -21,6 +21,9 @@ type App interface {
 	// Stop asks the Node to stop. Done closes once the process may exit.
 	Stop()
 	Done() <-chan struct{}
+	// Leave runs after Done, on the main thread when RestartOnMainThread:
+	// it starts the successor a restart asked for there.
+	Leave()
 }
 
 type Status struct {

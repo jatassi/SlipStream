@@ -17,7 +17,11 @@ import (
 type Field struct{}
 
 func (Field) Variants() (discriminator string, variants []any) {
-	return "kind", []any{setting.DurationField{}, setting.CountField{}, setting.ChoiceField{}, setting.WindowField{}}
+	variants = make([]any, len(setting.Kinds))
+	for i, k := range setting.Kinds {
+		variants[i] = k
+	}
+	return "kind", variants
 }
 
 func FieldOf(f any) api.OneOf[Field] { return api.NewOneOf[Field](f) }

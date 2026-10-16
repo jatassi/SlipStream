@@ -15,10 +15,16 @@ export interface SettingDurationField {
   key: string;
   kind: SettingDurationFieldKind;
   label: string;
+  /** The environment variable that sets the value; the control is read-only */
+  lockedBy?: string;
   /** Seconds */
   max: number;
   /** Seconds */
   min: number;
+  /** The saved value differs from the running one until the Node restarts */
+  pendingRestart: boolean;
+  /** Seconds */
+  running: number;
   source: SettingDurationFieldSource;
   /** Seconds: a second, minute, hour or day */
   step: number;

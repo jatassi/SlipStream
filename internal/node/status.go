@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
@@ -29,9 +30,10 @@ type StatusRequest struct{}
 // a second app launch or the tray sees it. Controller is set on a Worker.
 // Tray and StartAtLogin are set in app mode only, StartAtLogin only where
 // the OS has a login item. URL carries the Setup code while the Node is
-// Unclaimed.
+// Unclaimed. StartedAt changes when the Node restarts, though PID may not.
 type StatusReply struct {
 	PID          int               `json:"pid"`
+	StartedAt    time.Time         `json:"started_at"`
 	Version      string            `json:"version"`
 	Install      install.Kind      `json:"install"`
 	Mode         Mode              `json:"mode"`
@@ -70,12 +72,13 @@ func (n *Node) Status(ctx context.Context) (StatusReply, error) {
 		return StatusReply{}, err
 	}
 	reply := StatusReply{
-		PID:     os.Getpid(),
-		Version: n.env.Version,
-		Install: n.env.Install,
-		Mode:    n.env.Mode,
-		Claim:   claim,
-		URL:     nodeURL(n.ready.Listeners.HTTP),
+		PID:       os.Getpid(),
+		StartedAt: n.started,
+		Version:   n.env.Version,
+		Install:   n.env.Install,
+		Mode:      n.env.Mode,
+		Claim:     claim,
+		URL:       nodeURL(n.ready.Listeners.HTTP),
 	}
 	switch claim {
 	case system.Unclaimed:

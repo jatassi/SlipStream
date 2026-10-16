@@ -56,12 +56,19 @@ type Env struct {
 	// link dial.
 	Net    link.Network
 	Engine func(engine.Config) (engine.Engine, error)
-	// OpenLog opens the log in dir, mirrored to stderr.
-	OpenLog func(dir string, stderr io.Writer) (*logs.Log, error)
+	// OpenLog opens the log in dir with s, mirrored to stderr.
+	OpenLog func(dir string, stderr io.Writer, s logs.Settings) (*logs.Log, error)
 	Types   contenttype.Set
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
 	Media media.Prober
+	// Restart starts the process that follows this one once it has stopped
+	// and released the data dir: an exec in place on Unix, a new process on
+	// Windows. Nil for a Node that cannot restart itself.
+	Restart func() error
+	// RestartOf is the PID this process follows after a restart, which
+	// may still hold the data dir; 0 otherwise.
+	RestartOf int
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -71,7 +78,10 @@ type Env struct {
 // the data dir from dataDirFlag, else SLIPSTREAM_DATA_DIR, else the kind's
 // default.
 func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
-	environ := os.Environ()
+	environ, follows, err := restartOf(os.Environ())
+	if err != nil {
+		return Env{}, &UsageError{Err: err}
+	}
 	layout, err := processLayout(environ)
 	if err != nil {
 		return Env{}, err
@@ -106,14 +116,16 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		version = s.Version
 	}
 	return Env{
-		DataDir: dir,
-		Install: kind,
-		Environ: environ,
-		Stderr:  os.Stderr,
-		Version: version,
-		Net:     osNetwork{},
-		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
-		OpenLog: logs.Open,
+		DataDir:   dir,
+		Install:   kind,
+		Environ:   environ,
+		Stderr:    os.Stderr,
+		Version:   version,
+		Net:       osNetwork{},
+		Engine:    func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
+		OpenLog:   logs.Open,
+		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
+		RestartOf: follows,
 	}, nil
 }
 
@@ -155,6 +167,7 @@ func checkHost(dir DataDir, kind install.Kind, cmd string) error {
 type Node struct {
 	env      Env
 	started  time.Time
+	logs     *logs.Log
 	rootLog  *slog.Logger
 	log      *slog.Logger
 	stack    *Stack
@@ -164,7 +177,9 @@ type Node struct {
 	server  *control.Server
 	isReady atomic.Bool
 
-	// Set during start, before the Node is ready.
+	// Set during start, before the Node is ready. cfgMu guards the Node
+	// settings table's keys in cfg, which setConfig changes later.
+	cfgMu     sync.Mutex
 	cfg       Config
 	key       link.PrivateKey
 	info      link.NodeInfo
@@ -190,6 +205,8 @@ type Node struct {
 
 	stopOnce sync.Once
 	stopping chan struct{}
+	// restart is whether the stop is a restart's, set once with stopping.
+	restart bool
 	// drained closes once the Stack has unwound, released once the lock is
 	// released, and done once every control connection has finished.
 	drained  chan struct{}
@@ -205,7 +222,7 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 	n := &Node{
 		env:      env,
 		started:  time.Now(),
-		deadline: Defaults(env.Types).Timings.Node.StopDeadline,
+		deadline: Defaults(env.Types, env.Install).Timings.Node.StopDeadline,
 		stopping: make(chan struct{}),
 		drained:  make(chan struct{}),
 		released: make(chan struct{}),
@@ -242,12 +259,12 @@ func (n *Node) Done() <-chan struct{} { return n.done }
 func (n *Node) Err() error { return n.err }
 
 // Stop asks the Node to stop. It is idempotent and safe from any goroutine.
-func (n *Node) Stop() { n.stopOnce.Do(func() { close(n.stopping) }) }
+func (n *Node) Stop() { n.stop(false) }
 
 // start runs the startup order. Errors before the log opens go to stderr as
 // plain text, later ones to the log.
 func (n *Node) start(ctx context.Context) error {
-	lk, err := lock.Acquire(n.env.DataDir.RunDir())
+	lk, err := n.acquireLock()
 	if held, ok := errors.AsType[*lock.HeldError](err); ok {
 		err = &InUseError{Dir: n.env.DataDir, PID: held.PID}
 	}
@@ -255,11 +272,12 @@ func (n *Node) start(ctx context.Context) error {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return err
 	}
-	log, err := n.env.OpenLog(n.env.DataDir.LogsDir(), n.env.Stderr)
+	log, err := n.env.OpenLog(n.env.DataDir.LogsDir(), n.env.Stderr, Defaults(n.env.Types, n.env.Install).Log)
 	if err != nil {
 		_, _ = fmt.Fprintln(n.env.Stderr, err)
 		return errors.Join(err, lk.Release())
 	}
+	n.logs = log
 	n.rootLog = log.Logger
 	n.log = n.rootLog.With("subsystem", "node")
 	n.stack = newStack(n.log)
@@ -284,8 +302,11 @@ func (n *Node) start(ctx context.Context) error {
 }
 
 func (n *Node) startLogged(ctx context.Context) error {
-	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types)
+	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types, n.env.Install)
 	if err != nil {
+		return err
+	}
+	if err := n.logs.Apply(cfg.Log); err != nil {
 		return err
 	}
 	n.deadline = cfg.Timings.Node.StopDeadline
@@ -449,13 +470,14 @@ func (n *Node) wait() {
 }
 
 // finish lets held stop requests see the outcome before Done closes, so a
-// process that exits on Done has already answered them.
+// process that exits on Done has already answered them. Then a restart's
+// successor starts.
 func (n *Node) finish(err error) {
-	n.err = err
 	close(n.drained)
 	if n.server != nil {
 		n.server.Wait()
 	}
+	n.err = n.handoff(err)
 	close(n.done)
 }
 

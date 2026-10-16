@@ -35,12 +35,14 @@ export const nodesAre = (...nodes: NodesNode[]) => getListNodesMockHandler({ nod
 export const homeSystem: SystemReport = {
   build: { stamped: true, version: "0.0.0-dev+3f2a1c9" },
   dataDir: "/data/home",
+  http: { configured: "127.0.0.2:8080" },
   listeners: {
     http: "127.0.0.2:8080",
     torrent: "127.0.0.2:6881",
     link: "127.0.0.2:8485",
     control: "/data/home/control.sock",
   },
+  logsDir: "/data/home/logs",
   pid: 4242,
   seed: "home",
   startedAt: "2026-10-12T09:00:00Z",

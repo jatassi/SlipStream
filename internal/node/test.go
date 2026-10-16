@@ -71,6 +71,6 @@ func (t Test) started(h Half) {
 
 // OpenFileLog opens the log in dir as one file that never rotates, mirrored
 // to stderr, for an Env inside a testing/synctest bubble.
-func OpenFileLog(dir string, stderr io.Writer) (*logs.Log, error) {
-	return logs.OpenFile(dir, stderr)
+func OpenFileLog(dir string, stderr io.Writer, s logs.Settings) (*logs.Log, error) {
+	return logs.OpenFile(dir, stderr, s)
 }

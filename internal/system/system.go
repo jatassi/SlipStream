@@ -14,10 +14,14 @@ type Facts struct {
 	// Build is nil for an unstamped build.
 	Build     *buildinfo.Stamp
 	DataDir   string
+	LogsDir   string
 	PID       int
 	Seed      string
 	StartedAt time.Time
-	Listeners Listeners
+	// HTTPConfigured is http.listen at start. Listeners.HTTP is what bound,
+	// a later port after a fallback.
+	HTTPConfigured netip.AddrPort
+	Listeners      Listeners
 }
 
 type Listeners struct {

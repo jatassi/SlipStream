@@ -26,12 +26,14 @@ import (
 )
 
 var facts = system.Facts{
-	DataDir:   "/srv/slipstream",
-	PID:       4242,
-	Seed:      "fixed",
-	StartedAt: time.Date(2026, 10, 12, 9, 30, 0, 0, time.UTC),
+	DataDir:        "/srv/slipstream",
+	LogsDir:        "/srv/slipstream/logs",
+	PID:            4242,
+	Seed:           "fixed",
+	StartedAt:      time.Date(2026, 10, 12, 9, 30, 0, 0, time.UTC),
+	HTTPConfigured: netip.MustParseAddrPort("[::]:8484"),
 	Listeners: system.Listeners{
-		HTTP:    netip.MustParseAddrPort("127.0.0.1:8484"),
+		HTTP:    netip.MustParseAddrPort("127.0.0.1:8486"),
 		Torrent: netip.MustParseAddrPort("0.0.0.0:6881"),
 		Link:    netip.MustParseAddrPort("127.0.0.1:8485"),
 		Control: "/srv/slipstream/run/control.sock",
@@ -127,7 +129,7 @@ func TestSystemReportsTheFactsToTheAPIKey(t *testing.T) {
 		n := newNode(t, tc.facts)
 		key := n.claim()
 		expect(t, n.do(http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": key}), 200,
-			`{"build":`+tc.build+`,"dataDir":"/srv/slipstream","pid":4242,"seed":"fixed","startedAt":"2026-10-12T09:30:00Z","listeners":{"http":"127.0.0.1:8484","torrent":"0.0.0.0:6881","link":"127.0.0.1:8485","control":"/srv/slipstream/run/control.sock"}}`+"\n")
+			`{"build":`+tc.build+`,"dataDir":"/srv/slipstream","logsDir":"/srv/slipstream/logs","pid":4242,"seed":"fixed","startedAt":"2026-10-12T09:30:00Z","http":{"configured":"[::]:8484"},"listeners":{"http":"127.0.0.1:8486","torrent":"0.0.0.0:6881","link":"127.0.0.1:8485","control":"/srv/slipstream/run/control.sock"}}`+"\n")
 		expect(t, n.do(http.MethodGet, "/api/v1/system", "", nil), 401, `{"status":401,"code":"signed_out","title":"Sign in to continue"}`+"\n")
 	}
 }

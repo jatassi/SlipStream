@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
@@ -107,7 +108,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 		o(&w.opts)
 	}
 	t.Cleanup(w.stop)
-	endpoints := node.Defaults(contenttype.Set{}).Endpoints
+	endpoints := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
 	if w.opts.walk {
 		w.walk = startWalk(t, s, local, w.opts.listed, &endpoints)
 	}

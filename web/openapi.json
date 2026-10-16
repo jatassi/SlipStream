@@ -1328,6 +1328,10 @@
           "label": {
             "type": "string"
           },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
           "max": {
             "description": "Seconds",
             "format": "int64",
@@ -1338,9 +1342,22 @@
             "format": "int64",
             "type": "integer"
           },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "Seconds",
+            "format": "int64",
+            "type": "integer"
+          },
           "source": {
             "enum": [
-              "database"
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
             ],
             "type": "string"
           },
@@ -1358,6 +1375,7 @@
         "required": [
           "kind",
           "value",
+          "running",
           "default",
           "min",
           "max",
@@ -1366,7 +1384,8 @@
           "label",
           "source",
           "applies",
-          "isDefault"
+          "isDefault",
+          "pendingRestart"
         ],
         "type": "object"
       },
@@ -1430,6 +1449,19 @@
         ],
         "type": "object"
       },
+      "SystemHttpFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "configured": {
+            "description": "http.listen at start; listeners.http differs after a fallback to a later port",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configured"
+        ],
+        "type": "object"
+      },
       "SystemListeners": {
         "additionalProperties": false,
         "properties": {
@@ -1463,8 +1495,14 @@
           "dataDir": {
             "type": "string"
           },
+          "http": {
+            "$ref": "#/components/schemas/SystemHttpFacts"
+          },
           "listeners": {
             "$ref": "#/components/schemas/SystemListeners"
+          },
+          "logsDir": {
+            "type": "string"
           },
           "pid": {
             "format": "int64",
@@ -1481,9 +1519,11 @@
         "required": [
           "build",
           "dataDir",
+          "logsDir",
           "pid",
           "seed",
           "startedAt",
+          "http",
           "listeners"
         ],
         "type": "object"

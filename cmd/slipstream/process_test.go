@@ -230,9 +230,9 @@ func TestTwoNodesShareNothingAndRefuseAThird(t *testing.T) {
 			t.Errorf("node on %s reports torrent port 0", c.dir)
 		}
 		want := []node.Key{
-			{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env"},
-			{Key: "http.listen", Value: "127.0.0.1:0", Default: "[::]:8484", Source: "env"},
-			{Key: "link.listen", Value: "127.0.0.1:0", Default: "[::]:8485", Source: "env"},
+			{Key: "torrent.listen", Value: "127.0.0.1:0", Default: "0.0.0.0:6881", Source: "env", Env: "SLIPSTREAM_TORRENT_LISTEN"},
+			{Key: "http.listen", Value: "127.0.0.1:0", Default: "[::]:8484", Source: "env", Env: "SLIPSTREAM_HTTP_LISTEN"},
+			{Key: "link.listen", Value: "127.0.0.1:0", Default: "[::]:8485", Source: "env", Env: "SLIPSTREAM_LINK_LISTEN"},
 		}
 		if !slices.Equal(c.ready.Overrides, want) {
 			t.Errorf("overrides = %+v, want %+v", c.ready.Overrides, want)
@@ -394,7 +394,7 @@ func TestAJoinCodeNeverReachesALogOrTheConfigOutput(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.stdout), &got); err != nil || res.code != node.ExitOK {
 		t.Fatalf("config: exit %d, stdout %q, stderr %q", res.code, res.stdout, res.stderr)
 	}
-	wantKey := node.Key{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: "env"}
+	wantKey := node.Key{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: "env", Env: "SLIPSTREAM_JOIN_CODE"}
 	if !slices.Contains(got.Keys, wantKey) || holdsTheCode(res.stdout) || holdsTheCode(res.stderr) {
 		t.Fatalf("config = %s, want %+v and no code", res.stdout, wantKey)
 	}
@@ -438,7 +438,7 @@ func TestTimingsOverrideIsReportedAndWarned(t *testing.T) {
 	t.Parallel()
 	p := startNode(t, dataDir(t), "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE=5s")
 	ready := p.ready()
-	want := node.Key{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "env"}
+	want := node.Key{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "env", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"}
 	if !slices.Contains(ready.Overrides, want) {
 		t.Fatalf("overrides = %+v, want %+v among them", ready.Overrides, want)
 	}
@@ -447,7 +447,7 @@ func TestTimingsOverrideIsReportedAndWarned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := `["WARN",[{"default":"30s","key":"timings.node.stop_deadline","source":"env","value":"5s"}]]`; string(got) != want {
+	if want := `["WARN",[{"default":"30s","env":"SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE","key":"timings.node.stop_deadline","source":"env","value":"5s"}]]`; string(got) != want {
 		t.Fatalf("warning = %s, want %s", got, want)
 	}
 }
@@ -511,40 +511,50 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	}
 	want := node.Resolved{
 		Keys: []node.Key{
-			{Key: "seed", Value: "fixed", Default: "", Source: "env"},
-			{Key: "name", Value: host, Default: host, Source: "default"},
-			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default"},
-			{Key: "torrent.downloads", Value: "downloads", Default: "downloads", Source: "default"},
-			{Key: "torrent.outgoing_utp", Value: "true", Default: "true", Source: "default"},
-			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default"},
-			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default"},
-			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default"},
-			{Key: "link.advertise", Value: "", Default: "", Source: "default"},
-			{Key: "link.stream_window", Value: "16777216", Default: "16777216", Source: "default"},
-			{Key: "join.code", Value: "", Default: "", Source: "default"},
-			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default"},
-			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml"},
-			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default"},
-			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default"},
-			{Key: "timings.http.idle", Value: "2m0s", Default: "2m0s", Source: "default"},
-			{Key: "timings.live.heartbeat", Value: "25s", Default: "25s", Source: "default"},
-			{Key: "timings.live.retry", Value: "3s", Default: "3s", Source: "default"},
-			{Key: "timings.link.handshake", Value: "10s", Default: "10s", Source: "default"},
-			{Key: "timings.link.keepalive", Value: "25s", Default: "25s", Source: "default"},
-			{Key: "timings.link.write_timeout", Value: "10s", Default: "10s", Source: "default"},
-			{Key: "timings.link.redial_min", Value: "1s", Default: "1s", Source: "default"},
-			{Key: "timings.link.redial_max", Value: "1m0s", Default: "1m0s", Source: "default"},
-			{Key: "timings.link.fallback_delay", Value: "300ms", Default: "300ms", Source: "default"},
-			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default"},
-			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default"},
-			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default"},
-			{Key: "timings.indexers.request", Value: "30s", Default: "30s", Source: "default"},
-			{Key: "timings.transfers.chunk", Value: "30s", Default: "30s", Source: "default"},
-			{Key: "timings.grabs.retry_min", Value: "1s", Default: "1s", Source: "default"},
-			{Key: "timings.grabs.retry_max", Value: "1m0s", Default: "1m0s", Source: "default"},
-			{Key: "timings.grabs.progress", Value: "1s", Default: "1s", Source: "default"},
-			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default"},
-			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default"},
+			{Key: "seed", Value: "fixed", Default: "", Source: "env", Env: "SLIPSTREAM_SEED"},
+			{Key: "name", Value: host, Default: host, Source: "default", Env: "SLIPSTREAM_NAME"},
+			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default", Env: "SLIPSTREAM_TORRENT_LISTEN"},
+			{Key: "torrent.downloads", Value: "downloads", Default: "downloads", Source: "default", Env: "SLIPSTREAM_TORRENT_DOWNLOADS"},
+			{Key: "torrent.outgoing_utp", Value: "true", Default: "true", Source: "default", Env: "SLIPSTREAM_TORRENT_OUTGOING_UTP"},
+			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default", Env: "SLIPSTREAM_HTTP_LISTEN"},
+			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_HTTP_TRUSTED_ORIGINS"},
+			{Key: "http.ports_to_try", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_HTTP_PORTS_TO_TRY"},
+			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default", Env: "SLIPSTREAM_LINK_LISTEN"},
+			{Key: "link.advertise", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_LINK_ADVERTISE"},
+			{Key: "link.stream_window", Value: "16777216", Default: "16777216", Source: "default", Env: "SLIPSTREAM_LINK_STREAM_WINDOW"},
+			{Key: "join.code", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_JOIN_CODE"},
+			{Key: "log.level", Value: "info", Default: "info", Source: "default", Env: "SLIPSTREAM_LOG_LEVEL"},
+			{Key: "log.max_size_mb", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_LOG_MAX_SIZE_MB"},
+			{Key: "log.max_files", Value: "5", Default: "5", Source: "default", Env: "SLIPSTREAM_LOG_MAX_FILES"},
+			{Key: "log.max_age_days", Value: "30", Default: "30", Source: "default", Env: "SLIPSTREAM_LOG_MAX_AGE_DAYS"},
+			{Key: "log.compress", Value: "true", Default: "true", Source: "default", Env: "SLIPSTREAM_LOG_COMPRESS"},
+			{Key: "log.viewer_lines", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_LOG_VIEWER_LINES"},
+			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
+			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
+			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
+			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
+			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HTTP_READ_HEADER"},
+			{Key: "timings.http.idle", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HTTP_IDLE"},
+			{Key: "timings.live.heartbeat", Value: "25s", Default: "25s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LIVE_HEARTBEAT"},
+			{Key: "timings.live.retry", Value: "3s", Default: "3s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LIVE_RETRY"},
+			{Key: "timings.link.handshake", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_HANDSHAKE"},
+			{Key: "timings.link.keepalive", Value: "25s", Default: "25s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_KEEPALIVE"},
+			{Key: "timings.link.write_timeout", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_WRITE_TIMEOUT"},
+			{Key: "timings.link.redial_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_REDIAL_MIN"},
+			{Key: "timings.link.redial_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_REDIAL_MAX"},
+			{Key: "timings.link.fallback_delay", Value: "300ms", Default: "300ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_FALLBACK_DELAY"},
+			{Key: "timings.link.log_poll", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_LOG_POLL"},
+			{Key: "timings.link.log_archive_ttl", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_LOG_ARCHIVE_TTL"},
+			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MIN"},
+			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MAX"},
+			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_WORKS_FETCH"},
+			{Key: "timings.indexers.request", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_REQUEST"},
+			{Key: "timings.transfers.chunk", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_CHUNK"},
+			{Key: "timings.grabs.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MIN"},
+			{Key: "timings.grabs.retry_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MAX"},
+			{Key: "timings.grabs.progress", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_PROGRESS"},
+			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_FACTS"},
+			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_PROBE"},
 		},
 		Census:       []string{"endpoints.tmdb.api"},
 		ContentTypes: []string{"movie"},

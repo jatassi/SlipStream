@@ -13,6 +13,8 @@ const homePage = `/nodes/${homeId}`;
 const system = getGetSystemMockHandler({
   build: { stamped: true, version: "0.4.0" },
   dataDir: "/data/home",
+  logsDir: "/data/home/logs",
+  http: { configured: "127.0.0.2:8080" },
   listeners: {
     http: "127.0.0.2:8080",
     torrent: "127.0.0.2:6881",

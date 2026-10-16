@@ -98,7 +98,7 @@ func Join(ctx context.Context, env Env, code joincode.Code) (pairing.Joined, err
 }
 
 func joinOffline(ctx context.Context, env Env, code joincode.Code) (pairing.Joined, error) {
-	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types)
+	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)
 	if err != nil {
 		return pairing.Joined{}, err
 	}

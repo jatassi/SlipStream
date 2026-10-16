@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -182,7 +183,7 @@ func (r *Run) endpoints(name string) (node.EndpointsBlock, error) {
 	for _, k := range r.probe.Keys {
 		listed[k.Key] = true
 	}
-	e := node.Defaults(contenttype.Set{}).Endpoints
+	e := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
 	for _, f := range r.fakes {
 		at, _ := r.table.Find(fault.Target(f.spec.Name), name)
 		f.spec.Endpoints(&e, at)
