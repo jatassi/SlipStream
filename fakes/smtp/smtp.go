@@ -172,6 +172,8 @@ func (s *server) Serve(ctx context.Context, l net.Listener) error {
 	for {
 		c, err := l.Accept()
 		if err != nil {
+			_ = plain.Close()
+			_ = implicit.Close()
 			for _, srv := range servers {
 				_ = srv.Close()
 			}
