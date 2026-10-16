@@ -59,6 +59,18 @@ var resetReasons = [...]string{Lapped: "lapped", Restarted: "restarted"}
 
 func (r ResetReason) String() string { return resetReasons[r] }
 
+func (r ResetReason) MarshalText() ([]byte, error) { return []byte(r.String()), nil }
+
+func (r *ResetReason) UnmarshalText(b []byte) error {
+	for i, name := range resetReasons {
+		if name != "" && name == string(b) {
+			*r = ResetReason(i)
+			return nil
+		}
+	}
+	return fmt.Errorf("reset reason %q is not lapped or restarted", b)
+}
+
 // LogReset starts a read over: its records follow After, the ring's
 // oldest less one.
 type LogReset struct {

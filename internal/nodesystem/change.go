@@ -1,5 +1,8 @@
-// Package nodesystem is a Node's system as an Admin manages it: the
-// settings it keeps in config.yaml, and why a change to them is refused.
+// Package nodesystem is a Node's system as an Admin manages it: its facts,
+// the settings it keeps in config.yaml and why a change to them is
+// refused, its restart, its log and the zip of its log folder. Every Node
+// serves its Host over NodeSystemService, and the Controller reaches every
+// Node, itself included, through Nodes.
 package nodesystem
 
 import "fmt"
