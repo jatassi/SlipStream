@@ -43,13 +43,14 @@ type openArchive struct {
 }
 
 // wire is err as a call answers it: a code the Controller maps back to the
-// domain error.
+// domain error. A starting or stopping Node answers FailedPrecondition, so
+// its answer never reads as a call the link lost.
 func wire(err error) error {
 	switch {
 	case errors.Is(err, ErrAlreadyRestarting):
 		return rpc.Errorf(rpc.CodeAborted, "%v", err)
 	case errors.Is(err, ErrOffline):
-		return rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		return rpc.Errorf(rpc.CodeFailedPrecondition, "%v", err)
 	}
 	return err
 }

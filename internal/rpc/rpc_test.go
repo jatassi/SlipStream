@@ -185,8 +185,8 @@ func checkErrors(t *testing.T, svc rpctestv1connect.RecordServiceHandler) {
 	if errors.Is(err, errSentinel) {
 		t.Error("the handler's sentinel reached the caller")
 	}
-	if why, ok := rpc.NotSent(err); ok || rpc.Lost(err) {
-		t.Errorf("a call that ran reads as not sent (%v, %v) or lost (%v)", why, ok, rpc.Lost(err))
+	if why, ok := rpc.NotSent(err); ok || rpc.Lost(err) || !rpc.Answered(err) {
+		t.Errorf("a call that ran reads as not sent (%v, %v), lost (%v) or unanswered", why, ok, rpc.Lost(err))
 	}
 
 	_, err = svc.Record(t.Context(), &rpctestv1.RecordRequest{Fail: rpctestv1.Fail_FAIL_FORWARD})
@@ -285,8 +285,8 @@ func TestACallWhoseLinkDiesIsLost(t *testing.T) {
 		}
 		err := <-done
 		close(release)
-		if _, notSent := rpc.NotSent(err); notSent || !rpc.Lost(err) {
-			t.Errorf("a call whose link died after sending = %v (code %v), want Lost", err, rpc.CodeOf(err))
+		if _, notSent := rpc.NotSent(err); notSent || !rpc.Lost(err) || rpc.Answered(err) {
+			t.Errorf("a call whose link died after sending = %v (code %v), want Lost and unanswered", err, rpc.CodeOf(err))
 		}
 	})
 }

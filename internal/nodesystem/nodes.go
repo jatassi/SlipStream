@@ -39,7 +39,8 @@ func NewNodes(on func(role.NodeID) systemv1connect.NodeSystemServiceHandler, nam
 	return &Nodes{on: on, name: name, timings: t, rand: r}
 }
 
-// fail is a call's error as a domain error.
+// fail is a call's error as a domain error. A call the Node never
+// answered, its link gone before or during it, finds the Node offline.
 func fail(err error) error {
 	if why, ok := rpc.NotSent(err); ok {
 		switch why {
@@ -55,7 +56,7 @@ func fail(err error) error {
 	if code == rpc.CodeAborted {
 		return ErrAlreadyRestarting
 	}
-	if code == rpc.CodeUnavailable || code == rpc.CodeCanceled || code == rpc.CodeDeadlineExceeded {
+	if !rpc.Answered(err) || code == rpc.CodeFailedPrecondition || code == rpc.CodeUnavailable || code == rpc.CodeCanceled || code == rpc.CodeDeadlineExceeded {
 		return fmt.Errorf("%w: %w", ErrOffline, err)
 	}
 	return err
@@ -99,9 +100,19 @@ func (n *Nodes) SetConfig(ctx context.Context, id role.NodeID, changes []Change)
 	return configFromWire(res.GetConfig()), nil
 }
 
-// Restart answers once the Node has accepted the restart.
+// Restart answers once the Node has accepted the restart. A Node's stop
+// can drop the link before its answer crosses it, so a sent call the Node
+// never answered counts as accepted, reported from its facts before the
+// call, with no NextPort.
 func (n *Nodes) Restart(ctx context.Context, id role.NodeID) (Restarting, error) {
+	f, err := n.Facts(ctx, id)
+	if err != nil {
+		return Restarting{}, err
+	}
 	res, err := n.on(id).Restart(ctx, &systemv1.RestartRequest{})
+	if _, notSent := rpc.NotSent(err); err != nil && !notSent && !rpc.Answered(err) && ctx.Err() == nil {
+		return Restarting{StartedAt: f.StartedAt, BoundPort: f.Listeners.HTTP.Port()}, nil
+	}
 	if err != nil {
 		return Restarting{}, fail(err)
 	}

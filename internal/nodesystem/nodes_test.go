@@ -145,21 +145,23 @@ func (r roster) Key(node role.NodeID) (link.Key, bool) {
 
 func (roster) Holders(role.Name) []role.NodeID { return nil }
 
+var boxFacts = system.Facts{
+	DataDir:        "/srv/box",
+	LogsDir:        "/srv/box/logs",
+	PID:            77,
+	Seed:           "s",
+	StartedAt:      time.Unix(1_800_000_000, 5).UTC(),
+	HTTPConfigured: netip.MustParseAddrPort("[::]:8484"),
+	Listeners: system.Listeners{
+		HTTP:    netip.MustParseAddrPort("[::]:8486"),
+		Torrent: netip.MustParseAddrPort("0.0.0.0:6881"),
+		Link:    netip.MustParseAddrPort("[::]:8485"),
+		Control: "/srv/box/run/control.sock",
+	},
+}
+
 func TestTheControllerReadsAWorkersFacts(t *testing.T) {
-	facts := system.Facts{
-		DataDir:        "/srv/box",
-		LogsDir:        "/srv/box/logs",
-		PID:            77,
-		Seed:           "s",
-		StartedAt:      time.Unix(1_800_000_000, 5).UTC(),
-		HTTPConfigured: netip.MustParseAddrPort("[::]:8484"),
-		Listeners: system.Listeners{
-			HTTP:    netip.MustParseAddrPort("[::]:8486"),
-			Torrent: netip.MustParseAddrPort("0.0.0.0:6881"),
-			Link:    netip.MustParseAddrPort("[::]:8485"),
-			Control: "/srv/box/run/control.sock",
-		},
-	}
+	facts := boxFacts
 	h := &host{facts: facts}
 	synctest.Test(t, func(t *testing.T) {
 		p := newPair(t, h, "")
@@ -218,7 +220,7 @@ func TestTheControllerChangesAWorkersConfig(t *testing.T) {
 
 func TestTheControllerRestartsAWorkerOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		p := newPair(t, &host{}, "")
+		p := newPair(t, &host{facts: boxFacts}, "")
 		p.Connect(t)
 		ctx := t.Context()
 
