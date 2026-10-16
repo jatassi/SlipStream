@@ -11,6 +11,25 @@ import (
 	"strings"
 )
 
+const archivePattern = "logs-*.zip"
+
+// RemoveArchives deletes every archive in tmp. A process that stopped
+// before its archives' readers finished or their TTL passed leaves them.
+func RemoveArchives(tmp string) error {
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		return fmt.Errorf("list stale log archives: %w", err)
+	}
+	for _, e := range entries {
+		if ok, _ := filepath.Match(archivePattern, e.Name()); ok {
+			if err := os.Remove(filepath.Join(tmp, e.Name())); err != nil {
+				return fmt.Errorf("remove a stale log archive: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
 // Archive zips every file in the log folder into a new file in tmp: the
 // current file first, then the rotated ones by name, the compressed ones
 // stored as they are. It returns the zip at offset 0 and its size.
@@ -34,7 +53,7 @@ func (l *Log) Archive(tmp string) (zipped *os.File, size int64, err error) {
 		}
 		return strings.Compare(a, b)
 	})
-	f, err := os.CreateTemp(tmp, "logs-*.zip")
+	f, err := os.CreateTemp(tmp, archivePattern)
 	if err != nil {
 		return nil, 0, fmt.Errorf("create the log archive: %w", err)
 	}

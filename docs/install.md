@@ -29,7 +29,7 @@ The installer puts SlipStream in `%LOCALAPPDATA%\Programs\SlipStream` and adds t
 
 Your data lives in `%LOCALAPPDATA%\SlipStream2`, which never overlaps SlipStream v1's folder. Uninstalling from **Settings > Apps** removes the program, its shortcuts and its sign-in entry, and keeps that folder.
 
-Host commands such as `slipstream join`, `slipstream status` and `slipstream stop` work in cmd and PowerShell, in any new terminal.
+Host commands such as `slipstream join`, `slipstream status` and `slipstream stop` work in cmd and PowerShell, in any new terminal. [Host commands](#host-commands) lists them.
 
 ### Portable ZIP
 
@@ -91,7 +91,7 @@ The tarball suits a seedbox, or any machine where you cannot install packages:
 ```sh
 tar -xzf slipstream-<v>-linux-amd64.tar.gz
 cd slipstream-<v>
-./slipstream join <code> --node-port <port>
+./slipstream join <code>
 ./slipstream service install --user
 ```
 
@@ -125,6 +125,7 @@ docker run -d --name slipstream \
 - `/config` holds the Node's data dir. `/data` is where your media lives.
 - `PUID` and `PGID` set the user and group the Node runs as. Both default to 1000.
 - Port 8484 serves the web UI. Port 8485 is where other Nodes reach this one.
+- The image tries only its configured web port, so the port inside the container always matches your `-p` mapping. If that port is taken, the Node exits and names it. Other installs try the next 9 ports first. `http.ports_to_try` sets how many ports a Node tries.
 - `--device /dev/dri` gives the container hardware transcoding. The entrypoint joins the group that owns each render device. Leave the line out on a machine with no GPU.
 - `docker logs slipstream` shows the Setup code and the setup page's URL.
 
@@ -146,3 +147,20 @@ Tags:
 | `beta` | the newest pre-release |
 
 The image never updates itself. Pull a newer tag and recreate the container.
+
+## Host commands
+
+Host commands act on the Node whose data dir is `--data-dir`, else `SLIPSTREAM_DATA_DIR`, else the install's default. Run them as the user the sections above name for each install.
+
+| Command | What it does |
+|---|---|
+| `slipstream status` | Prints the running Node's status as JSON. |
+| `slipstream stop` | Stops the Node and waits until it releases its data dir. |
+| `slipstream restart` | Restarts the Node and prints its web address once it answers again. |
+| `slipstream config` | Prints the resolved configuration as JSON. |
+| `slipstream config set <key> <value>` | Saves a Node setting, such as `log.level`, in `config.yaml`. |
+| `slipstream config unset <key>` | Removes a Node setting from `config.yaml`, so its default applies. |
+| `slipstream join <code>` | Joins a stopped, Unclaimed Node to the Controller a Join Code names. |
+| `slipstream version` | Prints the build stamp. |
+
+`config set` and `config unset` print the key's value as the Node now resolves it. A running Node applies a live setting, such as `log.level`, at once. A setting such as `http.listen` waits for a restart, and the line ends `, applies after restart`. A setting an environment variable sets is refused.

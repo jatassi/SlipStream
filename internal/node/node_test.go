@@ -3,6 +3,7 @@ package node
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -137,6 +138,22 @@ func TestStartRefusesAHeldDataDir(t *testing.T) {
 	}
 	if stderr.String() != want+"\n" {
 		t.Fatalf("stderr = %q, want the refusal as plain text", stderr.String())
+	}
+}
+
+func TestStartRemovesTheLogArchivesAStoppedProcessLeft(t *testing.T) {
+	env, _ := testEnv(t)
+	run := env.DataDir.RunDir()
+	if err := os.MkdirAll(run, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	stale, kept := filepath.Join(run, "logs-3141592653.zip"), filepath.Join(run, "notes.zip")
+	writeFile(t, stale, "a zip its reader never finished")
+	writeFile(t, kept, "not an archive")
+	startTest(t, env)
+	_, staleErr := os.Stat(stale)
+	if _, keptErr := os.Stat(kept); !errors.Is(staleErr, fs.ErrNotExist) || keptErr != nil {
+		t.Fatalf("after start, stat %s = %v and %s = %v; want the archive gone and the other file kept", stale, staleErr, kept, keptErr)
 	}
 }
 

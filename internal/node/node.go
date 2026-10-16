@@ -315,6 +315,9 @@ func (n *Node) start(ctx context.Context) error {
 }
 
 func (n *Node) startLogged(ctx context.Context) error {
+	if err := logs.RemoveArchives(n.env.DataDir.RunDir()); err != nil {
+		return err
+	}
 	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types, n.env.Install)
 	if err != nil {
 		return err
