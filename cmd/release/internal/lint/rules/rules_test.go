@@ -214,6 +214,13 @@ func TestConfigSections(t *testing.T) {
 	})
 }
 
+func TestCredentialColumns(t *testing.T) {
+	assertFindings(t, check(t, "credential-columns", fixtureRepo(t, "credential-columns")), []string{
+		"internal/vault/schema/00001_vault.sql:4: [credential-columns] vault_login.password holds a credential in plain text; seal it as password_sealed or keep only its digest as password_hash",
+		"internal/vault/schema/00002_vault_cookie.sql:2: [credential-columns] vault_login.tracker_cookie holds a credential in plain text; seal it as tracker_cookie_sealed or keep only its digest as tracker_cookie_hash",
+	})
+}
+
 func TestMigrationVersions(t *testing.T) {
 	repo := fixtureRepo(t, "migration-versions")
 	untracked := filepath.Join(repo.Root, "internal", "library", "schema", "00003_untracked.sql")

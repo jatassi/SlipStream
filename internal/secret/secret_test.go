@@ -60,9 +60,6 @@ func TestNoRowAndAFileUsesTheFile(t *testing.T) {
 	if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
 		t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
 	}
-	if hex.EncodeToString(keys.CredentialKey()) == fixedPepper {
-		t.Fatal("CredentialKey equals PINPepper")
-	}
 	if _, err := secret.Open(t.Context(), lib, path); err != nil {
 		t.Fatalf("the file did not write the check row: %v", err)
 	}

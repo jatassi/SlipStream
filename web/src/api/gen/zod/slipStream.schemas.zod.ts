@@ -337,6 +337,9 @@ export type IndexersSearchMode = zod.input<typeof IndexersSearchMode>;
 export type IndexersSearchModeOutput = zod.output<typeof IndexersSearchMode>;
 
 export const IndexersIndexer = zod.object({
+  apiKeySet: zod
+    .boolean()
+    .describe("False when the key was dropped and an Admin must enter it again"),
   createdAt: zod.iso.datetime({ offset: true }),
   homeNodeId: zod.uuid().describe("The Node that reaches the Indexer"),
   id: zod.uuid(),
@@ -355,6 +358,15 @@ export const IndexersIndexerList = zod.object({
 
 export type IndexersIndexerList = zod.input<typeof IndexersIndexerList>;
 export type IndexersIndexerListOutput = zod.output<typeof IndexersIndexerList>;
+
+export const indexersNewAPIKeyApiKeyMax = 256;
+
+export const IndexersNewAPIKey = zod.object({
+  apiKey: zod.string().max(indexersNewAPIKeyApiKeyMax),
+});
+
+export type IndexersNewAPIKey = zod.input<typeof IndexersNewAPIKey>;
+export type IndexersNewAPIKeyOutput = zod.output<typeof IndexersNewAPIKey>;
 
 export const indexersNewIndexerApiKeyMax = 256;
 

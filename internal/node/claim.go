@@ -23,11 +23,12 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// library is library.db and what opens with it: library.key's keys and the
-// identity service.
+// library is library.db and what opens with it: the sealer for its
+// credentials and the identity service.
 type library struct {
-	db  *storage.DB[storage.Library]
-	ids *identity.Service
+	db     *storage.DB[storage.Library]
+	sealer *secret.Sealer
+	ids    *identity.Service
 }
 
 // openLibrary opens library.db, library.key and the identity service once,
@@ -52,7 +53,7 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	if err != nil {
 		return nil, err
 	}
-	lib := &library{db: db, ids: ids}
+	lib := &library{db: db, sealer: keys.Sealer(), ids: ids}
 	n.lib.Store(lib)
 	return lib, nil
 }

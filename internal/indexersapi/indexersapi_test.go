@@ -2,7 +2,9 @@ package indexersapi_test
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
@@ -72,13 +75,23 @@ type served struct {
 // down, whose link is disconnected.
 func serve(t *testing.T, holders []role.NodeID, down role.NodeID) *served {
 	t.Helper()
-	s := scenario.Scenario{Name: "x", Seed: "indexersapi"}
-	srv := &served{key: site.APIKey(s), changed: &published{}}
-	srv.site = faketest.Loopback(t, site.Fake, s)
+	return serveOn(t, fixtureSite(t), storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema()), holders, down)
+}
+
+var fixtureScenario = scenario.Scenario{Name: "x", Seed: "indexersapi"}
+
+func fixtureSite(t *testing.T) faketest.Served {
+	t.Helper()
+	return faketest.Loopback(t, site.Fake, fixtureScenario)
+}
+
+func serveOn(t *testing.T, fixture faketest.Served, lib *storage.DB[storage.Library], holders []role.NodeID, down role.NodeID) *served {
+	t.Helper()
+	srv := &served{key: site.APIKey(fixtureScenario), changed: &published{}, site: fixture}
 	home := indexers.NewHome(srv.site.Client, indexers.Timings{Request: 5 * time.Second})
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema())
 	x := indexers.New(indexers.Config{
 		Library: lib,
+		Sealer:  secrettest.Sealer(t),
 		Roster:  roster{self: self, holders: holders},
 		Searching: func(n role.NodeID) searchv1connect.SearchingServiceHandler {
 			srv.asked = append(srv.asked, n)
@@ -110,11 +123,11 @@ func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
 			s := serve(t, tc.holders, role.NodeID{})
 			url := s.site.Address.URL(site.TorznabPath)
 			modes := `"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}]`
-			want := `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2",` + modes + `,"createdAt":"T"}`
+			want := `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2","apiKeySet":true,` + modes + `,"createdAt":"T"}`
 			s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key), http.StatusCreated, want)
 			_, list := s.owner.Call(t, http.MethodGet, "/api/v1/indexers", "")
 			id := ownertest.FirstID(list)
-			if want := `{"indexers":[{"id":"` + id + `","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"` + tc.home.String() + `",` + modes + `,"createdAt":"T"}]}` + "\n"; ownertest.Masked(list) != ownertest.Masked(want) || !strings.Contains(list, `"homeNodeId":"`+tc.home.String()+`"`) {
+			if want := `{"indexers":[{"id":"` + id + `","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"` + tc.home.String() + `","apiKeySet":true,` + modes + `,"createdAt":"T"}]}` + "\n"; ownertest.Masked(list) != ownertest.Masked(want) || !strings.Contains(list, `"homeNodeId":"`+tc.home.String()+`"`) {
 				t.Fatalf("listIndexers = %s, want %s", list, want)
 			}
 			if len(s.changed.ids) != 1 || s.changed.ids[0] != id {
@@ -155,5 +168,55 @@ func TestEachIndexersErrorAnswersItsProblem(t *testing.T) {
 		if _, list := x.owner.Call(t, http.MethodGet, "/api/v1/indexers", ""); list != `{"indexers":[]}`+"\n" || len(x.changed.ids) != 0 {
 			t.Fatalf("after a failed create the list is %s with %d events, want none", list, len(x.changed.ids))
 		}
+	}
+}
+
+
+// TestAKeyTheSealingMigrationDroppedIsEnteredAgain opens a library.db an
+// Indexer was added to before keys were sealed: the key is gone until an
+// Admin enters it again.
+func TestAKeyTheSealingMigrationDroppedIsEnteredAgain(t *testing.T) {
+	ctx := t.Context()
+	fixture := fixtureSite(t)
+	url := fixture.Address.URL(site.TorznabPath)
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	open := func(schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
+		t.Helper()
+		lib, err := storage.OpenLibrary(ctx, path, schemas, func(context.Context, *storage.Unmigrated, storage.Plan) error { return nil }, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lib
+	}
+	before := open(indexers.Schema().Through(1))
+	id := storage.NewUUID()
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', ?, 'plain key', ?, '{}', 0)`, id, url, self)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lib := open(secret.Schema(), identity.Schema(), indexers.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	s := serveOn(t, fixture, lib, []role.NodeID{self}, role.NodeID{})
+	row := func(set bool, modes string) string {
+		return `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2","apiKeySet":` + strconv.FormatBool(set) + `,"searchModes":[` + modes + `],"createdAt":"T"}`
+	}
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexers", "", http.StatusOK, `{"indexers":[`+row(false, "")+`]}`)
+	s.owner.Expect(t, http.MethodPut, "/api/v1/indexers/"+storage.NewUUID().String()+"/api-key", `{"apiKey":"k"}`, http.StatusNotFound,
+		`{"status":404,"code":"indexer_not_found","title":"No Indexer has that id"}`)
+	put := "/api/v1/indexers/" + id.String() + "/api-key"
+	s.owner.Expect(t, http.MethodPut, put, `{"apiKey":"wrong"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"indexer_refused","title":"The Indexer refused the request","detail":"error 100: Invalid API Key"}`)
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexers", "", http.StatusOK, `{"indexers":[`+row(false, "")+`]}`)
+	modes := `{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}`
+	s.owner.Expect(t, http.MethodPut, put, `{"apiKey":"`+s.key+`"}`, http.StatusOK, row(true, modes))
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexers", "", http.StatusOK, `{"indexers":[`+row(true, modes)+`]}`)
+	if len(s.changed.ids) != 1 || s.changed.ids[0] != id.String() {
+		t.Fatalf("indexers.changed published %v, want [%s]", s.changed.ids, id)
 	}
 }
