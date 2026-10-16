@@ -346,7 +346,7 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	if err != nil {
 		return Caller{}, nil, err
 	}
-	lifetime := time.Duration(row.SessionLifetimeSeconds) * time.Second
+	lifetime := SessionLifetime.Value(row.SessionLifetimeSeconds)
 	u, err := s.use(ctx, row.SessionID, row.AccountID, row.LastSeenAt, lifetime)
 	if err != nil {
 		return Caller{}, nil, err
@@ -354,7 +354,7 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	if u == expired {
 		return c, clearCookie(r.HTTPS), nil
 	}
-	window := time.Duration(row.ReconfirmWindowSeconds) * time.Second
+	window := ReconfirmWindow.Value(row.ReconfirmWindowSeconds)
 	c.kind = sessionCaller
 	c.s = signedIn{
 		profile:     Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
@@ -379,7 +379,7 @@ func (s *Service) Renew(ctx context.Context, a Account) error {
 	if err != nil {
 		return err
 	}
-	u, err := s.use(ctx, a.s.session, a.s.profile.ID, row.LastSeenAt, time.Duration(row.SessionLifetimeSeconds)*time.Second)
+	u, err := s.use(ctx, a.s.session, a.s.profile.ID, row.LastSeenAt, SessionLifetime.Value(row.SessionLifetimeSeconds))
 	if err != nil {
 		return err
 	}

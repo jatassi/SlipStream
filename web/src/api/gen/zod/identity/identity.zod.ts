@@ -6,6 +6,8 @@ import {
   IdentityAccountDetail,
   IdentityAccountRow,
   IdentityAccountRows,
+  IdentityAddress,
+  IdentityAddressChange,
   IdentityApiKeyMade,
   IdentityCeremony,
   IdentityClaimBody,
@@ -162,12 +164,24 @@ export const ConfirmEmailParams = zod.object({
 export const ConfirmEmailResponse = zod.void();
 
 /**
- * @summary Get the sign-in limits and lifetimes, and the address links use
+ * @summary Get the address links use, and the one Settings > Address suggests
+ */
+export const GetAddressResponse = IdentityAddress;
+
+/**
+ * @summary Set the address links use
+ */
+export const SetAddressBody = IdentityAddressChange;
+
+export const SetAddressResponse = IdentityAddress;
+
+/**
+ * @summary Get the sign-in limits and lifetimes
  */
 export const GetIdentitySettingsResponse = IdentitySettings;
 
 /**
- * @summary Change the sign-in limits and lifetimes, or the address links use
+ * @summary Change the sign-in limits and lifetimes
  */
 export const UpdateIdentitySettingsBody = IdentitySettingsPatch;
 

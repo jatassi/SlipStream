@@ -1,14 +1,52 @@
 export interface IdentitySettingsPatch {
-  /** @maxLength 2048 */
-  address?: string;
-  addressFailures?: number;
-  addressWindowSeconds?: number;
-  emailLinkLifetimeSeconds?: number;
-  pinOffAfter?: number;
-  pinWaitAfter?: number;
-  pinWaitSeconds?: number;
-  reconfirmWindowSeconds?: number;
-  resetLinkLifetimeSeconds?: number;
-  sessionLifetimeSeconds?: number;
-  signupLinkLifetimeSeconds?: number;
+  /**
+   * null resets it to its default
+   * @nullable
+   */
+  addressFailures?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  addressWindow?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  emailLinkLifetime?: number | null;
+  /**
+   * null resets it to its default
+   * @nullable
+   */
+  pinOffAfter?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  pinWait?: number | null;
+  /**
+   * null resets it to its default
+   * @nullable
+   */
+  pinWaitAfter?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  reconfirmWindow?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  resetLinkLifetime?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  sessionLifetime?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  signupLinkLifetime?: number | null;
 }

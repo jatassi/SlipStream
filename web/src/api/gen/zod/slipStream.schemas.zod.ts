@@ -373,6 +373,27 @@ export const IdentityAccountsChanged = zod.object({});
 export type IdentityAccountsChanged = zod.input<typeof IdentityAccountsChanged>;
 export type IdentityAccountsChangedOutput = zod.output<typeof IdentityAccountsChanged>;
 
+export const IdentityAddress = zod.object({
+  address: zod.string().describe("The origin links are built on, empty until set"),
+  suggestedAddress: zod
+    .string()
+    .describe(
+      "The address this request reached SlipStream at, or this machine's name when that was an IP address",
+    ),
+});
+
+export type IdentityAddress = zod.input<typeof IdentityAddress>;
+export type IdentityAddressOutput = zod.output<typeof IdentityAddress>;
+
+export const identityAddressChangeAddressMax = 2048;
+
+export const IdentityAddressChange = zod.object({
+  address: zod.string().max(identityAddressChangeAddressMax),
+});
+
+export type IdentityAddressChange = zod.input<typeof IdentityAddressChange>;
+export type IdentityAddressChangeOutput = zod.output<typeof IdentityAddressChange>;
+
 export const IdentityApiKeyMade = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
 });
@@ -598,42 +619,95 @@ export const IdentitySessionsChanged = zod.object({
 export type IdentitySessionsChanged = zod.input<typeof IdentitySessionsChanged>;
 export type IdentitySessionsChangedOutput = zod.output<typeof IdentitySessionsChanged>;
 
-export const IdentitySettings = zod.object({
-  address: zod.string().describe("The origin links are built on, empty until set"),
-  addressFailures: zod.int().describe("Failed sign-in attempts one address may make in the window"),
-  addressWindowSeconds: zod.int(),
-  emailLinkLifetimeSeconds: zod.int(),
-  pinOffAfter: zod.int().describe("Wrong PINs in a row before the PIN turns off"),
-  pinWaitAfter: zod.int().describe("Wrong PINs before a wait"),
-  pinWaitSeconds: zod.int().describe("The wait after too many wrong PINs"),
-  reconfirmWindowSeconds: zod.int().describe("How long a confirm with the PIN or a passkey lasts"),
-  resetLinkLifetimeSeconds: zod.int(),
-  sessionLifetimeSeconds: zod.int().describe("How long a session lasts unused"),
-  signupLinkLifetimeSeconds: zod.int(),
-  suggestedAddress: zod
+export const SettingNoun = zod.object({
+  many: zod.string(),
+  one: zod.string(),
+});
+
+export type SettingNoun = zod.input<typeof SettingNoun>;
+export type SettingNounOutput = zod.output<typeof SettingNoun>;
+
+export const SettingCountField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int(),
+  defaultFrom: zod
     .string()
-    .describe(
-      "The address this request reached SlipStream at, or this machine's name when that was an IP address",
-    ),
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["count"]),
+  label: zod.string(),
+  max: zod.int(),
+  min: zod.int(),
+  source: zod.enum(["database"]),
+  unit: SettingNoun,
+  value: zod.int(),
+});
+
+export type SettingCountField = zod.input<typeof SettingCountField>;
+export type SettingCountFieldOutput = zod.output<typeof SettingCountField>;
+
+export const SettingDurationField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Seconds"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["duration"]),
+  label: zod.string(),
+  max: zod.int().describe("Seconds"),
+  min: zod.int().describe("Seconds"),
+  source: zod.enum(["database"]),
+  step: zod.int().describe("Seconds: a second, minute, hour or day"),
+  value: zod.int().describe("Seconds"),
+});
+
+export type SettingDurationField = zod.input<typeof SettingDurationField>;
+export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
+
+export const IdentitySettings = zod.object({
+  addressFailures: SettingCountField,
+  addressWindow: SettingDurationField,
+  emailLinkLifetime: SettingDurationField,
+  pinOffAfter: SettingCountField,
+  pinWait: SettingDurationField,
+  pinWaitAfter: SettingCountField,
+  reconfirmWindow: SettingDurationField,
+  resetLinkLifetime: SettingDurationField,
+  sessionLifetime: SettingDurationField,
+  signupLinkLifetime: SettingDurationField,
 });
 
 export type IdentitySettings = zod.input<typeof IdentitySettings>;
 export type IdentitySettingsOutput = zod.output<typeof IdentitySettings>;
 
-export const identitySettingsPatchAddressMax = 2048;
-
 export const IdentitySettingsPatch = zod.object({
-  address: zod.string().max(identitySettingsPatchAddressMax).exactOptional(),
-  addressFailures: zod.int().exactOptional(),
-  addressWindowSeconds: zod.int().exactOptional(),
-  emailLinkLifetimeSeconds: zod.int().exactOptional(),
-  pinOffAfter: zod.int().exactOptional(),
-  pinWaitAfter: zod.int().exactOptional(),
-  pinWaitSeconds: zod.int().exactOptional(),
-  reconfirmWindowSeconds: zod.int().exactOptional(),
-  resetLinkLifetimeSeconds: zod.int().exactOptional(),
-  sessionLifetimeSeconds: zod.int().exactOptional(),
-  signupLinkLifetimeSeconds: zod.int().exactOptional(),
+  addressFailures: zod.int().nullish().describe("null resets it to its default"),
+  addressWindow: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  emailLinkLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  pinOffAfter: zod.int().nullish().describe("null resets it to its default"),
+  pinWait: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  pinWaitAfter: zod.int().nullish().describe("null resets it to its default"),
+  reconfirmWindow: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  resetLinkLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  sessionLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  signupLinkLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
 });
 
 export type IdentitySettingsPatch = zod.input<typeof IdentitySettingsPatch>;
@@ -934,33 +1008,6 @@ export const NodesRoles = zod.object({
 export type NodesRoles = zod.input<typeof NodesRoles>;
 export type NodesRolesOutput = zod.output<typeof NodesRoles>;
 
-export const SettingDurationField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Seconds"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  floor: zod
-    .string()
-    .exactOptional()
-    .describe("Why the minimum protects someone outside the install"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["duration"]),
-  label: zod.string(),
-  max: zod.int().describe("Seconds"),
-  min: zod.int().describe("Seconds"),
-  source: zod.enum(["database"]),
-  step: zod.int().describe("Seconds: a second, minute, hour or day"),
-  value: zod.int().describe("Seconds"),
-});
-
-export type SettingDurationField = zod.input<typeof SettingDurationField>;
-export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
-
 export const NodesSettings = zod.object({
   joinCodeLifetime: SettingDurationField,
 });
@@ -1111,41 +1158,6 @@ export const SettingChoiceField = zod.object({
 
 export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
 export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
-
-export const SettingNoun = zod.object({
-  many: zod.string(),
-  one: zod.string(),
-});
-
-export type SettingNoun = zod.input<typeof SettingNoun>;
-export type SettingNounOutput = zod.output<typeof SettingNoun>;
-
-export const SettingCountField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  floor: zod
-    .string()
-    .exactOptional()
-    .describe("Why the minimum protects someone outside the install"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["count"]),
-  label: zod.string(),
-  max: zod.int(),
-  min: zod.int(),
-  source: zod.enum(["database"]),
-  unit: SettingNoun,
-  value: zod.int(),
-});
-
-export type SettingCountField = zod.input<typeof SettingCountField>;
-export type SettingCountFieldOutput = zod.output<typeof SettingCountField>;
 
 export const SettingTimes = zod.object({
   end: zod.string().describe("HH:MM, before start when the window crosses midnight"),

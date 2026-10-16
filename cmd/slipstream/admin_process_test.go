@@ -88,8 +88,8 @@ func TestAdminResetRunning(t *testing.T) {
 	h := startHome(t)
 	signedIn := signIn(t, h.ready, "1234")
 	cookie := strings.Split(signedIn.header.Get("Set-Cookie"), ";")[0]
-	if r := call(t, h.ready, http.MethodPatch, "/api/v1/identity/settings", `{"address":"http://home.localhost:8484"}`, map[string]string{"X-Api-Key": h.apiKey}); r.status != http.StatusOK {
-		t.Fatalf("updateIdentitySettings = %d %s", r.status, r.body)
+	if r := call(t, h.ready, http.MethodPut, "/api/v1/identity/address", `{"address":"http://home.localhost:8484"}`, map[string]string{"X-Api-Key": h.apiKey}); r.status != http.StatusOK {
+		t.Fatalf("setAddress = %d %s", r.status, r.body)
 	}
 	token := printedToken(t, reset(t, h.dir, "admin@example.com"))
 	if r := call(t, h.ready, http.MethodGet, "/api/v1/session", "", map[string]string{"Cookie": cookie}); r.status != http.StatusUnauthorized {

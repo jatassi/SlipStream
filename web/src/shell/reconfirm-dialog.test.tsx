@@ -2,8 +2,8 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { IdentitySettings, IdentitySettingsPatch } from "../api/gen/model";
 import { updateIdentitySettings } from "../api/gen/query/identity/identity";
+import { getGetIdentitySettingsResponseMock } from "../api/gen/query/identity/identity.msw";
 import {
   ReconfirmSessionBody,
   UpdateIdentitySettingsBody,
@@ -13,20 +13,23 @@ import { problem } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 import { asPhone } from "../test/viewport";
 
-const settings: IdentitySettings = {
-  address: "http://forge.localhost:8080",
-  addressFailures: 30,
-  addressWindowSeconds: 900,
-  emailLinkLifetimeSeconds: 86_400,
-  pinOffAfter: 10,
-  pinWaitAfter: 5,
-  pinWaitSeconds: 900,
-  reconfirmWindowSeconds: 900,
-  resetLinkLifetimeSeconds: 86_400,
-  sessionLifetimeSeconds: 2_592_000,
-  signupLinkLifetimeSeconds: 604_800,
-  suggestedAddress: "forge.localhost",
-};
+const settings = getGetIdentitySettingsResponseMock();
+
+type Patch = ReturnType<typeof UpdateIdentitySettingsBody.parse>;
+
+const withValue = <F extends { value: number; default: number }>(
+  field: F,
+  value: number | null | undefined,
+): F =>
+  value === undefined
+    ? field
+    : { ...field, value: value ?? field.default, isDefault: value === null };
+
+const applied = (patch: Patch): typeof settings => ({
+  ...settings,
+  pinWaitAfter: withValue(settings.pinWaitAfter, patch.pinWaitAfter),
+  pinOffAfter: withValue(settings.pinOffAfter, patch.pinOffAfter),
+});
 
 const waitEnds = "2026-10-16T15:42:00Z";
 
@@ -62,7 +65,7 @@ const refusals: Record<string, () => Response> = {
 
 function reconfirmServer({ lapsesAgain = false } = {}) {
   let confirmed = false;
-  const patches: IdentitySettingsPatch[] = [];
+  const patches: Patch[] = [];
   return {
     handlers: [
       http.patch("*/api/v1/identity/settings", async ({ request }) => {
@@ -71,7 +74,7 @@ function reconfirmServer({ lapsesAgain = false } = {}) {
         if (!confirmed || lapsesAgain) {
           return problem(403, "needs_reconfirm", "Confirm it's you to continue");
         }
-        return HttpResponse.json({ ...settings, ...patch });
+        return HttpResponse.json(applied(patch));
       }),
       http.post("*/api/v1/session/reconfirm", async ({ request }) => {
         const { pin } = ReconfirmSessionBody.parse(await request.json());
@@ -107,7 +110,7 @@ test("an action whose confirm lapsed asks for the PIN, then runs once more with 
   await expect.element(dialog().getByText("Enter your PIN to continue.")).toBeVisible();
 
   await typePin("1234");
-  await expect(saved).resolves.toEqual({ ...settings, pinWaitAfter: 3 });
+  await expect(saved).resolves.toEqual(applied({ pinWaitAfter: 3 }));
   await expect.element(dialog()).not.toBeInTheDocument();
   expect(server.patches).toEqual([{ pinWaitAfter: 3 }, { pinWaitAfter: 3 }]);
 });
@@ -151,8 +154,8 @@ test("actions that ask at once share one dialog, and one PIN runs them all", asy
   expect(page.getByRole("dialog").all()).toHaveLength(1);
 
   await typePin("1234");
-  await expect(first).resolves.toMatchObject({ pinWaitAfter: 3 });
-  await expect(second).resolves.toMatchObject({ pinOffAfter: 8 });
+  await expect(first).resolves.toMatchObject({ pinWaitAfter: { value: 3 } });
+  await expect(second).resolves.toMatchObject({ pinOffAfter: { value: 8 } });
 });
 
 test.each([
@@ -199,5 +202,5 @@ test("on a phone the dialog is a sheet with the keypad", async () => {
     // oxlint-disable-next-line no-await-in-loop -- a person presses one key after another
     await userEvent.click(keypad.getByRole("button", { name: digit, exact: true }));
   }
-  await expect(saved).resolves.toMatchObject({ pinWaitAfter: 3 });
+  await expect(saved).resolves.toMatchObject({ pinWaitAfter: { value: 3 } });
 });

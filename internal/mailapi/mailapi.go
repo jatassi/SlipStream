@@ -129,12 +129,12 @@ func Routes(r *api.Router, lib Library) {
 			return nil, noRecipient
 		}
 		m, ids := open(lib)
-		set, err := ids.Settings(ctx, a)
+		addr, err := ids.Address(ctx, a)
 		if err != nil {
 			return nil, err
 		}
 		p := account.Profile()
-		msg, err := mail.TestMessage(mail.Address{Name: p.DisplayName, Email: p.Email}, mail.TestEmail{ServerName: set.Address.Host(), URL: set.Address.String()})
+		msg, err := mail.TestMessage(mail.Address{Name: p.DisplayName, Email: p.Email}, mail.TestEmail{ServerName: addr.Host(), URL: addr.String()})
 		if err != nil {
 			return nil, err
 		}

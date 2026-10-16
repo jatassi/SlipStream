@@ -34,8 +34,8 @@ func (n *node) as(session, method, target, body string) *httptest.ResponseRecord
 
 func (n *node) setAddress(session string) {
 	n.t.Helper()
-	if w := n.as(session, http.MethodPatch, "/api/v1/identity/settings", `{"address":"`+address+`"}`); w.Code != http.StatusOK {
-		n.t.Fatalf("updateIdentitySettings = %d %s", w.Code, w.Body)
+	if w := n.as(session, http.MethodPut, "/api/v1/identity/address", `{"address":"`+address+`"}`); w.Code != http.StatusOK {
+		n.t.Fatalf("setAddress = %d %s", w.Code, w.Body)
 	}
 }
 
@@ -209,7 +209,7 @@ func TestASignupLinkExpiresAtItsLifetime(t *testing.T) {
 		n := newNode(t)
 		_, a := n.claimed()
 		n.setAddress(a)
-		if w := n.as(a, http.MethodPatch, "/api/v1/identity/settings", `{"signupLinkLifetimeSeconds":60}`); w.Code != http.StatusOK {
+		if w := n.as(a, http.MethodPatch, "/api/v1/identity/settings", `{"signupLinkLifetime":60}`); w.Code != http.StatusOK {
 			t.Fatalf("updateIdentitySettings = %d %s", w.Code, w.Body)
 		}
 		issued := n.issueSignup(a, "grace@example.com")
