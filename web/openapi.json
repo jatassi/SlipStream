@@ -1116,26 +1116,25 @@
       "NodesSettings": {
         "additionalProperties": false,
         "properties": {
-          "joinCodeLifetimeSeconds": {
-            "format": "int64",
-            "maximum": 604800,
-            "minimum": 600,
-            "type": "integer"
+          "joinCodeLifetime": {
+            "$ref": "#/components/schemas/SettingDurationField"
           }
         },
         "required": [
-          "joinCodeLifetimeSeconds"
+          "joinCodeLifetime"
         ],
         "type": "object"
       },
       "NodesSettingsPatch": {
         "additionalProperties": false,
         "properties": {
-          "joinCodeLifetimeSeconds": {
+          "joinCodeLifetime": {
+            "description": "Seconds; null resets it to its default",
             "format": "int64",
-            "maximum": 604800,
-            "minimum": 600,
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -1287,6 +1286,87 @@
         },
         "required": [
           "roots"
+        ],
+        "type": "object"
+      },
+      "SettingDurationField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "description": "Seconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "floor": {
+            "description": "Why the minimum protects someone outside the install",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "duration"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "max": {
+            "description": "Seconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "min": {
+            "description": "Seconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "database"
+            ],
+            "type": "string"
+          },
+          "step": {
+            "description": "Seconds: a second, minute, hour or day",
+            "format": "int64",
+            "type": "integer"
+          },
+          "value": {
+            "description": "Seconds",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "default",
+          "min",
+          "max",
+          "step",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault"
         ],
         "type": "object"
       },
@@ -4631,7 +4711,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "setting_out_of_range"
                           ],
                           "type": "string"
                         }

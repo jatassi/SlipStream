@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/netip"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
@@ -211,12 +212,16 @@ func TestHoldersByPairingListTheFirstPairedFirst(t *testing.T) {
 func TestACodePastItsLifetimeIsRefused(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startController(t)
-		if err := c.svc.SetJoinCodeLifetime(t.Context(), 10*time.Minute); err != nil {
+		tenMinutes, err := nodes.JoinCodeLifetime.Parse(new(int64(600)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.svc.SetJoinCodeLifetime(t.Context(), tenMinutes); err != nil {
 			t.Fatal(err)
 		}
 		code := c.mint(t)
 		time.Sleep(10 * time.Minute)
-		_, err := c.worker(t, "box", "127.0.0.3").Pair(t.Context(), code.Code, "box")
+		_, err = c.worker(t, "box", "127.0.0.3").Pair(t.Context(), code.Code, "box")
 		if got := refusal(err); got != linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED {
 			t.Fatalf("a code past its lifetime: %v, want REFUSED_REASON_JOIN_CODE_EXPIRED", err)
 		}
@@ -253,9 +258,6 @@ func TestTheControllersOwnRow(t *testing.T) {
 		want := slices.DeleteFunc(role.Names(), func(r role.Name) bool { return r == role.Relaying })
 		if !own.Self || own.Name != "home" || own.Key != c.node.Key || own.Link != nodes.Local || !slices.Equal(own.Roles, want) {
 			t.Fatalf("own row = self %v, %q, %s, %s, %v; want self, home, its key, local, %v", own.Self, own.Name, own.Key.Fingerprint(), own.Link, own.Roles, want)
-		}
-		if err := c.svc.SetJoinCodeLifetime(t.Context(), 9*time.Minute); !errors.Is(err, nodes.ErrLifetime) {
-			t.Fatalf("a 9 minute lifetime: %v, want ErrLifetime", err)
 		}
 		if _, err := c.svc.SetRoles(t.Context(), role.NodeID{UUID: storage.NewUUID()}, nil); !errors.Is(err, nodes.ErrNotFound) {
 			t.Fatalf("roles for an unknown Node: %v, want ErrNotFound", err)
@@ -377,4 +379,42 @@ func TestAwaitInStepReturnsOnceTheNodesLinkIsLive(t *testing.T) {
 			t.Fatalf("AwaitInStep(box) = %v once box connected, want nil", err)
 		}
 	})
+}
+
+func TestTheLifetimeMigrationKeepsOnlyAnOverride(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		seconds int64
+		want    []byte
+	}{
+		{"a changed lifetime", 7200, []byte("7200")},
+		{"the default lifetime", 3600, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), storage.LibraryFile)
+			log := slog.New(slog.DiscardHandler)
+			old, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{nodes.Schema().Through(1)}, nil, storage.DefaultTimings(), log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = old.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+				_, err := tx.ExecContext(ctx, "UPDATE nodes_settings SET join_code_lifetime_seconds = ?", tc.seconds)
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := old.Close(); err != nil {
+				t.Fatal(err)
+			}
+			lib, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{nodes.Schema()}, nil, storage.DefaultTimings(), log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = lib.Close() })
+			if got := cells(t, lib, "SELECT join_code_lifetime_seconds FROM nodes_settings"); len(got) != 1 || !bytes.Equal(got[0], tc.want) {
+				t.Fatalf("join_code_lifetime_seconds = %q, want %q", got, tc.want)
+			}
+		})
+	}
 }

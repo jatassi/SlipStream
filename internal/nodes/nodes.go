@@ -26,6 +26,7 @@ import (
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -79,13 +80,17 @@ type Config struct {
 var (
 	ErrNotFound      = errors.New("no Node has this id")
 	ErrNoLinkAddress = errors.New("the link has no address to advertise")
-	ErrLifetime      = errors.New("the Join Code lifetime is 10 minutes to 7 days")
 )
 
-const (
-	MinJoinCodeLifetime = 10 * time.Minute
-	MaxJoinCodeLifetime = 7 * 24 * time.Hour
-)
+// JoinCodeLifetime is how long a new Join Code is accepted.
+var JoinCodeLifetime = setting.Duration{
+	Key:     "nodes.joinCodeLifetime",
+	Label:   "Join Code lifetime",
+	Default: time.Hour,
+	Min:     10 * time.Minute,
+	Max:     7 * 24 * time.Hour,
+	Step:    time.Minute,
+}
 
 // Service is the Controller's roster and its Nodes' records. Its memory
 // holds what calls read on every request: each Node's key and Roles.
@@ -365,12 +370,12 @@ func (s *Service) MintJoinCode(ctx context.Context) (JoinCode, error) {
 	var expires storage.Time
 	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
-		seconds, err := q.GetJoinCodeLifetime(ctx)
+		lifetime, err := q.GetJoinCodeLifetime(ctx)
 		if err != nil {
 			return err
 		}
 		now := storage.Now()
-		expires = storage.FromTime(now.Time().Add(time.Duration(seconds) * time.Second))
+		expires = storage.FromTime(now.Time().Add(JoinCodeLifetime.Value(lifetime)))
 		return q.InsertJoinCode(ctx, db.InsertJoinCodeParams{SecretHash: hash[:], CreatedAt: now, ExpiresAt: expires})
 	})
 	if err != nil {
@@ -379,18 +384,17 @@ func (s *Service) MintJoinCode(ctx context.Context) (JoinCode, error) {
 	return JoinCode{Code: code, ExpiresAt: expires.Time()}, nil
 }
 
-// JoinCodeLifetime is how long a new Join Code is accepted.
-func (s *Service) JoinCodeLifetime(ctx context.Context) (time.Duration, error) {
-	seconds, err := db.New(s.cfg.Library).GetJoinCodeLifetime(ctx)
-	return time.Duration(seconds) * time.Second, err
+func (s *Service) JoinCodeLifetimeField(ctx context.Context) (setting.DurationField, error) {
+	lifetime, err := db.New(s.cfg.Library).GetJoinCodeLifetime(ctx)
+	if err != nil {
+		return setting.DurationField{}, fmt.Errorf("read the Join Code lifetime: %w", err)
+	}
+	return JoinCodeLifetime.Field(lifetime), nil
 }
 
-func (s *Service) SetJoinCodeLifetime(ctx context.Context, d time.Duration) error {
-	if d < MinJoinCodeLifetime || d > MaxJoinCodeLifetime || d%time.Second != 0 {
-		return ErrLifetime
-	}
+func (s *Service) SetJoinCodeLifetime(ctx context.Context, v setting.Stored[int64]) error {
 	return s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return db.New(tx).SetJoinCodeLifetime(ctx, int64(d/time.Second))
+		return db.New(tx).SetJoinCodeLifetime(ctx, v.Override())
 	})
 }
 

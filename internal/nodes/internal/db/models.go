@@ -38,5 +38,5 @@ type NodesRole struct {
 
 type NodesSetting struct {
 	ID                      Singleton
-	JoinCodeLifetimeSeconds int64
+	JoinCodeLifetimeSeconds *int64
 }
