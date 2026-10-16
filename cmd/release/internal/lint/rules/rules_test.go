@@ -289,6 +289,15 @@ func TestHumaConfined(t *testing.T) {
 	})
 }
 
+func TestMailConfined(t *testing.T) {
+	const outside = " go-mail imported outside internal/mail; send through a mail.Sender"
+	assertFindings(t, check(t, "mail-confined", fixtureRepo(t, "mail-confined")), []string{
+		"fakes/smtp/smtp_test.go:3: [mail-confined]" + outside,
+		"internal/identity/emails.go:6: [mail-confined]" + outside,
+		"internal/mail/mailtest/mailtest.go:3: [mail-confined]" + outside,
+	})
+}
+
 func TestRoutesPlacement(t *testing.T) {
 	assertFindings(t, check(t, "routes-placement", fixtureRepo(t, "routes-placement")), []string{
 		"internal/nodes/nodes.go:6: [routes-placement] api.RegisterStream outside <owner>api.Routes",
