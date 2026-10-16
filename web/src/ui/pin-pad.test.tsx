@@ -96,3 +96,12 @@ test("a new PIN is entered twice, and a mismatch says so and starts over", async
   await press("2468");
   await expect.poll(() => submitted.mock.calls).toEqual([["2468"]]);
 });
+
+test("at the Console density the second entry is typed straight after the first", async () => {
+  const submitted = render("console", true);
+  await userEvent.click(page.getByRole("textbox", { name: "New PIN", exact: true }));
+  await userEvent.keyboard("1357");
+  await expect.element(page.getByText("Type it again")).toBeVisible();
+  await userEvent.keyboard("1357");
+  await expect.poll(() => submitted.mock.calls).toEqual([["1357"]]);
+});

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 import { errorText, useFieldContext } from "./form-context";
 import { PinInput, type PinInputProps, pinLength } from "./pin-field";
-import { usePortalDensity } from "./portal-density";
+import { useDensity } from "./shell-context";
 
 const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 
@@ -61,25 +61,22 @@ function Keypad({
 
 type EntryProps = Omit<PinInputProps, "keypad" | "autoSubmit" | "onComplete"> & {
   onComplete: (value: string) => void;
-  shakes?: number;
+  shake?: boolean;
 };
 
 // At the Touch density the keypad takes the PIN and the field above only shows
 // it, so the system keyboard stays down. A hardware keyboard still types there.
-function PinEntry({ value, onValueChange, onComplete, shakes = 0, ...input }: EntryProps) {
-  const { density, probe } = usePortalDensity();
-  const keypad = density === "touch";
+function PinEntry({ value, onValueChange, onComplete, shake = false, ...input }: EntryProps) {
+  const keypad = useDensity() === "touch";
   return (
     <div className="flex flex-col gap-6 in-data-[density=touch]:items-center">
-      {probe}
       <PinInput
-        key={shakes}
         {...input}
         value={value}
         onValueChange={onValueChange}
         onComplete={onComplete}
         keypad={keypad}
-        className={`in-data-[density=touch]:items-center ${shakes > 0 ? "motion-safe:animate-shake" : ""}`}
+        className={`in-data-[density=touch]:items-center ${shake ? "motion-safe:animate-shake" : ""}`}
       />
       {keypad && <Keypad value={value} onValueChange={onValueChange} onComplete={onComplete} />}
     </div>
@@ -134,10 +131,12 @@ export function NewPinPad({ label = "New PIN" }: { label?: string }) {
   const { ref, submit } = useSubmit();
   const [first, setFirst] = useState<string | null>(null);
   const [entry, setEntry] = useState("");
-  const [shakes, setShakes] = useState(0);
   const [mismatched, setMismatched] = useState(false);
   const complete = (pin: string) => {
     setEntry("");
+    if (ref.current?.contains(document.activeElement) === true) {
+      ref.current.querySelector("input")?.focus();
+    }
     if (first === null) {
       setFirst(pin);
       setMismatched(false);
@@ -146,7 +145,6 @@ export function NewPinPad({ label = "New PIN" }: { label?: string }) {
     setFirst(null);
     if (pin !== first) {
       setMismatched(true);
-      setShakes((count) => count + 1);
       return;
     }
     field.handleChange(pin);
@@ -165,7 +163,7 @@ export function NewPinPad({ label = "New PIN" }: { label?: string }) {
         }}
         onComplete={complete}
         autoComplete="new-password"
-        shakes={shakes}
+        shake={mismatched}
         error={mismatched ? mismatch : errorText(field.state.meta.errors)}
       />
     </div>
