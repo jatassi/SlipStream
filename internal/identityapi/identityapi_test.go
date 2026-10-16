@@ -61,7 +61,7 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 	}
 	hub := identitytest.Hub(t)
 	sent, outbox := identitytest.Mail(t)
-	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub, Mail: sent, Outbox: outbox})
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Sealer: keys.Sealer(), Hub: hub, Mail: sent, Outbox: outbox})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("a wrong PIN and an unknown email differ: %v and %v", wrong.Header(), unknown.Header())
 	}
 	w := n.signIn(" Admin@Example.COM ", "1234")
-	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}`+"\n")
+	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"passkeyPrompt":false}`+"\n")
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}

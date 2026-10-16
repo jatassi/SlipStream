@@ -168,6 +168,7 @@ class Stream {
   private onControl(event: ControlEvent) {
     switch (event.event) {
       case "live.resync":
+      case "live.access-changed":
         this.resync();
         return;
       case "live.session-ended":

@@ -25,6 +25,9 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: identity_account.key_prompt
+            go_type:
+              type: KeyPrompt
           - column: identity_session.id
             go_type:
               type: SessionID

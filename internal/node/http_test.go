@@ -253,7 +253,7 @@ func claimThroughTheGate(t *testing.T, c client, code string) claimedNode {
 		c:        c,
 		account:  res.Account.ID,
 		apiKey:   res.APIKey,
-		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}` + "\n",
+		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"passkeyPrompt":false}` + "\n",
 	}
 }
 

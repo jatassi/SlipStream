@@ -257,6 +257,26 @@ func TestEndSessionEndsOnlyThatSessionsSubscriptions(t *testing.T) {
 	})
 }
 
+func TestEndAccountStreamsReGatesOnlyThatAccountsTabs(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h, pub := newHub(t)
+		tab1 := h.Subscribe(member, "946684800000000")
+		tab2 := h.Subscribe(live.Viewer{Account: alice, Session: aliceTab2}, "946684800000000")
+		signedOut := h.Subscribe(live.Viewer{Account: alice, Session: aliceTab2}, "946684800000000")
+		other := h.Subscribe(admin, "946684800000000")
+		h.EndSession(t.Context(), aliceTab2, live.Revoked)
+		h.EndAccountStreams(t.Context(), alice)
+		pub.notices.Publish(t.Context(), notice{Text: "after"})
+		expect(t, tab1, live.Message{Name: "live.access-changed", Data: live.AccessChanged{}})
+		expect(t, tab2, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.Revoked}})
+		expect(t, signedOut, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.Revoked}})
+		if _, err := tab1.Next(t.Context()); !errors.Is(err, live.ErrEnded) {
+			t.Errorf("Next after access-changed = %v, want %v", err, live.ErrEnded)
+		}
+		expect(t, other, live.Message{ID: start + 1, Name: "notices.posted", Data: notice{Text: "after"}})
+	})
+}
+
 func TestEndSessionWakesAWaitingReader(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		h, _ := newHub(t)
@@ -387,7 +407,7 @@ func TestEventsListsEveryEventWithTheControlEvents(t *testing.T) {
 	for _, e := range h.Events() {
 		names = append(names, e.Name())
 	}
-	want := "identity.sessions-changed live.resync live.session-ended nodes.changed notices.posted"
+	want := "identity.sessions-changed live.access-changed live.resync live.session-ended nodes.changed notices.posted"
 	if got := strings.Join(names, " "); got != want {
 		t.Fatalf("Events = %s, want %s", got, want)
 	}

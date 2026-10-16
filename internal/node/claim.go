@@ -55,7 +55,7 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: n.cfg.Timings.Mail})
 	outbox := mail.NewOutbox(smtp, n.rootLog.With("subsystem", "mail"))
 	n.claimed.OnStop("mail", outbox.Close)
-	ids, err := identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Hub: n.hub, Mail: smtp, Outbox: outbox})
+	ids, err := identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: n.hub, Mail: smtp, Outbox: outbox})
 	if err != nil {
 		return nil, err
 	}

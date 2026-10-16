@@ -41,7 +41,7 @@ func serve(t *testing.T, heartbeat time.Duration) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := live.NewHub([]live.Event{identity.SessionsChangedEvent})
+	hub := identitytest.Hub(t)
 	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
 	if err != nil {
 		t.Fatal(err)

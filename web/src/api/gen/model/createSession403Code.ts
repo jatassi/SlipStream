@@ -1,1 +1,1 @@
-export type CreateSession403Code = "pin_off";
+export type CreateSession403Code = "account_disabled" | "pin_off";

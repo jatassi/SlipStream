@@ -47,7 +47,9 @@ type pinOffData struct {
 type emailChangedData struct{ NewEmail string }
 
 // when is an instant as an email states it, in the Controller's zone.
-func when(t time.Time) string { return t.In(time.Local).Format("Monday, January 2, 2006 at 3:04 PM MST") }
+func when(t time.Time) string {
+	return t.In(time.Local).Format("Monday, January 2, 2006 at 3:04 PM MST")
+}
 
 // orYourAdmin is who an email says sent a link: the Admin who issued it,
 // or "Your Admin" for one the API key or the host command issued.

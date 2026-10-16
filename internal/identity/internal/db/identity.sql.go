@@ -272,10 +272,11 @@ func (q *Queries) InsertAccount(ctx context.Context, arg InsertAccountParams) er
 }
 
 const insertSession = `-- name: InsertSession :exec
-INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at, pin_required)
+INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at, device, pin_required, prompted)
 VALUES (
     ?1, ?2, ?3, ?4,
-    ?5, ?6, ?7, ?8
+    ?5, ?6, ?7, ?8,
+    ?9, ?10
 )
 `
 
@@ -287,7 +288,9 @@ type InsertSessionParams struct {
 	CreatedAt   storage.Time
 	LastSeenAt  storage.Time
 	ConfirmedAt storage.Time
+	Device      string
 	PinRequired bool
+	Prompted    bool
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
@@ -299,7 +302,9 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.CreatedAt,
 		arg.LastSeenAt,
 		arg.ConfirmedAt,
+		arg.Device,
 		arg.PinRequired,
+		arg.Prompted,
 	)
 	return err
 }

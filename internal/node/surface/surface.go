@@ -36,6 +36,8 @@ import (
 // and every Bind read it.
 var Events = []live.Event{
 	identity.SessionsChangedEvent,
+	identity.AccountsChangedEvent,
+	identity.LinksChangedEvent,
 	nodes.ChangedEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,

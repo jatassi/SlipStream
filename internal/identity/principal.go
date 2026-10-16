@@ -7,9 +7,10 @@ import (
 
 // client is who a request came from, after http.trusted_proxies.
 type client struct {
-	address netip.Addr
-	https   bool
-	host    string
+	address   netip.Addr
+	https     bool
+	host      string
+	userAgent string
 }
 
 func (c client) Address() netip.Addr { return c.address }
@@ -183,3 +184,8 @@ func (c Caller) Reconfirmed() (Admin, error) {
 	}
 	return a, nil
 }
+
+// passkeyHost is the RP ID c's address would hold a passkey at. It answers
+// that no address can until passkeys are wired, so the passkey prompt
+// never shows yet.
+func passkeyHost(client) (string, bool) { return "", false }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -14,7 +15,11 @@ type effects struct {
 	// now is the Write's one clock reading.
 	now      storage.Time
 	ended    []endedSession
+	regated  []AccountID
 	sessions map[AccountID]struct{}
+	accounts bool
+	links    bool
+	notices  []mail.Message
 }
 
 type endedSession struct {
@@ -30,14 +35,45 @@ func (fx *effects) endSession(account AccountID, id SessionID, why live.EndReaso
 	fx.sessionsChanged(account)
 }
 
+func (fx *effects) endSessions(account AccountID, ids []SessionID, why live.EndReason) {
+	for _, id := range ids {
+		fx.endSession(account, id, why)
+	}
+}
+
 func (fx *effects) sessionsChanged(account AccountID) { fx.sessions[account] = struct{}{} }
 
-// write is identity's only lib.Write. After commit it ends the sessions'
-// streams, then publishes.
+func (fx *effects) accountsChanged() { fx.accounts = true }
+
+func (fx *effects) linksChanged() { fx.links = true }
+
+// notice records an email that goes out after the commit, which nobody
+// waits for.
+func (fx *effects) notice(m mail.Message) { fx.notices = append(fx.notices, m) }
+
+// write is identity's only lib.Write. It holds the last-Admin rule: no
+// Write may take a Library that has an enabled Admin to none. After commit
+// it ends the sessions' streams, then re-gated Accounts' streams, then
+// publishes, then posts the notices.
 func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.Queries, fx *effects) error) error {
 	fx := &effects{now: storage.Now(), sessions: map[AccountID]struct{}{}}
 	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return fn(ctx, db.New(tx), fx)
+		q := db.New(tx)
+		before, err := q.CountEnabledAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if err := fn(ctx, q, fx); err != nil {
+			return err
+		}
+		after, err := q.CountEnabledAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if before > 0 && after == 0 {
+			return ErrLastAdmin
+		}
+		return nil
 	})
 	if err != nil {
 		return err
@@ -45,8 +81,20 @@ func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.
 	for _, e := range fx.ended {
 		s.hub.EndSession(ctx, e.id.UUID, e.why)
 	}
+	for _, account := range fx.regated {
+		s.hub.EndAccountStreams(ctx, account.UUID)
+	}
 	for account := range fx.sessions {
 		s.sessions.Publish(ctx, account.UUID, SessionsChanged{Account: account.String()})
+	}
+	if fx.accounts {
+		s.accounts.Publish(ctx, AccountsChanged{})
+	}
+	if fx.links {
+		s.links.Publish(ctx, LinksChanged{})
+	}
+	for _, m := range fx.notices {
+		s.outbox.Post(m)
 	}
 	return nil
 }

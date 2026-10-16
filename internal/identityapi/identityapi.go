@@ -72,11 +72,6 @@ type signInBody struct {
 	PIN   string `json:"pin" pattern:"^[0-9]{4}$"`
 }
 
-type sessionOutput struct {
-	SetCookie string `header:"Set-Cookie"`
-	Body      session
-}
-
 type session struct {
 	Account     account `json:"account"`
 	PINRequired bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
@@ -84,6 +79,24 @@ type session struct {
 
 type getSessionOutput struct {
 	Body session
+}
+
+type signedInOutput struct {
+	SetCookie string `header:"Set-Cookie"`
+	Body      signedIn
+}
+
+type signedIn struct {
+	Account       account `json:"account"`
+	PINRequired   bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
+	PasskeyPrompt bool    `json:"passkeyPrompt" doc:"Show the prompt to add a passkey for this address, once in this session"`
+}
+
+func signedInOf(s identity.SignedIn) *signedInOutput {
+	return &signedInOutput{
+		SetCookie: s.Cookie.String(),
+		Body:      signedIn{Account: accountOf(s.Profile), PINRequired: s.PINRequired, PasskeyPrompt: s.PasskeyPrompt},
+	}
 }
 
 type signOutOutput struct {
@@ -128,8 +141,8 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/session",
 		Summary: "Sign in with email and PIN",
 		Status:  http.StatusOK,
-		Errors:  pinChecked,
-	}, func(ctx context.Context, a identity.Anyone, in *signInInput) (*sessionOutput, error) {
+		Errors:  append([]*api.Code{accountDisabled}, pinChecked...),
+	}, func(ctx context.Context, a identity.Anyone, in *signInInput) (*signedInOutput, error) {
 		pin, err := identity.ParsePIN(in.Body.PIN)
 		if err != nil {
 			return nil, err
@@ -138,11 +151,11 @@ func Routes(r *api.Router, lib Library) {
 		if !ok {
 			return nil, pinWrong
 		}
-		profile, cookie, err := s.SignIn(ctx, a, in.Body.Email, pin)
+		got, err := s.SignIn(ctx, a, in.Body.Email, pin)
 		if err != nil {
 			return nil, answer(err)
 		}
-		return &sessionOutput{SetCookie: cookie.String(), Body: session{Account: accountOf(profile)}}, nil
+		return signedInOf(got), nil
 	})
 
 	api.Register(o, api.Bearer, api.Op{
@@ -202,6 +215,119 @@ func Routes(r *api.Router, lib Library) {
 		Summary: "Replace the API key, shown this once; the old one stops working",
 		Status:  http.StatusOK,
 	}, regenerateAPIKey(lib))
+
+	api.Register(o, api.Confirmed, api.Op{
+		ID:      "startEmailChange",
+		Method:  http.MethodPost,
+		Path:    "/account/email",
+		Summary: "Change your email: a confirm link goes to the new address, and the email changes when it is followed",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{emailTaken, addressUnset},
+	}, startEmailChange(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listSignupLinks",
+		Method:  http.MethodGet,
+		Path:    "/signup-links",
+		Summary: "List the Signup links nobody has used yet",
+		Status:  http.StatusOK,
+	}, listSignupLinks(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "createSignupLink",
+		Method:  http.MethodPost,
+		Path:    "/signup-links",
+		Summary: "Issue a Signup link for an email, email it, and answer it to copy",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{addressUnset, accountExists},
+	}, issueSignupLink(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "getSignupLink",
+		Method:  http.MethodGet,
+		Path:    "/signup-links/{id}",
+		Summary: "Get a pending Signup link with its URL, to copy again",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{linkNotFound},
+	}, getSignupLink(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "resendSignupLink",
+		Method:  http.MethodPost,
+		Path:    "/signup-links/{id}/resend",
+		Summary: "Send a pending Signup link again as a new link; the old one stops working",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{linkNotFound, addressUnset, accountExists},
+	}, resendSignupLink(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "deleteSignupLink",
+		Method:  http.MethodDelete,
+		Path:    "/signup-links/{id}",
+		Summary: "Cancel a pending Signup link",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{linkNotFound},
+	}, withdrawSignupLink(lib))
+
+	api.Register(o, api.Public, api.Op{
+		ID:      "getSignupLinkByToken",
+		Method:  http.MethodGet,
+		Path:    "/signup-links/by-token/{token}",
+		Summary: "Get what a Signup link's page shows: who it is from, or why it no longer works",
+		Status:  http.StatusOK,
+	}, viewLink(lib, identity.SignupLink))
+
+	api.Register(o, api.Public, api.Op{
+		ID:      "redeemSignupLink",
+		Method:  http.MethodPost,
+		Path:    "/signup-links/by-token/{token}/account",
+		Summary: "Make the Member's Account with a Signup link and sign in",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{linkDead, accountExists},
+	}, redeemSignupLink(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "createResetLink",
+		Method:  http.MethodPost,
+		Path:    "/accounts/{id}/reset-link",
+		Summary: "Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{accountNotFound, accountDisabled, addressUnset},
+	}, issueResetLink(lib))
+
+	api.Register(o, api.Public, api.Op{
+		ID:      "getResetLinkByToken",
+		Method:  http.MethodGet,
+		Path:    "/reset-links/by-token/{token}",
+		Summary: "Get what a Reset link's page shows: who it is from, or why it no longer works",
+		Status:  http.StatusOK,
+	}, viewLink(lib, identity.ResetLink))
+
+	api.Register(o, api.Public, api.Op{
+		ID:      "redeemResetLink",
+		Method:  http.MethodPost,
+		Path:    "/reset-links/by-token/{token}/pin",
+		Summary: "Set a new PIN with a Reset link, ending every session, and sign in",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{linkDead, accountDisabled},
+	}, redeemResetLink(lib))
+
+	api.Register(o, api.Public, api.Op{
+		ID:      "getEmailLinkByToken",
+		Method:  http.MethodGet,
+		Path:    "/email-links/by-token/{token}",
+		Summary: "Get what a confirm link's page shows: the new email, or why it no longer works",
+		Status:  http.StatusOK,
+	}, viewLink(lib, identity.EmailLink))
+
+	api.Register(o, api.Public, api.Op{
+		ID:      "confirmEmail",
+		Method:  http.MethodPost,
+		Path:    "/email-links/by-token/{token}/confirm",
+		Summary: "Change an Account's email to the one a confirm link proved",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{linkDead, accountDisabled, emailTaken},
+	}, confirmEmail(lib))
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getIdentitySettings",
