@@ -3,6 +3,7 @@ package nodesapi_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/link"
@@ -120,4 +122,24 @@ func TestAJoinCodeNeedsALinkAddress(t *testing.T) {
 	if want := `{"status":409,"code":"no_link_address","title":"The link has no address to put in a Join Code"}` + "\n"; w.Body.String() != want {
 		t.Fatalf("createJoinCode = %d %s, want %s", w.Code, w.Body, want)
 	}
+}
+
+func TestTheJoinCodeLifetimeIsASettingField(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema())
+	ns, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unadvertised{}, Changed: changes{}, Log: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
+	field := func(value int64, isDefault bool) string {
+		return fmt.Sprintf(`{"joinCodeLifetime":{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":%t,"kind":"duration","value":%d,"default":3600,"min":600,"max":604800,"step":60}}`, isDefault, value)
+	}
+	const path = "/api/v1/nodes/settings"
+	s.Expect(t, http.MethodGet, path, "", http.StatusOK, field(3600, true))
+	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":540}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 10 min and 7 days."}`)
+	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":7200}`, http.StatusOK, field(7200, false))
+	s.Expect(t, http.MethodPatch, path, `{}`, http.StatusOK, field(7200, false))
+	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":null}`, http.StatusOK, field(3600, true))
 }

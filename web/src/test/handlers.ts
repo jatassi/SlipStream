@@ -5,6 +5,7 @@ import type { IdentityAccount } from "../api/gen/model";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
+import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
@@ -53,6 +54,7 @@ export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 const controller = getGetStatusMockHandler({ claim: "controller" });
 const nothingMoving = getGetCountsMockHandler({ activity: 0 });
 const signedInAsAda = getGetSessionMockHandler({ account: ada });
+const noTaskRunning = getListOpenTaskRunsMockHandler({ headerDelaySeconds: 5, runs: [] });
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });
@@ -62,6 +64,7 @@ export const baseHandlers: RequestHandler[] = [
   signedInAsAda,
   resyncStream,
   nothingMoving,
+  noTaskRunning,
   ...tagMocks,
 ];
 
