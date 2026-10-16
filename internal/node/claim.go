@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -24,10 +25,11 @@ import (
 )
 
 // library is library.db and what opens with it: the sealer for its
-// credentials and the identity service.
+// credentials, the SMTP setting and the identity service.
 type library struct {
 	db     *storage.DB[storage.Library]
 	sealer *secret.Sealer
+	mail   *mail.Mail
 	ids    *identity.Service
 }
 
@@ -53,7 +55,8 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	if err != nil {
 		return nil, err
 	}
-	lib := &library{db: db, sealer: keys.Sealer(), ids: ids}
+	sealer := keys.Sealer()
+	lib := &library{db: db, sealer: sealer, mail: mail.New(mail.Config{Library: db, Sealer: sealer, Timings: n.cfg.Timings.Mail}), ids: ids}
 	n.lib.Store(lib)
 	return lib, nil
 }
@@ -97,6 +100,14 @@ func (s surfaceNode) Identity() (*identity.Service, bool) {
 // claim, which inserts the Admin, and starts the Controller half. Opening
 // and the half outlive the request that claimed. It returns once the
 // Controller's own holder half holds the Roles its new row assigns.
+func (s surfaceNode) Mail() (*mail.Mail, bool) {
+	lib := s.n.lib.Load()
+	if lib == nil {
+		return nil, false
+	}
+	return lib.mail, true
+}
+
 func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.Service) error) error {
 	s.n.claimMu.Lock()
 	defer s.n.claimMu.Unlock()

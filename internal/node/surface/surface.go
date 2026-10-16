@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexersapi"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/liveapi"
+	"github.com/jatassi/slipstream/internal/mailapi"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
 	"github.com/jatassi/slipstream/internal/pairingapi"
@@ -52,6 +53,7 @@ var Events = []live.Event{
 type Node interface {
 	Claim(context.Context) (system.Claim, error)
 	identityapi.Library
+	mailapi.Library
 	nodesapi.Roster
 	pairingapi.Joiner
 	worksapi.Shelf
@@ -74,6 +76,7 @@ type Services struct {
 // Mount registers every owner's operations, one line each.
 func Mount(r *api.Router, s Services) {
 	identityapi.Routes(r, s.Node)
+	mailapi.Routes(r, s.Node)
 	liveapi.Routes(r, s.Hub, s.Node, s.Live)
 	systemapi.Routes(r, s.System, s.Node)
 	nodesapi.Routes(r, s.Node)

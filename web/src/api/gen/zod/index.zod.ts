@@ -2,6 +2,7 @@ export * from "./files/files.zod.ts";
 export * from "./grabs/grabs.zod.ts";
 export * from "./identity/identity.zod.ts";
 export * from "./indexers/indexers.zod.ts";
+export * from "./mail/mail.zod.ts";
 export * from "./nodes/nodes.zod.ts";
 export * from "./pairing/pairing.zod.ts";
 export * from "./roots/roots.zod.ts";

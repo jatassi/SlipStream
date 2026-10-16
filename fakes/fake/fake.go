@@ -63,10 +63,6 @@ type Spec struct {
 	Entered func(get func(path string) ([]byte, error)) ([]Entered, error)
 }
 
-// ErrNotFound is what Entered's get answers for a path the Controller
-// doesn't serve.
-var ErrNotFound = errors.New("not found")
-
 func (s Spec) URL(at Address) string {
 	if s.Scheme != "" {
 		return s.Scheme + "://" + at.AddrPort.String()

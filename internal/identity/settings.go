@@ -193,6 +193,16 @@ func ParseAddress(s string) (Address, error) {
 func (a Address) IsZero() bool   { return a.origin == "" }
 func (a Address) String() string { return a.origin }
 
+// Host is the address's host without its port, which emails call the
+// server's name until it has a display name.
+func (a Address) Host() string {
+	u, err := url.Parse(a.origin)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+}
+
 // suggestAddress is what Settings > Address offers: the address c reached
 // SlipStream at, or this machine's name with that port when c used an IP.
 func suggestAddress(c client) string {

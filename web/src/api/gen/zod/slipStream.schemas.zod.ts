@@ -488,6 +488,57 @@ export const LiveSessionEnded = zod.object({
 export type LiveSessionEnded = zod.input<typeof LiveSessionEnded>;
 export type LiveSessionEndedOutput = zod.output<typeof LiveSessionEnded>;
 
+export const MailOutcome = zod.object({
+  detail: zod
+    .string()
+    .exactOptional()
+    .describe("The mail server's reply, or why none answered, when the email failed"),
+  outcome: zod.enum(["sent", "failed", "not-set-up"]),
+});
+
+export type MailOutcome = zod.input<typeof MailOutcome>;
+export type MailOutcomeOutput = zod.output<typeof MailOutcome>;
+
+export const MailSettings = zod.object({
+  fromAddress: zod.string(),
+  fromName: zod.string(),
+  host: zod.string().describe("Empty until email is set up"),
+  passwordSet: zod.boolean().describe("Whether a password is saved; it is never shown"),
+  port: zod.int().min(1),
+  security: zod.enum(["none", "starttls", "tls"]),
+  username: zod.string().describe("Empty when the server takes no sign-in"),
+});
+
+export type MailSettings = zod.input<typeof MailSettings>;
+export type MailSettingsOutput = zod.output<typeof MailSettings>;
+
+export const mailSettingsPatchFromAddressMax = 254;
+
+export const mailSettingsPatchFromNameMax = 100;
+
+export const mailSettingsPatchHostMax = 253;
+
+export const mailSettingsPatchPasswordMax = 1024;
+
+export const mailSettingsPatchUsernameMax = 254;
+
+export const MailSettingsPatch = zod.object({
+  fromAddress: zod.string().max(mailSettingsPatchFromAddressMax).exactOptional(),
+  fromName: zod.string().max(mailSettingsPatchFromNameMax).exactOptional(),
+  host: zod.string().max(mailSettingsPatchHostMax).exactOptional(),
+  password: zod
+    .string()
+    .max(mailSettingsPatchPasswordMax)
+    .exactOptional()
+    .describe("Write-only; empty clears it"),
+  port: zod.int().min(1).exactOptional(),
+  security: zod.enum(["none", "starttls", "tls"]).exactOptional(),
+  username: zod.string().max(mailSettingsPatchUsernameMax).exactOptional(),
+});
+
+export type MailSettingsPatch = zod.input<typeof MailSettingsPatch>;
+export type MailSettingsPatchOutput = zod.output<typeof MailSettingsPatch>;
+
 export const NodesBuild = zod.object({
   arch: zod.string(),
   installKind: zod.string(),
