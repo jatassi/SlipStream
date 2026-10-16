@@ -1,0 +1,33 @@
+name: link-branch-probe
+
+on:
+  push:
+    branches: [claude/project-thread-wq6wfo]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  link:
+    uses: ./.github/workflows/link-branch.yml
+    with:
+      issue: 125
+      branch: probe/link-branch-${{ github.run_id }}
+
+  check:
+    needs: link
+    runs-on: ubuntu-24.04
+    steps:
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: probe/link-branch-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          q='query($b:String!){repository(owner:"jatassi",name:"SlipStream"){issue(number:125){linkedBranches(first:20){nodes{ref{name}}}} ref(qualifiedName:$b){name}}}'
+          gh api graphql -f query="$q" -f b="refs/heads/$BRANCH" | tee before.json
+          jq -e --arg b "$BRANCH" 'any(.data.repository.issue.linkedBranches.nodes[]; .ref.name == $b)' before.json
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH"
+          gh api graphql -f query="$q" -f b="refs/heads/$BRANCH" | tee after.json
+          jq -e '.data.repository.ref == null' after.json
