@@ -7,12 +7,15 @@ import {
   IdentityAccountRow,
   IdentityAccountRows,
   IdentityApiKeyMade,
+  IdentityCeremony,
   IdentityClaimBody,
   IdentityClaimed,
   IdentityEmailChangeStarted,
   IdentityIssuedResetLink,
   IdentityIssuedSignupLink,
   IdentityLinkView,
+  IdentityPasskey,
+  IdentityPasskeyRows,
   IdentityPendingLinks,
   IdentityPinChange,
   IdentityReconfirmation,
@@ -28,6 +31,7 @@ import {
   NewPINInputBody,
   NewSignupLinkInputBody,
   OwnPatchInputBody,
+  PasskeyRenameInputBody,
   ResetLinkInputBody,
 } from "../slipStream.schemas.zod.ts";
 
@@ -168,6 +172,51 @@ export const GetIdentitySettingsResponse = IdentitySettings;
 export const UpdateIdentitySettingsBody = IdentitySettingsPatch;
 
 export const UpdateIdentitySettingsResponse = IdentitySettings;
+
+/**
+ * @summary List your passkeys at every address
+ */
+export const ListPasskeysResponse = IdentityPasskeyRows;
+
+/**
+ * @summary Start adding a passkey for this address
+ */
+export const StartPasskeyRegistrationResponse = IdentityCeremony;
+
+/**
+ * @summary Finish adding a passkey with the browser's answer
+ */
+export const finishPasskeyRegistrationPathCeremonyMax = 64;
+
+export const FinishPasskeyRegistrationParams = zod.object({
+  ceremony: zod.string().max(finishPasskeyRegistrationPathCeremonyMax),
+});
+
+export const FinishPasskeyRegistrationBody = zod
+  .unknown()
+  .describe("The browser's PublicKeyCredential, as its toJSON() answers");
+
+export const FinishPasskeyRegistrationResponse = IdentityPasskey;
+
+/**
+ * @summary Delete one of your passkeys
+ */
+export const DeletePasskeyParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const DeletePasskeyResponse = zod.void();
+
+/**
+ * @summary Rename one of your passkeys
+ */
+export const UpdatePasskeyParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const UpdatePasskeyBody = PasskeyRenameInputBody;
+
+export const UpdatePasskeyResponse = IdentityPasskey;
 
 /**
  * @summary Get what a Reset link's page shows: who it is from, or why it no longer works

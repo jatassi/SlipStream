@@ -55,6 +55,12 @@ import type {
   DeleteAccount409,
   DeleteAccount422,
   DeleteAccount500,
+  DeletePasskey401,
+  DeletePasskey403,
+  DeletePasskey404,
+  DeletePasskey409,
+  DeletePasskey422,
+  DeletePasskey500,
   DeleteSession401,
   DeleteSession403,
   DeleteSession409,
@@ -90,6 +96,11 @@ import type {
   EndSession409,
   EndSession422,
   EndSession500,
+  FinishPasskeyRegistration401,
+  FinishPasskeyRegistration403,
+  FinishPasskeyRegistration409,
+  FinishPasskeyRegistration422,
+  FinishPasskeyRegistration500,
   GetAPIKey401,
   GetAPIKey403,
   GetAPIKey409,
@@ -124,12 +135,15 @@ import type {
   IdentityAccountRow,
   IdentityAccountRows,
   IdentityApiKeyMade,
+  IdentityCeremony,
   IdentityClaimBody,
   IdentityClaimed,
   IdentityEmailChangeStarted,
   IdentityIssuedResetLink,
   IdentityIssuedSignupLink,
   IdentityLinkView,
+  IdentityPasskey,
+  IdentityPasskeyRows,
   IdentityPendingLinks,
   IdentityPinChange,
   IdentityReconfirmation,
@@ -152,6 +166,10 @@ import type {
   ListAccounts403,
   ListAccounts409,
   ListAccounts500,
+  ListPasskeys401,
+  ListPasskeys403,
+  ListPasskeys409,
+  ListPasskeys500,
   ListSessions401,
   ListSessions403,
   ListSessions409,
@@ -163,6 +181,7 @@ import type {
   NewPINInputBody,
   NewSignupLinkInputBody,
   OwnPatchInputBody,
+  PasskeyRenameInputBody,
   ReconfirmSession401,
   ReconfirmSession403,
   ReconfirmSession409,
@@ -193,6 +212,10 @@ import type {
   StartEmailChange409,
   StartEmailChange422,
   StartEmailChange500,
+  StartPasskeyRegistration401,
+  StartPasskeyRegistration403,
+  StartPasskeyRegistration409,
+  StartPasskeyRegistration500,
   UpdateAccount401,
   UpdateAccount403,
   UpdateAccount404,
@@ -209,6 +232,12 @@ import type {
   UpdateOwnAccount409,
   UpdateOwnAccount422,
   UpdateOwnAccount500,
+  UpdatePasskey401,
+  UpdatePasskey403,
+  UpdatePasskey404,
+  UpdatePasskey409,
+  UpdatePasskey422,
+  UpdatePasskey500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -2235,6 +2264,577 @@ export const useUpdateIdentitySettings = <
   TContext
 > => {
   return useMutation(getUpdateIdentitySettingsMutationOptions(options), queryClient);
+};
+export const getListPasskeysUrl = () => {
+  return `/api/v1/passkeys`;
+};
+
+/**
+ * @summary List your passkeys at every address
+ */
+export const listPasskeys = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityPasskeyRows> => {
+  return apiFetch<IdentityPasskeyRows>(getListPasskeysUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPasskeysQueryKey = () => {
+  return [`/api/v1/passkeys`] as const;
+};
+
+export const getListPasskeysSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPasskeys>>,
+  TError = ErrorType<ListPasskeys401 | ListPasskeys403 | ListPasskeys409 | ListPasskeys500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPasskeys>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPasskeysQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPasskeys>>> = ({ signal }) =>
+    listPasskeys({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPasskeys>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListPasskeysSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listPasskeys>>>;
+export type ListPasskeysSuspenseQueryError = ErrorType<
+  ListPasskeys401 | ListPasskeys403 | ListPasskeys409 | ListPasskeys500
+>;
+
+export function useListPasskeysSuspense<
+  TData = Awaited<ReturnType<typeof listPasskeys>>,
+  TError = ErrorType<ListPasskeys401 | ListPasskeys403 | ListPasskeys409 | ListPasskeys500>,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPasskeys>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListPasskeysSuspense<
+  TData = Awaited<ReturnType<typeof listPasskeys>>,
+  TError = ErrorType<ListPasskeys401 | ListPasskeys403 | ListPasskeys409 | ListPasskeys500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPasskeys>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListPasskeysSuspense<
+  TData = Awaited<ReturnType<typeof listPasskeys>>,
+  TError = ErrorType<ListPasskeys401 | ListPasskeys403 | ListPasskeys409 | ListPasskeys500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPasskeys>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List your passkeys at every address
+ */
+
+export function useListPasskeysSuspense<
+  TData = Awaited<ReturnType<typeof listPasskeys>>,
+  TError = ErrorType<ListPasskeys401 | ListPasskeys403 | ListPasskeys409 | ListPasskeys500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPasskeys>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListPasskeysSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getStartPasskeyRegistrationUrl = () => {
+  return `/api/v1/passkeys/registration`;
+};
+
+/**
+ * @summary Start adding a passkey for this address
+ */
+export const startPasskeyRegistration = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityCeremony> => {
+  return apiFetch<IdentityCeremony>(getStartPasskeyRegistrationUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStartPasskeyRegistrationMutationKey = () => ["startPasskeyRegistration"] as const;
+
+export const getStartPasskeyRegistrationMutationOptions = <
+  TError = ErrorType<
+    | StartPasskeyRegistration401
+    | StartPasskeyRegistration403
+    | StartPasskeyRegistration409
+    | StartPasskeyRegistration500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startPasskeyRegistration>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startPasskeyRegistration>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getStartPasskeyRegistrationMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startPasskeyRegistration>>,
+    void
+  > = () => {
+    return startPasskeyRegistration(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartPasskeyRegistrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startPasskeyRegistration>>
+>;
+
+export type StartPasskeyRegistrationMutationError = ErrorType<
+  | StartPasskeyRegistration401
+  | StartPasskeyRegistration403
+  | StartPasskeyRegistration409
+  | StartPasskeyRegistration500
+>;
+
+/**
+ * @summary Start adding a passkey for this address
+ */
+export const useStartPasskeyRegistration = <
+  TError = ErrorType<
+    | StartPasskeyRegistration401
+    | StartPasskeyRegistration403
+    | StartPasskeyRegistration409
+    | StartPasskeyRegistration500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof startPasskeyRegistration>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof startPasskeyRegistration>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getStartPasskeyRegistrationMutationOptions(options), queryClient);
+};
+export const getFinishPasskeyRegistrationUrl = (ceremony: string) => {
+  return `/api/v1/passkeys/registration/${ceremony}`;
+};
+
+/**
+ * @summary Finish adding a passkey with the browser's answer
+ */
+export const finishPasskeyRegistration = async (
+  ceremony: string,
+  finishPasskeyRegistrationBody: unknown,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityPasskey> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IdentityPasskey>(getFinishPasskeyRegistrationUrl(ceremony), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(finishPasskeyRegistrationBody),
+  });
+};
+
+export const getFinishPasskeyRegistrationMutationKey = () => ["finishPasskeyRegistration"] as const;
+
+export const getFinishPasskeyRegistrationMutationOptions = <
+  TError = ErrorType<
+    | FinishPasskeyRegistration401
+    | FinishPasskeyRegistration403
+    | FinishPasskeyRegistration409
+    | FinishPasskeyRegistration422
+    | FinishPasskeyRegistration500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finishPasskeyRegistration>>,
+    TError,
+    FinishPasskeyRegistrationMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof finishPasskeyRegistration>>,
+  TError,
+  FinishPasskeyRegistrationMutationVariables,
+  TContext
+> => {
+  const mutationKey = getFinishPasskeyRegistrationMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof finishPasskeyRegistration>>,
+    FinishPasskeyRegistrationMutationVariables
+  > = (props) => {
+    const { ceremony, data } = props ?? {};
+
+    return finishPasskeyRegistration(ceremony, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FinishPasskeyRegistrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finishPasskeyRegistration>>
+>;
+export type FinishPasskeyRegistrationMutationBody = unknown;
+export type FinishPasskeyRegistrationMutationError = ErrorType<
+  | FinishPasskeyRegistration401
+  | FinishPasskeyRegistration403
+  | FinishPasskeyRegistration409
+  | FinishPasskeyRegistration422
+  | FinishPasskeyRegistration500
+>;
+export type FinishPasskeyRegistrationMutationVariables = { ceremony: string; data: unknown };
+
+/**
+ * @summary Finish adding a passkey with the browser's answer
+ */
+export const useFinishPasskeyRegistration = <
+  TError = ErrorType<
+    | FinishPasskeyRegistration401
+    | FinishPasskeyRegistration403
+    | FinishPasskeyRegistration409
+    | FinishPasskeyRegistration422
+    | FinishPasskeyRegistration500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof finishPasskeyRegistration>>,
+      TError,
+      FinishPasskeyRegistrationMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof finishPasskeyRegistration>>,
+  TError,
+  FinishPasskeyRegistrationMutationVariables,
+  TContext
+> => {
+  return useMutation(getFinishPasskeyRegistrationMutationOptions(options), queryClient);
+};
+export const getDeletePasskeyUrl = (id: string) => {
+  return `/api/v1/passkeys/${id}`;
+};
+
+/**
+ * @summary Delete one of your passkeys
+ */
+export const deletePasskey = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getDeletePasskeyUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeletePasskeyMutationKey = () => ["deletePasskey"] as const;
+
+export const getDeletePasskeyMutationOptions = <
+  TError = ErrorType<
+    | DeletePasskey401
+    | DeletePasskey403
+    | DeletePasskey404
+    | DeletePasskey409
+    | DeletePasskey422
+    | DeletePasskey500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePasskey>>,
+    TError,
+    DeletePasskeyMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePasskey>>,
+  TError,
+  DeletePasskeyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeletePasskeyMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePasskey>>,
+    DeletePasskeyMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePasskey(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePasskeyMutationResult = NonNullable<Awaited<ReturnType<typeof deletePasskey>>>;
+
+export type DeletePasskeyMutationError = ErrorType<
+  | DeletePasskey401
+  | DeletePasskey403
+  | DeletePasskey404
+  | DeletePasskey409
+  | DeletePasskey422
+  | DeletePasskey500
+>;
+export type DeletePasskeyMutationVariables = { id: string };
+
+/**
+ * @summary Delete one of your passkeys
+ */
+export const useDeletePasskey = <
+  TError = ErrorType<
+    | DeletePasskey401
+    | DeletePasskey403
+    | DeletePasskey404
+    | DeletePasskey409
+    | DeletePasskey422
+    | DeletePasskey500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deletePasskey>>,
+      TError,
+      DeletePasskeyMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deletePasskey>>,
+  TError,
+  DeletePasskeyMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeletePasskeyMutationOptions(options), queryClient);
+};
+export const getUpdatePasskeyUrl = (id: string) => {
+  return `/api/v1/passkeys/${id}`;
+};
+
+/**
+ * @summary Rename one of your passkeys
+ */
+export const updatePasskey = async (
+  id: string,
+  passkeyRenameInputBody: PasskeyRenameInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IdentityPasskey> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IdentityPasskey>(getUpdatePasskeyUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(passkeyRenameInputBody),
+  });
+};
+
+export const getUpdatePasskeyMutationKey = () => ["updatePasskey"] as const;
+
+export const getUpdatePasskeyMutationOptions = <
+  TError = ErrorType<
+    | UpdatePasskey401
+    | UpdatePasskey403
+    | UpdatePasskey404
+    | UpdatePasskey409
+    | UpdatePasskey422
+    | UpdatePasskey500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePasskey>>,
+    TError,
+    UpdatePasskeyMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePasskey>>,
+  TError,
+  UpdatePasskeyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdatePasskeyMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePasskey>>,
+    UpdatePasskeyMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePasskey(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePasskeyMutationResult = NonNullable<Awaited<ReturnType<typeof updatePasskey>>>;
+export type UpdatePasskeyMutationBody = PasskeyRenameInputBody;
+export type UpdatePasskeyMutationError = ErrorType<
+  | UpdatePasskey401
+  | UpdatePasskey403
+  | UpdatePasskey404
+  | UpdatePasskey409
+  | UpdatePasskey422
+  | UpdatePasskey500
+>;
+export type UpdatePasskeyMutationVariables = { id: string; data: PasskeyRenameInputBody };
+
+/**
+ * @summary Rename one of your passkeys
+ */
+export const useUpdatePasskey = <
+  TError = ErrorType<
+    | UpdatePasskey401
+    | UpdatePasskey403
+    | UpdatePasskey404
+    | UpdatePasskey409
+    | UpdatePasskey422
+    | UpdatePasskey500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updatePasskey>>,
+      TError,
+      UpdatePasskeyMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updatePasskey>>,
+  TError,
+  UpdatePasskeyMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdatePasskeyMutationOptions(options), queryClient);
 };
 export const getGetResetLinkByTokenUrl = (token: string) => {
   return `/api/v1/reset-links/by-token/${token}`;

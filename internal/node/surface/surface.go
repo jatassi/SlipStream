@@ -38,6 +38,7 @@ var Events = []live.Event{
 	identity.SessionsChangedEvent,
 	identity.AccountsChangedEvent,
 	identity.LinksChangedEvent,
+	identity.PasskeysChangedEvent,
 	nodes.ChangedEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,

@@ -78,6 +78,7 @@ func (s *Service) RedeemReset(ctx context.Context, a Anyone, t LinkToken, pin PI
 			if err := q.DeletePasskeys(ctx, row.ID); err != nil {
 				return AccountID{}, err
 			}
+			fx.passkeysChanged(row.ID)
 		}
 		return row.ID, q.SetPIN(ctx, db.SetPINParams{PinHash: hash, ID: row.ID})
 	})

@@ -22,23 +22,6 @@ func (q *Queries) CountEnabledAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const countPasskeysAt = `-- name: CountPasskeysAt :one
-SELECT COUNT(*) FROM identity_passkey
-WHERE account_id = ?1 AND relying_party = ?2
-`
-
-type CountPasskeysAtParams struct {
-	AccountID    AccountID
-	RelyingParty string
-}
-
-func (q *Queries) CountPasskeysAt(ctx context.Context, arg CountPasskeysAtParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countPasskeysAt, arg.AccountID, arg.RelyingParty)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteAccount = `-- name: DeleteAccount :exec
 DELETE FROM identity_account WHERE id = ?1
 `
@@ -85,15 +68,6 @@ type DeleteOtherSessionsParams struct {
 
 func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error {
 	_, err := q.db.ExecContext(ctx, deleteOtherSessions, arg.AccountID, arg.Keep)
-	return err
-}
-
-const deletePasskeys = `-- name: DeletePasskeys :exec
-DELETE FROM identity_passkey WHERE account_id = ?1
-`
-
-func (q *Queries) DeletePasskeys(ctx context.Context, accountID AccountID) error {
-	_, err := q.db.ExecContext(ctx, deletePasskeys, accountID)
 	return err
 }
 
@@ -144,50 +118,6 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]ListAccountsRow, error) {
 			&i.KeyPrompt,
 			&i.LastSignInAt,
 			&i.PasskeyCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPasskeys = `-- name: ListPasskeys :many
-SELECT id, name, relying_party, created_at, last_used_at
-FROM identity_passkey
-WHERE account_id = ?1
-ORDER BY created_at, id
-`
-
-type ListPasskeysRow struct {
-	ID           PasskeyID
-	Name         string
-	RelyingParty string
-	CreatedAt    storage.Time
-	LastUsedAt   storage.Time
-}
-
-func (q *Queries) ListPasskeys(ctx context.Context, accountID AccountID) ([]ListPasskeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPasskeys, accountID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListPasskeysRow
-	for rows.Next() {
-		var i ListPasskeysRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.RelyingParty,
-			&i.CreatedAt,
-			&i.LastUsedAt,
 		); err != nil {
 			return nil, err
 		}

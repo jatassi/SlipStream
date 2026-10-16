@@ -9,6 +9,7 @@ import {
   getGetSessionQueryKey,
   getListAccountSessionsQueryKey,
   getListAccountsQueryKey,
+  getListPasskeysQueryKey,
   getListSessionsQueryKey,
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
@@ -45,6 +46,9 @@ export const effects = {
     void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
     void queryClient.invalidateQueries(everyAccount);
+  },
+  "identity.passkeys-changed": (_data, { queryClient }) => {
+    void queryClient.invalidateQueries({ queryKey: getListPasskeysQueryKey() });
   },
   "identity.links-changed": (_data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListSignupLinksQueryKey() });

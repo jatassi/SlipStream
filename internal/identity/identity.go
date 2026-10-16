@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
+	"github.com/jatassi/slipstream/internal/identity/passkey"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -80,35 +81,39 @@ type Config struct {
 }
 
 type Service struct {
-	lib      *storage.DB[file]
-	pins     *pins
-	dummy    string
-	sealer   *secret.Sealer
-	hub      *live.Hub
-	sessions live.AccountPublisher[SessionsChanged]
-	accounts live.AdminPublisher[AccountsChanged]
-	links    live.AdminPublisher[LinksChanged]
-	mail     mail.Sender
-	outbox   *mail.Outbox
-	shadow   *shadowLedger
-	limiter  *limiter
+	lib        *storage.DB[file]
+	pins       *pins
+	dummy      string
+	sealer     *secret.Sealer
+	hub        *live.Hub
+	sessions   live.AccountPublisher[SessionsChanged]
+	passkeys   live.AccountPublisher[PasskeysChanged]
+	accounts   live.AdminPublisher[AccountsChanged]
+	links      live.AdminPublisher[LinksChanged]
+	mail       mail.Sender
+	outbox     *mail.Outbox
+	shadow     *shadowLedger
+	limiter    *limiter
+	ceremonies *passkey.Ceremonies
 }
 
 // New builds the dummy hash an unknown email verifies against. It reads no
 // setting: every setting is read at use.
 func New(ctx context.Context, cfg Config) (*Service, error) {
 	s := &Service{
-		lib:      cfg.Library,
-		pins:     newPINs(cfg.Pepper),
-		sealer:   cfg.Sealer,
-		hub:      cfg.Hub,
-		sessions: SessionsChangedEvent.Bind(cfg.Hub),
-		accounts: AccountsChangedEvent.Bind(cfg.Hub),
-		links:    LinksChangedEvent.Bind(cfg.Hub),
-		mail:     cfg.Mail,
-		outbox:   cfg.Outbox,
-		shadow:   newShadowLedger(),
-		limiter:  newLimiter(),
+		lib:        cfg.Library,
+		pins:       newPINs(cfg.Pepper),
+		sealer:     cfg.Sealer,
+		hub:        cfg.Hub,
+		sessions:   SessionsChangedEvent.Bind(cfg.Hub),
+		passkeys:   PasskeysChangedEvent.Bind(cfg.Hub),
+		accounts:   AccountsChangedEvent.Bind(cfg.Hub),
+		links:      LinksChangedEvent.Bind(cfg.Hub),
+		mail:       cfg.Mail,
+		outbox:     cfg.Outbox,
+		shadow:     newShadowLedger(),
+		limiter:    newLimiter(),
+		ceremonies: passkey.NewCeremonies(),
 	}
 	var err error
 	if s.dummy, err = s.pins.hash(ctx, PIN{digits: "0000"}); err != nil {

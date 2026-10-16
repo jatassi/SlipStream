@@ -40,14 +40,6 @@ func accountRowOf(r identity.AccountRow) accountRow {
 	}
 }
 
-type passkey struct {
-	ID         string     `json:"id" format:"uuid"`
-	Name       string     `json:"name"`
-	Host       string     `json:"host" doc:"The address's host the passkey signs in at"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
-}
-
 type sessionRow struct {
 	ID         string    `json:"id" format:"uuid"`
 	Device     string    `json:"device" doc:"Such as Safari on iPhone, from the browser at sign-in"`
@@ -155,11 +147,7 @@ func getAccount(lib Library) func(context.Context, identity.Admin, *accountIDInp
 		if err != nil {
 			return nil, answer(err)
 		}
-		out := accountDetail{Account: accountRowOf(d.AccountRow), Passkeys: make([]passkey, len(d.Passkeys)), Sessions: sessionRowsOf(d.Sessions).Sessions}
-		for i, k := range d.Passkeys {
-			out.Passkeys[i] = passkey{ID: k.ID.String(), Name: k.Name, Host: k.RelyingParty, CreatedAt: k.CreatedAt, LastUsedAt: timeOrNil(k.LastUsedAt)}
-		}
-		return &accountDetailOutput{Body: out}, nil
+		return &accountDetailOutput{Body: accountDetail{Account: accountRowOf(d.AccountRow), Passkeys: passkeysOf(d.Passkeys), Sessions: sessionRowsOf(d.Sessions).Sessions}}, nil
 	}
 }
 

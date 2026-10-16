@@ -251,6 +251,50 @@ func Routes(r *api.Router, lib Library) {
 		Status:  http.StatusNoContent,
 	}, endOtherSessions(lib))
 
+	api.Register(o, api.Confirmed, api.Op{
+		ID:      "startPasskeyRegistration",
+		Method:  http.MethodPost,
+		Path:    "/passkeys/registration",
+		Summary: "Start adding a passkey for this address",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{passkeyUnavailable},
+	}, startPasskeyRegistration(lib))
+
+	api.Register(o, api.Confirmed, api.Op{
+		ID:      "finishPasskeyRegistration",
+		Method:  http.MethodPost,
+		Path:    "/passkeys/registration/{ceremony}",
+		Summary: "Finish adding a passkey with the browser's answer",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed},
+	}, finishPasskeyRegistration(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "listPasskeys",
+		Method:  http.MethodGet,
+		Path:    "/passkeys",
+		Summary: "List your passkeys at every address",
+		Status:  http.StatusOK,
+	}, listPasskeys(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "updatePasskey",
+		Method:  http.MethodPatch,
+		Path:    "/passkeys/{id}",
+		Summary: "Rename one of your passkeys",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{passkeyNotFound},
+	}, renamePasskey(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "deletePasskey",
+		Method:  http.MethodDelete,
+		Path:    "/passkeys/{id}",
+		Summary: "Delete one of your passkeys",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{passkeyNotFound},
+	}, deletePasskey(lib))
+
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listAccounts",
 		Method:  http.MethodGet,

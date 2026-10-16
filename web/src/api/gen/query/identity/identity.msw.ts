@@ -8,6 +8,7 @@ import type {
   IdentityAccountRow,
   IdentityAccountRows,
   IdentityApiKeyMade,
+  IdentityCeremony,
   IdentityClaimed,
   IdentityDeadLink,
   IdentityEmailChangeStarted,
@@ -15,6 +16,8 @@ import type {
   IdentityIssuedSignupLink,
   IdentityLinkView,
   IdentityLiveLink,
+  IdentityPasskey,
+  IdentityPasskeyRows,
   IdentityPendingLinks,
   IdentityRegeneratedAPIKey,
   IdentitySession,
@@ -257,6 +260,57 @@ export const getUpdateIdentitySettingsResponseMock = (
   sessionLifetimeSeconds: faker.number.int(),
   signupLinkLifetimeSeconds: faker.number.int(),
   suggestedAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
+export const getListPasskeysResponseMock = (
+  overrideResponse: Partial<Extract<IdentityPasskeyRows, object>> = {},
+): IdentityPasskeyRows => ({
+  passkeys: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      host: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.uuid(),
+      ...(faker.datatype.boolean()
+        ? { lastUsedAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+        : {}),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  ...overrideResponse,
+});
+
+export const getStartPasskeyRegistrationResponseMock = (
+  overrideResponse: Partial<Extract<IdentityCeremony, object>> = {},
+): IdentityCeremony => ({
+  ceremony: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  options: {},
+  ...overrideResponse,
+});
+
+export const getFinishPasskeyRegistrationResponseMock = (
+  overrideResponse: Partial<Extract<IdentityPasskey, object>> = {},
+): IdentityPasskey => ({
+  createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  host: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  id: faker.string.uuid(),
+  ...(faker.datatype.boolean()
+    ? { lastUsedAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
+export const getUpdatePasskeyResponseMock = (
+  overrideResponse: Partial<Extract<IdentityPasskey, object>> = {},
+): IdentityPasskey => ({
+  createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  host: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  id: faker.string.uuid(),
+  ...(faker.datatype.boolean()
+    ? { lastUsedAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 });
 
@@ -886,6 +940,121 @@ export const getUpdateIdentitySettingsMockHandler = (
   );
 };
 
+export const getListPasskeysMockHandler = (
+  overrideResponse?:
+    | IdentityPasskeyRows
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentityPasskeyRows> | IdentityPasskeyRows),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/passkeys",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListPasskeysResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getStartPasskeyRegistrationMockHandler = (
+  overrideResponse?:
+    | IdentityCeremony
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IdentityCeremony> | IdentityCeremony),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/passkeys/registration",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getStartPasskeyRegistrationResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getFinishPasskeyRegistrationMockHandler = (
+  overrideResponse?:
+    | IdentityPasskey
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<IdentityPasskey> | IdentityPasskey),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/passkeys/registration/:ceremony",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getFinishPasskeyRegistrationResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDeletePasskeyMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/passkeys/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getUpdatePasskeyMockHandler = (
+  overrideResponse?:
+    | IdentityPasskey
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<IdentityPasskey> | IdentityPasskey),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/passkeys/:id",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdatePasskeyResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGetResetLinkByTokenMockHandler = (
   overrideResponse?:
     | IdentityLinkView
@@ -1286,6 +1455,11 @@ export const getIdentityMock = () => [
   getConfirmEmailMockHandler(),
   getGetIdentitySettingsMockHandler(),
   getUpdateIdentitySettingsMockHandler(),
+  getListPasskeysMockHandler(),
+  getStartPasskeyRegistrationMockHandler(),
+  getFinishPasskeyRegistrationMockHandler(),
+  getDeletePasskeyMockHandler(),
+  getUpdatePasskeyMockHandler(),
   getGetResetLinkByTokenMockHandler(),
   getRedeemResetLinkMockHandler(),
   getDeleteSessionMockHandler(),

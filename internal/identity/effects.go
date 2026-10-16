@@ -17,6 +17,7 @@ type effects struct {
 	ended    []endedSession
 	regated  []AccountID
 	sessions map[AccountID]struct{}
+	passkeys map[AccountID]struct{}
 	accounts bool
 	links    bool
 	notices  []mail.Message
@@ -43,6 +44,13 @@ func (fx *effects) endSessions(account AccountID, ids []SessionID, why live.EndR
 
 func (fx *effects) sessionsChanged(account AccountID) { fx.sessions[account] = struct{}{} }
 
+// passkeysChanged reaches account's streams and, for the passkey count on
+// the Accounts list, the Admins'.
+func (fx *effects) passkeysChanged(account AccountID) {
+	fx.passkeys[account] = struct{}{}
+	fx.accountsChanged()
+}
+
 // regate records that account's access changed: its streams end with
 // live.access-changed, and its tabs read the session again.
 func (fx *effects) regate(account AccountID) {
@@ -63,7 +71,7 @@ func (fx *effects) notice(m mail.Message) { fx.notices = append(fx.notices, m) }
 // it ends the sessions' streams, then re-gated Accounts' streams, then
 // publishes, then posts the notices.
 func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.Queries, fx *effects) error) error {
-	fx := &effects{now: storage.Now(), sessions: map[AccountID]struct{}{}}
+	fx := &effects{now: storage.Now(), sessions: map[AccountID]struct{}{}, passkeys: map[AccountID]struct{}{}}
 	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		before, err := q.CountEnabledAdmins(ctx)
@@ -93,6 +101,9 @@ func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.
 	}
 	for account := range fx.sessions {
 		s.sessions.Publish(ctx, account.UUID, SessionsChanged{Account: account.String()})
+	}
+	for account := range fx.passkeys {
+		s.passkeys.Publish(ctx, account.UUID, PasskeysChanged{Account: account.String()})
 	}
 	if fx.accounts {
 		s.accounts.Publish(ctx, AccountsChanged{})

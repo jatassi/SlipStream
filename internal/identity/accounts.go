@@ -68,14 +68,6 @@ func rowOf(row db.IdentityAccount, passkeys int, now time.Time) AccountRow {
 	}
 }
 
-type Passkey struct {
-	ID           PasskeyID
-	Name         string
-	RelyingParty string
-	CreatedAt    time.Time
-	LastUsedAt   time.Time
-}
-
 // Session is one signed-in device. Current is whether it is the caller's.
 type Session struct {
 	ID         SessionID
@@ -127,11 +119,7 @@ func (s *Service) AccountOf(ctx context.Context, by Admin, id AccountID) (Accoun
 	if err != nil {
 		return AccountDetail{}, err
 	}
-	out := AccountDetail{AccountRow: rowOf(row, len(keys), time.Now()), Passkeys: make([]Passkey, len(keys)), Sessions: sessions}
-	for i, k := range keys {
-		out.Passkeys[i] = Passkey{ID: k.ID, Name: k.Name, RelyingParty: k.RelyingParty, CreatedAt: k.CreatedAt.Time(), LastUsedAt: k.LastUsedAt.Time()}
-	}
-	return out, nil
+	return AccountDetail{AccountRow: rowOf(row, len(keys), time.Now()), Passkeys: passkeysOf(keys), Sessions: sessions}, nil
 }
 
 // AccountPatch is an Admin's change to an Account; a nil field stays.

@@ -41,18 +41,5 @@ DELETE FROM identity_session WHERE account_id = sqlc.arg(account_id);
 -- name: DeleteAccountSession :execrows
 DELETE FROM identity_session WHERE account_id = sqlc.arg(account_id) AND id = sqlc.arg(id);
 
--- name: ListPasskeys :many
-SELECT id, name, relying_party, created_at, last_used_at
-FROM identity_passkey
-WHERE account_id = sqlc.arg(account_id)
-ORDER BY created_at, id;
-
--- name: CountPasskeysAt :one
-SELECT COUNT(*) FROM identity_passkey
-WHERE account_id = sqlc.arg(account_id) AND relying_party = sqlc.arg(relying_party);
-
--- name: DeletePasskeys :exec
-DELETE FROM identity_passkey WHERE account_id = sqlc.arg(account_id);
-
 -- name: DeleteOtherSessions :exec
 DELETE FROM identity_session WHERE account_id = sqlc.arg(account_id) AND id != sqlc.arg(keep);

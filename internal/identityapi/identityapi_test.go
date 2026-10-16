@@ -101,6 +101,13 @@ func head(t *testing.T, hub *live.Hub) string {
 // streams since the node started.
 func (n *node) published(account string) int {
 	n.t.Helper()
+	return n.heard(account, identity.SessionsChangedEvent.Name())
+}
+
+// heard is how many times the event named name reached account's streams
+// since the node started.
+func (n *node) heard(account, name string) int {
+	n.t.Helper()
 	id, err := storage.ParseUUID(account)
 	if err != nil {
 		n.t.Fatal(err)
@@ -115,7 +122,7 @@ func (n *node) published(account string) int {
 		if err != nil {
 			return count
 		}
-		if msg.Name == identity.SessionsChangedEvent.Name() {
+		if msg.Name == name {
 			count++
 		}
 	}

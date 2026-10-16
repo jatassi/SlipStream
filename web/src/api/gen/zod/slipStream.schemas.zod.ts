@@ -380,6 +380,18 @@ export const IdentityApiKeyMade = zod.object({
 export type IdentityApiKeyMade = zod.input<typeof IdentityApiKeyMade>;
 export type IdentityApiKeyMadeOutput = zod.output<typeof IdentityApiKeyMade>;
 
+export const IdentityCeremony = zod.object({
+  ceremony: zod.string().describe("The id the finish carries in its path"),
+  options: zod
+    .unknown()
+    .describe(
+      "PublicKeyCredentialCreationOptionsJSON for a registration, PublicKeyCredentialRequestOptionsJSON for an assertion: the browser's parseCreationOptionsFromJSON or parseRequestOptionsFromJSON takes it",
+    ),
+});
+
+export type IdentityCeremony = zod.input<typeof IdentityCeremony>;
+export type IdentityCeremonyOutput = zod.output<typeof IdentityCeremony>;
+
 export const identityClaimBodyDisplayNameMax = 100;
 
 export const identityClaimBodyEmailMax = 254;
@@ -501,6 +513,20 @@ export const IdentityLinksChanged = zod.object({});
 
 export type IdentityLinksChanged = zod.input<typeof IdentityLinksChanged>;
 export type IdentityLinksChangedOutput = zod.output<typeof IdentityLinksChanged>;
+
+export const IdentityPasskeyRows = zod.object({
+  passkeys: zod.array(IdentityPasskey),
+});
+
+export type IdentityPasskeyRows = zod.input<typeof IdentityPasskeyRows>;
+export type IdentityPasskeyRowsOutput = zod.output<typeof IdentityPasskeyRows>;
+
+export const IdentityPasskeysChanged = zod.object({
+  account: zod.uuid(),
+});
+
+export type IdentityPasskeysChanged = zod.input<typeof IdentityPasskeysChanged>;
+export type IdentityPasskeysChangedOutput = zod.output<typeof IdentityPasskeysChanged>;
 
 export const IdentityPendingLinks = zod.object({
   links: zod.array(IdentityPendingLink),
@@ -973,6 +999,15 @@ export const PairingWorker = zod.object({
 
 export type PairingWorker = zod.input<typeof PairingWorker>;
 export type PairingWorkerOutput = zod.output<typeof PairingWorker>;
+
+export const passkeyRenameInputBodyNameMax = 100;
+
+export const PasskeyRenameInputBody = zod.object({
+  name: zod.string().min(1).max(passkeyRenameInputBodyNameMax),
+});
+
+export type PasskeyRenameInputBody = zod.input<typeof PasskeyRenameInputBody>;
+export type PasskeyRenameInputBodyOutput = zod.output<typeof PasskeyRenameInputBody>;
 
 export const Problem = zod.object({
   code: zod.string(),
@@ -1461,6 +1496,16 @@ export const LiveEventIdentityLinksChanged = zod.object({
 export type LiveEventIdentityLinksChanged = zod.input<typeof LiveEventIdentityLinksChanged>;
 export type LiveEventIdentityLinksChangedOutput = zod.output<typeof LiveEventIdentityLinksChanged>;
 
+export const LiveEventIdentityPasskeysChanged = zod.object({
+  event: zod.enum(["identity.passkeys-changed"]),
+  data: IdentityPasskeysChanged,
+});
+
+export type LiveEventIdentityPasskeysChanged = zod.input<typeof LiveEventIdentityPasskeysChanged>;
+export type LiveEventIdentityPasskeysChangedOutput = zod.output<
+  typeof LiveEventIdentityPasskeysChanged
+>;
+
 export const LiveEventIdentitySessionsChanged = zod.object({
   event: zod.enum(["identity.sessions-changed"]),
   data: IdentitySessionsChanged,
@@ -1551,6 +1596,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventGrabsSearchChanged,
   LiveEventIdentityAccountsChanged,
   LiveEventIdentityLinksChanged,
+  LiveEventIdentityPasskeysChanged,
   LiveEventIdentitySessionsChanged,
   LiveEventIndexersChanged,
   LiveEventLiveAccessChanged,
