@@ -59,7 +59,7 @@ func (h *nodeHost) Restart() (nodesystem.Restarting, error) {
 	}
 	r := nodesystem.Restarting{StartedAt: h.n.started, BoundPort: f.Listeners.HTTP.Port()}
 	h.n.cfgMu.Lock()
-	if next := saved.HTTP.Listen.Port(); next != h.n.cfg.HTTP.Listen.Port() {
+	if next := saved.HTTP.Listen.Port(); next != h.n.cfg.HTTP.Listen.Port() && next != r.BoundPort {
 		r.NextPort = next
 	}
 	h.n.cfgMu.Unlock()
