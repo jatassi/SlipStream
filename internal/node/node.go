@@ -190,6 +190,12 @@ type Node struct {
 	lockstep  *http.ServeMux
 	roleRand  *rand.Rand
 	grabsRand *rand.Rand
+	// systemRand draws the Controller's waits on an offline Node's log.
+	systemRand *rand.Rand
+	// host is what NodeSystemService serves for this Node, and hostMu
+	// orders its reports to the holder half.
+	host   *nodeHost
+	hostMu sync.Mutex
 	// downloads is the Node's built-in torrent client.
 	downloads *downloading.Client
 	// claimed is where library.db and a half push their stops, so they
@@ -371,6 +377,8 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.roleRand = streams.Stream("role")
 	n.hub = live.NewHub(surface.Events)
 	n.grabsRand = streams.Stream("grabs")
+	n.systemRand = streams.Stream("system")
+	n.host = &nodeHost{n: n}
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
 		return 0, "", err
 	}

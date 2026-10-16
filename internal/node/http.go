@@ -31,7 +31,7 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 	if l.HTTP.Port() != cfg.HTTP.Listen.Port() && cfg.HTTP.Listen.Port() != 0 {
 		log.Warn("web port taken, serving on a later one", "configured", cfg.HTTP.Listen.String(), "bound", l.HTTP.String())
 	}
-	s.System = system.Facts{
+	facts := system.Facts{
 		DataDir:        n.env.DataDir.Path(),
 		LogsDir:        n.env.DataDir.LogsDir(),
 		PID:            os.Getpid(),
@@ -41,8 +41,11 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 		Listeners:      system.Listeners{HTTP: l.HTTP, Torrent: l.Torrent, Link: l.Link, Control: l.Control},
 	}
 	if stamp, ok := buildinfo.Current(); ok {
-		s.System.Build = &stamp
+		facts.Build = &stamp
 	}
+	s.System = facts
+	n.host.facts.Store(&facts)
+	n.reportHost()
 	r := api.NewRouter(api.Services{
 		Node:           s.Node,
 		Gate:           gate,

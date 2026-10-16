@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -14,9 +15,11 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -39,6 +42,9 @@ type peers interface {
 type half struct {
 	peers    peers
 	dispatch *rpc.Dispatch
+	holding  *role.Holding
+	// systems reaches every Node's system, on a Controller.
+	systems  *nodesystem.Nodes
 	nodes    *nodes.Service
 	controls *role.Controls
 	cluster  *rpc.Cluster
@@ -82,9 +88,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Node:    n.info,
 		Link:    n.link,
 		Changed: nodes.ChangedEvent.Bind(n.hub),
-		Served:  append([]role.Served{downloads}, n.env.Test.Served...),
-		Always:  n.env.Test.Always,
-		Log:     n.rootLog.With("subsystem", "nodes"),
+
+		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
+		Served:          append([]role.Served{downloads}, n.env.Test.Served...),
+		Always:          n.env.Test.Always,
+		Log:             n.rootLog.With("subsystem", "nodes"),
 	})
 	if err != nil {
 		return err
@@ -99,6 +107,21 @@ func (n *Node) startController(ctx context.Context) error {
 	cluster := rpc.NewCluster(dispatch, side)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	n.serveSystem(dispatch)
+	systems := nodesystem.NewNodes(
+		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
+			return systemv1connect.NodeSystemService.On(cluster, id)
+		},
+		func(ctx context.Context, id role.NodeID) (string, error) {
+			node, err := side.Get(ctx, id)
+			if errors.Is(err, nodes.ErrNotFound) {
+				return "", nodesystem.ErrNotFound
+			}
+			return node.Name, err
+		},
+		nodesystem.FollowTimings{RetryMin: n.cfg.Timings.Link.RedialMin, RetryMax: n.cfg.Timings.Link.RedialMax},
+		n.systemRand,
+	)
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
@@ -136,7 +159,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
 	n.setHalf(&half{
-		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
+		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
 		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:     shelf,
@@ -192,8 +215,9 @@ func (n *Node) startWorker(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	n.serveSystem(dispatch)
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, source: transfers.NewSource(transfers.SourceConfig{
+	n.setHalf(&half{peers: side, dispatch: dispatch, holding: holding, source: transfers.NewSource(transfers.SourceConfig{
 		Payloads:   n.downloads,
 		Controller: controller.Key,
 		Hooks:      n.env.Test.Transfers,
@@ -227,10 +251,22 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream) (*role.
 	return holding, local, nil
 }
 
+// setHalf records the half that started and reports the Node's host
+// through it.
 func (n *Node) setHalf(h *half) {
 	if !n.half.CompareAndSwap(nil, h) {
 		panic("node: a second half started; a Node starts one, once")
 	}
+	n.reportHost()
+}
+
+// serveSystem serves the Node's own system to its Controller, or to
+// itself on a Controller.
+func (n *Node) serveSystem(d *rpc.Dispatch) {
+	systemv1connect.NodeSystemService.Mount(d, nodesystem.Serve(n.host, nodesystem.ServeTimings{
+		LogPoll:       n.cfg.Timings.Link.LogPoll,
+		LogArchiveTTL: n.cfg.Timings.Link.LogArchiveTTL,
+	}))
 }
 
 // heldRoles is every Role this binary runs, one held line each.

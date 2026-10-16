@@ -36,6 +36,7 @@ import (
 var Events = []live.Event{
 	identity.SessionsChangedEvent,
 	nodes.ChangedEvent,
+	nodes.SettingsChangedEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
 	targets.ChangedEvent,
@@ -61,6 +62,7 @@ type Node interface {
 	filesapi.Library
 	grabsapi.Pipeline
 	shellapi.Pipeline
+	systemapi.Systems
 }
 
 // Services are what the operations run against. Document passes none.
