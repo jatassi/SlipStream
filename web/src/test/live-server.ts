@@ -45,19 +45,25 @@ export function liveServer() {
 }
 
 // seeded caches an empty answer under each key and reads which were since
-// invalidated.
+// invalidated, or refetched because something observes them.
 export function seeded(
   { queryClient }: ReturnType<typeof renderApp>,
   keys: Record<string, readonly unknown[]>,
 ) {
-  for (const key of Object.values(keys)) {
+  const updates = new Map<string, number | undefined>();
+  for (const [name, key] of Object.entries(keys)) {
     queryClient.setQueryData(key, {});
+    updates.set(name, queryClient.getQueryState(key)?.dataUpdateCount);
   }
   return () =>
     Object.fromEntries(
-      Object.entries(keys).map(([name, key]) => [
-        name,
-        queryClient.getQueryState(key)?.isInvalidated,
-      ]),
+      Object.entries(keys).map(([name, key]) => {
+        const state = queryClient.getQueryState(key);
+        return [
+          name,
+          state !== undefined &&
+            (state.isInvalidated || state.dataUpdateCount !== updates.get(name)),
+        ];
+      }),
     );
 }

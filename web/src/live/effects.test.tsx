@@ -1,3 +1,4 @@
+import { HttpResponse, delay, http } from "msw";
 import { expect, test } from "vitest";
 
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
@@ -100,6 +101,31 @@ test("tasks.changed invalidates every tasks query and nothing else", async () =>
   await expect
     .poll(invalidated)
     .toEqual({ list: true, task: true, settings: true, open: true, works: false });
+});
+
+test("a burst of tasks.changed refetches once more after the fetch in flight, never aborting it", async () => {
+  const server = liveServer();
+  let answered = 0;
+  let aborted = 0;
+  const open = http.get("*/api/v1/tasks/runs/open", async ({ request }) => {
+    request.signal.addEventListener("abort", () => {
+      aborted += 1;
+    });
+    await delay(200);
+    answered += 1;
+    return HttpResponse.json({ headerDelaySeconds: answered, runs: [] });
+  });
+  const app = renderApp({ path: "/system", handlers: [...server.handlers, open] });
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect.poll(() => answered).toBe(1);
+
+  for (let i = 0; i < 5; i += 1) {
+    server.clients[0]?.send({ event: "tasks.changed", data: { taskId: "housekeeping" } });
+  }
+  await expect
+    .poll(() => app.queryClient.getQueryData(getListOpenTaskRunsQueryKey()))
+    .toEqual({ headerDelaySeconds: 3, runs: [] });
+  expect({ answered, aborted }).toEqual({ answered: 3, aborted: 0 });
 });
 
 const openRun = (runId: number, taskId: string) => ({
