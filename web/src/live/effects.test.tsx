@@ -7,6 +7,7 @@ import {
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListWorksQueryKey } from "../api/gen/query/works/works";
 import {
   getGetTaskQueryKey,
@@ -114,12 +115,15 @@ const openRun = (runId: number, taskId: string) => ({
 
 test("tasks.progress moves that open run in place", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/system", handlers: server.handlers });
-  await expect.poll(() => app.live.getState()).toBe("open");
-  app.queryClient.setQueryData(getListOpenTaskRunsQueryKey(), {
-    headerDelaySeconds: 5,
-    runs: [openRun(1, "housekeeping"), openRun(2, "tidy")],
+  const open = { headerDelaySeconds: 5, runs: [openRun(1, "housekeeping"), openRun(2, "tidy")] };
+  const app = renderApp({
+    path: "/system",
+    handlers: [...server.handlers, getListOpenTaskRunsMockHandler(open)],
   });
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect
+    .poll(() => app.queryClient.getQueryData(getListOpenTaskRunsQueryKey()))
+    .toEqual(open);
 
   server.clients[0]?.send({
     event: "tasks.progress",

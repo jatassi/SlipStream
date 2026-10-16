@@ -33,7 +33,7 @@ function RunHead({ run, now }: { run: TasksRun; now: Date }) {
 
 function UnitLine({ unit }: { unit: TasksRunUnit }) {
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2 not-first:shadow-[inset_0_1px_0_var(--color-hairline)] @[720px]:grid-cols-[minmax(0,14rem)_8rem_7rem_minmax(0,1fr)]">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center text-(length:--body-size) leading-(--body-line-height) gap-x-3 gap-y-1 px-3 py-2 not-first:shadow-[inset_0_1px_0_var(--color-hairline)] @[720px]:grid-cols-[minmax(0,14rem)_8rem_7rem_minmax(0,1fr)]">
       <span className="truncate">{unit.label}</span>
       <span className="order-last col-span-2 text-meta text-ink-3 @[720px]:order-none @[720px]:col-span-1 @[720px]:text-(length:--body-size)">
         {unit.node === "" ? "No longer paired" : unit.node}
