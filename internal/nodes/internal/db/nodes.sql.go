@@ -56,9 +56,9 @@ const getJoinCodeLifetime = `-- name: GetJoinCodeLifetime :one
 SELECT join_code_lifetime_seconds FROM nodes_settings WHERE id = 1
 `
 
-func (q *Queries) GetJoinCodeLifetime(ctx context.Context) (int64, error) {
+func (q *Queries) GetJoinCodeLifetime(ctx context.Context) (*int64, error) {
 	row := q.db.QueryRowContext(ctx, getJoinCodeLifetime)
-	var join_code_lifetime_seconds int64
+	var join_code_lifetime_seconds *int64
 	err := row.Scan(&join_code_lifetime_seconds)
 	return join_code_lifetime_seconds, err
 }
@@ -350,7 +350,7 @@ const setJoinCodeLifetime = `-- name: SetJoinCodeLifetime :exec
 UPDATE nodes_settings SET join_code_lifetime_seconds = ?1 WHERE id = 1
 `
 
-func (q *Queries) SetJoinCodeLifetime(ctx context.Context, joinCodeLifetimeSeconds int64) error {
+func (q *Queries) SetJoinCodeLifetime(ctx context.Context, joinCodeLifetimeSeconds *int64) error {
 	_, err := q.db.ExecContext(ctx, setJoinCodeLifetime, joinCodeLifetimeSeconds)
 	return err
 }

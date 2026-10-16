@@ -491,28 +491,42 @@ export const NodesRoles = zod.object({
 export type NodesRoles = zod.input<typeof NodesRoles>;
 export type NodesRolesOutput = zod.output<typeof NodesRoles>;
 
-export const nodesSettingsJoinCodeLifetimeSecondsMin = 600;
-export const nodesSettingsJoinCodeLifetimeSecondsMax = 604800;
+export const SettingDurationField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Seconds"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["duration"]),
+  label: zod.string(),
+  max: zod.int().describe("Seconds"),
+  min: zod.int().describe("Seconds"),
+  source: zod.enum(["database"]),
+  step: zod.int().describe("Seconds: a second, minute, hour or day"),
+  value: zod.int().describe("Seconds"),
+});
+
+export type SettingDurationField = zod.input<typeof SettingDurationField>;
+export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
 
 export const NodesSettings = zod.object({
-  joinCodeLifetimeSeconds: zod
-    .int()
-    .min(nodesSettingsJoinCodeLifetimeSecondsMin)
-    .max(nodesSettingsJoinCodeLifetimeSecondsMax),
+  joinCodeLifetime: SettingDurationField,
 });
 
 export type NodesSettings = zod.input<typeof NodesSettings>;
 export type NodesSettingsOutput = zod.output<typeof NodesSettings>;
 
-export const nodesSettingsPatchJoinCodeLifetimeSecondsMin = 600;
-export const nodesSettingsPatchJoinCodeLifetimeSecondsMax = 604800;
-
 export const NodesSettingsPatch = zod.object({
-  joinCodeLifetimeSeconds: zod
-    .int()
-    .min(nodesSettingsPatchJoinCodeLifetimeSecondsMin)
-    .max(nodesSettingsPatchJoinCodeLifetimeSecondsMax)
-    .exactOptional(),
+  joinCodeLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
 });
 
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
