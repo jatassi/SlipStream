@@ -139,5 +139,16 @@ export function moveFor(
 
 export const restartStore = createStore(restartReducer, idle);
 
+export function askRestart(node: {
+  readonly id: string;
+  readonly name: string;
+  readonly self: boolean;
+}) {
+  restartStore.dispatch({
+    type: "ask",
+    target: { nodeId: node.id, name: node.name, self: node.self },
+  });
+}
+
 export const useRestartState = (): RestartState =>
   useSyncExternalStore(restartStore.subscribe, restartStore.getSnapshot);
