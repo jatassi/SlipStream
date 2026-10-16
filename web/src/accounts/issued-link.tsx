@@ -10,7 +10,6 @@ const mailSentence: {
   "not-set-up": () => "Email is not set up, so copy the link and send it yourself.",
 };
 
-/** A link just issued: the URL to copy, and what became of its email. */
 export function IssuedLink({
   label,
   url,

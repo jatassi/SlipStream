@@ -110,7 +110,6 @@ function ConfirmDialogs({
   ));
 }
 
-/** Every question the Account page can ask, one open at a time. */
 export function AccountDialogs({
   account,
   asking,
