@@ -4,14 +4,15 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 
 ## Sub-features
 
-- `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` in `home`), Activity, a separator and This Node, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
+- `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` in `home`), Activity, a separator, This Node and Tasks, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
 - `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the breadcrumb's last item names the page; a Work and Add sit under `Library` › `Movies` (P-001).
 - `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001).
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
 - `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` on the Library, and `Add a Movie` is a link on the Movies library.
+- `shell-top-bar-slots` the top bar's right side runs the connection line, the running-tasks capsule and the page's action, in that order; the capsule takes no room while no run is shown, and [Tasks](./tasks.md) drives it (P-007).
 - `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox and `Sign out`.
 - `shell-tab-bar` the phone's tab bar `Tabs` holds `Library`, `Activity`, `Search` and `More` (P-004).
-- `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), This Node, the Admin's name, `Open the portal`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
+- `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), This Node, Tasks, the Admin's name, `Open the portal`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
 - `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing part of a Work's name lists it under Works, Enter opens it, and Esc returns focus where it was.
 - `shell-palette-commands` with no query the palette lists Go to each nav row and Content Type, `Add a Movie`, `Toggle sidebar` (desktop shell only) and `Sign out`.
@@ -29,10 +30,10 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's rows (`Library`, `Movies`, `Activity`, `This Node`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Open the portal`, `Startup sequence` and `Sign out`.
-- Desktop shell: the top bar's breadcrumbs, the capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and the page's action at the right (`Add` on the Library).
-- Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies`, `Go to Activity`, `Go to This Node`, `Add a Movie`, `Toggle sidebar` and `Sign out`.
-- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, This Node, `Open the portal`, `Sign out` and `Startup sequence`).
+- Desktop shell: the sidebar's rows (`Library`, `Movies`, `Activity`, `This Node`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Open the portal`, `Startup sequence` and `Sign out`.
+- Desktop shell: the top bar's breadcrumbs, the capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, and the page's action (`Add` on the Library).
+- Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies`, `Go to Activity`, `Go to This Node`, `Go to Tasks`, `Add a Movie`, `Toggle sidebar` and `Sign out`.
+- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, This Node, Tasks, `Open the portal`, `Sign out` and `Startup sequence`).
 - Phone shell: the large title's `Search` button opens the palette and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
 - Both shells: `/` redirects to `/library`, and any address the app doesn't know shows the not-found page.
 - Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Library`.
@@ -49,7 +50,7 @@ Preconditions:
 
 Steps:
 
-- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `Activity` and `This Node`, the Library row and the breadcrumb `Library` are current, and the title reads `Library · SlipStream`.
+- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `Activity`, `This Node` and `Tasks`, the Library row and the breadcrumb `Library` are current, and the title reads `Library · SlipStream`.
 
   ```sh
   $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/shell/shell-sidebar/library.aria.yml
@@ -153,7 +154,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone press Escape
   ```
 
-- **Open More.** Choose `More`. The sheet lists `Movies`, `This Node`, `Ada Okafor`, `Open the portal`, `Sign out`, the switch `Startup sequence`, `SlipStream <version>` and `Cancel`. Choosing `This Node` closes it and opens `/system`.
+- **Open More.** Choose `More`. The sheet lists `Movies`, `This Node`, `Tasks`, `Ada Okafor`, `Open the portal`, `Sign out`, the switch `Startup sequence`, `SlipStream <version>` and `Cancel`. Choosing `This Node` closes it and opens `/system`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("button", { name: "More" })'

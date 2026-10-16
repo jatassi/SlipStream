@@ -2,6 +2,7 @@ import { ArrowRight01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
 import { type ComponentType, createContext, use } from "react";
 
+import { TasksCapsule } from "../../tasks/capsule";
 import { Icon } from "../../ui/icon";
 import { ConnectionLine } from "../connection-line";
 import { openPalette, paletteShortcut } from "../palette-state";
@@ -19,6 +20,7 @@ type TopBarSlot = { readonly id: string; readonly Slot: ComponentType };
 // main action last, and each later spec's control as a row between them.
 const topBarSlots = [
   { id: "connection", Slot: ConnectionLine },
+  { id: "tasks", Slot: TasksCapsule },
   { id: "page-action", Slot: PageAction },
 ] as const satisfies readonly TopBarSlot[];
 

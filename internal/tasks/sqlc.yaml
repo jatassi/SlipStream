@@ -1,0 +1,93 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: tasks_task.id
+            go_type:
+              type: TaskID
+          - column: "*.task_id"
+            go_type:
+              type: TaskID
+          - column: tasks_run.id
+            go_type:
+              type: RunID
+          - column: tasks_unit.last_run_id
+            go_type:
+              type: RunID
+              pointer: true
+          - column: tasks_unit.unit_key
+            go_type:
+              type: UnitKey
+          - column: "*.overdue"
+            go_type:
+              type: Overdue
+              pointer: true
+          - column: tasks_run.kind
+            go_type:
+              type: Trigger
+          - column: tasks_run.result
+            go_type:
+              type: Result
+              pointer: true
+          - column: tasks_unit.last_outcome
+            go_type:
+              type: Outcome
+              pointer: true
+          - column: "*.tied_to"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.last_node"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: tasks_run.requested_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: tasks_settings.id
+            go_type:
+              type: Singleton
+          - column: tasks_task.every_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: tasks_task.jitter_frac
+            go_type:
+              type: float64
+              pointer: true
+          - column: "tasks_settings.*"
+            go_type:
+              type: int64
+              pointer: true
+          - column: tasks_run.summary
+            go_type:
+              type: string
+              pointer: true
+          - column: tasks_run.cause
+            go_type:
+              type: string
+              pointer: true
+          - column: tasks_run.units
+            go_type:
+              type: string
+              pointer: true
+          - column: tasks_unit.last_cause
+            go_type:
+              type: string
+              pointer: true
+          - column: tasks_unit.due_on_return
+            nullable: true
+            go_type:
+              type: int64
+              pointer: true

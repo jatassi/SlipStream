@@ -55,6 +55,9 @@ SELECT * FROM nodes_join_code WHERE secret_hash = sqlc.arg(secret_hash);
 UPDATE nodes_join_code SET used_by = sqlc.arg(used_by), used_at = sqlc.arg(used_at)
 WHERE secret_hash = sqlc.arg(secret_hash);
 
+-- name: DeleteJoinCodesExpiredBefore :exec
+DELETE FROM nodes_join_code WHERE expires_at < sqlc.arg(expires_at);
+
 -- name: GetJoinCodeLifetime :one
 SELECT join_code_lifetime_seconds FROM nodes_settings WHERE id = 1;
 

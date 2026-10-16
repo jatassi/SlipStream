@@ -11,6 +11,8 @@ import {
 import { ensureQuery } from "../../api/query-client";
 import { ActivityBody } from "../../grabs/activity";
 import { Page } from "../../shell/page";
+import { RunningList } from "../../tasks/running";
+import { useShell } from "../../ui/shell-context";
 import { Skeleton } from "../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/activity")({
@@ -30,6 +32,7 @@ function Activity() {
   const labels = new Map(useListWorksSuspense().data.works.map((work) => [work.id, work.label]));
   return (
     <Page>
+      {useShell() === "phone" && <RunningList />}
       <ActivityBody grabs={grabs} labels={labels} />
     </Page>
   );

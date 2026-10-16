@@ -1,7 +1,7 @@
 export interface NodesSettingsPatch {
   /**
-   * @minimum 600
-   * @maximum 604800
+   * Seconds; null resets it to its default
+   * @nullable
    */
-  joinCodeLifetimeSeconds?: number;
+  joinCodeLifetime?: number | null;
 }

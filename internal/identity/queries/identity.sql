@@ -68,9 +68,12 @@ UPDATE identity_session SET pin_required = 0 WHERE account_id = sqlc.arg(account
 -- name: DeleteSession :exec
 DELETE FROM identity_session WHERE id = sqlc.arg(id);
 
+-- name: ListIdleSessions :many
+SELECT id, account_id FROM identity_session WHERE last_seen_at < sqlc.arg(seen_before)
+ORDER BY account_id, id;
+
 -- name: DeleteIdleSessions :exec
-DELETE FROM identity_session
-WHERE account_id = sqlc.arg(account_id) AND last_seen_at < sqlc.arg(seen_before);
+DELETE FROM identity_session WHERE last_seen_at < sqlc.arg(seen_before);
 
 -- name: InsertAPIKey :exec
 INSERT INTO identity_api_key (id, token_hash, created_at) VALUES (1, sqlc.arg(token_hash), sqlc.arg(created_at));

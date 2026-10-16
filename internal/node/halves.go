@@ -9,11 +9,13 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/housekeeping/v1/housekeepingv1connect"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
@@ -23,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -48,6 +51,7 @@ type half struct {
 	roots    *roots.Roots
 	files    *files.Files
 	grabs    *grabs.Grabs
+	tasks    *tasks.Scheduler
 	// transfers receives files on the Controller, and source serves them
 	// on a Worker.
 	transfers *transfers.Receiver
@@ -99,6 +103,7 @@ func (n *Node) startController(ctx context.Context) error {
 	cluster := rpc.NewCluster(dispatch, side)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
@@ -136,18 +141,49 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster}
+	scheduler, err := tasks.Open(ctx, tasks.Config{
+		Library: lib.db,
+		Catalog: append(catalog(housekeeping.Config{
+			Library:  lib.db,
+			Nodes:    side,
+			Identity: lib.ids,
+			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
+				return housekeepingv1connect.HousekeepingService.On(cluster, node)
+			},
+		}), n.env.Test.tasks(started)...),
+		Roster:     side,
+		Zone:       n.zone(),
+		Rand:       n.tasksRand,
+		Hub:        n.hub,
+		Changed:    tasks.ChangedEvent.Bind(n.hub),
+		Progressed: tasks.ProgressEvent.Bind(n.hub),
+		Log:        n.rootLog.With("subsystem", "tasks"),
+	})
+	if err != nil {
+		return err
+	}
 	n.setHalf(&half{
 		peers: side, dispatch: dispatch, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
 		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:     shelf,
 		grabs:     pipeline,
+		tasks:     scheduler,
 		transfers: receiver,
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("grabs", pipeline.Run)
-	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster})
+	n.claimed.Go("tasks", scheduler.Run)
+	n.env.Test.started(started)
 	return nil
+}
+
+func (n *Node) zone() *time.Location {
+	if n.env.Zone == nil {
+		return time.Local
+	}
+	return n.env.Zone
 }
 
 // httpClient is the half's client for every host the Node reaches, dialing
@@ -193,6 +229,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
 	n.setHalf(&half{peers: side, dispatch: dispatch, source: transfers.NewSource(transfers.SourceConfig{
 		Payloads:   n.downloads,

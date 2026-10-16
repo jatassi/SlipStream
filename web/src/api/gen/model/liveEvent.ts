@@ -12,6 +12,8 @@ import type { LiveEventLiveSessionEnded } from "./liveEventLiveSessionEnded.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
 import type { LiveEventRootsChanged } from "./liveEventRootsChanged.ts";
 import type { LiveEventTargetsChanged } from "./liveEventTargetsChanged.ts";
+import type { LiveEventTasksChanged } from "./liveEventTasksChanged.ts";
+import type { LiveEventTasksProgress } from "./liveEventTasksProgress.ts";
 import type { LiveEventWorksChanged } from "./liveEventWorksChanged.ts";
 import type { LiveEventWorksContentTypesChanged } from "./liveEventWorksContentTypesChanged.ts";
 
@@ -30,5 +32,7 @@ export type LiveEvent =
   | LiveEventNodesChanged
   | LiveEventRootsChanged
   | LiveEventTargetsChanged
+  | LiveEventTasksChanged
+  | LiveEventTasksProgress
   | LiveEventWorksChanged
   | LiveEventWorksContentTypesChanged;

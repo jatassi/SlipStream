@@ -35,17 +35,11 @@ func (q *Queries) ConfirmSession(ctx context.Context, arg ConfirmSessionParams) 
 }
 
 const deleteIdleSessions = `-- name: DeleteIdleSessions :exec
-DELETE FROM identity_session
-WHERE account_id = ?1 AND last_seen_at < ?2
+DELETE FROM identity_session WHERE last_seen_at < ?1
 `
 
-type DeleteIdleSessionsParams struct {
-	AccountID  AccountID
-	SeenBefore storage.Time
-}
-
-func (q *Queries) DeleteIdleSessions(ctx context.Context, arg DeleteIdleSessionsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteIdleSessions, arg.AccountID, arg.SeenBefore)
+func (q *Queries) DeleteIdleSessions(ctx context.Context, seenBefore storage.Time) error {
+	_, err := q.db.ExecContext(ctx, deleteIdleSessions, seenBefore)
 	return err
 }
 
@@ -310,6 +304,39 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.Prompted,
 	)
 	return err
+}
+
+const listIdleSessions = `-- name: ListIdleSessions :many
+SELECT id, account_id FROM identity_session WHERE last_seen_at < ?1
+ORDER BY account_id, id
+`
+
+type ListIdleSessionsRow struct {
+	ID        SessionID
+	AccountID AccountID
+}
+
+func (q *Queries) ListIdleSessions(ctx context.Context, seenBefore storage.Time) ([]ListIdleSessionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIdleSessions, seenBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdleSessionsRow
+	for rows.Next() {
+		var i ListIdleSessionsRow
+		if err := rows.Scan(&i.ID, &i.AccountID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const replaceAPIKey = `-- name: ReplaceAPIKey :exec
