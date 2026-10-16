@@ -18,6 +18,9 @@ UPDATE tasks_task SET overdue = sqlc.narg(overdue) WHERE id = sqlc.arg(id);
 UPDATE tasks_task SET slot_started_at = sqlc.arg(slot_started_at), jitter_frac = sqlc.arg(jitter_frac)
 WHERE id = sqlc.arg(id);
 
+-- name: PassSlot :exec
+UPDATE tasks_task SET slot_started_at = sqlc.arg(slot_started_at) WHERE id = sqlc.arg(id);
+
 -- name: ListUnits :many
 SELECT * FROM tasks_unit WHERE task_id = sqlc.arg(task_id) ORDER BY position;
 
@@ -44,7 +47,7 @@ UPDATE tasks_unit SET
     last_node = sqlc.arg(last_node),
     last_ended_at = sqlc.arg(last_ended_at),
     last_success_at = coalesce(sqlc.arg(last_success_at), last_success_at),
-    due_on_return = sqlc.arg(due_on_return)
+    due_on_return = coalesce(sqlc.narg(due_on_return), due_on_return)
 WHERE task_id = sqlc.arg(task_id) AND unit_key = sqlc.arg(unit_key);
 
 -- name: InsertRun :one
@@ -60,6 +63,9 @@ UPDATE tasks_run SET
     cause = sqlc.narg(cause),
     units = sqlc.arg(units)
 WHERE id = sqlc.arg(id) AND ended_at IS NULL;
+
+-- name: GetOpenRun :one
+SELECT * FROM tasks_run WHERE task_id = sqlc.arg(task_id) AND ended_at IS NULL;
 
 -- name: ListOpenRuns :many
 SELECT * FROM tasks_run WHERE ended_at IS NULL ORDER BY id;

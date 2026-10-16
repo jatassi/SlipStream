@@ -20,7 +20,7 @@ var (
 	everyEight = setting.Duration{Key: "tasks.sync.cadence", Label: "Sync", Default: 8 * time.Hour, Min: 10 * time.Minute, Max: day, Step: time.Minute}
 	daily      = setting.Duration{Key: "tasks.nightly.cadence", Label: "Nightly", Default: day, Min: day, Max: 7 * day, Step: day}
 
-	sync         = Task{ID: "sync", Name: "Sync", Cadence: Every{Interval: everyEight}}
+	syncTask     = Task{ID: "sync", Name: "Sync", Cadence: Every{Interval: everyEight}}
 	updateCheck  = Task{ID: "update-check", Name: "Update check", Cadence: Every{Interval: everyEight, AtStart: true}}
 	backup       = Task{ID: "backup", Name: "Backup", Cadence: InWindow{Days: daily}}
 	housekeeping = Task{ID: "housekeeping", Name: "Housekeeping", Cadence: InWindow{Days: daily}, Overdue: Wait}
@@ -42,7 +42,7 @@ func overdue(o Overdue) *Overdue { return &o }
 func TestPlan(t *testing.T) {
 	waitGlobally := baseKnobs("2026-10-16T00:00:00Z")
 	waitGlobally.overdue = Wait
-	downThreeDays := state{task: sync, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-13T00:00:00Z"), lastEnded: at("2026-10-13T00:05:00Z"), jitter: 0.5}
+	downThreeDays := state{task: syncTask, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-13T00:00:00Z"), lastEnded: at("2026-10-13T00:05:00Z"), jitter: 0.5}
 	london, err := time.LoadLocation("Europe/London")
 	if err != nil {
 		t.Fatal(err)
@@ -60,14 +60,14 @@ func TestPlan(t *testing.T) {
 			name:   "a never-run task opens at once under Catch up",
 			now:    "2026-10-16T00:00:00Z",
 			knobs:  baseKnobs("2026-10-16T00:00:00Z"),
-			states: []state{{task: sync, firstSeen: at("2026-10-16T00:00:00Z")}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-16T00:00:00Z")}},
 			want:   Plan{Open: []Opening{{"sync", ByCatchUp}}, Next: map[TaskID]time.Time{}},
 		},
 		{
 			name:   "a never-run task waits one interval under Wait",
 			now:    "2026-10-16T00:00:00Z",
 			knobs:  waitGlobally,
-			states: []state{{task: sync, firstSeen: at("2026-10-16T00:00:00Z")}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-16T00:00:00Z")}},
 			want: Plan{
 				Pass: []Passed{{"sync", at("2026-10-16T00:00:00Z")}},
 				Next: map[TaskID]time.Time{"sync": at("2026-10-16T08:00:00Z")},
@@ -107,7 +107,7 @@ func TestPlan(t *testing.T) {
 			name:   "a jittered slot",
 			now:    "2026-10-16T01:00:00Z",
 			knobs:  baseKnobs("2026-10-15T00:00:00Z"),
-			states: []state{{task: sync, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T00:05:00Z"), jitter: 0.5}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T00:05:00Z"), jitter: 0.5}},
 			want: Plan{
 				Next: map[TaskID]time.Time{"sync": at("2026-10-16T08:02:30Z")},
 				Wake: at("2026-10-16T08:02:30Z"),
@@ -117,14 +117,14 @@ func TestPlan(t *testing.T) {
 			name:   "the jittered slot opens a schedule run",
 			now:    "2026-10-16T08:02:30Z",
 			knobs:  baseKnobs("2026-10-15T00:00:00Z"),
-			states: []state{{task: sync, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T00:05:00Z"), jitter: 0.5}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T00:05:00Z"), jitter: 0.5}},
 			want:   Plan{Open: []Opening{{"sync", BySchedule}}, Next: map[TaskID]time.Time{}},
 		},
 		{
 			name:   "a slot that fell due mid-run is skipped",
 			now:    "2026-10-16T08:10:00Z",
 			knobs:  baseKnobs("2026-10-15T00:00:00Z"),
-			states: []state{{task: sync, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T08:10:00Z"), jitter: 0.5}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), lastEnded: at("2026-10-16T08:10:00Z"), jitter: 0.5}},
 			want: Plan{
 				Next: map[TaskID]time.Time{"sync": at("2026-10-16T16:02:30Z")},
 				Wake: at("2026-10-16T16:02:30Z"),
@@ -134,7 +134,7 @@ func TestPlan(t *testing.T) {
 			name:   "Run now leaves the next slot where it was",
 			now:    "2026-10-16T10:05:00Z",
 			knobs:  baseKnobs("2026-10-15T00:00:00Z"),
-			states: []state{{task: sync, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T08:00:00Z"), lastEnded: at("2026-10-16T10:05:00Z")}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T08:00:00Z"), lastEnded: at("2026-10-16T10:05:00Z")}},
 			want: Plan{
 				Next: map[TaskID]time.Time{"sync": at("2026-10-16T16:00:00Z")},
 				Wake: at("2026-10-16T16:00:00Z"),
@@ -211,7 +211,7 @@ func TestPlan(t *testing.T) {
 			name:   "a unit due on return opens a returned run",
 			now:    "2026-10-16T01:00:00Z",
 			knobs:  baseKnobs("2026-10-15T00:00:00Z"),
-			states: []state{{task: sync, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), returned: true}},
+			states: []state{{task: syncTask, firstSeen: at("2026-10-01T00:00:00Z"), slot: at("2026-10-16T00:00:00Z"), returned: true}},
 			want:   Plan{Open: []Opening{{"sync", ByReturn}}, Next: map[TaskID]time.Time{}},
 		},
 		{

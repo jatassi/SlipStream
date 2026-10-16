@@ -8,27 +8,28 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect/v2"
-	"connectrpc.com/connect/v2/connectproto"
-
 	"github.com/jatassi/slipstream/internal/link"
-	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
+	rpctestv1 "github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1/rpctestv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-func notHolder(held role.Name) error {
-	detail, err := connectproto.NewErrorDetail(&nodev1.NotHolder{Role: string(held)})
-	if err != nil {
-		panic(err)
-	}
-	return connect.NewError(connect.CodeFailedPrecondition, "refused").WithDetail(detail)
-}
+// knows is a roster holding one Node, which holds no Role.
+type knows struct{ node role.NodeID }
+
+func (k knows) Key(node role.NodeID) (link.Key, bool) { return link.Key{1}, node == k.node }
+
+func (knows) Holders(role.Name) []role.NodeID { return nil }
 
 func TestClassify(t *testing.T) {
 	seedbox := role.NodeID{UUID: storage.NewUUID()}
 	box := peer{name: "seedbox", version: "2.3.0"}
-	cancelled, cancel := context.WithCancel(t.Context())
+	cluster := rpc.NewCluster(rpc.NewDispatch(nil, link.Key{}, link.Key{}, nil), knows{seedbox})
+	_, notSearching := rpctestv1connect.SearchService.On(cluster, seedbox).Search(t.Context(), &rpctestv1.SearchRequest{})
+	_, unpaired := rpctestv1connect.PingService.On(cluster, role.NodeID{UUID: storage.NewUUID()}).Ping(t.Context(), &rpctestv1.PingRequest{})
+	canceled, cancel := context.WithCancel(t.Context())
 	cancel()
 	for _, tc := range []struct {
 		name  string
@@ -38,7 +39,7 @@ func TestClassify(t *testing.T) {
 		want  result
 	}{
 		{"nil", t.Context(), nil, TiedTo(seedbox), result{outcome: Succeeded}},
-		{"a cancelled run, though the link reads lost", cancelled, connect.NewError(connect.CodeCanceled, "context canceled"), TiedTo(seedbox), result{outcome: Cancelled}},
+		{"a canceled run, though the link reads lost", canceled, rpc.Errorf(rpc.CodeCanceled, "context canceled"), TiedTo(seedbox), result{outcome: Canceled}},
 		{"disconnected, tied", t.Context(), fmt.Errorf("tidy: %w", link.ErrDisconnected), TiedTo(seedbox),
 			result{outcome: Skipped, cause: "seedbox is offline", node: "seedbox", short: "seedbox offline", dueOnReturn: true}},
 		{"disconnected, portable", t.Context(), fmt.Errorf("search: %w", link.ErrDisconnected), PortableOn(seedbox),
@@ -47,13 +48,15 @@ func TestClassify(t *testing.T) {
 			result{outcome: Skipped, cause: "seedbox runs 2.3.0", node: "seedbox", short: "seedbox runs 2.3.0", dueOnReturn: true}},
 		{"mismatched, portable", t.Context(), fmt.Errorf("search: %w", link.ErrMismatched), PortableOn(seedbox),
 			result{outcome: Skipped, cause: "seedbox runs 2.3.0", node: "seedbox", short: "seedbox runs 2.3.0"}},
-		{"not holder, tied", t.Context(), notHolder(role.Storage), TiedTo(seedbox),
-			result{outcome: Skipped, cause: "seedbox no longer holds Storage", node: "seedbox", short: "seedbox no longer holds Storage"}},
-		{"not holder, portable", t.Context(), notHolder(role.Searching), PortableOn(seedbox),
+		{"not holder, tied", t.Context(), notSearching, TiedTo(seedbox),
 			result{outcome: Skipped, cause: "seedbox no longer holds Searching", node: "seedbox", short: "seedbox no longer holds Searching"}},
-		{"lost, tied", t.Context(), connect.NewError(connect.CodeUnavailable, "session closed"), TiedTo(seedbox),
+		{"not holder, portable", t.Context(), notSearching, PortableOn(seedbox),
+			result{outcome: Skipped, cause: "seedbox no longer holds Searching", node: "seedbox", short: "seedbox no longer holds Searching"}},
+		{"not in the roster", t.Context(), unpaired, TiedTo(seedbox),
+			result{outcome: Skipped, cause: "seedbox is no longer paired", node: "seedbox", short: "seedbox is no longer paired"}},
+		{"lost, tied", t.Context(), rpc.Errorf(rpc.CodeUnavailable, "session closed"), TiedTo(seedbox),
 			result{outcome: Skipped, cause: "lost seedbox mid-run", node: "seedbox", short: "seedbox offline", dueOnReturn: true}},
-		{"lost, portable", t.Context(), connect.NewError(connect.CodeUnavailable, "session closed"), PortableOn(seedbox),
+		{"lost, portable", t.Context(), rpc.Errorf(rpc.CodeUnavailable, "session closed"), PortableOn(seedbox),
 			result{outcome: Skipped, cause: "lost seedbox mid-run", node: "seedbox", short: "seedbox offline"}},
 		{"a plain error", t.Context(), errors.New("database is locked"), OnController(), result{outcome: Failed, cause: "database is locked"}},
 	} {
@@ -72,12 +75,12 @@ func TestRollUp(t *testing.T) {
 	locked := result{outcome: Failed, cause: "database is locked"}
 	full := result{outcome: Failed, cause: "disk is full"}
 	for _, tc := range []struct {
-		name      string
-		results   []result
-		cancelled bool
-		want      [3]string
+		name     string
+		results  []result
+		canceled bool
+		want     [3]string
 	}{
-		{"cancel requested", []result{ok, ok, {outcome: Cancelled}}, true, [3]string{"cancelled", "2 of 3 steps", ""}},
+		{"cancel requested", []result{ok, ok, {outcome: Canceled}}, true, [3]string{"canceled", "2 of 3 steps", ""}},
 		{"every unit succeeded", []result{ok, ok, ok, ok, ok, ok}, false, [3]string{"succeeded", "6 steps", ""}},
 		{"one unit succeeded", []result{ok}, false, [3]string{"succeeded", "1 step", ""}},
 		{"every unit skipped", []result{offline, nasOffline, offline}, false, [3]string{"skipped", "Waiting for seedbox and nas", ""}},
@@ -86,7 +89,7 @@ func TestRollUp(t *testing.T) {
 		{"some succeeded, one failed and one skipped", []result{ok, locked, offline, ok}, false, [3]string{"partial", "2 of 4 steps, 1 failed, seedbox offline", "database is locked"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r, summary, cause := rollUp("step", tc.results, tc.cancelled)
+			r, summary, cause := rollUp("step", tc.results, tc.canceled)
 			if got := [3]string{string(r), summary, cause}; got != tc.want {
 				t.Fatalf("rollUp = %q, want %q", got, tc.want)
 			}
@@ -95,7 +98,7 @@ func TestRollUp(t *testing.T) {
 }
 
 func TestWarn(t *testing.T) {
-	units := []since{{label: "Join Codes", at: at("2026-10-15T04:00:00Z")}, {label: "seedbox", at: at("2026-10-12T04:00:00Z")}}
+	units := []unitSince{{label: "Join Codes", at: at("2026-10-15T04:00:00Z")}, {label: "seedbox", at: at("2026-10-12T04:00:00Z")}}
 	for _, tc := range []struct {
 		name string
 		run  latest
@@ -109,7 +112,7 @@ func TestWarn(t *testing.T) {
 		{"Partial past it raises one naming the unit", latest{result: RunPartial, ended: at("2026-10-15T04:01:00Z")}, "2026-10-15T04:01:00Z",
 			"scheduled-tasks: Housekeeping has not finished seedbox since Oct 12 04:00"},
 		{"Skipped raises nothing", latest{result: RunSkipped}, "2026-10-20T00:00:00Z", ""},
-		{"Cancelled raises nothing", latest{result: RunCancelled}, "2026-10-20T00:00:00Z", ""},
+		{"Canceled raises nothing", latest{result: RunCanceled}, "2026-10-20T00:00:00Z", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w, ok := warn(housekeeping, tc.run, units, day, 3, at(tc.now), time.UTC)

@@ -82,6 +82,28 @@ func (q *Queries) DeleteUnit(ctx context.Context, arg DeleteUnitParams) error {
 	return err
 }
 
+const getOpenRun = `-- name: GetOpenRun :one
+SELECT id, task_id, kind, requested_by, started_at, ended_at, result, summary, cause, units FROM tasks_run WHERE task_id = ?1 AND ended_at IS NULL
+`
+
+func (q *Queries) GetOpenRun(ctx context.Context, taskID TaskID) (TasksRun, error) {
+	row := q.db.QueryRowContext(ctx, getOpenRun, taskID)
+	var i TasksRun
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Kind,
+		&i.RequestedBy,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.Result,
+		&i.Summary,
+		&i.Cause,
+		&i.Units,
+	)
+	return i, err
+}
+
 const getSettings = `-- name: GetSettings :one
 SELECT id, window_start, window_end, jitter_percent, jitter_cap_seconds, runs_kept, header_delay_seconds, partial_warn_intervals, overdue FROM tasks_settings WHERE id = 1
 `
@@ -337,6 +359,20 @@ func (q *Queries) ListUnits(ctx context.Context, taskID TaskID) ([]TasksUnit, er
 	return items, nil
 }
 
+const passSlot = `-- name: PassSlot :exec
+UPDATE tasks_task SET slot_started_at = ?1 WHERE id = ?2
+`
+
+type PassSlotParams struct {
+	SlotStartedAt storage.Time
+	ID            TaskID
+}
+
+func (q *Queries) PassSlot(ctx context.Context, arg PassSlotParams) error {
+	_, err := q.db.ExecContext(ctx, passSlot, arg.SlotStartedAt, arg.ID)
+	return err
+}
+
 const pruneRuns = `-- name: PruneRuns :exec
 DELETE FROM tasks_run AS old
 WHERE old.ended_at IS NOT NULL AND (
@@ -358,7 +394,7 @@ UPDATE tasks_unit SET
     last_node = ?4,
     last_ended_at = ?5,
     last_success_at = coalesce(?6, last_success_at),
-    due_on_return = ?7
+    due_on_return = coalesce(?7, due_on_return)
 WHERE task_id = ?8 AND unit_key = ?9
 `
 
@@ -369,7 +405,7 @@ type RecordUnitParams struct {
 	LastNode      role.NodeID
 	LastEndedAt   storage.Time
 	LastSuccessAt storage.Time
-	DueOnReturn   int64
+	DueOnReturn   *int64
 	TaskID        TaskID
 	UnitKey       UnitKey
 }

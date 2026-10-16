@@ -56,5 +56,5 @@ type TasksUnit struct {
 	LastEndedAt   storage.Time
 	LastSuccessAt storage.Time
 	FirstSeenAt   storage.Time
-	DueOnReturn   int64
+	DueOnReturn   *int64
 }

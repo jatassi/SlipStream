@@ -15,7 +15,6 @@ type peer struct {
 	name, version string
 }
 
-// result is how one unit ended.
 type result struct {
 	outcome Outcome
 	// cause is the unit's own line: "seedbox is offline".
@@ -25,14 +24,14 @@ type result struct {
 	dueOnReturn bool
 }
 
-// classify turns what a unit's Run returned into its outcome. A cancelled
+// classify turns what a unit's Run returned into its outcome. A canceled
 // run reads before the link, whose errors a cancel also produces.
 func classify(ctx context.Context, err error, place Place, p peer) result {
 	switch {
 	case err == nil:
 		return result{outcome: Succeeded}
 	case ctx.Err() != nil:
-		return result{outcome: Cancelled}
+		return result{outcome: Canceled}
 	}
 	if why, ok := rpc.NotSent(err); ok {
 		return unsent(why, rpc.Unheld(err), place, p)
@@ -71,10 +70,9 @@ func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {
 
 // rollUp is a run's result, summary and cause from its units' results, in
 // unit order. noun counts the units.
-func rollUp(noun string, results []result, cancelled bool) (Result, string, string) {
+func rollUp(noun string, results []result, canceled bool) (run Result, summary, cause string) {
 	total := len(results)
 	counts := map[Outcome]int{}
-	cause := ""
 	var nodes, shorts []string
 	for _, r := range results {
 		counts[r.outcome]++
@@ -92,8 +90,8 @@ func rollUp(noun string, results []result, cancelled bool) (Result, string, stri
 	}
 	done := fmt.Sprintf("%d of %d %s", counts[Succeeded], total, nouns)
 	switch {
-	case cancelled:
-		return RunCancelled, done, ""
+	case canceled:
+		return RunCanceled, done, ""
 	case counts[Succeeded] == total:
 		return RunSucceeded, fmt.Sprintf("%d %s", total, nouns), ""
 	case counts[Skipped] == total:

@@ -42,7 +42,7 @@ const (
 	Succeeded Outcome = "succeeded"
 	Failed    Outcome = "failed"
 	Skipped   Outcome = "skipped"
-	Cancelled Outcome = "cancelled"
+	Canceled  Outcome = "canceled"
 )
 
 const (
@@ -50,7 +50,7 @@ const (
 	RunPartial   Result = "partial"
 	RunFailed    Result = "failed"
 	RunSkipped   Result = "skipped"
-	RunCancelled Result = "cancelled"
+	RunCanceled  Result = "canceled"
 )
 
 // Task is one Scheduled task as its owner declares it beside the code that
