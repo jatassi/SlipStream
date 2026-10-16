@@ -143,7 +143,7 @@ Steps:
 
 ## Gotchas
 
-- Without the latency fault a Housekeeping run opens and closes between two snapshots, so the capsule and the phone list are never seen. With 3 s each way a run stays open about 6 s, while the link's keepalive still answers inside its 10 s write timeout; a longer latency can end the link and make the run Partial. Clear the fault before the next step, or every later run crawls.
+- Without the latency fault a Housekeeping run opens and closes between two snapshots, so the capsule and the phone list are never seen. With `latency=3s` a run stays open about 5 s and ends `Succeeded`, with the link up throughout. The link's keepalive must still answer inside its 10 s write timeout, so keep the latency well under 5 s. Clear the fault before the next step, or every later run crawls.
 - Next-run words follow the clock: between 04:00 and 06:00 the window is open, so the row reads `Tomorrow at 04:00`, and a moved window that covers now makes Housekeeping due at once.
 - The zone beside the window is the Controller's: an IANA name when the process knows one (`TZ`), else its abbreviation, which reads `UTC` in a container. Time words use that zone only when it is an IANA name or `UTC`, else the browser's.
 - Run now on the detail page sits in the top bar on desktop and in the page on phone; scope it to `getByRole("banner")` on desktop, since the Tasks row's button has the same name.
