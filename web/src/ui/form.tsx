@@ -4,6 +4,7 @@ import { Button } from "./button";
 import { FormAlert } from "./form-alert";
 import { fieldContext, formContext, useFormContext } from "./form-context";
 import { PinField } from "./pin-field";
+import { NewPinPad, PinPad } from "./pin-pad";
 import { TextField } from "./text-field";
 
 function SubmitButton({ label }: { label: string }) {
@@ -24,6 +25,6 @@ export { submitErrors } from "./form-context";
 export const { useAppForm } = createFormHook({
   fieldContext,
   formContext,
-  fieldComponents: { TextField, PinField },
+  fieldComponents: { TextField, PinField, PinPad, NewPinPad },
   formComponents: { SubmitButton, FormAlert },
 });
