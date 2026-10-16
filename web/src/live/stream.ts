@@ -1,13 +1,14 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 
 import { isProblem } from "../api/errors";
 import { getSession } from "../api/gen/query/identity/identity";
 import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
 import type {
-  ControlEventName,
   LiveEffect,
   LiveEffects,
+  LiveEventName,
   LiveState,
   PayloadOf,
   ProductEventName,
@@ -17,11 +18,21 @@ import type {
 const streamUrl = "/api/v1/events";
 const hiddenRelease = 10_000;
 const reopenDelays = [1000, 2000, 5000, 10_000, 30_000] as const;
-const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.options);
 const table: LiveEffects = effects;
 
-type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
-type ControlEvent = Extract<ParsedEvent, { event: ControlEventName }>;
+// The API phase declares live.access-changed in the document. Until it lands
+// the stream knows the event itself, and once it does this fails to build so
+// the bridge goes.
+const accessChanged: Exclude<"live.access-changed", LiveEventName> = "live.access-changed";
+const AccessChanged = z.object({ event: z.literal(accessChanged), data: z.object({}) });
+const Incoming = z.union([LiveEvent, AccessChanged]);
+const eventNames = [
+  ...LiveEvent.options.flatMap((branch) => branch.shape.event.options),
+  accessChanged,
+];
+
+type ParsedEvent = z.output<typeof Incoming>;
+type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
 
 const isControl = (event: ParsedEvent): event is ControlEvent => event.event.startsWith("live.");
 
@@ -35,6 +46,7 @@ export type LiveStream = {
 type Options = {
   queryClient: QueryClient;
   onSessionEnded: (reason: SessionEndReason) => void;
+  onAccessChanged: () => void;
 };
 
 function pending(): { ready: Promise<void>; settle: () => void } {
@@ -173,6 +185,13 @@ class Stream {
       case "live.session-ended":
         this.stop();
         this.options.onSessionEnded(event.data.reason);
+        return;
+      case "live.access-changed":
+        this.stop();
+        this.options.onAccessChanged();
+        return;
+      default:
+        event satisfies never;
     }
   }
 
@@ -207,7 +226,7 @@ class Stream {
 function parse(message: MessageEvent<string>): ParsedEvent | undefined {
   try {
     const data: unknown = JSON.parse(message.data);
-    return LiveEvent.parse({ event: message.type, data });
+    return Incoming.parse({ event: message.type, data });
   } catch (error) {
     reportError(error);
     return undefined;

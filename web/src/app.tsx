@@ -1,18 +1,49 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, type RouterHistory, createBrowserHistory } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { LiveSessionEnded } from "./api/gen/zod/slipStream.schemas.zod";
 import { createQueryClient } from "./api/query-client";
 import { routeTransitions } from "./app/route-transition";
-import { createLiveStream } from "./live/stream";
+import { type LiveStream, createLiveStream } from "./live/stream";
 import type { SessionEndReason } from "./live/types";
 import { createAppRouter } from "./router";
-import { sessionQuery } from "./session/session";
+import { refreshSession, sessionQuery } from "./session/session";
 
 const SessionEnded = LiveSessionEnded.extend({ type: z.literal("session-ended") });
 
 export type AppInstance = ReturnType<typeof createApp>;
+
+type Parts = {
+  queryClient: QueryClient;
+  router: ReturnType<typeof createAppRouter>;
+  live: LiveStream;
+};
+
+function end({ queryClient, router, live }: Parts, reason: SessionEndReason): boolean {
+  if (!queryClient.getQueryData(sessionQuery.queryKey)) {
+    return false;
+  }
+  const { href } = router.state.location;
+  live.stop();
+  queryClient.clear();
+  void router.navigate({
+    to: "/sign-in",
+    search: reason === "expired" ? { reason, redirect: href } : { reason },
+    replace: true,
+  });
+  return true;
+}
+
+// The stream has stopped itself. The gate reads the session again and sends
+// the tab where the Account may now go, whose layout reconnects the stream.
+// Resetting rather than clearing the cache refetches what stays on screen,
+// whose observers clear() would leave on the removed queries.
+async function regate({ queryClient, router }: Parts) {
+  await refreshSession(queryClient);
+  await router.invalidate();
+  await queryClient.resetQueries();
+}
 
 export function createApp(history: RouterHistory = createBrowserHistory()) {
   const channel = new BroadcastChannel("slipstream-session");
@@ -20,26 +51,18 @@ export function createApp(history: RouterHistory = createBrowserHistory()) {
   const queryClient = createQueryClient(() => {
     endSession("expired");
   });
-  const live = createLiveStream({ queryClient, onSessionEnded: endSession });
+  const live = createLiveStream({
+    queryClient,
+    onSessionEnded: endSession,
+    onAccessChanged: () => {
+      void regate(parts);
+    },
+  });
   const router = createAppRouter({ queryClient, live, endSession }, history, transitions.types);
-
-  function end(reason: SessionEndReason): boolean {
-    if (!queryClient.getQueryData(sessionQuery.queryKey)) {
-      return false;
-    }
-    const { href } = router.state.location;
-    live.stop();
-    queryClient.clear();
-    void router.navigate({
-      to: "/sign-in",
-      search: reason === "expired" ? { reason, redirect: href } : { reason },
-      replace: true,
-    });
-    return true;
-  }
+  const parts: Parts = { queryClient, router, live };
 
   function endSession(reason: SessionEndReason) {
-    if (end(reason)) {
+    if (end(parts, reason)) {
       // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a BroadcastChannel has no target origin
       channel.postMessage({ type: "session-ended", reason } satisfies z.input<typeof SessionEnded>);
     }
@@ -48,7 +71,7 @@ export function createApp(history: RouterHistory = createBrowserHistory()) {
   channel.addEventListener("message", (message: MessageEvent<unknown>) => {
     const parsed = SessionEnded.safeParse(message.data);
     if (parsed.success) {
-      end(parsed.data.reason);
+      end(parts, parsed.data.reason);
     }
   });
 
