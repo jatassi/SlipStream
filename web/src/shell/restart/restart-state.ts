@@ -118,14 +118,15 @@ const defaultPorts: Readonly<Record<string, string>> = { "http:": "80", "https:"
  * Where the page can follow a port move. A browser that reached the Node on
  * its bound port can follow it to the same host on the next port; behind a
  * proxy or a port mapping the browser's port isn't the Node's, so there is
- * no link.
+ * no link. A next port the Node already holds is no move: a Node configured
+ * for any port reports the one it bound as its next.
  */
 export function moveFor(
   nextPort: number | undefined,
   boundPort: number,
   location: URL,
 ): Move | undefined {
-  if (nextPort === undefined) {
+  if (nextPort === undefined || nextPort === boundPort) {
     return undefined;
   }
   const port = location.port === "" ? defaultPorts[location.protocol] : location.port;
@@ -138,6 +139,17 @@ export function moveFor(
 }
 
 export const restartStore = createStore(restartReducer, idle);
+
+export function askRestart(node: {
+  readonly id: string;
+  readonly name: string;
+  readonly self: boolean;
+}) {
+  restartStore.dispatch({
+    type: "ask",
+    target: { nodeId: node.id, name: node.name, self: node.self },
+  });
+}
 
 export const useRestartState = (): RestartState =>
   useSyncExternalStore(restartStore.subscribe, restartStore.getSnapshot);

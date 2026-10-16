@@ -4,12 +4,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAccount } from "../../session/session";
 import { Menu } from "../../ui/menu";
 import { Avatar, startupLabel, toPortal, useSignOut, useStartupOn } from "../account";
+import { restartSelf, useRestartSelf } from "../restart/use-restart-self";
 
 export function AccountFoot({ collapsed }: { collapsed: boolean }) {
   const account = useAccount();
   const navigate = useNavigate();
   const signOut = useSignOut();
   const [startupOn, setStartupOn] = useStartupOn();
+  const restart = useRestartSelf();
   return (
     <div className="shrink-0 px-2.5 pt-2 pb-3 shadow-[inset_0_1px_0_var(--color-hairline)]">
       <Menu
@@ -39,6 +41,7 @@ export function AccountFoot({ collapsed }: { collapsed: boolean }) {
             onCheckedChange: setStartupOn,
           },
           "separator",
+          { label: restartSelf.label, icon: restartSelf.icon, onSelect: restart },
           { label: "Sign out", icon: Logout01Icon, onSelect: signOut },
         ]}
       />

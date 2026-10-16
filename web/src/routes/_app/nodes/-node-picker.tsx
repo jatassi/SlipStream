@@ -8,16 +8,17 @@ import { Icon } from "../../../ui/icon";
 import { List, ListRow } from "../../../ui/list";
 import { Select } from "../../../ui/select";
 import { Sheet, SheetCancel, SheetGroup, SheetItem } from "../../../ui/sheet";
-import { type NodeState, stateOfLink } from "./-node";
+import { type NodeState, useNodeState } from "./-node";
 
 const dots: { readonly [S in NodeState]: { word: string; color: string } } = {
   online: { word: "online", color: "bg-ok" },
   offline: { word: "offline", color: "bg-ink-4" },
   mismatched: { word: "on another version", color: "bg-warn" },
+  restarting: { word: "restarting", color: "bg-ink-1 shadow-live-glow" },
 };
 
 function StateDot({ node }: { node: NodesNode }) {
-  const dot = dots[stateOfLink[node.link.state]];
+  const dot = dots[useNodeState(node)];
   return (
     <span className="flex shrink-0 items-center">
       <span aria-hidden="true" className={`size-1.5 rounded-capsule ${dot.color}`} />

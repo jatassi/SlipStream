@@ -2,39 +2,26 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { getGetSystemMockHandler } from "../api/gen/query/system/system.msw";
 import { problem, signedInAsGrace } from "../test/handlers";
 import { homeId } from "../test/nodes";
+import { nodeSystems } from "../test/node-system";
 import { renderApp } from "../test/render-app";
 
 const mainNav = () => page.getByRole("navigation", { name: "Main" });
 const homePage = `/nodes/${homeId}`;
 
-const system = getGetSystemMockHandler({
-  build: { stamped: true, version: "0.4.0" },
-  dataDir: "/data/home",
-  logsDir: "/data/home/logs",
-  http: { configured: "127.0.0.2:8080" },
-  listeners: {
-    http: "127.0.0.2:8080",
-    torrent: "127.0.0.2:6881",
-    link: "127.0.0.2:8485",
-    control: "/data/home/control.sock",
-  },
-  pid: 4242,
-  seed: "home",
-  startedAt: "2026-10-12T09:00:00Z",
-});
+const nodeSystem = "*/api/v1/nodes/:id/system";
+const { handlers: systems } = nodeSystems();
 
 test("a page that fails says why in the content, keeps the sidebar, and Try again reloads it", async () => {
   let failing = true;
   renderApp({
     path: homePage,
     handlers: [
-      http.get("*/api/v1/system", () =>
+      http.get(nodeSystem, () =>
         failing ? problem(500, "internal_error", "Something went wrong on this Node") : undefined,
       ),
-      system,
+      ...systems,
     ],
   });
   const alert = page.getByRole("alert");
@@ -47,14 +34,14 @@ test("a page that fails says why in the content, keeps the sidebar, and Try agai
 
   failing = false;
   await userEvent.click(page.getByRole("button", { name: "Try again" }));
-  await expect.element(page.getByText("0.4.0")).toBeVisible();
+  await expect.element(page.getByText("0.0.0-dev+3f2a1c9")).toBeVisible();
   await expect.element(alert).not.toBeInTheDocument();
 });
 
 test("a page whose server doesn't answer says so", async () => {
   renderApp({
     path: homePage,
-    handlers: [http.get("*/api/v1/system", () => HttpResponse.error())],
+    handlers: [http.get(nodeSystem, () => HttpResponse.error())],
   });
   await expect
     .element(page.getByRole("alert"), { timeout: 8000 })
@@ -66,7 +53,7 @@ test("a page whose server doesn't answer says so", async () => {
 test("a page that throws in the browser says it couldn't load and shows the message", async () => {
   renderApp({
     path: homePage,
-    handlers: [http.get("*/api/v1/system", () => HttpResponse.json({ build: {} }))],
+    handlers: [http.get(nodeSystem, () => HttpResponse.json({ build: {} }))],
   });
   await expect.element(page.getByRole("alert")).toHaveTextContent("This page couldn't load.");
   await userEvent.click(page.getByRole("button", { name: "Details" }));
@@ -78,7 +65,7 @@ test("a page for Admins says so and links to the portal", async () => {
   renderApp({
     path: homePage,
     handlers: [
-      http.get("*/api/v1/system", () => problem(403, "needs_admin", "Only an Admin can do this")),
+      http.get(nodeSystem, () => problem(403, "needs_admin", "Only an Admin can do this")),
     ],
   });
   await expect.element(page.getByRole("alert")).toHaveTextContent("This page is for Admins.");

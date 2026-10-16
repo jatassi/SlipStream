@@ -1,7 +1,12 @@
-import { useGetSystemSuspense } from "../../../api/gen/query/system/system";
+import { useNavigate } from "@tanstack/react-router";
+
+import type { SystemReport } from "../../../api/gen/model";
+import { useGetNodeSystemSuspense } from "../../../api/gen/query/system/system";
 import { clock } from "../../../format";
 import { Data } from "../../../ui/data";
 import { Section } from "../../../ui/section";
+import { WarningLine } from "../../../ui/warning-line";
+import { portOf } from "./-node";
 
 type Row = readonly [term: string, value: string];
 
@@ -23,9 +28,32 @@ function KeyValues({ rows }: { rows: readonly Row[] }) {
   );
 }
 
-/** The facts of the Node the browser talks to. */
-export function Facts() {
-  const { data } = useGetSystemSuspense();
+function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) {
+  const navigate = useNavigate();
+  const configured = portOf(system.http.configured);
+  const bound = portOf(system.listeners.http);
+  if (configured === 0 || configured === bound) {
+    return null;
+  }
+  return (
+    <div className="mb-3">
+      <WarningLine
+        chip="Port taken"
+        subject={`Port ${configured} was taken, so SlipStream is on ${bound}.`}
+        detail={`Another program holds ${configured}. Free it, or choose another port and restart.`}
+        action={{
+          label: "Change port",
+          onClick: () => {
+            void navigate({ to: "/nodes/$nodeId/web", params: { nodeId } });
+          },
+        }}
+      />
+    </div>
+  );
+}
+
+export function Facts({ nodeId }: { nodeId: string }) {
+  const { data } = useGetNodeSystemSuspense(nodeId);
   return (
     <>
       <Section title="Overview">
@@ -38,6 +66,7 @@ export function Facts() {
         />
       </Section>
       <Section title="Listening on">
+        <Fallback nodeId={nodeId} system={data} />
         <KeyValues
           rows={[
             ["Web and API", data.listeners.http],

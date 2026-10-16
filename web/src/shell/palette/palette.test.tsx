@@ -91,6 +91,7 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
       "Go to Log settingshome",
       "Add a Film",
       "Toggle sidebar",
+      "Restart SlipStream…",
       "Sign out",
     ]);
   await expect.element(palette().getByText("Esc")).toBeVisible();
