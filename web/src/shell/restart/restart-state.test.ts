@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 
+import { createStore } from "../store";
 import {
   type RestartEvent,
   type RestartState,
   type RestartTarget,
-  createRestartStore,
   idle,
   isWorkerRestarting,
   moveFor,
@@ -121,7 +121,7 @@ test("a port move links to the new port only when the browser reached the Node o
 });
 
 test("the store notifies on a change and stays quiet on an event that changes nothing", () => {
-  const store = createRestartStore();
+  const store = createStore(restartReducer, idle);
   let heard = 0;
   store.subscribe(() => {
     heard += 1;

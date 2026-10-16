@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 
+import { createStore } from "../store";
+
 /** How often the page asks a restarting Node whether it is back, and when it gives up. */
 export const pollInterval = 1000;
 export const failAfter = 90_000;
@@ -135,31 +137,7 @@ export function moveFor(
   return { port: nextPort, href: next.href };
 }
 
-export function createRestartStore(initial: RestartState = idle) {
-  let state = initial;
-  const listeners = new Set<() => void>();
-  return {
-    getSnapshot: () => state,
-    subscribe: (listener: () => void) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    dispatch: (event: RestartEvent) => {
-      const next = restartReducer(state, event);
-      if (next === state) {
-        return;
-      }
-      state = next;
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-  };
-}
-
-export const restartStore = createRestartStore();
+export const restartStore = createStore(restartReducer, idle);
 
 export const useRestartState = (): RestartState =>
   useSyncExternalStore(restartStore.subscribe, restartStore.getSnapshot);
