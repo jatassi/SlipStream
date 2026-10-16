@@ -82,22 +82,22 @@ func (n *node) issueSignup(session, email string) issuedLink {
 	return decode[issuedLink](n.t, n.as(session, http.MethodPost, "/api/v1/signup-links", `{"email":"`+email+`"}`), http.StatusCreated)
 }
 
-func (n *node) join(token, pin string) *httptest.ResponseRecorder {
+func (n *node) join(token string) *httptest.ResponseRecorder {
 	n.t.Helper()
-	return n.do(call{method: http.MethodPost, target: "/api/v1/signup-links/by-token/" + token + "/account", body: `{"displayName":"Grace Hopper","pin":"` + pin + `"}`})
+	return n.do(call{method: http.MethodPost, target: "/api/v1/signup-links/by-token/" + token + "/account", body: `{"displayName":"Grace Hopper","pin":"1357"}`})
 }
 
-// member joins email through a real Signup link the Admin issues, and
-// returns its id and session.
-func (n *node) member(admin, email, pin string) (id, session string) {
+// grace joins Grace, grace@example.com with PIN 1357, through a real
+// Signup link the Admin issues, and returns her id and session.
+func (n *node) grace(admin string) (id, session string) {
 	n.t.Helper()
-	w := n.join(tokenOf(n.t, n.issueSignup(admin, email).URL), pin)
+	w := n.join(tokenOf(n.t, n.issueSignup(admin, "grace@example.com").URL))
 	got := decode[struct {
 		Account struct {
 			ID string `json:"id"`
 		} `json:"account"`
 	}](n.t, w, http.StatusOK)
-	n.mail.Wait(n.t, email)
+	n.mail.Wait(n.t, "grace@example.com")
 	return got.Account.ID, sessionOf(n.t, w)
 }
 
@@ -144,7 +144,7 @@ func TestASignupLinksLife(t *testing.T) {
 	if got := view(n, "signup", firstToken); got != dead("withdrawn", first.Link.IssuedAt, first.Link.ExpiresAt) {
 		t.Fatalf("the replaced link = %s", got)
 	}
-	expect(t, n.join(firstToken, "1357"), 410, linkDead)
+	expect(t, n.join(firstToken), 410, linkDead)
 	listed := decode[struct {
 		Links []struct {
 			ID string `json:"id"`
@@ -155,7 +155,7 @@ func TestASignupLinksLife(t *testing.T) {
 	}
 
 	secondToken := tokenOf(t, second.URL)
-	w := n.join(secondToken, "1357")
+	w := n.join(secondToken)
 	got := decode[struct {
 		Account struct {
 			ID    string `json:"id"`
@@ -169,11 +169,11 @@ func TestASignupLinksLife(t *testing.T) {
 		t.Fatalf("joined %+v", got)
 	}
 	expect(t, n.getSession(sessionOf(t, w)), 200,
-		`{"account":{"id":"`+got.Account.ID+`","email":"grace@example.com","displayName":"Grace Hopper","admin":false},"pinRequired":false}`+"\n")
+		`{"account":{"id":"`+got.Account.ID+`","email":"grace@example.com","displayName":"Grace Hopper","admin":false},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
 	if w := n.signIn("grace@example.com", "1357"); w.Code != http.StatusOK {
 		t.Fatalf("Grace's own PIN = %d %s", w.Code, w.Body)
 	}
-	expect(t, n.join(secondToken, "1357"), 410, linkDead)
+	expect(t, n.join(secondToken), 410, linkDead)
 	if got := view(n, "signup", secondToken); !strings.HasPrefix(got, `{"state":"dead","reason":"used","adminName":"Admin",`) {
 		t.Fatalf("the used link = %s", got)
 	}
@@ -222,7 +222,7 @@ func TestASignupLinkExpiresAtItsLifetime(t *testing.T) {
 		if got, want := view(n, "signup", token), dead("expired", issued.Link.IssuedAt, issued.Link.IssuedAt.Add(time.Minute)); got != want {
 			t.Fatalf("at its lifetime = %s, want %s", got, want)
 		}
-		expect(t, n.join(token, "1357"), 410, linkDead)
+		expect(t, n.join(token), 410, linkDead)
 		expect(t, n.as(a, http.MethodPost, "/api/v1/signup-links/"+issued.Link.ID+"/resend", ""), 404, linkNotFound)
 		if fresh := n.issueSignup(a, "grace@example.com"); fresh.Link.ID == issued.Link.ID {
 			t.Fatal("a new link reused the expired one")
@@ -240,7 +240,7 @@ func TestTwoTabsRacingOneLinkMakeOneAccount(t *testing.T) {
 	bodies := make([]string, 2)
 	for i := range codes {
 		wg.Go(func() {
-			w := n.join(token, "1357")
+			w := n.join(token)
 			codes[i], bodies[i] = w.Code, w.Body.String()
 		})
 	}
@@ -261,7 +261,7 @@ func TestAResetLinkEndsSessionsWhenIssuedAndWhenUsed(t *testing.T) {
 	n := newNode(t)
 	_, a := n.claimed()
 	n.setAddress(a)
-	grace, before := n.member(a, "grace@example.com", "1357")
+	grace, before := n.grace(a)
 	expect(t, n.as(a, http.MethodPost, "/api/v1/accounts/00000000-0000-0000-0000-000000000000/reset-link", "{}"), 404,
 		problem(404, "account_not_found", "No Account has that id"))
 
@@ -312,7 +312,7 @@ func TestUsingAResetLinkEndsTheSessionsSinceItWasIssued(t *testing.T) {
 	n := newNode(t)
 	_, a := n.claimed()
 	n.setAddress(a)
-	grace, _ := n.member(a, "grace@example.com", "1357")
+	grace, _ := n.grace(a)
 	issued := decode[struct {
 		URL string `json:"url"`
 	}](t, n.as(a, http.MethodPost, "/api/v1/accounts/"+grace+"/reset-link", `{}`), http.StatusCreated)
@@ -328,7 +328,7 @@ func TestAnEmailChangeIsConfirmedByALinkToTheNewAddress(t *testing.T) {
 	_, a := n.claimed()
 	expect(t, n.as(a, http.MethodPost, "/api/v1/account/email", `{"email":"ada@hopper.example"}`), 409, addressUnset)
 	n.setAddress(a)
-	grace, g := n.member(a, "grace@example.com", "1357")
+	grace, g := n.grace(a)
 	expect(t, n.as(g, http.MethodPost, "/api/v1/account/email", `{"email":"admin@example.com"}`), 409, emailTaken)
 	expect(t, n.as(g, http.MethodPost, "/api/v1/account/email", `{"email":"Grace@Hopper.example"}`), 200, `{"email":{"outcome":"sent"}}`+"\n")
 	confirm := n.mail.Wait(t, "grace@hopper.example")
@@ -343,9 +343,9 @@ func TestAnEmailChangeIsConfirmedByALinkToTheNewAddress(t *testing.T) {
 	if got := view(n, "email", token); !strings.HasPrefix(got, `{"state":"live","email":"grace@hopper.example","serverName":"slipstream.example.com",`) {
 		t.Fatalf("the confirm link = %s", got)
 	}
-	expect(t, n.getSession(g), 200, `{"account":{"id":"`+grace+`","email":"grace@example.com","displayName":"Grace Hopper","admin":false},"pinRequired":false}`+"\n")
+	expect(t, n.getSession(g), 200, `{"account":{"id":"`+grace+`","email":"grace@example.com","displayName":"Grace Hopper","admin":false},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
 	expect(t, n.do(call{method: http.MethodPost, target: "/api/v1/email-links/by-token/" + token + "/confirm"}), 204, "")
-	expect(t, n.getSession(g), 200, `{"account":{"id":"`+grace+`","email":"grace@hopper.example","displayName":"Grace Hopper","admin":false},"pinRequired":false}`+"\n")
+	expect(t, n.getSession(g), 200, `{"account":{"id":"`+grace+`","email":"grace@hopper.example","displayName":"Grace Hopper","admin":false},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
 	told := n.mail.Wait(t, "grace@example.com")
 	if told.Subject != "Your SlipStream email was changed" || !strings.HasPrefix(told.Text, "Your SlipStream email was changed to grace@hopper.example.") {
 		t.Fatalf("the old address was told %q %q", told.Subject, told.Text)

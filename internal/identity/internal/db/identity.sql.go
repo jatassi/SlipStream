@@ -138,6 +138,7 @@ SELECT
     a.email,
     a.display_name,
     a.admin,
+    a.key_prompt,
     st.session_lifetime_seconds,
     st.reconfirm_window_seconds
 FROM identity_session AS s
@@ -155,6 +156,7 @@ type GetSessionRow struct {
 	Email                  string
 	DisplayName            string
 	Admin                  bool
+	KeyPrompt              KeyPrompt
 	SessionLifetimeSeconds int64
 	ReconfirmWindowSeconds int64
 }
@@ -171,6 +173,7 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 		&i.Email,
 		&i.DisplayName,
 		&i.Admin,
+		&i.KeyPrompt,
 		&i.SessionLifetimeSeconds,
 		&i.ReconfirmWindowSeconds,
 	)

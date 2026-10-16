@@ -39,7 +39,11 @@ export const grace: IdentityAccount = {
   admin: false,
 };
 
-export const signedInAsGrace = getGetSessionMockHandler({ account: grace, pinRequired: false });
+export const signedInAsGrace = getGetSessionMockHandler({
+  account: grace,
+  pinRequired: false,
+  keyPrompt: "ask",
+});
 
 export function problem(status: number, code: string, title: string) {
   return HttpResponse.json(
@@ -52,7 +56,11 @@ export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 
 const controller = getGetStatusMockHandler({ claim: "controller" });
 const nothingMoving = getGetCountsMockHandler({ activity: 0 });
-const signedInAsAda = getGetSessionMockHandler({ account: ada, pinRequired: false });
+const signedInAsAda = getGetSessionMockHandler({
+  account: ada,
+  pinRequired: false,
+  keyPrompt: "ask",
+});
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });

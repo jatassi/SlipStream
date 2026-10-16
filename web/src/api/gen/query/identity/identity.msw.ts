@@ -4,6 +4,9 @@ import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
 import type {
+  IdentityAccountDetail,
+  IdentityAccountRow,
+  IdentityAccountRows,
   IdentityApiKeyMade,
   IdentityClaimed,
   IdentityDeadLink,
@@ -15,10 +18,25 @@ import type {
   IdentityPendingLinks,
   IdentityRegeneratedAPIKey,
   IdentitySession,
+  IdentitySessionRows,
   IdentitySettings,
   IdentitySignedIn,
   IdentitySignupLinkURL,
 } from "../../model";
+
+export const getUpdateOwnAccountResponseMock = (
+  overrideResponse: Partial<Extract<IdentitySession, object>> = {},
+): IdentitySession => ({
+  account: {
+    admin: faker.datatype.boolean(),
+    displayName: faker.string.alpha({ length: { min: 1, max: 100 } }),
+    email: faker.internet.email(),
+    id: faker.string.uuid(),
+  },
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
+  pinRequired: faker.datatype.boolean(),
+  ...overrideResponse,
+});
 
 export const getStartEmailChangeResponseMock = (
   overrideResponse: Partial<Extract<IdentityEmailChangeStarted, object>> = {},
@@ -28,6 +46,96 @@ export const getStartEmailChangeResponseMock = (
       ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+  },
+  ...overrideResponse,
+});
+
+export const getListAccountsResponseMock = (
+  overrideResponse: Partial<Extract<IdentityAccountRows, object>> = {},
+): IdentityAccountRows => ({
+  accounts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      admin: faker.datatype.boolean(),
+      disabled: faker.datatype.boolean(),
+      displayName: faker.string.alpha({ length: { min: 1, max: 100 } }),
+      email: faker.internet.email(),
+      id: faker.string.uuid(),
+      ...(faker.datatype.boolean()
+        ? { lastSignInAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+        : {}),
+      passkeyCount: faker.number.int(),
+      pin: {
+        state: faker.helpers.arrayElement(["fine", "waiting", "off"] as const),
+        ...(faker.datatype.boolean()
+          ? { until: faker.date.past().toISOString().slice(0, 19) + "Z" }
+          : {}),
+      },
+    }),
+  ),
+  ...overrideResponse,
+});
+
+export const getGetAccountResponseMock = (
+  overrideResponse: Partial<Extract<IdentityAccountDetail, object>> = {},
+): IdentityAccountDetail => ({
+  account: {
+    admin: faker.datatype.boolean(),
+    disabled: faker.datatype.boolean(),
+    displayName: faker.string.alpha({ length: { min: 1, max: 100 } }),
+    email: faker.internet.email(),
+    id: faker.string.uuid(),
+    ...(faker.datatype.boolean()
+      ? { lastSignInAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+      : {}),
+    passkeyCount: faker.number.int(),
+    pin: {
+      state: faker.helpers.arrayElement(["fine", "waiting", "off"] as const),
+      ...(faker.datatype.boolean()
+        ? { until: faker.date.past().toISOString().slice(0, 19) + "Z" }
+        : {}),
+    },
+  },
+  passkeys: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      host: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.uuid(),
+      ...(faker.datatype.boolean()
+        ? { lastUsedAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+        : {}),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  sessions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      current: faker.datatype.boolean(),
+      device: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.uuid(),
+      lastSeenAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    }),
+  ),
+  ...overrideResponse,
+});
+
+export const getUpdateAccountResponseMock = (
+  overrideResponse: Partial<Extract<IdentityAccountRow, object>> = {},
+): IdentityAccountRow => ({
+  admin: faker.datatype.boolean(),
+  disabled: faker.datatype.boolean(),
+  displayName: faker.string.alpha({ length: { min: 1, max: 100 } }),
+  email: faker.internet.email(),
+  id: faker.string.uuid(),
+  ...(faker.datatype.boolean()
+    ? { lastSignInAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
+  passkeyCount: faker.number.int(),
+  pin: {
+    state: faker.helpers.arrayElement(["fine", "waiting", "off"] as const),
+    ...(faker.datatype.boolean()
+      ? { until: faker.date.past().toISOString().slice(0, 19) + "Z" }
+      : {}),
   },
   ...overrideResponse,
 });
@@ -42,6 +150,22 @@ export const getCreateResetLinkResponseMock = (
     outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
   },
   url: faker.internet.url(),
+  ...overrideResponse,
+});
+
+export const getListAccountSessionsResponseMock = (
+  overrideResponse: Partial<Extract<IdentitySessionRows, object>> = {},
+): IdentitySessionRows => ({
+  sessions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      current: faker.datatype.boolean(),
+      device: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.uuid(),
+      lastSeenAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    }),
+  ),
   ...overrideResponse,
 });
 
@@ -185,6 +309,7 @@ export const getRedeemResetLinkResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
@@ -199,6 +324,7 @@ export const getGetSessionResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
 });
@@ -212,8 +338,25 @@ export const getCreateSessionResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getListSessionsResponseMock = (
+  overrideResponse: Partial<Extract<IdentitySessionRows, object>> = {},
+): IdentitySessionRows => ({
+  sessions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      current: faker.datatype.boolean(),
+      device: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      id: faker.string.uuid(),
+      lastSeenAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    }),
+  ),
   ...overrideResponse,
 });
 
@@ -316,6 +459,7 @@ export const getRedeemSignupLinkResponseMock = (
     email: faker.internet.email(),
     id: faker.string.uuid(),
   },
+  keyPrompt: faker.helpers.arrayElement(["ask", "never"] as const),
   passkeyPrompt: faker.datatype.boolean(),
   pinRequired: faker.datatype.boolean(),
   ...overrideResponse,
@@ -358,6 +502,30 @@ export const getResendSignupLinkResponseMock = (
   url: faker.internet.url(),
   ...overrideResponse,
 });
+
+export const getUpdateOwnAccountMockHandler = (
+  overrideResponse?:
+    | IdentitySession
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<IdentitySession> | IdentitySession),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/account",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateOwnAccountResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 
 export const getStartEmailChangeMockHandler = (
   overrideResponse?:
@@ -402,6 +570,97 @@ export const getChangePINMockHandler = (
   );
 };
 
+export const getListAccountsMockHandler = (
+  overrideResponse?:
+    | IdentityAccountRows
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentityAccountRows> | IdentityAccountRows),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/accounts",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListAccountsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDeleteAccountMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/accounts/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getGetAccountMockHandler = (
+  overrideResponse?:
+    | IdentityAccountDetail
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentityAccountDetail> | IdentityAccountDetail),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/accounts/:id",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetAccountResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getUpdateAccountMockHandler = (
+  overrideResponse?:
+    | IdentityAccountRow
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<IdentityAccountRow> | IdentityAccountRow),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/accounts/:id",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateAccountResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getCreateResetLinkMockHandler = (
   overrideResponse?:
     | IdentityIssuedResetLink
@@ -421,6 +680,68 @@ export const getCreateResetLinkMockHandler = (
           : getCreateResetLinkResponseMock(),
         { status: 201 },
       );
+    },
+    options,
+  );
+};
+
+export const getEndAccountSessionsMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/accounts/:id/sessions",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getListAccountSessionsMockHandler = (
+  overrideResponse?:
+    | IdentitySessionRows
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentitySessionRows> | IdentitySessionRows),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/accounts/:id/sessions",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListAccountSessionsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getEndAccountSessionMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/accounts/:id/sessions/:session",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
     },
     options,
   );
@@ -699,6 +1020,68 @@ export const getReconfirmSessionMockHandler = (
   );
 };
 
+export const getEndOtherSessionsMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/sessions",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getListSessionsMockHandler = (
+  overrideResponse?:
+    | IdentitySessionRows
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<IdentitySessionRows> | IdentitySessionRows),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/sessions",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListSessionsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getEndSessionMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/sessions/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
 export const getClaimControllerMockHandler = (
   overrideResponse?:
     | IdentityClaimed
@@ -886,9 +1269,17 @@ export const getResendSignupLinkMockHandler = (
   );
 };
 export const getIdentityMock = () => [
+  getUpdateOwnAccountMockHandler(),
   getStartEmailChangeMockHandler(),
   getChangePINMockHandler(),
+  getListAccountsMockHandler(),
+  getDeleteAccountMockHandler(),
+  getGetAccountMockHandler(),
+  getUpdateAccountMockHandler(),
   getCreateResetLinkMockHandler(),
+  getEndAccountSessionsMockHandler(),
+  getListAccountSessionsMockHandler(),
+  getEndAccountSessionMockHandler(),
   getGetAPIKeyMockHandler(),
   getRegenerateAPIKeyMockHandler(),
   getGetEmailLinkByTokenMockHandler(),
@@ -901,6 +1292,9 @@ export const getIdentityMock = () => [
   getGetSessionMockHandler(),
   getCreateSessionMockHandler(),
   getReconfirmSessionMockHandler(),
+  getEndOtherSessionsMockHandler(),
+  getListSessionsMockHandler(),
+  getEndSessionMockHandler(),
   getClaimControllerMockHandler(),
   getListSignupLinksMockHandler(),
   getCreateSignupLinkMockHandler(),

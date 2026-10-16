@@ -34,6 +34,7 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("identity", 
 type (
 	AccountID = db.AccountID
 	SessionID = db.SessionID
+	PasskeyID = db.PasskeyID
 )
 
 // SessionsChanged reaches an Account's streams when one of its sessions
@@ -63,7 +64,6 @@ const (
 	slideDivisor = 720
 	tokenBytes   = 32
 	apiKeyPrefix = "ssk_"
-	keyPromptAsk = db.KeyPrompt("ask")
 )
 
 type Config struct {
@@ -187,6 +187,7 @@ type SignedIn struct {
 	Profile       Profile
 	Cookie        *http.Cookie
 	PINRequired   bool
+	KeyPrompt     KeyPrompt
 	PasskeyPrompt bool
 }
 
@@ -358,6 +359,7 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 		session:     row.SessionID,
 		confirmed:   time.Since(row.ConfirmedAt.Time()) <= window,
 		pinRequired: row.PinRequired,
+		keyPrompt:   row.KeyPrompt,
 	}
 	if u == slid {
 		return c, cookie(r.Session, r.HTTPS, lifetime), nil
@@ -444,7 +446,7 @@ func clearCookie(secure bool) *http.Cookie {
 // when it shows the passkey prompt.
 func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account db.IdentityAccount, token string, pinRequired bool) (SignedIn, error) {
 	prompt := false
-	if rp, ok := passkeyHost(c); ok && account.KeyPrompt == keyPromptAsk {
+	if rp, ok := passkeyHost(c); ok && account.KeyPrompt == KeyPromptAsk {
 		held, err := q.CountPasskeysAt(ctx, db.CountPasskeysAtParams{AccountID: account.ID, RelyingParty: rp})
 		if err != nil {
 			return SignedIn{}, err
@@ -470,7 +472,7 @@ func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, acc
 	if err := q.StampSignIn(ctx, db.StampSignInParams{LastSignInAt: fx.now, ID: account.ID}); err != nil {
 		return SignedIn{}, err
 	}
-	return SignedIn{Profile: profileOf(account), PINRequired: pinRequired, PasskeyPrompt: prompt}, nil
+	return SignedIn{Profile: profileOf(account), PINRequired: pinRequired, KeyPrompt: account.KeyPrompt, PasskeyPrompt: prompt}, nil
 }
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }

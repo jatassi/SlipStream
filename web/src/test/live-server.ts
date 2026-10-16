@@ -23,7 +23,7 @@ export function liveServer() {
   const handlers = [
     http.get("*/api/v1/session", () =>
       signedIn
-        ? HttpResponse.json({ account: ada, pinRequired: false })
+        ? HttpResponse.json({ account: ada, pinRequired: false, keyPrompt: "ask" })
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     sse<LiveMap>("*/api/v1/events", ({ client }) => {

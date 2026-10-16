@@ -23,6 +23,7 @@ var (
 	linkDead          = api.NewCode(http.StatusGone, "link_dead", "This link no longer works")
 	linkNotFound      = api.NewCode(http.StatusNotFound, "link_not_found", "No pending Signup link has that id")
 	accountNotFound   = api.NewCode(http.StatusNotFound, "account_not_found", "No Account has that id")
+	sessionNotFound   = api.NewCode(http.StatusNotFound, "session_not_found", "The Account has no session with that id")
 )
 
 // pinChecked are the codes any operation that checks a PIN may answer.
@@ -42,6 +43,7 @@ var errorCodes = []struct {
 	{identity.ErrLastAdmin, lastAdmin},
 	{identity.ErrNoLink, linkNotFound},
 	{identity.ErrNoAccount, accountNotFound},
+	{identity.ErrNoSession, sessionNotFound},
 }
 
 // answer is the one map from identity's errors to codes. An operation lists

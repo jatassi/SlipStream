@@ -1,7 +1,11 @@
 import * as zod from "zod";
 
 import {
+  AccountPatchInputBody,
   EmailChangeInputBody,
+  IdentityAccountDetail,
+  IdentityAccountRow,
+  IdentityAccountRows,
   IdentityApiKeyMade,
   IdentityClaimBody,
   IdentityClaimed,
@@ -14,6 +18,7 @@ import {
   IdentityReconfirmation,
   IdentityRegeneratedAPIKey,
   IdentitySession,
+  IdentitySessionRows,
   IdentitySettings,
   IdentitySettingsPatch,
   IdentitySignInBody,
@@ -22,8 +27,16 @@ import {
   JoinInputBody,
   NewPINInputBody,
   NewSignupLinkInputBody,
+  OwnPatchInputBody,
   ResetLinkInputBody,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary Change your display name, or whether the passkey prompt may show
+ */
+export const UpdateOwnAccountBody = OwnPatchInputBody;
+
+export const UpdateOwnAccountResponse = IdentitySession;
 
 /**
  * @summary Change your email: a confirm link goes to the new address, and the email changes when it is followed
@@ -40,6 +53,40 @@ export const ChangePINBody = IdentityPinChange;
 export const ChangePINResponse = zod.void();
 
 /**
+ * @summary List every Account
+ */
+export const ListAccountsResponse = IdentityAccountRows;
+
+/**
+ * @summary Delete an Account with its sessions, passkeys and links
+ */
+export const DeleteAccountParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const DeleteAccountResponse = zod.void();
+
+/**
+ * @summary Get an Account with its passkeys and sessions
+ */
+export const GetAccountParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const GetAccountResponse = IdentityAccountDetail;
+
+/**
+ * @summary Change an Account's name, email or role, or turn it off or on
+ */
+export const UpdateAccountParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const UpdateAccountBody = AccountPatchInputBody;
+
+export const UpdateAccountResponse = IdentityAccountRow;
+
+/**
  * @summary Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer
  */
 export const CreateResetLinkParams = zod.object({
@@ -49,6 +96,34 @@ export const CreateResetLinkParams = zod.object({
 export const CreateResetLinkBody = ResetLinkInputBody;
 
 export const CreateResetLinkResponse = IdentityIssuedResetLink;
+
+/**
+ * @summary Sign an Account out everywhere
+ */
+export const EndAccountSessionsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const EndAccountSessionsResponse = zod.void();
+
+/**
+ * @summary List the devices an Account is signed in on
+ */
+export const ListAccountSessionsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const ListAccountSessionsResponse = IdentitySessionRows;
+
+/**
+ * @summary Sign one of an Account's devices out
+ */
+export const EndAccountSessionParams = zod.object({
+  id: zod.uuid(),
+  session: zod.uuid(),
+});
+
+export const EndAccountSessionResponse = zod.void();
 
 /**
  * @summary Get when the API key was made
@@ -141,6 +216,29 @@ export const CreateSessionResponse = IdentitySignedIn;
 export const ReconfirmSessionBody = IdentityReconfirmation;
 
 export const ReconfirmSessionResponse = zod.void();
+
+/**
+ * @summary Sign out every device but this one
+ */
+export const EndOtherSessionsQueryParams = zod.object({
+  others: zod.boolean().describe("Must be true: every session but this one ends"),
+});
+
+export const EndOtherSessionsResponse = zod.void();
+
+/**
+ * @summary List the devices your Account is signed in on
+ */
+export const ListSessionsResponse = IdentitySessionRows;
+
+/**
+ * @summary Sign one of your devices out
+ */
+export const EndSessionParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const EndSessionResponse = zod.void();
 
 /**
  * @summary Create the first Admin and make this Node a Controller

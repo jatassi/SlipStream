@@ -74,6 +74,20 @@ func (q *Queries) DeleteAccountSessions(ctx context.Context, accountID AccountID
 	return err
 }
 
+const deleteOtherSessions = `-- name: DeleteOtherSessions :exec
+DELETE FROM identity_session WHERE account_id = ?1 AND id != ?2
+`
+
+type DeleteOtherSessionsParams struct {
+	AccountID AccountID
+	Keep      SessionID
+}
+
+func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteOtherSessions, arg.AccountID, arg.Keep)
+	return err
+}
+
 const deletePasskeys = `-- name: DeletePasskeys :exec
 DELETE FROM identity_passkey WHERE account_id = ?1
 `

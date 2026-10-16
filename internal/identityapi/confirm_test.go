@@ -108,11 +108,11 @@ func TestASessionThatMustSetAPINCanDoNothingElse(t *testing.T) {
 		want(t, "the right PIN once off", n.signInFrom("192.0.2.1:1", "admin@example.com", "1234", nil), offAnswer)
 		session := identitytest.PINRequiredSession(t, n.lib, admin)
 		account := `{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true}`
-		expect(t, n.getSession(session), 200, `{"account":`+account+`,"pinRequired":true}`+"\n")
+		expect(t, n.getSession(session), 200, `{"account":`+account+`,"pinRequired":true,"keyPrompt":"ask"}`+"\n")
 		expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/identity/settings", session: session}), 403, pinRequired)
 		want(t, "re-confirm", n.reconfirm(session, "1234"), answer{status: 403, body: pinRequired})
 		want(t, "a new PIN with no current one", answerOf(n.changePIN(session, `{"new":"5678"}`)), answer{status: 204})
-		expect(t, n.getSession(session), 200, `{"account":`+account+`,"pinRequired":false}`+"\n")
+		expect(t, n.getSession(session), 200, `{"account":`+account+`,"pinRequired":false,"keyPrompt":"ask"}`+"\n")
 		if w := n.do(call{method: http.MethodGet, target: "/api/v1/identity/settings", session: session}); w.Code != http.StatusOK {
 			t.Fatalf("after the new PIN, getIdentitySettings = %d %s", w.Code, w.Body)
 		}

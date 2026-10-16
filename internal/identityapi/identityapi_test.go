@@ -250,7 +250,7 @@ func TestClaimController(t *testing.T) {
 	}
 	expect(t, n.claim(n.code, "1234"), 409, alreadyClaimed)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/session", session: sessionOf(t, w)}), 200,
-		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}`+"\n")
+		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
 }
 
 // The gate turns busy before the body is read, so a second setup request
@@ -303,7 +303,7 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("a wrong PIN and an unknown email differ: %v and %v", wrong.Header(), unknown.Header())
 	}
 	w := n.signIn(" Admin@Example.COM ", "1234")
-	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"passkeyPrompt":false}`+"\n")
+	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","passkeyPrompt":false}`+"\n")
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}

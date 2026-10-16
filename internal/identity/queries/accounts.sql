@@ -53,3 +53,6 @@ WHERE account_id = sqlc.arg(account_id) AND relying_party = sqlc.arg(relying_par
 
 -- name: DeletePasskeys :exec
 DELETE FROM identity_passkey WHERE account_id = sqlc.arg(account_id);
+
+-- name: DeleteOtherSessions :exec
+DELETE FROM identity_session WHERE account_id = sqlc.arg(account_id) AND id != sqlc.arg(keep);

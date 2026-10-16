@@ -75,6 +75,7 @@ type signInBody struct {
 type session struct {
 	Account     account `json:"account"`
 	PINRequired bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
+	KeyPrompt   string  `json:"keyPrompt" enum:"ask,never" doc:"Whether the prompt to add a passkey may show after sign-in"`
 }
 
 type getSessionOutput struct {
@@ -89,13 +90,14 @@ type signedInOutput struct {
 type signedIn struct {
 	Account       account `json:"account"`
 	PINRequired   bool    `json:"pinRequired" doc:"The session must set a new PIN before anything but reading the session and signing out"`
+	KeyPrompt     string  `json:"keyPrompt" enum:"ask,never" doc:"Whether the prompt to add a passkey may show after sign-in"`
 	PasskeyPrompt bool    `json:"passkeyPrompt" doc:"Show the prompt to add a passkey for this address, once in this session"`
 }
 
 func signedInOf(s identity.SignedIn) *signedInOutput {
 	return &signedInOutput{
 		SetCookie: s.Cookie.String(),
-		Body:      signedIn{Account: accountOf(s.Profile), PINRequired: s.PINRequired, PasskeyPrompt: s.PasskeyPrompt},
+		Body:      signedIn{Account: accountOf(s.Profile), PINRequired: s.PINRequired, KeyPrompt: string(s.KeyPrompt), PasskeyPrompt: s.PasskeyPrompt},
 	}
 }
 
@@ -165,7 +167,7 @@ func Routes(r *api.Router, lib Library) {
 		Summary: "Get the signed-in Account",
 		Status:  http.StatusOK,
 	}, func(_ context.Context, b identity.Bearer, _ *struct{}) (*getSessionOutput, error) {
-		return &getSessionOutput{Body: session{Account: accountOf(b.Profile()), PINRequired: b.PINRequired()}}, nil
+		return &getSessionOutput{Body: session{Account: accountOf(b.Profile()), PINRequired: b.PINRequired(), KeyPrompt: string(b.KeyPrompt())}}, nil
 	})
 
 	api.Register(o, api.Bearer, api.Op{
@@ -215,6 +217,101 @@ func Routes(r *api.Router, lib Library) {
 		Summary: "Replace the API key, shown this once; the old one stops working",
 		Status:  http.StatusOK,
 	}, regenerateAPIKey(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "updateOwnAccount",
+		Method:  http.MethodPatch,
+		Path:    "/account",
+		Summary: "Change your display name, or whether the passkey prompt may show",
+		Status:  http.StatusOK,
+	}, updateOwnAccount(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "listSessions",
+		Method:  http.MethodGet,
+		Path:    "/sessions",
+		Summary: "List the devices your Account is signed in on",
+		Status:  http.StatusOK,
+	}, listSessions(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "endSession",
+		Method:  http.MethodDelete,
+		Path:    "/sessions/{id}",
+		Summary: "Sign one of your devices out",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{sessionNotFound},
+	}, endSession(lib))
+
+	api.Register(o, api.Account, api.Op{
+		ID:      "endOtherSessions",
+		Method:  http.MethodDelete,
+		Path:    "/sessions",
+		Summary: "Sign out every device but this one",
+		Status:  http.StatusNoContent,
+	}, endOtherSessions(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listAccounts",
+		Method:  http.MethodGet,
+		Path:    "/accounts",
+		Summary: "List every Account",
+		Status:  http.StatusOK,
+	}, listAccounts(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getAccount",
+		Method:  http.MethodGet,
+		Path:    "/accounts/{id}",
+		Summary: "Get an Account with its passkeys and sessions",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{accountNotFound},
+	}, getAccount(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "updateAccount",
+		Method:  http.MethodPatch,
+		Path:    "/accounts/{id}",
+		Summary: "Change an Account's name, email or role, or turn it off or on",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{accountNotFound, emailTaken, lastAdmin},
+	}, updateAccount(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "deleteAccount",
+		Method:  http.MethodDelete,
+		Path:    "/accounts/{id}",
+		Summary: "Delete an Account with its sessions, passkeys and links",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{accountNotFound, lastAdmin},
+	}, deleteAccount(lib))
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listAccountSessions",
+		Method:  http.MethodGet,
+		Path:    "/accounts/{id}/sessions",
+		Summary: "List the devices an Account is signed in on",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{accountNotFound},
+	}, listAccountSessions(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "endAccountSessions",
+		Method:  http.MethodDelete,
+		Path:    "/accounts/{id}/sessions",
+		Summary: "Sign an Account out everywhere",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{accountNotFound},
+	}, endAccountSessions(lib))
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "endAccountSession",
+		Method:  http.MethodDelete,
+		Path:    "/accounts/{id}/sessions/{session}",
+		Summary: "Sign one of an Account's devices out",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{accountNotFound, sessionNotFound},
+	}, endAccountSession(lib))
 
 	api.Register(o, api.Confirmed, api.Op{
 		ID:      "startEmailChange",

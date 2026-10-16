@@ -43,6 +43,13 @@ func (fx *effects) endSessions(account AccountID, ids []SessionID, why live.EndR
 
 func (fx *effects) sessionsChanged(account AccountID) { fx.sessions[account] = struct{}{} }
 
+// regate records that account's access changed: its streams end with
+// live.access-changed, and its tabs read the session again.
+func (fx *effects) regate(account AccountID) {
+	fx.regated = append(fx.regated, account)
+	fx.accountsChanged()
+}
+
 func (fx *effects) accountsChanged() { fx.accounts = true }
 
 func (fx *effects) linksChanged() { fx.links = true }

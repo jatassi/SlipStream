@@ -1,6 +1,30 @@
 {
   "components": {
     "schemas": {
+      "AccountPatchInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "admin": {
+            "type": "boolean"
+          },
+          "disabled": {
+            "description": "Turning it off ends every session it holds",
+            "type": "boolean"
+          },
+          "displayName": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "email": {
+            "description": "Changed at once; the old address is told",
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "EmailChangeInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -672,6 +696,95 @@
         ],
         "type": "object"
       },
+      "IdentityAccountDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/IdentityAccountRow"
+          },
+          "passkeys": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityPasskey"
+            },
+            "type": "array"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/IdentitySessionRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "account",
+          "passkeys",
+          "sessions"
+        ],
+        "type": "object"
+      },
+      "IdentityAccountRow": {
+        "additionalProperties": false,
+        "properties": {
+          "admin": {
+            "type": "boolean"
+          },
+          "disabled": {
+            "description": "Turned off: it can't sign in and holds no session",
+            "type": "boolean"
+          },
+          "displayName": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastSignInAt": {
+            "description": "Absent until it first signs in",
+            "format": "date-time",
+            "type": "string"
+          },
+          "passkeyCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pin": {
+            "$ref": "#/components/schemas/IdentityPinState"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "admin",
+          "disabled",
+          "passkeyCount",
+          "pin"
+        ],
+        "type": "object"
+      },
+      "IdentityAccountRows": {
+        "additionalProperties": false,
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityAccountRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "type": "object"
+      },
       "IdentityAccountsChanged": {
         "additionalProperties": false,
         "type": "object"
@@ -878,6 +991,37 @@
         ],
         "type": "object"
       },
+      "IdentityPasskey": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "host": {
+            "description": "The address's host the passkey signs in at",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "host",
+          "createdAt"
+        ],
+        "type": "object"
+      },
       "IdentityPendingLink": {
         "additionalProperties": false,
         "properties": {
@@ -943,6 +1087,28 @@
         ],
         "type": "object"
       },
+      "IdentityPinState": {
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "fine",
+              "waiting",
+              "off"
+            ],
+            "type": "string"
+          },
+          "until": {
+            "description": "When the wait ends, while it waits",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
       "IdentityReconfirmation": {
         "additionalProperties": false,
         "properties": {
@@ -980,6 +1146,14 @@
           "account": {
             "$ref": "#/components/schemas/IdentityAccount"
           },
+          "keyPrompt": {
+            "description": "Whether the prompt to add a passkey may show after sign-in",
+            "enum": [
+              "ask",
+              "never"
+            ],
+            "type": "string"
+          },
           "pinRequired": {
             "description": "The session must set a new PIN before anything but reading the session and signing out",
             "type": "boolean"
@@ -987,7 +1161,61 @@
         },
         "required": [
           "account",
-          "pinRequired"
+          "pinRequired",
+          "keyPrompt"
+        ],
+        "type": "object"
+      },
+      "IdentitySessionRow": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The client address it signed in from",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "current": {
+            "description": "The session making this request",
+            "type": "boolean"
+          },
+          "device": {
+            "description": "Such as Safari on iPhone, from the browser at sign-in",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "device",
+          "address",
+          "createdAt",
+          "lastSeenAt",
+          "current"
+        ],
+        "type": "object"
+      },
+      "IdentitySessionRows": {
+        "additionalProperties": false,
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/IdentitySessionRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
         ],
         "type": "object"
       },
@@ -1153,6 +1381,14 @@
           "account": {
             "$ref": "#/components/schemas/IdentityAccount"
           },
+          "keyPrompt": {
+            "description": "Whether the prompt to add a passkey may show after sign-in",
+            "enum": [
+              "ask",
+              "never"
+            ],
+            "type": "string"
+          },
           "passkeyPrompt": {
             "description": "Show the prompt to add a passkey for this address, once in this session",
             "type": "boolean"
@@ -1165,6 +1401,7 @@
         "required": [
           "account",
           "pinRequired",
+          "keyPrompt",
           "passkeyPrompt"
         ],
         "type": "object"
@@ -1754,6 +1991,25 @@
             "maximum": 604800,
             "minimum": 600,
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OwnPatchInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "keyPrompt": {
+            "description": "Whether the prompt to add a passkey may show after sign-in",
+            "enum": [
+              "ask",
+              "never"
+            ],
+            "type": "string"
           }
         },
         "type": "object"
@@ -2869,6 +3125,170 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/account": {
+      "patch": {
+        "operationId": "updateOwnAccount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnPatchInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySession"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Change your display name, or whether the passkey prompt may show",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
     "/account/email": {
       "post": {
         "operationId": "startEmailChange",
@@ -3222,6 +3642,731 @@
         "x-slipstream-access": "bearer"
       }
     },
+    "/accounts": {
+      "get": {
+        "operationId": "listAccounts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityAccountRows"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List every Account",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/accounts/{id}": {
+      "delete": {
+        "operationId": "deleteAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "last_admin",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete an Account with its sessions, passkeys and links",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      },
+      "get": {
+        "operationId": "getAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityAccountDetail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get an Account with its passkeys and sessions",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPatchInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityAccountRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "email_taken",
+                            "last_admin",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change an Account's name, email or role, or turn it off or on",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
     "/accounts/{id}/reset-link": {
       "post": {
         "operationId": "createResetLink",
@@ -3425,6 +4570,589 @@
           }
         ],
         "summary": "Issue a Reset link for an Account, ending its sessions; the link is shown only in this answer",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
+    "/accounts/{id}/sessions": {
+      "delete": {
+        "operationId": "endAccountSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Sign an Account out everywhere",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      },
+      "get": {
+        "operationId": "listAccountSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionRows"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the devices an Account is signed in on",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/accounts/{id}/sessions/{session}": {
+      "delete": {
+        "operationId": "endAccountSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found",
+                            "session_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Sign one of an Account's devices out",
         "tags": [
           "identity"
         ],
@@ -9359,6 +11087,476 @@
           }
         ],
         "summary": "Confirm it's you with your PIN, for actions that change who can get in",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
+    "/sessions": {
+      "delete": {
+        "operationId": "endOtherSessions",
+        "parameters": [
+          {
+            "description": "Must be true: every session but this one ends",
+            "explode": false,
+            "in": "query",
+            "name": "others",
+            "required": true,
+            "schema": {
+              "description": "Must be true: every session but this one ends",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Sign out every device but this one",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "account"
+      },
+      "get": {
+        "operationId": "listSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionRows"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List the devices your Account is signed in on",
+        "tags": [
+          "identity"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
+    "/sessions/{id}": {
+      "delete": {
+        "operationId": "endSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "session_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Sign one of your devices out",
         "tags": [
           "identity"
         ],

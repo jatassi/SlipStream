@@ -42,6 +42,7 @@ SELECT
     a.email,
     a.display_name,
     a.admin,
+    a.key_prompt,
     st.session_lifetime_seconds,
     st.reconfirm_window_seconds
 FROM identity_session AS s

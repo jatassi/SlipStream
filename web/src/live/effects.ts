@@ -5,7 +5,11 @@ import {
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
 import {
+  getGetAccountQueryKey,
   getGetSessionQueryKey,
+  getListAccountSessionsQueryKey,
+  getListAccountsQueryKey,
+  getListSessionsQueryKey,
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
@@ -25,15 +29,22 @@ const everyPath = (pattern: RegExp) => ({
     typeof path === "string" && pattern.test(path),
 });
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
+const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
 const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 
 export const effects = {
-  "identity.sessions-changed": (_data, { queryClient }) => {
+  "identity.sessions-changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(data.account) });
+    void queryClient.invalidateQueries({ queryKey: getListAccountSessionsQueryKey(data.account) });
   },
   "identity.accounts-changed": (_data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+    void queryClient.invalidateQueries(everyAccount);
   },
   "identity.links-changed": (_data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListSignupLinksQueryKey() });

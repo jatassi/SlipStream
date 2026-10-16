@@ -1,5 +1,23 @@
 import * as zod from "zod";
 
+export const accountPatchInputBodyDisplayNameMax = 100;
+
+export const accountPatchInputBodyEmailMax = 254;
+
+export const AccountPatchInputBody = zod.object({
+  admin: zod.boolean().exactOptional(),
+  disabled: zod.boolean().exactOptional().describe("Turning it off ends every session it holds"),
+  displayName: zod.string().min(1).max(accountPatchInputBodyDisplayNameMax).exactOptional(),
+  email: zod
+    .email()
+    .max(accountPatchInputBodyEmailMax)
+    .exactOptional()
+    .describe("Changed at once; the old address is told"),
+});
+
+export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
+export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
+
 export const emailChangeInputBodyEmailMax = 254;
 
 export const EmailChangeInputBody = zod.object({
@@ -279,6 +297,77 @@ export const IdentityAccount = zod.object({
 export type IdentityAccount = zod.input<typeof IdentityAccount>;
 export type IdentityAccountOutput = zod.output<typeof IdentityAccount>;
 
+export const IdentityPinState = zod.object({
+  state: zod.enum(["fine", "waiting", "off"]),
+  until: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When the wait ends, while it waits"),
+});
+
+export type IdentityPinState = zod.input<typeof IdentityPinState>;
+export type IdentityPinStateOutput = zod.output<typeof IdentityPinState>;
+
+export const identityAccountRowDisplayNameMax = 100;
+
+export const identityAccountRowEmailMax = 254;
+
+export const IdentityAccountRow = zod.object({
+  admin: zod.boolean(),
+  disabled: zod.boolean().describe("Turned off: it can't sign in and holds no session"),
+  displayName: zod.string().min(1).max(identityAccountRowDisplayNameMax),
+  email: zod.email().max(identityAccountRowEmailMax),
+  id: zod.uuid(),
+  lastSignInAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("Absent until it first signs in"),
+  passkeyCount: zod.int(),
+  pin: IdentityPinState,
+});
+
+export type IdentityAccountRow = zod.input<typeof IdentityAccountRow>;
+export type IdentityAccountRowOutput = zod.output<typeof IdentityAccountRow>;
+
+export const IdentityPasskey = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+  host: zod.string().describe("The address's host the passkey signs in at"),
+  id: zod.uuid(),
+  lastUsedAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  name: zod.string(),
+});
+
+export type IdentityPasskey = zod.input<typeof IdentityPasskey>;
+export type IdentityPasskeyOutput = zod.output<typeof IdentityPasskey>;
+
+export const IdentitySessionRow = zod.object({
+  address: zod.string().describe("The client address it signed in from"),
+  createdAt: zod.iso.datetime({ offset: true }),
+  current: zod.boolean().describe("The session making this request"),
+  device: zod.string().describe("Such as Safari on iPhone, from the browser at sign-in"),
+  id: zod.uuid(),
+  lastSeenAt: zod.iso.datetime({ offset: true }),
+});
+
+export type IdentitySessionRow = zod.input<typeof IdentitySessionRow>;
+export type IdentitySessionRowOutput = zod.output<typeof IdentitySessionRow>;
+
+export const IdentityAccountDetail = zod.object({
+  account: IdentityAccountRow,
+  passkeys: zod.array(IdentityPasskey),
+  sessions: zod.array(IdentitySessionRow),
+});
+
+export type IdentityAccountDetail = zod.input<typeof IdentityAccountDetail>;
+export type IdentityAccountDetailOutput = zod.output<typeof IdentityAccountDetail>;
+
+export const IdentityAccountRows = zod.object({
+  accounts: zod.array(IdentityAccountRow),
+});
+
+export type IdentityAccountRows = zod.input<typeof IdentityAccountRows>;
+export type IdentityAccountRowsOutput = zod.output<typeof IdentityAccountRows>;
+
 export const IdentityAccountsChanged = zod.object({});
 
 export type IdentityAccountsChanged = zod.input<typeof IdentityAccountsChanged>;
@@ -456,6 +545,9 @@ export type IdentityRegeneratedAPIKeyOutput = zod.output<typeof IdentityRegenera
 
 export const IdentitySession = zod.object({
   account: IdentityAccount,
+  keyPrompt: zod
+    .enum(["ask", "never"])
+    .describe("Whether the prompt to add a passkey may show after sign-in"),
   pinRequired: zod
     .boolean()
     .describe(
@@ -465,6 +557,13 @@ export const IdentitySession = zod.object({
 
 export type IdentitySession = zod.input<typeof IdentitySession>;
 export type IdentitySessionOutput = zod.output<typeof IdentitySession>;
+
+export const IdentitySessionRows = zod.object({
+  sessions: zod.array(IdentitySessionRow),
+});
+
+export type IdentitySessionRows = zod.input<typeof IdentitySessionRows>;
+export type IdentitySessionRowsOutput = zod.output<typeof IdentitySessionRows>;
 
 export const IdentitySessionsChanged = zod.object({
   account: zod.uuid(),
@@ -528,6 +627,9 @@ export type IdentitySignInBodyOutput = zod.output<typeof IdentitySignInBody>;
 
 export const IdentitySignedIn = zod.object({
   account: IdentityAccount,
+  keyPrompt: zod
+    .enum(["ask", "never"])
+    .describe("Whether the prompt to add a passkey may show after sign-in"),
   passkeyPrompt: zod
     .boolean()
     .describe("Show the prompt to add a passkey for this address, once in this session"),
@@ -832,6 +934,19 @@ export const NodesSettingsPatch = zod.object({
 
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
 export type NodesSettingsPatchOutput = zod.output<typeof NodesSettingsPatch>;
+
+export const ownPatchInputBodyDisplayNameMax = 100;
+
+export const OwnPatchInputBody = zod.object({
+  displayName: zod.string().min(1).max(ownPatchInputBodyDisplayNameMax).exactOptional(),
+  keyPrompt: zod
+    .enum(["ask", "never"])
+    .exactOptional()
+    .describe("Whether the prompt to add a passkey may show after sign-in"),
+});
+
+export type OwnPatchInputBody = zod.input<typeof OwnPatchInputBody>;
+export type OwnPatchInputBodyOutput = zod.output<typeof OwnPatchInputBody>;
 
 export const PairingController = zod.object({
   key: zod.string().describe("The Controller key's fingerprint"),

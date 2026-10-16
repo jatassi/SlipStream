@@ -29,6 +29,7 @@ type signedIn struct {
 	session     SessionID
 	confirmed   bool
 	pinRequired bool
+	keyPrompt   KeyPrompt
 }
 
 // Bearer is any signed-in session, one that must set a new PIN included.
@@ -38,9 +39,10 @@ type Bearer struct {
 	s signedIn
 }
 
-func (b Bearer) Profile() Profile   { return b.s.profile }
-func (b Bearer) Session() SessionID { return b.s.session }
-func (b Bearer) PINRequired() bool  { return b.s.pinRequired }
+func (b Bearer) Profile() Profile     { return b.s.profile }
+func (b Bearer) Session() SessionID   { return b.s.session }
+func (b Bearer) PINRequired() bool    { return b.s.pinRequired }
+func (b Bearer) KeyPrompt() KeyPrompt { return b.s.keyPrompt }
 
 // Account is a signed-in session, an Admin's or a Member's, that has a PIN.
 type Account struct {
@@ -70,6 +72,14 @@ func (a Admin) Account() (Account, bool) {
 		return Account{}, false
 	}
 	return *a.account, true
+}
+
+// session is the Admin's own session, zero for the API key.
+func (a Admin) session() SessionID {
+	if a.account == nil {
+		return SessionID{}
+	}
+	return a.account.s.session
 }
 
 // Profile is an Account as its owner and the API see it.
