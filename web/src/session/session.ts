@@ -44,6 +44,10 @@ export function markSignedIn(queryClient: QueryClient, session: IdentitySession)
   queryClient.setQueryData(sessionQuery.queryKey, session);
 }
 
+export function markSignedOut(queryClient: QueryClient): void {
+  queryClient.setQueryData(sessionQuery.queryKey, null);
+}
+
 export const refreshSession = (queryClient: QueryClient): Promise<IdentitySession | null> =>
   queryClient.query({ ...sessionQuery, staleTime: 0 });
 

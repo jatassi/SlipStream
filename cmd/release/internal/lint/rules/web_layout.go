@@ -24,7 +24,7 @@ const (
 )
 
 // publicRoutes render without the _app guard.
-var publicRoutes = []string{"__root.tsx", "new-pin.tsx", "setup.tsx", "sign-in.tsx", "worker.tsx"}
+var publicRoutes = []string{"__root.tsx", "account.passkeys.new.tsx", "confirm-email.tsx", "new-pin.tsx", "reset.tsx", "setup.tsx", "sign-in.tsx", "signup.tsx", "worker.tsx"}
 
 func checkWebLayout(repo *lint.Repo) ([]lint.Finding, error) {
 	files, err := repo.Files()

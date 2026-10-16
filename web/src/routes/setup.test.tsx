@@ -22,7 +22,7 @@ function claimServer(answer: () => Response) {
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     http.get("*/api/v1/status", () =>
-      HttpResponse.json({ claim: claimed ? "controller" : "unclaimed" }),
+      HttpResponse.json({ claim: claimed ? "controller" : "unclaimed", passkeys: noPasskeys }),
     ),
     http.post("*/api/v1/setup/controller", async ({ request }) => {
       claims.push({ code: request.headers.get("X-Setup-Code"), body: await request.json() });

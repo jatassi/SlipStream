@@ -33,6 +33,7 @@ const moreButtons = [
   "Accounts",
   "Settings",
   "Tasks",
+  "Your Account",
   "Open the portal",
   "Sign out",
   "Cancel",

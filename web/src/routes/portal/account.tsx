@@ -1,37 +1,37 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 
+import { accountSearch } from "../../account/search";
+import { YourAccount, loadYourAccount } from "../../account/your-account";
 import { useAccount } from "../../session/session";
 import { fromPortal } from "../../shell/account";
-import { Page } from "../../shell/page";
-import { askSignOut } from "../../shell/sign-out";
 import { Button } from "../../ui/button";
+import { Skeleton } from "../../ui/skeleton";
 
 export const Route = createFileRoute("/portal/account")({
-  staticData: { title: "Account" },
+  staticData: { title: "Your Account" },
+  validateSearch: accountSearch,
+  loader: ({ context }) => loadYourAccount(context.queryClient),
+  pendingComponent: () => <Skeleton label="Loading Your Account" />,
   component: Account,
 });
 
 function Account() {
-  const { displayName, admin } = useAccount();
+  const { admin } = useAccount();
+  const { add } = Route.useSearch();
+  const navigate = Route.useNavigate();
   return (
-    <Page>
-      <div className="flex flex-col items-start gap-4">
-        <p className="text-body-touch text-ink-2">
-          You&apos;re signed in as <span className="font-medium text-ink-1">{displayName}</span>.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {admin && (
-            <Button
-              icon={fromPortal.icon}
-              nativeButton={false}
-              render={<Link to={fromPortal.to} />}
-            >
-              {fromPortal.label}
-            </Button>
-          )}
-          <Button onClick={askSignOut}>Sign out</Button>
-        </div>
-      </div>
-    </Page>
+    <YourAccount
+      adding={add === "passkey"}
+      onAddingChange={(adding) => {
+        void navigate({ search: adding ? { add: "passkey" } : {}, replace: true });
+      }}
+      action={
+        admin ? (
+          <Button icon={fromPortal.icon} nativeButton={false} render={<Link to={fromPortal.to} />}>
+            {fromPortal.label}
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

@@ -1,4 +1,4 @@
-import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { Logout01Icon, UserCircleIcon } from "@hugeicons/core-free-icons";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useAccount } from "../../session/session";
@@ -24,6 +24,14 @@ export function MoreSheet({ rows }: { rows: readonly ShownRow[] }) {
             {account.displayName}
           </span>
         </div>
+        <SheetItem
+          icon={UserCircleIcon}
+          onClick={() => {
+            void navigate({ to: "/account" });
+          }}
+        >
+          Your Account
+        </SheetItem>
         <SheetItem
           icon={toPortal.icon}
           onClick={() => {

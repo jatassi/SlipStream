@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { IdentityAccount } from "../api/gen/model";
+import { accountLists } from "../test/account";
 import { ada, grace, problem } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 import { asPhone } from "../test/viewport";
@@ -82,8 +83,11 @@ test("on a phone, More's Sign out asks in a sheet", async () => {
 
 test("a Member's Sign out in the portal asks first", async () => {
   const server = sessionServer(grace);
-  const { router } = renderApp({ path: "/portal/account", handlers: server.handlers });
-  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Sign out" }));
+  const { router } = renderApp({
+    path: "/portal/account",
+    handlers: [...server.handlers, ...accountLists()],
+  });
+  await userEvent.click(page.getByRole("button", { name: "Sign out of this device" }));
   await expect.element(confirm()).toBeVisible();
   await userEvent.click(confirm().getByRole("button", { name: "Sign out" }));
   await expect.poll(() => router.state.location.href).toBe("/sign-in?reason=signed-out");

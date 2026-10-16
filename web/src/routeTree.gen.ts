@@ -10,13 +10,17 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AppRouteImport } from "./routes/_app";
+import { Route as ConfirmEmailRouteImport } from "./routes/confirm-email";
 import { Route as NewPinRouteImport } from "./routes/new-pin";
 import { Route as PortalRouteImport } from "./routes/portal";
+import { Route as ResetRouteImport } from "./routes/reset";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
+import { Route as SignupRouteImport } from "./routes/signup";
 import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
 import { Route as AppSplatRouteImport } from "./routes/_app/$";
+import { Route as AppAccountRouteImport } from "./routes/_app/account";
 import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
@@ -36,9 +40,15 @@ import { Route as AppSettingsSectionRouteImport } from "./routes/_app/settings/$
 import { Route as AppTasksIndexRouteImport } from "./routes/_app/tasks/index";
 import { Route as AppTasksTaskIdRouteImport } from "./routes/_app/tasks/$taskId";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
+import { Route as AccountPasskeysNewRouteImport } from "./routes/account.passkeys.new";
 
 const AppRoute = AppRouteImport.update({
   id: "/_app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
+  id: "/confirm-email",
+  path: "/confirm-email",
   getParentRoute: () => rootRouteImport,
 } as any);
 const NewPinRoute = NewPinRouteImport.update({
@@ -51,6 +61,11 @@ const PortalRoute = PortalRouteImport.update({
   path: "/portal",
   getParentRoute: () => rootRouteImport,
 } as any);
+const ResetRoute = ResetRouteImport.update({
+  id: "/reset",
+  path: "/reset",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const SetupRoute = SetupRouteImport.update({
   id: "/setup",
   path: "/setup",
@@ -59,6 +74,11 @@ const SetupRoute = SetupRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: "/sign-in",
   path: "/sign-in",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SignupRoute = SignupRouteImport.update({
+  id: "/signup",
+  path: "/signup",
   getParentRoute: () => rootRouteImport,
 } as any);
 const WorkerRoute = WorkerRouteImport.update({
@@ -74,6 +94,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppSplatRoute = AppSplatRouteImport.update({
   id: "/$",
   path: "/$",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAccountRoute = AppAccountRouteImport.update({
+  id: "/account",
+  path: "/account",
   getParentRoute: () => AppRoute,
 } as any);
 const AppActivityRoute = AppActivityRouteImport.update({
@@ -171,17 +196,26 @@ const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   path: "/works/$workId",
   getParentRoute: () => AppRoute,
 } as any);
+const AccountPasskeysNewRoute = AccountPasskeysNewRouteImport.update({
+  id: "/account/passkeys/new",
+  path: "/account/passkeys/new",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute;
+  "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
+  "/reset": typeof ResetRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/library": typeof AppLibraryRouteRouteWithChildren;
   "/tasks": typeof AppTasksRouteRouteWithChildren;
   "/$": typeof AppSplatRoute;
+  "/account": typeof AppAccountRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
@@ -195,17 +229,22 @@ export interface FileRoutesByFullPath {
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/accounts/": typeof AppAccountsIndexRoute;
   "/library/": typeof AppLibraryIndexRoute;
   "/settings/": typeof AppSettingsIndexRoute;
   "/tasks/": typeof AppTasksIndexRoute;
 }
 export interface FileRoutesByTo {
+  "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
+  "/reset": typeof ResetRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/$": typeof AppSplatRoute;
+  "/account": typeof AppAccountRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
   "/system": typeof AppSystemRoute;
@@ -220,6 +259,7 @@ export interface FileRoutesByTo {
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
+  "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/accounts": typeof AppAccountsIndexRoute;
   "/library": typeof AppLibraryIndexRoute;
   "/settings": typeof AppSettingsIndexRoute;
@@ -228,14 +268,18 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_app": typeof AppRouteWithChildren;
+  "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
+  "/reset": typeof ResetRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
+  "/signup": typeof SignupRoute;
   "/worker": typeof WorkerRoute;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
   "/_app/tasks": typeof AppTasksRouteRouteWithChildren;
   "/_app/$": typeof AppSplatRoute;
+  "/_app/account": typeof AppAccountRoute;
   "/_app/activity": typeof AppActivityRoute;
   "/_app/add": typeof AppAddRoute;
   "/_app/system": typeof AppSystemRoute;
@@ -250,6 +294,7 @@ export interface FileRoutesById {
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
   "/_app/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
+  "/account/passkeys/new": typeof AccountPasskeysNewRoute;
   "/_app/accounts/": typeof AppAccountsIndexRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
   "/_app/settings/": typeof AppSettingsIndexRoute;
@@ -259,14 +304,18 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/confirm-email"
     | "/new-pin"
     | "/portal"
+    | "/reset"
     | "/setup"
     | "/sign-in"
+    | "/signup"
     | "/worker"
     | "/library"
     | "/tasks"
     | "/$"
+    | "/account"
     | "/activity"
     | "/add"
     | "/system"
@@ -280,17 +329,22 @@ export interface FileRouteTypes {
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
+    | "/account/passkeys/new"
     | "/accounts/"
     | "/library/"
     | "/settings/"
     | "/tasks/";
   fileRoutesByTo: FileRoutesByTo;
   to:
+    | "/confirm-email"
     | "/new-pin"
+    | "/reset"
     | "/setup"
     | "/sign-in"
+    | "/signup"
     | "/worker"
     | "/$"
+    | "/account"
     | "/activity"
     | "/add"
     | "/system"
@@ -305,6 +359,7 @@ export interface FileRouteTypes {
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
+    | "/account/passkeys/new"
     | "/accounts"
     | "/library"
     | "/settings"
@@ -312,14 +367,18 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/_app"
+    | "/confirm-email"
     | "/new-pin"
     | "/portal"
+    | "/reset"
     | "/setup"
     | "/sign-in"
+    | "/signup"
     | "/worker"
     | "/_app/library"
     | "/_app/tasks"
     | "/_app/$"
+    | "/_app/account"
     | "/_app/activity"
     | "/_app/add"
     | "/_app/system"
@@ -334,6 +393,7 @@ export interface FileRouteTypes {
     | "/_app/settings/$section"
     | "/_app/tasks/$taskId"
     | "/_app/works/$workId"
+    | "/account/passkeys/new"
     | "/_app/accounts/"
     | "/_app/library/"
     | "/_app/settings/"
@@ -342,11 +402,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren;
+  ConfirmEmailRoute: typeof ConfirmEmailRoute;
   NewPinRoute: typeof NewPinRoute;
   PortalRoute: typeof PortalRouteWithChildren;
+  ResetRoute: typeof ResetRoute;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
+  SignupRoute: typeof SignupRoute;
   WorkerRoute: typeof WorkerRoute;
+  AccountPasskeysNewRoute: typeof AccountPasskeysNewRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -356,6 +420,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof AppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/confirm-email": {
+      id: "/confirm-email";
+      path: "/confirm-email";
+      fullPath: "/confirm-email";
+      preLoaderRoute: typeof ConfirmEmailRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/new-pin": {
@@ -372,6 +443,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof PortalRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/reset": {
+      id: "/reset";
+      path: "/reset";
+      fullPath: "/reset";
+      preLoaderRoute: typeof ResetRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/setup": {
       id: "/setup";
       path: "/setup";
@@ -384,6 +462,13 @@ declare module "@tanstack/react-router" {
       path: "/sign-in";
       fullPath: "/sign-in";
       preLoaderRoute: typeof SignInRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/signup": {
+      id: "/signup";
+      path: "/signup";
+      fullPath: "/signup";
+      preLoaderRoute: typeof SignupRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/worker": {
@@ -405,6 +490,13 @@ declare module "@tanstack/react-router" {
       path: "/$";
       fullPath: "/$";
       preLoaderRoute: typeof AppSplatRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/account": {
+      id: "/_app/account";
+      path: "/account";
+      fullPath: "/account";
+      preLoaderRoute: typeof AppAccountRouteImport;
       parentRoute: typeof AppRoute;
     };
     "/_app/activity": {
@@ -540,6 +632,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppWorksWorkIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/account/passkeys/new": {
+      id: "/account/passkeys/new";
+      path: "/account/passkeys/new";
+      fullPath: "/account/passkeys/new";
+      preLoaderRoute: typeof AccountPasskeysNewRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -575,6 +674,7 @@ interface AppRouteChildren {
   AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren;
   AppSplatRoute: typeof AppSplatRoute;
+  AppAccountRoute: typeof AppAccountRoute;
   AppActivityRoute: typeof AppActivityRoute;
   AppAddRoute: typeof AppAddRoute;
   AppSystemRoute: typeof AppSystemRoute;
@@ -590,6 +690,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppSplatRoute: AppSplatRoute,
+  AppAccountRoute: AppAccountRoute,
   AppActivityRoute: AppActivityRoute,
   AppAddRoute: AppAddRoute,
   AppSystemRoute: AppSystemRoute,
@@ -624,11 +725,15 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ConfirmEmailRoute: ConfirmEmailRoute,
   NewPinRoute: NewPinRoute,
   PortalRoute: PortalRouteWithChildren,
+  ResetRoute: ResetRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
+  SignupRoute: SignupRoute,
   WorkerRoute: WorkerRoute,
+  AccountPasskeysNewRoute: AccountPasskeysNewRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

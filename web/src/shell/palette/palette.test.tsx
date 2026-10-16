@@ -87,6 +87,8 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
     "Add a Film",
     "Toggle sidebar",
     "New Signup link",
+    "Your Account",
+    "Add a passkey",
     "Sign out",
   ]);
   await expect.element(palette().getByText("Esc")).toBeVisible();
