@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -172,6 +173,14 @@ func (s surfaceNode) Grabs() (*grabs.Grabs, bool) {
 		return nil, false
 	}
 	return h.grabs, true
+}
+
+func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.tasks == nil {
+		return nil, false
+	}
+	return h.tasks, true
 }
 
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {

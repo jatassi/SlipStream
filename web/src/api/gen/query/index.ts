@@ -8,4 +8,5 @@ export * from "./roots/roots.ts";
 export * from "./shell/shell.ts";
 export * from "./system/system.ts";
 export * from "./targets/targets.ts";
+export * from "./tasks/tasks.ts";
 export * from "./works/works.ts";

@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -47,6 +48,8 @@ func (worker) Roots() (*roots.Roots, bool) { return nil, false }
 func (worker) Files() (*files.Files, bool) { return nil, false }
 
 func (worker) Grabs() (*grabs.Grabs, bool) { return nil, false }
+
+func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 
 func (worker) Join(context.Context, joincode.Code) (pairing.Joined, error) {
 	panic("a Worker's closed gate admitted claimWorker")

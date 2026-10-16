@@ -49,6 +49,7 @@ type half struct {
 	roots    *roots.Roots
 	files    *files.Files
 	grabs    *grabs.Grabs
+	tasks    *tasks.Scheduler
 	// transfers receives files on the Controller, and source serves them
 	// on a Worker.
 	transfers *transfers.Receiver
@@ -141,8 +142,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
-		Changed:    unannounced[tasks.Changed]{},
-		Progressed: unannounced[tasks.Progressed]{},
+		Changed:    tasks.ChangedEvent.Bind(n.hub),
+		Progressed: tasks.ProgressEvent.Bind(n.hub),
 		Log:        n.rootLog.With("subsystem", "tasks"),
 	})
 	if err != nil {
@@ -154,6 +155,7 @@ func (n *Node) startController(ctx context.Context) error {
 		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:     shelf,
 		grabs:     pipeline,
+		tasks:     scheduler,
 		transfers: receiver,
 	})
 	n.claimed.Go("nodes", side.Run)
@@ -169,12 +171,6 @@ func (n *Node) zone() *time.Location {
 	}
 	return n.env.Zone
 }
-
-// unannounced publishes nothing: the tasks events wait for their place in
-// surface.Events.
-type unannounced[T any] struct{}
-
-func (unannounced[T]) Publish(context.Context, T) {}
 
 // httpClient is the half's client for every host the Node reaches, dialing
 // through the Node's network and trusting the OS roots.
