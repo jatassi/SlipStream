@@ -508,9 +508,17 @@ export const SettingDurationField = zod.object({
   key: zod.string(),
   kind: zod.enum(["duration"]),
   label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
   max: zod.int().describe("Seconds"),
   min: zod.int().describe("Seconds"),
-  source: zod.enum(["database"]),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Seconds"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
   step: zod.int().describe("Seconds: a second, minute, hour or day"),
   value: zod.int().describe("Seconds"),
 });

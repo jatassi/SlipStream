@@ -1328,6 +1328,10 @@
           "label": {
             "type": "string"
           },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
           "max": {
             "description": "Seconds",
             "format": "int64",
@@ -1338,9 +1342,22 @@
             "format": "int64",
             "type": "integer"
           },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "Seconds",
+            "format": "int64",
+            "type": "integer"
+          },
           "source": {
             "enum": [
-              "database"
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
             ],
             "type": "string"
           },
@@ -1358,6 +1375,7 @@
         "required": [
           "kind",
           "value",
+          "running",
           "default",
           "min",
           "max",
@@ -1366,7 +1384,8 @@
           "label",
           "source",
           "applies",
-          "isDefault"
+          "isDefault",
+          "pendingRestart"
         ],
         "type": "object"
       },

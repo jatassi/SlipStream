@@ -146,23 +146,35 @@ func TestFieldReportsIsDefault(t *testing.T) {
 	}{
 		{
 			"a duration at its default", lifetime.Field(nil),
-			`{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":true,"kind":"duration","value":3600,"default":3600,"min":600,"max":604800,"step":60}`,
+			`{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"duration","value":3600,"running":3600,"default":3600,"min":600,"max":604800,"step":60}`,
 		},
 		{
 			"a duration with a floor, overridden", rss.Field(ptr[int64](1800)),
-			`{"key":"tasks.rss.cadence","label":"RSS sync","source":"database","applies":"live","isDefault":false,"kind":"duration","value":1800,"default":900,"min":600,"max":7200,"step":60,"floor":"Private trackers ban for hammering."}`,
+			`{"key":"tasks.rss.cadence","label":"RSS sync","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":900,"min":600,"max":7200,"step":60,"floor":"Private trackers ban for hammering."}`,
 		},
 		{
 			"a count", setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: "runs"}.Field(ptr[int64](20)),
-			`{"key":"tasks.runsKept","label":"Runs kept","source":"database","applies":"live","isDefault":false,"kind":"count","value":20,"default":50,"min":1,"max":1000,"unit":"runs"}`,
+			`{"key":"tasks.runsKept","label":"Runs kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":20,"running":20,"default":50,"min":1,"max":1000,"unit":"runs"}`,
 		},
 		{
 			"a choice following another setting", setting.Choice[overdue]{Key: "tasks.housekeeping.overdue", Label: "When overdue", Default: "wait", DefaultFrom: "Scheduled tasks", Options: rule.Options}.Field(nil),
-			`{"key":"tasks.housekeeping.overdue","label":"When overdue","defaultFrom":"Scheduled tasks","source":"database","applies":"live","isDefault":true,"kind":"choice","value":"wait","default":"wait","options":[{"value":"catch-up","label":"Catch up"},{"value":"wait","label":"Wait"}]}`,
+			`{"key":"tasks.housekeeping.overdue","label":"When overdue","defaultFrom":"Scheduled tasks","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"wait","running":"wait","default":"wait","options":[{"value":"catch-up","label":"Catch up"},{"value":"wait","label":"Wait"}]}`,
+		},
+		{
+			"a count with words for zero", setting.Count{Key: "log.max_files", Label: "Files kept", Default: 5, Max: 100, Unit: "files", Zero: "No limit"}.Field(ptr[int64](0)),
+			`{"key":"log.max_files","label":"Files kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":0,"running":0,"default":5,"min":0,"max":100,"unit":"files","zero":"No limit"}`,
+		},
+		{
+			"a port", setting.Port{Key: "http.listen", Label: "Port", Default: 8484}.Field(ptr[uint16](9000)),
+			`{"key":"http.listen","label":"Port","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"port","value":9000,"running":9000,"default":8484}`,
+		},
+		{
+			"a switch", setting.Switch{Key: "log.compress", Label: "Compress rotated files", Default: true}.Field(nil),
+			`{"key":"log.compress","label":"Compress rotated files","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true}`,
 		},
 		{
 			"a window", window.Field(&setting.Span{Start: 60, End: 180}, "Europe/London"),
-			`{"key":"tasks.window","label":"Maintenance window","source":"database","applies":"live","isDefault":false,"kind":"window","value":{"start":"01:00","end":"03:00"},"default":{"start":"04:00","end":"06:00"},"zone":"Europe/London"}`,
+			`{"key":"tasks.window","label":"Maintenance window","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"window","value":{"start":"01:00","end":"03:00"},"running":{"start":"01:00","end":"03:00"},"default":{"start":"04:00","end":"06:00"},"zone":"Europe/London"}`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -174,6 +186,35 @@ func TestFieldReportsIsDefault(t *testing.T) {
 				t.Fatalf("Field =\n%s\nwant\n%s", b, tc.want)
 			}
 		})
+	}
+}
+
+func TestPortParse(t *testing.T) {
+	port := setting.Port{Key: "http.listen", Label: "Port", Default: 8484}
+	for _, tc := range []struct {
+		n       *int64
+		want    *uint16
+		refusal string
+	}{
+		{nil, nil, ""},
+		{ptr[int64](1), ptr[uint16](1), ""},
+		{ptr[int64](65535), ptr[uint16](65535), ""},
+		{ptr[int64](0), nil, "Between 1 and 65535."},
+		{ptr[int64](65536), nil, "Between 1 and 65535."},
+	} {
+		got, err := port.Parse(tc.n)
+		if tc.refusal != "" {
+			if s := sentence(err); s != tc.refusal {
+				t.Fatalf("Parse(%d) refusal = %q, want %q", *tc.n, s, tc.refusal)
+			}
+			continue
+		}
+		if o := got.Override(); err != nil || (o == nil) != (tc.want == nil) || (o != nil && *o != *tc.want) {
+			t.Fatalf("Parse = %v, %v; want %v", o, err, tc.want)
+		}
+	}
+	if got := port.Value(nil); got != 8484 {
+		t.Fatalf("Value(nil) = %d, want the default 8484", got)
 	}
 }
 
