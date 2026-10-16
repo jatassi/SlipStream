@@ -108,6 +108,8 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 		return n.serveJoin, nil
 	case StatusOp.Name:
 		return n.serveStatus, nil
+	case ConfigOp.Name:
+		return n.serveConfig, nil
 	}
 	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q; node version %s", name, n.env.Version)}
 }

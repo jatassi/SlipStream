@@ -49,18 +49,19 @@ type row struct {
 	proto         linkv1.InstallKind
 	dataDir       dataDirRule
 	selfInstalled bool
+	portsToTry    int
 }
 
 var kinds = [...]row{
-	Dev:      {token: "dev", proto: linkv1.InstallKind_INSTALL_KIND_DEV, dataDir: noDefault},
-	MSI:      {token: "msi", goos: "windows", proto: linkv1.InstallKind_INSTALL_KIND_MSI, dataDir: localAppData},
-	ZIP:      {token: "zip", goos: "windows", proto: linkv1.InstallKind_INSTALL_KIND_WINDOWS_ZIP, dataDir: besideExecutable},
-	App:      {token: "app", goos: "darwin", proto: linkv1.InstallKind_INSTALL_KIND_MACOS_APP, dataDir: applicationSupport},
-	Deb:      {token: "deb", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_DEB, dataDir: varLib},
-	RPM:      {token: "rpm", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_RPM, dataDir: varLib},
-	AppImage: {token: "appimage", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_APPIMAGE, dataDir: xdgData, selfInstalled: true},
-	Tarball:  {token: "tarball", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_TARBALL, dataDir: xdgData, selfInstalled: true},
-	Docker:   {token: "docker", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_DOCKER, dataDir: config},
+	Dev:      {token: "dev", proto: linkv1.InstallKind_INSTALL_KIND_DEV, dataDir: noDefault, portsToTry: 10},
+	MSI:      {token: "msi", goos: "windows", proto: linkv1.InstallKind_INSTALL_KIND_MSI, dataDir: localAppData, portsToTry: 10},
+	ZIP:      {token: "zip", goos: "windows", proto: linkv1.InstallKind_INSTALL_KIND_WINDOWS_ZIP, dataDir: besideExecutable, portsToTry: 10},
+	App:      {token: "app", goos: "darwin", proto: linkv1.InstallKind_INSTALL_KIND_MACOS_APP, dataDir: applicationSupport, portsToTry: 10},
+	Deb:      {token: "deb", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_DEB, dataDir: varLib, portsToTry: 10},
+	RPM:      {token: "rpm", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_RPM, dataDir: varLib, portsToTry: 10},
+	AppImage: {token: "appimage", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_APPIMAGE, dataDir: xdgData, selfInstalled: true, portsToTry: 10},
+	Tarball:  {token: "tarball", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_TARBALL, dataDir: xdgData, selfInstalled: true, portsToTry: 10},
+	Docker:   {token: "docker", goos: "linux", proto: linkv1.InstallKind_INSTALL_KIND_DOCKER, dataDir: config, portsToTry: 1},
 }
 
 // Kinds is every Kind, Dev first.
@@ -95,6 +96,10 @@ func (k Kind) Proto() linkv1.InstallKind { return kinds[k].proto }
 // an AppImage. Only these may install a user service, and only these check
 // the host's glibc and kernel floor at start.
 func (k Kind) SelfInstalled() bool { return kinds[k].selfInstalled }
+
+// PortsToTry is http.ports_to_try's default. Docker tries only its own
+// port, which the container's port mapping names.
+func (k Kind) PortsToTry() int { return kinds[k].portsToTry }
 
 func parseToken(token string) (Kind, bool) {
 	for _, k := range Kinds() {

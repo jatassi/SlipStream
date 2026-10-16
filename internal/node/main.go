@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notices"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -24,6 +25,10 @@ const usageText = `usage: slipstream <command>
   stop   [--data-dir <dir>]  stop the Node on <dir> and wait until it releases <dir>
   status [--data-dir <dir>]  print the running Node's status as JSON
   config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
+  config set [--data-dir <dir>] <key> <value>
+  config unset [--data-dir <dir>] <key>
+                             change a Node settings key in config.yaml; a running
+                             Node applies a live key at once
   join   [--data-dir <dir>] <code>
                              join this Node to the Controller a Join Code names
   service install|uninstall --user [--data-dir <dir>]
@@ -74,22 +79,7 @@ func run(args []string, types contenttype.Set) int {
 		}
 		return ExitOK
 	case "config":
-		env, err := nodeEnv(name, rest, types)
-		if err != nil {
-			return usage(err)
-		}
-		resolved, err := Resolve(env)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "slipstream config: %v\n", err)
-			return ExitCode(err)
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(resolved); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "slipstream config: %v\n", err)
-			return ExitFailed
-		}
-		return ExitOK
+		return configCommand(rest, types)
 	case "app":
 		return app(rest, types)
 	case "status":
@@ -121,20 +111,27 @@ func nodeEnv(name string, args []string, types contenttype.Set) (Env, error) {
 	return env, nil
 }
 
-func join(args []string, types contenttype.Set) int {
-	fs := flag.NewFlagSet("join", flag.ContinueOnError)
+// commandArgs parses --data-dir anywhere among args and returns the rest.
+func commandArgs(name string, args []string) (dataDir string, positional []string, err error) {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	dataDir := fs.String("data-dir", "", "")
-	var positional []string
+	fs.StringVar(&dataDir, "data-dir", "", "")
 	for {
 		if err := fs.Parse(args); err != nil {
-			return usage(fmt.Errorf("join: %w", err))
+			return "", nil, fmt.Errorf("%s: %w", name, err)
 		}
 		if fs.NArg() == 0 {
-			break
+			return dataDir, positional, nil
 		}
 		positional = append(positional, fs.Arg(0))
 		args = fs.Args()[1:]
+	}
+}
+
+func join(args []string, types contenttype.Set) int {
+	dataDir, positional, err := commandArgs("join", args)
+	if err != nil {
+		return usage(err)
 	}
 	if len(positional) != 1 {
 		return usage(errors.New("join takes one Join Code"))
@@ -144,7 +141,7 @@ func join(args []string, types contenttype.Set) int {
 		_, _ = fmt.Fprintf(os.Stderr, "slipstream join: %v\n", err)
 		return ExitUsage
 	}
-	env, err := ProcessEnv("join", *dataDir)
+	env, err := ProcessEnv("join", dataDir)
 	if err != nil {
 		return usage(fmt.Errorf("join: %w", err))
 	}
@@ -165,6 +162,76 @@ func join(args []string, types contenttype.Set) int {
 		return ExitOK
 	}
 	return joinFailed(err)
+}
+
+func configCommand(args []string, types contenttype.Set) int {
+	if len(args) > 0 && (args[0] == "set" || args[0] == "unset") {
+		return configSet(args[0], args[1:], types)
+	}
+	env, err := nodeEnv("config", args, types)
+	if err != nil {
+		return usage(err)
+	}
+	resolved, err := Resolve(env)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream config: %v\n", err)
+		return ExitCode(err)
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(resolved); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream config: %v\n", err)
+		return ExitFailed
+	}
+	return ExitOK
+}
+
+// configSet is config set and config unset. It prints each key as it
+// resolves after the change.
+func configSet(verb string, args []string, types contenttype.Set) int {
+	name := "config " + verb
+	dataDir, positional, err := commandArgs(name, args)
+	if err != nil {
+		return usage(err)
+	}
+	var change ConfigChange
+	switch {
+	case verb == "set" && len(positional) == 2:
+		change = ConfigChange{Key: positional[0], Value: &positional[1]}
+	case verb == "unset" && len(positional) == 1:
+		change = ConfigChange{Key: positional[0]}
+	case verb == "set":
+		return usage(errors.New("config set takes a key and a value"))
+	default:
+		return usage(errors.New("config unset takes a key"))
+	}
+	env, err := ProcessEnv(name, dataDir)
+	if err != nil {
+		return usage(fmt.Errorf("%s: %w", name, err))
+	}
+	env.Types = types
+	ctx, cancel := context.WithTimeout(context.Background(), serviceStartWait)
+	defer cancel()
+	keys, online, err := SetConfig(ctx, env, []ConfigChange{change})
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream %s: %v\n", name, err)
+		if _, refused := errors.AsType[*nodesystem.Refusal](err); refused {
+			return ExitUsage
+		}
+		return ExitCode(err)
+	}
+	fmt.Println(changedLine(change.Key, keys, online))
+	return ExitOK
+}
+
+// changedLine is key's resolved value, and whether a running Node waits
+// for a restart to use it.
+func changedLine(key string, keys []Key, online bool) string {
+	line := key + ": " + keysByName(keys)[key].Value
+	if r, _ := settingRowOf(key); online && !r.live() {
+		line += ", applies after restart"
+	}
+	return line
 }
 
 func status(args []string, types contenttype.Set) int {

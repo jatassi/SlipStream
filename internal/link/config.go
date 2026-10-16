@@ -30,4 +30,10 @@ type Timings struct {
 	RedialMax    time.Duration `yaml:"redial_max"`
 	// FallbackDelay is how long IPv6 dials run alone before IPv4 joins.
 	FallbackDelay time.Duration `yaml:"fallback_delay"`
+	// LogPoll is the longest a Node holds a read of its log over the link
+	// before answering with no records.
+	LogPoll time.Duration `yaml:"log_poll"`
+	// LogArchiveTTL is how long a Node keeps a log archive it zipped for the
+	// link before deleting it unread.
+	LogArchiveTTL time.Duration `yaml:"log_archive_ttl"`
 }

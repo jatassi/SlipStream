@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/backoff"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/role"
 )
@@ -42,7 +43,7 @@ func standing(t *testing.T, w *sim.World, name string) role.Standing {
 // attempt, and each attempt before heal blocks on the stalled path for the
 // whole handshake.
 func redialAt(seed string, down, heal time.Time) time.Time {
-	timings := node.Defaults(contenttype.Set{}).Timings.Link
+	timings := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 	r := node.NewStreams(seed).Stream("link")
 	at := down
 	for n := 0; ; n++ {
@@ -65,7 +66,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		synctest.Wait()
 		stalled := time.Now()
 		flip(t, w.Path("home", "seedbox"), fault.Stall{})
-		link := node.Defaults(contenttype.Set{}).Timings.Link
+		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
 		down := stalled.Add(link.Keepalive + link.WriteTimeout)

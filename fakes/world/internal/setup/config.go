@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/yamltree"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -60,7 +61,7 @@ func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, en
 	if t := scenario.SetTimings(s.Timings); t != nil {
 		root.Content = append(root.Content, scalar("timings"), t)
 	}
-	e, err := yamltree.Diff(endpoints, node.Defaults(contenttype.Set{}).Endpoints)
+	e, err := yamltree.Diff(endpoints, node.Defaults(contenttype.Set{}, install.Dev).Endpoints)
 	if err != nil {
 		return nil, err
 	}

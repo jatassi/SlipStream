@@ -94,6 +94,17 @@ log:
 	}
 }
 
+func TestUnsettingTheLastKeyLeavesAnEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "config.yaml", "log:\n  level: debug\n")
+	if err := config.Edit(dir, []config.Change{{Key: "log.level"}}, accept); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, "config.yaml")); got != "" {
+		t.Fatalf("config.yaml = %q, want it empty", got)
+	}
+}
+
 func TestEditChecksTheEditedFileBesideDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "config.yaml", "retries: 4\n")

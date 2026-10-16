@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"path"
@@ -52,7 +51,7 @@ func checkConfigWriter(repo *lint.Repo) ([]lint.Finding, error) {
 			findings = append(findings, lint.Finding{
 				Path:    f.Path,
 				Line:    repo.Fset.Position(call.Pos()).Line,
-				Message: fmt.Sprintf("%s writes config.yaml; change keys through config.Edit", name),
+				Message: name + " writes config.yaml; change keys through config.Edit",
 			})
 			return true
 		})

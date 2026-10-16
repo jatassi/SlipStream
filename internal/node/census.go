@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 )
 
 // Census lists every endpoints key whose value still contains a host from
 // its default, the hosts a fake has not replaced.
-func Census(cfg Config, types contenttype.Set) []string {
-	defaults := Defaults(types)
+func Census(cfg Config, types contenttype.Set, kind install.Kind) []string {
+	defaults := Defaults(types, kind)
 	return census(&cfg, &defaults)
 }
 
@@ -38,7 +39,7 @@ type Resolved struct {
 }
 
 func Resolve(env Env) (Resolved, error) {
-	cfg, keys, err := LoadConfig(env.DataDir, env.Environ, env.Types)
+	cfg, keys, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)
 	if err != nil {
 		return Resolved{}, err
 	}
@@ -46,5 +47,5 @@ func Resolve(env Env) (Resolved, error) {
 	for _, id := range env.Types.IDs() {
 		ids = append(ids, string(id))
 	}
-	return Resolved{Keys: keys, Census: Census(cfg, env.Types), ContentTypes: ids}, nil
+	return Resolved{Keys: keys, Census: Census(cfg, env.Types, env.Install), ContentTypes: ids}, nil
 }

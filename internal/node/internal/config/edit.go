@@ -64,16 +64,14 @@ func Edit(dir string, changes []Change, check func(fsys fs.FS) error) error {
 			set(root, path, *c.Text)
 		}
 	}
-	var b bytes.Buffer
-	enc := yaml.NewEncoder(&b)
-	enc.SetIndent(2)
-	if err := enc.Encode(&doc); err != nil {
-		return fmt.Errorf("encode %s: %w", SourceYAML, err)
-	}
-	if err := check(overlay{dir: os.DirFS(dir), yaml: b.Bytes()}); err != nil {
+	text, err := encode(&doc)
+	if err != nil {
 		return err
 	}
-	err = atomicfile.Write(path, b.Bytes())
+	if err := check(overlay{dir: os.DirFS(dir), yaml: text}); err != nil {
+		return err
+	}
+	err = atomicfile.Write(path, text)
 	if errors.Is(err, syscall.EBUSY) {
 		return ErrNotRegular
 	}
@@ -131,7 +129,11 @@ type overlay struct {
 
 func (o overlay) Open(name string) (fs.File, error) {
 	if name != string(SourceYAML) {
-		return o.dir.Open(name)
+		f, err := o.dir.Open(name)
+		if err != nil {
+			return nil, fmt.Errorf("open %s: %w", name, err)
+		}
+		return f, nil
 	}
 	return memFile{bytes.NewReader(o.yaml)}, nil
 }
@@ -146,3 +148,19 @@ func (memFile) Mode() fs.FileMode            { return 0o600 }
 func (memFile) ModTime() time.Time           { return time.Time{} }
 func (memFile) IsDir() bool                  { return false }
 func (memFile) Sys() any                     { return nil }
+
+// encode writes an empty file for a document left with no keys and no
+// comments, where yaml would write {}.
+func encode(doc *yaml.Node) ([]byte, error) {
+	root := doc.Content[0]
+	if len(root.Content) == 0 && doc.HeadComment+doc.FootComment+root.HeadComment+root.LineComment+root.FootComment == "" {
+		return nil, nil
+	}
+	var b bytes.Buffer
+	enc := yaml.NewEncoder(&b)
+	enc.SetIndent(2)
+	if err := enc.Encode(doc); err != nil {
+		return nil, fmt.Errorf("encode %s: %w", SourceYAML, err)
+	}
+	return b.Bytes(), nil
+}

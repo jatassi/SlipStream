@@ -164,7 +164,9 @@ type Node struct {
 	server  *control.Server
 	isReady atomic.Bool
 
-	// Set during start, before the Node is ready.
+	// Set during start, before the Node is ready. cfgMu guards the Node
+	// settings table's keys in cfg, which setConfig changes later.
+	cfgMu     sync.Mutex
 	cfg       Config
 	key       link.PrivateKey
 	info      link.NodeInfo
@@ -205,7 +207,7 @@ func Start(ctx context.Context, env Env) (*Node, error) {
 	n := &Node{
 		env:      env,
 		started:  time.Now(),
-		deadline: Defaults(env.Types).Timings.Node.StopDeadline,
+		deadline: Defaults(env.Types, env.Install).Timings.Node.StopDeadline,
 		stopping: make(chan struct{}),
 		drained:  make(chan struct{}),
 		released: make(chan struct{}),
@@ -284,7 +286,7 @@ func (n *Node) start(ctx context.Context) error {
 }
 
 func (n *Node) startLogged(ctx context.Context) error {
-	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types)
+	cfg, keys, err := LoadConfig(n.env.DataDir, n.env.Environ, n.env.Types, n.env.Install)
 	if err != nil {
 		return err
 	}
