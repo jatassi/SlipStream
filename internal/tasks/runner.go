@@ -60,7 +60,7 @@ func (s *Scheduler) Cancel(id RunID) error {
 	return nil
 }
 
-func (s *Scheduler) run(ctx, runCtx context.Context, r openRun, p *progress) {
+func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress) {
 	results := make([]result, len(r.units))
 	byNode := map[role.NodeID][]int{}
 	var order []role.NodeID
@@ -78,19 +78,19 @@ func (s *Scheduler) run(ctx, runCtx context.Context, r openRun, p *progress) {
 	for _, node := range order {
 		wg.Go(func() {
 			for _, i := range byNode[node] {
-				if ctx.Err() != nil {
+				if nodeCtx.Err() != nil {
 					return
 				}
-				results[i] = s.unit(ctx, runCtx, r, r.units[i], p)
+				results[i] = s.unit(nodeCtx, runCtx, r, r.units[i], p)
 				p.finished()
 			}
 		})
 	}
 	wg.Wait()
-	if ctx.Err() != nil {
+	if nodeCtx.Err() != nil {
 		return
 	}
-	s.close(ctx, r, results, errors.Is(context.Cause(runCtx), errCanceled))
+	s.close(nodeCtx, r, results, errors.Is(context.Cause(runCtx), errCanceled))
 }
 
 func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, p *progress) result {

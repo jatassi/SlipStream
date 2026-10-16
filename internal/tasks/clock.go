@@ -36,7 +36,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	s.mu.Lock()
 	s.started = started
 	s.mu.Unlock()
-	s.follow(ctx, "", nodes.ChangedEvent)
+	s.follow(ctx, everyTask, nodes.ChangedEvent)
 	for _, t := range s.cfg.Catalog {
 		if len(t.Follows) > 0 {
 			s.follow(ctx, t.ID, t.Follows...)
@@ -296,14 +296,7 @@ func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, ru
 	case err != nil:
 		return nil, nil, err
 	case len(all) == 0:
-		if trigger == BySchedule || trigger == ByCatchUp {
-			if err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-				return db.New(tx).AdvanceSlot(ctx, db.AdvanceSlotParams{ID: t.ID, SlotStartedAt: storage.Now(), JitterFrac: s.drawJitter()})
-			}); err != nil {
-				return nil, nil, err
-			}
-		}
-		return nil, nil, errNoUnits
+		return nil, nil, s.passHiddenSlot(ctx, t, trigger)
 	case trigger == ByReturn:
 		run, err = s.returning(ctx, t.ID, all)
 		if err == nil && len(run) == 0 {
@@ -314,6 +307,17 @@ func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, ru
 		return all, all, s.runnable(ctx, t.ID, all)
 	}
 	return all, all, nil
+}
+
+func (s *Scheduler) passHiddenSlot(ctx context.Context, t Task, trigger Trigger) error {
+	if trigger == BySchedule || trigger == ByCatchUp {
+		if err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+			return db.New(tx).AdvanceSlot(ctx, db.AdvanceSlotParams{ID: t.ID, SlotStartedAt: storage.Now(), JitterFrac: s.drawJitter()})
+		}); err != nil {
+			return err
+		}
+	}
+	return errNoUnits
 }
 
 func (s *Scheduler) returning(ctx context.Context, task TaskID, units []Unit) ([]Unit, error) {

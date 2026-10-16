@@ -91,7 +91,7 @@ func (s *Scheduler) SetSchedule(ctx context.Context, c ScheduleChange) error {
 	if err != nil {
 		return err
 	}
-	s.changed(ctx, "")
+	s.changed(ctx, everyTask)
 	s.Wake()
 	return nil
 }

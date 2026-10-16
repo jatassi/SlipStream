@@ -38,6 +38,8 @@ type Changed struct {
 	TaskID TaskID `json:"taskId"`
 }
 
+const everyTask TaskID = ""
+
 type Progressed struct {
 	RunID  RunID  `json:"runId"`
 	TaskID TaskID `json:"taskId"`

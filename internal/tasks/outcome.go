@@ -26,7 +26,7 @@ func classify(ctx context.Context, err error, place Place, p peer) result {
 	switch {
 	case err == nil:
 		return result{outcome: Succeeded}
-	case ctx.Err() != nil:
+	case canceled(ctx):
 		return result{outcome: Canceled}
 	}
 	if why, ok := rpc.NotSent(err); ok {
@@ -36,6 +36,10 @@ func classify(ctx context.Context, err error, place Place, p peer) result {
 		return result{outcome: Skipped, cause: "lost " + p.name + " mid-run", node: p.name, short: p.name + " offline", dueOnReturn: place.kind == tiedTo}
 	}
 	return result{outcome: Failed, cause: err.Error()}
+}
+
+func canceled(runCtx context.Context) bool {
+	return runCtx.Err() != nil
 }
 
 func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {

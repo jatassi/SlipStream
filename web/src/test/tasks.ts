@@ -11,10 +11,10 @@ import type {
   TasksTask,
 } from "../api/gen/model";
 
-const toUTC = 1;
+const londonSummerHoursAheadOfUTC = 1;
 
 export const local = (day: number, hours: number, minutes = 0): string =>
-  new Date(Date.UTC(2026, 9, day, hours - toUTC, minutes)).toISOString();
+  new Date(Date.UTC(2026, 9, day, hours - londonSummerHoursAheadOfUTC, minutes)).toISOString();
 
 export const tasksNow = new Date(local(16, 23));
 

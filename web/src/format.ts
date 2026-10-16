@@ -135,12 +135,15 @@ function wallOf(date: Date, zone: string | undefined): { day: number; hour: numb
 const daysFrom = (from: Date, to: Date, zone: string | undefined) =>
   wallOf(to, zone).day - wallOf(from, zone).day;
 
+const eveningStartHour = 18;
+const morningEndHour = 6;
+
 function eveningOf(date: Date, { now, zone }: Clock): number | undefined {
   const hours = wallOf(date, zone).hour;
-  if (hours >= 18) {
+  if (hours >= eveningStartHour) {
     return daysFrom(now, date, zone);
   }
-  return hours < 6 ? daysFrom(now, date, zone) - 1 : undefined;
+  return hours < morningEndHour ? daysFrom(now, date, zone) - 1 : undefined;
 }
 
 export function atWords(iso: string, reading: Clock): string {
