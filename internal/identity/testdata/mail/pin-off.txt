@@ -1,0 +1,7 @@
+Subject: Your SlipStream PIN was turned off
+
+Someone typed the wrong PIN for grace@example.com 10 times in a row, so your PIN no longer works.
+
+You can still sign in with a passkey, or ask an Admin for a Reset link.
+
+SlipStream sends this whenever wrong PINs turn a PIN off.

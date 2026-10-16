@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail/mailtest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -32,6 +33,7 @@ import (
 
 type node struct {
 	t     *testing.T
+	mail  *mailtest.Sender
 	lib   *storage.DB[storage.Library]
 	h     http.Handler
 	doc   []byte
@@ -58,7 +60,8 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 		t.Fatal(err)
 	}
 	hub := identitytest.Hub(t)
-	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
+	sent, outbox := identitytest.Mail(t)
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub, Mail: sent, Outbox: outbox})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,7 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 	identityapi.Routes(r, identitytest.Node{Service: svc})
 	api.Register(r.Owner("fixture", api.Admin), api.Admin, api.Op{ID: fixtureAdmin.ID, Method: http.MethodGet, Path: fixtureAdmin.Path},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
-	return &node{t: t, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
+	return &node{t: t, mail: sent, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
 }
 
 // head is the id of the hub's newest event, which a subscription with no

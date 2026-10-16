@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
+	"github.com/jatassi/slipstream/internal/mail"
 )
 
 // subject is whose PIN a check is for: an Account, or an email with none,
@@ -13,10 +14,17 @@ import (
 type subject struct {
 	account AccountID
 	email   string
+	name    string
 	hash    string
 }
 
+func subjectOf(row db.IdentityAccount) subject {
+	return subject{account: row.ID, email: row.Email, name: row.DisplayName, hash: row.PinHash}
+}
+
 func (s subject) known() bool { return !s.account.IsZero() }
+
+func (s subject) mailbox() mail.Address { return mail.Address{Name: s.name, Email: s.email} }
 
 // pinPass proves a PIN checked out. Only checkPIN builds one and only
 // afterPIN consumes it.
@@ -46,8 +54,10 @@ func (s *Service) checkPIN(ctx context.Context, c client, sub subject, pin PIN, 
 		return pinPass{account: sub.account, r: r}, nil
 	}
 	s.limiter.fail(c.address, set.AddressFailures, set.AddressWindow, time.Now())
-	if r.reachedOff && sub.known() && s.notices != nil {
-		s.notices.PINTurnedOff(ctx, PINTurnedOff{Account: sub.account, Email: sub.email, Failures: r.n})
+	if r.reachedOff && sub.known() {
+		if err := post(s, sub.mailbox(), pinOffMail, pinOffData{Email: sub.email, Count: r.n}); err != nil {
+			return pinPass{}, err
+		}
 	}
 	return pinPass{}, ErrPINWrong
 }

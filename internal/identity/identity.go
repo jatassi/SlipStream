@@ -19,6 +19,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -42,20 +43,6 @@ type SessionsChanged struct {
 
 var SessionsChangedEvent = live.AccountEvent[SessionsChanged]("identity.sessions-changed")
 
-// PINTurnedOff is what the "PIN turned off" email tells an Account's owner.
-type PINTurnedOff struct {
-	Account  AccountID
-	Email    string
-	Failures int
-}
-
-// Notices tells an Account's owner what happened to it after the fact. The
-// mail spec fills it in; it must not block, because it runs before the
-// response goes out.
-type Notices interface {
-	PINTurnedOff(ctx context.Context, n PINTurnedOff)
-}
-
 const (
 	CookieName = "slipstream_session"
 	// slideDivisor makes a session slide once per lifetime/720 of use: an
@@ -71,8 +58,10 @@ type Config struct {
 	Pepper  []byte
 	// Hub carries identity's events and ends sessions' streams.
 	Hub *live.Hub
-	// Notices is nil until mail can send them.
-	Notices Notices
+	// Mail sends the emails whose outcome the caller waits for, and Outbox
+	// those that go out after the response.
+	Mail   mail.Sender
+	Outbox *mail.Outbox
 }
 
 type Service struct {
@@ -81,7 +70,8 @@ type Service struct {
 	dummy    string
 	hub      *live.Hub
 	sessions live.AccountPublisher[SessionsChanged]
-	notices  Notices
+	mail     mail.Sender
+	outbox   *mail.Outbox
 	shadow   *shadowLedger
 	limiter  *limiter
 }
@@ -94,7 +84,8 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 		pins:     newPINs(cfg.Pepper),
 		hub:      cfg.Hub,
 		sessions: SessionsChangedEvent.Bind(cfg.Hub),
-		notices:  cfg.Notices,
+		mail:     cfg.Mail,
+		outbox:   cfg.Outbox,
 		shadow:   newShadowLedger(),
 		limiter:  newLimiter(),
 	}
@@ -202,7 +193,7 @@ func (s *Service) subjectByEmail(ctx context.Context, email string) (subject, Pr
 	if err != nil {
 		return subject{}, Profile{}, err
 	}
-	return subject{account: row.ID, email: row.Email, hash: row.PinHash}, profileOf(row), nil
+	return subjectOf(row), profileOf(row), nil
 }
 
 func profileOf(row db.IdentityAccount) Profile {

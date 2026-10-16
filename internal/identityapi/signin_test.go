@@ -89,6 +89,14 @@ func TestFiveWrongPINsWaitAndTenTurnThePINOff(t *testing.T) {
 		time.Sleep(time.Hour)
 		both("an hour after the tenth", "9999", offAnswer)
 		want(t, "the right PIN once it is off", n.signInFrom("192.0.2.1:1", "admin@example.com", "1234", nil), offAnswer)
+		notice := n.mail.Wait(t, "admin@example.com")
+		synctest.Wait()
+		if notice.Subject != "Your SlipStream PIN was turned off" || !strings.HasPrefix(notice.Text, "Someone typed the wrong PIN for admin@example.com 10 times in a row") {
+			t.Fatalf("notice = %q %q", notice.Subject, notice.Text)
+		}
+		if sent := n.mail.Sent(); len(sent) != 1 {
+			t.Fatalf("sent %d emails, want only the Admin's one notice", len(sent))
+		}
 	})
 }
 

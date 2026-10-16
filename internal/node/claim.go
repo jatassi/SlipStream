@@ -51,12 +51,15 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	if err != nil {
 		return nil, err
 	}
-	ids, err := identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Hub: n.hub})
+	sealer := keys.Sealer()
+	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: n.cfg.Timings.Mail})
+	outbox := mail.NewOutbox(smtp, n.rootLog.With("subsystem", "mail"))
+	n.claimed.OnStop("mail", outbox.Close)
+	ids, err := identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Hub: n.hub, Mail: smtp, Outbox: outbox})
 	if err != nil {
 		return nil, err
 	}
-	sealer := keys.Sealer()
-	lib := &library{db: db, sealer: sealer, mail: mail.New(mail.Config{Library: db, Sealer: sealer, Timings: n.cfg.Timings.Mail}), ids: ids}
+	lib := &library{db: db, sealer: sealer, mail: smtp, ids: ids}
 	n.lib.Store(lib)
 	return lib, nil
 }

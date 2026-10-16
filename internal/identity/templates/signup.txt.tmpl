@@ -1,0 +1,13 @@
+{{define "subject"}}{{.AdminName}} invited you to {{.ServerName}}{{end}}
+{{define "body"}}{{.AdminName}} invited you to SlipStream at {{.ServerName}}. Choose your name and a PIN to make your Account.
+
+{{button "Make your Account" .URL}}
+
+The link works once, until {{.Expires}}.
+{{if .Replaces}}
+{{callout (printf "This replaces the link sent on %s, which no longer works." .Replaces)}}
+{{end}}{{end}}
+{{define "footer"}}
+If the button doesn't work, open this address: {{.URL}}
+
+If you did not expect this email, you can ignore it. Nothing changes until the link is used.{{end}}

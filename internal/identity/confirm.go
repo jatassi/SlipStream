@@ -59,5 +59,5 @@ func (s *Service) checkOwnPIN(ctx context.Context, c client, account AccountID, 
 	if err != nil {
 		return pinPass{}, err
 	}
-	return s.checkPIN(ctx, c, subject{account: row.ID, email: row.Email, hash: row.PinHash}, pin, set)
+	return s.checkPIN(ctx, c, subjectOf(row), pin, set)
 }
