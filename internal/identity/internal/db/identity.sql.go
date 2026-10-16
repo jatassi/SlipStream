@@ -397,6 +397,15 @@ func (q *Queries) SaveSettings(ctx context.Context, arg SaveSettingsParams) erro
 	return err
 }
 
+const setAddress = `-- name: SetAddress :exec
+UPDATE identity_settings SET address = ?1 WHERE id = 1
+`
+
+func (q *Queries) SetAddress(ctx context.Context, address string) error {
+	_, err := q.db.ExecContext(ctx, setAddress, address)
+	return err
+}
+
 const setPIN = `-- name: SetPIN :exec
 UPDATE identity_account
 SET pin_hash = ?1, pin_failures = 0, pin_wait_until = NULL, pin_disabled_at = NULL

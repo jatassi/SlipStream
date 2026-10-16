@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -25,41 +27,74 @@ import (
 )
 
 // library is library.db and what opens with it: the sealer for its
-// credentials, the SMTP setting and the identity service.
+// credentials, the SMTP setting, the Outbox and the identity service.
 type library struct {
 	db     *storage.DB[storage.Library]
 	sealer *secret.Sealer
 	mail   *mail.Mail
+	outbox *mail.Outbox
 	ids    *identity.Service
 }
 
-// openLibrary opens library.db, library.key and the identity service once,
-// creating the files. A Node opens them at start only if library.db
-// exists, and otherwise when it is claimed as a Controller.
+// close stops the Outbox, waiting for the mail in flight, then closes
+// library.db.
+func (l *library) close(ctx context.Context) error {
+	return errors.Join(l.outbox.Close(ctx), l.db.Close())
+}
+
+// libraryFiles is what opening library.db reads: the data dir's files,
+// every schema, the timings, the hub identity publishes on and the log.
+type libraryFiles struct {
+	dir     DataDir
+	schemas []storage.Schema[storage.Library]
+	timings TimingsBlock
+	hub     *live.Hub
+	log     *slog.Logger
+}
+
+// openLibraryFiles opens library.db, migrating it with the pre-migration
+// hook as on any start, then library.key, mail and identity, creating the
+// files. A running Node and `slipstream admin reset` offline both open it
+// here.
+func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
+	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, preMigrationHook, f.timings.Storage, f.log.With("subsystem", "storage"))
+	if err != nil {
+		return nil, err
+	}
+	keys, err := secret.Open(ctx, db, f.dir.LibraryKey())
+	if err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+	sealer := keys.Sealer()
+	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: f.timings.Mail})
+	lib := &library{db: db, sealer: sealer, mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
+	lib.ids, err = identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: f.hub, Mail: smtp, Outbox: lib.outbox})
+	if err != nil {
+		return nil, errors.Join(err, lib.close(ctx))
+	}
+	return lib, nil
+}
+
+// openLibrary opens library.db and what opens with it once. A Node opens
+// it at start only if library.db exists, and otherwise when it is claimed
+// as a Controller.
 func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 	n.libMu.Lock()
 	defer n.libMu.Unlock()
 	if lib := n.lib.Load(); lib != nil {
 		return lib, nil
 	}
-	db, err := storage.OpenLibrary(ctx, n.env.DataDir.LibraryDB(), append(LibrarySchemas(n.env.Types), n.env.Test.Library...), preMigrationHook, n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
+	lib, err := openLibraryFiles(ctx, libraryFiles{
+		dir:     n.env.DataDir,
+		schemas: append(LibrarySchemas(n.env.Types), n.env.Test.Library...),
+		timings: n.cfg.Timings,
+		hub:     n.hub,
+		log:     n.rootLog,
+	})
 	if err != nil {
 		return nil, err
 	}
-	n.claimed.OnStop("library.db", func(context.Context) error { return db.Close() })
-	keys, err := secret.Open(ctx, db, n.env.DataDir.LibraryKey())
-	if err != nil {
-		return nil, err
-	}
-	sealer := keys.Sealer()
-	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: n.cfg.Timings.Mail})
-	outbox := mail.NewOutbox(smtp, n.rootLog.With("subsystem", "mail"))
-	n.claimed.OnStop("mail", outbox.Close)
-	ids, err := identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: n.hub, Mail: smtp, Outbox: outbox})
-	if err != nil {
-		return nil, err
-	}
-	lib := &library{db: db, sealer: sealer, mail: smtp, ids: ids}
+	n.claimed.OnStop("library.db", lib.close)
 	n.lib.Store(lib)
 	return lib, nil
 }

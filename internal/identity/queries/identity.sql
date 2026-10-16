@@ -102,3 +102,6 @@ SET
     email_link_lifetime_seconds = sqlc.arg(email_link_lifetime_seconds),
     address = sqlc.arg(address)
 WHERE id = 1;
+
+-- name: SetAddress :exec
+UPDATE identity_settings SET address = sqlc.arg(address) WHERE id = 1;
