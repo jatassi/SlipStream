@@ -3,10 +3,12 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { createApp } from "../app";
+import { settingsSections } from "../settings/sections";
 import { pendingForever } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 
 const zeroUuid = "00000000-0000-0000-0000-000000000000";
+const paramSamples: Readonly<Record<string, string>> = { section: settingsSections[0].id };
 const { router, dispose } = createApp(createMemoryHistory());
 dispose();
 type Walked = {
@@ -29,12 +31,17 @@ test("every signed-in page that loads data has a skeleton", () => {
   ).toEqual([]);
 });
 
-test.each(signedInPages.map((route) => [route.id, route.fullPath.replaceAll(/\$\w+/gu, zeroUuid)]))(
-  "%s shows its skeleton while its data loads",
-  async (_id, path) => {
-    renderApp({ path, handlers: pendingForever() });
-    await expect
-      .element(page.getByRole("status").and(page.getByLabelText(/^Loading/u)))
-      .toBeVisible();
-  },
-);
+test.each(
+  signedInPages.map((route) => [
+    route.id,
+    route.fullPath.replaceAll(
+      /\$(\w+)/gu,
+      (_param, name: string) => paramSamples[name] ?? zeroUuid,
+    ),
+  ]),
+)("%s shows its skeleton while its data loads", async (_id, path) => {
+  renderApp({ path, handlers: pendingForever() });
+  await expect
+    .element(page.getByRole("status").and(page.getByLabelText(/^Loading/u)))
+    .toBeVisible();
+});

@@ -1,4 +1,4 @@
-import { Add01Icon, Logout01Icon, SidebarLeftIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, Link01Icon, Logout01Icon, SidebarLeftIcon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 
@@ -30,6 +30,15 @@ const commands: readonly Command[] = [
     audience: "admin",
     shell: "desktop",
     run: toggleSidebar,
+  },
+  {
+    id: "new-signup-link",
+    label: "New Signup link",
+    icon: Link01Icon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/accounts", search: { newLink: true } });
+    },
   },
   {
     id: "sign-out",
