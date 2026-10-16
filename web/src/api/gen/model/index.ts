@@ -435,6 +435,7 @@ export * from "./shellCounts.ts";
 export * from "./systemBuild.ts";
 export * from "./systemHealth.ts";
 export * from "./systemHealthStatus.ts";
+export * from "./systemHttpFacts.ts";
 export * from "./systemListeners.ts";
 export * from "./systemReport.ts";
 export * from "./systemStatus.ts";

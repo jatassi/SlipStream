@@ -31,10 +31,16 @@ type statusOutput struct {
 type report struct {
 	Build     build     `json:"build"`
 	DataDir   string    `json:"dataDir"`
+	LogsDir   string    `json:"logsDir"`
 	PID       int       `json:"pid"`
 	Seed      string    `json:"seed"`
 	StartedAt time.Time `json:"startedAt"`
+	HTTP      httpFacts `json:"http"`
 	Listeners listeners `json:"listeners"`
+}
+
+type httpFacts struct {
+	Configured string `json:"configured" doc:"http.listen at start; listeners.http differs after a fallback to a later port"`
 }
 
 // build is the build stamp, or only stamped false for an unstamped build.
@@ -75,9 +81,11 @@ func reportOf(f system.Facts) report {
 	return report{
 		Build:     b,
 		DataDir:   f.DataDir,
+		LogsDir:   f.LogsDir,
 		PID:       f.PID,
 		Seed:      f.Seed,
 		StartedAt: f.StartedAt,
+		HTTP:      httpFacts{Configured: f.HTTPConfigured.String()},
 		Listeners: listeners{
 			HTTP:    f.Listeners.HTTP.String(),
 			Torrent: f.Listeners.Torrent.String(),

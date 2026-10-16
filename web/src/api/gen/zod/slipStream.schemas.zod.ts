@@ -645,6 +645,15 @@ export const SystemHealth = zod.object({
 export type SystemHealth = zod.input<typeof SystemHealth>;
 export type SystemHealthOutput = zod.output<typeof SystemHealth>;
 
+export const SystemHttpFacts = zod.object({
+  configured: zod
+    .string()
+    .describe("http.listen at start; listeners.http differs after a fallback to a later port"),
+});
+
+export type SystemHttpFacts = zod.input<typeof SystemHttpFacts>;
+export type SystemHttpFactsOutput = zod.output<typeof SystemHttpFacts>;
+
 export const SystemListeners = zod.object({
   control: zod.string(),
   http: zod.string(),
@@ -658,7 +667,9 @@ export type SystemListenersOutput = zod.output<typeof SystemListeners>;
 export const SystemReport = zod.object({
   build: SystemBuild,
   dataDir: zod.string(),
+  http: SystemHttpFacts,
   listeners: SystemListeners,
+  logsDir: zod.string(),
   pid: zod.int(),
   seed: zod.string(),
   startedAt: zod.iso.datetime({ offset: true }),
