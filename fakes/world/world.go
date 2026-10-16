@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base32"
 	"encoding/hex"
 	"encoding/json"
@@ -373,6 +374,13 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
 		f.env.Releases, f.env.Fronts, f.env.Files = r.releases, r.table, r.runDir
+		if f.spec.TLS == fake.OwnTLS {
+			leaf, err := r.leaf(f.spec.Name)
+			if err != nil {
+				return fmt.Errorf("fake %s: %w", f.spec.Name, err)
+			}
+			f.env.Leaf = &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}
+		}
 		server, err := f.spec.New(r.scenario, f.env)
 		if err != nil {
 			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
