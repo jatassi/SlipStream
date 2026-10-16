@@ -79,7 +79,15 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
       .getByRole("button")
       .all()
       .map((button) => button.element().textContent),
-  ).toEqual(["Films", "Nodes", "Tasks", "Open the portal", "Sign out", "Cancel"]);
+  ).toEqual([
+    "Films",
+    "Nodes",
+    "Tasks",
+    "Open the portal",
+    "Restart SlipStream…",
+    "Sign out",
+    "Cancel",
+  ]);
   const startup = sheet.getByRole("switch", { name: "Startup sequence" });
   await expect.element(startup).toBeChecked();
   await userEvent.click(sheet.getByText("Startup sequence"));

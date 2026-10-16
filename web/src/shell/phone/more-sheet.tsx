@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAccount } from "../../session/session";
 import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "../../ui/sheet";
 import { Avatar, startupLabel, toPortal, useSignOut, useStartupOn } from "../account";
+import { restartSelf, useRestartSelf } from "../restart/use-restart-self";
 import type { ShownRow } from "../nav";
 import { MoreNav } from "./more-nav";
 import { setMoreOpen, useMoreOpen } from "./more-state";
@@ -14,6 +15,7 @@ export function MoreSheet({ rows }: { rows: readonly ShownRow[] }) {
   const account = useAccount();
   const signOut = useSignOut();
   const [startupOn, setStartupOn] = useStartupOn();
+  const restart = useRestartSelf();
   return (
     <Sheet label="More" open={useMoreOpen()} onOpenChange={setMoreOpen}>
       <MoreNav rows={rows} />
@@ -31,6 +33,9 @@ export function MoreSheet({ rows }: { rows: readonly ShownRow[] }) {
           }}
         >
           {toPortal.label}
+        </SheetItem>
+        <SheetItem icon={restartSelf.icon} onClick={restart}>
+          {restartSelf.label}
         </SheetItem>
         <SheetItem icon={Logout01Icon} onClick={signOut}>
           Sign out

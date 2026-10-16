@@ -1,7 +1,7 @@
 import { Alert02Icon, LockedIcon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useState } from "react";
 
-import { UnreachableError, isApiError } from "../api/errors";
+import { sentenceOf } from "../api/errors";
 import { Data } from "./data";
 import { Icon } from "./icon";
 import type { Setting } from "./setting-kind";
@@ -47,16 +47,6 @@ export function Hints({ hints, reset }: { hints: readonly string[]; reset: React
   );
 }
 
-function refusal(error: unknown): string {
-  if (isApiError(error)) {
-    return error.detail ?? error.title;
-  }
-  if (error instanceof UnreachableError) {
-    return error.message;
-  }
-  throw error;
-}
-
 export function useSave<V>(onSave: (value: V | null) => Promise<unknown>, onSaved: () => void) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -67,7 +57,7 @@ export function useSave<V>(onSave: (value: V | null) => Promise<unknown>, onSave
       await onSave(value);
       onSaved();
     } catch (failure: unknown) {
-      setError(refusal(failure));
+      setError(sentenceOf(failure));
     } finally {
       setBusy(false);
     }

@@ -7,11 +7,13 @@ import { type ShellKind, useShell } from "../ui/shell-context";
 import { addLabel } from "../works/fields";
 import { useSignOut } from "./account";
 import { type NavRow, useAdminNav, useContentTypes } from "./nav";
+import { restartSelf, useRestartSelf } from "./restart/use-restart-self";
 import { toggleSidebar } from "./sidebar-state";
 
 export type CommandContext = {
   readonly navigate: UseNavigateResult<string>;
   readonly signOut: () => void;
+  readonly restart: () => void;
 };
 
 export type Command = {
@@ -32,6 +34,15 @@ const commands: readonly Command[] = [
     audience: "admin",
     shell: "desktop",
     run: toggleSidebar,
+  },
+  {
+    id: "restart",
+    label: restartSelf.label,
+    icon: restartSelf.icon,
+    audience: "admin",
+    run: ({ restart }) => {
+      restart();
+    },
   },
   {
     id: "sign-out",
@@ -85,7 +96,7 @@ function useAddCommands(): Command[] {
 }
 
 export function useCommandContext(): CommandContext {
-  return { navigate: useNavigate(), signOut: useSignOut() };
+  return { navigate: useNavigate(), signOut: useSignOut(), restart: useRestartSelf() };
 }
 
 export function useAdminCommands(): Command[] {

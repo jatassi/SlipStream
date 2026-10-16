@@ -7,6 +7,7 @@ import type {
   SettingSwitchField,
   SystemNodeConfig,
   SystemReport,
+  SystemRestarting,
 } from "../api/gen/model";
 import { problem } from "./handlers";
 import { homeId, homeSystem } from "./nodes";
@@ -173,4 +174,17 @@ export function nodeSystems({
     }),
   ];
   return { handlers, state, writes };
+}
+
+/** Every Node accepting a restart, answering before it stops. Records which Nodes were asked. */
+export function restarts(accepted: Partial<SystemRestarting> = {}) {
+  const asked: string[] = [];
+  const handler = http.post("*/api/v1/nodes/:id/restart", ({ params }) => {
+    asked.push(String(params["id"]));
+    return HttpResponse.json(
+      { startedAt: homeSystem.startedAt, boundPort: 8080, ...accepted },
+      { status: 202 },
+    );
+  });
+  return { handler, asked };
 }

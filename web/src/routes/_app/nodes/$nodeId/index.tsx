@@ -7,7 +7,6 @@ import { Skeleton } from "../../../../ui/skeleton";
 import { Facts } from "../-facts";
 import { loadNode } from "../-node";
 import { NodeProblem } from "../-node-problem";
-import { Overview } from "../-overview";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/")({
   staticData: { title: loaderTitle },
@@ -17,19 +16,8 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/")({
     return titled;
   },
   pendingComponent: () => <Skeleton label="Loading the Node" />,
-  errorComponent: function OverviewProblem(props) {
-    return (
-      <Overview nodeId={Route.useParams().nodeId}>
-        <NodeProblem {...props} />
-      </Overview>
-    );
-  },
+  errorComponent: NodeProblem,
   component: function NodeOverview() {
-    const { nodeId } = Route.useParams();
-    return (
-      <Overview nodeId={nodeId}>
-        <Facts nodeId={nodeId} />
-      </Overview>
-    );
+    return <Facts nodeId={Route.useParams().nodeId} />;
   },
 });
