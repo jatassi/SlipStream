@@ -20,7 +20,12 @@ export const tasksNow = new Date(local(16, 23));
 
 export const steps = { one: "step", many: "steps" } as const;
 
-const about = { source: "database", applies: "live", isDefault: true } as const;
+const about = {
+  source: "database",
+  applies: "live",
+  isDefault: true,
+  pendingRestart: false,
+} as const;
 
 const day = 86_400;
 
@@ -30,6 +35,7 @@ export const dailyCadence: SettingDurationField = {
   label: "Every",
   kind: "duration",
   value: day,
+  running: day,
   default: day,
   min: day,
   max: 7 * day,
@@ -42,6 +48,7 @@ const waitOverdue: SettingChoiceField = {
   label: "When overdue",
   kind: "choice",
   value: "wait",
+  running: "wait",
   default: "wait",
   options: [
     { value: "catch-up", label: "Catch up" },
@@ -85,6 +92,7 @@ export const schedule: TasksSchedule = {
     label: "Maintenance window",
     kind: "window",
     value: { start: "04:00", end: "06:00" },
+    running: { start: "04:00", end: "06:00" },
     default: { start: "04:00", end: "06:00" },
     zone: "Europe/London",
   },
@@ -93,6 +101,7 @@ export const schedule: TasksSchedule = {
     key: "tasks.overdue",
     label: "Overdue tasks",
     value: "catch-up",
+    running: "catch-up",
     default: "catch-up",
   },
   runsKept: {
@@ -101,6 +110,7 @@ export const schedule: TasksSchedule = {
     label: "Runs kept per task",
     kind: "count",
     value: 50,
+    running: 50,
     default: 50,
     min: 1,
     max: 1000,
@@ -112,6 +122,7 @@ export const schedule: TasksSchedule = {
     label: "Jitter",
     kind: "count",
     value: 10,
+    running: 10,
     default: 10,
     min: 0,
     max: 50,
@@ -123,6 +134,7 @@ export const schedule: TasksSchedule = {
     label: "Longest jitter",
     kind: "duration",
     value: 300,
+    running: 300,
     default: 300,
     min: 0,
     max: 3600,
@@ -134,6 +146,7 @@ export const schedule: TasksSchedule = {
     label: "Show a scheduled run in the header after",
     kind: "duration",
     value: 5,
+    running: 5,
     default: 5,
     min: 0,
     max: 300,
@@ -145,6 +158,7 @@ export const schedule: TasksSchedule = {
     label: "Warn when a unit has not succeeded for",
     kind: "count",
     value: 3,
+    running: 3,
     default: 3,
     min: 1,
     max: 100,

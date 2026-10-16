@@ -11,7 +11,7 @@ import type {
 import { renderKit } from "../test/render-kit";
 import { SettingField } from "./setting-field";
 
-const about = { source: "database", applies: "live" } as const;
+const about = { source: "database", applies: "live", pendingRestart: false } as const;
 
 const rss: SettingDurationField = {
   ...about,
@@ -20,6 +20,7 @@ const rss: SettingDurationField = {
   kind: "duration",
   isDefault: true,
   value: 900,
+  running: 900,
   default: 900,
   min: 600,
   max: 7200,
@@ -34,6 +35,7 @@ const housekeeping: SettingDurationField = {
   kind: "duration",
   isDefault: false,
   value: 172_800,
+  running: 172_800,
   default: 86_400,
   min: 86_400,
   max: 604_800,
@@ -47,6 +49,7 @@ const runsKept: SettingCountField = {
   kind: "count",
   isDefault: true,
   value: 50,
+  running: 50,
   default: 50,
   min: 1,
   max: 1000,
@@ -61,6 +64,7 @@ const overdue: SettingChoiceField = {
   isDefault: true,
   defaultFrom: "Scheduled tasks",
   value: "catch-up",
+  running: "catch-up",
   default: "catch-up",
   options: [
     { value: "catch-up", label: "Catch up" },
@@ -75,6 +79,7 @@ const maintenance: SettingWindowField = {
   kind: "window",
   isDefault: true,
   value: { start: "04:00", end: "06:00" },
+  running: { start: "04:00", end: "06:00" },
   default: { start: "04:00", end: "06:00" },
   zone: "Europe/London",
 };

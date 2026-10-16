@@ -121,9 +121,9 @@ const overdueOptions = `"options":[{"value":"catch-up","label":"Catch up"},{"val
 func tidyTask(hours int, state, lastRun, runNow string) string {
 	isDefault := hours == 8
 	return fmt.Sprintf(`{"id":"tidy","name":"Tidy","about":"Tidies up.","group":"controller","noun":{"one":"step","many":"steps"},`+
-		`"cadence":{"words":"Every %d h","inWindow":false,"field":{"key":"tasks.tidy.cadence","label":"Runs every","source":"database","applies":"live","isDefault":%t,"kind":"duration","value":%d,"default":28800,"min":3600,"max":86400,"step":3600}},`+
-		`"overdue":{"key":"tasks.tidy.overdue","label":"When overdue","source":"database","applies":"live","isDefault":true,"kind":"choice","value":"wait","default":"wait",%s},`+
-		`"state":%s,%s"nodes":["home"],"runNow":%s}`, hours, isDefault, hours*3600, overdueOptions, state, lastRun, runNow)
+		`"cadence":{"words":"Every %d h","inWindow":false,"field":{"key":"tasks.tidy.cadence","label":"Runs every","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"duration","value":%d,"running":%d,"default":28800,"min":3600,"max":86400,"step":3600}},`+
+		`"overdue":{"key":"tasks.tidy.overdue","label":"When overdue","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"wait","running":"wait","default":"wait",%s},`+
+		`"state":%s,%s"nodes":["home"],"runNow":%s}`, hours, isDefault, hours*3600, hours*3600, overdueOptions, state, lastRun, runNow)
 }
 
 const (
@@ -187,22 +187,22 @@ func TestTheScheduleSettingsSaveAndReset(t *testing.T) {
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/settings", `{"jitterPercent":51,"runsKept":20}`, http.StatusUnprocessableEntity,
 			`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 0 and 50%."}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/settings", `{"window":{"start":"01:00","end":"03:00"},"runsKept":20,"overdue":"wait"}`, http.StatusOK,
-			schedule(`"isDefault":false,"kind":"window","value":{"start":"01:00","end":"03:00"}`, `"isDefault":false,"kind":"count","value":20`, `"isDefault":false,"kind":"choice","value":"wait"`))
+			schedule(`"isDefault":false,"pendingRestart":false,"kind":"window","value":{"start":"01:00","end":"03:00"},"running":{"start":"01:00","end":"03:00"}`, `"isDefault":false,"pendingRestart":false,"kind":"count","value":20,"running":20`, `"isDefault":false,"pendingRestart":false,"kind":"choice","value":"wait","running":"wait"`))
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/settings", `{"window":null,"runsKept":null,"overdue":null}`, http.StatusOK,
-			schedule(`"isDefault":true,"kind":"window","value":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"kind":"count","value":50`, `"isDefault":true,"kind":"choice","value":"catch-up"`))
+			schedule(`"isDefault":true,"pendingRestart":false,"kind":"window","value":{"start":"04:00","end":"06:00"},"running":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"pendingRestart":false,"kind":"count","value":50,"running":50`, `"isDefault":true,"pendingRestart":false,"kind":"choice","value":"catch-up","running":"catch-up"`))
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/settings", "", http.StatusOK,
-			schedule(`"isDefault":true,"kind":"window","value":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"kind":"count","value":50`, `"isDefault":true,"kind":"choice","value":"catch-up"`))
+			schedule(`"isDefault":true,"pendingRestart":false,"kind":"window","value":{"start":"04:00","end":"06:00"},"running":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"pendingRestart":false,"kind":"count","value":50,"running":50`, `"isDefault":true,"pendingRestart":false,"kind":"choice","value":"catch-up","running":"catch-up"`))
 	})
 }
 
 func schedule(window, runsKept, overdue string) string {
 	about := `"source":"database","applies":"live",`
 	return `{"window":{"key":"tasks.window","label":"Maintenance window",` + about + window + `,"default":{"start":"04:00","end":"06:00"},"zone":"UTC"},` +
-		`"jitterPercent":{"key":"tasks.jitterPercent","label":"Jitter",` + about + `"isDefault":true,"kind":"count","value":10,"default":10,"min":0,"max":50,"unit":{"one":"%","many":"%"}},` +
-		`"jitterCap":{"key":"tasks.jitterCap","label":"Longest jitter",` + about + `"isDefault":true,"kind":"duration","value":300,"default":300,"min":0,"max":3600,"step":1},` +
+		`"jitterPercent":{"key":"tasks.jitterPercent","label":"Jitter",` + about + `"isDefault":true,"pendingRestart":false,"kind":"count","value":10,"running":10,"default":10,"min":0,"max":50,"unit":{"one":"%","many":"%"}},` +
+		`"jitterCap":{"key":"tasks.jitterCap","label":"Longest jitter",` + about + `"isDefault":true,"pendingRestart":false,"kind":"duration","value":300,"running":300,"default":300,"min":0,"max":3600,"step":1},` +
 		`"runsKept":{"key":"tasks.runsKept","label":"Runs kept per task",` + about + runsKept + `,"default":50,"min":1,"max":1000,"unit":{"one":"run","many":"runs"}},` +
-		`"headerDelay":{"key":"tasks.headerDelay","label":"Show a scheduled run in the header after",` + about + `"isDefault":true,"kind":"duration","value":5,"default":5,"min":0,"max":300,"step":1},` +
-		`"partialWarnIntervals":{"key":"tasks.partialWarnIntervals","label":"Warn when a unit has not succeeded for",` + about + `"isDefault":true,"kind":"count","value":3,"default":3,"min":1,"max":100,"unit":{"one":"interval","many":"intervals"}},` +
+		`"headerDelay":{"key":"tasks.headerDelay","label":"Show a scheduled run in the header after",` + about + `"isDefault":true,"pendingRestart":false,"kind":"duration","value":5,"running":5,"default":5,"min":0,"max":300,"step":1},` +
+		`"partialWarnIntervals":{"key":"tasks.partialWarnIntervals","label":"Warn when a unit has not succeeded for",` + about + `"isDefault":true,"pendingRestart":false,"kind":"count","value":3,"running":3,"default":3,"min":1,"max":100,"unit":{"one":"interval","many":"intervals"}},` +
 		`"overdue":{"key":"tasks.overdue","label":"Overdue tasks",` + about + overdue + `,"default":"catch-up",` + overdueOptions + `}}`
 }
 
@@ -220,12 +220,12 @@ func TestTheTasksPageListsShownTasksAndWhatWaits(t *testing.T) {
 			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
 		status, body := o.Call(t, http.MethodGet, "/api/v1/tasks", "")
 		farTask := `{"id":"far","name":"Far","about":"Tidies up.","group":"acquire","noun":{"one":"step","many":"steps"},` +
-			`"cadence":{"words":"Every 8 h","inWindow":false,"field":{"key":"tasks.tidy.cadence","label":"Runs every","source":"database","applies":"live","isDefault":true,"kind":"duration","value":28800,"default":28800,"min":3600,"max":86400,"step":3600}},` +
-			`"overdue":{"key":"tasks.far.overdue","label":"When overdue","source":"database","applies":"live","isDefault":true,"kind":"choice","value":"wait","default":"wait",` + overdueOptions + `},` +
+			`"cadence":{"words":"Every 8 h","inWindow":false,"field":{"key":"tasks.tidy.cadence","label":"Runs every","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"duration","value":28800,"running":28800,"default":28800,"min":3600,"max":86400,"step":3600}},` +
+			`"overdue":{"key":"tasks.far.overdue","label":"When overdue","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"wait","running":"wait","default":"wait",` + overdueOptions + `},` +
 			`"state":{"kind":"waiting","node":"seedbox","link":"down","since":"T"},"nodes":["seedbox"],"runNow":{"available":false,"reason":"waiting"}}`
 		want := `{"multinode":true,"sentence":[{"kind":"warning","text":"1 task is waiting for seedbox.","href":"/tasks/far"}],` +
 			`"groups":[{"group":"controller","tasks":[` + tidyTask(8, idle, "", available) + `]},{"group":"acquire","tasks":[` + farTask + `]}],` +
-			`"settings":` + schedule(`"isDefault":true,"kind":"window","value":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"kind":"count","value":50`, `"isDefault":true,"kind":"choice","value":"catch-up"`) + "}\n"
+			`"settings":` + schedule(`"isDefault":true,"pendingRestart":false,"kind":"window","value":{"start":"04:00","end":"06:00"},"running":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"pendingRestart":false,"kind":"count","value":50,"running":50`, `"isDefault":true,"pendingRestart":false,"kind":"choice","value":"catch-up","running":"catch-up"`) + "}\n"
 		if got := ownertest.Masked(body); status != http.StatusOK || got != want {
 			t.Fatalf("GET /tasks = %d\n%s\nwant\n%s", status, got, want)
 		}

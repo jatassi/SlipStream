@@ -45,13 +45,13 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 	}
 	want := `[` +
 		`{"key":"http.listen","label":"Port","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"port","value":8484,"running":8484,"default":8484},` +
-		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":"ports"},` +
+		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":{"one":"port","many":"ports"}},` +
 		`{"key":"log.level","label":"Level","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"info","running":"info","default":"info","options":[{"value":"debug","label":"Debug"},{"value":"info","label":"Info"},{"value":"warn","label":"Warn"},{"value":"error","label":"Error"}]},` +
-		`{"key":"log.max_size_mb","label":"Rotate at","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":10,"running":10,"default":10,"min":1,"max":1000,"unit":"MB"},` +
-		`{"key":"log.max_files","label":"Files kept","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":5,"running":5,"default":5,"min":0,"max":100,"unit":"files","zero":"No limit"},` +
-		`{"key":"log.max_age_days","label":"Days kept","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":30,"running":30,"default":30,"min":0,"max":3650,"unit":"days","zero":"No limit"},` +
+		`{"key":"log.max_size_mb","label":"Rotate at","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":10,"running":10,"default":10,"min":1,"max":1000,"unit":{"one":"MB","many":"MB"}},` +
+		`{"key":"log.max_files","label":"Files kept","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":5,"running":5,"default":5,"min":0,"max":100,"unit":{"one":"file","many":"files"},"zero":"No limit"},` +
+		`{"key":"log.max_age_days","label":"Days kept","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":30,"running":30,"default":30,"min":0,"max":3650,"unit":{"one":"day","many":"days"},"zero":"No limit"},` +
 		`{"key":"log.compress","label":"Compress rotated files","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true},` +
-		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":"lines"}` +
+		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":{"one":"line","many":"lines"}}` +
 		`]`
 	if string(got) != want {
 		t.Fatalf("fields =\n%s\nwant\n%s", got, want)
@@ -68,7 +68,7 @@ func TestAFieldNamesItsLockAndAPendingRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"key":"http.ports_to_try","label":"Ports to try","source":".env","applies":"restart","isDefault":false,"lockedBy":"SLIPSTREAM_HTTP_PORTS_TO_TRY","pendingRestart":true,"kind":"count","value":3,"running":10,"default":10,"min":1,"max":100,"unit":"ports"}`
+	want := `{"key":"http.ports_to_try","label":"Ports to try","source":".env","applies":"restart","isDefault":false,"lockedBy":"SLIPSTREAM_HTTP_PORTS_TO_TRY","pendingRestart":true,"kind":"count","value":3,"running":10,"default":10,"min":1,"max":100,"unit":{"one":"port","many":"ports"}}`
 	if string(got) != want {
 		t.Fatalf("field = %s, want %s", got, want)
 	}
