@@ -4,7 +4,7 @@ A person signs in on the Controller with their email and four-digit PIN. A wrong
 
 ## Sub-features
 
-- `sign-in-redirect` an anonymous visit to `/system` lands on `/sign-in?redirect=%2Fsystem`, and signing in returns to This Node.
+- `sign-in-redirect` an anonymous visit to `/system` lands on `/sign-in?redirect=%2Fsystem`, and signing in returns there, which lands on Nodes at `/nodes/<id>`.
 - `sign-in-wrong-pin` a wrong PIN shows the alert `The email or PIN is wrong` and empties the PIN.
 - `sign-in-pin` the right email and PIN sign in; the email is matched without case or surrounding spaces.
 - `sign-in-saved-state` `bin/sign-in.ts` signs in through the real page, and its saved state opens a signed-in session.
@@ -40,13 +40,13 @@ Steps:
   $FW exec $RUN --proof sign-in/sign-in-wrong-pin -- $PW cli -s={runId}-ada-desktop snapshot --filename={runDir}/proof/sign-in/sign-in-wrong-pin/form.aria.yml
   ```
 
-- **Right PIN.** Type the manifest's PIN, `2468`. This Node opens at `/system`.
+- **Right PIN.** Type the manifest's PIN, `2468`. `/system` opens and lands on Nodes at `/nodes/<id>`, headed `home`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-ada-desktop click 'getByRole("textbox", { name: "PIN", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-ada-desktop type 2468
-  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop run-code 'async page => { await page.getByRole("heading", { name: "This Node" }).waitFor({ timeout: 10000 }); }'
-  $FW exec $RUN --proof sign-in/sign-in-redirect -- $PW cli -s={runId}-ada-desktop screenshot --filename={runDir}/proof/sign-in/sign-in-redirect/this-node.png
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop run-code 'async page => { await page.getByRole("heading", { name: "home", level: 1 }).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof sign-in/sign-in-redirect -- $PW cli -s={runId}-ada-desktop screenshot --filename={runDir}/proof/sign-in/sign-in-redirect/nodes.png
   ```
 
 - **Sign out.** Choose `Account`, then `Sign out`. The page reads `Sign in to SlipStream` with the status `You signed out.` at `/sign-in?reason=signed-out`.

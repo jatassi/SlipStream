@@ -13,7 +13,7 @@ const workerNode = [
   ),
 ];
 
-test.each(["/", "/system", "/sign-in", "/setup"])(
+test.each(["/", "/nodes", "/sign-in", "/setup"])(
   "a visit to %s on a Worker lands on /worker",
   async (path) => {
     const { router } = renderApp({ path, handlers: workerNode });

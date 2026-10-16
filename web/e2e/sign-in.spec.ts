@@ -25,8 +25,8 @@ test("sign-in returns to the page asked for and sign-out ends the session", asyn
 
   await page.getByLabel("Email").clear();
   await signIn(page, `  ${email.toUpperCase()}  `, pin);
-  await expect(page.getByRole("heading", { name: "This Node" })).toBeVisible();
-  expect(page.url()).toBe(`${world.baseURL}/system`);
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  expect(new URL(page.url()).pathname).toMatch(/^\/nodes\/[0-9a-f-]{36}$/u);
   await expectAccessible(page);
 
   await page.goto("/");

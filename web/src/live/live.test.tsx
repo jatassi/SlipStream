@@ -46,7 +46,7 @@ const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
 test("works.changed invalidates the Works, that Work, its cells and every catalog search", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/system", handlers: server.handlers });
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     list: getListWorksQueryKey(),
@@ -68,7 +68,7 @@ test("works.changed invalidates the Works, that Work, its cells and every catalo
 
 test("targets.changed invalidates every Work's cells and no Work", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/system", handlers: server.handlers });
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     orchard: getGetWorkCellsQueryKey(orchard),
@@ -82,7 +82,7 @@ test("targets.changed invalidates every Work's cells and no Work", async () => {
 
 test("files.changed invalidates only that Work's cells", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/system", handlers: server.handlers });
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     orchard: getGetWorkCellsQueryKey(orchard),
@@ -96,8 +96,8 @@ test("files.changed invalidates only that Work's cells", async () => {
 test("live.resync refetches every active query once", async () => {
   const server = liveServer();
   const requests = countRequests();
-  renderApp({ path: "/system", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
+  renderApp({ path: "/nodes", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
   const reads = () => ({
     system: requests("GET /api/v1/system"),
     session: requests("GET /api/v1/session"),
@@ -110,8 +110,8 @@ test("live.resync refetches every active query once", async () => {
 
 test("live.session-ended clears this tab and every other tab", async () => {
   const server = liveServer();
-  const first = renderApp({ path: "/system", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
+  const first = renderApp({ path: "/nodes", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
   const second = renderApp({ path: "/" });
   await expect.poll(() => server.clients.length).toBe(2);
 
@@ -127,8 +127,8 @@ test("an event that fails to parse is reported once and resyncs", async () => {
   const server = liveServer();
   const requests = countRequests();
   const reported = vi.spyOn(globalThis, "reportError").mockImplementation(() => {});
-  renderApp({ path: "/system", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
+  renderApp({ path: "/nodes", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
 
   server.clients[0]?.dispatchEvent(
     new MessageEvent("identity.sessions-changed", { data: JSON.stringify({ account: 42 }) }),

@@ -4,9 +4,11 @@ import { page, userEvent } from "vitest/browser";
 
 import { getGetSystemMockHandler } from "../api/gen/query/system/system.msw";
 import { problem, signedInAsGrace } from "../test/handlers";
+import { homeId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 
 const mainNav = () => page.getByRole("navigation", { name: "Main" });
+const homePage = `/nodes/${homeId}`;
 
 const system = getGetSystemMockHandler({
   build: { stamped: true, version: "0.4.0" },
@@ -25,7 +27,7 @@ const system = getGetSystemMockHandler({
 test("a page that fails says why in the content, keeps the sidebar, and Try again reloads it", async () => {
   let failing = true;
   renderApp({
-    path: "/system",
+    path: homePage,
     handlers: [
       http.get("*/api/v1/system", () =>
         failing ? problem(500, "internal_error", "Something went wrong on this Node") : undefined,
@@ -43,14 +45,13 @@ test("a page that fails says why in the content, keeps the sidebar, and Try agai
 
   failing = false;
   await userEvent.click(page.getByRole("button", { name: "Try again" }));
-  await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
   await expect.element(page.getByText("0.4.0")).toBeVisible();
   await expect.element(alert).not.toBeInTheDocument();
 });
 
 test("a page whose server doesn't answer says so", async () => {
   renderApp({
-    path: "/system",
+    path: homePage,
     handlers: [http.get("*/api/v1/system", () => HttpResponse.error())],
   });
   await expect
@@ -62,7 +63,7 @@ test("a page whose server doesn't answer says so", async () => {
 
 test("a page that throws in the browser says it couldn't load and shows the message", async () => {
   renderApp({
-    path: "/system",
+    path: homePage,
     handlers: [http.get("*/api/v1/system", () => HttpResponse.json({ build: {} }))],
   });
   await expect.element(page.getByRole("alert")).toHaveTextContent("This page couldn't load.");
@@ -73,7 +74,7 @@ test("a page that throws in the browser says it couldn't load and shows the mess
 
 test("a page for Admins says so and links to the portal", async () => {
   renderApp({
-    path: "/system",
+    path: homePage,
     handlers: [
       http.get("*/api/v1/system", () => problem(403, "needs_admin", "Only an Admin can do this")),
     ],

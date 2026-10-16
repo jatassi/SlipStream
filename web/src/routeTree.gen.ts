@@ -19,6 +19,7 @@ import { Route as AppSplatRouteImport } from "./routes/_app/$";
 import { Route as AppActivityRouteImport } from "./routes/_app/activity";
 import { Route as AppAddRouteImport } from "./routes/_app/add";
 import { Route as AppLibraryRouteRouteImport } from "./routes/_app/library/route";
+import { Route as AppNodesRouteRouteImport } from "./routes/_app/nodes/route";
 import { Route as AppSystemRouteImport } from "./routes/_app/system";
 import { Route as PortalIndexRouteImport } from "./routes/portal/index";
 import { Route as PortalSplatRouteImport } from "./routes/portal/$";
@@ -27,7 +28,13 @@ import { Route as PortalRequestsRouteImport } from "./routes/portal/requests";
 import { Route as PortalSearchRouteImport } from "./routes/portal/search";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
+import { Route as AppNodesIndexRouteImport } from "./routes/_app/nodes/index";
+import { Route as AppNodesNodeIdRouteRouteImport } from "./routes/_app/nodes/$nodeId/route";
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
+import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
+import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
+import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
+import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
 
 const AppRoute = AppRouteImport.update({
   id: "/_app",
@@ -78,6 +85,11 @@ const AppLibraryRouteRoute = AppLibraryRouteRouteImport.update({
   path: "/library",
   getParentRoute: () => AppRoute,
 } as any);
+const AppNodesRouteRoute = AppNodesRouteRouteImport.update({
+  id: "/nodes",
+  path: "/nodes",
+  getParentRoute: () => AppRoute,
+} as any);
 const AppSystemRoute = AppSystemRouteImport.update({
   id: "/system",
   path: "/system",
@@ -118,10 +130,41 @@ const AppLibraryContentTypeRoute = AppLibraryContentTypeRouteImport.update({
   path: "/$contentType",
   getParentRoute: () => AppLibraryRouteRoute,
 } as any);
+const AppNodesIndexRoute = AppNodesIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AppNodesRouteRoute,
+} as any);
+const AppNodesNodeIdRouteRoute = AppNodesNodeIdRouteRouteImport.update({
+  id: "/$nodeId",
+  path: "/$nodeId",
+  getParentRoute: () => AppNodesRouteRoute,
+} as any);
 const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
   id: "/works/$workId",
   path: "/works/$workId",
   getParentRoute: () => AppRoute,
+} as any);
+const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
+const AppNodesNodeIdLogSettingsRoute =
+  AppNodesNodeIdLogSettingsRouteImport.update({
+    id: "/log-settings",
+    path: "/log-settings",
+    getParentRoute: () => AppNodesNodeIdRouteRoute,
+  } as any);
+const AppNodesNodeIdLogsRoute = AppNodesNodeIdLogsRouteImport.update({
+  id: "/logs",
+  path: "/logs",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
+const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
+  id: "/web",
+  path: "/web",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
 
 export interface FileRoutesByFullPath {
@@ -131,6 +174,7 @@ export interface FileRoutesByFullPath {
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
   "/library": typeof AppLibraryRouteRouteWithChildren;
+  "/nodes": typeof AppNodesRouteRouteWithChildren;
   "/$": typeof AppSplatRoute;
   "/activity": typeof AppActivityRoute;
   "/add": typeof AppAddRoute;
@@ -140,9 +184,15 @@ export interface FileRoutesByFullPath {
   "/portal/requests": typeof PortalRequestsRoute;
   "/portal/search": typeof PortalSearchRoute;
   "/portal/": typeof PortalIndexRoute;
+  "/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/library/": typeof AppLibraryIndexRoute;
+  "/nodes/": typeof AppNodesIndexRoute;
+  "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
+  "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/nodes/$nodeId/": typeof AppNodesNodeIdIndexRoute;
 }
 export interface FileRoutesByTo {
   "/setup": typeof SetupRoute;
@@ -161,6 +211,11 @@ export interface FileRoutesByTo {
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
   "/library": typeof AppLibraryIndexRoute;
+  "/nodes": typeof AppNodesIndexRoute;
+  "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
+  "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/nodes/$nodeId": typeof AppNodesNodeIdIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -170,6 +225,7 @@ export interface FileRoutesById {
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
+  "/_app/nodes": typeof AppNodesRouteRouteWithChildren;
   "/_app/$": typeof AppSplatRoute;
   "/_app/activity": typeof AppActivityRoute;
   "/_app/add": typeof AppAddRoute;
@@ -180,9 +236,15 @@ export interface FileRoutesById {
   "/portal/search": typeof PortalSearchRoute;
   "/_app/": typeof AppIndexRoute;
   "/portal/": typeof PortalIndexRoute;
+  "/_app/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
+  "/_app/nodes/": typeof AppNodesIndexRoute;
+  "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
+  "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/_app/nodes/$nodeId/": typeof AppNodesNodeIdIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -193,6 +255,7 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/worker"
     | "/library"
+    | "/nodes"
     | "/$"
     | "/activity"
     | "/add"
@@ -202,9 +265,15 @@ export interface FileRouteTypes {
     | "/portal/requests"
     | "/portal/search"
     | "/portal/"
+    | "/nodes/$nodeId"
     | "/library/$contentType"
     | "/works/$workId"
-    | "/library/";
+    | "/library/"
+    | "/nodes/"
+    | "/nodes/$nodeId/log-settings"
+    | "/nodes/$nodeId/logs"
+    | "/nodes/$nodeId/web"
+    | "/nodes/$nodeId/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/setup"
@@ -222,7 +291,12 @@ export interface FileRouteTypes {
     | "/portal"
     | "/library/$contentType"
     | "/works/$workId"
-    | "/library";
+    | "/library"
+    | "/nodes"
+    | "/nodes/$nodeId/log-settings"
+    | "/nodes/$nodeId/logs"
+    | "/nodes/$nodeId/web"
+    | "/nodes/$nodeId";
   id:
     | "__root__"
     | "/_app"
@@ -231,6 +305,7 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/worker"
     | "/_app/library"
+    | "/_app/nodes"
     | "/_app/$"
     | "/_app/activity"
     | "/_app/add"
@@ -241,9 +316,15 @@ export interface FileRouteTypes {
     | "/portal/search"
     | "/_app/"
     | "/portal/"
+    | "/_app/nodes/$nodeId"
     | "/_app/library/$contentType"
     | "/_app/works/$workId"
-    | "/_app/library/";
+    | "/_app/library/"
+    | "/_app/nodes/"
+    | "/_app/nodes/$nodeId/log-settings"
+    | "/_app/nodes/$nodeId/logs"
+    | "/_app/nodes/$nodeId/web"
+    | "/_app/nodes/$nodeId/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -326,6 +407,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppLibraryRouteRouteImport;
       parentRoute: typeof AppRoute;
     };
+    "/_app/nodes": {
+      id: "/_app/nodes";
+      path: "/nodes";
+      fullPath: "/nodes";
+      preLoaderRoute: typeof AppNodesRouteRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/system": {
       id: "/_app/system";
       path: "/system";
@@ -382,12 +470,54 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppLibraryContentTypeRouteImport;
       parentRoute: typeof AppLibraryRouteRoute;
     };
+    "/_app/nodes/": {
+      id: "/_app/nodes/";
+      path: "/";
+      fullPath: "/nodes/";
+      preLoaderRoute: typeof AppNodesIndexRouteImport;
+      parentRoute: typeof AppNodesRouteRoute;
+    };
+    "/_app/nodes/$nodeId": {
+      id: "/_app/nodes/$nodeId";
+      path: "/$nodeId";
+      fullPath: "/nodes/$nodeId";
+      preLoaderRoute: typeof AppNodesNodeIdRouteRouteImport;
+      parentRoute: typeof AppNodesRouteRoute;
+    };
     "/_app/works/$workId": {
       id: "/_app/works/$workId";
       path: "/works/$workId";
       fullPath: "/works/$workId";
       preLoaderRoute: typeof AppWorksWorkIdRouteImport;
       parentRoute: typeof AppRoute;
+    };
+    "/_app/nodes/$nodeId/": {
+      id: "/_app/nodes/$nodeId/";
+      path: "/";
+      fullPath: "/nodes/$nodeId/";
+      preLoaderRoute: typeof AppNodesNodeIdIndexRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
+    "/_app/nodes/$nodeId/log-settings": {
+      id: "/_app/nodes/$nodeId/log-settings";
+      path: "/log-settings";
+      fullPath: "/nodes/$nodeId/log-settings";
+      preLoaderRoute: typeof AppNodesNodeIdLogSettingsRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
+    "/_app/nodes/$nodeId/logs": {
+      id: "/_app/nodes/$nodeId/logs";
+      path: "/logs";
+      fullPath: "/nodes/$nodeId/logs";
+      preLoaderRoute: typeof AppNodesNodeIdLogsRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
+    "/_app/nodes/$nodeId/web": {
+      id: "/_app/nodes/$nodeId/web";
+      path: "/web";
+      fullPath: "/nodes/$nodeId/web";
+      preLoaderRoute: typeof AppNodesNodeIdWebRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
   }
 }
@@ -406,8 +536,40 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
   AppLibraryRouteRouteChildren,
 );
 
+interface AppNodesNodeIdRouteRouteChildren {
+  AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
+  AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
+  AppNodesNodeIdWebRoute: typeof AppNodesNodeIdWebRoute;
+  AppNodesNodeIdIndexRoute: typeof AppNodesNodeIdIndexRoute;
+}
+
+const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
+  AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
+  AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
+  AppNodesNodeIdWebRoute: AppNodesNodeIdWebRoute,
+  AppNodesNodeIdIndexRoute: AppNodesNodeIdIndexRoute,
+};
+
+const AppNodesNodeIdRouteRouteWithChildren =
+  AppNodesNodeIdRouteRoute._addFileChildren(AppNodesNodeIdRouteRouteChildren);
+
+interface AppNodesRouteRouteChildren {
+  AppNodesNodeIdRouteRoute: typeof AppNodesNodeIdRouteRouteWithChildren;
+  AppNodesIndexRoute: typeof AppNodesIndexRoute;
+}
+
+const AppNodesRouteRouteChildren: AppNodesRouteRouteChildren = {
+  AppNodesNodeIdRouteRoute: AppNodesNodeIdRouteRouteWithChildren,
+  AppNodesIndexRoute: AppNodesIndexRoute,
+};
+
+const AppNodesRouteRouteWithChildren = AppNodesRouteRoute._addFileChildren(
+  AppNodesRouteRouteChildren,
+);
+
 interface AppRouteChildren {
   AppLibraryRouteRoute: typeof AppLibraryRouteRouteWithChildren;
+  AppNodesRouteRoute: typeof AppNodesRouteRouteWithChildren;
   AppSplatRoute: typeof AppSplatRoute;
   AppActivityRoute: typeof AppActivityRoute;
   AppAddRoute: typeof AppAddRoute;
@@ -418,6 +580,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppLibraryRouteRoute: AppLibraryRouteRouteWithChildren,
+  AppNodesRouteRoute: AppNodesRouteRouteWithChildren,
   AppSplatRoute: AppSplatRoute,
   AppActivityRoute: AppActivityRoute,
   AppAddRoute: AppAddRoute,

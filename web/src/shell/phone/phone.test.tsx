@@ -70,7 +70,7 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
   });
   await userEvent.click(tabs().getByRole("button", { name: "More" }));
   const sheet = page.getByRole("dialog", { name: "More" });
-  await expect.element(sheet.getByRole("button", { name: "This Node" })).toBeVisible();
+  await expect.element(sheet.getByRole("button", { name: "Nodes" })).toBeVisible();
   await expect.element(sheet.getByText("SlipStream 0.4.0")).toBeVisible();
   await expect.element(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
   expect(
@@ -78,7 +78,7 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
       .getByRole("button")
       .all()
       .map((button) => button.element().textContent),
-  ).toEqual(["Films", "This Node", "Open the portal", "Sign out", "Cancel"]);
+  ).toEqual(["Films", "Nodes", "Open the portal", "Sign out", "Cancel"]);
   const startup = sheet.getByRole("switch", { name: "Startup sequence" });
   await expect.element(startup).toBeChecked();
   await userEvent.click(sheet.getByText("Startup sequence"));
@@ -89,9 +89,10 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
   await expect.element(sheet).not.toBeInTheDocument();
 
   await userEvent.click(tabs().getByRole("button", { name: "More" }));
-  await userEvent.click(sheet.getByRole("button", { name: "This Node" }));
+  await userEvent.click(sheet.getByRole("button", { name: "Nodes" }));
   await expect.element(sheet).not.toBeInTheDocument();
-  await expect.poll(() => router.state.location.href).toBe("/system");
+  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  expect(router.state.location.pathname).toMatch(/^\/nodes\/[0-9a-f-]{36}$/u);
   await expect
     .element(tabs().getByRole("button", { name: "More" }))
     .not.toHaveAttribute("aria-current");

@@ -16,6 +16,7 @@ export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collap
         <li key={row.id}>
           <Row
             link={{ to: row.to }}
+            within={row.lands !== undefined}
             label={row.label}
             icon={row.icon}
             count={
@@ -50,6 +51,7 @@ type RowCount = { value: number; dot: CountDot };
 
 function Row({
   link,
+  within = false,
   label,
   icon,
   count,
@@ -57,6 +59,7 @@ function Row({
   nested = false,
 }: {
   link: LinkProps;
+  within?: boolean;
   label: string;
   icon: IconSvgElement;
   count?: RowCount | undefined;
@@ -67,7 +70,7 @@ function Row({
   const anchor = (
     <Link
       {...link}
-      activeOptions={{ exact: true }}
+      activeOptions={{ exact: !within }}
       className={`flex h-8 items-center gap-2.5 rounded-item text-body text-ink-2 transition-colors duration-(--duration-control) hover:bg-fill hover:text-ink-1 aria-[current=page]:bg-selected aria-[current=page]:font-medium aria-[current=page]:text-ink-1 ${collapsed ? "justify-center" : nested ? "pr-2.5 pl-8" : "px-2.5"}`}
     >
       <span className="relative flex shrink-0">
