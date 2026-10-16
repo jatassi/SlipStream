@@ -44,10 +44,14 @@ export async function signOut(page: Page): Promise<void> {
       .getByRole("dialog", { name: "More" })
       .getByRole("button", { name: "Sign out" })
       .click();
-    return;
+  } else {
+    await page.getByRole("button", { name: "Account" }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
   }
-  await page.getByRole("button", { name: "Account" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await page
+    .getByRole("dialog", { name: "Sign out of this device?" })
+    .getByRole("button", { name: "Sign out" })
+    .click();
 }
 
 export const pageAction = (page: Page, name: string) =>
