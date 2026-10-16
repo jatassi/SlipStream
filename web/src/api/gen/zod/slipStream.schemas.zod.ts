@@ -1,5 +1,32 @@
 import * as zod from "zod";
 
+export const accountPatchInputBodyDisplayNameMax = 100;
+
+export const accountPatchInputBodyEmailMax = 254;
+
+export const AccountPatchInputBody = zod.object({
+  admin: zod.boolean().exactOptional(),
+  disabled: zod.boolean().exactOptional().describe("Turning it off ends every session it holds"),
+  displayName: zod.string().min(1).max(accountPatchInputBodyDisplayNameMax).exactOptional(),
+  email: zod
+    .email()
+    .max(accountPatchInputBodyEmailMax)
+    .exactOptional()
+    .describe("Changed at once; the old address is told"),
+});
+
+export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
+export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
+
+export const emailChangeInputBodyEmailMax = 254;
+
+export const EmailChangeInputBody = zod.object({
+  email: zod.email().max(emailChangeInputBodyEmailMax),
+});
+
+export type EmailChangeInputBody = zod.input<typeof EmailChangeInputBody>;
+export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>;
+
 export const FieldError = zod.object({
   location: zod.string(),
   message: zod.string(),
@@ -270,6 +297,82 @@ export const IdentityAccount = zod.object({
 export type IdentityAccount = zod.input<typeof IdentityAccount>;
 export type IdentityAccountOutput = zod.output<typeof IdentityAccount>;
 
+export const IdentityPinState = zod.object({
+  state: zod.enum(["fine", "waiting", "off"]),
+  until: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When the wait ends, while it waits"),
+});
+
+export type IdentityPinState = zod.input<typeof IdentityPinState>;
+export type IdentityPinStateOutput = zod.output<typeof IdentityPinState>;
+
+export const identityAccountRowDisplayNameMax = 100;
+
+export const identityAccountRowEmailMax = 254;
+
+export const IdentityAccountRow = zod.object({
+  admin: zod.boolean(),
+  disabled: zod.boolean().describe("Turned off: it can't sign in and holds no session"),
+  displayName: zod.string().min(1).max(identityAccountRowDisplayNameMax),
+  email: zod.email().max(identityAccountRowEmailMax),
+  id: zod.uuid(),
+  lastSignInAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("Absent until it first signs in"),
+  passkeyCount: zod.int(),
+  pin: IdentityPinState,
+});
+
+export type IdentityAccountRow = zod.input<typeof IdentityAccountRow>;
+export type IdentityAccountRowOutput = zod.output<typeof IdentityAccountRow>;
+
+export const IdentityPasskey = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+  host: zod.string().describe("The address's host the passkey signs in at"),
+  id: zod.uuid(),
+  lastUsedAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  name: zod.string(),
+});
+
+export type IdentityPasskey = zod.input<typeof IdentityPasskey>;
+export type IdentityPasskeyOutput = zod.output<typeof IdentityPasskey>;
+
+export const IdentitySessionRow = zod.object({
+  address: zod.string().describe("The client address it signed in from"),
+  createdAt: zod.iso.datetime({ offset: true }),
+  current: zod.boolean().describe("The session making this request"),
+  device: zod.string().describe("Such as Safari on iPhone, from the browser at sign-in"),
+  id: zod.uuid(),
+  lastSeenAt: zod.iso.datetime({ offset: true }),
+});
+
+export type IdentitySessionRow = zod.input<typeof IdentitySessionRow>;
+export type IdentitySessionRowOutput = zod.output<typeof IdentitySessionRow>;
+
+export const IdentityAccountDetail = zod.object({
+  account: IdentityAccountRow,
+  passkeys: zod.array(IdentityPasskey),
+  sessions: zod.array(IdentitySessionRow),
+});
+
+export type IdentityAccountDetail = zod.input<typeof IdentityAccountDetail>;
+export type IdentityAccountDetailOutput = zod.output<typeof IdentityAccountDetail>;
+
+export const IdentityAccountRows = zod.object({
+  accounts: zod.array(IdentityAccountRow),
+});
+
+export type IdentityAccountRows = zod.input<typeof IdentityAccountRows>;
+export type IdentityAccountRowsOutput = zod.output<typeof IdentityAccountRows>;
+
+export const IdentityAccountsChanged = zod.object({});
+
+export type IdentityAccountsChanged = zod.input<typeof IdentityAccountsChanged>;
+export type IdentityAccountsChangedOutput = zod.output<typeof IdentityAccountsChanged>;
+
 export const IdentityApiKeyMade = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
 });
@@ -301,6 +404,110 @@ export const IdentityClaimed = zod.object({
 
 export type IdentityClaimed = zod.input<typeof IdentityClaimed>;
 export type IdentityClaimedOutput = zod.output<typeof IdentityClaimed>;
+
+export const IdentityDeadLink = zod.object({
+  adminName: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "Who to ask: absent for unknown, which names nobody, and for a link the API key or the host command issued",
+    ),
+  expiresAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("Every reason but unknown"),
+  issuedAt: zod.iso.datetime({ offset: true }).exactOptional().describe("Every reason but unknown"),
+  reason: zod.enum(["unknown", "withdrawn", "expired", "used"]),
+  state: zod.enum(["dead"]),
+});
+
+export type IdentityDeadLink = zod.input<typeof IdentityDeadLink>;
+export type IdentityDeadLinkOutput = zod.output<typeof IdentityDeadLink>;
+
+export const MailOutcome = zod.object({
+  detail: zod
+    .string()
+    .exactOptional()
+    .describe("The mail server's reply, or why none answered, when the email failed"),
+  outcome: zod.enum(["sent", "failed", "not-set-up"]),
+});
+
+export type MailOutcome = zod.input<typeof MailOutcome>;
+export type MailOutcomeOutput = zod.output<typeof MailOutcome>;
+
+export const IdentityEmailChangeStarted = zod.object({
+  email: MailOutcome.describe("What became of the confirm link's email to the new address"),
+});
+
+export type IdentityEmailChangeStarted = zod.input<typeof IdentityEmailChangeStarted>;
+export type IdentityEmailChangeStartedOutput = zod.output<typeof IdentityEmailChangeStarted>;
+
+export const IdentityIssuedResetLink = zod.object({
+  email: MailOutcome,
+  url: zod.url().describe("The link itself, shown only in this answer"),
+});
+
+export type IdentityIssuedResetLink = zod.input<typeof IdentityIssuedResetLink>;
+export type IdentityIssuedResetLinkOutput = zod.output<typeof IdentityIssuedResetLink>;
+
+export const IdentityPendingLink = zod.object({
+  email: zod.email(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  id: zod.uuid(),
+  issuedAt: zod.iso.datetime({ offset: true }),
+  issuedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The Admin who issued it; absent for the API key"),
+});
+
+export type IdentityPendingLink = zod.input<typeof IdentityPendingLink>;
+export type IdentityPendingLinkOutput = zod.output<typeof IdentityPendingLink>;
+
+export const IdentityIssuedSignupLink = zod.object({
+  email: MailOutcome,
+  link: IdentityPendingLink,
+  url: zod.url().describe("The link itself, to copy"),
+});
+
+export type IdentityIssuedSignupLink = zod.input<typeof IdentityIssuedSignupLink>;
+export type IdentityIssuedSignupLinkOutput = zod.output<typeof IdentityIssuedSignupLink>;
+
+export const IdentityLiveLink = zod.object({
+  adminName: zod
+    .string()
+    .exactOptional()
+    .describe("Who issued the link; absent when the API key or the host command did"),
+  email: zod
+    .email()
+    .describe("Where the link went: the Account's email, or the new one it confirms"),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  serverName: zod.string(),
+  state: zod.enum(["live"]),
+});
+
+export type IdentityLiveLink = zod.input<typeof IdentityLiveLink>;
+export type IdentityLiveLinkOutput = zod.output<typeof IdentityLiveLink>;
+
+export const IdentityLinkView = zod.discriminatedUnion("state", [
+  IdentityLiveLink,
+  IdentityDeadLink,
+]);
+
+export type IdentityLinkView = zod.input<typeof IdentityLinkView>;
+export type IdentityLinkViewOutput = zod.output<typeof IdentityLinkView>;
+
+export const IdentityLinksChanged = zod.object({});
+
+export type IdentityLinksChanged = zod.input<typeof IdentityLinksChanged>;
+export type IdentityLinksChangedOutput = zod.output<typeof IdentityLinksChanged>;
+
+export const IdentityPendingLinks = zod.object({
+  links: zod.array(IdentityPendingLink),
+});
+
+export type IdentityPendingLinks = zod.input<typeof IdentityPendingLinks>;
+export type IdentityPendingLinksOutput = zod.output<typeof IdentityPendingLinks>;
 
 export const identityPinChangeCurrentRegExp = new RegExp("^[0-9]{4}$");
 export const identityPinChangeNewRegExp = new RegExp("^[0-9]{4}$");
@@ -338,6 +545,9 @@ export type IdentityRegeneratedAPIKeyOutput = zod.output<typeof IdentityRegenera
 
 export const IdentitySession = zod.object({
   account: IdentityAccount,
+  keyPrompt: zod
+    .enum(["ask", "never"])
+    .describe("Whether the prompt to add a passkey may show after sign-in"),
   pinRequired: zod
     .boolean()
     .describe(
@@ -347,6 +557,13 @@ export const IdentitySession = zod.object({
 
 export type IdentitySession = zod.input<typeof IdentitySession>;
 export type IdentitySessionOutput = zod.output<typeof IdentitySession>;
+
+export const IdentitySessionRows = zod.object({
+  sessions: zod.array(IdentitySessionRow),
+});
+
+export type IdentitySessionRows = zod.input<typeof IdentitySessionRows>;
+export type IdentitySessionRowsOutput = zod.output<typeof IdentitySessionRows>;
 
 export const IdentitySessionsChanged = zod.object({
   account: zod.uuid(),
@@ -407,6 +624,32 @@ export const IdentitySignInBody = zod.object({
 
 export type IdentitySignInBody = zod.input<typeof IdentitySignInBody>;
 export type IdentitySignInBodyOutput = zod.output<typeof IdentitySignInBody>;
+
+export const IdentitySignedIn = zod.object({
+  account: IdentityAccount,
+  keyPrompt: zod
+    .enum(["ask", "never"])
+    .describe("Whether the prompt to add a passkey may show after sign-in"),
+  passkeyPrompt: zod
+    .boolean()
+    .describe("Show the prompt to add a passkey for this address, once in this session"),
+  pinRequired: zod
+    .boolean()
+    .describe(
+      "The session must set a new PIN before anything but reading the session and signing out",
+    ),
+});
+
+export type IdentitySignedIn = zod.input<typeof IdentitySignedIn>;
+export type IdentitySignedInOutput = zod.output<typeof IdentitySignedIn>;
+
+export const IdentitySignupLinkURL = zod.object({
+  link: IdentityPendingLink,
+  url: zod.url(),
+});
+
+export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
+export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
 
 export const IndexersChanged = zod.object({
   indexerId: zod.uuid(),
@@ -476,6 +719,23 @@ export const IndexersNewIndexer = zod.object({
 export type IndexersNewIndexer = zod.input<typeof IndexersNewIndexer>;
 export type IndexersNewIndexerOutput = zod.output<typeof IndexersNewIndexer>;
 
+export const joinInputBodyDisplayNameMax = 100;
+
+export const joinInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
+
+export const JoinInputBody = zod.object({
+  displayName: zod.string().min(1).max(joinInputBodyDisplayNameMax),
+  pin: zod.string().regex(joinInputBodyPinRegExp),
+});
+
+export type JoinInputBody = zod.input<typeof JoinInputBody>;
+export type JoinInputBodyOutput = zod.output<typeof JoinInputBody>;
+
+export const LiveAccessChanged = zod.object({});
+
+export type LiveAccessChanged = zod.input<typeof LiveAccessChanged>;
+export type LiveAccessChangedOutput = zod.output<typeof LiveAccessChanged>;
+
 export const LiveResync = zod.object({});
 
 export type LiveResync = zod.input<typeof LiveResync>;
@@ -487,6 +747,64 @@ export const LiveSessionEnded = zod.object({
 
 export type LiveSessionEnded = zod.input<typeof LiveSessionEnded>;
 export type LiveSessionEndedOutput = zod.output<typeof LiveSessionEnded>;
+
+export const MailSettings = zod.object({
+  fromAddress: zod.string(),
+  fromName: zod.string(),
+  host: zod.string().describe("Empty until email is set up"),
+  passwordSet: zod.boolean().describe("Whether a password is saved; it is never shown"),
+  port: zod.int().min(1),
+  security: zod.enum(["none", "starttls", "tls"]),
+  username: zod.string().describe("Empty when the server takes no sign-in"),
+});
+
+export type MailSettings = zod.input<typeof MailSettings>;
+export type MailSettingsOutput = zod.output<typeof MailSettings>;
+
+export const mailSettingsPatchFromAddressMax = 254;
+
+export const mailSettingsPatchFromNameMax = 100;
+
+export const mailSettingsPatchHostMax = 253;
+
+export const mailSettingsPatchPasswordMax = 1024;
+
+export const mailSettingsPatchUsernameMax = 254;
+
+export const MailSettingsPatch = zod.object({
+  fromAddress: zod.string().max(mailSettingsPatchFromAddressMax).exactOptional(),
+  fromName: zod.string().max(mailSettingsPatchFromNameMax).exactOptional(),
+  host: zod.string().max(mailSettingsPatchHostMax).exactOptional(),
+  password: zod
+    .string()
+    .max(mailSettingsPatchPasswordMax)
+    .exactOptional()
+    .describe("Write-only; empty clears it"),
+  port: zod.int().min(1).exactOptional(),
+  security: zod.enum(["none", "starttls", "tls"]).exactOptional(),
+  username: zod.string().max(mailSettingsPatchUsernameMax).exactOptional(),
+});
+
+export type MailSettingsPatch = zod.input<typeof MailSettingsPatch>;
+export type MailSettingsPatchOutput = zod.output<typeof MailSettingsPatch>;
+
+export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
+
+export const NewPINInputBody = zod.object({
+  pin: zod.string().regex(newPINInputBodyPinRegExp),
+});
+
+export type NewPINInputBody = zod.input<typeof NewPINInputBody>;
+export type NewPINInputBodyOutput = zod.output<typeof NewPINInputBody>;
+
+export const newSignupLinkInputBodyEmailMax = 254;
+
+export const NewSignupLinkInputBody = zod.object({
+  email: zod.email().max(newSignupLinkInputBodyEmailMax),
+});
+
+export type NewSignupLinkInputBody = zod.input<typeof NewSignupLinkInputBody>;
+export type NewSignupLinkInputBodyOutput = zod.output<typeof NewSignupLinkInputBody>;
 
 export const NodesBuild = zod.object({
   arch: zod.string(),
@@ -617,6 +935,19 @@ export const NodesSettingsPatch = zod.object({
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
 export type NodesSettingsPatchOutput = zod.output<typeof NodesSettingsPatch>;
 
+export const ownPatchInputBodyDisplayNameMax = 100;
+
+export const OwnPatchInputBody = zod.object({
+  displayName: zod.string().min(1).max(ownPatchInputBodyDisplayNameMax).exactOptional(),
+  keyPrompt: zod
+    .enum(["ask", "never"])
+    .exactOptional()
+    .describe("Whether the prompt to add a passkey may show after sign-in"),
+});
+
+export type OwnPatchInputBody = zod.input<typeof OwnPatchInputBody>;
+export type OwnPatchInputBodyOutput = zod.output<typeof OwnPatchInputBody>;
+
 export const PairingController = zod.object({
   key: zod.string().describe("The Controller key's fingerprint"),
   link: zod.string(),
@@ -653,6 +984,16 @@ export const Problem = zod.object({
 
 export type Problem = zod.input<typeof Problem>;
 export type ProblemOutput = zod.output<typeof Problem>;
+
+export const ResetLinkInputBody = zod.object({
+  removePasskeys: zod
+    .boolean()
+    .exactOptional()
+    .describe("Also remove the Account's passkeys, for when someone else may have had access"),
+});
+
+export type ResetLinkInputBody = zod.input<typeof ResetLinkInputBody>;
+export type ResetLinkInputBodyOutput = zod.output<typeof ResetLinkInputBody>;
 
 export const RootsChanged = zod.object({});
 
@@ -1086,6 +1427,24 @@ export const LiveEventGrabsSearchChanged = zod.object({
 export type LiveEventGrabsSearchChanged = zod.input<typeof LiveEventGrabsSearchChanged>;
 export type LiveEventGrabsSearchChangedOutput = zod.output<typeof LiveEventGrabsSearchChanged>;
 
+export const LiveEventIdentityAccountsChanged = zod.object({
+  event: zod.enum(["identity.accounts-changed"]),
+  data: IdentityAccountsChanged,
+});
+
+export type LiveEventIdentityAccountsChanged = zod.input<typeof LiveEventIdentityAccountsChanged>;
+export type LiveEventIdentityAccountsChangedOutput = zod.output<
+  typeof LiveEventIdentityAccountsChanged
+>;
+
+export const LiveEventIdentityLinksChanged = zod.object({
+  event: zod.enum(["identity.links-changed"]),
+  data: IdentityLinksChanged,
+});
+
+export type LiveEventIdentityLinksChanged = zod.input<typeof LiveEventIdentityLinksChanged>;
+export type LiveEventIdentityLinksChangedOutput = zod.output<typeof LiveEventIdentityLinksChanged>;
+
 export const LiveEventIdentitySessionsChanged = zod.object({
   event: zod.enum(["identity.sessions-changed"]),
   data: IdentitySessionsChanged,
@@ -1103,6 +1462,14 @@ export const LiveEventIndexersChanged = zod.object({
 
 export type LiveEventIndexersChanged = zod.input<typeof LiveEventIndexersChanged>;
 export type LiveEventIndexersChangedOutput = zod.output<typeof LiveEventIndexersChanged>;
+
+export const LiveEventLiveAccessChanged = zod.object({
+  event: zod.enum(["live.access-changed"]),
+  data: LiveAccessChanged,
+});
+
+export type LiveEventLiveAccessChanged = zod.input<typeof LiveEventLiveAccessChanged>;
+export type LiveEventLiveAccessChangedOutput = zod.output<typeof LiveEventLiveAccessChanged>;
 
 export const LiveEventLiveResync = zod.object({
   event: zod.enum(["live.resync"]),
@@ -1166,8 +1533,11 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
   LiveEventGrabsChanged,
   LiveEventGrabsSearchChanged,
+  LiveEventIdentityAccountsChanged,
+  LiveEventIdentityLinksChanged,
   LiveEventIdentitySessionsChanged,
   LiveEventIndexersChanged,
+  LiveEventLiveAccessChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
   LiveEventNodesChanged,

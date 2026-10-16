@@ -76,21 +76,27 @@ describe("entryOf", () => {
   });
 
   test("a Controller with Ada enters the app as Ada", () => {
-    expect(entryOf({ claim: "controller" }, { account: ada, pinRequired: false })).toEqual({
+    expect(
+      entryOf({ claim: "controller" }, { account: ada, pinRequired: false, keyPrompt: "ask" }),
+    ).toEqual({
       kind: "app",
       account: ada,
     });
   });
 
   test("a Controller with Grace, a Member, enters the portal as Grace", () => {
-    expect(entryOf({ claim: "controller" }, { account: grace, pinRequired: false })).toEqual({
+    expect(
+      entryOf({ claim: "controller" }, { account: grace, pinRequired: false, keyPrompt: "ask" }),
+    ).toEqual({
       kind: "portal",
       account: grace,
     });
   });
 
   test("a session that must set a new PIN enters only Set a new PIN, Admin or not", () => {
-    expect(entryOf({ claim: "controller" }, { account: ada, pinRequired: true })).toEqual({
+    expect(
+      entryOf({ claim: "controller" }, { account: ada, pinRequired: true, keyPrompt: "ask" }),
+    ).toEqual({
       kind: "new-pin",
       account: ada,
     });

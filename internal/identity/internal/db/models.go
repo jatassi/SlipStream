@@ -22,7 +22,7 @@ type IdentityAccount struct {
 	PinFailures   int64
 	PinWaitUntil  storage.Time
 	PinDisabledAt storage.Time
-	KeyPrompt     string
+	KeyPrompt     KeyPrompt
 	LastSignInAt  storage.Time
 }
 

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/events"
-	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
@@ -199,9 +198,6 @@ func (d *doctor) adminGet(path string) ([]byte, error) {
 	status, body, err := d.get(n.URL+path, d.m.APIKey)
 	if err != nil {
 		return nil, err
-	}
-	if status == http.StatusNotFound {
-		return nil, fmt.Errorf("GET %s on %s: %w", path, n.Name, fake.ErrNotFound)
 	}
 	if status != http.StatusOK {
 		return nil, fmt.Errorf("GET %s on %s = %d %s", path, n.Name, status, strings.TrimSpace(string(body)))

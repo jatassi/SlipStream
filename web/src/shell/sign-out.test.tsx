@@ -15,7 +15,7 @@ function sessionServer(account: IdentityAccount = ada) {
     handlers: [
       http.get("*/api/v1/session", () =>
         signedIn
-          ? HttpResponse.json({ account, pinRequired: false })
+          ? HttpResponse.json({ account, pinRequired: false, keyPrompt: "ask" })
           : problem(401, "signed_out", "Sign in to continue"),
       ),
       http.delete("*/api/v1/session", () => {

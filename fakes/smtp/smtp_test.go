@@ -192,9 +192,6 @@ func TestEnteredIsTheSavedServerTheControllerDials(t *testing.T) {
 		return func(path string) ([]byte, error) {
 			switch path {
 			case "/api/v1/mail/settings":
-				if settings == "" {
-					return nil, fake.ErrNotFound
-				}
 				return []byte(settings), nil
 			case "/api/v1/nodes":
 				return []byte(`{"nodes":[{"id":"worker-id","self":false},{"id":"controller-id","self":true}]}`), nil
@@ -209,7 +206,6 @@ func TestEnteredIsTheSavedServerTheControllerDials(t *testing.T) {
 		{"saved", `{"host":"127.0.0.1","port":2525,"security":"starttls","username":"","passwordSet":false,"fromAddress":"slipstream@media-pc.example","fromName":"SlipStream"}`,
 			[]fake.Entered{{What: "SMTP server", URL: "smtp://127.0.0.1:2525", NodeID: "controller-id"}}},
 		{"not set up", `{"host":"","port":587,"security":"starttls","username":"","passwordSet":false,"fromAddress":"","fromName":"SlipStream"}`, nil},
-		{"no mail settings yet", "", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

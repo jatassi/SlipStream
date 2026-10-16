@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -355,9 +354,6 @@ func (s *session) Logout() error { return nil }
 // entered is the SMTP server an Admin saved, which the Controller dials.
 func entered(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	body, err := get("/api/v1/mail/settings")
-	if errors.Is(err, fake.ErrNotFound) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

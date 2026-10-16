@@ -15,3 +15,6 @@ type CredentialID []byte
 
 // Singleton is the id of a one-row table, fixed at 1 by a CHECK.
 type Singleton int64
+
+// KeyPrompt is whether the passkey prompt may show: "ask" or "never".
+type KeyPrompt string

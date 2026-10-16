@@ -44,6 +44,10 @@ export const refreshSession = (queryClient: QueryClient): Promise<IdentitySessio
 
 export function markClaimed(queryClient: QueryClient, claimed: IdentityClaimed): void {
   queryClient.setQueryData(statusQuery.queryKey, { claim: "controller" });
-  const session: IdentitySession = { account: claimed.account, pinRequired: false };
+  const session: IdentitySession = {
+    account: claimed.account,
+    pinRequired: false,
+    keyPrompt: "ask",
+  };
   queryClient.setQueryData(sessionQuery.queryKey, session);
 }

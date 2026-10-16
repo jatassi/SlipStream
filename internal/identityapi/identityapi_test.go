@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail/mailtest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -32,6 +33,7 @@ import (
 
 type node struct {
 	t     *testing.T
+	mail  *mailtest.Sender
 	lib   *storage.DB[storage.Library]
 	h     http.Handler
 	doc   []byte
@@ -58,7 +60,8 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 		t.Fatal(err)
 	}
 	hub := identitytest.Hub(t)
-	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
+	sent, outbox := identitytest.Mail(t)
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Sealer: keys.Sealer(), Hub: hub, Mail: sent, Outbox: outbox})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,7 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 	identityapi.Routes(r, identitytest.Node{Service: svc})
 	api.Register(r.Owner("fixture", api.Admin), api.Admin, api.Op{ID: fixtureAdmin.ID, Method: http.MethodGet, Path: fixtureAdmin.Path},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
-	return &node{t: t, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
+	return &node{t: t, mail: sent, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
 }
 
 // head is the id of the hub's newest event, which a subscription with no
@@ -247,7 +250,7 @@ func TestClaimController(t *testing.T) {
 	}
 	expect(t, n.claim(n.code, "1234"), 409, alreadyClaimed)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/session", session: sessionOf(t, w)}), 200,
-		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}`+"\n")
+		`{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
 }
 
 // The gate turns busy before the body is read, so a second setup request
@@ -300,7 +303,7 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("a wrong PIN and an unknown email differ: %v and %v", wrong.Header(), unknown.Header())
 	}
 	w := n.signIn(" Admin@Example.COM ", "1234")
-	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false}`+"\n")
+	expect(t, w, 200, `{"account":{"id":"`+res.Account.ID+`","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","passkeyPrompt":false}`+"\n")
 	if got := w.Header().Get("Set-Cookie"); !sessionCookie.MatchString(got) {
 		t.Fatalf("Set-Cookie = %q", got)
 	}

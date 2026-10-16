@@ -84,7 +84,7 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 // API key to match.
 func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates bool) (identity.Caller, bool) {
 	addr, https := proxies(r.services.TrustedProxies).clientOf(req)
-	creds := identity.Request{Address: addr, HTTPS: https, Host: req.Host}
+	creds := identity.Request{Address: addr, HTTPS: https, Host: req.Host, UserAgent: req.UserAgent()}
 	if !authenticates {
 		return creds.Unauthenticated(), true
 	}

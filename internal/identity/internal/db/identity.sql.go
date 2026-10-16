@@ -138,6 +138,7 @@ SELECT
     a.email,
     a.display_name,
     a.admin,
+    a.key_prompt,
     st.session_lifetime_seconds,
     st.reconfirm_window_seconds
 FROM identity_session AS s
@@ -155,6 +156,7 @@ type GetSessionRow struct {
 	Email                  string
 	DisplayName            string
 	Admin                  bool
+	KeyPrompt              KeyPrompt
 	SessionLifetimeSeconds int64
 	ReconfirmWindowSeconds int64
 }
@@ -171,6 +173,7 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 		&i.Email,
 		&i.DisplayName,
 		&i.Admin,
+		&i.KeyPrompt,
 		&i.SessionLifetimeSeconds,
 		&i.ReconfirmWindowSeconds,
 	)
@@ -272,10 +275,11 @@ func (q *Queries) InsertAccount(ctx context.Context, arg InsertAccountParams) er
 }
 
 const insertSession = `-- name: InsertSession :exec
-INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at, pin_required)
+INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at, device, pin_required, prompted)
 VALUES (
     ?1, ?2, ?3, ?4,
-    ?5, ?6, ?7, ?8
+    ?5, ?6, ?7, ?8,
+    ?9, ?10
 )
 `
 
@@ -287,7 +291,9 @@ type InsertSessionParams struct {
 	CreatedAt   storage.Time
 	LastSeenAt  storage.Time
 	ConfirmedAt storage.Time
+	Device      string
 	PinRequired bool
+	Prompted    bool
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
@@ -299,7 +305,9 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.CreatedAt,
 		arg.LastSeenAt,
 		arg.ConfirmedAt,
+		arg.Device,
 		arg.PinRequired,
+		arg.Prompted,
 	)
 	return err
 }
@@ -386,6 +394,15 @@ func (q *Queries) SaveSettings(ctx context.Context, arg SaveSettingsParams) erro
 		arg.EmailLinkLifetimeSeconds,
 		arg.Address,
 	)
+	return err
+}
+
+const setAddress = `-- name: SetAddress :exec
+UPDATE identity_settings SET address = ?1 WHERE id = 1
+`
+
+func (q *Queries) SetAddress(ctx context.Context, address string) error {
+	_, err := q.db.ExecContext(ctx, setAddress, address)
 	return err
 }
 

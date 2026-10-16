@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { z } from "zod";
 
 import { isProblem } from "../api/errors";
 import { getSession } from "../api/gen/query/identity/identity";
@@ -8,7 +7,6 @@ import { effects } from "./effects";
 import type {
   LiveEffect,
   LiveEffects,
-  LiveEventName,
   LiveState,
   PayloadOf,
   ProductEventName,
@@ -20,18 +18,9 @@ const hiddenRelease = 10_000;
 const reopenDelays = [1000, 2000, 5000, 10_000, 30_000] as const;
 const table: LiveEffects = effects;
 
-// The API phase declares live.access-changed in the document. Until it lands
-// the stream knows the event itself, and once it does this fails to build so
-// the bridge goes.
-const accessChanged: Exclude<"live.access-changed", LiveEventName> = "live.access-changed";
-const AccessChanged = z.object({ event: z.literal(accessChanged), data: z.object({}) });
-const Incoming = z.union([LiveEvent, AccessChanged]);
-const eventNames = [
-  ...LiveEvent.options.flatMap((branch) => branch.shape.event.options),
-  accessChanged,
-];
+const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.options);
 
-type ParsedEvent = z.output<typeof Incoming>;
+type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
 type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
 
 const isControl = (event: ParsedEvent): event is ControlEvent => event.event.startsWith("live.");
@@ -226,7 +215,7 @@ class Stream {
 function parse(message: MessageEvent<string>): ParsedEvent | undefined {
   try {
     const data: unknown = JSON.parse(message.data);
-    return Incoming.parse({ event: message.type, data });
+    return LiveEvent.parse({ event: message.type, data });
   } catch (error) {
     reportError(error);
     return undefined;

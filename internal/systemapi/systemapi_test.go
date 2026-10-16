@@ -18,7 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/system"
@@ -52,7 +51,7 @@ func newNode(t *testing.T, f system.Facts) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := live.NewHub([]live.Event{identity.SessionsChangedEvent})
+	hub := identitytest.Hub(t)
 	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
 	if err != nil {
 		t.Fatal(err)

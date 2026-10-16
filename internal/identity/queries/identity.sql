@@ -25,10 +25,11 @@ SET pin_failures = sqlc.arg(pin_failures), pin_wait_until = sqlc.arg(pin_wait_un
 WHERE id = sqlc.arg(id);
 
 -- name: InsertSession :exec
-INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at, pin_required)
+INSERT INTO identity_session (id, token_hash, account_id, address, created_at, last_seen_at, confirmed_at, device, pin_required, prompted)
 VALUES (
     sqlc.arg(id), sqlc.arg(token_hash), sqlc.arg(account_id), sqlc.arg(address),
-    sqlc.arg(created_at), sqlc.arg(last_seen_at), sqlc.arg(confirmed_at), sqlc.arg(pin_required)
+    sqlc.arg(created_at), sqlc.arg(last_seen_at), sqlc.arg(confirmed_at), sqlc.arg(device),
+    sqlc.arg(pin_required), sqlc.arg(prompted)
 );
 
 -- name: GetSession :one
@@ -41,6 +42,7 @@ SELECT
     a.email,
     a.display_name,
     a.admin,
+    a.key_prompt,
     st.session_lifetime_seconds,
     st.reconfirm_window_seconds
 FROM identity_session AS s
@@ -100,3 +102,6 @@ SET
     email_link_lifetime_seconds = sqlc.arg(email_link_lifetime_seconds),
     address = sqlc.arg(address)
 WHERE id = 1;
+
+-- name: SetAddress :exec
+UPDATE identity_settings SET address = sqlc.arg(address) WHERE id = 1;

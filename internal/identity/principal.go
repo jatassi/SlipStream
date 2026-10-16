@@ -7,9 +7,10 @@ import (
 
 // client is who a request came from, after http.trusted_proxies.
 type client struct {
-	address netip.Addr
-	https   bool
-	host    string
+	address   netip.Addr
+	https     bool
+	host      string
+	userAgent string
 }
 
 func (c client) Address() netip.Addr { return c.address }
@@ -28,6 +29,7 @@ type signedIn struct {
 	session     SessionID
 	confirmed   bool
 	pinRequired bool
+	keyPrompt   KeyPrompt
 }
 
 // Bearer is any signed-in session, one that must set a new PIN included.
@@ -37,9 +39,10 @@ type Bearer struct {
 	s signedIn
 }
 
-func (b Bearer) Profile() Profile   { return b.s.profile }
-func (b Bearer) Session() SessionID { return b.s.session }
-func (b Bearer) PINRequired() bool  { return b.s.pinRequired }
+func (b Bearer) Profile() Profile     { return b.s.profile }
+func (b Bearer) Session() SessionID   { return b.s.session }
+func (b Bearer) PINRequired() bool    { return b.s.pinRequired }
+func (b Bearer) KeyPrompt() KeyPrompt { return b.s.keyPrompt }
 
 // Account is a signed-in session, an Admin's or a Member's, that has a PIN.
 type Account struct {
@@ -69,6 +72,14 @@ func (a Admin) Account() (Account, bool) {
 		return Account{}, false
 	}
 	return *a.account, true
+}
+
+// session is the Admin's own session, zero for the API key.
+func (a Admin) session() SessionID {
+	if a.account == nil {
+		return SessionID{}
+	}
+	return a.account.s.session
 }
 
 // Profile is an Account as its owner and the API see it.
@@ -183,3 +194,8 @@ func (c Caller) Reconfirmed() (Admin, error) {
 	}
 	return a, nil
 }
+
+// passkeyHost is the RP ID c's address would hold a passkey at. It answers
+// that no address can until passkeys are wired, so the passkey prompt
+// never shows yet.
+func passkeyHost(client) (string, bool) { return "", false }

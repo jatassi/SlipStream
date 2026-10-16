@@ -19,6 +19,8 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -32,6 +34,7 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("identity", 
 type (
 	AccountID = db.AccountID
 	SessionID = db.SessionID
+	PasskeyID = db.PasskeyID
 )
 
 // SessionsChanged reaches an Account's streams when one of its sessions
@@ -40,21 +43,18 @@ type SessionsChanged struct {
 	Account string `json:"account" format:"uuid"`
 }
 
-var SessionsChangedEvent = live.AccountEvent[SessionsChanged]("identity.sessions-changed")
+// AccountsChanged reaches Admins when an Account is added, changed or
+// deleted.
+type AccountsChanged struct{}
 
-// PINTurnedOff is what the "PIN turned off" email tells an Account's owner.
-type PINTurnedOff struct {
-	Account  AccountID
-	Email    string
-	Failures int
-}
+// LinksChanged reaches Admins when a Signup link is issued, used or ends.
+type LinksChanged struct{}
 
-// Notices tells an Account's owner what happened to it after the fact. The
-// mail spec fills it in; it must not block, because it runs before the
-// response goes out.
-type Notices interface {
-	PINTurnedOff(ctx context.Context, n PINTurnedOff)
-}
+var (
+	SessionsChangedEvent = live.AccountEvent[SessionsChanged]("identity.sessions-changed")
+	AccountsChangedEvent = live.AdminEvent[AccountsChanged]("identity.accounts-changed")
+	LinksChangedEvent    = live.AdminEvent[LinksChanged]("identity.links-changed")
+)
 
 const (
 	CookieName = "slipstream_session"
@@ -69,19 +69,27 @@ const (
 type Config struct {
 	Library *storage.DB[file]
 	Pepper  []byte
+	// Sealer seals the Signup link tokens kept for Copy link.
+	Sealer *secret.Sealer
 	// Hub carries identity's events and ends sessions' streams.
 	Hub *live.Hub
-	// Notices is nil until mail can send them.
-	Notices Notices
+	// Mail sends the emails whose outcome the caller waits for, and Outbox
+	// those that go out after the response.
+	Mail   mail.Sender
+	Outbox *mail.Outbox
 }
 
 type Service struct {
 	lib      *storage.DB[file]
 	pins     *pins
 	dummy    string
+	sealer   *secret.Sealer
 	hub      *live.Hub
 	sessions live.AccountPublisher[SessionsChanged]
-	notices  Notices
+	accounts live.AdminPublisher[AccountsChanged]
+	links    live.AdminPublisher[LinksChanged]
+	mail     mail.Sender
+	outbox   *mail.Outbox
 	shadow   *shadowLedger
 	limiter  *limiter
 }
@@ -92,9 +100,13 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 	s := &Service{
 		lib:      cfg.Library,
 		pins:     newPINs(cfg.Pepper),
+		sealer:   cfg.Sealer,
 		hub:      cfg.Hub,
 		sessions: SessionsChangedEvent.Bind(cfg.Hub),
-		notices:  cfg.Notices,
+		accounts: AccountsChangedEvent.Bind(cfg.Hub),
+		links:    LinksChangedEvent.Bind(cfg.Hub),
+		mail:     cfg.Mail,
+		outbox:   cfg.Outbox,
 		shadow:   newShadowLedger(),
 		limiter:  newLimiter(),
 	}
@@ -155,7 +167,12 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(apiKey.token), CreatedAt: fx.now}); err != nil {
 			return err
 		}
-		return startSession(ctx, q, fx, c.client, profile.ID, token)
+		row, err := q.GetAccount(ctx, profile.ID)
+		if err != nil {
+			return err
+		}
+		_, err = startSession(ctx, q, fx, c.client, row, token, false)
+		return err
 	})
 	if err != nil {
 		return Claimed{}, err
@@ -163,46 +180,105 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 	return Claimed{Profile: profile, APIKey: apiKey, Cookie: cookie(token, c.https, lifetime)}, nil
 }
 
+// SignedIn is any way in: a PIN, a Signup link, a Reset link.
+// PasskeyPrompt is the "Sign in faster here" sheet, which the same Write
+// marks shown on the new session, so Not now holds until the next sign-in.
+type SignedIn struct {
+	Profile       Profile
+	Cookie        *http.Cookie
+	PINRequired   bool
+	KeyPrompt     KeyPrompt
+	PasskeyPrompt bool
+}
+
+var ErrAccountDisabled = errors.New("identity: the Account is turned off")
+
 // SignIn verifies email and pin and starts a session. An unknown email
 // verifies against the dummy hash and keeps a shadow ledger, so it answers
-// exactly as a real Account does.
-func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (Profile, *http.Cookie, error) {
+// exactly as a real Account does. A turned-off Account is refused only
+// once its PIN checks out, so the refusal reveals nothing without it.
+func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (SignedIn, error) {
 	set, err := readSettings(ctx, db.New(s.lib))
 	if err != nil {
-		return Profile{}, nil, err
+		return SignedIn{}, err
 	}
-	sub, profile, err := s.subjectByEmail(ctx, email)
+	sub, err := s.subjectByEmail(ctx, email)
 	if err != nil {
-		return Profile{}, nil, err
+		return SignedIn{}, err
 	}
 	pass, err := s.checkPIN(ctx, a.client, sub, pin, set)
 	if err != nil {
-		return Profile{}, nil, err
+		return SignedIn{}, err
 	}
 	token := newToken()
+	var out SignedIn
+	disabled := false
 	err = s.afterPIN(ctx, pass, func(ctx context.Context, q *db.Queries, fx *effects) error {
-		idle := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
-		if err := q.DeleteIdleSessions(ctx, db.DeleteIdleSessionsParams{AccountID: profile.ID, SeenBefore: idle}); err != nil {
+		row, err := q.GetAccount(ctx, sub.account)
+		if err != nil {
 			return err
 		}
-		return startSession(ctx, q, fx, a.client, profile.ID, token)
+		if !row.DisabledAt.IsZero() {
+			disabled = true
+			return nil
+		}
+		idle := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
+		if err := q.DeleteIdleSessions(ctx, db.DeleteIdleSessionsParams{AccountID: sub.account, SeenBefore: idle}); err != nil {
+			return err
+		}
+		out, err = startSession(ctx, q, fx, a.client, row, token, false)
+		return err
 	})
 	if err != nil {
-		return Profile{}, nil, err
+		return SignedIn{}, err
 	}
-	return profile, cookie(token, a.https, set.SessionLifetime), nil
+	if disabled {
+		return SignedIn{}, ErrAccountDisabled
+	}
+	out.Cookie = cookie(token, a.https, set.SessionLifetime)
+	return out, nil
 }
 
-func (s *Service) subjectByEmail(ctx context.Context, email string) (subject, Profile, error) {
+// signInBy runs fn, which names the Account a link signs in, and starts
+// its session in the same Write.
+func (s *Service) signInBy(ctx context.Context, c client, fn func(ctx context.Context, q *db.Queries, fx *effects) (AccountID, error)) (SignedIn, error) {
+	token := newToken()
+	var out SignedIn
+	var lifetime time.Duration
+	err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		id, err := fn(ctx, q, fx)
+		if err != nil {
+			return err
+		}
+		set, err := readSettings(ctx, q)
+		if err != nil {
+			return err
+		}
+		lifetime = set.SessionLifetime
+		row, err := q.GetAccount(ctx, id)
+		if err != nil {
+			return err
+		}
+		out, err = startSession(ctx, q, fx, c, row, token, false)
+		return err
+	})
+	if err != nil {
+		return SignedIn{}, err
+	}
+	out.Cookie = cookie(token, c.https, lifetime)
+	return out, nil
+}
+
+func (s *Service) subjectByEmail(ctx context.Context, email string) (subject, error) {
 	email = normalizeEmail(email)
 	row, err := db.New(s.lib).GetAccountByEmail(ctx, email)
 	if errors.Is(err, storage.ErrNoRows) {
-		return subject{email: email, hash: s.dummy}, Profile{}, nil
+		return subject{email: email, hash: s.dummy}, nil
 	}
 	if err != nil {
-		return subject{}, Profile{}, err
+		return subject{}, err
 	}
-	return subject{account: row.ID, email: row.Email, hash: row.PinHash}, profileOf(row), nil
+	return subjectOf(row), nil
 }
 
 func profileOf(row db.IdentityAccount) Profile {
@@ -232,12 +308,13 @@ type Request struct {
 	Address netip.Addr
 	HTTPS   bool
 	// Host is the request's Host, its port included.
-	Host string
+	Host      string
+	UserAgent string
 }
 
 // Unauthenticated is r's caller as nobody, its credentials unread.
 func (r Request) Unauthenticated() Caller {
-	return Caller{client: client{address: r.Address, https: r.HTTPS, host: r.Host}}
+	return Caller{client: client{address: r.Address, https: r.HTTPS, host: r.Host, userAgent: r.UserAgent}}
 }
 
 // Authenticate resolves r's Caller. A request with an API key
@@ -282,6 +359,7 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 		session:     row.SessionID,
 		confirmed:   time.Since(row.ConfirmedAt.Time()) <= window,
 		pinRequired: row.PinRequired,
+		keyPrompt:   row.KeyPrompt,
 	}
 	if u == slid {
 		return c, cookie(r.Session, r.HTTPS, lifetime), nil
@@ -363,23 +441,38 @@ func clearCookie(secure bool) *http.Cookie {
 	}
 }
 
-// startSession is the one session insert, stamped confirmed and as the
-// Account's last sign-in.
-func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account AccountID, token string) error {
+// startSession is the one session insert: stamped confirmed and as the
+// Account's last sign-in, labeled with the device, and marked prompted
+// when it shows the passkey prompt.
+func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account db.IdentityAccount, token string, pinRequired bool) (SignedIn, error) {
+	prompt := false
+	if rp, ok := passkeyHost(c); ok && account.KeyPrompt == KeyPromptAsk {
+		held, err := q.CountPasskeysAt(ctx, db.CountPasskeysAtParams{AccountID: account.ID, RelyingParty: rp})
+		if err != nil {
+			return SignedIn{}, err
+		}
+		prompt = held == 0
+	}
 	err := q.InsertSession(ctx, db.InsertSessionParams{
 		ID:          SessionID{UUID: storage.NewUUID()},
 		TokenHash:   digest(token),
-		AccountID:   account,
+		AccountID:   account.ID,
 		Address:     c.address.String(),
 		CreatedAt:   fx.now,
 		LastSeenAt:  fx.now,
 		ConfirmedAt: fx.now,
+		Device:      deviceLabel(c.userAgent),
+		PinRequired: pinRequired,
+		Prompted:    prompt,
 	})
 	if err != nil {
-		return err
+		return SignedIn{}, err
 	}
-	fx.sessionsChanged(account)
-	return q.StampSignIn(ctx, db.StampSignInParams{LastSignInAt: fx.now, ID: account})
+	fx.sessionsChanged(account.ID)
+	if err := q.StampSignIn(ctx, db.StampSignInParams{LastSignInAt: fx.now, ID: account.ID}); err != nil {
+		return SignedIn{}, err
+	}
+	return SignedIn{Profile: profileOf(account), PINRequired: pinRequired, KeyPrompt: account.KeyPrompt, PasskeyPrompt: prompt}, nil
 }
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
