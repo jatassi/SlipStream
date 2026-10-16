@@ -546,6 +546,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.grabs.progress", Value: "1s", Default: "1s", Source: "default"},
 			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default"},
 			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default"},
+			{Key: "timings.mail.send", Value: "15s", Default: "15s", Source: "default"},
 		},
 		Census:       []string{"endpoints.tmdb.api"},
 		ContentTypes: []string{"movie"},

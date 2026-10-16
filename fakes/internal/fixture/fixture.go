@@ -14,7 +14,7 @@ import (
 
 var Fake = fake.Spec{
 	Name: "fixture",
-	TLS:  true,
+	TLS:  fake.FrontTLS,
 	New: func(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
 		visits, err := env.Capture("visits")
 		if err != nil {

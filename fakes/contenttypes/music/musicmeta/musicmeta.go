@@ -17,7 +17,7 @@ import (
 
 var Fake = fake.Spec{
 	Name:        "music-meta",
-	TLS:         true,
+	TLS:         fake.FrontTLS,
 	ContentType: "music",
 	New:         newServer,
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {

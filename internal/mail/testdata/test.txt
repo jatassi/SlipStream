@@ -1,0 +1,9 @@
+Subject: Test email from media-pc
+
+This is a test email from SlipStream at media-pc.
+
+Email is set up. Signup links, Reset links and notices will arrive the same way.
+
+Open SlipStream: http://media-pc:8484
+
+You got this email because you chose Send test email in Settings.

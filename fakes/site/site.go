@@ -24,7 +24,7 @@ import (
 // Fake reaches no Endpoints entry: an Admin enters an Indexer's URL.
 var Fake = fake.Spec{
 	Name:      "fixture-site",
-	TLS:       true,
+	TLS:       fake.FrontTLS,
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),

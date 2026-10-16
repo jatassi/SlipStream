@@ -36,7 +36,7 @@ var Announces = fake.CaptureSpec{Name: "announces", Kind: "tracker.announce"}
 
 var Fake = fake.Spec{
 	Name:      "tracker",
-	TLS:       true,
+	TLS:       fake.FrontTLS,
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
