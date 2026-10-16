@@ -9,7 +9,7 @@ import { RootNotFound, ShellError } from "../shell/errors";
 import { densityOf, useShellKind } from "../shell/media";
 import { Startup } from "../shell/startup/startup";
 import { documentTitle } from "../shell/titles";
-import { ShellContext } from "../ui/shell-context";
+import { DensityContext, ShellContext } from "../ui/shell-context";
 import { Toasts } from "../ui/toasts";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -30,11 +30,13 @@ function Root() {
   }, [density]);
   return (
     <ShellContext value={shell}>
-      <HeadContent />
-      <Ambient />
-      <Toasts />
-      <Startup handOff={shell === "desktop" && inApp ? "view-transition" : "fade"} />
-      <Outlet />
+      <DensityContext value={density}>
+        <HeadContent />
+        <Ambient />
+        <Toasts />
+        <Startup handOff={shell === "desktop" && inApp ? "view-transition" : "fade"} />
+        <Outlet />
+      </DensityContext>
     </ShellContext>
   );
 }

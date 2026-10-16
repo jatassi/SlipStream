@@ -4,13 +4,12 @@ import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 
 import { type ShellKind, useShell } from "../ui/shell-context";
 import { addLabel } from "../works/fields";
-import { useSignOut } from "./account";
 import { type NavRow, useAdminNav, useContentTypes } from "./nav";
+import { askSignOut } from "./sign-out";
 import { toggleSidebar } from "./sidebar-state";
 
 export type CommandContext = {
   readonly navigate: UseNavigateResult<string>;
-  readonly signOut: () => void;
 };
 
 export type Command = {
@@ -37,9 +36,7 @@ const commands: readonly Command[] = [
     label: "Sign out",
     icon: Logout01Icon,
     audience: "admin",
-    run: ({ signOut }) => {
-      signOut();
-    },
+    run: askSignOut,
   },
 ];
 
@@ -84,7 +81,7 @@ function useAddCommands(): Command[] {
 }
 
 export function useCommandContext(): CommandContext {
-  return { navigate: useNavigate(), signOut: useSignOut() };
+  return { navigate: useNavigate() };
 }
 
 export function useAdminCommands(): Command[] {

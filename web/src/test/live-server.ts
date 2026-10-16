@@ -1,5 +1,7 @@
 import { HttpResponse, http, sse } from "msw";
 
+import type { IdentityAccount } from "../api/gen/model";
+
 import { type LiveMap, ada, problem } from "./handlers";
 import type { renderApp } from "./render-app";
 
@@ -20,10 +22,11 @@ export function liveServer() {
   const clients: Client[] = [];
   const closed: number[] = [];
   let signedIn = true;
+  let account: IdentityAccount = ada;
   const handlers = [
     http.get("*/api/v1/session", () =>
       signedIn
-        ? HttpResponse.json({ account: ada, pinRequired: false, keyPrompt: "ask" })
+        ? HttpResponse.json({ account, pinRequired: false, keyPrompt: "ask" })
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     sse<LiveMap>("*/api/v1/events", ({ client }) => {
@@ -40,6 +43,9 @@ export function liveServer() {
     closed,
     signOut() {
       signedIn = false;
+    },
+    become(next: IdentityAccount) {
+      account = next;
     },
   };
 }

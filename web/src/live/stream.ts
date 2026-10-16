@@ -5,7 +5,6 @@ import { getSession } from "../api/gen/query/identity/identity";
 import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
 import type {
-  ControlEventName,
   LiveEffect,
   LiveEffects,
   LiveState,
@@ -17,11 +16,12 @@ import type {
 const streamUrl = "/api/v1/events";
 const hiddenRelease = 10_000;
 const reopenDelays = [1000, 2000, 5000, 10_000, 30_000] as const;
-const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.options);
 const table: LiveEffects = effects;
 
+const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.options);
+
 type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
-type ControlEvent = Extract<ParsedEvent, { event: ControlEventName }>;
+type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
 
 const isControl = (event: ParsedEvent): event is ControlEvent => event.event.startsWith("live.");
 
@@ -35,6 +35,7 @@ export type LiveStream = {
 type Options = {
   queryClient: QueryClient;
   onSessionEnded: (reason: SessionEndReason) => void;
+  onAccessChanged: () => void;
 };
 
 function pending(): { ready: Promise<void>; settle: () => void } {
@@ -168,12 +169,18 @@ class Stream {
   private onControl(event: ControlEvent) {
     switch (event.event) {
       case "live.resync":
-      case "live.access-changed":
         this.resync();
         return;
       case "live.session-ended":
         this.stop();
         this.options.onSessionEnded(event.data.reason);
+        return;
+      case "live.access-changed":
+        this.stop();
+        this.options.onAccessChanged();
+        return;
+      default:
+        event satisfies never;
     }
   }
 

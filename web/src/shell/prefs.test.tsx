@@ -44,6 +44,7 @@ const refuse = () => {
 beforeEach(() => {
   writePref("sidebarCollapsed", false);
   writePref("startupOff", false);
+  writePref("lastEmail", "");
 });
 
 test("a preference written in one page load reads back in the next", async () => {
@@ -53,6 +54,16 @@ test("a preference written in one page load reads back in the next", async () =>
   const next = await nextPageLoad();
   expect(next.readPref("sidebarCollapsed")).toBe(true);
   expect(next.readPref("startupOff")).toBe(false);
+});
+
+test("a string preference sits beside the booleans and reads back as typed", async () => {
+  expect(readPref("lastEmail")).toBe("");
+  writePref("lastEmail", "ada@example.test");
+  writePref("startupOff", true);
+
+  const next = await nextPageLoad();
+  expect(next.readPref("lastEmail")).toBe("ada@example.test");
+  expect(next.readPref("startupOff")).toBe(true);
 });
 
 test("a component re-renders when its preference changes", async () => {

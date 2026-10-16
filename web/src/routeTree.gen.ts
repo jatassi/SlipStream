@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AppRouteImport } from "./routes/_app";
+import { Route as NewPinRouteImport } from "./routes/new-pin";
 import { Route as PortalRouteImport } from "./routes/portal";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
@@ -31,6 +32,11 @@ import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId"
 
 const AppRoute = AppRouteImport.update({
   id: "/_app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const NewPinRoute = NewPinRouteImport.update({
+  id: "/new-pin",
+  path: "/new-pin",
   getParentRoute: () => rootRouteImport,
 } as any);
 const PortalRoute = PortalRouteImport.update({
@@ -126,6 +132,7 @@ const AppWorksWorkIdRoute = AppWorksWorkIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute;
+  "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
@@ -145,6 +152,7 @@ export interface FileRoutesByFullPath {
   "/library/": typeof AppLibraryIndexRoute;
 }
 export interface FileRoutesByTo {
+  "/new-pin": typeof NewPinRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/worker": typeof WorkerRoute;
@@ -165,6 +173,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_app": typeof AppRouteWithChildren;
+  "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/new-pin"
     | "/portal"
     | "/setup"
     | "/sign-in"
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | "/library/";
   fileRoutesByTo: FileRoutesByTo;
   to:
+    | "/new-pin"
     | "/setup"
     | "/sign-in"
     | "/worker"
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/_app"
+    | "/new-pin"
     | "/portal"
     | "/setup"
     | "/sign-in"
@@ -248,6 +260,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren;
+  NewPinRoute: typeof NewPinRoute;
   PortalRoute: typeof PortalRouteWithChildren;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
@@ -261,6 +274,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof AppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/new-pin": {
+      id: "/new-pin";
+      path: "/new-pin";
+      fullPath: "/new-pin";
+      preLoaderRoute: typeof NewPinRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/portal": {
@@ -449,6 +469,7 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  NewPinRoute: NewPinRoute,
   PortalRoute: PortalRouteWithChildren,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,

@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { onTestFinished } from "vitest";
 
-import { ShellContext, type ShellKind } from "../ui/shell-context";
+import { type Density, DensityContext, ShellContext, type ShellKind } from "../ui/shell-context";
 
-export type Density = "console" | "touch";
+export type { Density } from "../ui/shell-context";
 
 export const densityOf: { readonly [S in ShellKind]: Density } = {
   desktop: "console",
@@ -19,7 +19,11 @@ export function renderKit(
   container.dataset["density"] = density;
   document.body.append(container);
   const root = createRoot(container);
-  root.render(<ShellContext value={shell}>{ui}</ShellContext>);
+  root.render(
+    <ShellContext value={shell}>
+      <DensityContext value={density}>{ui}</DensityContext>
+    </ShellContext>,
+  );
   onTestFinished(() => {
     root.unmount();
     container.remove();
