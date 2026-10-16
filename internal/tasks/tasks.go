@@ -28,6 +28,7 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("tasks", sch
 type Roster interface {
 	Self() role.NodeID
 	Get(ctx context.Context, id role.NodeID) (nodes.Node, error)
+	List(ctx context.Context) ([]nodes.Node, error)
 }
 
 // Changed tells Admins that a task, its runs or the schedule changed. An
@@ -81,6 +82,7 @@ func (e *ErrRunning) Error() string { return "the task has run since " + e.Since
 // can't start work.
 type ErrWaiting struct {
 	Node  string
+	Link  nodes.LinkState
 	Since time.Time
 }
 
@@ -101,7 +103,8 @@ type Scheduler struct {
 	runs sync.WaitGroup
 
 	mu      sync.Mutex
-	running map[RunID]context.CancelCauseFunc
+	started time.Time
+	running map[RunID]*active
 	// cut is the tasks whose slot run a stop cut short, until they rerun.
 	cut map[TaskID]bool
 }
@@ -116,7 +119,7 @@ func Open(ctx context.Context, cfg Config) (*Scheduler, error) {
 		self:    cfg.Roster.Self(),
 		wake:    make(chan struct{}, 1),
 		asks:    make(chan ask),
-		running: map[RunID]context.CancelCauseFunc{},
+		running: map[RunID]*active{},
 		cut:     map[TaskID]bool{},
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {

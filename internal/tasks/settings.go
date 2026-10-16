@@ -139,59 +139,6 @@ func (s *Scheduler) PruneRuns(ctx context.Context) error {
 	})
 }
 
-// Warnings is the Health warning each task's latest finished run raises.
-func (s *Scheduler) Warnings(ctx context.Context) ([]Warning, error) {
-	var (
-		settings db.TasksSetting
-		rows     []db.TasksTask
-		latests  []db.TasksRun
-		units    = map[TaskID][]db.TasksUnit{}
-	)
-	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		q := db.New(r)
-		var err error
-		if settings, err = q.GetSettings(ctx); err != nil {
-			return err
-		}
-		if rows, err = q.ListTasks(ctx); err != nil {
-			return err
-		}
-		if latests, err = q.ListLatestRuns(ctx); err != nil {
-			return err
-		}
-		for _, run := range latests {
-			if units[run.TaskID], err = q.ListUnits(ctx, run.TaskID); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	every := map[TaskID]*int64{}
-	for _, row := range rows {
-		every[row.ID] = row.EverySeconds
-	}
-	runs := map[TaskID]db.TasksRun{}
-	for _, run := range latests {
-		runs[run.TaskID] = run
-	}
-	now := time.Now()
-	var out []Warning
-	for _, t := range s.cfg.Catalog {
-		run, ok := runs[t.ID]
-		if !ok {
-			continue
-		}
-		l := latest{result: *run.Result, ended: run.EndedAt.Time(), cause: deref(run.Cause)}
-		if w, ok := warn(t, l, sinceOf(units[t.ID]), t.Setting().Value(every[t.ID]), PartialWarnAfter.Value(settings.PartialWarnIntervals), now, s.cfg.Zone); ok {
-			out = append(out, w)
-		}
-	}
-	return out, nil
-}
-
 func sinceOf(units []db.TasksUnit) []unitSince {
 	since := make([]unitSince, 0, len(units))
 	for _, u := range units {

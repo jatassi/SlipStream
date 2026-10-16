@@ -34,6 +34,9 @@ type asked struct {
 func (s *Scheduler) Run(ctx context.Context) error {
 	defer s.runs.Wait()
 	started := time.Now()
+	s.mu.Lock()
+	s.started = started
+	s.mu.Unlock()
 	atStart := map[TaskID]bool{}
 	for _, t := range s.cfg.Catalog {
 		if c, ok := t.Cadence.(Every); ok && c.AtStart {
@@ -130,23 +133,29 @@ type snapshot struct {
 func (s *Scheduler) snapshot(ctx context.Context) (snapshot, error) {
 	var snap snapshot
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		q := db.New(r)
 		var err error
-		if snap.settings, err = q.GetSettings(ctx); err != nil {
-			return err
-		}
-		if snap.rows, err = q.ListTasks(ctx); err != nil {
-			return err
-		}
-		if snap.latest, err = q.ListLatestRuns(ctx); err != nil {
-			return err
-		}
-		if snap.open, err = q.ListOpenRuns(ctx); err != nil {
-			return err
-		}
-		snap.due, err = q.ListDueUnits(ctx)
+		snap, err = readSnapshot(ctx, db.New(r))
 		return err
 	})
+	return snap, err
+}
+
+func readSnapshot(ctx context.Context, q *db.Queries) (snapshot, error) {
+	var snap snapshot
+	var err error
+	if snap.settings, err = q.GetSettings(ctx); err != nil {
+		return snap, err
+	}
+	if snap.rows, err = q.ListTasks(ctx); err != nil {
+		return snap, err
+	}
+	if snap.latest, err = q.ListLatestRuns(ctx); err != nil {
+		return snap, err
+	}
+	if snap.open, err = q.ListOpenRuns(ctx); err != nil {
+		return snap, err
+	}
+	snap.due, err = q.ListDueUnits(ctx)
 	return snap, err
 }
 
@@ -155,10 +164,17 @@ func (s *Scheduler) read(ctx context.Context, started time.Time, atStart map[Tas
 	if err != nil {
 		return nil, knobs{}, err
 	}
+	states, k := s.states(snap, started, atStart, func(node role.NodeID) bool { return s.reaches(ctx, node) })
+	return states, k, nil
+}
+
+// states is each catalog task's state for plan. reaches says whether a
+// Node can start work now.
+func (s *Scheduler) states(snap snapshot, started time.Time, atStart map[TaskID]bool, reaches func(role.NodeID) bool) ([]state, knobs) {
 	k := s.knobs(snap.settings, started)
 	returned := map[TaskID]bool{}
 	for _, u := range snap.due {
-		if !returned[u.TaskID] && s.reaches(ctx, u.TiedTo) {
+		if !returned[u.TaskID] && reaches(u.TiedTo) {
 			returned[u.TaskID] = true
 		}
 	}
@@ -189,7 +205,7 @@ func (s *Scheduler) read(ctx context.Context, started time.Time, atStart map[Tas
 		}
 		states = append(states, st)
 	}
-	return states, k, nil
+	return states, k
 }
 
 func (s *Scheduler) knobs(row db.TasksSetting, started time.Time) knobs {
@@ -396,5 +412,5 @@ func (s *Scheduler) runnable(ctx context.Context, task TaskID, units []Unit) err
 		}
 	}
 	n, _ := s.preflight(ctx, units[0].Place.node)
-	return &ErrWaiting{Node: n.Name, Since: n.Since}
+	return &ErrWaiting{Node: n.Name, Link: n.Link, Since: n.Since}
 }

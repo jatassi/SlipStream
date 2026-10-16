@@ -20,7 +20,7 @@ CREATE TABLE tasks_run (
     cause TEXT,
     units TEXT,
     CHECK ((ended_at IS NULL) = (result IS NULL)),
-    CHECK ((kind = 'run-now') = (requested_by IS NOT NULL))
+    CHECK (kind = 'run-now' OR requested_by IS NULL)
 ) STRICT;
 
 CREATE UNIQUE INDEX tasks_run_open ON tasks_run (task_id) WHERE ended_at IS NULL;

@@ -75,6 +75,9 @@ SELECT * FROM tasks_run r
 WHERE r.id = (SELECT max(l.id) FROM tasks_run l WHERE l.task_id = r.task_id AND l.ended_at IS NOT NULL)
 ORDER BY r.task_id;
 
+-- name: ListRuns :many
+SELECT * FROM tasks_run WHERE task_id = sqlc.arg(task_id) ORDER BY id DESC LIMIT sqlc.arg(kept);
+
 -- name: PruneRuns :exec
 DELETE FROM tasks_run AS old
 WHERE old.ended_at IS NOT NULL AND (

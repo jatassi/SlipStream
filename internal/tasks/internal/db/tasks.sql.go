@@ -284,6 +284,49 @@ func (q *Queries) ListOpenRuns(ctx context.Context) ([]TasksRun, error) {
 	return items, nil
 }
 
+const listRuns = `-- name: ListRuns :many
+SELECT id, task_id, kind, requested_by, started_at, ended_at, result, summary, cause, units FROM tasks_run WHERE task_id = ?1 ORDER BY id DESC LIMIT ?2
+`
+
+type ListRunsParams struct {
+	TaskID TaskID
+	Kept   int64
+}
+
+func (q *Queries) ListRuns(ctx context.Context, arg ListRunsParams) ([]TasksRun, error) {
+	rows, err := q.db.QueryContext(ctx, listRuns, arg.TaskID, arg.Kept)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TasksRun
+	for rows.Next() {
+		var i TasksRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Kind,
+			&i.RequestedBy,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.Result,
+			&i.Summary,
+			&i.Cause,
+			&i.Units,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTasks = `-- name: ListTasks :many
 SELECT id, every_seconds, overdue, first_seen_at, slot_started_at, jitter_frac FROM tasks_task ORDER BY id
 `

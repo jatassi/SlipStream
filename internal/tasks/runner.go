@@ -25,14 +25,22 @@ var errCanceled = errors.New("an Admin canceled the run")
 
 const progressEvery = 500 * time.Millisecond
 
+// active is a run this process runs.
+type active struct {
+	run      openRun
+	cancel   context.CancelCauseFunc
+	progress *progress
+}
+
 func (s *Scheduler) start(ctx context.Context, r openRun) {
 	runCtx, cancel := context.WithCancelCause(ctx)
+	p := newProgress(ctx, s, r)
 	s.mu.Lock()
-	s.running[r.id] = cancel
+	s.running[r.id] = &active{run: r, cancel: cancel, progress: p}
 	s.mu.Unlock()
 	s.runs.Go(func() {
 		defer cancel(nil)
-		s.run(ctx, runCtx, r)
+		s.run(ctx, runCtx, r, p)
 		s.mu.Lock()
 		delete(s.running, r.id)
 		s.mu.Unlock()
@@ -45,11 +53,11 @@ func (s *Scheduler) start(ctx context.Context, r openRun) {
 func (s *Scheduler) Cancel(id RunID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cancel, ok := s.running[id]
+	a, ok := s.running[id]
 	if !ok {
 		return ErrNotOpen
 	}
-	cancel(errCanceled)
+	a.cancel(errCanceled)
 	return nil
 }
 
@@ -57,7 +65,7 @@ func (s *Scheduler) Cancel(id RunID) error {
 // each unit's outcome as it ends, then closes the run with its task row.
 // When ctx ends first, the Node is stopping: the run stays open for the
 // next Open to close as cut short.
-func (s *Scheduler) run(ctx, runCtx context.Context, r openRun) {
+func (s *Scheduler) run(ctx, runCtx context.Context, r openRun, p *progress) {
 	results := make([]result, len(r.units))
 	byNode := map[role.NodeID][]int{}
 	var order []role.NodeID
@@ -71,7 +79,6 @@ func (s *Scheduler) run(ctx, runCtx context.Context, r openRun) {
 		}
 		byNode[node] = append(byNode[node], i)
 	}
-	p := newProgress(ctx, s, r)
 	var wg sync.WaitGroup
 	for _, node := range order {
 		wg.Go(func() {
@@ -213,6 +220,13 @@ func (p *progress) step(done, total int) {
 	p.frame.Done, p.frame.Total = p.done*total+done, len(p.run.units)*total
 	p.mu.Unlock()
 	p.publish()
+}
+
+// now is the run's progress: done of total.
+func (p *progress) now() (done, total int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.frame.Done, p.frame.Total
 }
 
 func (p *progress) publish() {

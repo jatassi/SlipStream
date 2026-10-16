@@ -34,6 +34,11 @@ func (roster) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
 	return nodes.Node{ID: home, Name: "home", Self: true, Link: nodes.Local}, nil
 }
 
+func (r roster) List(ctx context.Context) ([]nodes.Node, error) {
+	n, err := r.Get(ctx, home)
+	return []nodes.Node{n}, err
+}
+
 type quiet struct{}
 
 func (quiet) Publish(context.Context, tasks.Changed) {}
