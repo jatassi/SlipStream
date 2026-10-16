@@ -14,7 +14,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Security is how a connection to the SMTP server is protected.
 type Security string
 
 const (
@@ -34,7 +33,6 @@ type Server struct {
 	From     Address
 }
 
-// SMTP is the Sender that hands each message to Server.
 type SMTP struct {
 	Server  Server
 	Timings Timings

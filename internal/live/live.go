@@ -121,7 +121,6 @@ func (p EveryonePublisher[T]) Publish(ctx context.Context, v T) {
 // Resync means refetch everything: events may have been missed.
 type Resync struct{}
 
-// EndReason is why a session's streams end.
 type EndReason string
 
 const (

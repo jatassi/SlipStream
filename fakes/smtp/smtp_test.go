@@ -57,7 +57,6 @@ func send(t *testing.T, s mail.SMTP, m mail.Message) mail.Outcome {
 	return out
 }
 
-// captured is every message the fake kept, and the files each kept.
 func captured(t *testing.T, f faketest.Served) (msgs []smtp.Message, files []map[string]string) {
 	t.Helper()
 	for _, r := range f.Records(t) {
@@ -123,7 +122,6 @@ func TestEverySecurityDeliversTheMessage(t *testing.T) {
 	}
 }
 
-// crlf is s as it crosses SMTP, every line ending CRLF.
 func crlf(s string) string { return strings.ReplaceAll(s, "\n", "\r\n") }
 
 func TestCuesAnswerTheServersReply(t *testing.T) {

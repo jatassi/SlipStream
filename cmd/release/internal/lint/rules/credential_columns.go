@@ -133,7 +133,6 @@ func finalColumns(fsys fstest.MapFS) ([]tableColumn, error) {
 	return out, nil
 }
 
-// introduced is the first line of the set's migrations that names column.
 func introduced(column string, migrations, sources []string) (file string, line int) {
 	word := regexp.MustCompile(`\b` + regexp.QuoteMeta(column) + `\b`)
 	for i, src := range sources {

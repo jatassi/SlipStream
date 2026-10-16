@@ -21,7 +21,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// TLSMode is how TLS reaches a fake's connections.
 type TLSMode uint8
 
 const (
@@ -68,7 +67,6 @@ type Spec struct {
 // doesn't serve.
 var ErrNotFound = errors.New("not found")
 
-// URL is the URL of the fake at at.
 func (s Spec) URL(at Address) string {
 	if s.Scheme != "" {
 		return s.Scheme + "://" + at.AddrPort.String()

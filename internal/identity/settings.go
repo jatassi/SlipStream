@@ -70,8 +70,6 @@ var Bounds = []Bound{
 // FieldError names a field by its name in the API.
 type FieldError struct{ Field, Message string }
 
-// OutOfRangeError is a settings change some value of which is outside its
-// Bound.
 type OutOfRangeError struct{ Fields []FieldError }
 
 func (e *OutOfRangeError) Error() string {

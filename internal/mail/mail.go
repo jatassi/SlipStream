@@ -7,14 +7,11 @@ import (
 	"time"
 )
 
-// Address is a mailbox and the name shown with it.
 type Address struct {
 	Name  string
 	Email string
 }
 
-// Message is a rendered email: its subject, its HTML part and its
-// plain-text part.
 type Message struct {
 	To      Address
 	Subject string

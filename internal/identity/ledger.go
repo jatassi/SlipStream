@@ -41,7 +41,6 @@ const (
 	TooManyAttempts
 )
 
-// WaitError refuses an attempt until Until.
 type WaitError struct {
 	Kind  WaitKind
 	Until time.Time

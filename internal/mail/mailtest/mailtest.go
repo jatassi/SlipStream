@@ -50,7 +50,6 @@ func (s *Sender) Send(ctx context.Context, m mail.Message) (mail.Outcome, error)
 	return s.answer, nil
 }
 
-// Sent is every message so far, in the order they were sent.
 func (s *Sender) Sent() []mail.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()

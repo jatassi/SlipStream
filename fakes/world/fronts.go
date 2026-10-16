@@ -144,7 +144,6 @@ func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
 
 func leafNames(name string) []string { return []string{"127.0.0.1", name + ".fake.localhost"} }
 
-// leaf is the run-CA certificate of the fake named name.
 func (r *Run) leaf(name string) (tls.Certificate, error) { return r.ca.Leaf(leafNames(name)...) }
 
 // LinkTarget is the fault target of the link front of the Node named

@@ -23,7 +23,6 @@ type Anyone struct{ client }
 // Claim is a caller the Setup gate admitted while the Node is Unclaimed.
 type Claim struct{ client }
 
-// signedIn is one live session as authentication read it.
 type signedIn struct {
 	profile     Profile
 	session     SessionID

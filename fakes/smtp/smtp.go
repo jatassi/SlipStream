@@ -70,7 +70,6 @@ type Message struct {
 	HTML     string   `json:"html"`
 }
 
-// Toggle is a cue's arguments.
 type Toggle struct {
 	Off bool `json:"off"`
 }

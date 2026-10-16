@@ -148,7 +148,6 @@ func TestTheOutboxSendsNothingAfterClose(t *testing.T) {
 	}
 }
 
-// stuck is a Sender whose server never answers.
 type stuck struct{}
 
 func (stuck) Send(ctx context.Context, _ mail.Message) (mail.Outcome, error) {
