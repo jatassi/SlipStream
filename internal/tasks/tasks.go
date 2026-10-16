@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -45,6 +46,12 @@ type Progressed struct {
 	Total  int    `json:"total"`
 }
 
+// Hub is where the clock follows the events that change what it plans
+// or what a task lists.
+type Hub interface {
+	Watch(ctx context.Context, events ...live.Event) <-chan struct{}
+}
+
 type ChangedPublisher interface {
 	Publish(ctx context.Context, v Changed)
 }
@@ -63,6 +70,7 @@ type Config struct {
 	Zone *time.Location
 	// Rand draws each slot's jitter.
 	Rand       *rand.Rand
+	Hub        Hub
 	Changed    ChangedPublisher
 	Progressed ProgressPublisher
 	Log        *slog.Logger

@@ -9,10 +9,12 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -82,9 +84,20 @@ func tidy(release <-chan struct{}) tasks.Task {
 
 func open(t *testing.T, lib *storage.DB[storage.Library], catalog ...tasks.Task) *tasks.Scheduler {
 	t.Helper()
+	return openOn(t, lib, roster{}, newHub(t), catalog...)
+}
+
+func newHub(t *testing.T) *live.Hub {
+	h := live.NewHub([]live.Event{nodes.ChangedEvent, tasks.ChangedEvent, tasks.ProgressEvent})
+	t.Cleanup(h.Close)
+	return h
+}
+
+func openOn(t *testing.T, lib *storage.DB[storage.Library], r tasks.Roster, hub *live.Hub, catalog ...tasks.Task) *tasks.Scheduler {
+	t.Helper()
 	s, err := tasks.Open(t.Context(), tasks.Config{
-		Library: lib, Catalog: catalog, Roster: roster{}, Zone: time.UTC, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: quiet{}, Progressed: still{}, Log: slog.New(slog.DiscardHandler),
+		Library: lib, Catalog: catalog, Roster: r, Zone: time.UTC, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Hub: hub, Changed: quiet{}, Progressed: still{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -300,3 +313,68 @@ func TestPruneRunsKeepsRunsKeptAndEveryOpenRun(t *testing.T) {
 }
 
 func equal(a, b []string) bool { return strings.Join(a, "\n") == strings.Join(b, "\n") }
+
+// links is home and seedbox, whose link a test sets.
+type links struct {
+	mu   sync.Mutex
+	link nodes.LinkState
+}
+
+var seedbox = role.NodeID{UUID: storage.NewUUID()}
+
+func (l *links) set(link nodes.LinkState) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.link = link
+}
+
+func (*links) Self() role.NodeID { return home }
+
+func (l *links) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
+	list, err := l.List(ctx)
+	for _, n := range list {
+		if n.ID == id {
+			return n, err
+		}
+	}
+	return nodes.Node{}, nodes.ErrNotFound
+}
+
+func (l *links) List(context.Context) ([]nodes.Node, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return []nodes.Node{{ID: home, Name: "home", Self: true, Link: nodes.Local}, {ID: seedbox, Name: "seedbox", Link: l.link}}, nil
+}
+
+func TestANodeReturningRunsItsDueUnitsOnce(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		far := tidy(nil)
+		far.Units = func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+			return []tasks.Unit{{Key: "a", Label: "A", Place: tasks.OnController()}, {Key: "s", Label: "S", Place: tasks.TiedTo(seedbox)}}, nil
+		}
+		far.Run = func(context.Context, tasks.Unit, *tasks.Progress) error { return nil }
+		r := &links{}
+		hub := newHub(t)
+		s := openOn(t, lib, r, hub, far)
+		clock(t, s)
+		if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		r.set(nodes.Up)
+		synctest.Wait()
+		if got := rows(t, lib, "SELECT count(*) FROM tasks_run"); !equal(got, []string{"1"}) {
+			t.Fatalf("runs before nodes.changed = %q, want only the Run now", got)
+		}
+		nodes.ChangedEvent.Bind(hub).Publish(t.Context(), nodes.Changed{NodeID: seedbox.String()})
+		synctest.Wait()
+		want := []string{"run-now|partial|1 of 2 steps, seedbox offline", "returned|succeeded|1 step"}
+		if got := rows(t, lib, "SELECT kind, result, summary FROM tasks_run ORDER BY id"); !equal(got, want) {
+			t.Fatalf("runs = %q, want %q", got, want)
+		}
+		if got := rows(t, lib, "SELECT unit_key, last_outcome, due_on_return FROM tasks_unit ORDER BY position"); !equal(got, []string{"a|succeeded|0", "s|succeeded|0"}) {
+			t.Fatalf("units = %q, want both succeeded and none due", got)
+		}
+	})
+}

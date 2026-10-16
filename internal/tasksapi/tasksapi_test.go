@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -91,9 +92,11 @@ func onController(key tasks.UnitKey) tasks.Unit {
 func serve(t *testing.T, catalog ...tasks.Task) *ownertest.Owner {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), tasks.Schema())
+	hub := live.NewHub([]live.Event{nodes.ChangedEvent})
+	t.Cleanup(hub.Close)
 	s, err := tasks.Open(t.Context(), tasks.Config{
 		Library: lib, Catalog: catalog, Roster: roster{}, Zone: time.UTC, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: discard[tasks.Changed]{}, Progressed: discard[tasks.Progressed]{}, Log: slog.New(slog.DiscardHandler),
+		Hub: hub, Changed: discard[tasks.Changed]{}, Progressed: discard[tasks.Progressed]{}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -142,6 +142,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
+		Hub:        n.hub,
 		Changed:    tasks.ChangedEvent.Bind(n.hub),
 		Progressed: tasks.ProgressEvent.Bind(n.hub),
 		Log:        n.rootLog.With("subsystem", "tasks"),

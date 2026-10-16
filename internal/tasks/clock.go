@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -37,6 +38,12 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	s.mu.Lock()
 	s.started = started
 	s.mu.Unlock()
+	s.follow(ctx, "", nodes.ChangedEvent)
+	for _, t := range s.cfg.Catalog {
+		if len(t.Follows) > 0 {
+			s.follow(ctx, t.ID, t.Follows...)
+		}
+	}
 	atStart := map[TaskID]bool{}
 	for _, t := range s.cfg.Catalog {
 		if c, ok := t.Cadence.(Every); ok && c.AtStart {
@@ -48,6 +55,24 @@ func (s *Scheduler) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// follow plans again and tells open pages that task changed after each
+// of events, until ctx ends. An empty task is every task: a Node changing
+// changes which wait for it.
+func (s *Scheduler) follow(ctx context.Context, task TaskID, events ...live.Event) {
+	woken := s.cfg.Hub.Watch(ctx, events...)
+	s.runs.Go(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-woken:
+				s.changed(ctx, task)
+				s.Wake()
+			}
+		}
+	})
 }
 
 // sleep waits for wake, a zero wake waiting for an event alone, and
@@ -247,7 +272,7 @@ var errNoUnits = errors.New("the task lists no units")
 // open, then starts the run. An empty list opens nothing and passes a
 // slot run's slot, so a hidden task keeps its cadence.
 func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storage.UUID) (RunID, error) {
-	units, err := s.units(ctx, t, trigger)
+	all, units, err := s.units(ctx, t, trigger)
 	if err != nil {
 		return 0, err
 	}
@@ -259,7 +284,7 @@ func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storag
 		} else if !errors.Is(err, storage.ErrNoRows) {
 			return err
 		}
-		if err := syncUnits(ctx, q, t.ID, units); err != nil {
+		if err := syncUnits(ctx, q, t.ID, all); err != nil {
 			return err
 		}
 		started := storage.Now()
@@ -275,35 +300,36 @@ func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storag
 	return r.id, nil
 }
 
-func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) ([]Unit, error) {
-	var units []Unit
-	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+// units is every unit t lists, and those the run acts on: all of them, or
+// for a returned run those due whose Node can start work again.
+func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, run []Unit, err error) {
+	err = s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		units, err = t.Units(ctx, r)
+		all, err = t.Units(ctx, r)
 		return err
 	})
 	switch {
 	case err != nil:
-		return nil, err
-	case len(units) == 0:
+		return nil, nil, err
+	case len(all) == 0:
 		if trigger == BySchedule || trigger == ByCatchUp {
 			if err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 				return db.New(tx).AdvanceSlot(ctx, db.AdvanceSlotParams{ID: t.ID, SlotStartedAt: storage.Now(), JitterFrac: s.drawJitter()})
 			}); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
-		return nil, errNoUnits
+		return nil, nil, errNoUnits
 	case trigger == ByReturn:
-		units, err = s.returning(ctx, t.ID, units)
-		if err == nil && len(units) == 0 {
+		run, err = s.returning(ctx, t.ID, all)
+		if err == nil && len(run) == 0 {
 			err = errNoUnits
 		}
-		return units, err
+		return all, run, err
 	case trigger == ByRunNow:
-		return units, s.runnable(ctx, t.ID, units)
+		return all, all, s.runnable(ctx, t.ID, all)
 	}
-	return units, nil
+	return all, all, nil
 }
 
 func (s *Scheduler) returning(ctx context.Context, task TaskID, units []Unit) ([]Unit, error) {

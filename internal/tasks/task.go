@@ -6,6 +6,7 @@ package tasks
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -69,6 +70,9 @@ type Task struct {
 	Units func(ctx context.Context, r storage.Reader[storage.Library]) ([]Unit, error)
 	// Run does one unit's work. The runner classifies its error.
 	Run func(ctx context.Context, u Unit, p *Progress) error
+	// Follows is the events after which Units may answer differently, so
+	// open pages refetch the task.
+	Follows []live.Event
 	// Health is the warning category; "" is scheduled-tasks.
 	Health string
 }
