@@ -91,6 +91,11 @@ const compress: SettingSwitchField = {
   default: true,
 };
 
+const viewerLines = count("log.viewer_lines", "Lines kept for the viewer", 2000, [100, 50_000], {
+  one: "line",
+  many: "lines",
+});
+
 export const homeConfig: SystemNodeConfig = {
   sections: [
     { id: "web", fields: [portSetting, portsToTry] },
@@ -116,10 +121,7 @@ export const homeConfig: SystemNodeConfig = {
           "No limit",
         ),
         compress,
-        count("log.viewer_lines", "Lines kept for the viewer", 2000, [100, 50_000], {
-          one: "line",
-          many: "lines",
-        }),
+        viewerLines,
       ],
     },
   ],
@@ -132,6 +134,16 @@ export const withPort = (port: Partial<SettingPortField>): SystemNodeConfig => (
       ? { ...section, fields: [{ ...portSetting, ...port }, ...section.fields.slice(1)] }
       : section,
   ),
+});
+
+/** A config whose running Lines kept for the viewer is `running`. */
+export const withViewerLines = (running: number): SystemNodeConfig => ({
+  sections: homeConfig.sections.map((section) => ({
+    ...section,
+    fields: section.fields.map((field) =>
+      field.key === viewerLines.key ? { ...viewerLines, running } : field,
+    ),
+  })),
 });
 
 type Answer = SystemReport | SystemNodeConfig | "offline";

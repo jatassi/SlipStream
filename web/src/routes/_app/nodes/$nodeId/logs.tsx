@@ -1,11 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Section } from "../../../../ui/section";
+import {
+  getGetNodeConfigSuspenseQueryOptions,
+  useGetNodeConfigSuspense,
+} from "../../../../api/gen/query/system/system";
+import { ensureQuery } from "../../../../api/query-client";
+import { Skeleton } from "../../../../ui/skeleton";
+import { settingOf } from "../-config";
+import { LogViewer } from "../-logs/log-viewer";
+import { NodeProblem } from "../-node-problem";
 import { sectionOf } from "../-sections";
 
 const section = sectionOf("logs");
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/logs")({
   staticData: { title: section.label },
-  component: () => <Section title={section.label}>{null}</Section>,
+  loader: ({ context, params }) =>
+    ensureQuery(context.queryClient, getGetNodeConfigSuspenseQueryOptions(params.nodeId)),
+  pendingComponent: () => <Skeleton label="Loading the log" />,
+  errorComponent: NodeProblem,
+  component: function Logs() {
+    const { nodeId } = Route.useParams();
+    const config = useGetNodeConfigSuspense(nodeId).data;
+    const cap = settingOf(config, "log.viewer_lines", "count").running;
+    return <LogViewer key={nodeId} nodeId={nodeId} cap={cap} />;
+  },
 });
