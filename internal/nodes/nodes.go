@@ -648,6 +648,26 @@ type Node struct {
 	Facts *nodev1.NodeFacts
 }
 
+// Named is a Node's id and name.
+type Named struct {
+	ID   ID
+	Name string
+}
+
+// Names is every Node's id and name in id order, so the Controller's own
+// row, the first paired, comes first.
+func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
+	rows, err := db.New(r).ListNodes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the Nodes: %w", err)
+	}
+	out := make([]Named, len(rows))
+	for i, row := range rows {
+		out[i] = Named{ID: row.ID, Name: row.Name}
+	}
+	return out, nil
+}
+
 // List is every Node, in id order.
 func (s *Service) List(ctx context.Context) ([]Node, error) {
 	q := db.New(s.cfg.Library)

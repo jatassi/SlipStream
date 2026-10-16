@@ -304,7 +304,7 @@ func TestPruneRunsKeepsRunsKeptAndEveryOpenRun(t *testing.T) {
 			t.Fatal(err)
 		}
 		synctest.Wait()
-		if err := s.PruneRuns(t.Context()); err != nil {
+		if err := tasks.PruneRuns(t.Context(), lib); err != nil {
 			t.Fatal(err)
 		}
 		want := []string{"3|tidy|succeeded", "4|tidy|succeeded", "5|slow|NULL"}

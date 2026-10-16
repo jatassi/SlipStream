@@ -128,8 +128,8 @@ func (s *Scheduler) setTask(ctx context.Context, id TaskID, set func(context.Con
 
 // PruneRuns keeps the newest runs_kept finished runs of each task and
 // never deletes an open one.
-func (s *Scheduler) PruneRuns(ctx context.Context) error {
-	return s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+func PruneRuns(ctx context.Context, lib *storage.DB[file]) error {
+	return lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		row, err := q.GetSettings(ctx)
 		if err != nil {
