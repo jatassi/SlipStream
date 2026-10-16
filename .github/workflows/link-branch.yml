@@ -1,17 +1,6 @@
 name: link-branch
 
 on:
-  workflow_call:
-    inputs:
-      issue:
-        type: number
-        required: true
-      branch:
-        type: string
-        required: true
-      base:
-        type: string
-        default: main
   workflow_dispatch:
     inputs:
       issue:
