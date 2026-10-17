@@ -97,6 +97,8 @@ async function join(page: Page, link: string, inviter: string, passkeyStep: "ski
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
 }
 
+const lin = { email: "lin@example.test", pin: "8642", admin: false, displayName: "Lin Wei" };
+
 test("a Signup link is emailed, and the person joins and signs in with a PIN", async ({
   adminPage,
   newContext,
@@ -128,16 +130,11 @@ test("a Signup link is emailed, and the person joins and signs in with a PIN", a
   ).toBeVisible();
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(`${world.baseURL}/sign-in`);
-  await signIn(page, {
-    email: "lin@example.test",
-    pin: "8642",
-    admin: false,
-    displayName: "Lin Wei",
-  });
+  await signIn(page, lin);
 });
 
 test(
-  "a passkey added while joining signs in from the email field's autofill",
+  "a passkey added while joining signs in from the email field's autofill, and a PIN sign-in elsewhere doesn't offer another",
   { tag: "@cdp" },
   async ({ newContext, world }) => {
     const reply = await world.api("POST", "/api/v1/signup-links", { email: "lin@example.test" });
@@ -160,6 +157,12 @@ test(
     expect((await asserted).status()).toBe(200);
     await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
     expect(page.url()).toBe(`${world.baseURL}/portal`);
+
+    const elsewhere = await (await newContext()).newPage();
+    await signIn(elsewhere, lin);
+    await expect(
+      elsewhere.getByRole("dialog", { name: "Sign in faster here with a passkey" }),
+    ).toHaveCount(0);
   },
 );
 
