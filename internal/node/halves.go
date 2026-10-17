@@ -150,7 +150,12 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	shelf := files.New(files.Config{
 		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
-		Today: n.today,
+		Naming:  contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
+		Today:   n.today,
+		Disk:    files.OSDisk{},
+		Timings: n.cfg.Timings.Files,
+		Rand:    n.filesRand,
+		Log:     n.rootLog.With("subsystem", "files"),
 	})
 	receiver := transfers.NewReceiver(transfers.Config{Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers})
 	pipeline := grabs.New(grabs.Config{
@@ -159,7 +164,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Files:     shelf,
 		Indexers:  registry,
 		Terms:     contenttype.Project(opened, func(t contenttype.Type) indexers.Facet { return t }),
-		Naming:    contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
 		Roster:    side,
 		Downloads: downloads,
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
@@ -209,6 +213,7 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("grabs", pipeline.Run)
+	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.env.Test.started(started)
 	return nil

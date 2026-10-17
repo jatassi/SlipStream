@@ -9,7 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// GrabCells is files.GrabCells over the Grabs: each cell takes its latest
+// GrabCells is files.Inflight over the Grabs: each cell takes its latest
 // Grab's state, downloading once past fetching and failed once failed.
 type GrabCells struct{}
 
@@ -29,6 +29,19 @@ func (GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library
 		case Downloading, Probing, Transferring, Importing:
 			out[key] = files.GrabDownloading
 		}
+	}
+	return out, nil
+}
+
+// Unfinished lists every Grab not yet imported or failed.
+func (GrabCells) Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error) {
+	rows, err := db.New(r).ListOpenGrabs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]storage.UUID, len(rows))
+	for i, row := range rows {
+		out[i] = row.ID.UUID
 	}
 	return out, nil
 }

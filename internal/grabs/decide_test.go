@@ -11,9 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
-	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -115,34 +113,6 @@ func TestDecideAsksARankAboveTheFileFillingTheCell(t *testing.T) {
 	want := []Refusal{{"Orchard.1080p.WEBRip", []Reason{notChecked(hd), {Reason: targets.Reason{Code: targets.NotAnUpgrade}, Target: hd.ID}}}}
 	if pick == nil || pick.Item.Title != "Orchard.1080p.BluRay" || !reflect.DeepEqual(refused, want) {
 		t.Fatalf("decide over a held WEB-DL = %+v, %+v; want the Bluray and the WEBRip refused as %+v", pick, refused, want)
-	}
-}
-
-func TestPlanNamesTheFileAfterTheFirstTargetItFills(t *testing.T) {
-	both := target("Any HD", release.WEBDL1080p, nil, []release.Quality{release.WEBDL1080p}, []release.Quality{release.WEBDL720p})
-	root := roots.Root{ID: roots.ID{UUID: storage.NewUUID()}, Path: "/media/movies"}
-	templates := naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
-	tokens := map[string]string{"Movie Title": "The Quiet Orchard", "Year": "2021"}
-	cells := []files.Cell{cell(small, files.Missing), cell(hd, files.Downloading), cell(both, files.Failed)}
-	webdl := release.File("The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", nil, release.R1080p)
-
-	got, err := plan(cells, item.ID, webdl, root, templates, tokens, "mkv")
-	want := Plan{Root: root, Path: "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv", Fills: []targets.TargetID{hd.ID, both.ID}}
-	if err != nil || !reflect.DeepEqual(got, want) {
-		t.Fatalf("plan = %+v, %v; want %+v", got, err, want)
-	}
-
-	tokens["Movie Title"] = `CON: The "Quiet" Orchard.`
-	got, err = plan(cells[1:2], item.ID, webdl, root, templates, tokens, "mkv")
-	if want := "CON The Quiet Orchard. (2021)/CON The Quiet Orchard. (2021) - 1080p.mkv"; err != nil || got.Path != want {
-		t.Fatalf("plan of a title with reserved characters = %q, %v; want %q", got.Path, err, want)
-	}
-
-	filled := cell(hd, files.Upgradable)
-	filled.File = &files.File{Quality: release.WEBRip1080p}
-	_, err = plan([]files.Cell{filled, cell(small, files.Missing)}, item.ID, webdl, root, templates, tokens, "mkv")
-	if err == nil || err.Error() != "a WEBDL-1080p file fills no Target the Work still wants" {
-		t.Fatalf("plan of a file whose Targets are filled = %v, want fills nothing", err)
 	}
 }
 

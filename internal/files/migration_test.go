@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -175,4 +176,87 @@ func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[str
 		t.Fatal(err)
 	}
 	return checked
+}
+
+func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *testing.T) {
+	ctx := t.Context()
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	open := func(schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
+		t.Helper()
+		lib, err := storage.OpenLibrary(ctx, path, schemas, func(context.Context, *storage.Unmigrated, storage.Plan) error { return nil },
+			storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lib
+	}
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema(), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	work, root, profile := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	small, large := storage.NewUUID(), storage.NewUUID()
+	both, second, none := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		type stmt struct {
+			sql  string
+			args []any
+		}
+		stmts := []stmt{
+			{`INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, []any{root}},
+			{`INSERT INTO works_work VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, []any{work}},
+			{`INSERT INTO roots_root VALUES (?, 'fixture', ?, '/media')`, []any{root, root}},
+			{`INSERT INTO targets_target VALUES (?, 'Small', 1)`, []any{small}},
+			{`INSERT INTO targets_resolution VALUES (?, 1, '720p')`, []any{small}},
+			{`INSERT INTO targets_target VALUES (?, 'Large', 1)`, []any{large}},
+			{`INSERT INTO targets_resolution VALUES (?, 1, '1080p')`, []any{large}},
+			{`INSERT INTO targets_profile VALUES (?, 'Standard', 'fixture', 1)`, []any{profile}},
+			{`INSERT INTO targets_profile_target VALUES (?, 1, ?)`, []any{profile, large}},
+			{`INSERT INTO targets_profile_target VALUES (?, 2, ?)`, []any{profile, small}},
+		}
+		for i, f := range []storage.UUID{both, second, none} {
+			item := storage.NewUUID()
+			stmts = append(stmts,
+				stmt{`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, ?, 'Item', ?)`, []any{item, work, strconv.Itoa(i), i + 1}},
+				stmt{`INSERT INTO files_file VALUES (?, ?, ?, 'standard', ?, ?, 1, '{"width":1920,"height":1080}', NULL)`, []any{f, work, item, root, f.String()}},
+			)
+			fills := map[storage.UUID][]storage.UUID{both: {small, large}, second: {small}}[f]
+			for _, target := range fills {
+				stmts = append(stmts, stmt{`INSERT INTO files_fill VALUES (?, ?, ?, 'standard')`, []any{f, target, item}})
+			}
+		}
+		for _, stmt := range stmts {
+			if _, err := tx.ExecContext(ctx, stmt.sql, stmt.args...); err != nil {
+				return fmt.Errorf("%s: %w", stmt.sql, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	got := map[string]string{}
+	rows, err := lib.QueryContext(ctx, `SELECT path, label, extra FROM files_file ORDER BY path`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var path, label string
+		var extra int
+		if err := rows.Scan(&path, &label, &extra); err != nil {
+			t.Fatal(err)
+		}
+		got[path] = fmt.Sprintf("%s %d", label, extra)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{both.String(): "Large 0", second.String(): "Small 0", none.String(): " 0"}
+	if !maps.Equal(got, want) {
+		t.Fatalf("migrated labels and extras = %v, want %v: the first filled Target in Profile order, and no Kept file", got, want)
+	}
 }

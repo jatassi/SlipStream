@@ -227,12 +227,19 @@ func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w
 	return works.FieldSet{Work: fs.Work, Levels: maps.Clone(fs.Levels), Items: maps.Clone(fs.Items)}, nil
 }
 
-// NamingTokens answers naming's empty answer: the Fixture names no files.
-func (*Fixture) NamingTokens(context.Context, storage.Reader[storage.Library], works.ItemID) (map[string]string, error) {
-	return map[string]string{}, nil
+// NamingTokens names an Item's files after its Work's label, as Shelf,
+// and its own, as Thing.
+func (*Fixture) NamingTokens(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (map[string]string, error) {
+	work, it, err := works.ItemOf(ctx, r, item)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{"Shelf": work.Label, "Thing": it.Label}, nil
 }
 
-func (*Fixture) DefaultTemplates() naming.Templates { return naming.Templates{} }
+func (*Fixture) DefaultTemplates() naming.Templates {
+	return naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"}
+}
 
 // SearchTerms answers indexers' empty answer: the Fixture can't be
 // searched.

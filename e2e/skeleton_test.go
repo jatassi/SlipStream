@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -229,13 +230,11 @@ func TestSkeletonSingleMachine(t *testing.T) {
 	checkUpgradable(t, w)
 }
 
-// checkPlaced checks the media dir holds only the imported file, the
-// catalog payload's bytes with links links.
+// checkPlaced checks the media dir comes to hold only the imported file
+// at its name, the catalog payload's bytes with links links.
 func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	t.Helper()
-	if got := filesUnder(t, m.MediaDir); !slices.Equal(got, []string{placed}) {
-		t.Fatalf("the media dir holds %v, want exactly [%s]", got, placed)
-	}
+	holdsOnly(t, m, placed)
 	info, err := world.MatchRelease(m, filepath.Join(m.MediaDir, filepath.FromSlash(placed)), release)
 	if err != nil {
 		t.Fatal(err)
@@ -245,8 +244,19 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	}
 }
 
+// holdsOnly waits for the media dir to hold exactly paths: an import
+// commits before the disk queue gives the file its name.
+func holdsOnly(t *testing.T, m world.Manifest, paths ...string) {
+	t.Helper()
+	var got []string
+	worldtest.Until(t, "the media dir holds exactly "+strings.Join(paths, ", "), func() (bool, error) {
+		got = filesUnder(t, m.MediaDir)
+		return slices.Equal(got, paths), nil
+	})
+}
+
 // checkUpgradable checks the WEB-DL file fills the starter Target below
-// its Bluray-1080p cutoff tier.
+// its Bluray-1080p cutoff tier, so the cell stays a Want.
 func checkUpgradable(t *testing.T, w walked) {
 	t.Helper()
 	c := cells(t, w.a, w.work).Cells[0]
@@ -255,7 +265,7 @@ func checkUpgradable(t *testing.T, w walked) {
 	}
 	worldtest.Expect(t, "getWorkCells after the import", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
-		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"standard","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":false,"state":"upgradable",` +
+		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"standard","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":true,"state":"upgradable",` +
 			`"file":{"id":"` + c.File.ID + `","path":"The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv","size":` + strconv.FormatInt(c.File.Size, 10) +
 			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}],"items":[{"itemId":"` + c.ItemID + `","status":"upgradable"}]}` + "\n",
 	})

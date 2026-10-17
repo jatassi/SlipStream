@@ -7,6 +7,7 @@ sql:
       go:
         package: db
         out: internal/db
+        emit_pointers_for_null_types: true
         overrides:
           - column: "*.*_at"
             go_type:
@@ -48,3 +49,13 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: TargetID
+          - column: files_move.file_id
+            go_type:
+              type: FileID
+          - column: files_doomed.file_id
+            go_type:
+              type: FileID
+          - column: files_doomed.root_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID

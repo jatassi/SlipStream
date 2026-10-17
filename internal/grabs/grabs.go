@@ -19,7 +19,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
-	"github.com/jatassi/slipstream/internal/naming"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -143,7 +142,6 @@ type Config struct {
 	Files    *files.Files
 	Indexers *indexers.Indexers
 	Terms    map[works.TypeID]indexers.Facet
-	Naming   map[works.TypeID]naming.Facet
 	Roster   Roster
 	// Downloads is the Downloading Role's *role.Control.
 	Downloads Downloads

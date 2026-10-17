@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math/rand/v2"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -43,6 +46,10 @@ func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], wo
 	return g, nil
 }
 
+func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+	return nil, nil
+}
+
 type library struct {
 	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
@@ -51,7 +58,7 @@ type library struct {
 	root    roots.Root
 }
 
-func open(t *testing.T) *library {
+func open(t testing.TB) *library {
 	t.Helper()
 	lib := storagetest.Library(t, works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
@@ -81,8 +88,18 @@ func open(t *testing.T) *library {
 
 // files is the files owner over l, whose today is the fixture's release
 // date, with grabs in flight.
-func (l *library) files(cells files.GrabCells) *files.Files {
-	return files.New(files.Config{Library: l.lib, Works: l.works, Targets: l.targets, Grabs: cells, Today: func() time.Time { return today }})
+func (l *library) files(cells files.Inflight) *files.Files {
+	return l.on(cells, files.OSDisk{})
+}
+
+// on is the files owner over l whose disk queue works through disk.
+func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
+	return files.New(files.Config{
+		Library: l.lib, Works: l.works, Targets: l.targets, Grabs: cells,
+		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Today: func() time.Time { return today },
+		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
+		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+	})
 }
 
 var today = time.Date(contenttypetest.Released.Year, time.Month(contenttypetest.Released.Month), contenttypetest.Released.Day, 9, 0, 0, 0, time.UTC)
@@ -106,7 +123,7 @@ func (l *library) work(t *testing.T, key works.Key, monitor bool, profile *targe
 	return tree
 }
 
-func (l *library) profile(t *testing.T, name string, of ...targets.Target) targets.ProfileID {
+func (l *library) profile(t testing.TB, name string, of ...targets.Target) targets.ProfileID {
 	t.Helper()
 	s := targets.ProfileSpec{Name: name, ContentType: contenttypetest.ID}
 	for _, target := range of {
@@ -120,7 +137,7 @@ func (l *library) profile(t *testing.T, name string, of ...targets.Target) targe
 }
 
 // target creates a Target whose cutoff is its top tier.
-func (l *library) target(t *testing.T, name string, tiers ...[]release.Quality) targets.Target {
+func (l *library) target(t testing.TB, name string, tiers ...[]release.Quality) targets.Target {
 	t.Helper()
 	target, err := l.targets.CreateTarget(t.Context(), admin, targets.Spec{Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
 	if err != nil {
@@ -129,7 +146,7 @@ func (l *library) target(t *testing.T, name string, tiers ...[]release.Quality) 
 	return target
 }
 
-func (l *library) place(t *testing.T, item works.ItemID, work works.WorkID, path string, q release.Quality, fills ...targets.TargetID) {
+func (l *library) place(t testing.TB, item works.ItemID, work works.WorkID, path string, q release.Quality, fills ...targets.TargetID) {
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
@@ -173,7 +190,7 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Scarf standard UHD upgradable wanted=false Shelf w1/Scarf - UHD.mkv webdl-2160p 1920x1080\n" +
+	want := "Scarf standard UHD upgradable wanted=true Shelf w1/Scarf - UHD.mkv webdl-2160p 1920x1080\n" +
 		"Scarf standard HD met wanted=false Shelf w1/Scarf - HD.mkv webrip-1080p 1920x1080\n" +
 		"Mittens standard UHD downloading wanted=false\n" +
 		"Mittens standard HD failed wanted=true\n"

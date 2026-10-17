@@ -196,6 +196,7 @@ type Node struct {
 	lockstep  *http.ServeMux
 	roleRand  *rand.Rand
 	grabsRand *rand.Rand
+	filesRand *rand.Rand
 	tasksRand *rand.Rand
 	// systemRand draws the Controller's waits on an offline Node's log.
 	systemRand *rand.Rand
@@ -387,6 +388,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.roleRand = streams.Stream("role")
 	n.hub = live.NewHub(surface.Events)
 	n.grabsRand = streams.Stream("grabs")
+	n.filesRand = streams.Stream("files")
 	n.systemRand = streams.Stream("system")
 	n.host = &nodeHost{n: n}
 	n.tasksRand = streams.Stream("tasks")

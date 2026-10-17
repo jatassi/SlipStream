@@ -99,7 +99,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`
 	scarf, mittens := tree.Items[0].ID.String(), tree.Items[1].ID.String()
 	want := `{"cells":[` +
-		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"upgradable",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":true,"state":"upgradable",` + file + `},` +
 		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
 		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `},` +
 		`{"itemId":"` + mittens + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +

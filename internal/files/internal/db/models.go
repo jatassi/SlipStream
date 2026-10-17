@@ -12,6 +12,13 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+type FilesDoomed struct {
+	FileID FileID
+	RootID roots.ID
+	Path   string
+	Sits   *string
+}
+
 type FilesFile struct {
 	ID      FileID
 	WorkID  works.WorkID
@@ -23,6 +30,8 @@ type FilesFile struct {
 	Probe   Probe
 	GrabID  storage.UUID
 	Quality release.Quality
+	Label   string
+	Extra   int64
 }
 
 type FilesFill struct {
@@ -30,4 +39,9 @@ type FilesFill struct {
 	TargetID targets.TargetID
 	ItemID   works.ItemID
 	Edition  Edition
+}
+
+type FilesMove struct {
+	FileID FileID
+	Sits   string
 }

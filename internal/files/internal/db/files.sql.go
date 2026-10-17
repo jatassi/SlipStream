@@ -16,10 +16,111 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const deleteDoomed = `-- name: DeleteDoomed :exec
+DELETE FROM files_doomed WHERE file_id = ?1
+`
+
+func (q *Queries) DeleteDoomed(ctx context.Context, fileID FileID) error {
+	_, err := q.db.ExecContext(ctx, deleteDoomed, fileID)
+	return err
+}
+
+const deleteFile = `-- name: DeleteFile :exec
+DELETE FROM files_file WHERE id = ?1
+`
+
+func (q *Queries) DeleteFile(ctx context.Context, id FileID) error {
+	_, err := q.db.ExecContext(ctx, deleteFile, id)
+	return err
+}
+
+const deleteFill = `-- name: DeleteFill :exec
+DELETE FROM files_fill WHERE item_id = ?1 AND edition = ?2 AND target_id = ?3
+`
+
+type DeleteFillParams struct {
+	ItemID   works.ItemID
+	Edition  Edition
+	TargetID targets.TargetID
+}
+
+func (q *Queries) DeleteFill(ctx context.Context, arg DeleteFillParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFill, arg.ItemID, arg.Edition, arg.TargetID)
+	return err
+}
+
+const deleteMove = `-- name: DeleteMove :execrows
+DELETE FROM files_move WHERE file_id = ?1 AND sits = ?2
+`
+
+type DeleteMoveParams struct {
+	FileID FileID
+	Sits   string
+}
+
+func (q *Queries) DeleteMove(ctx context.Context, arg DeleteMoveParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteMove, arg.FileID, arg.Sits)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const finishMove = `-- name: FinishMove :execrows
+DELETE FROM files_move WHERE file_id = ?1 AND sits = ?2
+    AND EXISTS (SELECT 1 FROM files_file WHERE files_file.id = files_move.file_id AND files_file.path = ?3)
+`
+
+type FinishMoveParams struct {
+	FileID FileID
+	Sits   string
+	Path   string
+}
+
+func (q *Queries) FinishMove(ctx context.Context, arg FinishMoveParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, finishMove, arg.FileID, arg.Sits, arg.Path)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const getMove = `-- name: GetMove :one
+SELECT sits FROM files_move WHERE file_id = ?1
+`
+
+func (q *Queries) GetMove(ctx context.Context, fileID FileID) (string, error) {
+	row := q.db.QueryRowContext(ctx, getMove, fileID)
+	var sits string
+	err := row.Scan(&sits)
+	return sits, err
+}
+
+const insertDoomed = `-- name: InsertDoomed :exec
+INSERT INTO files_doomed (file_id, root_id, path, sits) VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertDoomedParams struct {
+	FileID FileID
+	RootID roots.ID
+	Path   string
+	Sits   *string
+}
+
+func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) error {
+	_, err := q.db.ExecContext(ctx, insertDoomed,
+		arg.FileID,
+		arg.RootID,
+		arg.Path,
+		arg.Sits,
+	)
+	return err
+}
+
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality)
+INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10)
+    ?7, ?8, ?9, ?10, ?11, ?12)
 `
 
 type InsertFileParams struct {
@@ -33,6 +134,8 @@ type InsertFileParams struct {
 	Probe   Probe
 	GrabID  storage.UUID
 	Quality release.Quality
+	Label   string
+	Extra   int64
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -47,6 +150,8 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.Probe,
 		arg.GrabID,
 		arg.Quality,
+		arg.Label,
+		arg.Extra,
 	)
 	return err
 }
@@ -71,6 +176,119 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 		arg.Edition,
 	)
 	return err
+}
+
+const insertMove = `-- name: InsertMove :exec
+INSERT INTO files_move (file_id, sits) VALUES (?1, ?2)
+`
+
+type InsertMoveParams struct {
+	FileID FileID
+	Sits   string
+}
+
+func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
+	_, err := q.db.ExecContext(ctx, insertMove, arg.FileID, arg.Sits)
+	return err
+}
+
+const listDoomed = `-- name: ListDoomed :many
+SELECT file_id, root_id, path, sits FROM files_doomed ORDER BY file_id
+`
+
+func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
+	rows, err := q.db.QueryContext(ctx, listDoomed)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilesDoomed
+	for rows.Next() {
+		var i FilesDoomed
+		if err := rows.Scan(
+			&i.FileID,
+			&i.RootID,
+			&i.Path,
+			&i.Sits,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileIDs = `-- name: ListFileIDs :many
+SELECT id FROM files_file ORDER BY id
+`
+
+func (q *Queries) ListFileIDs(ctx context.Context) ([]FileID, error) {
+	rows, err := q.db.QueryContext(ctx, listFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileID
+	for rows.Next() {
+		var id FileID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilesOfWork = `-- name: ListFilesOfWork :many
+SELECT id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file WHERE work_id = ?1 ORDER BY id
+`
+
+func (q *Queries) ListFilesOfWork(ctx context.Context, workID works.WorkID) ([]FilesFile, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilesFile
+	for rows.Next() {
+		var i FilesFile
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Edition,
+			&i.RootID,
+			&i.Path,
+			&i.Size,
+			&i.Probe,
+			&i.GrabID,
+			&i.Quality,
+			&i.Label,
+			&i.Extra,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listFillsOfTargets = `-- name: ListFillsOfTargets :many
@@ -126,38 +344,26 @@ func (q *Queries) ListFillsOfTargets(ctx context.Context, targetIds []targets.Ta
 }
 
 const listFillsOfWork = `-- name: ListFillsOfWork :many
-SELECT files_fill.target_id, files_file.id, files_file.work_id, files_file.item_id, files_file.edition, files_file.root_id, files_file.path, files_file.size, files_file.probe, files_file.grab_id, files_file.quality FROM files_fill
+SELECT files_fill.file_id, files_fill.target_id, files_fill.item_id, files_fill.edition FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
 WHERE files_file.work_id = ?1
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id
 `
 
-type ListFillsOfWorkRow struct {
-	TargetID  targets.TargetID
-	FilesFile FilesFile
-}
-
-func (q *Queries) ListFillsOfWork(ctx context.Context, workID works.WorkID) ([]ListFillsOfWorkRow, error) {
+func (q *Queries) ListFillsOfWork(ctx context.Context, workID works.WorkID) ([]FilesFill, error) {
 	rows, err := q.db.QueryContext(ctx, listFillsOfWork, workID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListFillsOfWorkRow
+	var items []FilesFill
 	for rows.Next() {
-		var i ListFillsOfWorkRow
+		var i FilesFill
 		if err := rows.Scan(
+			&i.FileID,
 			&i.TargetID,
-			&i.FilesFile.ID,
-			&i.FilesFile.WorkID,
-			&i.FilesFile.ItemID,
-			&i.FilesFile.Edition,
-			&i.FilesFile.RootID,
-			&i.FilesFile.Path,
-			&i.FilesFile.Size,
-			&i.FilesFile.Probe,
-			&i.FilesFile.GrabID,
-			&i.FilesFile.Quality,
+			&i.ItemID,
+			&i.Edition,
 		); err != nil {
 			return nil, err
 		}
@@ -170,4 +376,84 @@ func (q *Queries) ListFillsOfWork(ctx context.Context, workID works.WorkID) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const listMoves = `-- name: ListMoves :many
+SELECT files_move.file_id, files_move.sits, files_file.root_id, files_file.path FROM files_move
+JOIN files_file ON files_file.id = files_move.file_id
+ORDER BY files_move.file_id
+`
+
+type ListMovesRow struct {
+	FileID FileID
+	Sits   string
+	RootID roots.ID
+	Path   string
+}
+
+func (q *Queries) ListMoves(ctx context.Context) ([]ListMovesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMoves)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMovesRow
+	for rows.Next() {
+		var i ListMovesRow
+		if err := rows.Scan(
+			&i.FileID,
+			&i.Sits,
+			&i.RootID,
+			&i.Path,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const moveReached = `-- name: MoveReached :execrows
+UPDATE files_move SET sits = ?1 WHERE file_id = ?2 AND sits = ?3
+`
+
+type MoveReachedParams struct {
+	Reached string
+	FileID  FileID
+	Sits    string
+}
+
+func (q *Queries) MoveReached(ctx context.Context, arg MoveReachedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveReached, arg.Reached, arg.FileID, arg.Sits)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const renameFile = `-- name: RenameFile :exec
+UPDATE files_file SET path = ?1, label = ?2, extra = ?3 WHERE id = ?4
+`
+
+type RenameFileParams struct {
+	Path  string
+	Label string
+	Extra int64
+	ID    FileID
+}
+
+func (q *Queries) RenameFile(ctx context.Context, arg RenameFileParams) error {
+	_, err := q.db.ExecContext(ctx, renameFile,
+		arg.Path,
+		arg.Label,
+		arg.Extra,
+		arg.ID,
+	)
+	return err
 }

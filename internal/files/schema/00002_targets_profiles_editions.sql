@@ -66,3 +66,34 @@ UPDATE files_file SET quality =
     ELSE 'sdtv' END
  END FROM n)
 ;
+
+-- label is the Target name a file's {Target} renders: the first Target in
+-- Profile order it fills, or for a Kept file the first it meets. extra is
+-- N in " (extra N)", set exactly when the file fills nothing.
+ALTER TABLE files_file ADD COLUMN label TEXT NOT NULL DEFAULT '';
+ALTER TABLE files_file ADD COLUMN extra INTEGER NOT NULL DEFAULT 0 CHECK (extra >= 0);
+
+UPDATE files_file SET label = coalesce((
+    SELECT t.name FROM files_fill f
+    JOIN targets_target t ON t.id = f.target_id
+    JOIN targets_wants w ON w.work_id = files_file.work_id
+    JOIN targets_profile_target pt ON pt.profile_id = w.profile_id AND pt.target_id = f.target_id
+    WHERE f.file_id = files_file.id
+    ORDER BY pt.position LIMIT 1), '');
+
+-- A file whose bytes are not at its path yet: sits is where they are,
+-- root-relative. The disk queue moves them through
+-- .slipstream-incoming/<file id>.<ext>, a name only that file uses.
+CREATE TABLE files_move (
+    file_id BLOB PRIMARY KEY NOT NULL REFERENCES files_file (id) ON DELETE CASCADE,
+    sits TEXT NOT NULL CHECK (sits <> '')
+) STRICT;
+
+-- A file gone from the library whose bytes the disk queue still removes:
+-- at its path, or, when sits is set, wherever its move had taken them.
+CREATE TABLE files_doomed (
+    file_id BLOB PRIMARY KEY NOT NULL,
+    root_id BLOB NOT NULL REFERENCES roots_root (id),
+    path TEXT NOT NULL CHECK (path <> ''),
+    sits TEXT CHECK (sits <> '')
+) STRICT;
