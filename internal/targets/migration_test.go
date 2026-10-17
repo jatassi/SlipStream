@@ -38,23 +38,8 @@ func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T
 	before := open(targets.Schema().Through(1))
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for name, rs := range resolutions {
-			id := storage.NewUUID()
-			if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target VALUES (?, ?, 1)`, id, name); err != nil {
+			if err := seedResolutionTarget(ctx, tx, name, rs, name == "HD"); err != nil {
 				return err
-			}
-			for i, r := range rs {
-				if _, err := tx.ExecContext(ctx, `INSERT INTO targets_resolution VALUES (?, ?, ?)`, id, i+1, r); err != nil {
-					return err
-				}
-			}
-			if name == "HD" {
-				profile := storage.NewUUID()
-				if _, err := tx.ExecContext(ctx, `INSERT INTO targets_profile VALUES (?, 'Standard', 'movie', 1)`, profile); err != nil {
-					return err
-				}
-				if _, err := tx.ExecContext(ctx, `INSERT INTO targets_profile_target VALUES (?, 1, ?)`, profile, id); err != nil {
-					return err
-				}
 			}
 		}
 		return nil
@@ -72,19 +57,7 @@ func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T
 	got := map[string][][]string{}
 	for _, target := range list {
 		got[target.Name] = keys(target.Spec().Tiers)
-		if target.Cutoff != 0 {
-			t.Errorf("%s: cutoff tier %d, want the top tier", target.Name, target.Cutoff)
-		}
-		for _, tier := range target.Tiers {
-			for _, a := range tier {
-				if a.Size != targets.Floor(a.Quality) {
-					t.Errorf("%s: %s migrated at %+v, want its floor %+v", target.Name, a.Quality, a.Size, targets.Floor(a.Quality))
-				}
-			}
-		}
-		if wantHeld := target.Name == "HD"; (len(target.Profiles) == 1 && target.Profiles[0].Name == "Standard") != wantHeld {
-			t.Errorf("%s: Profiles %+v", target.Name, target.Profiles)
-		}
+		checkMigrated(t, target, target.Name == "HD")
 	}
 	want := map[string][][]string{
 		"HD": {{"hdtv-1080p", "webrip-1080p", "webdl-1080p", "bluray-1080p", "remux-1080p"}},
@@ -99,5 +72,47 @@ func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("migrated tiers = %v\nwant %v", got, want)
+	}
+}
+
+// seedResolutionTarget adds a Target of resolutions rs as targets 00001
+// held it, and a Profile Standard of it when held.
+func seedResolutionTarget(ctx context.Context, tx *storage.Tx[storage.Library], name string, rs []string, held bool) error {
+	id := storage.NewUUID()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target VALUES (?, ?, 1)`, id, name); err != nil {
+		return err
+	}
+	for i, r := range rs {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO targets_resolution VALUES (?, ?, ?)`, id, i+1, r); err != nil {
+			return err
+		}
+	}
+	if !held {
+		return nil
+	}
+	profile := storage.NewUUID()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_profile VALUES (?, 'Standard', 'movie', 1)`, profile); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile_target VALUES (?, 1, ?)`, profile, id)
+	return err
+}
+
+// checkMigrated checks target's cutoff is its top tier, every quality is
+// at its floor, and Standard holds it when held.
+func checkMigrated(t *testing.T, target targets.Target, held bool) {
+	t.Helper()
+	if target.Cutoff != 0 {
+		t.Errorf("%s: cutoff tier %d, want the top tier", target.Name, target.Cutoff)
+	}
+	for _, tier := range target.Tiers {
+		for _, a := range tier {
+			if a.Size != targets.Floor(a.Quality) {
+				t.Errorf("%s: %s migrated at %+v, want its floor %+v", target.Name, a.Quality, a.Size, targets.Floor(a.Quality))
+			}
+		}
+	}
+	if (len(target.Profiles) == 1 && target.Profiles[0].Name == "Standard") != held {
+		t.Errorf("%s: Profiles %+v", target.Name, target.Profiles)
 	}
 }

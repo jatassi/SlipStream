@@ -203,29 +203,9 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: storage.Now(), Candidates: int64(len(items))}
 	var grab *Grab
 	if outcome == Grabbed {
-		open, err := gr.openCells(ctx, tx, run.WorkID)
+		pick, err := gr.pick(ctx, tx, run, terms, items)
 		if err != nil {
 			return nil, err
-		}
-		var item []files.Cell
-		for _, c := range open {
-			if c.Item.ID == run.ItemID {
-				item = append(item, c)
-			}
-		}
-		candidates := make([]candidate, len(items))
-		for i, it := range items {
-			candidates[i] = candidateOf(it, run.ItemID)
-		}
-		pick, refused := decide(item, terms, candidates)
-		for i, r := range refused {
-			reasons, err := encodeReasons(r.Reasons)
-			if err != nil {
-				return nil, err
-			}
-			if err := q.InsertRefusal(ctx, db.InsertRefusalParams{SearchID: run.ID, Position: int64(i), Title: r.Title, Reasons: reasons}); err != nil {
-				return nil, err
-			}
 		}
 		if pick == nil {
 			outcome = NothingAcceptable
@@ -243,6 +223,37 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 	}
 	finish.Outcome = &outcome
 	return grab, q.FinishSearch(ctx, finish)
+}
+
+// pick decides among items for run's Item's open cells and stores the
+// releases it refused.
+func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, items []indexers.Item) (*Pick, error) {
+	open, err := gr.openCells(ctx, tx, run.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	var item []files.Cell
+	for _, c := range open {
+		if c.Item.ID == run.ItemID {
+			item = append(item, c)
+		}
+	}
+	candidates := make([]candidate, len(items))
+	for i, it := range items {
+		candidates[i] = candidateOf(it, run.ItemID)
+	}
+	pick, refused := decide(item, terms, candidates)
+	q := db.New(tx)
+	for i, r := range refused {
+		reasons, err := encodeReasons(r.Reasons)
+		if err != nil {
+			return nil, err
+		}
+		if err := q.InsertRefusal(ctx, db.InsertRefusalParams{SearchID: run.ID, Position: int64(i), Title: r.Title, Reasons: reasons}); err != nil {
+			return nil, err
+		}
+	}
+	return pick, nil
 }
 
 func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result {

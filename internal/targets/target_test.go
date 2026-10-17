@@ -151,8 +151,8 @@ func TestContainsAsksEveryFileMeetingTheInnerTargetToMeetTheOuter(t *testing.T) 
 	}
 	web := [][]release.Quality{{release.WEBDL1080p, release.WEBRip1080p}}
 	wide := [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p, release.WEBRip1080p, release.HDTV1080p}}
-	small := func(max float64) map[release.Quality]targets.Size {
-		return map[release.Quality]targets.Size{release.WEBDL1080p: {Min: 12.5, Max: new(max)}, release.WEBRip1080p: {Min: 12.5, Max: new(max)}}
+	small := func(top float64) map[release.Quality]targets.Size {
+		return map[release.Quality]targets.Size{release.WEBDL1080p: {Min: 12.5, Max: new(top)}, release.WEBRip1080p: {Min: 12.5, Max: new(top)}}
 	}
 	for name, c := range map[string]struct {
 		outer, inner targets.Target

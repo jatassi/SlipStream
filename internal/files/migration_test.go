@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -65,10 +66,6 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 		}
 		return lib
 	}
-	type seeded struct {
-		title string // empty for a file no Grab brought
-		probe files.Probe
-	}
 	want := map[string]seeded{}
 	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema(), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -87,35 +84,14 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 			}
 		}
 		n := 0
-		add := func(title string, probe files.Probe) error {
-			n++
-			item, file := storage.NewUUID(), storage.NewUUID()
-			if _, err := tx.ExecContext(ctx, `INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, ?, 'Item', ?)`, item, work, fmt.Sprint(n), n); err != nil {
-				return err
-			}
-			var grab any
-			if title != "" {
-				id := storage.NewUUID()
-				_, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
-					release_link, stage, created_at, updated_at) VALUES (?, ?, ?, 'standard', 'search', ?, ?, ?, 1, 'https://site.test/dl', 'fetching', 0, 0)`,
-					id, work, item, indexer, node, title)
+		for _, title := range append(corpus, "") {
+			for _, f := range frames {
+				n++
+				file, err := seedFile(ctx, tx, n, title, f, seeds{node, indexer, work, root})
 				if err != nil {
 					return err
 				}
-				grab = id
-			}
-			probeJSON := fmt.Sprintf(`{"width":%d,"height":%d}`, probe.Width, probe.Height)
-			if _, err := tx.ExecContext(ctx, `INSERT INTO files_file VALUES (?, ?, ?, 'standard', ?, ?, 1, ?, ?)`, file, work, item, root, file.String(), probeJSON, grab); err != nil {
-				return err
-			}
-			want[file.String()] = seeded{title, probe}
-			return nil
-		}
-		for _, title := range append(corpus, "") {
-			for _, f := range frames {
-				if err := add(title, f); err != nil {
-					return err
-				}
+				want[file] = seeded{title, f}
 			}
 		}
 		return nil
@@ -129,8 +105,53 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 
 	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
+	checked := checkQualities(t, lib, want)
+	if checked != len(want) {
+		t.Fatalf("checked %d files, want %d", checked, len(want))
+	}
+}
+
+type seeded struct {
+	title string // empty for a file no Grab brought
+	probe files.Probe
+}
+
+type seeds struct {
+	node, indexer, work, root storage.UUID
+}
+
+// seedFile adds the nth Item of the Work and a file of it probed at probe,
+// brought by a Grab of title unless title is empty, and returns the
+// file's path.
+func seedFile(ctx context.Context, tx *storage.Tx[storage.Library], n int, title string, probe files.Probe, at seeds) (string, error) {
+	item, file := storage.NewUUID(), storage.NewUUID()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, ?, 'Item', ?)`, item, at.work, strconv.Itoa(n), n); err != nil {
+		return "", err
+	}
+	var grab any
+	if title != "" {
+		id := storage.NewUUID()
+		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
+			release_link, stage, created_at, updated_at) VALUES (?, ?, ?, 'standard', 'search', ?, ?, ?, 1, 'https://site.test/dl', 'fetching', 0, 0)`,
+			id, at.work, item, at.indexer, at.node, title)
+		if err != nil {
+			return "", err
+		}
+		grab = id
+	}
+	probeJSON := fmt.Sprintf(`{"width":%d,"height":%d}`, probe.Width, probe.Height)
+	if _, err := tx.ExecContext(ctx, `INSERT INTO files_file VALUES (?, ?, ?, 'standard', ?, ?, 1, ?, ?)`, file, at.work, item, at.root, file.String(), probeJSON, grab); err != nil {
+		return "", err
+	}
+	return file.String(), nil
+}
+
+// checkQualities checks each migrated file's quality is what release.File
+// reads from its Grab's title and its probe, and returns how many it read.
+func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[string]seeded) int {
+	t.Helper()
 	checked := 0
-	err = lib.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		rows, err := r.QueryContext(ctx, `SELECT path, quality FROM files_file ORDER BY path`)
 		if err != nil {
 			return err
@@ -139,7 +160,7 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 		for rows.Next() {
 			var path, got string
 			if err := rows.Scan(&path, &got); err != nil {
-				return err
+				return fmt.Errorf("read a file: %w", err)
 			}
 			s := want[path]
 			q, _ := release.File(s.title, nil, release.ResolutionOf(s.probe.Width, s.probe.Height)).Quality.Get()
@@ -153,7 +174,5 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checked != len(want) {
-		t.Fatalf("checked %d files, want %d", checked, len(want))
-	}
+	return checked
 }

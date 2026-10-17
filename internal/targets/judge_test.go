@@ -24,8 +24,17 @@ func must[T any](t *testing.T) func(T, error) T {
 func filters(t *testing.T, rules ...any) targets.Filters {
 	t.Helper()
 	var f targets.Filters
-	for i := 0; i < len(rules); i += 3 {
-		if err := f.Set(rules[i].(targets.Attribute), rules[i+1].(targets.Mode), rules[i+2].([]string)); err != nil {
+	if len(rules)%3 != 0 {
+		t.Fatalf("%d rules; each is an attribute, a mode and values", len(rules))
+	}
+	for i := 0; i+2 < len(rules); i += 3 {
+		a, aok := rules[i].(targets.Attribute)
+		m, mok := rules[i+1].(targets.Mode)
+		v, vok := rules[i+2].([]string)
+		if !aok || !mok || !vok {
+			t.Fatalf("rule %d is not an attribute, a mode and values", i/3)
+		}
+		if err := f.Set(a, m, v); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -37,16 +37,16 @@ func serve(t *testing.T) (*ownertest.Owner, *published) {
 
 var times = regexp.MustCompile(`"\d{4}-\d{2}-\d{2}T[0-9:.]+Z"`)
 
-// expect compares a reply with want, in which each @name stands for the id
-// ids names.
-func expect(t *testing.T, s *ownertest.Owner, method, path, body string, status int, want string, ids map[string]string) {
+// get compares the reply to a GET of path with want, in which each @name
+// stands for the id ids names.
+func get(t *testing.T, s *ownertest.Owner, path string, want string, ids map[string]string) {
 	t.Helper()
 	for name, id := range ids {
 		want = strings.ReplaceAll(want, "@"+name, id)
 	}
-	code, got := s.Call(t, method, path, body)
-	if got = times.ReplaceAllString(strings.TrimSuffix(got, "\n"), `"T"`); code != status || got != want {
-		t.Fatalf("%s %s = %d\n%s\nwant %d\n%s", method, path, code, got, status, want)
+	code, got := s.Call(t, http.MethodGet, path, "")
+	if got = times.ReplaceAllString(strings.TrimSuffix(got, "\n"), `"T"`); code != http.StatusOK || got != want {
+		t.Fatalf("GET %s = %d\n%s\nwant 200\n%s", path, code, got, want)
 	}
 }
 
@@ -71,16 +71,16 @@ func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
 	ids := map[string]string{}
 	_, body := s.Call(t, http.MethodPost, "/api/v1/targets", hdBody)
 	ids["hd"] = ownertest.FirstID(body)
-	expect(t, s, http.MethodGet, "/api/v1/targets/"+ids["hd"], "", http.StatusOK,
+	get(t, s, "/api/v1/targets/"+ids["hd"],
 		`{"id":"@hd","name":"HD",`+hdRules+`,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets", webBody)
 	ids["web"] = ownertest.FirstID(body)
-	expect(t, s, http.MethodGet, "/api/v1/targets/"+ids["web"], "", http.StatusOK,
+	get(t, s, "/api/v1/targets/"+ids["web"],
 		`{"id":"@web","name":"Web",`+webRules+`,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
 
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets/"+ids["hd"]+"/duplicate", "")
 	ids["copy"] = ownertest.FirstID(body)
-	expect(t, s, http.MethodGet, "/api/v1/targets/"+ids["copy"], "", http.StatusOK,
+	get(t, s, "/api/v1/targets/"+ids["copy"],
 		`{"id":"@copy","name":"HD copy",`+hdRules+`,"profiles":[],"contains":["@hd","@web"],"createdAt":"T"}`, ids)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets/"+ids["hd"]+"/duplicate", "")
 	ids["again"] = ownertest.FirstID(body)
@@ -89,7 +89,7 @@ func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
 	ids["standard"] = ownertest.FirstID(body)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/profiles", `{"name":"Small","contentType":"fixture","targetIds":["`+ids["web"]+`"]}`)
 	ids["small"] = ownertest.FirstID(body)
-	expect(t, s, http.MethodGet, "/api/v1/targets", "", http.StatusOK, `{"targets":[`+
+	get(t, s, "/api/v1/targets", `{"targets":[`+
 		`{"id":"@hd","name":"HD",`+hdRules+`,"profiles":[{"id":"@standard","name":"Standard"}],"contains":["@copy","@again","@web"],"createdAt":"T"},`+
 		`{"id":"@copy","name":"HD copy",`+hdRules+`,"profiles":[],"contains":["@hd","@again","@web"],"createdAt":"T"},`+
 		`{"id":"@again","name":"HD copy 2",`+hdRules+`,"profiles":[],"contains":["@hd","@copy","@web"],"createdAt":"T"},`+

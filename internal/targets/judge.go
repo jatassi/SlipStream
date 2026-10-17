@@ -165,6 +165,7 @@ func passes[V ~string](f Filter[V], fact release.Fact[[]V], listed func(V) bool)
 		return "", true
 	}
 	switch f.Mode {
+	case Any:
 	case Only:
 		if slices.ContainsFunc(present, listed) {
 			return "", true

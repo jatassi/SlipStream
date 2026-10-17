@@ -122,7 +122,7 @@ func set[V ~string](f *Filter[V], m Mode, values []string, parse func(string) (V
 }
 
 // Of is a's rule by name.
-func (f Filters) Of(a Attribute) (Mode, []string) {
+func (f *Filters) Of(a Attribute) (mode Mode, values []string) {
 	switch a {
 	case HDR:
 		return named(f.HDR)
@@ -138,7 +138,7 @@ func (f Filters) Of(a Attribute) (Mode, []string) {
 	panic("targets: no attribute " + string(a))
 }
 
-func named[V ~string](f Filter[V]) (Mode, []string) {
+func named[V ~string](f Filter[V]) (mode Mode, values []string) {
 	out := make([]string, len(f.Values))
 	for i, v := range f.Values {
 		out[i] = string(v)
@@ -188,47 +188,58 @@ var (
 
 // NewTarget checks s and lays it out as a Target with no id yet.
 func NewTarget(s Spec) (Target, error) {
-	t := Target{Name: s.Name, Filters: s.Filters, Cutoff: -1}
-	if len(s.Tiers) == 0 {
-		return Target{}, ErrBadTiers
-	}
-	var seen []release.Quality
-	for i, qs := range s.Tiers {
-		if len(qs) == 0 {
-			return Target{}, fmt.Errorf("%w: tier %d is empty", ErrBadTiers, i+1)
-		}
-		tier := make(Tier, len(qs))
-		for j, q := range qs {
-			if slices.Contains(seen, q) {
-				return Target{}, fmt.Errorf("%w: %s twice", ErrBadTiers, q)
-			}
-			seen = append(seen, q)
-			tier[j] = Accepted{Quality: q, Size: Floor(q)}
-			if q == s.Cutoff {
-				t.Cutoff = i
-			}
-		}
-		t.Tiers = append(t.Tiers, tier)
-	}
-	if t.Cutoff < 0 {
-		return Target{}, fmt.Errorf("%w: the cutoff %s", ErrQualityNotInTarget, s.Cutoff)
+	tiers, cutoff, err := layTiers(s.Tiers, s.Cutoff)
+	if err != nil {
+		return Target{}, err
 	}
 	for q, size := range s.Sizes {
-		if !slices.Contains(seen, q) {
+		if _, _, ok := (Target{Tiers: tiers}).accepted(q); !ok {
 			return Target{}, fmt.Errorf("%w: a size for %s", ErrQualityNotInTarget, q)
 		}
 		if size.Min < 0 || math.IsNaN(size.Min) || size.Max != nil && (math.IsNaN(*size.Max) || *size.Max < size.Min) {
 			return Target{}, fmt.Errorf("%w: %s", ErrBadSize, q)
 		}
 	}
-	for _, tier := range t.Tiers {
+	for _, tier := range tiers {
 		for i, a := range tier {
 			if size, ok := s.Sizes[a.Quality]; ok {
 				tier[i].Size = size
 			}
 		}
 	}
-	return t, nil
+	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters}, nil
+}
+
+// layTiers lays qualities out as tiers at their floors, with the index of
+// the tier holding cutoff.
+func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, int, error) {
+	if len(qualities) == 0 {
+		return nil, 0, ErrBadTiers
+	}
+	var tiers []Tier
+	var seen []release.Quality
+	at := -1
+	for i, qs := range qualities {
+		if len(qs) == 0 {
+			return nil, 0, fmt.Errorf("%w: tier %d is empty", ErrBadTiers, i+1)
+		}
+		if slices.Contains(qs, cutoff) {
+			at = i
+		}
+		tier := make(Tier, len(qs))
+		for j, q := range qs {
+			if slices.Contains(seen, q) {
+				return nil, 0, fmt.Errorf("%w: %s twice", ErrBadTiers, q)
+			}
+			seen = append(seen, q)
+			tier[j] = Accepted{Quality: q, Size: Floor(q)}
+		}
+		tiers = append(tiers, tier)
+	}
+	if at < 0 {
+		return nil, 0, fmt.Errorf("%w: the cutoff %s", ErrQualityNotInTarget, cutoff)
+	}
+	return tiers, at, nil
 }
 
 // Spec is t as an Admin writes it, every size named.
@@ -312,9 +323,9 @@ func stricter[V ~string](outer, inner Filter[V], all []V, multi bool) bool {
 		return true
 	case inner.Mode == Any:
 		return false
-	case inner.Mode == outer.Mode && inner.Mode == Only:
+	case inner.Mode == Only && outer.Mode == Only:
 		return subset(inner.Values, outer.Values)
-	case inner.Mode == outer.Mode:
+	case inner.Mode == Not && outer.Mode == Not:
 		return subset(outer.Values, inner.Values)
 	case multi:
 		return false
