@@ -8,9 +8,15 @@ import {
   getGetIdentitySettingsSuspenseQueryOptions,
 } from "../api/gen/query/identity/identity";
 import { getGetMailSettingsSuspenseQueryOptions } from "../api/gen/query/mail/mail";
-import { freshQuery } from "../api/query-client";
+import {
+  getListQualitiesSuspenseQueryOptions,
+  getListTargetsSuspenseQueryOptions,
+} from "../api/gen/query/targets/targets";
+import { ensureQuery, freshQuery } from "../api/query-client";
+import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
+// oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { EmailSection } from "./email";
 import { SignInSection } from "./sign-in";
 
@@ -55,6 +61,18 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
       await freshQuery(queryClient, getGetAPIKeySuspenseQueryOptions());
     },
     component: ApiKeySection,
+  },
+  {
+    id: "targets",
+    label: "Targets",
+    load: async (queryClient) => {
+      await Promise.all([
+        ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
+      ]);
+    },
+    component: TargetsSection,
+    wide: true,
   },
 ];
 

@@ -32,6 +32,7 @@ const everyPath = (pattern: RegExp) => ({
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
 const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
+const everyTarget = everyPath(/^\/api\/v1\/targets\/[^/]+$/u);
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 
 export const effects = {
@@ -66,6 +67,7 @@ export const effects = {
   },
   "targets.changed": (_data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListTargetsQueryKey() });
+    void queryClient.invalidateQueries(everyTarget);
     void queryClient.invalidateQueries({ queryKey: getListProfilesQueryKey() });
     void queryClient.invalidateQueries(everyWorksCells);
   },
