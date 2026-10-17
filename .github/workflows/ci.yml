@@ -72,7 +72,7 @@ jobs:
         env:
           BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
       - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ runner.temp }}/go-build
@@ -98,17 +98,17 @@ jobs:
         uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
@@ -139,7 +139,7 @@ jobs:
       # binaries stay out of it; the release binary goes up once per job,
       # for fakeworld replay --binary.
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fakeworld-runs-${{ matrix.target }}
           path: |
@@ -147,7 +147,7 @@ jobs:
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
       - if: failure() && steps.test.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: slipstream-${{ matrix.target }}
           path: dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
@@ -168,7 +168,7 @@ jobs:
       - if: needs.plan.outputs.package == 'true'
         run: go run ./cmd/release smoke -from out -disposable
       - if: needs.plan.outputs.package == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: packages-${{ matrix.target }}
           path: |
@@ -180,7 +180,7 @@ jobs:
       - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
         run: tar -C out -cf "$RUNNER_TEMP/docker-context.tar" docker
       - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docker-context-${{ matrix.target }}
           path: ${{ runner.temp }}/docker-context.tar
@@ -188,7 +188,7 @@ jobs:
       # Only main saves, and every other ref restores main's newest cache.
       # A save per branch push evicts main's caches from the repo's 10 GB.
       - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ runner.temp }}/go-build
@@ -215,22 +215,22 @@ jobs:
         with:
           cache: go-web-${{ matrix.target }}
       # Vitest runs under Node through bun run.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
       - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ms-playwright
           key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
@@ -247,7 +247,7 @@ jobs:
       - if: ${{ !cancelled() }}
         run: go run ./cmd/release lint
       - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ runner.temp }}/go-build
@@ -275,22 +275,22 @@ jobs:
         with:
           cache: go-${{ matrix.target }}
       # Playwright runs under Node through bun run.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
       - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ms-playwright
           key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
@@ -313,7 +313,7 @@ jobs:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
       - if: failure() && steps.test.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fakeworld-runs-browser-${{ matrix.target }}
           path: |
@@ -391,7 +391,7 @@ jobs:
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
       - if: inputs.update-shapes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: shapes
           path: conformance/*/shape.json
@@ -426,19 +426,19 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: docker-context-${{ matrix.target }}
           path: ${{ runner.temp }}
       - run: tar -C "$RUNNER_TEMP" -xf "$RUNNER_TEMP/docker-context.tar"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - id: push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ runner.temp }}/docker
           platforms: ${{ matrix.platform }}
@@ -448,7 +448,7 @@ jobs:
           touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: digest-${{ matrix.target }}
           path: ${{ runner.temp }}/digests/*
@@ -461,13 +461,13 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: digest-*
           merge-multiple: true
           path: ${{ runner.temp }}/digests
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -492,17 +492,17 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: packages-windows-amd64
           path: out
       - id: request
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: signpath-request
           path: out/signpath
           if-no-files-found: error
-      - uses: signpath/github-action-submit-signing-request@v1
+      - uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -511,7 +511,7 @@ jobs:
           github-artifact-id: ${{ steps.request.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: signed
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: signed-windows
           path: signed
@@ -531,12 +531,12 @@ jobs:
       - uses: ./.github/actions/go
         with:
           cache: go-plan
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: packages-*
           path: ${{ runner.temp }}/packages
       - if: needs.sign-windows.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: signed-windows
           path: ${{ runner.temp }}/signed
