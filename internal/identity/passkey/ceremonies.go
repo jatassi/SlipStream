@@ -46,8 +46,9 @@ var (
 // Lifetime, keyed by its id and bound to its kind, its RP and, except for
 // sign-in, its user. A finish takes it out whatever the outcome.
 type Ceremonies struct {
-	mu sync.Mutex
-	m  map[CeremonyID]pending
+	mu   sync.Mutex
+	m    map[CeremonyID]pending
+	next uint64
 }
 
 type pending struct {
@@ -56,6 +57,9 @@ type pending struct {
 	handle  []byte
 	session webauthn.SessionData
 	expires time.Time
+	// seq orders ceremonies by start. Their expiries can tie, since
+	// Windows' clock ticks too coarsely to tell apart quick begins.
+	seq uint64
 }
 
 func NewCeremonies() *Ceremonies {
@@ -220,21 +224,22 @@ func (c *Ceremonies) start(k kind, rp RP, handle []byte, session webauthn.Sessio
 	if len(c.m) >= capacity {
 		c.evict(now)
 	}
-	c.m[id] = pending{kind: k, rp: rp, handle: handle, session: session, expires: now.Add(Lifetime)}
+	c.next++
+	c.m[id] = pending{kind: k, rp: rp, handle: handle, session: session, expires: now.Add(Lifetime), seq: c.next}
 	return id, raw, nil
 }
 
 // evict runs under mu.
 func (c *Ceremonies) evict(now time.Time) {
 	var oldest CeremonyID
-	var at time.Time
+	var first uint64
 	for id, p := range c.m {
 		if !p.expires.After(now) {
 			delete(c.m, id)
 			continue
 		}
-		if at.IsZero() || p.expires.Before(at) {
-			oldest, at = id, p.expires
+		if first == 0 || p.seq < first {
+			oldest, first = id, p.seq
 		}
 	}
 	if len(c.m) >= capacity {
