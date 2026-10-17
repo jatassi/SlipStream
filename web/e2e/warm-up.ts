@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { type RequestListener, createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
-import { type Browser, errors } from "@playwright/test";
+import { type Browser, type BrowserContext, type Page, errors, test } from "@playwright/test";
 import { z } from "zod";
 
 async function serve(
@@ -21,34 +21,27 @@ async function serve(
   }
 }
 
-async function loadInFreshContext(browser: Browser, url: string, attempts: number): Promise<void> {
-  const context = await browser.newContext();
-  try {
-    await (await context.newPage()).goto(url, { timeout: 5000 });
-    return;
-  } catch (error) {
-    if (!(error instanceof errors.TimeoutError) || attempts === 1) {
-      throw error;
+// WebKit's first navigation of a page into a cross-origin-isolated origin can
+// hang mid process swap, in a fresh browser or a warm one.
+export function overrideNewPageWithWarmUp(context: BrowserContext, sameOriginUrl: string): void {
+  const newPage = context.newPage.bind(context);
+  const open = async (attempts: number): Promise<Page> => {
+    const page = await newPage();
+    try {
+      await page.goto(sameOriginUrl, { timeout: 5000 });
+      return page;
+    } catch (error) {
+      await page.close();
+      if (!(error instanceof errors.TimeoutError) || attempts === 1) {
+        throw error;
+      }
     }
-  } finally {
-    await context.close();
-  }
-  await loadInFreshContext(browser, url, attempts - 1);
-}
-
-// WebKit's first cross-origin-isolated navigation in a fresh browser can hang
-// mid process swap, so a throwaway page takes that navigation before any test.
-export async function warmUpWebKit(browser: Browser): Promise<void> {
-  await serve(
-    (_request, response) => {
-      response.writeHead(200, {
-        "Content-Type": "text/html",
-        "Cross-Origin-Opener-Policy": "same-origin",
-      });
-      response.end("<!doctype html><title>warm-up</title>");
-    },
-    (url) => loadInFreshContext(browser, url, 3),
-  );
+    test
+      .info()
+      .annotations.push({ type: "webkit warm-up", description: `${sameOriginUrl} timed out` });
+    return open(attempts - 1);
+  };
+  context.newPage = () => open(3);
 }
 
 const fonts = {

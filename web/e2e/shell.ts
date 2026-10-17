@@ -56,10 +56,16 @@ export async function signOut(page: Page): Promise<void> {
     await page.getByRole("button", { name: "Account" }).click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
   }
+  const signedOut = page.waitForResponse(
+    (response) =>
+      response.request().method() === "DELETE" &&
+      new URL(response.url()).pathname === "/api/v1/session",
+  );
   await page
     .getByRole("dialog", { name: "Sign out of this device?" })
     .getByRole("button", { name: "Sign out" })
     .click();
+  await signedOut;
 }
 
 export const pageAction = (page: Page, name: string) =>
