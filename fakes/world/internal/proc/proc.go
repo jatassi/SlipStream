@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 )
 
 // TailLines is how much of a process's stderr a failure quotes.
@@ -51,8 +52,10 @@ func (p *Process) Exited() <-chan struct{} { return p.exited }
 // ExitCode is valid once Exited is closed. It is -1 for a killed process.
 func (p *Process) ExitCode() int { return p.code }
 
+// Kill kills the process. One that has already exited is no error: once
+// waited on, Unix reports it done and Windows reports it released (EINVAL).
 func (p *Process) Kill() error {
-	if err := p.cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+	if err := p.cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) && !errors.Is(err, syscall.EINVAL) {
 		return fmt.Errorf("kill PID %d: %w", p.PID, err)
 	}
 	return nil
