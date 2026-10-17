@@ -1,6 +1,7 @@
 package link
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"net"
@@ -21,7 +22,9 @@ import (
 type session struct {
 	key           Key
 	mux           *mux.Session
+	conn          *counted
 	local, remote netip.AddrPort
+	dialed        bool
 	http          *http.Transport
 	rpc           connect.Transport
 	// welcomed is closed once the session is live. peer and matched are
@@ -32,22 +35,26 @@ type session struct {
 }
 
 func (s *session) state() Live {
-	return Live{Peer: s.peer, Matched: s.matched, Local: s.local, Remote: s.remote}
+	return Live{Peer: s.peer, Matched: s.matched, Local: s.local, Remote: s.remote, Dialed: s.dialed}
 }
 
 func (s *session) linkService() linkv1connect.LinkServiceClient {
 	return linkv1connect.NewLinkServiceClient(connect.NewClient(s.rpc))
 }
 
-// start runs a mux session over an authenticated tc and serves its
-// streams until it ends.
-func (l *Link) start(tc *tls.Conn, side func(net.Conn, mux.Config) (*mux.Session, error)) (*session, error) {
+// start runs a mux session over tc, the authenticated TLS connection over
+// c, and serves its streams until it ends.
+func (l *Link) start(c *counted, tc *tls.Conn, dialed bool) (*session, error) {
 	pub, err := wire.PeerKey(tc.ConnectionState())
 	if err != nil {
 		_ = tc.Close()
 		return nil, err
 	}
-	ms, err := side(tc, l.mux)
+	side := mux.Server
+	if dialed {
+		side = mux.Client
+	}
+	ms, err := side(unnotified{tc, c}, l.mux)
 	if err != nil {
 		_ = tc.Close()
 		return nil, err
@@ -55,8 +62,10 @@ func (l *Link) start(tc *tls.Conn, side func(net.Conn, mux.Config) (*mux.Session
 	s := &session{
 		key:      Key(pub),
 		mux:      ms,
+		conn:     c,
 		local:    addrPort(tc.LocalAddr()),
 		remote:   addrPort(tc.RemoteAddr()),
+		dialed:   dialed,
 		welcomed: make(chan struct{}),
 	}
 	s.http = wire.Transport(l.cfg.Settings.StreamWindow, func(ctx context.Context) (net.Conn, error) {
@@ -74,6 +83,17 @@ func (l *Link) start(tc *tls.Conn, side func(net.Conn, mux.Config) (*mux.Session
 	return s, nil
 }
 
+// unnotified is a session's TLS connection, closed by closing its TCP
+// connection. The mux frames every stream, so a close_notify adds nothing,
+// and writing one could hold the close for 5 s on a peer that stopped
+// reading.
+type unnotified struct {
+	*tls.Conn
+	tcp net.Conn
+}
+
+func (c unnotified) Close() error { return c.tcp.Close() } //nolint:wrapcheck // the connection's own error
+
 // run serves s's streams by kind, then retires s once it ends.
 func (l *Link) run(s *session) {
 	for {
@@ -90,19 +110,19 @@ func (l *Link) run(s *session) {
 			_ = st.Reset()
 		})
 	}
-	_ = s.mux.Close()
 	s.http.CloseIdleConnections()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.sessions, s)
 	if l.live[s.key] == s {
 		delete(l.live, s.key)
-		l.publish(Change{Key: s.key, State: Down{}})
+		l.publish(Change{Key: s.key, State: l.down(s.key)})
 	}
 }
 
 // welcome makes s its key's live session, closing the one it replaces. It
-// is false when s has already ended.
+// is false when s has already ended, or when s and the live session were
+// dialed by opposite sides and s loses the tie-break.
 func (l *Link) welcome(s *session, peer NodeInfo) bool {
 	l.mu.Lock()
 	select {
@@ -116,6 +136,10 @@ func (l *Link) welcome(s *session, peer NodeInfo) bool {
 		l.mu.Unlock()
 		return true
 	}
+	if old != nil && old.dialed != s.dialed && !l.dialedByLower(s) {
+		l.mu.Unlock()
+		return false
+	}
 	s.peer, s.matched = peer, peer.Version == l.cfg.Node.Version
 	l.live[s.key] = s
 	close(s.welcomed)
@@ -125,6 +149,17 @@ func (l *Link) welcome(s *session, peer NodeInfo) bool {
 		_ = old.mux.Close()
 	}
 	return true
+}
+
+// dialedByLower reports whether the lower of the two keys dialed s. When
+// both sides dial, each side keeps the session this picks, so both keep
+// the same one: the dialer drops the other on Welcome and the acceptor
+// answers its Hello Unavailable.
+func (l *Link) dialedByLower(s *session) bool {
+	if s.dialed {
+		return bytes.Compare(l.self[:], s.key[:]) < 0
+	}
+	return bytes.Compare(s.key[:], l.self[:]) < 0
 }
 
 // rpcConn is an RPC-kind stream, carrying its session to the handlers.

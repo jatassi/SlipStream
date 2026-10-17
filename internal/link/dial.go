@@ -12,7 +12,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/backoff"
 	"github.com/jatassi/slipstream/internal/joincode"
-	"github.com/jatassi/slipstream/internal/link/internal/mux"
 	"github.com/jatassi/slipstream/internal/link/internal/wire"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 )
@@ -22,7 +21,9 @@ const atCeiling = 64
 
 type keeper struct {
 	cancel context.CancelFunc
-	target Target // guarded by the link's lock
+	// target and refused are guarded by the link's lock.
+	target  Target
+	refused linkv1.RefusedReason
 }
 
 // Keep holds a session to t, re-dialing after every end until Drop or
@@ -49,12 +50,46 @@ func (l *Link) Drop(key Key) {
 	if k := l.kept[key]; k != nil {
 		k.cancel()
 		delete(l.kept, key)
+		if k.refused != 0 && l.live[key] == nil {
+			l.publish(Change{Key: key, State: Down{}})
+		}
 	}
+	l.mu.Unlock()
+	l.Reset(key)
+}
+
+// Reset closes key's live session and leaves its keeper, which dials
+// again.
+func (l *Link) Reset(key Key) {
+	l.mu.Lock()
 	s := l.live[key]
 	l.mu.Unlock()
 	if s != nil {
 		_ = s.mux.Close()
 	}
+}
+
+// answered records the peer's answer to k's last Hello: its refusal, or
+// zero. Down carries it while no session is live.
+func (l *Link) answered(k *keeper, refused linkv1.RefusedReason) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	key := k.target.Key
+	if l.kept[key] != k || k.refused == refused {
+		return
+	}
+	k.refused = refused
+	if l.live[key] == nil {
+		l.publish(Change{Key: key, State: Down{Refused: refused}})
+	}
+}
+
+// down is key's state with no live session. Callers hold l.mu.
+func (l *Link) down(key Key) Down {
+	if k := l.kept[key]; k != nil {
+		return Down{Refused: k.refused}
+	}
+	return Down{}
 }
 
 // keep dials, says Hello, awaits the session's end and backs off. A
@@ -71,19 +106,8 @@ func (l *Link) keep(ctx context.Context, k *keeper) {
 		if s == nil {
 			var err error
 			s, err = l.attempt(ctx, t)
-			var refused *RefusedError
-			var superseded *SupersededError
-			switch {
-			case err == nil:
-				refusal = ""
-			case errors.As(err, &refused) || errors.As(err, &superseded):
-				if err.Error() != refusal {
-					refusal = err.Error()
-					l.cfg.Log.Warn("link refused", "peer", t.Key.Fingerprint(), "err", err)
-				}
+			if l.turnedAway(k, err, &refusal) {
 				n = atCeiling
-			default:
-				l.cfg.Log.Debug("link dial failed", "peer", t.Key.Fingerprint(), "err", err)
 			}
 		}
 		if s != nil {
@@ -103,6 +127,34 @@ func (l *Link) keep(ctx context.Context, k *keeper) {
 			return
 		}
 	}
+}
+
+// turnedAway records how k's peer answered an attempt and logs a refused
+// or superseded Hello once per change of refusal. It is true for those
+// two answers.
+func (l *Link) turnedAway(k *keeper, err error, refusal *string) bool {
+	peer := k.target.Key.Fingerprint()
+	var refused *RefusedError
+	var superseded *SupersededError
+	switch {
+	case err == nil:
+		*refusal = ""
+		l.answered(k, 0)
+	case errors.As(err, &refused) || errors.As(err, &superseded):
+		if err.Error() != *refusal {
+			*refusal = err.Error()
+			l.cfg.Log.Warn("link refused", "peer", peer, "err", err)
+		}
+		var reason linkv1.RefusedReason
+		if refused != nil {
+			reason = refused.Reason
+		}
+		l.answered(k, reason)
+		return true
+	default:
+		l.cfg.Log.Debug("link dial failed", "peer", peer, "err", err)
+	}
+	return false
 }
 
 // attempt dials t and says Hello, all within handshake.
@@ -320,15 +372,16 @@ var (
 // connect dials a, runs TLS with pin as the check of the peer's key, and
 // starts the session.
 func (l *Link) connect(ctx context.Context, a netip.AddrPort, pin func(Key) error, connected func()) (*session, error) {
-	c, err := l.cfg.Net.DialContext(ctx, "tcp", a.String())
+	raw, err := l.cfg.Net.DialContext(ctx, "tcp", a.String())
 	if err != nil {
 		return nil, fmt.Errorf("dial %s: %w", a, err)
 	}
 	connected()
+	c := &counted{Conn: raw}
 	tc := tls.Client(c, wire.ClientConfig(l.cert, func(pub ed25519.PublicKey) error { return pin(Key(pub)) }))
 	if err := tc.HandshakeContext(ctx); err != nil {
 		_ = c.Close()
 		return nil, fmt.Errorf("handshake with %s: %w", a, err)
 	}
-	return l.start(tc, mux.Client)
+	return l.start(c, tc, true)
 }
