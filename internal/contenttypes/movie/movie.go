@@ -15,7 +15,9 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -181,3 +183,34 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	}
 	return t, nil
 }
+
+// Timings answers the movie's released date and runtime for its one Item.
+func (*Movie) Timings(ctx context.Context, r storage.Reader[file], w works.WorkID) (map[works.ItemID]targets.Timing, error) {
+	mv, err := db.New(r).GetMovie(ctx, w)
+	if err != nil {
+		return nil, err
+	}
+	var t targets.Timing
+	if mv.Released != nil {
+		released, err := works.ParseDate(*mv.Released)
+		if err != nil {
+			return nil, fmt.Errorf("movie %d: %w", mv.TmdbID, err)
+		}
+		t.Released = release.Known(released)
+	}
+	if mv.RuntimeMinutes != nil {
+		t.Runtime = release.Known(time.Duration(*mv.RuntimeMinutes) * time.Minute)
+	}
+	items, err := works.ItemsOf(ctx, r, w)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[works.ItemID]targets.Timing, len(items))
+	for _, it := range items {
+		out[it.ID] = t
+	}
+	return out, nil
+}
+
+// Cuts answers none: every cut a movie names is built in.
+func (*Movie) Cuts() []release.Cut { return nil }

@@ -15,7 +15,9 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -55,7 +57,13 @@ type Fixture struct {
 	stored    map[works.WorkID]works.FieldSet
 	hold      *hold
 	opened    []Opened
+	timings   map[works.ItemID]targets.Timing
+	cuts      []release.Cut
 }
+
+// Released is the date every Item is released on until SetTiming says
+// otherwise.
+var Released = works.Date{Year: 2000, Month: 1, Day: 1}
 
 type Opened struct {
 	Deps      contenttype.Deps
@@ -73,6 +81,7 @@ func New() *Fixture {
 		fails:   map[works.Key]error{},
 		fetches: map[works.Key]int{},
 		stored:  map[works.WorkID]works.FieldSet{},
+		timings: map[works.ItemID]targets.Timing{},
 	}
 }
 
@@ -119,9 +128,9 @@ func (f *Fixture) Fetches(key works.Key) int {
 	return f.fetches[key]
 }
 
-// Hold makes the next n Fetches wait. release waits until all n have
+// Hold makes the next n Fetches wait. letGo waits until all n have
 // started, then lets them answer together.
-func (f *Fixture) Hold(n int) (release func()) {
+func (f *Fixture) Hold(n int) (letGo func()) {
 	h := &hold{release: make(chan struct{})}
 	h.arrived.Add(n)
 	f.mu.Lock()
@@ -229,4 +238,40 @@ func (*Fixture) DefaultTemplates() naming.Templates { return naming.Templates{} 
 // searched.
 func (*Fixture) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
+}
+
+// SetTiming makes Timings answer t for item, in place of Released and an
+// unknown runtime.
+func (f *Fixture) SetTiming(item works.ItemID, t targets.Timing) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.timings[item] = t
+}
+
+func (f *Fixture) SetCuts(cuts []release.Cut) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cuts = slices.Clone(cuts)
+}
+
+// Timings answers every stored Item of w: its SetTiming, else Released and
+// an unknown runtime.
+func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) (map[works.ItemID]targets.Timing, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[works.ItemID]targets.Timing, len(f.stored[w].Items))
+	for id := range f.stored[w].Items {
+		t, ok := f.timings[id]
+		if !ok {
+			t = targets.Timing{Released: release.Known(Released)}
+		}
+		out[id] = t
+	}
+	return out, nil
+}
+
+func (f *Fixture) Cuts() []release.Cut {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.cuts)
 }

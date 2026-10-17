@@ -20,8 +20,10 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -31,7 +33,8 @@ func catalog(t *testing.T) scenario.Scenario {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: 9000002, IMDbID: "tt9000002", Title: "Orchard Road", Released: "2019-01-05"})
+	s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: 9000002, IMDbID: "tt9000002", Title: "Orchard Road", Released: "2019-01-05"},
+		scenario.TMDBMovie{ID: 9000004, Title: "Untitled Project"})
 	return s
 }
 
@@ -169,6 +172,52 @@ func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
 	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)
+	}
+}
+
+func timings(t *testing.T, key works.Key) (tree works.Tree, got map[works.ItemID]targets.Timing) {
+	t.Helper()
+	m, lib, tree := added(t, key)
+	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		got, err = m.Timings(ctx, r, tree.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return tree, got
+}
+
+func TestTimingsAreTheMoviesReleaseDateAndRuntime(t *testing.T) {
+	tree, got := timings(t, "9000001")
+	want := map[works.ItemID]targets.Timing{tree.Items[0].ID: {
+		Released: release.Known(works.Date{Year: 2021, Month: 4, Day: 16}),
+		Runtime:  release.Known(104 * time.Minute),
+	}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Timings = %+v, want %+v", got, want)
+	}
+}
+
+func TestAMovieWithoutRuntimeHasAnUnknownRuntime(t *testing.T) {
+	tree, got := timings(t, "9000002")
+	want := map[works.ItemID]targets.Timing{tree.Items[0].ID: {Released: release.Known(works.Date{Year: 2019, Month: 1, Day: 5})}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Timings = %+v, want %+v", got, want)
+	}
+}
+
+func TestAnUndatedMovieHasAnUnknownReleaseDate(t *testing.T) {
+	tree, got := timings(t, "9000004")
+	if want := (map[works.ItemID]targets.Timing{tree.Items[0].ID: {}}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Timings = %+v, want %+v", got, want)
+	}
+}
+
+func TestAMovieHasNoCutsOfItsOwn(t *testing.T) {
+	m := open(faketest.Loopback(t, faketmdb.Fake, catalog(t)))
+	if cuts := m.Cuts(); len(cuts) != 0 {
+		t.Fatalf("Cuts = %+v, want none", cuts)
 	}
 }
 
