@@ -1,6 +1,6 @@
 # Roles
 
-An Admin changes which Node holds which Role through one plan. The Role board shows every Node's Roles and the plan's verdict on every drag. A plan answers what a set would do in words, and a set stores it once the guardrails allow it. A Role that SlipStream always needs goes back to the Controller when its last holder lets it go. A set planned on rows that changed since, or one a guardrail blocks, answers 409 with the plan as it stands, and nothing is stored.
+An Admin changes which Node holds which Role through one plan, and writes off the work a Node still holds for a Role, live or offline. The Role board shows every Node's Roles and the plan's verdict on every drag. A plan answers what a set would do in words, and a set stores it once the guardrails allow it. A Role that SlipStream always needs goes back to the Controller when its last holder lets it go. A set planned on rows that changed since, or one a guardrail blocks, answers 409 with the plan as it stands, and nothing is stored. A Node unticked from Downloading while it seeds keeps seeding, draining, until its torrents are written off; a write-off lets them go and keeps every file.
 
 ## Sub-features
 
@@ -10,11 +10,16 @@ An Admin changes which Node holds which Role through one plan. The Role board sh
 - `roles-stale` a plan or set on an old `basis` answers 409 `roles_stale` with `outcome`, the same change planned on the rows now.
 - `roles-blocked` adding Relaying to a second Node answers 409 `roles_blocked`, whose check reads `seedbox already relays. Drag Relaying to move it.`
 - `roles-roster` `GET /api/v1/nodes` lists each Node's `roles` as `{role, state}`, `holding` while it is in step.
+- `roles-drain` unticking Downloading on seedbox while it seeds an imported Grab answers a `drains` effect, `seedbox takes no new Downloading work. It keeps its 1 torrent (3.5 MB) until you move or write it off.`, and the roster lists seedbox `draining` in Downloading with `held`, its facts running `downloading` with only `searching` assigned.
+- `roles-write-off` `POST /api/v1/nodes/{id}/write-offs` answers the Outcome with a `writes-off` effect, `The 1 torrent (3.5 MB) seedbox holds for Downloading is written off. No files are deleted.` seedbox announces `stopped`, the roster lists no Downloading on it, and the downloaded file in seedbox's data dir still matches the release.
+- `roles-write-off-nothing` writing off a Role the Node holds no work for answers 409 `nothing_held` with `outcome`, whose check reads `seedbox holds nothing to write off for Downloading.`
+- `roles-write-off-offline` writing off Downloading on a stopped seedbox with a Grab mid-download answers at once and hands Downloading to home. The Grab fails at `downloading` with `node_written_off`, and Activity reads `What the Node downloading it held was written off. Its files are kept.` Once seedbox is back it runs no Downloading.
 
 ## How to get to it (user POV)
 
-- API on the Controller (Admin): `GET /api/v1/nodes/roles`, `POST /api/v1/nodes/roles/plan` and `PUT /api/v1/nodes/roles` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}]}`, and `GET /api/v1/nodes`.
-- Desktop and phone: no Roles screen yet. The Roles section and its Review come later in the Nodes, Pairing and Roles build.
+- API on the Controller (Admin): `GET /api/v1/nodes/roles`, `POST /api/v1/nodes/roles/plan` and `PUT /api/v1/nodes/roles` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}]}`, `POST /api/v1/nodes/{id}/write-offs` with `{"roles": […]}`, and `GET /api/v1/nodes`.
+- Desktop shell: the sidebar's `Activity` shows a written-off Grab's failure. Phone shell: the `Activity` tab.
+- Desktop and phone: no Roles screen or write-off action yet. The Roles section and its Review come later in the Nodes, Pairing and Roles build.
 
 ## Driving it with fakeworld and curl
 
@@ -58,8 +63,88 @@ Steps:
   $FW exec $RUN --proof roles/roles-blocked -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"{nodes.home.nodeId}\",\"roles\":[\"downloading\",\"storage\",\"converting\",\"subtitles\",\"metadata\",\"media-server-link\",\"notifying\",\"relaying\",\"serving\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
   ```
 
+### Drain and write off
+
+Preconditions:
+
+- A fresh `home` run with doctor passing, used for nothing else: it grabs The Quiet Orchard and changes seedbox's Roles.
+
+Steps:
+
+- **Write off what seedbox doesn't hold.** 409 `nothing_held`, and nothing is stored.
+
+  ```sh
+  $FW exec $RUN --proof roles/roles-write-off-nothing -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["downloading"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
+  ```
+
+- **Grab a release onto seedbox.** Add The Quiet Orchard and search it, then wait for the Grab to read `imported`.
+
+  ```sh
+  WORK=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/search"
+  $FW exec $RUN -- bash -c 'for i in $(seq 60); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/grabs" | jq -e ".grabs[0].stage == \"imported\"" >/dev/null && exit 0; sleep 2; done; exit 1'
+  HASH=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -r '.grabs[0].infoHash')
+  ```
+
+- **Untick Downloading on seedbox.** The Outcome drains seedbox and hands Downloading to home. The roster lists seedbox `draining` with its 1 torrent held.
+
+  ```sh
+  BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
+  $FW exec $RUN --proof roles/roles-drain -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"{nodes.seedbox.nodeId}\",\"roles\":[\"searching\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW exec $RUN --proof roles/roles-drain -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  ```
+
+- **Write it off.** The answer carries the `writes-off` effect. seedbox announces `stopped`, the roster lists no Downloading on seedbox, and the file it downloaded still matches the release.
+
+  ```sh
+  $FW exec $RUN --proof roles/roles-write-off -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["downloading"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
+  $FW announces wait $RUN --node seedbox --where event=stopped --timeout 60s
+  $FW exec $RUN --proof roles/roles-write-off -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  $FW exec $RUN --proof roles/roles-write-off -- $FW fs match {runDir} "{nodes.seedbox.dataDir}/downloads/$HASH/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv" --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+  ```
+
+### Write off an offline Node
+
+Preconditions:
+
+- Another fresh `home` run with doctor passing and the `{runId}-admin-desktop` session signed in.
+
+Steps:
+
+- **Hold a Grab mid-download.** Throttle seedbox's seeders, add The Quiet Orchard and search it. seedbox announces `started`.
+
+  ```sh
+  $FW fault set $RUN swarm-hold seeders@seedbox throttle=16KiB/s
+  WORK=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","key":"9000001","monitor":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
+  $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/search"
+  $FW announces wait $RUN --node seedbox --where event=started --timeout 60s
+  ```
+
+- **Stop seedbox and write off its Downloading.** The answer comes at once with the `writes-off` effect and home taking over Downloading. The Grab reads stage `failed` with failure `{stage: downloading, code: node_written_off}`, and Activity shows its words.
+
+  ```sh
+  $FW node stop $RUN seedbox
+  $FW exec $RUN --proof roles/roles-write-off-offline -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"roles":["downloading"]}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/write-offs'
+  $FW exec $RUN --proof roles/roles-write-off-offline -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/activity'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("What the Node downloading it held was written off. Its files are kept.").waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof roles/roles-write-off-offline -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/roles/roles-write-off-offline/activity.aria.yml
+  $FW exec $RUN --proof roles/roles-write-off-offline -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/roles/roles-write-off-offline/activity.png
+  ```
+
+- **Start seedbox again.** Once its link is `up`, its facts run no Downloading.
+
+  ```sh
+  $FW node start $RUN seedbox
+  $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/nodes" | jq -e ".nodes[] | select(.name == \"seedbox\") | .link.state == \"up\" and .facts.running == []" >/dev/null && exit 0; sleep 1; done; exit 1'
+  $FW exec $RUN --proof roles/roles-write-off-offline -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  ```
+
 ## Gotchas
 
 - Every set needs the `basis` of the board or Outcome it was planned on. Read it again after each set; the old one answers `roles_stale`.
 - A Node the set doesn't name keeps its Roles. A Role SlipStream always needs comes back to home whenever no Node in the set holds it, and Serving stays on home whatever the set says.
 - A set naming a Node that is down answers at once; the Node gets its Roles when its Sync session attaches again.
+- A write-off unticks a Role still ticked on the Node, so the Always handback to home follows it; the drain recipe unticks first to show the draining state on its own.
+- A Node that comes back after an offline write-off resumes its cached torrents for a moment, out of step, and lets them go once its intent arrives: the tracker sees a second `started` and no `stopped`. Wait on the roster's facts, not on announces.
+- After a write-off doctor's check 3 reports seedbox's Roles, since the Scenario gives it Downloading.
