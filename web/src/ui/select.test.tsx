@@ -32,6 +32,7 @@ test.each([
     const option = page.getByRole("option", { name: "HD 1080p" });
     await expect.element(option).toBeVisible();
     expect(getComputedStyle(option.element()).height).toBe(item);
+    await expect.element(page.getByRole("option", { name: "Any" })).toHaveFocus();
     await userEvent.keyboard("{ArrowDown}");
     await expect.element(option).toHaveFocus();
     await userEvent.keyboard("{Enter}");

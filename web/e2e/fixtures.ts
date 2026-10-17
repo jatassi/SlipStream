@@ -24,7 +24,7 @@ import { signIn } from "../harness/sign-in.ts";
 import { expectAccessible } from "./accessible.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
-import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
+import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
 
 export { expect, expectAccessible };
 
@@ -225,7 +225,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         return;
       }
       const browser = await playwright[browserName].launch({ ...launchOptions, headless });
-      await (browserName === "webkit" ? warmUpWebKit : warmUpFirefox)(browser);
+      if (browserName === "firefox") {
+        await warmUpFirefox(browser);
+      }
       await use(browser);
       await browser.close();
     },
@@ -235,7 +237,16 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   // Host resolver rules are launch flags and a world's names exist only once
   // it is up, so Chromium launches a browser per test.
   newContext: async (
-    { playwright, headless, launchOptions, contextOptions, world, workerBrowser, startupSequence },
+    {
+      playwright,
+      browserName,
+      headless,
+      launchOptions,
+      contextOptions,
+      world,
+      workerBrowser,
+      startupSequence,
+    },
     use,
   ) => {
     const browser =
@@ -255,6 +266,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       const context = await browser.newContext({ ...contextOptions, baseURL: world.baseURL });
       contexts.push(context);
       checks.push(await guard(context, origin));
+      if (browserName === "webkit") {
+        overrideNewPageWithWarmUp(context, `${origin}/icon-192.png`);
+      }
       if (!startupSequence) {
         await context.addInitScript({ path: startupPlayedScript });
       }
