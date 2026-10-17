@@ -63,9 +63,10 @@ type File struct {
 // Kept reports whether f fills no Target and stays, flagged.
 func (f File) Kept() bool { return f.Extra > 0 }
 
-// Facts is what f's row knows about it, for Judge.
+// Facts is what f's row knows about it, for Judge: its quality, cut and
+// size, and the video codec its probe read.
 func (f File) Facts() release.Facts {
-	return release.Facts{Quality: release.Known(f.Quality), Cut: f.Cut, Size: release.Known(f.Size)}
+	return release.Facts{Quality: release.Known(f.Quality), Cut: f.Cut, Video: release.VideoCodecOf(f.Probe.Codec), Size: release.Known(f.Size)}
 }
 
 type Changed struct {

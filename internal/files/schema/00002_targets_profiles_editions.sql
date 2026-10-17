@@ -104,3 +104,9 @@ CREATE TABLE files_doomed (
 ALTER TABLE files_file RENAME COLUMN edition TO cut;
 CREATE INDEX files_file_cut ON files_file (cut);
 UPDATE files_fill SET edition = 'any' WHERE edition = 'standard';
+
+-- A file's probe keeps its video's codec, by ffprobe's name, which its
+-- Facts read. Files that existed before take their Grab's probe's.
+UPDATE files_file SET probe = json_set(probe, '$.codec', (
+    SELECT json_extract(g.probe, '$.codec') FROM grabs_grab g WHERE g.id = files_file.grab_id))
+WHERE (SELECT json_extract(g.probe, '$.codec') FROM grabs_grab g WHERE g.id = files_file.grab_id) IS NOT NULL;

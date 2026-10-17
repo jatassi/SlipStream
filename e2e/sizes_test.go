@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -11,20 +12,22 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
-// sized launches the sizes Scenario, adds the movie key monitored and
-// returns the world and the id of its one Target, Sized.
-func sized(t *testing.T, key string) (w walked, target string) {
+// sized launches the sizes Scenario, adds the movie key monitored,
+// wanting from the Profile named profile, and returns the world and the
+// id of the Profile's one Target, named target.
+func sized(t *testing.T, key, profile, target string) (w walked, id string) {
 	t.Helper()
 	run := worldtest.Launch(t, "sizes")
 	w = walked{run: run, m: run.Manifest(), a: api(t, run)}
-	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+key+`","monitor":true}`), &added{})
+	body := `{"contentType":"movie","key":"` + key + `","monitor":true,"profileId":"` + w.named(t, "/api/v1/profiles", "profiles", profile) + `"}`
+	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", body), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
 	}
 	w.work = tr.ID
-	target = w.named(t, "/api/v1/targets", "targets", "Sized")
-	return w, target
+	id = w.named(t, "/api/v1/targets", "targets", target)
+	return w, id
 }
 
 // searchedOnce searches w's Work, checks the searches view lists that one
@@ -76,7 +79,7 @@ func (w *walked) holdsRelease(t *testing.T, path, name string) {
 // audio or channels, so Sized's filters pass every release.
 func TestASearchRefusesReleasesOutsideTheTargetsSizesAndGrabsTheOneWithin(t *testing.T) {
 	t.Parallel()
-	w, target := sized(t, "9000001")
+	w, target := sized(t, "9000001", "Films", "Sized")
 	w.searchedOnce(t, 3, `[`+
 		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT","reasons":[{"code":"size_above","targetId":"`+target+`"}]},`+
 		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY","reasons":[{"code":"size_below","targetId":"`+target+`"}]}]`, `[]`)
@@ -85,7 +88,32 @@ func TestASearchRefusesReleasesOutsideTheTargetsSizesAndGrabsTheOneWithin(t *tes
 
 func TestAWorkWithNoKnownRuntimeGrabsWithItsSizeNotChecked(t *testing.T) {
 	t.Parallel()
-	w, target := sized(t, "9000002")
+	w, target := sized(t, "9000002", "Films", "Sized")
 	w.searchedOnce(t, 1, `[]`, `[{"code":"size_not_checked","targetId":"`+target+`"}]`)
 	w.holdsRelease(t, "movies/The Lantern Keeper (2019)/The Lantern Keeper (2019) - Sized.mkv", "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW")
+}
+
+// The Copper Bell's title doesn't name its video codec, so Encoded's
+// filter passes it at grab time; its payload probes as H.264, which
+// Encoded refuses, so the probed file fills nothing and no file lands.
+func TestAFileProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
+	t.Parallel()
+	w, target := sized(t, "9000003", "Encodes", "Encoded")
+	found := w.searched(t, w.search(t))
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 1 || found.GrabID == nil {
+		t.Fatalf("the search ended %+v, want the one listed release grabbed", found)
+	}
+	w.ended(t, *found.GrabID)
+	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "fills_nothing" ||
+		w.grab.Failure.Message != "a WEBDL-1080p file fills no Target the Work still wants" {
+		t.Fatalf("the Grab ended %s with %+v after %v, want failed filling nothing", w.grab.Stage, w.grab.Failure, w.grab.stages())
+	}
+	if got := w.grab.stages(); !slices.Equal(got[len(got)-2:], []string{"probing", "failed"}) {
+		t.Fatalf("the Grab went through %v, want it to fail at its probe", got)
+	}
+	holdsOnly(t, w.m)
+	cells := w.cells(t)
+	if got, _ := cells.summary(t); !slices.Equal(got, []string{"Encoded failed wanted"}) || cells.Cells[0].TargetID != target {
+		t.Fatalf("after the probe the cells are %q, want Encoded failed and still wanted", got)
+	}
 }

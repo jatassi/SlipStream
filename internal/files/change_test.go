@@ -281,3 +281,112 @@ func TestAnImportWhoseCellsWentFollowsTheSavedChoice(t *testing.T) {
 		})
 	}
 }
+
+var (
+	h264 = files.Probe{Width: 1920, Height: 1080, Codec: "h264"}
+	hevc = files.Probe{Width: 1920, Height: 1080, Codec: "hevc"}
+)
+
+// noX264 is Web refusing x264: WEB-DL 1080p of any video codec but x264.
+func noX264(t *testing.T, id targets.TargetID) targets.UpdateTarget {
+	t.Helper()
+	var f targets.Filters
+	if err := f.Set(targets.VideoCodec, targets.Not, []string{"x264"}); err != nil {
+		t.Fatal(err)
+	}
+	return targets.UpdateTarget{ID: id, Spec: targets.Spec{Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Filters: f}}
+}
+
+func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {
+	for _, c := range []struct {
+		choice files.Unwanted
+		disk   map[string]string
+	}{
+		{files.Keep, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv": "h264", "Shelf w1/Shelf w1 - Mittens - Web.mkv": "hevc"}},
+		{files.Delete, map[string]string{"Shelf w1/Shelf w1 - Mittens - Web.mkv": "hevc"}},
+	} {
+		t.Run(string(c.choice), func(t *testing.T) {
+			l := open(t)
+			web := l.target(t, "Web", []release.Quality{release.WEBDL1080p})
+			tree := l.work(t, "w1", true, new(l.profile(t, "Films", web)))
+			svc := l.files(files.NoGrabs{})
+			l.downloadProbed(t, svc, tree, 0, release.WEBDL1080p, "h264", h264)
+			l.downloadProbed(t, svc, tree, 1, release.WEBDL1080p, "hevc", hevc)
+			l.settle(t, svc)
+			if got := l.change(t, svc, noX264(t, web.ID), files.Mode{Unwanted: c.choice}); got != (files.Impact{Works: 1, Unwanted: 1, Bytes: 4, NewlyWanted: 1}) {
+				t.Fatalf("refusing x264 under %s = %+v, want the H.264 file unwanted and its cell wanted", c.choice, got)
+			}
+			if disk := l.onDisk(t); !maps.Equal(disk, c.disk) {
+				t.Fatalf("under %s the root holds %v, want %v", c.choice, disk, c.disk)
+			}
+			_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "Scarf any Web missing wanted=true\n" +
+				"Mittens any Web met wanted=false Shelf w1/Shelf w1 - Mittens - Web.mkv webdl-1080p 1920x1080\n"
+			if lines(cells) != want {
+				t.Fatalf("cells =\n%swant\n%s", lines(cells), want)
+			}
+		})
+	}
+}
+
+func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
+	keep, del := files.Keep, files.Delete
+	for _, c := range []struct {
+		name     string
+		probe    files.Probe
+		unwanted *files.Unwanted
+		fills    bool
+		disk     map[string]string
+	}{
+		{"hevc fills Web", hevc, nil, true, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web.mkv": "payload"}},
+		{"h264 with no choice", h264, nil, false, nil},
+		{"h264 kept", h264, &keep, false, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv": "payload"}},
+		{"h264 deleted", h264, &del, false, map[string]string{}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			l := open(t)
+			web := must[targets.Target](t)(l.targets.CreateTarget(t.Context(), admin, noX264(t, targets.TargetID{}).Spec))
+			tree := l.work(t, "w1", true, new(l.profile(t, "Films", web)))
+			svc := l.files(files.NoGrabs{})
+			holding := files.HoldingOf(storage.NewUUID(), ".mkv")
+			l.put(t, holding, "payload")
+			in := files.Incoming{
+				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
+				Size: 7, Probe: c.probe, Quality: release.WEBDL1080p, Meant: []targets.TargetID{web.ID}, Unwanted: c.unwanted,
+			}
+			var placed files.Placement
+			err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+				var err error
+				placed, err = svc.Place(ctx, r, in)
+				return err
+			})
+			_, nothing := errors.AsType[*files.FillsNothingError](err)
+			kept := c.unwanted != nil && *c.unwanted == files.Keep
+			switch {
+			case c.fills && (err != nil || !slices.Equal(placed.Fills, []targets.TargetID{web.ID})):
+				t.Fatalf("Place = %+v, %v, want it to fill Web", placed, err)
+			case !c.fills && !kept && !nothing:
+				t.Fatalf("Place = %+v, %v, want a FillsNothingError", placed, err)
+			case kept && (err != nil || !placed.Kept):
+				t.Fatalf("Place = %+v, %v, want it Kept", placed, err)
+			}
+			if c.disk == nil {
+				return
+			}
+			err = l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+				_, _, err := svc.Import(ctx, tx, in)
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			l.settle(t, svc)
+			if disk := l.onDisk(t); !maps.Equal(disk, c.disk) {
+				t.Fatalf("the root holds %v, want %v", disk, c.disk)
+			}
+		})
+	}
+}

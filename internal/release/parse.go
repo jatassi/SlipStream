@@ -46,7 +46,8 @@ func Title(title string, cuts []Cut) Facts {
 
 // File is a file's Facts: the source and cut its name names, which for a
 // downloaded file is its Grab's release title, and the resolution its
-// probe measured. Size and Coverage are the caller's.
+// probe measured. Size, Coverage and the probe's other facts are the
+// caller's.
 func File(name string, cuts []Cut, probed Resolution) Facts {
 	w := words(name)
 	return Facts{Quality: qualityFact(sourceIn(w), Known(probed)), Cut: cutIn(w, cuts)}

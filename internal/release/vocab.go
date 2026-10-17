@@ -29,6 +29,21 @@ func AudioCodecs() []AudioCodec {
 
 func ChannelLayouts() []Channels { return []Channels{"7.1", "5.1", "2.0", "1.0"} }
 
+// probedVideo is the video codec of each codec name ffprobe gives that the
+// vocabulary has a word for. MPEG-4 Part 2 is the family XviD names.
+var probedVideo = map[string]VideoCodec{
+	"h264": "x264", "hevc": "x265", "av1": "AV1", "vp9": "VP9", "mpeg4": "XviD", "mpeg2video": "MPEG2",
+}
+
+// VideoCodecOf is the video codec of a stream ffprobe names codec,
+// unknown when the vocabulary has no word for it.
+func VideoCodecOf(codec string) Fact[VideoCodec] {
+	if v, ok := probedVideo[codec]; ok {
+		return Known(v)
+	}
+	return Fact[VideoCodec]{}
+}
+
 func ParseHDR(s string) (HDR, error) { return parseValue("an HDR format", HDRs(), s) }
 
 func ParseVideoCodec(s string) (VideoCodec, error) {

@@ -57,38 +57,19 @@ var frames = []files.Probe{{Width: 3840, Height: 2160}, {Width: 3840, Height: 16
 
 func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	open := func(schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
-		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, schemas, func(context.Context, *storage.Unmigrated, storage.Plan) error { return nil },
-			storage.DefaultTimings(), slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
+	open := opener(t)
 	want := map[string]seeded{}
 	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema(), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		node, indexer, work, root := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
-		for _, stmt := range []struct {
-			sql  string
-			args []any
-		}{
-			{`INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, []any{node}},
-			{`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, []any{indexer, node}},
-			{`INSERT INTO works_work VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, []any{work}},
-			{`INSERT INTO roots_root VALUES (?, 'fixture', ?, '/media')`, []any{root, node}},
-		} {
-			if _, err := tx.ExecContext(ctx, stmt.sql, stmt.args...); err != nil {
-				return fmt.Errorf("%s: %w", stmt.sql, err)
-			}
+		at, err := seedLibrary(ctx, tx)
+		if err != nil {
+			return err
 		}
 		n := 0
 		for _, title := range append(corpus, "") {
 			for _, f := range frames {
 				n++
-				file, err := seedFile(ctx, tx, n, title, f, seeds{node, indexer, work, root})
+				file, err := seedFile(ctx, tx, n, title, f, at)
 				if err != nil {
 					return err
 				}
@@ -113,6 +94,82 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	distinct(t, lib, `SELECT DISTINCT edition FROM grabs_grab`, "any")
 }
 
+// opener opens a library file of t's, migrating it to schemas.
+func opener(t *testing.T) func(schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	return func(schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
+		t.Helper()
+		lib, err := storage.OpenLibrary(t.Context(), path, schemas, func(context.Context, *storage.Unmigrated, storage.Plan) error { return nil },
+			storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lib
+	}
+}
+
+func TestExistingFilesKeepTheVideoCodecTheirGrabProbed(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t)
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema(), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	var want map[string]release.Fact[release.VideoCodec]
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		want, err = seedProbed(ctx, tx)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	for path, video := range want {
+		var p files.Probe
+		if err := lib.QueryRowContext(ctx, `SELECT probe FROM files_file WHERE path = ?`, path).Scan(&p); err != nil {
+			t.Fatal(err)
+		}
+		if got := (files.File{Probe: p}).Facts().Video; got != video || p.Width != 1920 || p.Height != 1080 {
+			t.Errorf("file %s migrated with the probe %+v, video %v, want its Grab's 1920x1080 and video %v", path, p, got, video)
+		}
+	}
+}
+
+// seedProbed adds files whose Grabs probed a video codec the vocabulary
+// names, one it doesn't, none, and a file no Grab brought, and returns
+// the video fact each file's path should have once migrated.
+func seedProbed(ctx context.Context, tx *storage.Tx[storage.Library]) (map[string]release.Fact[release.VideoCodec], error) {
+	at, err := seedLibrary(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	want := map[string]release.Fact[release.VideoCodec]{}
+	for n, c := range []struct {
+		title, probe string
+		video        release.Fact[release.VideoCodec]
+	}{
+		{"The.Quiet.Orchard.2021.1080p.WEB-DL-FKW", `{"duration":6000000000,"container":"matroska","codec":"h264","width":1920,"height":1080}`, release.Known[release.VideoCodec]("x264")},
+		{"The.Quiet.Orchard.2021.2160p.WEB-DL-FKW", `{"duration":6000000000,"container":"matroska","codec":"vc1","width":3840,"height":2160}`, release.Fact[release.VideoCodec]{}},
+		{"The.Quiet.Orchard.2021.720p.WEB-DL-FKW", "", release.Fact[release.VideoCodec]{}},
+		{"", "", release.Fact[release.VideoCodec]{}},
+	} {
+		file, err := seedFile(ctx, tx, n+1, c.title, frames[2], at)
+		if err != nil {
+			return nil, err
+		}
+		if c.probe != "" {
+			if _, err := tx.ExecContext(ctx, `UPDATE grabs_grab SET probe = ? WHERE id = (SELECT grab_id FROM files_file WHERE path = ?)`, c.probe, file); err != nil {
+				return nil, err
+			}
+		}
+		want[file] = c.video
+	}
+	return want, nil
+}
+
 type seeded struct {
 	title string // empty for a file no Grab brought
 	probe files.Probe
@@ -120,6 +177,25 @@ type seeded struct {
 
 type seeds struct {
 	node, indexer, work, root storage.UUID
+}
+
+// seedLibrary adds a Node, an Indexer on it, a Work and a root, for seedFile.
+func seedLibrary(ctx context.Context, tx *storage.Tx[storage.Library]) (seeds, error) {
+	at := seeds{storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()}
+	for _, stmt := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, []any{at.node}},
+		{`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, []any{at.indexer, at.node}},
+		{`INSERT INTO works_work VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, []any{at.work}},
+		{`INSERT INTO roots_root VALUES (?, 'fixture', ?, '/media')`, []any{at.root, at.node}},
+	} {
+		if _, err := tx.ExecContext(ctx, stmt.sql, stmt.args...); err != nil {
+			return seeds{}, fmt.Errorf("%s: %w", stmt.sql, err)
+		}
+	}
+	return at, nil
 }
 
 // seedFile adds the nth Item of the Work and a file of it probed at probe,
@@ -181,16 +257,7 @@ func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[str
 
 func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *testing.T) {
 	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	open := func(schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
-		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, schemas, func(context.Context, *storage.Unmigrated, storage.Plan) error { return nil },
-			storage.DefaultTimings(), slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
+	open := opener(t)
 	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema(), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
 	work, root, profile := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 	small, large := storage.NewUUID(), storage.NewUUID()

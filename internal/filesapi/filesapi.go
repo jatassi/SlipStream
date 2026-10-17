@@ -42,7 +42,7 @@ type libraryFile struct {
 }
 
 func fileOf(f files.File) libraryFile {
-	return libraryFile{ID: f.ID.String(), Path: f.Path, Size: f.Size, Quality: f.Quality.String(), Probe: probe(f.Probe)}
+	return libraryFile{ID: f.ID.String(), Path: f.Path, Size: f.Size, Quality: f.Quality.String(), Probe: probe{Width: f.Probe.Width, Height: f.Probe.Height}}
 }
 
 type cell struct{}

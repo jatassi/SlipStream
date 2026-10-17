@@ -164,7 +164,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		quality, _ := facts.Quality.Get()
 		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
 			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
-			Size: video.Size, Probe: files.Probe{Width: probe.Width, Height: probe.Height}, Quality: quality, GrabID: g.ID.UUID,
+			Size: video.Size, Probe: probed(probe), Quality: quality, GrabID: g.ID.UUID,
 			Meant: g.Targets, Unwanted: unwanted,
 		})
 		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
@@ -246,8 +246,13 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	}
 	return advance{to: Imported, file: &files.Incoming{
 		WorkID: g.WorkID, ItemID: g.ItemID, RootID: g.Plan.Root.ID, Holding: holding, Size: info.Size(),
-		Probe: files.Probe{Width: g.Plan.Probe.Width, Height: g.Plan.Probe.Height}, GrabID: g.ID.UUID, Meant: g.Targets,
+		Probe: probed(g.Plan.Probe), GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
+}
+
+// probed is what a file keeps of its probe.
+func probed(p media.Probe) files.Probe {
+	return files.Probe{Width: p.Width, Height: p.Height, Codec: p.Codec}
 }
 
 // facts is what g's file is, read in r: its release's source and cut,

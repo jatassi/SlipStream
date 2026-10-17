@@ -35,6 +35,12 @@ func (l *library) put(t *testing.T, p, content string) {
 // file commits.
 func (l *library) download(t *testing.T, svc *files.Files, tree works.Tree, item int, q release.Quality, content string) files.File {
 	t.Helper()
+	return l.downloadProbed(t, svc, tree, item, q, content, files.Probe{Width: 1920, Height: 1080})
+}
+
+// downloadProbed is download of a file whose probe read probe.
+func (l *library) downloadProbed(t *testing.T, svc *files.Files, tree works.Tree, item int, q release.Quality, content string, probe files.Probe) files.File {
+	t.Helper()
 	grab := storage.NewUUID()
 	holding := files.HoldingOf(grab, ".mkv")
 	l.put(t, holding, content)
@@ -43,7 +49,7 @@ func (l *library) download(t *testing.T, svc *files.Files, tree works.Tree, item
 		var err error
 		f, _, err = svc.Import(ctx, tx, files.Incoming{
 			WorkID: tree.ID, ItemID: tree.Items[item].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-			Size: int64(len(content)), Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
+			Size: int64(len(content)), Probe: probe, Quality: q,
 		})
 		return err
 	})

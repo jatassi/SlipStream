@@ -27,6 +27,21 @@ func TestVocabularies(t *testing.T) {
 	roundTrips(t, release.ChannelLayouts(), release.ParseChannels, "", "6.1", "5.1.2", "stereo")
 }
 
+func TestVideoCodecOfAProbedStream(t *testing.T) {
+	for codec, want := range map[string]release.VideoCodec{
+		"h264": "x264", "hevc": "x265", "av1": "AV1", "vp9": "VP9", "mpeg4": "XviD", "mpeg2video": "MPEG2",
+	} {
+		if got, known := release.VideoCodecOf(codec).Get(); !known || got != want {
+			t.Errorf("VideoCodecOf(%q) = %q, %t, want %q", codec, got, known, want)
+		}
+	}
+	for _, unknown := range []string{"", "vc1", "H264", "x264", "prores"} {
+		if got, known := release.VideoCodecOf(unknown).Get(); known {
+			t.Errorf("VideoCodecOf(%q) = %q, want unknown", unknown, got)
+		}
+	}
+}
+
 func TestParseLanguage(t *testing.T) {
 	for in, want := range map[string]release.Language{
 		"en": "en", "EN": "en", "eng": "en", "fre": "fr", "fra": "fr", "ger": "de", "ja": "ja",

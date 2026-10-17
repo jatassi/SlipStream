@@ -2,10 +2,13 @@
 description: >-
   One Node set up as the Controller, whose movies want one Target, Sized:
   1080p WEB-DL at 20 to 100 MiB per minute, TrueHD audio only and no 2.0
-  channels. fixture-site lists The Quiet Orchard (104 minutes) as an
-  in-range WEB-DL, a bloated encode above the range and a tiny one below
-  it, and The Lantern Keeper, whose runtime TMDB doesn't know, as one
-  WEB-DL. No title names its audio or channels.
+  channels. A second Profile, Encodes, wants Encoded: 1080p WEB-DL of any
+  video codec but x264. fixture-site lists The Quiet Orchard (104 minutes)
+  as an in-range WEB-DL, a bloated encode above the range and a tiny one
+  below it, The Lantern Keeper, whose runtime TMDB doesn't know, as one
+  WEB-DL, and The Copper Bell as one WEB-DL whose title doesn't name its
+  video codec, though its payload, like every payload, is H.264. No title
+  names its audio or channels.
 seed: sizes
 admin:
   email: ada@example.test
@@ -29,6 +32,11 @@ tmdb:
       title: The Lantern Keeper
       released: 2019-09-06
       runtime: 0m
+    - id: 9000003
+      imdb_id: tt9000003
+      title: The Copper Bell
+      released: 2020-02-21
+      runtime: 98m
 releases:
   - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
     tmdb_id: 9000001
@@ -52,6 +60,12 @@ releases:
     seeders: 12
     seeded: true
     advertised_size: 4GiB
+  - name: The.Copper.Bell.2020.1080p.WEB-DL-FKW
+    tmdb_id: 9000003
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 6GiB
 tracker:
   interval: 5s
 library:
@@ -64,5 +78,11 @@ library:
         - {attribute: audio_codec, mode: only, values: [TrueHD]}
         - {attribute: channels, mode: not, values: ["2.0"]}
       sizes: [{quality: webdl-1080p, min: 20, max: 100}]
-  profiles: [{name: Films, content_type: movie, targets: [Sized], default: true}]
+    - name: Encoded
+      tiers: [[webdl-1080p]]
+      cutoff: webdl-1080p
+      filters: [{attribute: video_codec, mode: not, values: [x264]}]
+  profiles:
+    - {name: Films, content_type: movie, targets: [Sized], default: true}
+    - {name: Encodes, content_type: movie, targets: [Encoded]}
   indexers: [{name: Fixture Site, site: fixture-site}]
