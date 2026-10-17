@@ -13,7 +13,7 @@ import {
 } from "./ranked-rows";
 
 export type { RankedRow } from "./ranked-rows";
-export { tiersOf } from "./ranked-rows";
+export { settle, tiersOf } from "./ranked-rows";
 
 export type RankedListProps<T> = {
   /** Names the list, such as "Qualities". */
@@ -132,7 +132,8 @@ function useRankedList<T>(props: RankedListProps<T>, hintId: string) {
 /**
  * A list whose order is its meaning. Each item has a rank numeral (tied items
  * share one), a drag handle that the arrow keys also move, and Move up and
- * Move down. A marker, such as the cutoff, moves the same way and sits only
+ * Move down, which the Touch density gathers with the tie into one row
+ * action. A marker, such as the cutoff, moves the same way and sits only
  * between tiers. Each move is announced.
  */
 export function RankedList<T>(props: RankedListProps<T>) {

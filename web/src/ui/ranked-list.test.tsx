@@ -192,3 +192,29 @@ test("a row dragged into a tier joins it, and a marker dragged into one passes i
     .toEqual(["Rank 1Remux", "Rank 2Bluray", "Rank 2HDTV", "Rank 2WEB", "Cutoff"]);
   expect(tiersOf(latest)).toEqual([["Remux"], ["Bluray", "HDTV", "WEB"]]);
 });
+
+test("at the Touch density one row action holds the moves and the tie", async () => {
+  renderKit(<Qualities initial={[item("Bluray"), item("WEB"), item("HDTV")]} ties />, {
+    shell: "phone",
+  });
+  await expect.element(page.getByRole("button", { name: "Move WEB up" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Move WEB", exact: true })).toBeVisible();
+
+  await userEvent.click(page.getByRole("button", { name: "Actions for WEB" }));
+  await userEvent.click(page.getByRole("button", { name: "Tie with the one above" }));
+  await expect.poll(shown).toEqual(["Rank 1Bluray", "Rank 1WEB", "Rank 2HDTV"]);
+  await expect.element(page.getByRole("button", { name: "Actions for WEB" })).toHaveFocus();
+
+  await userEvent.click(page.getByRole("button", { name: "Actions for HDTV" }));
+  await userEvent.click(page.getByRole("button", { name: "Move up" }));
+  await expect.poll(shown).toEqual(["Rank 1HDTV", "Rank 2Bluray", "Rank 2WEB"]);
+  await expect.element(announced()).toHaveTextContent("HDTV moved to rank 1 of 2.");
+
+  await userEvent.click(page.getByRole("button", { name: "Actions for HDTV" }));
+  await expect.element(page.getByRole("button", { name: "Move down" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Move up" })).not.toBeInTheDocument();
+  await userEvent.click(page.getByRole("button", { name: "Cancel" }));
+  await userEvent.click(page.getByRole("button", { name: "Actions for WEB" }));
+  await userEvent.click(page.getByRole("button", { name: "Untie from the one above" }));
+  await expect.poll(shown).toEqual(["Rank 1HDTV", "Rank 2Bluray", "Rank 3WEB"]);
+});

@@ -9,11 +9,14 @@ import {
   type Layout,
   type Order,
   type QualityKey,
+  type PresetTiers,
+  accept,
   cam,
-  keepCutoff,
+  drop,
   layoutOf,
   orderOf,
   presetOrder,
+  rankedOf,
 } from "./order";
 import { type Attribute, attributes } from "./vocab";
 
@@ -25,14 +28,14 @@ export type Rule =
 export type SizeDraft = { readonly min: string; readonly max: string };
 
 /**
- * A Target being edited. The order holds every quality but CAM, accepted
- * or not, so accepting one puts it where it last stood; sizes are kept for
- * every quality and only the accepted ones are sent.
+ * A Target being edited. The order ranks the accepted qualities but CAM,
+ * and `cinema` says whether CAM is accepted; sizes are kept for every
+ * quality and only the accepted ones are sent.
  */
 export type TargetDraft = {
   readonly name: string;
   readonly order: Order;
-  readonly accepted: ReadonlySet<QualityKey>;
+  readonly cinema: boolean;
   readonly filters: Readonly<Record<Attribute, Rule>>;
   readonly sizes: Readonly<Partial<Record<QualityKey, SizeDraft>>>;
 };
@@ -61,29 +64,24 @@ export function sizeOf(draft: TargetDraft, key: QualityKey): SizeDraft {
 
 /** A new Target: every quality but CAM accepted under the default preset, at their floors. */
 export function newDraft({ qualities, presets }: TargetsQualityList): TargetDraft {
-  const keys = qualities.map((quality) => quality.key);
-  const accepted = new Set(keys.filter((key) => key !== cam));
   return {
     name: "",
-    order: presetOrder(presets[0]?.tiers ?? [], accepted, keys),
-    accepted,
+    order: presetOrder(
+      presets[0]?.tiers ?? [],
+      qualities.map((quality) => quality.key),
+    ),
+    cinema: false,
     filters: anyRules(),
     sizes: floors(qualities),
   };
 }
 
-/** A saved Target as a draft, its qualities it doesn't accept below in the default preset's order. */
-export function draftOf(
-  target: TargetsTarget,
-  { qualities, presets }: TargetsQualityList,
-): TargetDraft {
+/** A saved Target as a draft. */
+export function draftOf(target: TargetsTarget, { qualities }: TargetsQualityList): TargetDraft {
   const keys = qualities.map((quality) => quality.key);
   const known = (key: string) => keys.find((candidate) => candidate === key);
   const tiers = target.tiers.map((tier) => (tier ?? []).flatMap((key) => known(key) ?? []));
   const cutoff = tiers.findIndex((tier) => tier.some((key) => key === target.cutoff));
-  const rest = (presets[0]?.tiers ?? [])
-    .flat()
-    .flatMap((key) => (key === null ? [] : (known(key) ?? [])));
   const filters = anyRules();
   for (const filter of target.filters) {
     filters[filter.attribute] = { mode: filter.mode, values: filter.values };
@@ -94,25 +92,34 @@ export function draftOf(
   }
   return {
     name: target.name,
-    order: orderOf({ tiers, cutoff }, rest),
-    accepted: new Set(tiers.flat()),
+    order: orderOf({ tiers, cutoff }),
+    cinema: tiers.some((tier) => tier.includes(cam)),
     filters,
     sizes,
   };
 }
 
-/** The draft with one quality accepted or not, the cutoff kept in range. */
-export const accepting = (draft: TargetDraft, key: QualityKey, on: boolean): TargetDraft => {
-  const accepted = new Set(draft.accepted);
-  if (on) {
-    accepted.add(key);
-  } else {
-    accepted.delete(key);
-  }
-  return { ...draft, accepted, order: keepCutoff(draft.order, accepted) };
+/**
+ * The draft with a quality other than CAM accepted, ranked where `preset` puts
+ * it, or no longer accepted and out of the order.
+ */
+export const accepting = (
+  draft: TargetDraft,
+  key: QualityKey,
+  on: boolean,
+  preset: PresetTiers,
+): TargetDraft => ({
+  ...draft,
+  order: on ? accept(draft.order, key, preset) : drop(draft.order, key),
+});
+
+/** The qualities the draft doesn't accept, CAM left out, best first. */
+export const unacceptedOf = (draft: TargetDraft, keys: readonly QualityKey[]): QualityKey[] => {
+  const ranked = new Set(rankedOf(draft.order));
+  return keys.filter((key) => key !== cam && !ranked.has(key)).toReversed();
 };
 
-export const layoutOfDraft = (draft: TargetDraft): Layout => layoutOf(draft.order, draft.accepted);
+export const layoutOfDraft = (draft: TargetDraft): Layout => layoutOf(draft.order, draft.cinema);
 
 /** The accepted qualities, best first, as the Sizes section lists them. */
 export const acceptedInOrder = (draft: TargetDraft): QualityKey[] =>
@@ -147,7 +154,7 @@ export function problemsOf(draft: TargetDraft): string[] {
   if (draft.name.trim() === "") {
     problems.push("Name the Target.");
   }
-  if (draft.accepted.size === 0) {
+  if (layoutOfDraft(draft).tiers.length === 0) {
     problems.push("Accept at least one quality.");
   }
   if (attributes.some(({ key }) => ruleProblem(draft.filters[key]) !== undefined)) {

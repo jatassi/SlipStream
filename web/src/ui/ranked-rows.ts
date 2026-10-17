@@ -31,6 +31,9 @@ const rowsOf = <T>(units: readonly Unit<T>[]): RankedRow<T>[] =>
     unit.map((row, at) => (row.kind === "item" ? { ...row, tiedAbove: at > 0 } : row)),
   );
 
+/** The rows with each tier's first item untied, as every edit leaves them. */
+export const settle = <T>(rows: Rows<T>): RankedRow<T>[] => rowsOf(unitsOf(rows));
+
 const holding = <T>(units: readonly Unit<T>[], id: string) =>
   units.findIndex((unit) => unit.some((row) => row.id === id));
 
@@ -74,10 +77,8 @@ export function stepRow<T>(rows: Rows<T>, id: string, step: Step): RankedRow<T>[
 
 /** Ties an item with the row above, or unties it. A tie needs an item above. */
 export function tieRow<T>(rows: Rows<T>, id: string, tied: boolean): RankedRow<T>[] {
-  return rowsOf(
-    unitsOf(
-      rows.map((row) => (row.kind === "item" && row.id === id ? { ...row, tiedAbove: tied } : row)),
-    ),
+  return settle(
+    rows.map((row) => (row.kind === "item" && row.id === id ? { ...row, tiedAbove: tied } : row)),
   );
 }
 
@@ -101,7 +102,7 @@ export function dropRow<T>(rows: Rows<T>, order: readonly string[], id: string):
   if (to === from) {
     return [...rows];
   }
-  const rest = rowsOf(unitsOf(rows.filter((candidate) => candidate !== row)));
+  const rest = settle(rows.filter((candidate) => candidate !== row));
   const inTier = (at: number) => {
     const next = rest[at];
     return at > 0 && next?.kind === "item" && next.tiedAbove;
@@ -113,7 +114,7 @@ export function dropRow<T>(rows: Rows<T>, order: readonly string[], id: string):
     }
   }
   const placed = row.kind === "item" ? { ...row, tiedAbove: inTier(at) } : row;
-  return rowsOf(unitsOf([...rest.slice(0, at), placed, ...rest.slice(at)]));
+  return settle([...rest.slice(0, at), placed, ...rest.slice(at)]);
 }
 
 /** Each item's rank, counting tiers, so tied items share one. */

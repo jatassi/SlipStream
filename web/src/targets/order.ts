@@ -1,12 +1,17 @@
 import type { TargetsQualityKey } from "../api/gen/model";
-import type { RankedRow } from "../ui/ranked-list";
+import { type RankedRow, settle } from "../ui/ranked-list";
 
 export type QualityKey = TargetsQualityKey;
 
 export type QualityRow = RankedRow<QualityKey>;
 
-/** The ranked list's rows: every quality but CAM, and the cutoff marker. */
+/** The ranked list's rows: the accepted qualities but CAM, in tiers best first, and the cutoff marker. */
 export type Order = readonly QualityRow[];
+
+export type Tiers = readonly (readonly QualityKey[])[];
+
+/** A preset's tiers as the API lists them. */
+export type PresetTiers = readonly (readonly string[] | null)[];
 
 export const cam: QualityKey = "cam";
 
@@ -14,7 +19,7 @@ export const cutoffMarker: QualityRow = { kind: "marker", id: "cutoff", label: "
 
 /** A Target's accepted qualities as the API writes them: tiers best first and the cutoff tier. */
 export type Layout = {
-  readonly tiers: readonly (readonly QualityKey[])[];
+  readonly tiers: Tiers;
   readonly cutoff: number;
 };
 
@@ -25,13 +30,20 @@ const item = (value: QualityKey, tiedAbove: boolean): QualityRow => ({
   tiedAbove,
 });
 
-const rowsOfTiers = (tiers: readonly (readonly QualityKey[])[]): QualityRow[] =>
+const rowsOfTiers = (tiers: Tiers): QualityRow[] =>
   tiers.flatMap((tier) => tier.map((value, at) => item(value, at > 0)));
 
-// A unit is what the marker can sit between: an item and the items tied below it.
 const tiedAbove = (row: QualityRow | undefined) => row?.kind === "item" && row.tiedAbove;
 
-function unitEnd(rows: Order, at: number): number {
+function tierStart(rows: Order, at: number): number {
+  let start = at;
+  while (tiedAbove(rows[start])) {
+    start -= 1;
+  }
+  return start;
+}
+
+function tierEnd(rows: Order, at: number): number {
   let end = at + 1;
   while (tiedAbove(rows[end])) {
     end += 1;
@@ -39,99 +51,82 @@ function unitEnd(rows: Order, at: number): number {
   return end;
 }
 
-const isAccepted = (accepted: ReadonlySet<QualityKey>, row: QualityRow) =>
-  row.kind === "item" && accepted.has(row.value);
+/** The ranked qualities, without the cutoff. */
+export const rankedOf = (rows: Order): QualityKey[] =>
+  rows.flatMap((row) => (row.kind === "item" ? [row.value] : []));
 
-/** The rows with the cutoff placed just below the first or last tier holding an accepted quality. */
-export function placeCutoff(
-  rows: Order,
-  accepted: ReadonlySet<QualityKey>,
-  at: "top" | "bottom",
-): QualityRow[] {
+/** The rows with the cutoff just below their first or their last tier. */
+export function placeCutoff(rows: Order, at: "top" | "bottom"): QualityRow[] {
   const items = rows.filter((row) => row.kind === "item");
-  const first = items.findIndex((row) => isAccepted(accepted, row));
-  if (first === -1) {
-    return [cutoffMarker, ...items];
-  }
-  const holder = at === "top" ? first : items.findLastIndex((row) => isAccepted(accepted, row));
-  let start = holder;
-  while (start > 0 && tiedAbove(items[start])) {
-    start -= 1;
-  }
-  const end = unitEnd(items, start);
+  const end = at === "top" ? Math.min(tierEnd(items, 0), items.length) : items.length;
   return [...items.slice(0, end), cutoffMarker, ...items.slice(end)];
 }
 
-/**
- * Keeps the cutoff in range: an accepted quality must rank above it, so a
- * marker left above every accepted quality moves just below the first.
- */
-export function keepCutoff(rows: Order, accepted: ReadonlySet<QualityKey>): QualityRow[] {
-  const marker = rows.findIndex((row) => row.kind === "marker");
-  return rows.slice(0, marker).some((row) => isAccepted(accepted, row))
-    ? [...rows]
-    : placeCutoff(rows, accepted, "top");
-}
+/** Keeps the cutoff in range: at least one tier ranks above it. */
+export const keepCutoff = (rows: Order): QualityRow[] =>
+  rows[0]?.kind === "marker" ? placeCutoff(rows, "top") : [...rows];
 
-/** The rows a preset lays out, CAM left out, with the cutoff at the top accepted tier. */
-export const presetOrder = (
-  tiers: readonly (readonly string[] | null)[],
-  accepted: ReadonlySet<QualityKey>,
-  keys: readonly QualityKey[],
-): QualityRow[] =>
+/** A preset's tiers kept to the given qualities, CAM left out, with the cutoff below the top tier. */
+export const presetOrder = (tiers: PresetTiers, kept: readonly QualityKey[]): QualityRow[] =>
   placeCutoff(
     rowsOfTiers(
       tiers.map((tier) =>
-        (tier ?? []).flatMap((key) => keys.find((known) => known === key && known !== cam) ?? []),
+        (tier ?? []).flatMap((key) => kept.find((known) => known === key && known !== cam) ?? []),
       ),
     ),
-    accepted,
     "top",
   );
 
 /**
- * A saved Target's rows: its tiers with the cutoff below its cutoff tier,
- * then every quality it doesn't accept, each alone, in `rest`'s order.
+ * The rows with one more quality, where the preset ranks it: tied with the
+ * first accepted quality it ties with there, else as a tier of its own just
+ * above the first it outranks, else at the bottom. A cutoff just above that
+ * tier stays above it, so accepting a quality never moves where upgrades stop.
  */
-export function orderOf(layout: Layout, rest: readonly QualityKey[]): QualityRow[] {
+export function accept(rows: Order, key: QualityKey, preset: PresetTiers): QualityRow[] {
+  const tierOf = (quality: QualityKey) =>
+    preset.findIndex((tier) => (tier ?? []).includes(quality));
+  const mine = tierOf(key);
+  const at = rows.findIndex((row) => row.kind === "item" && tierOf(row.value) >= mine);
+  const found = rows[at];
+  if (found?.kind !== "item") {
+    return keepCutoff([...rows, item(key, false)]);
+  }
+  const tied = tierOf(found.value) === mine;
+  const place = tied ? tierEnd(rows, at) : tierStart(rows, at);
+  return keepCutoff([...rows.slice(0, place), item(key, tied), ...rows.slice(place)]);
+}
+
+/** The rows without a quality, the tier it headed kept together and the cutoff in range. */
+export const drop = (rows: Order, key: QualityKey): QualityRow[] =>
+  keepCutoff(settle(rows.filter((row) => row.id !== key)));
+
+/** A saved Target's rows: its tiers, CAM left out, with the cutoff below its cutoff tier. */
+export function orderOf(layout: Layout): QualityRow[] {
   const tiers = layout.tiers.map((tier) => tier.filter((key) => key !== cam));
   const above = tiers.slice(0, layout.cutoff + 1).filter((tier) => tier.length > 0);
   const below = tiers.slice(layout.cutoff + 1).filter((tier) => tier.length > 0);
-  const held = new Set(tiers.flat());
-  const others = rest.filter((key) => key !== cam && !held.has(key)).map((key) => [key]);
-  return [...rowsOfTiers(above), cutoffMarker, ...rowsOfTiers([...below, ...others])];
+  return [...rowsOfTiers(above), cutoffMarker, ...rowsOfTiers(below)];
 }
 
 /**
- * The accepted qualities in tiers, best first, with CAM alone at the
- * bottom when accepted, and the index of the tier just above the cutoff.
+ * The ranked qualities in tiers, best first, with CAM alone at the bottom
+ * when accepted, and the index of the tier just above the cutoff.
  */
-export function layoutOf(rows: Order, accepted: ReadonlySet<QualityKey>): Layout {
+export function layoutOf(rows: Order, cinema: boolean): Layout {
   const tiers: QualityKey[][] = [];
-  let tier: QualityKey[] = [];
-  let cutoff = -1;
-  const close = () => {
-    if (tier.length > 0) {
-      tiers.push(tier);
-    }
-    tier = [];
-  };
+  let cutoff = 0;
   for (const row of rows) {
     if (row.kind === "marker") {
-      close();
-      cutoff = tiers.length - 1;
-      continue;
-    }
-    if (!row.tiedAbove) {
-      close();
-    }
-    if (accepted.has(row.value)) {
-      tier.push(row.value);
+      cutoff = Math.max(tiers.length - 1, 0);
+    } else if (row.tiedAbove) {
+      tiers.at(-1)?.push(row.value);
+    } else {
+      tiers.push([row.value]);
     }
   }
-  close();
-  if (accepted.has(cam)) {
+  if (cinema) {
     tiers.push([cam]);
   }
-  return { tiers, cutoff: Math.max(cutoff, 0) };
+  return { tiers, cutoff };
 }

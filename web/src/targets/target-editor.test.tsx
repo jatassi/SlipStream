@@ -186,6 +186,87 @@ test("each accepted quality has a size in MiB per minute and what it means for a
   await expect.element(sizes.getByRole("listitem")).toHaveLength(16);
 });
 
+const rowsOf = (name: string) => () =>
+  page
+    .getByRole("list", { name, exact: true })
+    .getByRole("listitem")
+    .all()
+    .map((row) => row.element().textContent);
+
+test("only accepted qualities rank, and the rest sit below, best first", async () => {
+  renderApp({ path: `/settings/targets/${starter.id}`, handlers: targetHandlers() });
+  await expect
+    .poll(rowsOf("Not accepted"))
+    .toEqual([
+      "Remux-2160p",
+      "Bluray-2160p",
+      "WEBDL-2160p",
+      "WEBRip-2160p",
+      "HDTV-2160p",
+      "WEBRip-480p",
+      "DVD",
+      "SDTV",
+    ]);
+  expect(rowsOf("Qualities")()).toEqual([
+    "Rank 1Bluray-1080p",
+    "Rank 1Remux-1080p",
+    "Cutoff",
+    "Rank 2HDTV-1080p",
+    "Rank 2WEBRip-1080p",
+    "Rank 2WEBDL-1080p",
+    "Rank 3Bluray-720p",
+    "Rank 4HDTV-720p",
+    "Rank 4WEBRip-720p",
+    "Rank 4WEBDL-720p",
+  ]);
+});
+
+test("a ticked quality ranks where the default preset puts it, and focus follows it", async () => {
+  renderApp({ path: `/settings/targets/${starter.id}`, handlers: targetHandlers() });
+  const ranked = rowsOf("Qualities");
+  await pick("Remux-2160p", "Bluray-2160p", "DVD");
+  await expect
+    .element(page.getByRole("list", { name: "Qualities" }).getByRole("checkbox", { name: "DVD" }))
+    .toHaveFocus();
+  expect(ranked().slice(0, 4)).toEqual([
+    "Rank 1Remux-2160p",
+    "Rank 1Bluray-2160p",
+    "Rank 2Bluray-1080p",
+    "Rank 2Remux-1080p",
+  ]);
+  expect(ranked().at(-1)).toBe("Rank 6DVD");
+  await expect
+    .element(sentence())
+    .toHaveTextContent(
+      "Grabs DVD or better. Upgrades until Bluray-1080p or Remux-1080p, then stops.",
+    );
+
+  await pick("Remux-2160p", "HDTV-1080p");
+  await expect
+    .element(
+      page
+        .getByRole("list", { name: "Not accepted" })
+        .getByRole("checkbox", { name: "HDTV-1080p" }),
+    )
+    .toHaveFocus();
+  expect(rowsOf("Not accepted")()).toEqual([
+    "Remux-2160p",
+    "WEBDL-2160p",
+    "WEBRip-2160p",
+    "HDTV-2160p",
+    "HDTV-1080p",
+    "WEBRip-480p",
+    "SDTV",
+  ]);
+  expect(ranked().slice(0, 5)).toEqual([
+    "Rank 1Bluray-2160p",
+    "Rank 2Bluray-1080p",
+    "Rank 2Remux-1080p",
+    "Cutoff",
+    "Rank 3WEBRip-1080p",
+  ]);
+});
+
 test("a saved Target opens as its draft, its accepted qualities first", async () => {
   renderApp({ path: `/settings/targets/${starter.id}`, handlers: targetHandlers() });
   await expect.element(page.getByRole("heading", { name: "1080p", level: 1 })).toBeVisible();

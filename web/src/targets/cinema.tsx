@@ -3,9 +3,8 @@ import { Alert02Icon } from "@hugeicons/core-free-icons";
 import type { TargetsQuality } from "../api/gen/model";
 import { Checkbox } from "../ui/checkbox";
 import { Icon } from "../ui/icon";
-import { type TargetDraft, accepting } from "./draft";
+import type { TargetDraft } from "./draft";
 import type { SectionProps } from "./editor";
-import { cam } from "./order";
 
 /** CAM, kept apart from the ranked list and off unless an Admin adds it on purpose. */
 export function CinemaSources({
@@ -18,9 +17,9 @@ export function CinemaSources({
       <h3 className="text-body font-semibold text-ink-2">Cinema sources</h3>
       <Checkbox
         label={quality.name}
-        checked={draft.accepted.has(cam)}
-        onCheckedChange={(on) => {
-          onChange(accepting(draft, cam, on));
+        checked={draft.cinema}
+        onCheckedChange={(cinema) => {
+          onChange({ ...draft, cinema });
         }}
       />
       <p className="flex items-center gap-1.5 text-meta text-warn-ink">

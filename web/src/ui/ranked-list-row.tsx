@@ -3,14 +3,17 @@ import {
   ArrowUp01Icon,
   DragDropVerticalIcon,
   Link01Icon,
+  MoreHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { type DragControls, Reorder, useDragControls } from "motion/react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { IconButton } from "./icon-button";
+import { Menu, type MenuEntry } from "./menu";
 import { type RankedRow, type Rows, type Step, canStep, canTie } from "./ranked-rows";
+import { useDensity } from "./shell-context";
 
-export type Control = "handle" | "up" | "down";
+export type Control = "handle" | "up" | "down" | "actions";
 
 /** What every row of one Ranked list reads and calls. */
 export type ListState<T> = {
@@ -41,6 +44,7 @@ const draggedLook = "z-10 rounded-card bg-popover shadow-lg backdrop-blur-xl";
 
 export function RankedListRow<T>({ row, list }: RowProps<T>) {
   const controls = useDragControls();
+  const touch = useDensity() === "touch";
   return (
     <Reorder.Item
       as="li"
@@ -53,7 +57,7 @@ export function RankedListRow<T>({ row, list }: RowProps<T>) {
       }}
       onDragEnd={list.dragEnd}
       transition={layout}
-      className={`${rowLook} ${row.kind === "item" ? "min-h-(--row-height-two)" : "min-h-(--row-height)"} ${list.dragging === row.id ? draggedLook : ""}`}
+      className={`${rowLook} min-h-(--row-height) ${list.dragging === row.id ? draggedLook : ""}`}
     >
       <Lead row={row} list={list} controls={controls} />
       {row.kind === "item" ? (
@@ -69,7 +73,7 @@ export function RankedListRow<T>({ row, list }: RowProps<T>) {
       {row.kind === "item" && list.renderTrailing !== undefined && (
         <div className="shrink-0">{list.renderTrailing(row.value)}</div>
       )}
-      <Actions row={row} list={list} />
+      {touch ? <RowMenu row={row} list={list} /> : <Actions row={row} list={list} />}
     </Reorder.Item>
   );
 }
@@ -147,5 +151,57 @@ function Actions<T>({ row, list }: RowProps<T>) {
         onClick={move(1, "down")}
       />
     </>
+  );
+}
+
+// At the Touch density the tie and the moves share one 44px button, so a
+// row keeps its name on one line on a phone.
+function RowMenu<T>({ row, list }: RowProps<T>) {
+  const name = list.nameOf(row);
+  const moves: MenuEntry[] = (
+    [
+      [-1, "Move up", ArrowUp01Icon],
+      [1, "Move down", ArrowDown01Icon],
+    ] as const
+  ).flatMap(([by, label, icon]) =>
+    canStep(list.rows, row.id, by)
+      ? [
+          {
+            label,
+            icon,
+            onSelect: () => {
+              list.step(row.id, by, "actions");
+            },
+          },
+        ]
+      : [],
+  );
+  const tie: MenuEntry[] =
+    list.ties && row.kind === "item" && canTie(list.rows, row.id)
+      ? [
+          "separator",
+          {
+            label: row.tiedAbove ? "Untie from the one above" : "Tie with the one above",
+            icon: Link01Icon,
+            onSelect: () => {
+              list.tie(row.id, !row.tiedAbove);
+            },
+          },
+        ]
+      : [];
+  const items = [...moves, ...tie];
+  return (
+    <Menu
+      label={`Actions for ${name}`}
+      items={items}
+      trigger={
+        <IconButton
+          icon={MoreHorizontalIcon}
+          label={`Actions for ${name}`}
+          data-control="actions"
+          disabled={list.dragging !== undefined || items.length === 0}
+        />
+      }
+    />
   );
 }
