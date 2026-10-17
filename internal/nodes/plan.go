@@ -72,7 +72,10 @@ type Situation struct {
 }
 
 // Change is a write to Roles: SetRoles, WriteOff or Remove.
-type Change interface{ change() }
+type Change interface {
+	// nodes is every Node the change names.
+	nodes() []ID
+}
 
 type (
 	// SetRoles changes the Roles of the Nodes Want names, planned on Basis.
@@ -95,9 +98,9 @@ type (
 	}
 )
 
-func (SetRoles) change() {}
-func (WriteOff) change() {}
-func (Remove) change()   {}
+func (c SetRoles) nodes() []ID { return slices.Collect(maps.Keys(c.Want)) }
+func (c WriteOff) nodes() []ID { return []ID{c.Node} }
+func (c Remove) nodes() []ID   { return []ID{c.Node} }
 
 // Outcome is what a Change does. Next and Forfeit are the whole
 // assignment and forfeit rows Apply stores.
@@ -126,6 +129,8 @@ const (
 	Warn
 	Block
 )
+
+func (v Verdict) String() string { return [...]string{"allow", "warn", "block"}[v] }
 
 type Reason string
 
@@ -187,6 +192,10 @@ func (s Situation) forfeited() Roles {
 		}
 	}
 	return out
+}
+
+func (s Situation) has(id ID) bool {
+	return slices.ContainsFunc(s.Seats, func(seat Seat) bool { return seat.ID == id })
 }
 
 func (s Situation) seat(id ID) Seat {

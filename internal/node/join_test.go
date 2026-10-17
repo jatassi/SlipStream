@@ -33,11 +33,10 @@ func machine(t *testing.T, net *fault.Network, addr, name string) (Env, *fault.H
 }
 
 type nodeRow struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Self          bool     `json:"self"`
-	Roles         []string `json:"roles"`
-	IntentVersion string   `json:"intentVersion"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Self          bool   `json:"self"`
+	IntentVersion string `json:"intentVersion"`
 	Link          struct {
 		State string `json:"state"`
 		Build *struct {
@@ -137,7 +136,7 @@ func listed(t *testing.T, hc client, apiKey string) (self, worker nodeRow) {
 
 // TestAWorkerJoinsThroughTheSetupGate runs a Controller and an Unclaimed
 // Node on one in-memory network: the Unclaimed one joins with a Join Code
-// through claimWorker, listNodes shows it up, and setNodeRoles answers once
+// through claimWorker, listNodes shows it up, and setRoles answers once
 // it has the new Roles.
 func TestAWorkerJoinsThroughTheSetupGate(t *testing.T) {
 	net := fault.NewNetwork()
@@ -161,9 +160,12 @@ func TestAWorkerJoinsThroughTheSetupGate(t *testing.T) {
 			t.Fatalf("box's build is not home's: %+v, %+v", worker.Link.Build, self.Link.Build)
 		}
 
-		set := decode[nodeRow](t, hc.admin(apiKey, http.MethodPut, "/api/v1/nodes/"+worker.ID+"/roles", `{"roles":["searching"]}`), http.StatusOK)
-		if set.Link.State != "up" || set.Facts == nil || !slices.Equal(set.Facts.Assigned, []string{"searching"}) || set.Facts.AppliedVersion != set.IntentVersion {
-			t.Fatalf("setNodeRoles answered %+v with facts %+v, want up with searching applied at %s", set.Link, set.Facts, set.IntentVersion)
+		board := decode[struct {
+			Basis string `json:"basis"`
+		}](t, hc.admin(apiKey, http.MethodGet, "/api/v1/nodes/roles", ""), http.StatusOK)
+		decode[struct{}](t, hc.admin(apiKey, http.MethodPut, "/api/v1/nodes/roles", `{"basis":"`+board.Basis+`","set":[{"nodeId":"`+worker.ID+`","roles":["searching"]}]}`), http.StatusOK)
+		if _, set := listed(t, hc, apiKey); set.Link.State != "up" || set.Facts == nil || !slices.Equal(set.Facts.Assigned, []string{"searching"}) || set.Facts.AppliedVersion != set.IntentVersion {
+			t.Fatalf("when setRoles answered box was %+v with facts %+v, want up with searching applied at %s", set.Link, set.Facts, set.IntentVersion)
 		}
 		if box.Ready().Claim != system.Unclaimed {
 			t.Fatalf("box was ready as %s, want unclaimed", box.Ready().Claim)

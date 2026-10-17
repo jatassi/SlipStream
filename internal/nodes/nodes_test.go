@@ -168,6 +168,28 @@ func (c *controller) worker(t *testing.T, name, addr string) *linktest.Node {
 	return linktest.Start(t, c.net, name, []netip.Addr{netip.MustParseAddr(addr)}, linktest.Side{})
 }
 
+// apply sets want on the rows now, planned on their basis.
+func (c *controller) apply(t *testing.T, want nodes.Roles) nodes.Outcome {
+	t.Helper()
+	board, err := c.svc.RoleBoard(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := c.svc.Apply(t.Context(), nodes.SetRoles{Basis: board.Basis(), Want: want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func roleNames(views []nodes.RoleView) []role.Name {
+	out := []role.Name{}
+	for _, v := range views {
+		out = append(out, v.Role)
+	}
+	return out
+}
+
 func refusal(err error) linkv1.RefusedReason {
 	if r, ok := errors.AsType[*link.RefusedError](err); ok {
 		return r.Reason
@@ -221,9 +243,7 @@ func TestAKnownKeyKeepsItsRoles(t *testing.T) {
 		_, id := c.pair(t, box, c.mint(t), "box")
 		box.Drop(c.node.Key)
 		synctest.Wait()
-		if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Downloading, role.Searching, role.Searching}); err != nil {
-			t.Fatal(err)
-		}
+		c.apply(t, nodes.Roles{id: role.Of(role.Downloading, role.Searching)})
 		if _, again := c.pair(t, box, c.mint(t), "renamed"); again != id {
 			t.Fatalf("a new code paired the known key as %s, want %s", again, id)
 		}
@@ -231,7 +251,7 @@ func TestAKnownKeyKeepsItsRoles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := []role.Name{role.Searching, role.Downloading}; got.Name != "box" || !slices.Equal(got.Roles, want) {
+		if want := []role.Name{role.Searching, role.Downloading}; got.Name != "box" || !slices.Equal(roleNames(got.Roles), want) {
 			t.Fatalf("after a new code the known key is %q holding %v, want box holding %v", got.Name, got.Roles, want)
 		}
 	})
@@ -246,9 +266,7 @@ func TestOnlyANodeWhoseSyncIsAttachedMayTakeNewWork(t *testing.T) {
 		_, id := c.pair(t, w, c.mint(t), "box")
 		w.Drop(c.node.Key)
 		synctest.Wait()
-		if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Searching}); err != nil {
-			t.Fatal(err)
-		}
+		c.apply(t, nodes.Roles{id: role.Of(role.Searching)})
 		w.Keep(c.node.Target())
 		synctest.Wait()
 		if _, live := w.State(c.node.Key).(link.Live); !live {
@@ -281,12 +299,7 @@ func TestTheControllerCoversALapsedNodesSearching(t *testing.T) {
 		_, id := c.pair(t, w, c.mint(t), "seedbox")
 		holder(t, role.InProcess(c.svc.Controls()))
 		stop := c.hold(t, w)
-		if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Searching}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := c.svc.SetRoles(t.Context(), c.svc.Self(), []role.Name{role.Downloading}); err != nil {
-			t.Fatal(err)
-		}
+		c.apply(t, nodes.Roles{id: role.Of(role.Searching), c.svc.Self(): role.Of(role.Downloading)})
 		synctest.Wait()
 		holding, err := c.svc.Controls().NodeVersion(t.Context(), c.svc.Self())
 		if err != nil {
@@ -364,11 +377,8 @@ func TestTheControllersOwnRow(t *testing.T) {
 		}
 		own := list[0]
 		want := slices.DeleteFunc(role.Names(), func(r role.Name) bool { return r == role.Relaying })
-		if !own.Self || own.Name != "home" || own.Key != c.node.Key || own.Link != nodes.Local || !slices.Equal(own.Roles, want) {
+		if !own.Self || own.Name != "home" || own.Key != c.node.Key || own.Link != nodes.Local || !slices.Equal(roleNames(own.Roles), want) {
 			t.Fatalf("own row = self %v, %q, %s, %s, %v; want self, home, its key, local, %v", own.Self, own.Name, own.Key.Fingerprint(), own.Link, own.Roles, want)
-		}
-		if _, err := c.svc.SetRoles(t.Context(), role.NodeID{UUID: storage.NewUUID()}, nil); !errors.Is(err, nodes.ErrNotFound) {
-			t.Fatalf("roles for an unknown Node: %v, want ErrNotFound", err)
 		}
 	})
 }
@@ -591,7 +601,7 @@ func TestTheRosterMigrationKeepsEveryNode(t *testing.T) {
 	}
 	var got []string
 	for _, n := range list {
-		got = append(got, fmt.Sprintf("%s %v %v", n.Name, n.Self, n.Roles))
+		got = append(got, fmt.Sprintf("%s %v %v", n.Name, n.Self, roleNames(n.Roles)))
 	}
 	if want := []string{"home true [searching]", "box false [downloading]"}; !slices.Equal(got, want) {
 		t.Fatalf("the migrated roster lists %q, want %q", got, want)

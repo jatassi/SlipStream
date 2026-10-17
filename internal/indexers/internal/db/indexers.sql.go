@@ -121,6 +121,20 @@ func (q *Queries) NameTaken(ctx context.Context, name string) (bool, error) {
 	return exists, err
 }
 
+const rehome = `-- name: Rehome :exec
+UPDATE indexers_indexer SET home_node_id = ?1 WHERE home_node_id = ?2
+`
+
+type RehomeParams struct {
+	Heir       role.NodeID
+	HomeNodeID role.NodeID
+}
+
+func (q *Queries) Rehome(ctx context.Context, arg RehomeParams) error {
+	_, err := q.db.ExecContext(ctx, rehome, arg.Heir, arg.HomeNodeID)
+	return err
+}
+
 const setIndexerKey = `-- name: SetIndexerKey :execrows
 UPDATE indexers_indexer SET api_key_sealed = ?1, caps = ?2 WHERE id = ?3
 `

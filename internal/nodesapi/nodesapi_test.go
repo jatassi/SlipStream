@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -26,17 +27,21 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-func TestTheRoleEnumIsRoleNames(t *testing.T) {
+// Every member the document gives the Role enum names exactly the table's
+// Roles, in its order.
+func TestEveryRoleEnumIsRoleNames(t *testing.T) {
 	r := api.NewRouter(api.Services{})
 	nodesapi.Routes(r, nil)
+	type enum struct {
+		Enum  []string `json:"enum"`
+		Items struct {
+			Enum []string `json:"enum"`
+		} `json:"items"`
+	}
 	var doc struct {
 		Components struct {
 			Schemas map[string]struct {
-				Properties map[string]struct {
-					Items struct {
-						Enum []string `json:"enum"`
-					} `json:"items"`
-				} `json:"properties"`
+				Properties map[string]enum `json:"properties"`
 			} `json:"schemas"`
 		} `json:"components"`
 	}
@@ -47,9 +52,24 @@ func TestTheRoleEnumIsRoleNames(t *testing.T) {
 	for _, n := range role.Names() {
 		want = append(want, string(n))
 	}
-	for _, schema := range []string{"NodesNode", "NodesRoles"} {
-		if got := doc.Components.Schemas[schema].Properties["roles"].Items.Enum; !slices.Equal(got, want) {
-			t.Errorf("%s.roles enum = %v, want role.Names() %v", schema, got, want)
+	var seen []string
+	for name, schema := range doc.Components.Schemas {
+		for member, p := range schema.Properties {
+			for _, got := range [][]string{p.Enum, p.Items.Enum} {
+				if !slices.Contains(got, string(role.Searching)) {
+					continue
+				}
+				seen = append(seen, name+"."+member)
+				if !slices.Equal(got, want) {
+					t.Errorf("%s.%s enum = %v, want role.Names() %v", name, member, got, want)
+				}
+			}
+		}
+	}
+	slices.Sort(seen)
+	for _, member := range []string{"NodesAssignment.roles", "NodesBoardNode.assigned", "NodesGesture.role", "NodesRoleView.role"} {
+		if _, ok := slices.BinarySearch(seen, member); !ok {
+			t.Errorf("the Role enum is not on %s; it is on %v", member, seen)
 		}
 	}
 }
@@ -137,4 +157,133 @@ func TestTheJoinCodeLifetimeIsASettingField(t *testing.T) {
 	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":7200}`, http.StatusOK, field(7200, false))
 	s.Expect(t, http.MethodPatch, path, `{}`, http.StatusOK, field(7200, false))
 	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":null}`, http.StatusOK, field(3600, true))
+}
+
+type outcome struct {
+	Basis   string `json:"basis"`
+	Effects []struct {
+		Kind  string `json:"kind"`
+		Words string `json:"words"`
+	} `json:"effects"`
+	Checks []struct {
+		Reason string `json:"reason"`
+		Words  string `json:"words"`
+	} `json:"checks"`
+}
+
+type problem struct {
+	Code    string  `json:"code"`
+	Outcome outcome `json:"outcome"`
+}
+
+type boardNode struct {
+	Name       string   `json:"name"`
+	Controller bool     `json:"controller"`
+	Away       bool     `json:"away"`
+	Assigned   []string `json:"assigned"`
+	Roles      []struct {
+		State string `json:"state"`
+	} `json:"roles"`
+}
+
+type gesture struct {
+	Role    string `json:"role"`
+	From    string `json:"from"`
+	Verdict string `json:"verdict"`
+	Word    string `json:"word"`
+}
+
+type board struct {
+	Basis    string      `json:"basis"`
+	Nodes    []boardNode `json:"nodes"`
+	Gestures []gesture   `json:"gestures"`
+}
+
+// call sends a request to o and decodes its answer into v, failing unless
+// it answers want.
+func call(t *testing.T, o *ownertest.Owner, method, path, body string, want int, v any) {
+	t.Helper()
+	status, reply := o.Call(t, method, path, body)
+	if status != want {
+		t.Fatalf("%s %s answered %d %s, want %d", method, path, status, reply, want)
+	}
+	if err := json.Unmarshal([]byte(reply), v); err != nil {
+		t.Fatalf("%s: %v", reply, err)
+	}
+}
+
+func set(basis string, assignments ...string) string {
+	return fmt.Sprintf(`{"basis":%q,"set":[%s]}`, basis, strings.Join(assignments, ","))
+}
+
+func assign(id, roles string) string {
+	return fmt.Sprintf(`{"nodeId":%q,"roles":[%s]}`, id, roles)
+}
+
+// The Controller home and box, out of step and holding Relaying, through
+// the three Role operations: the board, a plan and a set, each refused for
+// a stale basis, a block and an unknown Node.
+func TestTheRoleOperations(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema())
+	boxID := storage.NewUUID()
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'box', 0)", boxID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, "INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, 'relaying', 0)", boxID)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ns, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unadvertised{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
+	box, home := boxID.String(), ns.Self().String()
+	const roles, plan = "/api/v1/nodes/roles", "/api/v1/nodes/roles/plan"
+
+	var b board
+	call(t, s, http.MethodGet, roles, "", http.StatusOK, &b)
+	if len(b.Nodes) != 2 || b.Nodes[0].Name != "box" || !b.Nodes[0].Away || !slices.Equal(b.Nodes[0].Assigned, []string{"relaying"}) ||
+		len(b.Nodes[0].Roles) != 1 || b.Nodes[0].Roles[0].State != "away" || !b.Nodes[1].Controller || b.Nodes[1].Away {
+		t.Fatalf("the board's nodes are %+v, want box away holding Relaying, then home the Controller", b.Nodes)
+	}
+	if !slices.Contains(b.Gestures, gesture{Role: "relaying", Verdict: "block", Word: "box already relays"}) {
+		t.Fatalf("the gestures %+v have no blocked add of Relaying onto home", b.Gestures)
+	}
+
+	var planned outcome
+	call(t, s, http.MethodPost, plan, set(b.Basis, assign(box, `"relaying","searching"`)), http.StatusOK, &planned)
+	if len(planned.Effects) != 1 || planned.Effects[0].Kind != "gains" || planned.Effects[0].Words != "box starts Searching." || planned.Basis != b.Basis {
+		t.Fatalf("planRoles answered %+v, want box gaining Searching on the board's basis", planned)
+	}
+	var blocked problem
+	call(t, s, http.MethodPut, roles, set(b.Basis, assign(home, `"relaying","serving"`)), http.StatusConflict, &blocked)
+	if blocked.Code != "roles_blocked" || len(blocked.Outcome.Checks) != 1 || blocked.Outcome.Checks[0].Reason != "role_taken" {
+		t.Fatalf("a second relay answered %+v, want roles_blocked naming box", blocked)
+	}
+	var unknown problem
+	call(t, s, http.MethodPut, roles, set(b.Basis, assign(storage.NewUUID().String(), "")), http.StatusNotFound, &unknown)
+	if unknown.Code != "node_not_found" {
+		t.Fatalf("a set naming an unknown Node answered %+v, want node_not_found", unknown)
+	}
+
+	var applied outcome
+	call(t, s, http.MethodPut, roles, set(b.Basis, assign(box, `"relaying","searching"`)), http.StatusOK, &applied)
+	if len(applied.Effects) != 1 || applied.Effects[0].Words != "box starts Searching." || applied.Basis != b.Basis {
+		t.Fatalf("setRoles answered %+v, want box gaining Searching", applied)
+	}
+	var stale problem
+	call(t, s, http.MethodPost, plan, set(b.Basis, assign(box, "")), http.StatusConflict, &stale)
+	if stale.Code != "roles_stale" || stale.Outcome.Basis == b.Basis || len(stale.Outcome.Effects) != 2 {
+		t.Fatalf("a plan on the old basis answered %+v, want roles_stale with the plan on the new basis", stale)
+	}
+	var twice problem
+	call(t, s, http.MethodPut, roles, set(stale.Outcome.Basis, assign(home, ""), assign(home, "")), http.StatusUnprocessableEntity, &twice)
+	if twice.Code != "invalid" {
+		t.Fatalf("a set naming home twice answered %+v, want invalid", twice)
+	}
 }

@@ -72,3 +72,10 @@ SELECT node_id, role FROM nodes_forfeit ORDER BY node_id, role;
 
 -- name: GetOfflineGrace :one
 SELECT offline_grace_seconds FROM nodes_settings WHERE id = 1;
+
+-- name: InsertForfeit :exec
+INSERT INTO nodes_forfeit (node_id, role, declared_at)
+VALUES (sqlc.arg(node_id), sqlc.arg(role), sqlc.arg(declared_at));
+
+-- name: DeleteForfeit :exec
+DELETE FROM nodes_forfeit WHERE node_id = sqlc.arg(node_id) AND role = sqlc.arg(role);
