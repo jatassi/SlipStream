@@ -94,6 +94,10 @@ _Avoid_: Registration, enrollment, adoption
 A short-lived, single-use code the Controller issues so one new Node can pair with it.
 _Avoid_: Invite, token, pairing key
 
+**Node address**:
+A short text naming one Node's key and the addresses it listens on, which an Admin pastes on the Controller so the Controller dials that Node when the Node can't reach the Controller.
+_Avoid_: Dial code, Node code, Join Code (for the Node's side)
+
 **Handover**:
 Moving the Controller to another paired Node, both running, by shipping it a Backup over the Node link. Workers follow a notice signed with the old Controller's key, without a Join Code, and nothing in flight is cancelled. The old Controller becomes a Worker that keeps its Roles, library roots and torrents and redirects Workers that reconnect late.
 _Avoid_: Failover, promotion, migration
@@ -117,6 +121,22 @@ _Avoid_: Service, capability, purpose
 **Role Group**:
 A named bundle of Roles that the admin ticks together when assigning: Acquire (Searching, Downloading), Store (Storage), Process (Converting, Subtitles), Connect (Metadata, Media Server link, Notifying) and Reach (Relaying, Serving). A Node holds Roles, never Role Groups.
 _Avoid_: Preset, profile, tier
+
+**Roster**:
+Every Node with the Roles it holds and each Role's state, which answers who may hold a Role right now. The Nodes page shows it as one row per Node.
+_Avoid_: Node list, fleet, inventory
+
+**Draining**:
+The state of a Role unticked on a Node that still holds work for it. The Node finishes that work and takes nothing new, and ticking the Role again ends the drain.
+_Avoid_: Decommissioning, winding down
+
+**Write off**:
+Giving up the work a Node holds for a Role, on a live or an offline Node. Its Grabs not yet imported fail and their Items are wanted again, and the Node's files stay on disk.
+_Avoid_: Force, abandon, discard
+
+**Covering**:
+The Controller holding a Role whose holders have all been offline past the offline grace, without being assigned it. It applies only to Roles whose work can move to the Controller, and ends once a holder is back.
+_Avoid_: Failover, fallback, standby
 
 **Serving**:
 The Role that serves the UI and portal on a Node, passing every request to the Controller. The Controller always serves too.
