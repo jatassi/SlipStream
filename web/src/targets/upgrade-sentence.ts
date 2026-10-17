@@ -1,4 +1,5 @@
 import type { Layout, QualityKey } from "./order";
+import { listed } from "./words";
 
 /**
  * Why a release may or may not take a cell, as Judge in internal/targets
@@ -46,8 +47,7 @@ export type Sample = Judged & {
 
 type Name = (key: QualityKey) => string;
 
-const either = (names: readonly string[]): string =>
-  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} or ${names.at(-1) ?? ""}`;
+const either = (names: readonly string[]): string => listed(names, "or");
 
 const reasons: { readonly [W in Why]: (from: string, to: string) => string } = {
   upgrade: (from, to) => `${to} ranks above ${from}.`,

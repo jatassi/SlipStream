@@ -9,14 +9,17 @@ import {
 } from "../api/gen/query/identity/identity";
 import { getGetMailSettingsSuspenseQueryOptions } from "../api/gen/query/mail/mail";
 import {
+  getListProfilesSuspenseQueryOptions,
   getListQualitiesSuspenseQueryOptions,
   getListTargetsSuspenseQueryOptions,
 } from "../api/gen/query/targets/targets";
+import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/works";
 import { ensureQuery, freshQuery } from "../api/query-client";
+import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
+// oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
-// oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { EmailSection } from "./email";
 import { SignInSection } from "./sign-in";
 
@@ -72,6 +75,19 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
       ]);
     },
     component: TargetsSection,
+    wide: true,
+  },
+  {
+    id: "profiles",
+    label: "Profiles",
+    load: async (queryClient) => {
+      await Promise.all([
+        ensureQuery(queryClient, getListProfilesSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+      ]);
+    },
+    component: ProfilesSection,
     wide: true,
   },
 ];
