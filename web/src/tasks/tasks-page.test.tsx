@@ -120,6 +120,7 @@ test("a single Node has no Node column", async () => {
 });
 
 test("Run now posts the task's run and Cancel deletes the open run", async () => {
+  atTasksNow();
   const running: TasksTask = {
     ...backlog,
     state: {
