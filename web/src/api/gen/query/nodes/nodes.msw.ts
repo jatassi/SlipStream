@@ -4,6 +4,7 @@ import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
 import type {
+  NodesCodeState,
   NodesDrains,
   NodesGains,
   NodesHandedBack,
@@ -12,12 +13,50 @@ import type {
   NodesMoves,
   NodesNode,
   NodesNodeList,
+  NodesOpenCodes,
   NodesOutcome,
   NodesPinned,
   NodesRoleBoard,
   NodesSettings,
   NodesWritesOff,
 } from "../../model";
+
+export const getListJoinCodesResponseMock = (
+  overrideResponse: Partial<Extract<NodesOpenCodes, object>> = {},
+): NodesOpenCodes => ({
+  codes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    id: faker.string.uuid(),
+  })),
+  ...overrideResponse,
+});
+
+export const getCreateJoinCodeResponseMock = (
+  overrideResponse: Partial<Extract<NodesJoinCode, object>> = {},
+): NodesJoinCode => ({
+  code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  id: faker.string.uuid(),
+  ...overrideResponse,
+});
+
+export const getGetJoinCodeResponseMock = (
+  overrideResponse: Partial<Extract<NodesCodeState, object>> = {},
+): NodesCodeState => ({
+  ...(faker.datatype.boolean()
+    ? {
+        dialing: {
+          address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          since: faker.date.past().toISOString().slice(0, 19) + "Z",
+          unreachable: faker.datatype.boolean(),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean() ? { nodeId: faker.string.uuid() } : {}),
+  state: faker.helpers.arrayElement(["open", "used", "expired"] as const),
+  ...overrideResponse,
+});
 
 export const getListNodesResponseMock = (
   overrideResponse: Partial<Extract<NodesNodeList, object>> = {},
@@ -26,6 +65,15 @@ export const getListNodesResponseMock = (
     addresses: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
+    dial: {
+      ...(faker.datatype.boolean()
+        ? { by: faker.helpers.arrayElement(["node", "controller"] as const) }
+        : {}),
+      controllerDials: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+    },
     ...(faker.datatype.boolean()
       ? {
           facts: {
@@ -100,14 +148,6 @@ export const getListNodesResponseMock = (
     ),
     self: faker.datatype.boolean(),
   })),
-  ...overrideResponse,
-});
-
-export const getCreateJoinCodeResponseMock = (
-  overrideResponse: Partial<Extract<NodesJoinCode, object>> = {},
-): NodesJoinCode => ({
-  code: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   ...overrideResponse,
 });
 
@@ -808,6 +848,104 @@ export const getGetNodeResponseMock = (
   addresses: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  dial: {
+    ...(faker.datatype.boolean()
+      ? { by: faker.helpers.arrayElement(["node", "controller"] as const) }
+      : {}),
+    controllerDials: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+  },
+  ...(faker.datatype.boolean()
+    ? {
+        facts: {
+          appliedVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          assigned: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          httpAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          restarting: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          running: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        },
+      }
+    : {}),
+  id: faker.string.uuid(),
+  intentVersion: faker.helpers.fromRegExp("^[0-9a-f]{32}$"),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  link: {
+    ...(faker.datatype.boolean()
+      ? {
+          build: {
+            arch: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            installKind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            os: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+        }
+      : {}),
+    since: faker.date.past().toISOString().slice(0, 19) + "Z",
+    state: faker.helpers.arrayElement(["local", "up", "down", "mismatched"] as const),
+  },
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    ...(faker.datatype.boolean()
+      ? {
+          held: {
+            bytes: faker.number.int(),
+            noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            units: faker.number.int(),
+          },
+        }
+      : {}),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    state: faker.helpers.arrayElement([
+      "holding",
+      "away",
+      "lapsed",
+      "draining",
+      "writing-off",
+      "covering",
+    ] as const),
+  })),
+  self: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getSetNodeDialResponseMock = (
+  overrideResponse: Partial<Extract<NodesNode, object>> = {},
+): NodesNode => ({
+  addresses: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  dial: {
+    ...(faker.datatype.boolean()
+      ? { by: faker.helpers.arrayElement(["node", "controller"] as const) }
+      : {}),
+    controllerDials: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+  },
   ...(faker.datatype.boolean()
     ? {
         facts: {
@@ -1151,6 +1289,116 @@ export const getWriteOffResponseMock = (
   ...overrideResponse,
 });
 
+export const getListJoinCodesMockHandler = (
+  overrideResponse?:
+    | NodesOpenCodes
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NodesOpenCodes> | NodesOpenCodes),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/join-codes",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListJoinCodesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getCreateJoinCodeMockHandler = (
+  overrideResponse?:
+    | NodesJoinCode
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<NodesJoinCode> | NodesJoinCode),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/join-codes",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCreateJoinCodeResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getRevokeJoinCodeMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/join-codes/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getGetJoinCodeMockHandler = (
+  overrideResponse?:
+    | NodesCodeState
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NodesCodeState> | NodesCodeState),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/join-codes/:id",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetJoinCodeResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDialForCodeMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/join-codes/:id/dial",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 202 });
+    },
+    options,
+  );
+};
+
 export const getListNodesMockHandler = (
   overrideResponse?:
     | NodesNodeList
@@ -1169,30 +1417,6 @@ export const getListNodesMockHandler = (
             : overrideResponse
           : getListNodesResponseMock(),
         { status: 200 },
-      );
-    },
-    options,
-  );
-};
-
-export const getCreateJoinCodeMockHandler = (
-  overrideResponse?:
-    | NodesJoinCode
-    | ((
-        info: Parameters<Parameters<typeof http.post>[1]>[0],
-      ) => Promise<NodesJoinCode> | NodesJoinCode),
-  options?: RequestHandlerOptions,
-) => {
-  return http.post(
-    "*/api/v1/nodes/join-codes",
-    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getCreateJoinCodeResponseMock(),
-        { status: 201 },
       );
     },
     options,
@@ -1341,6 +1565,28 @@ export const getGetNodeMockHandler = (
   );
 };
 
+export const getSetNodeDialMockHandler = (
+  overrideResponse?:
+    | NodesNode
+    | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<NodesNode> | NodesNode),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/nodes/:id/dial",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetNodeDialResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getWriteOffMockHandler = (
   overrideResponse?:
     | NodesOutcome
@@ -1365,13 +1611,18 @@ export const getWriteOffMockHandler = (
   );
 };
 export const getNodesMock = () => [
-  getListNodesMockHandler(),
+  getListJoinCodesMockHandler(),
   getCreateJoinCodeMockHandler(),
+  getRevokeJoinCodeMockHandler(),
+  getGetJoinCodeMockHandler(),
+  getDialForCodeMockHandler(),
+  getListNodesMockHandler(),
   getGetRoleBoardMockHandler(),
   getSetRolesMockHandler(),
   getPlanRolesMockHandler(),
   getGetNodeSettingsMockHandler(),
   getUpdateNodeSettingsMockHandler(),
   getGetNodeMockHandler(),
+  getSetNodeDialMockHandler(),
   getWriteOffMockHandler(),
 ];

@@ -183,6 +183,8 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 				FallbackDelay: 300 * time.Millisecond,
 				LogPoll:       20 * time.Second,
 				LogArchiveTTL: 10 * time.Minute,
+				JoinDial:      20 * time.Second,
+				AwaitDial:     10 * time.Minute,
 			},
 			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second},
 			Nodes:       nodes.DefaultTimings(),

@@ -17,6 +17,7 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - `nodes-restart` the account menu's, More's and the palette's `Restart SlipStream…` and the Nodes header's `Restart` ask `Restart SlipStream?` (or `Restart <name>?` for a Worker); the browser's own Node shows `Restarting SlipStream…` over the page, and the page reloads onto the same address once a later `startedAt` answers, while a Worker's sections read `<name> is restarting…` until its link is up again. A restart onto a saved port reads `SlipStream is moving to port <port>` with `Open SlipStream on port <port>`, which opens the same page on the new port (P-010).
 - `nodes-serving` on a Worker holding Serving, its own address serves the Controller's app: the Admin signs in there with the Controller's PIN and lands on the Library, `GET /api/v1/system` there reports the Controller's data dir, the live stream carries the Controller's events, and a passkey added there signs in there.
 - `nodes-serving-unreachable` with the Controller stopped, every page at the Serving Worker's address lands on `/serving`, headed `home can't be reached from seedbox since <time>.` over `seedbox keeps seeding and finishes what it started.` and `Holding Searching and Downloading · seeding 0 torrents.`; its API answers 503 `controller_unreachable`, and `GET /api/v1/serving` answers the card's facts and no request. Once the Controller answers again the card goes back to the app.
+- `nodes-dial` `GET /api/v1/nodes` holds each Node's `dial`: `by` names the side that dialed its live session, `node` or `controller`, and `controllerDials` lists the addresses the Controller dials it at, empty when the Node dials the Controller. `PUT /api/v1/nodes/{id}/dial` with `{"addresses":[]}` empties it, and a `nodeAddress` with another Node's key answers 409 `node_key_mismatch`. The pasted dial itself is in pairing.md.
 - `nodes-cli` `slipstream config set --data-dir <dir> <key> <value>` prints `<key>: <value>`, ending `, applies after restart` for a restart key, the Node's page shows the change, `config unset` prints the default, and `slipstream restart --data-dir <dir>` prints the Node's web address once its successor answers.
 
 ## How to get to it (user POV)
@@ -24,7 +25,7 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - Desktop shell: the sidebar's `Nodes`, below the separator and above `Tasks`, which opens `/nodes` and lands on `/nodes/<id>`; the page tabs `Overview`, `Web and API`, `Logs` and `Log settings` sit under the Node's name, and `Restart` is the page's action in the top bar. The `Nodes` row stays current on every Node page. The account menu holds `Restart SlipStream…` between the Startup sequence switch and `Sign out`.
 - Phone shell: the `More` tab, then the `Nodes` button in the sheet `More`, listed above `Tasks`, then a section's row in the list named for the Node; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
 - Both shells: the palette's `Go to Nodes`, `Go to Overview`, `Go to Web and API`, `Go to Logs` and `Go to Log settings` for the browser's own Node, and `Restart SlipStream…`.
-- API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live event `node.settings-changed`.
+- API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids and their `dial`, `PUT /api/v1/nodes/{id}/dial`, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live event `node.settings-changed`.
 - Serving: a Worker that holds Serving, at its own address (`{nodes.seedbox.browserUrl}` on `serving`); `/serving` is its status card, and `GET /api/v1/serving` (no sign-in) answers any Worker's facts.
 - Host CLI: `slipstream version` prints the same build stamp; `slipstream config set --data-dir <dir> <key> <value>`, `config unset` and `restart --data-dir <dir>`.
 
@@ -131,6 +132,16 @@ Steps:
   $FW exec $RUN --proof nodes/nodes-logs-download -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const saved = page.waitForEvent("download"); await page.getByRole("button", { name: "Download logs" }).click(); await (await saved).saveAs("{runDir}/proof/nodes/nodes-logs-download/logs.zip"); }'
   $FW exec $RUN --proof nodes/nodes-logs-download -- unzip -l {runDir}/proof/nodes/nodes-logs-download/logs.zip
   $FW exec $RUN --proof nodes/nodes-logs-download -- curl -sS -o {runDir}/proof/nodes/nodes-logs-download/api.zip -w '%{http_code} %{content_type}\n' -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.home.nodeId}/logs/archive'
+  ```
+
+- **Read who dialed.** seedbox dials home on the baseline, so its row reads `dial` `{"by":"node","controllerDials":[]}`. A `nodeAddress` printed by another Node answers 409 `node_key_mismatch`, and `{"addresses":[]}` answers 200 with the row unchanged.
+
+  ```sh
+  BOX=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes' | jq -r '.nodes[] | select(.name == "seedbox") | .id')
+  $FW exec $RUN --proof nodes/nodes-dial -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  HOME_ADDR=$($FW exec $RUN -- {runDir}/bin/slipstream node-address --data-dir {nodes.home.dataDir})
+  $FW exec $RUN --proof nodes/nodes-dial -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"nodeAddress\":\"$HOME_ADDR\"}" "{nodes.home.url}/api/v1/nodes/$BOX/dial"
+  $FW exec $RUN --proof nodes/nodes-dial -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"addresses":[]}' "{nodes.home.url}/api/v1/nodes/$BOX/dial"
   ```
 
 - **Choose a Worker in the picker.** On `Logs`, choose `Node`, then `seedbox`: the URL keeps `/logs`, the heading reads `seedbox` and its lines stream through the Controller. Its Overview equals the per-Node API's facts.

@@ -91,7 +91,7 @@ func AdminReset(ctx context.Context, env Env, req identity.ResetRequest) (string
 }
 
 func resetOffline(ctx context.Context, env Env, req identity.ResetRequest) (string, error) {
-	if claim, _ := (offline{env.DataDir}).Claim(ctx); claim != system.Controller {
+	if claim, _ := (offline{env}).Claim(ctx); claim != system.Controller {
 		return "", identity.NotAController()
 	}
 	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)

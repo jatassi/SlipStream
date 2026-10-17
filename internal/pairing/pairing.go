@@ -31,6 +31,8 @@ type Settings struct {
 // Link is the Node link as a pairing uses it.
 type Link interface {
 	Pair(ctx context.Context, code joincode.Code, name string) (link.Paired, error)
+	AwaitPair(ctx context.Context, code joincode.Code, name string) (link.Paired, error)
+	Advertised() (link.Addresses, bool)
 	Keep(t link.Target)
 	Drop(key link.Key)
 	Subscribe(ctx context.Context) <-chan link.Change
@@ -43,11 +45,15 @@ type Claims interface {
 
 type Config struct {
 	DataDir string
-	Link    Link
+	// Key is this Node's, which its Node address carries.
+	Key  link.Key
+	Link Link
 	// Name is sent once, at Pair.
 	Name   string
 	Claims Claims
-	Log    *slog.Logger
+	// AwaitDial bounds a claim's wait for its Controller to dial.
+	AwaitDial time.Duration
+	Log       *slog.Logger
 }
 
 // Pairing is one Node's pairing record and what follows from it.
@@ -55,8 +61,9 @@ type Pairing struct {
 	cfg  Config
 	path string
 
-	mu  sync.Mutex
-	rec atomic.Pointer[Record]
+	mu      sync.Mutex
+	rec     atomic.Pointer[Record]
+	pending atomic.Pointer[Pending]
 }
 
 // Open reads pairing.json when the data dir holds one. A record it cannot
@@ -124,10 +131,16 @@ type Joined struct {
 // Claim joins the Controller code names, returning once the session is
 // live. A code naming the pinned or a superseded Controller changes
 // nothing, another Controller's code re-pairs, and a Controller refuses.
-// Every refusal is an *Error.
-func (p *Pairing) Claim(ctx context.Context, code joincode.Code) (Joined, error) {
+// A Controller none of the code's addresses answer within join_dial may
+// dial this Node instead: Claim calls awaiting once with the pending
+// claim, then waits for that dial within await_dial. Every refusal is an
+// *Error, ErrJoinPending while another claim waits.
+func (p *Pairing) Claim(ctx context.Context, code joincode.Code, awaiting func(Pending)) (Joined, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.Awaiting() {
+		return Joined{}, ErrJoinPending
+	}
 	claim, err := p.cfg.Claims.Claim(ctx)
 	if err != nil {
 		return Joined{}, err
@@ -139,10 +152,34 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code) (Joined, error)
 	if err := ignored(prev, code); err != nil {
 		return Joined{}, err
 	}
+	var pend *Pending
 	paired, err := p.cfg.Link.Pair(ctx, code, p.cfg.Name)
 	if err != nil {
-		return Joined{}, refusal(err)
+		refused := refusal(err)
+		if refused.Kind != Unreachable {
+			return Joined{}, refused
+		}
+		if pend, paired, err = p.await(ctx, code, refused, awaiting); err != nil {
+			return Joined{}, err
+		}
+		prev = p.rec.Load()
 	}
+	joined, err := p.record(prev, code, paired)
+	if pend != nil {
+		if err != nil {
+			p.fail(pend, err)
+			return Joined{}, err
+		}
+		done := *pend
+		done.State, done.Joined = JoinedState, &joined
+		p.pending.Store(&done)
+	}
+	return joined, err
+}
+
+// record writes the pairing paired made, superseding prev's Controller
+// when paired names another, and keeps the Controller. Callers hold p.mu.
+func (p *Pairing) record(prev *Record, code joincode.Code, paired link.Paired) (Joined, error) {
 	id, err := storage.UUIDFromBytes(paired.NodeID)
 	if err != nil {
 		return Joined{}, fmt.Errorf("the Controller paired this Node as %x: %w", paired.NodeID, err)
@@ -245,6 +282,8 @@ const (
 	KeyMismatch          Kind = "controller_key_mismatch"
 	Unreachable          Kind = "controller_unreachable"
 	RestartRequired      Kind = "restart_required"
+	JoinPending          Kind = "join_pending"
+	Unaddressed          Kind = "node_unaddressed"
 )
 
 // ErrRestartRequired refuses a re-pair of a Worker whose half runs. That
@@ -274,7 +313,7 @@ var refusedBy = map[linkv1.RefusedReason]Error{
 	linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED:    {Kind: CodeUsed, Reason: "the Join Code was already used"},
 }
 
-func refusal(err error) error {
+func refusal(err error) *Error {
 	if r, ok := errors.AsType[*link.RefusedError](err); ok {
 		if e, ok := refusedBy[r.Reason]; ok {
 			return &e

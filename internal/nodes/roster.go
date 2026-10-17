@@ -23,10 +23,22 @@ type Timings struct {
 	Blip time.Duration `yaml:"blip"`
 	// Settle is how long a Node back from a lapse takes no new work.
 	Settle time.Duration `yaml:"settle"`
+	// DialInvite bounds the Controller's dial for a pasted Node address,
+	// within the code's expiry.
+	DialInvite time.Duration `yaml:"dial_invite"`
+	// DialReport is how long after a Node address is pasted the Add a Node
+	// dialog says the Controller can't connect.
+	DialReport time.Duration `yaml:"dial_report"`
 }
 
 func DefaultTimings() Timings {
-	return Timings{SeenPersist: time.Minute, Blip: time.Minute, Settle: time.Minute}
+	return Timings{
+		SeenPersist: time.Minute,
+		Blip:        time.Minute,
+		Settle:      time.Minute,
+		DialInvite:  10 * time.Minute,
+		DialReport:  30 * time.Second,
+	}
 }
 
 var OfflineGrace = setting.Duration{
@@ -356,6 +368,7 @@ func (s *Service) Run(ctx context.Context) error {
 	edge := time.NewTimer(0)
 	defer edge.Stop()
 	defer s.persistSeen(context.WithoutCancel(ctx), true)
+	s.reconcileDials(ctx)
 	for {
 		s.refresh(func(*inputs, time.Time) {})
 		s.rmu.Lock()
@@ -385,6 +398,7 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) follow(ctx context.Context, c link.Change) {
+	s.reconcileDials(ctx)
 	id, known := s.NodeOf(c.Key)
 	if !known {
 		return

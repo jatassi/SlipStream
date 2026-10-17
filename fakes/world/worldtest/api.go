@@ -117,6 +117,17 @@ func (a *API) Admin(name, method, path, body string) Reply {
 	return r
 }
 
+// Setup calls a Setup operation on the Node named name with its
+// setupCode.
+func (a *API) Setup(name, setupCode, method, path, body string) Reply {
+	a.t.Helper()
+	r, _ := a.do(request{
+		node: name, method: method, path: path, body: body, bodyArg: world.Literal(body),
+		headers: []header{{"X-Setup-Code", setupCode, world.Literal(setupCode)}},
+	})
+	return r
+}
+
 // SignIn signs in to the Node named name as the run's Admin, by email and
 // PIN, and returns the session.
 func (a *API) SignIn(name string) string {
@@ -225,6 +236,10 @@ type Row struct {
 			Arch    string `json:"arch"`
 		} `json:"build"`
 	} `json:"link"`
+	Dial struct {
+		By              string   `json:"by"`
+		ControllerDials []string `json:"controllerDials"`
+	} `json:"dial"`
 	Facts *struct {
 		Assigned       []string `json:"assigned"`
 		Running        []string `json:"running"`
@@ -289,20 +304,33 @@ func (a *API) SetRoles(name, id string, roles ...string) Outcome {
 // Controller mints, and returns the id the Controller gave it.
 func (a *API) Join(controller, name, setupCode string) string {
 	a.t.Helper()
-	var minted struct {
-		Code string `json:"code"`
-	}
-	a.decode(a.Admin(controller, http.MethodPost, "/api/v1/nodes/join-codes", ""), http.StatusCreated, &minted)
-	body := `{"code":"` + minted.Code + `"}`
-	reply, _ := a.do(request{
-		node: name, method: http.MethodPost, path: "/api/v1/setup/worker", body: body, bodyArg: world.Literal(body),
-		headers: []header{{"X-Setup-Code", setupCode, world.Literal(setupCode)}},
-	})
+	reply := a.Setup(name, setupCode, http.MethodPost, "/api/v1/setup/worker", `{"code":"`+a.MintJoinCode(controller).Code+`"}`)
 	var joined struct {
 		NodeID string `json:"nodeId"`
 	}
 	a.decode(reply, http.StatusCreated, &joined)
 	return joined.NodeID
+}
+
+// JoinCode is a minted Join Code: its id, and the text a Node joins with.
+type JoinCode struct {
+	ID   string `json:"id"`
+	Code string `json:"code"`
+}
+
+// MintJoinCode is createJoinCode on the Controller named controller.
+func (a *API) MintJoinCode(controller string) JoinCode {
+	a.t.Helper()
+	var minted JoinCode
+	a.decode(a.Admin(controller, http.MethodPost, "/api/v1/join-codes", ""), http.StatusCreated, &minted)
+	return minted
+}
+
+// DialForCode is dialForCode on the Controller named controller: it
+// dials the Node waiting at address, which pairs with the code id.
+func (a *API) DialForCode(controller, id, address string) Reply {
+	a.t.Helper()
+	return a.Admin(controller, http.MethodPost, "/api/v1/join-codes/"+id+"/dial", `{"nodeAddress":"`+address+`"}`)
 }
 
 func (a *API) decode(r Reply, status int, v any) {

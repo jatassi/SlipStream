@@ -36,4 +36,9 @@ type Timings struct {
 	// LogArchiveTTL is how long a Node keeps a log archive it zipped for the
 	// link before deleting it unread.
 	LogArchiveTTL time.Duration `yaml:"log_archive_ttl"`
+	// JoinDial bounds a Join Code's dial, Pair and Hello, past which the
+	// Node waits for its Controller to dial it.
+	JoinDial time.Duration `yaml:"join_dial"`
+	// AwaitDial bounds that wait.
+	AwaitDial time.Duration `yaml:"await_dial"`
 }

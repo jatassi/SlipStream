@@ -78,7 +78,7 @@ func claimedHome(t *testing.T, home *Node, hc client) (apiKey, code string) {
 	}](t, hc.claim(home.Ready().SetupCode, "1234"), http.StatusCreated)
 	minted := decode[struct {
 		Code string `json:"code"`
-	}](t, hc.admin(claimed.APIKey, http.MethodPost, "/api/v1/nodes/join-codes", ""), http.StatusCreated)
+	}](t, hc.admin(claimed.APIKey, http.MethodPost, "/api/v1/join-codes", ""), http.StatusCreated)
 	parsed, err := joincode.Parse(minted.Code)
 	if err != nil {
 		t.Fatal(err)

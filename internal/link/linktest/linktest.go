@@ -30,6 +30,8 @@ var Timings = link.Timings{
 	RedialMin:     time.Second,
 	RedialMax:     time.Minute,
 	FallbackDelay: 300 * time.Millisecond,
+	JoinDial:      20 * time.Second,
+	AwaitDial:     10 * time.Minute,
 }
 
 const StreamWindow = 16 << 20
@@ -123,8 +125,9 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 			t.Fatal(err)
 		}
 		listening = append(listening, ap)
+		serve := l.Serve(ln)
 		served.Go(func() {
-			if err := l.Serve(ctx, ln); err != nil {
+			if err := serve(ctx); err != nil {
 				t.Errorf("serve: %v", err)
 			}
 		})

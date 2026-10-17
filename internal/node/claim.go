@@ -164,6 +164,9 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 	if s.n.pairing.Paired() {
 		return identity.ErrAlreadyClaimed
 	}
+	if s.n.pairing.Awaiting() {
+		return identity.ErrJoinPending
+	}
 	lib, err := s.n.openLibrary(context.WithoutCancel(ctx))
 	if err != nil {
 		return err
@@ -252,6 +255,8 @@ func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
 	return h.tasks, true
 }
 
-func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
-	return s.n.join(ctx, code)
+func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {
+	return s.n.join(ctx, code, awaiting)
 }
+
+func (s surfaceNode) Pending() (pairing.Pending, bool) { return s.n.pairing.Pending() }

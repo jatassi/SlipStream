@@ -126,6 +126,7 @@ var (
 	ErrSetupCodeWrong = errors.New("identity: the Setup code is missing or wrong")
 	ErrSetupBusy      = errors.New("identity: another setup operation is running")
 	ErrAlreadyClaimed = errors.New("identity: the Node is claimed")
+	ErrJoinPending    = errors.New("identity: a Join waits for its Controller to dial this Node")
 	ErrWorkerNode     = errors.New("identity: this Node is a Worker, with no Accounts")
 	ErrPINWrong       = errors.New("identity: the email or PIN is wrong")
 	ErrPINRequired    = errors.New("identity: the session must set a new PIN first")

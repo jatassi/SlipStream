@@ -4,7 +4,7 @@ A script's path into SlipStream is `/api/v1` with the API key in `X-Api-Key`. Re
 
 ```sh
 $FW exec $RUN --proof <f>/<s> -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
-$FW exec $RUN --proof <f>/<s> -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/join-codes'
+$FW exec $RUN --proof <f>/<s> -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/join-codes'
 ```
 
 - `{apiKey}` is the manifest's key for the Scenario's Admin. `{nodes.<n>.url}` is the Node's HTTP address; the API needs no `.localhost` name.

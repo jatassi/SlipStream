@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  The Controller home sits behind carrier-grade NAT, so its link front
+  refuses every dial. The Unclaimed Node seedbox can't reach the address a
+  Join Code names, and pairs only when home dials the Node address it
+  prints.
+seed: cgnat-home
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+  - name: seedbox
+    setup: none
+faults:
+  - {id: home-behind-cgnat, target: link/home, fault: refuse}
+timings:
+  node:
+    stop_deadline: 5s
