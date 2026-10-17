@@ -3581,6 +3581,54 @@
         ],
         "type": "object"
       },
+      "TargetsImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "downloading": {
+            "description": "Downloads in flight for cells that go; their files follow the save's choice",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "newlyWanted": {
+            "description": "Cells that become wanted",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ownList": {
+            "description": "Works that keep their own Edition list through a change to their Profile's",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "renamed": {
+            "description": "Files that still fill a cell and change name",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unwanted": {
+            "$ref": "#/components/schemas/TargetsUnwantedFiles",
+            "description": "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"
+          },
+          "works": {
+            "description": "Works whose cells, fills or file names change",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "works",
+          "ownList",
+          "unwanted",
+          "renamed",
+          "newlyWanted",
+          "downloading"
+        ],
+        "type": "object"
+      },
       "TargetsNewProfile": {
         "additionalProperties": false,
         "properties": {
@@ -3687,6 +3735,31 @@
         ],
         "type": "object"
       },
+      "TargetsNewWants": {
+        "additionalProperties": false,
+        "properties": {
+          "editions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetsEditions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Work's own Edition list, or null for its Profile's"
+          },
+          "profileId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileId",
+          "editions"
+        ],
+        "type": "object"
+      },
       "TargetsPreset": {
         "additionalProperties": false,
         "properties": {
@@ -3765,6 +3838,22 @@
           "targets",
           "editions",
           "works"
+        ],
+        "type": "object"
+      },
+      "TargetsProfileChange": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/TargetsProfile"
+          }
+        },
+        "required": [
+          "impact",
+          "profile"
         ],
         "type": "object"
       },
@@ -4078,6 +4167,22 @@
         ],
         "type": "object"
       },
+      "TargetsTargetChange": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetsTarget"
+          }
+        },
+        "required": [
+          "impact",
+          "target"
+        ],
+        "type": "object"
+      },
       "TargetsTargetList": {
         "additionalProperties": false,
         "properties": {
@@ -4091,6 +4196,26 @@
         },
         "required": [
           "targets"
+        ],
+        "type": "object"
+      },
+      "TargetsUnwantedFiles": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "bytes"
         ],
         "type": "object"
       },
@@ -4122,6 +4247,22 @@
           "profileName",
           "editions",
           "from"
+        ],
+        "type": "object"
+      },
+      "TargetsWantsChange": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "wants": {
+            "$ref": "#/components/schemas/TargetsWants"
+          }
+        },
+        "required": [
+          "impact",
+          "wants"
         ],
         "type": "object"
       },
@@ -15516,6 +15657,252 @@
       }
     },
     "/profiles/{profileId}": {
+      "delete": {
+        "operationId": "deleteProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The Profile of the same Content Type that its Works move to",
+            "explode": false,
+            "in": "query",
+            "name": "moveTo",
+            "required": true,
+            "schema": {
+              "description": "The Profile of the same Content Type that its Works move to",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsProfileChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "profile_is_default",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "profile_not_found",
+                            "profile_wrong_type"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
       "get": {
         "operationId": "getProfile",
         "parameters": [
@@ -15704,6 +16091,250 @@
           }
         ],
         "summary": "Get a Profile with the disk each of its Targets costs across its Works",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsProfileChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "profile_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "profile_wrong_type",
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
         "tags": [
           "targets"
         ],
@@ -20378,6 +21009,249 @@
           "targets"
         ],
         "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateTarget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "targetId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewTarget"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsTargetChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "target_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "quality_not_in_target"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
       }
     },
     "/targets/{targetId}/duplicate": {
@@ -23538,6 +24412,249 @@
           }
         ],
         "summary": "Get the Profile a Work wants from and its Edition list",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "setWorkWants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewWants"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsWantsChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "profile_not_found",
+                            "profile_wrong_type"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
         "tags": [
           "targets"
         ],

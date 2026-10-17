@@ -117,6 +117,14 @@ func Routes(r *api.Router, goals Goals) {
 		Errors:  []*api.Code{noSuchTarget},
 	}, h.getTarget)
 	api.Register(o, api.Admin, api.Op{
+		ID:      "updateTarget",
+		Method:  http.MethodPut,
+		Path:    "/targets/{targetId}",
+		Summary: "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, impactChanged},
+	}, h.updateTarget)
+	api.Register(o, api.Admin, api.Op{
 		ID:      "duplicateTarget",
 		Method:  http.MethodPost,
 		Path:    "/targets/{targetId}/duplicate",
@@ -157,6 +165,22 @@ func Routes(r *api.Router, goals Goals) {
 		Errors:  []*api.Code{noSuchProfile},
 	}, h.getProfile)
 	api.Register(o, api.Admin, api.Op{
+		ID:      "updateProfile",
+		Method:  http.MethodPut,
+		Path:    "/profiles/{profileId}",
+		Summary: "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, profileWrongType, impactChanged},
+	}, h.updateProfile)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteProfile",
+		Method:  http.MethodDelete,
+		Path:    "/profiles/{profileId}",
+		Summary: "Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{noSuchProfile, profileNotFound, profileIsDefault, profileWrongType, impactChanged},
+	}, h.deleteProfile)
+	api.Register(o, api.Admin, api.Op{
 		ID:      "makeDefaultProfile",
 		Method:  http.MethodPost,
 		Path:    "/profiles/{profileId}/default",
@@ -179,6 +203,14 @@ func Routes(r *api.Router, goals Goals) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWorkWants)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setWorkWants",
+		Method:  http.MethodPut,
+		Path:    "/works/{workId}/wants",
+		Summary: "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, profileNotFound, profileWrongType, impactChanged},
+	}, h.setWorkWants)
 }
 
 type handlers struct{ goals Goals }

@@ -27,6 +27,13 @@ import type {
   CreateTarget409,
   CreateTarget422,
   CreateTarget500,
+  DeleteProfile401,
+  DeleteProfile403,
+  DeleteProfile404,
+  DeleteProfile409,
+  DeleteProfile422,
+  DeleteProfile500,
+  DeleteProfileParams,
   DeleteTarget401,
   DeleteTarget403,
   DeleteTarget404,
@@ -79,16 +86,41 @@ import type {
   MakeDefaultProfile409,
   MakeDefaultProfile422,
   MakeDefaultProfile500,
+  SetWorkWants401,
+  SetWorkWants403,
+  SetWorkWants404,
+  SetWorkWants409,
+  SetWorkWants422,
+  SetWorkWants500,
+  SetWorkWantsParams,
   TargetsCutList,
   TargetsNewProfile,
   TargetsNewTarget,
+  TargetsNewWants,
   TargetsProfile,
+  TargetsProfileChange,
   TargetsProfileDetail,
   TargetsProfileList,
   TargetsQualityList,
   TargetsTarget,
+  TargetsTargetChange,
   TargetsTargetList,
   TargetsWants,
+  TargetsWantsChange,
+  UpdateProfile401,
+  UpdateProfile403,
+  UpdateProfile404,
+  UpdateProfile409,
+  UpdateProfile422,
+  UpdateProfile500,
+  UpdateProfileParams,
+  UpdateTarget401,
+  UpdateTarget403,
+  UpdateTarget404,
+  UpdateTarget409,
+  UpdateTarget422,
+  UpdateTarget500,
+  UpdateTargetParams,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -454,6 +486,125 @@ export const useCreateProfile = <
 > => {
   return useMutation(getCreateProfileMutationOptions(options), queryClient);
 };
+export const getDeleteProfileUrl = (profileId: string, params: DeleteProfileParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/profiles/${profileId}?${stringifiedParams}`
+    : `/api/v1/profiles/${profileId}`;
+};
+
+/**
+ * @summary Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact
+ */
+export const deleteProfile = async (
+  profileId: string,
+  params: DeleteProfileParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsProfileChange> => {
+  return apiFetch<TargetsProfileChange>(getDeleteProfileUrl(profileId, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteProfileMutationKey = () => ["deleteProfile"] as const;
+
+export const getDeleteProfileMutationOptions = <
+  TError = ErrorType<
+    | DeleteProfile401
+    | DeleteProfile403
+    | DeleteProfile404
+    | DeleteProfile409
+    | DeleteProfile422
+    | DeleteProfile500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProfile>>,
+    TError,
+    DeleteProfileMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProfile>>,
+  TError,
+  DeleteProfileMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteProfileMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProfile>>,
+    DeleteProfileMutationVariables
+  > = (props) => {
+    const { profileId, params } = props ?? {};
+
+    return deleteProfile(profileId, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProfileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProfile>>>;
+
+export type DeleteProfileMutationError = ErrorType<
+  | DeleteProfile401
+  | DeleteProfile403
+  | DeleteProfile404
+  | DeleteProfile409
+  | DeleteProfile422
+  | DeleteProfile500
+>;
+export type DeleteProfileMutationVariables = { profileId: string; params: DeleteProfileParams };
+
+/**
+ * @summary Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact
+ */
+export const useDeleteProfile = <
+  TError = ErrorType<
+    | DeleteProfile401
+    | DeleteProfile403
+    | DeleteProfile404
+    | DeleteProfile409
+    | DeleteProfile422
+    | DeleteProfile500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteProfile>>,
+      TError,
+      DeleteProfileMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProfile>>,
+  TError,
+  DeleteProfileMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteProfileMutationOptions(options), queryClient);
+};
 export const getGetProfileUrl = (profileId: string) => {
   return `/api/v1/profiles/${profileId}`;
 };
@@ -576,6 +727,151 @@ export function useGetProfileSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getUpdateProfileUrl = (profileId: string, params?: UpdateProfileParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/profiles/${profileId}?${stringifiedParams}`
+    : `/api/v1/profiles/${profileId}`;
+};
+
+/**
+ * @summary Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact
+ */
+export const updateProfile = async (
+  profileId: string,
+  targetsNewProfile: TargetsNewProfile,
+  params?: UpdateProfileParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsProfileChange> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<TargetsProfileChange>(getUpdateProfileUrl(profileId, params), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(targetsNewProfile),
+  });
+};
+
+export const getUpdateProfileMutationKey = () => ["updateProfile"] as const;
+
+export const getUpdateProfileMutationOptions = <
+  TError = ErrorType<
+    | UpdateProfile401
+    | UpdateProfile403
+    | UpdateProfile404
+    | UpdateProfile409
+    | UpdateProfile422
+    | UpdateProfile500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProfile>>,
+    TError,
+    UpdateProfileMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProfile>>,
+  TError,
+  UpdateProfileMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateProfileMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProfile>>,
+    UpdateProfileMutationVariables
+  > = (props) => {
+    const { profileId, data, params } = props ?? {};
+
+    return updateProfile(profileId, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateProfile>>>;
+export type UpdateProfileMutationBody = TargetsNewProfile;
+export type UpdateProfileMutationError = ErrorType<
+  | UpdateProfile401
+  | UpdateProfile403
+  | UpdateProfile404
+  | UpdateProfile409
+  | UpdateProfile422
+  | UpdateProfile500
+>;
+export type UpdateProfileMutationVariables = {
+  profileId: string;
+  data: TargetsNewProfile;
+  params?: UpdateProfileParams;
+};
+
+/**
+ * @summary Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact
+ */
+export const useUpdateProfile = <
+  TError = ErrorType<
+    | UpdateProfile401
+    | UpdateProfile403
+    | UpdateProfile404
+    | UpdateProfile409
+    | UpdateProfile422
+    | UpdateProfile500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateProfile>>,
+      TError,
+      UpdateProfileMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateProfile>>,
+  TError,
+  UpdateProfileMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateProfileMutationOptions(options), queryClient);
+};
 export const getMakeDefaultProfileUrl = (profileId: string) => {
   return `/api/v1/profiles/${profileId}/default`;
 };
@@ -1250,6 +1546,151 @@ export function useGetTargetSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getUpdateTargetUrl = (targetId: string, params?: UpdateTargetParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/targets/${targetId}?${stringifiedParams}`
+    : `/api/v1/targets/${targetId}`;
+};
+
+/**
+ * @summary Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact
+ */
+export const updateTarget = async (
+  targetId: string,
+  targetsNewTarget: TargetsNewTarget,
+  params?: UpdateTargetParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsTargetChange> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<TargetsTargetChange>(getUpdateTargetUrl(targetId, params), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(targetsNewTarget),
+  });
+};
+
+export const getUpdateTargetMutationKey = () => ["updateTarget"] as const;
+
+export const getUpdateTargetMutationOptions = <
+  TError = ErrorType<
+    | UpdateTarget401
+    | UpdateTarget403
+    | UpdateTarget404
+    | UpdateTarget409
+    | UpdateTarget422
+    | UpdateTarget500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTarget>>,
+    TError,
+    UpdateTargetMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTarget>>,
+  TError,
+  UpdateTargetMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateTargetMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTarget>>,
+    UpdateTargetMutationVariables
+  > = (props) => {
+    const { targetId, data, params } = props ?? {};
+
+    return updateTarget(targetId, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTargetMutationResult = NonNullable<Awaited<ReturnType<typeof updateTarget>>>;
+export type UpdateTargetMutationBody = TargetsNewTarget;
+export type UpdateTargetMutationError = ErrorType<
+  | UpdateTarget401
+  | UpdateTarget403
+  | UpdateTarget404
+  | UpdateTarget409
+  | UpdateTarget422
+  | UpdateTarget500
+>;
+export type UpdateTargetMutationVariables = {
+  targetId: string;
+  data: TargetsNewTarget;
+  params?: UpdateTargetParams;
+};
+
+/**
+ * @summary Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact
+ */
+export const useUpdateTarget = <
+  TError = ErrorType<
+    | UpdateTarget401
+    | UpdateTarget403
+    | UpdateTarget404
+    | UpdateTarget409
+    | UpdateTarget422
+    | UpdateTarget500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateTarget>>,
+      TError,
+      UpdateTargetMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateTarget>>,
+  TError,
+  UpdateTargetMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateTargetMutationOptions(options), queryClient);
+};
 export const getDuplicateTargetUrl = (targetId: string) => {
   return `/api/v1/targets/${targetId}/duplicate`;
 };
@@ -1519,3 +1960,149 @@ export function useGetWorkWantsSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getSetWorkWantsUrl = (workId: string, params?: SetWorkWantsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/works/${workId}/wants?${stringifiedParams}`
+    : `/api/v1/works/${workId}/wants`;
+};
+
+/**
+ * @summary Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact
+ */
+export const setWorkWants = async (
+  workId: string,
+  targetsNewWants: TargetsNewWants,
+  params?: SetWorkWantsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsWantsChange> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<TargetsWantsChange>(getSetWorkWantsUrl(workId, params), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(targetsNewWants),
+  });
+};
+
+export const getSetWorkWantsMutationKey = () => ["setWorkWants"] as const;
+
+export const getSetWorkWantsMutationOptions = <
+  TError = ErrorType<
+    | SetWorkWants401
+    | SetWorkWants403
+    | SetWorkWants404
+    | SetWorkWants409
+    | SetWorkWants422
+    | SetWorkWants500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorkWants>>,
+    TError,
+    SetWorkWantsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorkWants>>,
+  TError,
+  SetWorkWantsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetWorkWantsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorkWants>>,
+    SetWorkWantsMutationVariables
+  > = (props) => {
+    const { workId, data, params } = props ?? {};
+
+    return setWorkWants(workId, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorkWantsMutationResult = NonNullable<Awaited<ReturnType<typeof setWorkWants>>>;
+export type SetWorkWantsMutationBody = TargetsNewWants;
+export type SetWorkWantsMutationError = ErrorType<
+  | SetWorkWants401
+  | SetWorkWants403
+  | SetWorkWants404
+  | SetWorkWants409
+  | SetWorkWants422
+  | SetWorkWants500
+>;
+export type SetWorkWantsMutationVariables = {
+  workId: string;
+  data: TargetsNewWants;
+  params?: SetWorkWantsParams;
+};
+
+/**
+ * @summary Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact
+ */
+export const useSetWorkWants = <
+  TError = ErrorType<
+    | SetWorkWants401
+    | SetWorkWants403
+    | SetWorkWants404
+    | SetWorkWants409
+    | SetWorkWants422
+    | SetWorkWants500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setWorkWants>>,
+      TError,
+      SetWorkWantsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setWorkWants>>,
+  TError,
+  SetWorkWantsMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetWorkWantsMutationOptions(options), queryClient);
+};

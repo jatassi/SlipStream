@@ -1638,6 +1638,54 @@ export const TargetsFilter = zod.object({
 export type TargetsFilter = zod.input<typeof TargetsFilter>;
 export type TargetsFilterOutput = zod.output<typeof TargetsFilter>;
 
+export const targetsUnwantedFilesBytesMin = 0;
+
+export const targetsUnwantedFilesFilesMin = 0;
+
+export const TargetsUnwantedFiles = zod.object({
+  bytes: zod.int().min(targetsUnwantedFilesBytesMin),
+  files: zod.int().min(targetsUnwantedFilesFilesMin),
+});
+
+export type TargetsUnwantedFiles = zod.input<typeof TargetsUnwantedFiles>;
+export type TargetsUnwantedFilesOutput = zod.output<typeof TargetsUnwantedFiles>;
+
+export const targetsImpactDownloadingMin = 0;
+
+export const targetsImpactNewlyWantedMin = 0;
+
+export const targetsImpactOwnListMin = 0;
+
+export const targetsImpactRenamedMin = 0;
+
+export const targetsImpactWorksMin = 0;
+
+export const TargetsImpact = zod.object({
+  downloading: zod
+    .int()
+    .min(targetsImpactDownloadingMin)
+    .describe("Downloads in flight for cells that go; their files follow the save's choice"),
+  newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
+  ownList: zod
+    .int()
+    .min(targetsImpactOwnListMin)
+    .describe("Works that keep their own Edition list through a change to their Profile's"),
+  renamed: zod
+    .int()
+    .min(targetsImpactRenamedMin)
+    .describe("Files that still fill a cell and change name"),
+  unwanted: TargetsUnwantedFiles.describe(
+    "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
+  ),
+  works: zod
+    .int()
+    .min(targetsImpactWorksMin)
+    .describe("Works whose cells, fills or file names change"),
+});
+
+export type TargetsImpact = zod.input<typeof TargetsImpact>;
+export type TargetsImpactOutput = zod.output<typeof TargetsImpact>;
+
 export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsNewProfileNameMax = 100;
 
@@ -1728,6 +1776,16 @@ export const TargetsNewTarget = zod.object({
 export type TargetsNewTarget = zod.input<typeof TargetsNewTarget>;
 export type TargetsNewTargetOutput = zod.output<typeof TargetsNewTarget>;
 
+export const TargetsNewWants = zod.object({
+  editions: zod
+    .union([TargetsEditions, zod.null()])
+    .describe("The Work's own Edition list, or null for its Profile's"),
+  profileId: zod.uuid(),
+});
+
+export type TargetsNewWants = zod.input<typeof TargetsNewWants>;
+export type TargetsNewWantsOutput = zod.output<typeof TargetsNewWants>;
+
 export const TargetsPreset = zod.object({
   key: zod.enum(["disc-or-resolution", "anything-better", "resolution-only"]),
   name: zod.string(),
@@ -1758,6 +1816,14 @@ export const TargetsProfile = zod.object({
 
 export type TargetsProfile = zod.input<typeof TargetsProfile>;
 export type TargetsProfileOutput = zod.output<typeof TargetsProfile>;
+
+export const TargetsProfileChange = zod.object({
+  impact: TargetsImpact,
+  profile: TargetsProfile,
+});
+
+export type TargetsProfileChange = zod.input<typeof TargetsProfileChange>;
+export type TargetsProfileChangeOutput = zod.output<typeof TargetsProfileChange>;
 
 export const targetsProfileDetailContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsProfileDetailWorksMin = 0;
@@ -1871,6 +1937,14 @@ export const TargetsTarget = zod.object({
 export type TargetsTarget = zod.input<typeof TargetsTarget>;
 export type TargetsTargetOutput = zod.output<typeof TargetsTarget>;
 
+export const TargetsTargetChange = zod.object({
+  impact: TargetsImpact,
+  target: TargetsTarget,
+});
+
+export type TargetsTargetChange = zod.input<typeof TargetsTargetChange>;
+export type TargetsTargetChangeOutput = zod.output<typeof TargetsTargetChange>;
+
 export const TargetsTargetList = zod.object({
   targets: zod.array(TargetsTarget).describe("By name"),
 });
@@ -1889,6 +1963,14 @@ export const TargetsWants = zod.object({
 
 export type TargetsWants = zod.input<typeof TargetsWants>;
 export type TargetsWantsOutput = zod.output<typeof TargetsWants>;
+
+export const TargetsWantsChange = zod.object({
+  impact: TargetsImpact,
+  wants: TargetsWants,
+});
+
+export type TargetsWantsChange = zod.input<typeof TargetsWantsChange>;
+export type TargetsWantsChangeOutput = zod.output<typeof TargetsWantsChange>;
 
 export const TasksCadence = zod.object({
   field: SettingDurationField,

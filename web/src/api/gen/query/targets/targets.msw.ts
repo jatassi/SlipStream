@@ -6,12 +6,15 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   TargetsCutList,
   TargetsProfile,
+  TargetsProfileChange,
   TargetsProfileDetail,
   TargetsProfileList,
   TargetsQualityList,
   TargetsTarget,
+  TargetsTargetChange,
   TargetsTargetList,
   TargetsWants,
+  TargetsWantsChange,
 } from "../../model";
 
 export const getListCutsResponseMock = (
@@ -71,6 +74,34 @@ export const getCreateProfileResponseMock = (
   ...overrideResponse,
 });
 
+export const getDeleteProfileResponseMock = (
+  overrideResponse: Partial<Extract<TargetsProfileChange, object>> = {},
+): TargetsProfileChange => ({
+  impact: {
+    downloading: faker.number.int({ min: 0 }),
+    newlyWanted: faker.number.int({ min: 0 }),
+    ownList: faker.number.int({ min: 0 }),
+    renamed: faker.number.int({ min: 0 }),
+    unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
+    works: faker.number.int({ min: 0 }),
+  },
+  profile: {
+    contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+    default: faker.datatype.boolean(),
+    editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+    id: faker.string.uuid(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        sourcing: faker.helpers.arrayElement(["download"] as const),
+        targetId: faker.string.uuid(),
+      }),
+    ),
+    works: faker.number.int({ min: 0 }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetProfileResponseMock = (
   overrideResponse: Partial<Extract<TargetsProfileDetail, object>> = {},
 ): TargetsProfileDetail => ({
@@ -96,6 +127,34 @@ export const getGetProfileResponseMock = (
     }),
   ),
   works: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getUpdateProfileResponseMock = (
+  overrideResponse: Partial<Extract<TargetsProfileChange, object>> = {},
+): TargetsProfileChange => ({
+  impact: {
+    downloading: faker.number.int({ min: 0 }),
+    newlyWanted: faker.number.int({ min: 0 }),
+    ownList: faker.number.int({ min: 0 }),
+    renamed: faker.number.int({ min: 0 }),
+    unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
+    works: faker.number.int({ min: 0 }),
+  },
+  profile: {
+    contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+    default: faker.datatype.boolean(),
+    editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+    id: faker.string.uuid(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        sourcing: faker.helpers.arrayElement(["download"] as const),
+        targetId: faker.string.uuid(),
+      }),
+    ),
+    works: faker.number.int({ min: 0 }),
+  },
   ...overrideResponse,
 });
 
@@ -374,6 +433,81 @@ export const getGetTargetResponseMock = (
   ...overrideResponse,
 });
 
+export const getUpdateTargetResponseMock = (
+  overrideResponse: Partial<Extract<TargetsTargetChange, object>> = {},
+): TargetsTargetChange => ({
+  impact: {
+    downloading: faker.number.int({ min: 0 }),
+    newlyWanted: faker.number.int({ min: 0 }),
+    ownList: faker.number.int({ min: 0 }),
+    renamed: faker.number.int({ min: 0 }),
+    unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
+    works: faker.number.int({ min: 0 }),
+  },
+  target: {
+    contains: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.uuid(),
+    ),
+    createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        attribute: faker.helpers.arrayElement([
+          "hdr",
+          "video_codec",
+          "audio_codec",
+          "channels",
+          "language",
+        ] as const),
+        mode: faker.helpers.arrayElement(["only", "not"] as const),
+        values: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+      }),
+    ),
+    id: faker.string.uuid(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    sizes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        max: faker.helpers.arrayElement([faker.number.float({ min: 0, fractionDigits: 2 }), null]),
+        min: faker.number.float({ min: 0, fractionDigits: 2 }),
+        quality: faker.helpers.arrayElement([
+          "sdtv",
+          "dvd",
+          "webrip-480p",
+          "hdtv-720p",
+          "webrip-720p",
+          "webdl-720p",
+          "bluray-720p",
+          "hdtv-1080p",
+          "webrip-1080p",
+          "webdl-1080p",
+          "bluray-1080p",
+          "remux-1080p",
+          "hdtv-2160p",
+          "webrip-2160p",
+          "webdl-2160p",
+          "bluray-2160p",
+          "remux-2160p",
+          "cam",
+        ] as const),
+      }),
+    ),
+    tiers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+    ),
+  },
+  ...overrideResponse,
+});
+
 export const getDuplicateTargetResponseMock = (
   overrideResponse: Partial<Extract<TargetsTarget, object>> = {},
 ): TargetsTarget => ({
@@ -441,6 +575,26 @@ export const getGetWorkWantsResponseMock = (
   from: faker.helpers.arrayElement(["profile", "work"] as const),
   profileId: faker.string.uuid(),
   profileName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
+export const getSetWorkWantsResponseMock = (
+  overrideResponse: Partial<Extract<TargetsWantsChange, object>> = {},
+): TargetsWantsChange => ({
+  impact: {
+    downloading: faker.number.int({ min: 0 }),
+    newlyWanted: faker.number.int({ min: 0 }),
+    ownList: faker.number.int({ min: 0 }),
+    renamed: faker.number.int({ min: 0 }),
+    unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
+    works: faker.number.int({ min: 0 }),
+  },
+  wants: {
+    editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+    from: faker.helpers.arrayElement(["profile", "work"] as const),
+    profileId: faker.string.uuid(),
+    profileName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
   ...overrideResponse,
 });
 
@@ -516,6 +670,30 @@ export const getCreateProfileMockHandler = (
   );
 };
 
+export const getDeleteProfileMockHandler = (
+  overrideResponse?:
+    | TargetsProfileChange
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0],
+      ) => Promise<TargetsProfileChange> | TargetsProfileChange),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/profiles/:profileId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDeleteProfileResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGetProfileMockHandler = (
   overrideResponse?:
     | TargetsProfileDetail
@@ -533,6 +711,30 @@ export const getGetProfileMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getGetProfileResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getUpdateProfileMockHandler = (
+  overrideResponse?:
+    | TargetsProfileChange
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<TargetsProfileChange> | TargetsProfileChange),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/profiles/:profileId",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateProfileResponseMock(),
         { status: 200 },
       );
     },
@@ -679,6 +881,30 @@ export const getGetTargetMockHandler = (
   );
 };
 
+export const getUpdateTargetMockHandler = (
+  overrideResponse?:
+    | TargetsTargetChange
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<TargetsTargetChange> | TargetsTargetChange),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/targets/:targetId",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateTargetResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getDuplicateTargetMockHandler = (
   overrideResponse?:
     | TargetsTarget
@@ -726,17 +952,45 @@ export const getGetWorkWantsMockHandler = (
     options,
   );
 };
+
+export const getSetWorkWantsMockHandler = (
+  overrideResponse?:
+    | TargetsWantsChange
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<TargetsWantsChange> | TargetsWantsChange),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/works/:workId/wants",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetWorkWantsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getTargetsMock = () => [
   getListCutsMockHandler(),
   getListProfilesMockHandler(),
   getCreateProfileMockHandler(),
+  getDeleteProfileMockHandler(),
   getGetProfileMockHandler(),
+  getUpdateProfileMockHandler(),
   getMakeDefaultProfileMockHandler(),
   getListQualitiesMockHandler(),
   getListTargetsMockHandler(),
   getCreateTargetMockHandler(),
   getDeleteTargetMockHandler(),
   getGetTargetMockHandler(),
+  getUpdateTargetMockHandler(),
   getDuplicateTargetMockHandler(),
   getGetWorkWantsMockHandler(),
+  getSetWorkWantsMockHandler(),
 ];

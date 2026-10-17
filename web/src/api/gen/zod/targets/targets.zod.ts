@@ -4,13 +4,17 @@ import {
   TargetsCutList,
   TargetsNewProfile,
   TargetsNewTarget,
+  TargetsNewWants,
   TargetsProfile,
+  TargetsProfileChange,
   TargetsProfileDetail,
   TargetsProfileList,
   TargetsQualityList,
   TargetsTarget,
+  TargetsTargetChange,
   TargetsTargetList,
   TargetsWants,
+  TargetsWantsChange,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -31,6 +35,36 @@ export const CreateProfileBody = TargetsNewProfile;
 export const CreateProfileResponse = TargetsProfile;
 
 /**
+ * @summary Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact
+ */
+export const DeleteProfileParams = zod.object({
+  profileId: zod.uuid(),
+});
+
+export const deleteProfileQueryUnwantedDefault = `delete`;
+export const deleteProfileQueryConfirmMin = 0;
+
+export const DeleteProfileQueryParams = zod.object({
+  moveTo: zod.uuid().describe("The Profile of the same Content Type that its Works move to"),
+  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  unwanted: zod
+    .enum(["delete", "keep"])
+    .default(deleteProfileQueryUnwantedDefault)
+    .describe(
+      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+    ),
+  confirm: zod
+    .int()
+    .min(deleteProfileQueryConfirmMin)
+    .exactOptional()
+    .describe(
+      "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+});
+
+export const DeleteProfileResponse = TargetsProfileChange;
+
+/**
  * @summary Get a Profile with the disk each of its Targets costs across its Works
  */
 export const GetProfileParams = zod.object({
@@ -38,6 +72,37 @@ export const GetProfileParams = zod.object({
 });
 
 export const GetProfileResponse = TargetsProfileDetail;
+
+/**
+ * @summary Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact
+ */
+export const UpdateProfileParams = zod.object({
+  profileId: zod.uuid(),
+});
+
+export const updateProfileQueryUnwantedDefault = `delete`;
+export const updateProfileQueryConfirmMin = 0;
+
+export const UpdateProfileQueryParams = zod.object({
+  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  unwanted: zod
+    .enum(["delete", "keep"])
+    .default(updateProfileQueryUnwantedDefault)
+    .describe(
+      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+    ),
+  confirm: zod
+    .int()
+    .min(updateProfileQueryConfirmMin)
+    .exactOptional()
+    .describe(
+      "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+});
+
+export const UpdateProfileBody = TargetsNewProfile;
+
+export const UpdateProfileResponse = TargetsProfileChange;
 
 /**
  * @summary Make a Profile its Content Type's default; existing Works keep theirs
@@ -84,6 +149,37 @@ export const GetTargetParams = zod.object({
 export const GetTargetResponse = TargetsTarget;
 
 /**
+ * @summary Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact
+ */
+export const UpdateTargetParams = zod.object({
+  targetId: zod.uuid(),
+});
+
+export const updateTargetQueryUnwantedDefault = `delete`;
+export const updateTargetQueryConfirmMin = 0;
+
+export const UpdateTargetQueryParams = zod.object({
+  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  unwanted: zod
+    .enum(["delete", "keep"])
+    .default(updateTargetQueryUnwantedDefault)
+    .describe(
+      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+    ),
+  confirm: zod
+    .int()
+    .min(updateTargetQueryConfirmMin)
+    .exactOptional()
+    .describe(
+      "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+});
+
+export const UpdateTargetBody = TargetsNewTarget;
+
+export const UpdateTargetResponse = TargetsTargetChange;
+
+/**
  * @summary Copy a Target's rules under the first free name ending in copy
  */
 export const DuplicateTargetParams = zod.object({
@@ -100,3 +196,34 @@ export const GetWorkWantsParams = zod.object({
 });
 
 export const GetWorkWantsResponse = TargetsWants;
+
+/**
+ * @summary Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact
+ */
+export const SetWorkWantsParams = zod.object({
+  workId: zod.uuid(),
+});
+
+export const setWorkWantsQueryUnwantedDefault = `delete`;
+export const setWorkWantsQueryConfirmMin = 0;
+
+export const SetWorkWantsQueryParams = zod.object({
+  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  unwanted: zod
+    .enum(["delete", "keep"])
+    .default(setWorkWantsQueryUnwantedDefault)
+    .describe(
+      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+    ),
+  confirm: zod
+    .int()
+    .min(setWorkWantsQueryConfirmMin)
+    .exactOptional()
+    .describe(
+      "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+});
+
+export const SetWorkWantsBody = TargetsNewWants;
+
+export const SetWorkWantsResponse = TargetsWantsChange;

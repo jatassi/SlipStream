@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -73,7 +74,9 @@ func serve(t *testing.T) *served {
 		t.Fatalf("Open on a fresh library published %d times, want once", changed.n)
 	}
 	changed.n = 0
-	shelf := files.New(files.Config{Library: lib, Works: w, Targets: svc, Grabs: files.NoGrabs{}, Today: time.Now})
+	shelf := files.New(files.Config{
+		Library: lib, Works: w, Targets: svc, Grabs: grabs.GrabCells{}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
+	})
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.starter = ownertest.FirstID(body)

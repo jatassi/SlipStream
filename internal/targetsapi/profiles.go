@@ -3,6 +3,7 @@ package targetsapi
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -21,6 +22,15 @@ type editions struct {
 }
 
 var anyCut = editions{Kind: "any"}
+
+// parse reads e as an Edition list. Huma doesn't check a nullable
+// member's value against its schema, so parse does.
+func (e editions) parse() (targets.Editions, error) {
+	if e.Kind != anyCut.Kind {
+		return targets.Editions{}, api.Invalid.On("editions.kind", "an Edition list is any cut")
+	}
+	return targets.AnyCut(), nil
+}
 
 // Profile is exported so the document carries the fields a Profile's
 // detail embeds.
@@ -89,14 +99,24 @@ type wants struct {
 
 type wantsOutput struct{ Body wants }
 
-func (h handlers) createProfile(ctx context.Context, by identity.Admin, in *createProfileInput) (*profileOutput, error) {
-	s := targets.ProfileSpec{Name: in.Body.Name, ContentType: works.TypeID(in.Body.ContentType)}
-	for _, e := range in.Body.Targets {
+// profileSpecOf parses a Profile's body. Its Edition list is any cut, the
+// one list the document allows.
+func profileSpecOf(in newProfile) (targets.ProfileSpec, error) {
+	s := targets.ProfileSpec{Name: in.Name, ContentType: works.TypeID(in.ContentType), Editions: targets.AnyCut()}
+	for _, e := range in.Targets {
 		u, err := storage.ParseUUID(e.TargetID)
 		if err != nil {
-			return nil, targetNotFound
+			return targets.ProfileSpec{}, targetNotFound
 		}
 		s.Entries = append(s.Entries, targets.Entry{Target: targets.TargetID{UUID: u}, Sourcing: targets.Sourcing(e.Sourcing)})
+	}
+	return s, nil
+}
+
+func (h handlers) createProfile(ctx context.Context, by identity.Admin, in *createProfileInput) (*profileOutput, error) {
+	s, err := profileSpecOf(in.Body)
+	if err != nil {
+		return nil, err
 	}
 	p, err := open(h.goals).CreateProfile(ctx, by, s)
 	if err != nil {
@@ -170,5 +190,13 @@ func (h handlers) getWorkWants(ctx context.Context, by identity.Admin, in *workI
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &wantsOutput{Body: wants{ProfileID: g.Profile.ID.String(), ProfileName: g.Profile.Name, Editions: anyCut, From: "profile"}}, nil
+	return &wantsOutput{Body: wantsOf(g)}, nil
+}
+
+func wantsOf(g targets.Goals) wants {
+	out := wants{ProfileID: g.Profile.ID.String(), ProfileName: g.Profile.Name, Editions: anyCut, From: "profile"}
+	if g.Own {
+		out.From = "work"
+	}
+	return out
 }
