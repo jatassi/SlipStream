@@ -8,17 +8,19 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - `nodes-sections` in the desktop shell the page tabs, a nav named for the Node, link Overview, Web and API, Logs and Log settings and mark the current one; on phone the Node's page, titled `Nodes`, lists the other sections, and each is a pushed page whose back link reads `Nodes`.
 - `nodes-picker` with a Worker paired, the `Node` select lists every Node with an online, offline or other-version dot, and choosing one keeps the section.
 - `nodes-system-api` `GET /api/v1/system` with the API key returns the PID, the data dir, the listeners and `build` with `stamped`, `commit` and `fingerprint`.
-- `nodes-web-settings` Web and API shows `Port` with `Default 8484.` and `Applies after restart.`, and `Ports to try`; a saved port toasts `Web and API settings saved` and shows the warning line `Restart to use port <port>` with `Restart now`, a port out of range answers 422 with `Between 1 and 65535.`, and a port an environment variable sets is locked with `Set by SLIPSTREAM_HTTP_LISTEN` (P-244).
+- `nodes-web-settings` Web and API shows `Port` with `Default 8484.` and `Applies after restart.`, and `Ports to try`; a saved port toasts `Web and API settings saved` and shows the warning line `Restart to use port <port>` with `Restart now`, a port out of range answers 422 with `Between 1 and 65535.`, and a port an environment variable sets is locked with `Set by SLIPSTREAM_HTTP_LISTEN` (P-244). The running port is the one the Node bound, so saving the port it listens on, after a fallback or on a Node that started on port 0, waits for no restart.
 - `nodes-port-fallback` a Node whose HTTP port another program holds at start binds one of the next ports, and its Overview reads `Port <configured> was taken, so SlipStream is on <bound>.` with `Change port` (P-246).
+- `nodes-locked-key` a key that `.env` in the Node's data dir or its environment sets reads `Set by <variable>` with the control disabled, `PATCH .../config` answers 409 `set_by_environment` and `slipstream config set` exits 3 with `<key>: Set by <variable>.` (P-244).
 - `nodes-log-settings` Log settings shows `Level`, `Rotate at`, `Files kept` and `Days kept` (0 reads `No limit`), `Compress rotated files` and `Lines kept for the viewer`; choosing a level saves it at once and toasts `Log settings saved`, the Node logs at the new level with no restart, and the `Log folder` reads the Node's log dir with `Copy` (P-247, P-248).
 - `nodes-logs-viewer` Logs shows the Node's recent lines, then each new one: the time, a level chip, the subsystem and the message; it filters by minimum level, subsystem and search, `Pause` holds the list and reads `Paused, <n> new` until `Resume`, `Clear` empties the view only, a row expands to every attribute with `Copy as JSON`, scrolling up reads `Not following,` with `Jump to latest`, and a restarted Node draws `SlipStream restarted at <time>` (P-249).
 - `nodes-logs-download` `Download logs` saves a zip of the Node's log folder holding `slipstream.log`, and a Node that doesn't answer toasts `Couldn't download the logs.` instead (P-250).
-- `nodes-restart` the account menu's, More's and the palette's `Restart SlipStream…` and the Nodes header's `Restart` ask `Restart SlipStream?` (or `Restart <name>?` for a Worker); the browser's own Node shows `Restarting SlipStream…` over the page, and the page reloads onto the same address once a later `startedAt` answers, while a Worker's sections read `<name> is restarting…` until its link is up again (P-010).
+- `nodes-restart` the account menu's, More's and the palette's `Restart SlipStream…` and the Nodes header's `Restart` ask `Restart SlipStream?` (or `Restart <name>?` for a Worker); the browser's own Node shows `Restarting SlipStream…` over the page, and the page reloads onto the same address once a later `startedAt` answers, while a Worker's sections read `<name> is restarting…` until its link is up again. A restart onto a saved port reads `SlipStream is moving to port <port>` with `Open SlipStream on port <port>`, which opens the same page on the new port (P-010).
+- `nodes-cli` `slipstream config set --data-dir <dir> <key> <value>` prints `<key>: <value>`, ending `, applies after restart` for a restart key, the Node's page shows the change, `config unset` prints the default, and `slipstream restart --data-dir <dir>` prints the Node's web address once its successor answers.
 
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Nodes`, below the separator and above `Tasks`, which opens `/nodes` and lands on `/nodes/<id>`; the page tabs `Overview`, `Web and API`, `Logs` and `Log settings` sit under the Node's name, and `Restart` is the page's action in the top bar. The `Nodes` row stays current on every Node page. The account menu holds `Restart SlipStream…` between the Startup sequence switch and `Sign out`.
-- Phone shell: the `More` tab, then `Nodes`, listed above `Tasks`, then a section's row; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
+- Phone shell: the `More` tab, then the `Nodes` button in the sheet `More`, listed above `Tasks`, then a section's row in the list named for the Node; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
 - Both shells: the palette's `Go to Nodes`, `Go to Overview`, `Go to Web and API`, `Go to Logs` and `Go to Log settings` for the browser's own Node, and `Restart SlipStream…`.
 - API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live event `node.settings-changed`.
 - Host CLI: `slipstream version` prints the same build stamp; `slipstream config set --data-dir <dir> <key> <value>`, `config unset` and `restart --data-dir <dir>`.
@@ -65,6 +67,19 @@ Steps:
   $FW exec $RUN --proof nodes/nodes-web-settings -- sh -c 'a={nodes.home.listeners.http}; curl -sS -X PATCH -H "X-Api-Key: {apiKey}" -H "Content-Type: application/json" -d "{\"http.listen\":${a##*:}}" "{nodes.home.url}/api/v1/nodes/{nodes.home.nodeId}/config"'
   ```
 
+- **See it on phone.** In `{runId}-admin-phone`, choose `More`, then `Nodes`: the page is titled `Nodes`, lists the Node under `Node` and its sections under `Sections`. Choose `Logs`: it is a pushed page headed `Logs` with the back link `Nodes`, and its filters sit behind `Filter`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("button", { name: "More" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("dialog", { name: "More" }).getByRole("button", { name: "Nodes" })'
+  $FW exec $RUN --proof nodes/nodes-overview -- $PW cli -s={runId}-admin-phone screenshot --full-page --filename={runDir}/proof/nodes/nodes-overview/overview-phone.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("list", { name: "home" }).getByRole("link", { name: "Logs" })'
+  $FW exec $RUN --proof nodes/nodes-sections -- $PW cli -s={runId}-admin-phone snapshot --filename={runDir}/proof/nodes/nodes-sections/logs-phone.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("button", { name: "Filter" })'
+  $FW exec $RUN --proof nodes/nodes-logs-viewer -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/nodes/nodes-logs-viewer/filter-phone.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone press Escape
+  ```
+
 - **Log at Debug.** Choose `Log settings`, then `Level` and `Debug`. The toast reads `Log settings saved`, `Reset to default` appears, and the API reads `debug` as both value and running.
 
   ```sh
@@ -90,12 +105,98 @@ Steps:
   $FW exec $RUN --proof nodes/nodes-logs-viewer -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("main")' --filename={runDir}/proof/nodes/nodes-logs-viewer/expanded.aria.yml
   ```
 
+- **Search, filter, follow and clear.** Type `handshake` in `Search the log`: only the `link handshake failed` rows stay. Clear it and choose `Warn` in `Minimum level`: the Debug and Info rows go. Choose `Debug` again, knock 60 times, and scroll the list up: the status reads `Not following,` with `Jump to latest`. `Clear` empties the view, while the stream still serves every line.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("searchbox", { name: "Search the log" })' handshake
+  $FW exec $RUN --proof nodes/nodes-logs-viewer -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-logs-viewer/search.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("searchbox", { name: "Search the log" })' ''
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("radiogroup", { name: "Minimum level" }).getByRole("radio", { name: "Warn" })'
+  $FW exec $RUN --proof nodes/nodes-logs-viewer -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-logs-viewer/min-warn.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("radiogroup", { name: "Minimum level" }).getByRole("radio", { name: "Debug" })'
+  $FW exec $RUN -- bash -c 'a={nodes.home.listeners.link}; for i in $(seq 60); do exec 3<>/dev/tcp/${a%:*}/${a##*:}; printf "not tls\r\n\r\n" >&3; exec 3>&-; done'
+  $FW exec $RUN --proof nodes/nodes-logs-viewer -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.waitForTimeout(2000); await page.getByRole("list", { name: "Log" }).hover(); await page.mouse.wheel(0, -3000); await page.getByText(/Not following/).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Jump to latest" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Clear" })'
+  $FW exec $RUN --proof nodes/nodes-logs-viewer -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-logs-viewer/cleared.png
+  ```
+
 - **Download the logs.** Choose `Download logs` and keep the download: the zip lists `slipstream.log`. The API's archive is the same zip.
 
   ```sh
   $FW exec $RUN --proof nodes/nodes-logs-download -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const saved = page.waitForEvent("download"); await page.getByRole("button", { name: "Download logs" }).click(); await (await saved).saveAs("{runDir}/proof/nodes/nodes-logs-download/logs.zip"); }'
   $FW exec $RUN --proof nodes/nodes-logs-download -- unzip -l {runDir}/proof/nodes/nodes-logs-download/logs.zip
   $FW exec $RUN --proof nodes/nodes-logs-download -- curl -sS -o {runDir}/proof/nodes/nodes-logs-download/api.zip -w '%{http_code} %{content_type}\n' -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.home.nodeId}/logs/archive'
+  ```
+
+- **Choose a Worker in the picker.** On `Logs`, choose `Node`, then `seedbox`: the URL keeps `/logs`, the heading reads `seedbox` and its lines stream through the Controller. Its Overview equals the per-Node API's facts.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("combobox", { name: "Node" })'
+  $FW exec $RUN --proof nodes/nodes-picker -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("listbox")' --filename={runDir}/proof/nodes/nodes-picker/options.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("option", { name: /seedbox/ })'
+  $FW exec $RUN --proof nodes/nodes-picker -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("heading", { name: "seedbox", level: 1 }).waitFor({ timeout: 10000 }); await page.getByRole("list", { name: "Log" }).getByRole("listitem").first().waitFor({ timeout: 15000 }); return page.url(); }'
+  $FW exec $RUN --proof nodes/nodes-picker -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/system'
+  ```
+
+- **Restart the Worker.** The header's `Restart` asks `Restart seedbox?`; `Restart` shows `seedbox is restarting…` and the sections come back with a later `Running since`. The Worker is back in under a second, so click and wait in one step.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Restart" })'
+  $FW exec $RUN --proof nodes/nodes-restart -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("dialog", { name: "Restart seedbox?" }).getByRole("button", { name: "Restart" }).click(); await page.getByText("seedbox is restarting…").first().waitFor({ timeout: 15000 }); await page.screenshot({ path: "{runDir}/proof/nodes/nodes-restart/worker-restarting.png" }); }'
+  $FW exec $RUN --proof nodes/nodes-restart -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/system'
+  ```
+
+- **Lock a key.** As the host operator, write `SLIPSTREAM_LOG_LEVEL=debug` to the seedbox's `.env`. `slipstream config set` exits 3 with `log.level: Set by SLIPSTREAM_LOG_LEVEL.`, the API answers 409, and after a reload seedbox's `Log settings` shows `Level` disabled with `Set by SLIPSTREAM_LOG_LEVEL`. Remove the file after.
+
+  ```sh
+  $FW exec $RUN --proof nodes/nodes-locked-key -- sh -c 'printf "SLIPSTREAM_LOG_LEVEL=debug\n" > {nodes.seedbox.dataDir}/.env'
+  $FW exec $RUN --proof nodes/nodes-locked-key -- {runDir}/bin/slipstream config set --data-dir {nodes.seedbox.dataDir} log.level warn
+  $FW exec $RUN --proof nodes/nodes-locked-key -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"log.level":"warn"}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/config'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "seedbox" }).getByRole("link", { name: "Log settings" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
+  $FW exec $RUN --proof nodes/nodes-locked-key -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Set by SLIPSTREAM_LOG_LEVEL").waitFor({ timeout: 15000 }); }'
+  $FW exec $RUN --proof nodes/nodes-locked-key -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-locked-key/locked.png
+  $FW exec $RUN --proof nodes/nodes-locked-key -- rm {nodes.seedbox.dataDir}/.env
+  ```
+
+- **Fail a download.** On seedbox's `Logs`, stall the Node link, then choose `Download logs`: the toast reads `Couldn't download the logs. The Node is offline.` Clear the fault after.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "seedbox" }).getByRole("link", { name: "Logs" })'
+  $FW fault set $RUN hold-link link/home stall
+  $FW exec $RUN --proof nodes/nodes-logs-download -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("button", { name: "Download logs" }).click(); await page.getByText(/^Couldn.t download the logs/).waitFor({ timeout: 90000 }); }'
+  $FW fault clear $RUN hold-link
+  ```
+
+- **Take seedbox's port, then use the host CLI.** Stop seedbox and reload: its sections read `seedbox is offline. Its settings and logs come back when it reconnects.` Hold its HTTP port from a second shell for 150 seconds and start it: its Overview reads `Port <port> was taken, so SlipStream is on <next port>.` with `Change port`. Then `slipstream config set` and `unset` change seedbox's `log.level`, and once the holder exits `slipstream restart` brings it back on its own port.
+
+  ```sh
+  $FW node stop $RUN seedbox
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
+  $FW exec $RUN --proof nodes/nodes-picker -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("seedbox is offline. Its settings and logs come back when it reconnects.").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN --proof nodes/nodes-port-fallback -- timeout 150 python3 -c 'import socket,sys,time; h,p=sys.argv[1].rsplit(":",1); s=socket.socket(); s.bind((h,int(p))); s.listen(); time.sleep(150)' '{nodes.seedbox.listeners.http}'   # in a second shell
+  $FW node start $RUN seedbox
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "seedbox" }).getByRole("link", { name: "Overview" })'
+  $FW exec $RUN --proof nodes/nodes-port-fallback -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText(/was taken, so SlipStream is on/).waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN --proof nodes/nodes-port-fallback -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}/system'
+  $FW exec $RUN --proof nodes/nodes-cli -- {runDir}/bin/slipstream config set --data-dir {nodes.seedbox.dataDir} log.level debug
+  $FW exec $RUN --proof nodes/nodes-cli -- {runDir}/bin/slipstream config unset --data-dir {nodes.seedbox.dataDir} log.level
+  $FW exec $RUN --proof nodes/nodes-cli -- {runDir}/bin/slipstream restart --data-dir {nodes.seedbox.dataDir}   # after the holder exits
+  $FW doctor $RUN
+  ```
+
+- **Move home to another port (last but one).** Choose `home` in the picker, then `Web and API`, enter 9000 and `Save`, then `Restart now` and `Restart`: the page reads `SlipStream is moving to port 9000`, and `Open SlipStream on port 9000` opens the same page on port 9000. The manifest follows the move.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Port", exact: true })' 9000
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Save" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Restart now" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Restart SlipStream?" }).getByRole("button", { name: "Restart" })'
+  $FW exec $RUN --proof nodes/nodes-restart -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("SlipStream is moving to port 9000").waitFor({ timeout: 90000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Open SlipStream on port 9000" })'
+  $FW exec $RUN --proof nodes/nodes-restart -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.waitForURL(/:9000\//, { timeout: 30000 }); return page.url(); }'
+  $FW doctor $RUN
   ```
 
 - **Restart from the account menu (last).** Choose `Account`, then `Restart SlipStream…`, then `Restart` in `Restart SlipStream?`. `Restarting SlipStream…` covers the page, the page reloads onto the same address, and the API's `startedAt` is later than before. The event log records `node.restarted` with the same PID on Linux and macOS.
@@ -118,5 +219,9 @@ Steps:
 - Ports are drawn at launch, so compare the page with the manifest, never with a remembered value. fakeworld pins each listen key to the port it bound, so `Port` reads that port with `Reset to default`, and a saved or reset port moves the Node off the manifest's port at its next restart. Put the port back before any restart, and restart last.
 - A choice such as `Level` saves as soon as it is chosen; a number field shows `Save` once it differs.
 - Nothing logs at Debug on an idle `home`, so a recipe makes a Debug line itself: bytes that aren't TLS on the link port log `link handshake failed`.
-- `fakeworld` starts each Node on port 0 and pins the bound port later, so `POST .../restart` can answer a `nextPort` equal to its `boundPort`; the page treats that as no move.
+- `fakeworld` starts each Node on port 0 and pins the bound port later, so `POST .../restart` can answer a `nextPort` equal to its `boundPort`; the page treats that as no move. A build before the bound-port fix shows `Restart to use port <port>` with `SlipStream listens on 0 until it restarts.` on every Node from launch.
+- A Node's environment can't be set in a Fake world, so a locked key comes from the data dir's `.env`, an operator's hand edit. A `SLIPSTREAM_` variable in the CLI's own environment locks nothing on a running Node, which checks its own. An open page doesn't learn of a `.env` edit, so reload it.
+- `link/home` is the one front every peer dials, so a link fault can't take `@seedbox`.
+- `Open SlipStream on port <port>` is a button, not a link, and the page doesn't follow a move by itself.
+- After a Worker restart, the page keeps reading `<name> is restarting…` through any later outage of that Worker until it reloads, so reload before checking the offline sentence.
 - Port fallback needs the HTTP port held before a Node starts: stop seedbox, hold `{nodes.seedbox.listeners.http}` with another program, start seedbox, and read its Overview through the picker; free the port and restart seedbox after.
