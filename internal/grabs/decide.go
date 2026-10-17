@@ -8,19 +8,20 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
 var resolutionToken = regexp.MustCompile(`(?i)\b(2160p|4k|uhd|1080p|720p|576p|480p)\b`)
 
-var resolutionOf = map[string]targets.Resolution{
-	"2160p": targets.R2160p, "4k": targets.R2160p, "uhd": targets.R2160p,
-	"1080p": targets.R1080p, "720p": targets.R720p, "576p": targets.R576p, "480p": targets.R480p,
+var resolutionOf = map[string]release.Resolution{
+	"2160p": release.R2160p, "4k": release.R2160p, "uhd": release.R2160p,
+	"1080p": release.R1080p, "720p": release.R720p, "576p": release.R576p, "480p": release.R480p,
 }
 
 // resolution reads a release title's resolution from its first token,
 // false when it holds none.
-func resolution(title string) (targets.Resolution, bool) {
+func resolution(title string) (release.Resolution, bool) {
 	m := resolutionToken.FindString(title)
 	if m == "" {
 		return 0, false

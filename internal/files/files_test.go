@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -73,7 +74,7 @@ func (l *library) work(t *testing.T, key works.Key, monitor bool) works.Tree {
 	return tree
 }
 
-func (l *library) target(t *testing.T, name string, rs ...targets.Resolution) targets.Target {
+func (l *library) target(t *testing.T, name string, rs ...release.Resolution) targets.Target {
 	t.Helper()
 	target, err := l.targets.CreateTarget(t.Context(), admin, name, rs)
 	if err != nil {
@@ -109,8 +110,8 @@ func lines(cells []files.Cell) string {
 
 func TestCellsAreComputedFromFillsGrabsAndTheDefaultProfile(t *testing.T) {
 	l := open(t)
-	hd := l.target(t, "1080p", targets.R1080p)
-	uhd := l.target(t, "2160p", targets.R2160p)
+	hd := l.target(t, "1080p", release.R1080p)
+	uhd := l.target(t, "2160p", release.R2160p)
 	if _, err := l.targets.CreateProfile(t.Context(), admin, "Standard", contenttypetest.ID, []targets.TargetID{uhd.ID, hd.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +167,7 @@ func TestAWorkWhoseTypeHasNoProfileHasNoCells(t *testing.T) {
 
 func TestACellIsFilledOnce(t *testing.T) {
 	l := open(t)
-	hd := l.target(t, "1080p", targets.R1080p)
+	hd := l.target(t, "1080p", release.R1080p)
 	tree := l.work(t, "w1", true)
 	l.place(t, tree.Items[0].ID, tree.ID, "a.mkv", hd.ID)
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {

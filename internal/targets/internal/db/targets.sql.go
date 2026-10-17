@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -80,7 +81,7 @@ VALUES (?1, ?2, ?3)
 type InsertResolutionParams struct {
 	TargetID   TargetID
 	Position   int64
-	Resolution Resolution
+	Resolution release.Resolution
 }
 
 func (q *Queries) InsertResolution(ctx context.Context, arg InsertResolutionParams) error {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -157,9 +158,9 @@ func Routes(r *api.Router, goals Goals) {
 type handlers struct{ goals Goals }
 
 func (h handlers) createTarget(ctx context.Context, by identity.Admin, in *createTargetInput) (*targetOutput, error) {
-	resolutions := make([]targets.Resolution, len(in.Body.Resolutions))
+	resolutions := make([]release.Resolution, len(in.Body.Resolutions))
 	for i, s := range in.Body.Resolutions {
-		r, err := targets.ParseResolution(s)
+		r, err := release.ParseResolution(s)
 		if err != nil {
 			return nil, api.Invalid
 		}

@@ -5,13 +5,14 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 // errFillsNothing is a probed file that fills no unmet cell.
-type errFillsNothing struct{ res targets.Resolution }
+type errFillsNothing struct{ res release.Resolution }
 
 func (e errFillsNothing) Error() string {
 	return "a " + e.res.String() + " file fills no Target the Work still wants"
@@ -20,7 +21,7 @@ func (e errFillsNothing) Error() string {
 // plan places a probed file of item: it fills each of the item's Standard
 // cells that are not met whose Target res meets, in rank order, and is
 // named after the first. ext is the file's extension.
-func plan(cells []files.Cell, item works.ItemID, res targets.Resolution, root roots.Root, t naming.Templates, tokens map[string]string, ext string) (Plan, error) {
+func plan(cells []files.Cell, item works.ItemID, res release.Resolution, root roots.Root, t naming.Templates, tokens map[string]string, ext string) (Plan, error) {
 	var fills []targets.Target
 	for _, c := range cells {
 		if c.Item.ID == item && c.Edition == files.Standard && c.State != files.Met && slices.Contains(c.Target.Resolutions, res) {

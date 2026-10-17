@@ -20,6 +20,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -102,7 +103,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}))
 	types := []works.TypeID{contenttypetest.ID}
 	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []targets.Resolution{targets.R1080p}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []release.Resolution{release.R1080p}))
 	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID}))
 	attic := works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},

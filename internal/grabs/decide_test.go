@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -19,13 +20,13 @@ import (
 )
 
 func TestResolutionReadsTheFirstWordBoundedToken(t *testing.T) {
-	for title, want := range map[string]targets.Resolution{
-		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW": targets.R1080p,
-		"Orchard 2021 4K HDR":                          targets.R2160p,
-		"orchard.UHD.bluray":                           targets.R2160p,
-		"Orchard [720P]":                               targets.R720p,
-		"Orchard.576p.DVD":                             targets.R576p,
-		"Orchard 480p 1080p":                           targets.R480p,
+	for title, want := range map[string]release.Resolution{
+		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW": release.R1080p,
+		"Orchard 2021 4K HDR":                          release.R2160p,
+		"orchard.UHD.bluray":                           release.R2160p,
+		"Orchard [720P]":                               release.R720p,
+		"Orchard.576p.DVD":                             release.R576p,
+		"Orchard 480p 1080p":                           release.R480p,
 	} {
 		if got, ok := resolution(title); !ok || got != want {
 			t.Errorf("resolution(%q) = %s, %v; want %s", title, got, ok, want)
@@ -39,8 +40,8 @@ func TestResolutionReadsTheFirstWordBoundedToken(t *testing.T) {
 }
 
 var (
-	hd    = targets.Target{ID: targets.TargetID{UUID: storage.NewUUID()}, Name: "1080p", Resolutions: []targets.Resolution{targets.R1080p}}
-	small = targets.Target{ID: targets.TargetID{UUID: storage.NewUUID()}, Name: "Small", Resolutions: []targets.Resolution{targets.R720p, targets.R576p}}
+	hd    = targets.Target{ID: targets.TargetID{UUID: storage.NewUUID()}, Name: "1080p", Resolutions: []release.Resolution{release.R1080p}}
+	small = targets.Target{ID: targets.TargetID{UUID: storage.NewUUID()}, Name: "Small", Resolutions: []release.Resolution{release.R720p, release.R576p}}
 	item  = works.Item{ID: works.ItemID{UUID: storage.NewUUID()}, Monitored: true}
 )
 
@@ -50,19 +51,19 @@ func cell(t targets.Target, s files.State) files.Cell {
 
 var orchard = indexers.Terms{Mode: "search", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 
-func release(title string, seeders, size int64, ids map[string]string) indexers.Item {
+func candidate(title string, seeders, size int64, ids map[string]string) indexers.Item {
 	return indexers.Item{Title: title, Seeders: seeders, Size: size, IDs: ids}
 }
 
 func TestDecideRanksByTargetThenResolutionThenSeedersSizeAndTitle(t *testing.T) {
 	open := []files.Cell{cell(hd, files.Missing), cell(small, files.Missing)}
 	candidates := []indexers.Item{
-		release("Orchard.720p.A", 90, 10, nil),
-		release("Orchard.576p.B", 99, 10, nil),
-		release("Orchard.1080p.C", 5, 10, map[string]string{"tmdbid": "9000001"}),
-		release("Orchard.1080p.D", 5, 20, nil),
-		release("Orchard.1080p.B", 5, 20, nil),
-		release("Orchard.1080p.A", 6, 1, nil),
+		candidate("Orchard.720p.A", 90, 10, nil),
+		candidate("Orchard.576p.B", 99, 10, nil),
+		candidate("Orchard.1080p.C", 5, 10, map[string]string{"tmdbid": "9000001"}),
+		candidate("Orchard.1080p.D", 5, 20, nil),
+		candidate("Orchard.1080p.B", 5, 20, nil),
+		candidate("Orchard.1080p.A", 6, 1, nil),
 	}
 	pick, rejected := decide(open, orchard, candidates)
 	if want := (&Pick{Item: candidates[5], Targets: []targets.TargetID{hd.ID}}); !reflect.DeepEqual(pick, want) || rejected != nil {
@@ -80,9 +81,9 @@ func TestDecideRanksByTargetThenResolutionThenSeedersSizeAndTitle(t *testing.T) 
 
 func TestDecideRejectsTheWrongWorkAnUnknownResolutionAndWhatMeetsNothing(t *testing.T) {
 	candidates := []indexers.Item{
-		release("Orchard.1080p.Other", 50, 10, map[string]string{"tmdbid": "9000002"}),
-		release("Orchard.WEB-DL", 50, 10, nil),
-		release("Orchard.720p", 50, 10, nil),
+		candidate("Orchard.1080p.Other", 50, 10, map[string]string{"tmdbid": "9000002"}),
+		candidate("Orchard.WEB-DL", 50, 10, nil),
+		candidate("Orchard.720p", 50, 10, nil),
 	}
 	pick, rejected := decide([]files.Cell{cell(hd, files.Missing)}, orchard, candidates)
 	want := []Rejection{{"Orchard.1080p.Other", WrongWork}, {"Orchard.WEB-DL", ResolutionUnknown}, {"Orchard.720p", MeetsNothing}}
@@ -92,32 +93,32 @@ func TestDecideRejectsTheWrongWorkAnUnknownResolutionAndWhatMeetsNothing(t *test
 }
 
 func TestDecideWithNothingWantedPicksNothing(t *testing.T) {
-	pick, rejected := decide(nil, orchard, []indexers.Item{release("Orchard.1080p", 1, 1, nil)})
+	pick, rejected := decide(nil, orchard, []indexers.Item{candidate("Orchard.1080p", 1, 1, nil)})
 	if want := []Rejection{{"Orchard.1080p", MeetsNothing}}; pick != nil || !reflect.DeepEqual(rejected, want) {
 		t.Fatalf("decide with no open cell = %+v, %v; want nothing and %v", pick, rejected, want)
 	}
 }
 
 func TestPlanNamesTheFileAfterTheFirstTargetItFills(t *testing.T) {
-	both := targets.Target{ID: targets.TargetID{UUID: storage.NewUUID()}, Name: "Any HD", Resolutions: []targets.Resolution{targets.R720p, targets.R1080p}}
+	both := targets.Target{ID: targets.TargetID{UUID: storage.NewUUID()}, Name: "Any HD", Resolutions: []release.Resolution{release.R720p, release.R1080p}}
 	root := roots.Root{ID: roots.ID{UUID: storage.NewUUID()}, Path: "/media/movies"}
 	templates := naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
 	tokens := map[string]string{"Movie Title": "The Quiet Orchard", "Year": "2021"}
 	cells := []files.Cell{cell(small, files.Missing), cell(hd, files.Downloading), cell(both, files.Failed)}
 
-	got, err := plan(cells, item.ID, targets.R1080p, root, templates, tokens, "mkv")
+	got, err := plan(cells, item.ID, release.R1080p, root, templates, tokens, "mkv")
 	want := Plan{Root: root, Path: "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv", Fills: []targets.TargetID{hd.ID, both.ID}}
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("plan = %+v, %v; want %+v", got, err, want)
 	}
 
 	tokens["Movie Title"] = `CON: The "Quiet" Orchard.`
-	got, err = plan(cells[1:2], item.ID, targets.R1080p, root, templates, tokens, "mkv")
+	got, err = plan(cells[1:2], item.ID, release.R1080p, root, templates, tokens, "mkv")
 	if want := "CON The Quiet Orchard. (2021)/CON The Quiet Orchard. (2021) - 1080p.mkv"; err != nil || got.Path != want {
 		t.Fatalf("plan of a title with reserved characters = %q, %v; want %q", got.Path, err, want)
 	}
 
-	_, err = plan([]files.Cell{cell(hd, files.Met), cell(small, files.Missing)}, item.ID, targets.R1080p, root, templates, tokens, "mkv")
+	_, err = plan([]files.Cell{cell(hd, files.Met), cell(small, files.Missing)}, item.ID, release.R1080p, root, templates, tokens, "mkv")
 	if err == nil || err.Error() != "a 1080p file fills no Target the Work still wants" {
 		t.Fatalf("plan of a file whose Targets are met = %v, want fills nothing", err)
 	}

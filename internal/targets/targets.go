@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
 	"github.com/jatassi/slipstream/internal/works"
@@ -23,27 +24,16 @@ var schemaFiles embed.FS
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("targets", schemaFiles) }
 
 type (
-	TargetID   = db.TargetID
-	ProfileID  = db.ProfileID
-	Resolution = db.Resolution
+	TargetID  = db.TargetID
+	ProfileID = db.ProfileID
 )
-
-const (
-	R2160p = db.R2160p
-	R1080p = db.R1080p
-	R720p  = db.R720p
-	R576p  = db.R576p
-	R480p  = db.R480p
-)
-
-func ParseResolution(s string) (Resolution, error) { return db.ParseResolution(s) }
 
 // Target is a named encoding goal. A file meets it when its resolution is
 // in Resolutions, and an earlier one ranks higher.
 type Target struct {
 	ID          TargetID
 	Name        string
-	Resolutions []Resolution
+	Resolutions []release.Resolution
 	CreatedAt   storage.Time
 }
 
@@ -83,7 +73,7 @@ type Targets struct{ cfg Config }
 
 func New(cfg Config) *Targets { return &Targets{cfg: cfg} }
 
-func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, name string, resolutions []Resolution) (Target, error) {
+func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, name string, resolutions []release.Resolution) (Target, error) {
 	target := Target{ID: TargetID{UUID: storage.NewUUID()}, Name: name, Resolutions: resolutions, CreatedAt: storage.Now()}
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -212,7 +202,7 @@ func withResolutions(ctx context.Context, q *db.Queries, rows []db.TargetsTarget
 	if err != nil {
 		return nil, err
 	}
-	of := map[TargetID][]Resolution{}
+	of := map[TargetID][]release.Resolution{}
 	for _, r := range all {
 		of[r.TargetID] = append(of[r.TargetID], r.Resolution)
 	}

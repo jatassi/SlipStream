@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -25,7 +26,7 @@ type TargetsProfileTarget struct {
 type TargetsResolution struct {
 	TargetID   TargetID
 	Position   int64
-	Resolution Resolution
+	Resolution release.Resolution
 }
 
 type TargetsTarget struct {

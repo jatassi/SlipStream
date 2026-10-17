@@ -20,6 +20,7 @@ sql:
               type: TargetID
           - column: targets_resolution.resolution
             go_type:
+              import: github.com/jatassi/slipstream/internal/release
               type: Resolution
           - column: targets_profile.id
             go_type:

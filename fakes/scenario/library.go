@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/release"
 )
 
 // Library is what the world creates on the Controller once it is set up,
@@ -77,7 +77,7 @@ func (l Library) checkTargets(add func(format string, args ...any)) {
 			add("library target %s has no resolutions", t.Name)
 		}
 		for _, r := range t.Resolutions {
-			if _, err := targets.ParseResolution(r); err != nil {
+			if _, err := release.ParseResolution(r); err != nil {
 				add("library target %s: %v", t.Name, err)
 			}
 		}

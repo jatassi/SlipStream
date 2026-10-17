@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -51,8 +52,8 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	}))
 	types := []works.TypeID{contenttypetest.ID}
 	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []targets.Resolution{targets.R1080p}))
-	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "2160p", []targets.Resolution{targets.R2160p}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []release.Resolution{release.R1080p}))
+	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "2160p", []release.Resolution{release.R2160p}))
 	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID, uhd.ID}))
 	root := must[roots.Root](t)(roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
 		Create(ctx, admin, contenttypetest.ID, t.TempDir()))

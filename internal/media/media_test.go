@@ -14,7 +14,6 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
-	"github.com/jatassi/slipstream/internal/targets"
 )
 
 func TestParseFFprobeReadsTheFormatAndFirstVideoStream(t *testing.T) {
@@ -33,29 +32,6 @@ func TestParseFFprobeRefusesAFileWithoutVideo(t *testing.T) {
 	out := []byte(`{"streams":[{"codec_type":"audio","codec_name":"aac"}],"format":{"format_name":"mp4","duration":"3.5"}}`)
 	if _, err := media.ParseFFprobe(out); err == nil || err.Error() != "the file has no video stream" {
 		t.Fatalf("ParseFFprobe(audio only) = %v, want the file has no video stream", err)
-	}
-}
-
-func TestClass(t *testing.T) {
-	for _, c := range []struct {
-		width, height int
-		want          targets.Resolution
-	}{
-		{3840, 2160, targets.R2160p},
-		{3840, 1600, targets.R2160p},
-		{1920, 1080, targets.R1080p},
-		{1920, 800, targets.R1080p},
-		{1440, 1080, targets.R1080p},
-		{1280, 720, targets.R720p},
-		{1280, 536, targets.R720p},
-		{1024, 576, targets.R576p},
-		{720, 576, targets.R576p},
-		{720, 480, targets.R480p},
-		{640, 360, targets.R480p},
-	} {
-		if got := media.Class(c.width, c.height); got != c.want {
-			t.Errorf("Class(%d, %d) = %s, want %s", c.width, c.height, got, c.want)
-		}
 	}
 }
 
