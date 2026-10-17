@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
+	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/worktree"
@@ -336,8 +337,8 @@ func fileSHA256(path string) (string, error) {
 }
 
 type nodeRow struct {
-	ID    string   `json:"id"`
-	Roles []string `json:"roles"`
+	ID    string             `json:"id"`
+	Roles []nodeapi.RoleView `json:"roles"`
 	Link  struct {
 		State string `json:"state"`
 	} `json:"link"`
@@ -380,8 +381,8 @@ func (d *doctor) clusterMatches(c *CheckResult) {
 		if row.Link.State != link {
 			fail(c, "node %s's link is %s, not %s", n.Name, row.Link.State, link)
 		}
-		if !slices.Equal(row.Roles, n.Roles) {
-			fail(c, "node %s holds %v, not the Scenario's %v", n.Name, row.Roles, n.Roles)
+		if held := nodeapi.Assigned(row.Roles); !slices.Equal(held, n.Roles) {
+			fail(c, "node %s holds %v, not the Scenario's %v", n.Name, held, n.Roles)
 		}
 	}
 }

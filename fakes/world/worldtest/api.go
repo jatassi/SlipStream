@@ -14,6 +14,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
+	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
@@ -208,13 +209,13 @@ func Expect(t *testing.T, what string, got, want Reply) {
 
 // Row is a listNodes row, as much of it as the tiers assert.
 type Row struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Self          bool     `json:"self"`
-	Key           string   `json:"key"`
-	Addresses     []string `json:"addresses"`
-	Roles         []string `json:"roles"`
-	IntentVersion string   `json:"intentVersion"`
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	Self          bool               `json:"self"`
+	Key           string             `json:"key"`
+	Addresses     []string           `json:"addresses"`
+	Roles         []nodeapi.RoleView `json:"roles"`
+	IntentVersion string             `json:"intentVersion"`
 	Link          struct {
 		State string `json:"state"`
 		Since string `json:"since"`
@@ -232,6 +233,9 @@ type Row struct {
 	} `json:"facts"`
 }
 
+// Assigned is the Roles ticked on the Node.
+func (r Row) Assigned() []string { return nodeapi.Assigned(r.Roles) }
+
 // Nodes is listNodes on the Node named name.
 func (a *API) Nodes(name string) []Row {
 	a.t.Helper()
@@ -242,18 +246,42 @@ func (a *API) Nodes(name string) []Row {
 	return list.Nodes
 }
 
-// SetRoles is setNodeRoles of the Node with id on the Node named name.
-func (a *API) SetRoles(name, id string, roles ...string) Row {
+// Outcome is a setRoles answer, as much of it as the tiers assert.
+type Outcome struct {
+	Basis   string `json:"basis"`
+	Effects []struct {
+		Kind  string `json:"kind"`
+		Words string `json:"words"`
+	} `json:"effects"`
+}
+
+// Words is what each of o's effects says.
+func (o Outcome) Words() []string {
+	out := []string{}
+	for _, e := range o.Effects {
+		out = append(out, e.Words)
+	}
+	return out
+}
+
+// SetRoles gives the Node with id roles through setRoles on the Node named
+// name, on the basis getRoleBoard reads first.
+func (a *API) SetRoles(name, id string, roles ...string) Outcome {
 	a.t.Helper()
+	var board struct {
+		Basis string `json:"basis"`
+	}
+	a.decode(a.Admin(name, http.MethodGet, "/api/v1/nodes/roles", ""), http.StatusOK, &board)
 	body, err := json.Marshal(struct {
-		Roles []string `json:"roles"`
-	}{append([]string{}, roles...)})
+		Basis string               `json:"basis"`
+		Set   []nodeapi.Assignment `json:"set"`
+	}{board.Basis, []nodeapi.Assignment{{NodeID: id, Roles: append([]string{}, roles...)}}})
 	if err != nil {
 		a.t.Fatal(err)
 	}
-	var row Row
-	a.decode(a.Admin(name, http.MethodPut, "/api/v1/nodes/"+id+"/roles", string(body)), http.StatusOK, &row)
-	return row
+	var out Outcome
+	a.decode(a.Admin(name, http.MethodPut, "/api/v1/nodes/roles", string(body)), http.StatusOK, &out)
+	return out
 }
 
 // Join joins the Unclaimed Node named name as a Worker of the Controller
@@ -295,7 +323,8 @@ var (
 // CheckHome makes the home Scenario's assertions, which every tier that
 // runs it shares: seedbox joined as a Worker on 127.0.0.3 holding only
 // local.db, both Nodes listed on home with their Roles applied, and a
-// setNodeRoles that answers once seedbox holds the new Roles.
+// setRoles that answers once seedbox holds the new Roles and home holds
+// the Downloading seedbox let go.
 func CheckHome(t *testing.T, a *API) {
 	t.Helper()
 	box := a.Node("seedbox")
@@ -322,9 +351,13 @@ func CheckHome(t *testing.T, a *API) {
 	}
 
 	set := a.SetRoles("home", seedbox.ID, "searching")
-	if set.Facts == nil || !slices.Equal(set.Facts.Assigned, []string{"searching"}) || set.Facts.AppliedVersion != set.IntentVersion {
-		t.Fatalf("setNodeRoles(seedbox, [searching]) answered facts %+v at intentVersion %s, want searching applied", set.Facts, set.IntentVersion)
+	if want := []string{"seedbox stops Downloading.", "home takes over Downloading, since SlipStream always needs a Node that downloads."}; !slices.Equal(set.Words(), want) {
+		t.Fatalf("setRoles(seedbox, [searching]) answered %q, want %q", set.Words(), want)
 	}
+	rows = a.Nodes("home")
+	byName = map[string]Row{rows[0].Name: rows[0], rows[1].Name: rows[1]}
+	checkRow(t, byName["seedbox"], "up", []string{"searching"})
+	checkRow(t, byName["home"], "local", []string{"downloading", "storage", "converting", "subtitles", "metadata", "media-server-link", "notifying", "serving"})
 
 	for name, want := range map[string]bool{"node.key": true, "pairing.json": true, "local.db": true, "library.db": false} {
 		if _, err := os.Stat(filepath.Join(box.DataDir, name)); (err == nil) != want {
@@ -335,7 +368,7 @@ func CheckHome(t *testing.T, a *API) {
 
 func checkRow(t *testing.T, r Row, link string, roles []string) {
 	t.Helper()
-	if r.Link.State != link || !slices.Equal(r.Roles, roles) || r.Facts == nil || !slices.Equal(r.Facts.Assigned, roles) {
-		t.Fatalf("listNodes row %s: link %s, roles %v, facts %+v; want link %s with %v assigned", r.Name, r.Link.State, r.Roles, r.Facts, link, roles)
+	if r.Link.State != link || !slices.Equal(r.Assigned(), roles) || r.Facts == nil || !slices.Equal(r.Facts.Assigned, roles) || r.Facts.AppliedVersion != r.IntentVersion {
+		t.Fatalf("listNodes row %s: link %s, roles %v, facts %+v at intentVersion %s; want link %s with %v applied", r.Name, r.Link.State, r.Roles, r.Facts, r.IntentVersion, link, roles)
 	}
 }

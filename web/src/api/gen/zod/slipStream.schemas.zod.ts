@@ -923,6 +923,85 @@ export const NewSignupLinkInputBody = zod.object({
 export type NewSignupLinkInputBody = zod.input<typeof NewSignupLinkInputBody>;
 export type NewSignupLinkInputBodyOutput = zod.output<typeof NewSignupLinkInputBody>;
 
+export const NodesAssignment = zod.object({
+  nodeId: zod.uuid(),
+  roles: zod.array(
+    zod.enum([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ]),
+  ),
+});
+
+export type NodesAssignment = zod.input<typeof NodesAssignment>;
+export type NodesAssignmentOutput = zod.output<typeof NodesAssignment>;
+
+export const NodesHeld = zod.object({
+  bytes: zod.int().describe("0 when sizes don't apply"),
+  noun: zod.string().describe("The noun that fits units: torrent, torrents"),
+  units: zod.int(),
+});
+
+export type NodesHeld = zod.input<typeof NodesHeld>;
+export type NodesHeldOutput = zod.output<typeof NodesHeld>;
+
+export const NodesRoleView = zod.object({
+  held: NodesHeld.exactOptional().describe(
+    "The tied work the Node holds for the Role; absent when none",
+  ),
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  state: zod.enum(["holding", "away", "lapsed", "draining", "writing-off", "covering"]),
+});
+
+export type NodesRoleView = zod.input<typeof NodesRoleView>;
+export type NodesRoleViewOutput = zod.output<typeof NodesRoleView>;
+
+export const NodesBoardNode = zod.object({
+  assigned: zod
+    .array(
+      zod.enum([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ]),
+    )
+    .describe("The Roles ticked on the Node, as a set sends them"),
+  away: zod.boolean().describe("Out of step, so its checks can't run"),
+  controller: zod.boolean(),
+  id: zod.uuid(),
+  name: zod.string(),
+  roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
+});
+
+export type NodesBoardNode = zod.input<typeof NodesBoardNode>;
+export type NodesBoardNodeOutput = zod.output<typeof NodesBoardNode>;
+
 export const NodesBuild = zod.object({
   arch: zod.string(),
   installKind: zod.string(),
@@ -940,6 +1019,193 @@ export const NodesChanged = zod.object({
 export type NodesChanged = zod.input<typeof NodesChanged>;
 export type NodesChangedOutput = zod.output<typeof NodesChanged>;
 
+export const NodesNamed = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type NodesNamed = zod.input<typeof NodesNamed>;
+export type NodesNamedOutput = zod.output<typeof NodesNamed>;
+
+export const NodesCheck = zod.object({
+  node: NodesNamed,
+  reason: zod.enum([
+    "role_taken",
+    "probe_fails",
+    "probe_weak",
+    "offline_unchecked",
+    "reach_failed",
+    "reached",
+    "nothing_to_test",
+    "node_is_controller",
+    "node_holds_work",
+    "nothing_held",
+    "keeps_role",
+  ]),
+  role: zod
+    .enum([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ])
+    .exactOptional()
+    .describe("Absent for a check on the whole Node"),
+  verdict: zod.enum(["allow", "warn", "block"]),
+  words: zod.string(),
+});
+
+export type NodesCheck = zod.input<typeof NodesCheck>;
+export type NodesCheckOutput = zod.output<typeof NodesCheck>;
+
+export const NodesDrains = zod.object({
+  held: NodesHeld,
+  kind: zod.enum(["drains"]),
+  node: NodesNamed,
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  words: zod.string(),
+});
+
+export type NodesDrains = zod.input<typeof NodesDrains>;
+export type NodesDrainsOutput = zod.output<typeof NodesDrains>;
+
+export const NodesGains = zod.object({
+  kind: zod.enum(["gains"]),
+  node: NodesNamed,
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  words: zod.string(),
+});
+
+export type NodesGains = zod.input<typeof NodesGains>;
+export type NodesGainsOutput = zod.output<typeof NodesGains>;
+
+export const NodesLetsGo = zod.object({
+  kind: zod.enum(["lets-go"]),
+  node: NodesNamed,
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  words: zod.string(),
+});
+
+export type NodesLetsGo = zod.input<typeof NodesLetsGo>;
+export type NodesLetsGoOutput = zod.output<typeof NodesLetsGo>;
+
+export const NodesHandedBack = zod.object({
+  from: zod.array(NodesNamed).describe("Every Node that held the Role before"),
+  kind: zod.enum(["handed-back"]),
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  to: NodesNamed,
+  words: zod.string(),
+});
+
+export type NodesHandedBack = zod.input<typeof NodesHandedBack>;
+export type NodesHandedBackOutput = zod.output<typeof NodesHandedBack>;
+
+export const NodesPinned = zod.object({
+  kind: zod.enum(["pinned"]),
+  node: NodesNamed,
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  words: zod.string(),
+});
+
+export type NodesPinned = zod.input<typeof NodesPinned>;
+export type NodesPinnedOutput = zod.output<typeof NodesPinned>;
+
+export const NodesMoves = zod.object({
+  from: NodesNamed,
+  held: NodesHeld,
+  kind: zod.enum(["moves"]),
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  to: NodesNamed,
+  words: zod.string(),
+});
+
+export type NodesMoves = zod.input<typeof NodesMoves>;
+export type NodesMovesOutput = zod.output<typeof NodesMoves>;
+
+export const NodesEffect = zod.discriminatedUnion("kind", [
+  NodesGains,
+  NodesLetsGo,
+  NodesDrains,
+  NodesHandedBack,
+  NodesPinned,
+  NodesMoves,
+]);
+
+export type NodesEffect = zod.input<typeof NodesEffect>;
+export type NodesEffectOutput = zod.output<typeof NodesEffect>;
+
 export const NodesFacts = zod.object({
   appliedVersion: zod.string(),
   assigned: zod.array(zod.string()),
@@ -952,6 +1218,29 @@ export const NodesFacts = zod.object({
 
 export type NodesFacts = zod.input<typeof NodesFacts>;
 export type NodesFactsOutput = zod.output<typeof NodesFacts>;
+
+export const NodesGesture = zod.object({
+  from: zod.uuid().exactOptional().describe("The Node the Role moves from; absent for an add"),
+  note: zod.string().exactOptional().describe("The words of a Role the gesture hands back or pins"),
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  to: zod.uuid(),
+  verdict: zod.enum(["allow", "warn", "block"]),
+  word: zod.string(),
+});
+
+export type NodesGesture = zod.input<typeof NodesGesture>;
+export type NodesGestureOutput = zod.output<typeof NodesGesture>;
 
 export const NodesJoinCode = zod.object({
   code: zod.string(),
@@ -981,20 +1270,7 @@ export const NodesNode = zod.object({
   link: NodesLink,
   name: zod.string(),
   pairedAt: zod.iso.datetime({ offset: true }),
-  roles: zod.array(
-    zod.enum([
-      "searching",
-      "downloading",
-      "storage",
-      "converting",
-      "subtitles",
-      "metadata",
-      "media-server-link",
-      "notifying",
-      "relaying",
-      "serving",
-    ]),
-  ),
+  roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
   self: zod.boolean(),
 });
 
@@ -1008,25 +1284,37 @@ export const NodesNodeList = zod.object({
 export type NodesNodeList = zod.input<typeof NodesNodeList>;
 export type NodesNodeListOutput = zod.output<typeof NodesNodeList>;
 
-export const NodesRoles = zod.object({
-  roles: zod.array(
-    zod.enum([
-      "searching",
-      "downloading",
-      "storage",
-      "converting",
-      "subtitles",
-      "metadata",
-      "media-server-link",
-      "notifying",
-      "relaying",
-      "serving",
-    ]),
-  ),
+export const NodesOutcome = zod.object({
+  basis: zod.string().describe("The basis of the rows it was planned on"),
+  checks: zod.array(NodesCheck),
+  effects: zod.array(NodesEffect),
+  forfeit: zod.array(NodesAssignment).describe("Every Node's written-off Roles once applied"),
+  next: zod.array(NodesAssignment).describe("Every Node's Roles once applied"),
 });
 
-export type NodesRoles = zod.input<typeof NodesRoles>;
-export type NodesRolesOutput = zod.output<typeof NodesRoles>;
+export type NodesOutcome = zod.input<typeof NodesOutcome>;
+export type NodesOutcomeOutput = zod.output<typeof NodesOutcome>;
+
+export const NodesRoleBoard = zod.object({
+  basis: zod.string(),
+  gestures: zod
+    .array(NodesGesture)
+    .describe("The plan's verdict on every move and add a drag can make"),
+  nodes: zod.array(NodesBoardNode).describe("Every Node, in id order"),
+});
+
+export type NodesRoleBoard = zod.input<typeof NodesRoleBoard>;
+export type NodesRoleBoardOutput = zod.output<typeof NodesRoleBoard>;
+
+export const NodesRolesChange = zod.object({
+  basis: zod.string().describe("The basis of the board or Outcome the change was planned on"),
+  set: zod
+    .array(NodesAssignment)
+    .describe("The Roles of each Node the change names. A Node it doesn't name keeps its own."),
+});
+
+export type NodesRolesChange = zod.input<typeof NodesRolesChange>;
+export type NodesRolesChangeOutput = zod.output<typeof NodesRolesChange>;
 
 export const NodesSettings = zod.object({
   joinCodeLifetime: SettingDurationField,

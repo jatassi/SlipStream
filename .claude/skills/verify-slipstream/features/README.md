@@ -50,6 +50,7 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Settings](./settings.md) covers Settings > Address, Email with its test email, and Sign-in.
 - [API key](./api-key.md) covers Settings > API key, regenerating it and the old key refused.
 - [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
+- [Roles](./roles.md) covers the Role board, planning and applying a set of Roles, the handback to home, and a stale or blocked set.
 - [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.
 - [Nodes](./nodes.md) covers the Nodes page, its sections and Node picker, Web and API and Log settings, the live Logs and Download logs, Restart, and `GET /api/v1/system`.

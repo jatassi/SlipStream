@@ -17,6 +17,10 @@ type Owner struct {
 	// work does when the Node lets the Role go: tied work drains there, and
 	// portable work moves to the heir. It reads the library and nothing else.
 	Held func(ctx context.Context, r storage.Reader[storage.Library], node ID) (Held, error)
+	// Unassigned moves node's portable work to heir inside the Write that
+	// takes the Role from node. It must not publish or do IO. Exactly the
+	// owners of Portable Roles have one.
+	Unassigned func(ctx context.Context, tx *storage.Tx[storage.Library], node, heir ID) error
 }
 
 // HoldsNothing is the Held of a Role whose work no feature keeps yet.
@@ -24,11 +28,22 @@ func HoldsNothing(context.Context, storage.Reader[storage.Library], ID) (Held, e
 	return Held{}, nil
 }
 
+// MovesNothing is the Unassigned of a Portable Role whose work no feature
+// keeps yet.
+func MovesNothing(context.Context, *storage.Tx[storage.Library], ID, ID) error { return nil }
+
 // Unowned is the owner of a Role whose work a later spec adds.
-func Unowned(r role.Name) Owner { return Owner{Role: r, Held: HoldsNothing} }
+func Unowned(r role.Name) Owner {
+	o := Owner{Role: r, Held: HoldsNothing}
+	if r.Rule().Work == role.Portable {
+		o.Unassigned = MovesNothing
+	}
+	return o
+}
 
 // ownersByRole is owners keyed by Role. It panics unless each Role of the
-// table has exactly one owner.
+// table has exactly one owner, with an Unassigned exactly when its work is
+// portable.
 func ownersByRole(owners []Owner) map[role.Name]Owner {
 	out := map[role.Name]Owner{}
 	for _, o := range owners {
@@ -37,6 +52,9 @@ func ownersByRole(owners []Owner) map[role.Name]Owner {
 		}
 		if _, dup := out[o.Role]; dup {
 			panic(fmt.Sprintf("nodes: the %s Role has two owners", o.Role))
+		}
+		if portable := o.Role.Rule().Work == role.Portable; portable != (o.Unassigned != nil) {
+			panic(fmt.Sprintf("nodes: the %s Role's owner needs an Unassigned exactly when its work is portable", o.Role))
 		}
 		out[o.Role] = o
 	}

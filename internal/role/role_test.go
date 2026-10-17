@@ -67,8 +67,7 @@ func (c *cluster) scopeOf(_ context.Context, _ storage.Reader[storage.Library], 
 	return role.NodeScope{Holds: slices.Clone(c.assigned[node])}, nil
 }
 
-// assign sets node's Roles and touches its node scope, as setNodeRoles
-// will.
+// assign sets node's Roles and touches its node scope, as setRoles does.
 func (c *cluster) assign(node role.NodeID, roles ...role.Name) {
 	c.mu.Lock()
 	c.assigned[node] = roles

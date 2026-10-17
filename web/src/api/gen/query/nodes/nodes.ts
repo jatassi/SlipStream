@@ -30,6 +30,10 @@ import type {
   GetNodeSettings403,
   GetNodeSettings409,
   GetNodeSettings500,
+  GetRoleBoard401,
+  GetRoleBoard403,
+  GetRoleBoard409,
+  GetRoleBoard500,
   ListNodes401,
   ListNodes403,
   ListNodes409,
@@ -37,15 +41,23 @@ import type {
   NodesJoinCode,
   NodesNode,
   NodesNodeList,
-  NodesRoles,
+  NodesOutcome,
+  NodesRoleBoard,
+  NodesRolesChange,
   NodesSettings,
   NodesSettingsPatch,
-  SetNodeRoles401,
-  SetNodeRoles403,
-  SetNodeRoles404,
-  SetNodeRoles409,
-  SetNodeRoles422,
-  SetNodeRoles500,
+  PlanRoles401,
+  PlanRoles403,
+  PlanRoles404,
+  PlanRoles409,
+  PlanRoles422,
+  PlanRoles500,
+  SetRoles401,
+  SetRoles403,
+  SetRoles404,
+  SetRoles409,
+  SetRoles422,
+  SetRoles500,
   UpdateNodeSettings401,
   UpdateNodeSettings403,
   UpdateNodeSettings409,
@@ -241,6 +253,342 @@ export const useCreateJoinCode = <
   queryClient?: QueryClient,
 ): UseMutationResult<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext> => {
   return useMutation(getCreateJoinCodeMutationOptions(options), queryClient);
+};
+export const getGetRoleBoardUrl = () => {
+  return `/api/v1/nodes/roles`;
+};
+
+/**
+ * @summary Get every Node's Roles and the plan's verdict on every drag
+ */
+export const getRoleBoard = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesRoleBoard> => {
+  return apiFetch<NodesRoleBoard>(getGetRoleBoardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRoleBoardQueryKey = () => {
+  return [`/api/v1/nodes/roles`] as const;
+};
+
+export const getGetRoleBoardSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRoleBoard>>,
+  TError = ErrorType<GetRoleBoard401 | GetRoleBoard403 | GetRoleBoard409 | GetRoleBoard500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRoleBoard>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRoleBoardQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRoleBoard>>> = ({ signal }) =>
+    getRoleBoard({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRoleBoard>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetRoleBoardSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getRoleBoard>>>;
+export type GetRoleBoardSuspenseQueryError = ErrorType<
+  GetRoleBoard401 | GetRoleBoard403 | GetRoleBoard409 | GetRoleBoard500
+>;
+
+export function useGetRoleBoardSuspense<
+  TData = Awaited<ReturnType<typeof getRoleBoard>>,
+  TError = ErrorType<GetRoleBoard401 | GetRoleBoard403 | GetRoleBoard409 | GetRoleBoard500>,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRoleBoard>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetRoleBoardSuspense<
+  TData = Awaited<ReturnType<typeof getRoleBoard>>,
+  TError = ErrorType<GetRoleBoard401 | GetRoleBoard403 | GetRoleBoard409 | GetRoleBoard500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRoleBoard>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetRoleBoardSuspense<
+  TData = Awaited<ReturnType<typeof getRoleBoard>>,
+  TError = ErrorType<GetRoleBoard401 | GetRoleBoard403 | GetRoleBoard409 | GetRoleBoard500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRoleBoard>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get every Node's Roles and the plan's verdict on every drag
+ */
+
+export function useGetRoleBoardSuspense<
+  TData = Awaited<ReturnType<typeof getRoleBoard>>,
+  TError = ErrorType<GetRoleBoard401 | GetRoleBoard403 | GetRoleBoard409 | GetRoleBoard500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRoleBoard>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetRoleBoardSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSetRolesUrl = () => {
+  return `/api/v1/nodes/roles`;
+};
+
+/**
+ * @summary Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers
+ */
+export const setRoles = async (
+  nodesRolesChange: NodesRolesChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesOutcome> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NodesOutcome>(getSetRolesUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(nodesRolesChange),
+  });
+};
+
+export const getSetRolesMutationKey = () => ["setRoles"] as const;
+
+export const getSetRolesMutationOptions = <
+  TError = ErrorType<
+    SetRoles401 | SetRoles403 | SetRoles404 | SetRoles409 | SetRoles422 | SetRoles500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setRoles>>,
+    TError,
+    SetRolesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setRoles>>,
+  TError,
+  SetRolesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetRolesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setRoles>>,
+    SetRolesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setRoles(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetRolesMutationResult = NonNullable<Awaited<ReturnType<typeof setRoles>>>;
+export type SetRolesMutationBody = NodesRolesChange;
+export type SetRolesMutationError = ErrorType<
+  SetRoles401 | SetRoles403 | SetRoles404 | SetRoles409 | SetRoles422 | SetRoles500
+>;
+export type SetRolesMutationVariables = { data: NodesRolesChange };
+
+/**
+ * @summary Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers
+ */
+export const useSetRoles = <
+  TError = ErrorType<
+    SetRoles401 | SetRoles403 | SetRoles404 | SetRoles409 | SetRoles422 | SetRoles500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setRoles>>,
+      TError,
+      SetRolesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setRoles>>,
+  TError,
+  SetRolesMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetRolesMutationOptions(options), queryClient);
+};
+export const getPlanRolesUrl = () => {
+  return `/api/v1/nodes/roles/plan`;
+};
+
+/**
+ * @summary Plan a change of Roles without applying it
+ */
+export const planRoles = async (
+  nodesRolesChange: NodesRolesChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesOutcome> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NodesOutcome>(getPlanRolesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(nodesRolesChange),
+  });
+};
+
+export const getPlanRolesMutationKey = () => ["planRoles"] as const;
+
+export const getPlanRolesMutationOptions = <
+  TError = ErrorType<
+    PlanRoles401 | PlanRoles403 | PlanRoles404 | PlanRoles409 | PlanRoles422 | PlanRoles500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof planRoles>>,
+    TError,
+    PlanRolesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof planRoles>>,
+  TError,
+  PlanRolesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getPlanRolesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof planRoles>>,
+    PlanRolesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return planRoles(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PlanRolesMutationResult = NonNullable<Awaited<ReturnType<typeof planRoles>>>;
+export type PlanRolesMutationBody = NodesRolesChange;
+export type PlanRolesMutationError = ErrorType<
+  PlanRoles401 | PlanRoles403 | PlanRoles404 | PlanRoles409 | PlanRoles422 | PlanRoles500
+>;
+export type PlanRolesMutationVariables = { data: NodesRolesChange };
+
+/**
+ * @summary Plan a change of Roles without applying it
+ */
+export const usePlanRoles = <
+  TError = ErrorType<
+    PlanRoles401 | PlanRoles403 | PlanRoles404 | PlanRoles409 | PlanRoles422 | PlanRoles500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof planRoles>>,
+      TError,
+      PlanRolesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof planRoles>>,
+  TError,
+  PlanRolesMutationVariables,
+  TContext
+> => {
+  return useMutation(getPlanRolesMutationOptions(options), queryClient);
 };
 export const getGetNodeSettingsUrl = () => {
   return `/api/v1/nodes/settings`;
@@ -605,132 +953,3 @@ export function useGetNodeSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-export const getSetNodeRolesUrl = (id: string) => {
-  return `/api/v1/nodes/${id}/roles`;
-};
-
-/**
- * @summary Set the Roles a Node holds; a connected Node in step has them when this answers
- */
-export const setNodeRoles = async (
-  id: string,
-  nodesRoles: NodesRoles,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<NodesNode> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<NodesNode>(getSetNodeRolesUrl(id), {
-    ...options,
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(nodesRoles),
-  });
-};
-
-export const getSetNodeRolesMutationKey = () => ["setNodeRoles"] as const;
-
-export const getSetNodeRolesMutationOptions = <
-  TError = ErrorType<
-    | SetNodeRoles401
-    | SetNodeRoles403
-    | SetNodeRoles404
-    | SetNodeRoles409
-    | SetNodeRoles422
-    | SetNodeRoles500
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof setNodeRoles>>,
-    TError,
-    SetNodeRolesMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof setNodeRoles>>,
-  TError,
-  SetNodeRolesMutationVariables,
-  TContext
-> => {
-  const mutationKey = getSetNodeRolesMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof setNodeRoles>>,
-    SetNodeRolesMutationVariables
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return setNodeRoles(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type SetNodeRolesMutationResult = NonNullable<Awaited<ReturnType<typeof setNodeRoles>>>;
-export type SetNodeRolesMutationBody = NodesRoles;
-export type SetNodeRolesMutationError = ErrorType<
-  | SetNodeRoles401
-  | SetNodeRoles403
-  | SetNodeRoles404
-  | SetNodeRoles409
-  | SetNodeRoles422
-  | SetNodeRoles500
->;
-export type SetNodeRolesMutationVariables = { id: string; data: NodesRoles };
-
-/**
- * @summary Set the Roles a Node holds; a connected Node in step has them when this answers
- */
-export const useSetNodeRoles = <
-  TError = ErrorType<
-    | SetNodeRoles401
-    | SetNodeRoles403
-    | SetNodeRoles404
-    | SetNodeRoles409
-    | SetNodeRoles422
-    | SetNodeRoles500
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof setNodeRoles>>,
-      TError,
-      SetNodeRolesMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof setNodeRoles>>,
-  TError,
-  SetNodeRolesMutationVariables,
-  TContext
-> => {
-  return useMutation(getSetNodeRolesMutationOptions(options), queryClient);
-};

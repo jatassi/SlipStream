@@ -21,6 +21,20 @@ func (q *Queries) DeleteAddresses(ctx context.Context, nodeID role.NodeID) error
 	return err
 }
 
+const deleteForfeit = `-- name: DeleteForfeit :exec
+DELETE FROM nodes_forfeit WHERE node_id = ?1 AND role = ?2
+`
+
+type DeleteForfeitParams struct {
+	NodeID role.NodeID
+	Role   role.Name
+}
+
+func (q *Queries) DeleteForfeit(ctx context.Context, arg DeleteForfeitParams) error {
+	_, err := q.db.ExecContext(ctx, deleteForfeit, arg.NodeID, arg.Role)
+	return err
+}
+
 const deleteJoinCodesExpiredBefore = `-- name: DeleteJoinCodesExpiredBefore :exec
 DELETE FROM nodes_join_code WHERE expires_at < ?1
 `
@@ -134,6 +148,22 @@ type InsertAddressParams struct {
 
 func (q *Queries) InsertAddress(ctx context.Context, arg InsertAddressParams) error {
 	_, err := q.db.ExecContext(ctx, insertAddress, arg.NodeID, arg.Position, arg.Address)
+	return err
+}
+
+const insertForfeit = `-- name: InsertForfeit :exec
+INSERT INTO nodes_forfeit (node_id, role, declared_at)
+VALUES (?1, ?2, ?3)
+`
+
+type InsertForfeitParams struct {
+	NodeID     role.NodeID
+	Role       role.Name
+	DeclaredAt storage.Time
+}
+
+func (q *Queries) InsertForfeit(ctx context.Context, arg InsertForfeitParams) error {
+	_, err := q.db.ExecContext(ctx, insertForfeit, arg.NodeID, arg.Role, arg.DeclaredAt)
 	return err
 }
 

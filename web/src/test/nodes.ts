@@ -15,7 +15,10 @@ export const home: NodesNode = {
   key: "SHA256:home",
   link: { state: "local", since: "2026-10-12T09:00:00Z", build },
   pairedAt: "2026-10-12T09:00:00Z",
-  roles: ["searching", "downloading"],
+  roles: [
+    { role: "searching", state: "holding" },
+    { role: "downloading", state: "holding" },
+  ],
 };
 
 export const seedbox: NodesNode = {
@@ -27,7 +30,7 @@ export const seedbox: NodesNode = {
   key: "SHA256:seedbox",
   link: { state: "down", since: "2026-10-12T10:00:00Z" },
   pairedAt: "2026-10-12T09:30:00Z",
-  roles: ["downloading"],
+  roles: [{ role: "downloading", state: "away" }],
 };
 
 export const nodesAre = (...nodes: NodesNode[]) => getListNodesMockHandler({ nodes });

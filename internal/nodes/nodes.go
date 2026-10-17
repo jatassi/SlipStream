@@ -129,6 +129,7 @@ type Service struct {
 	// session, so a Node that reconnects unchanged publishes nothing.
 	revisions map[ID]string
 
+	reloading sync.Mutex
 	// rmu guards in and saved. board is derived from in, and replaced
 	// whole, so reads never lock.
 	rmu   sync.Mutex
@@ -258,15 +259,6 @@ func (s *Service) Admit(key link.Key) link.Admission {
 		return link.Pinned{}
 	}
 	return link.Pairing{}
-}
-
-// assigned is the Roles assigned to node, in table order, then Always.
-func (s *Service) assigned(ctx context.Context, r storage.Reader[file], node ID) ([]role.Name, error) {
-	roles, err := db.New(r).NodeRoles(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-	return append(role.Of(roles...).Names(), s.cfg.Always...), nil
 }
 
 // freeName is name, or name-2, name-3 and on when another Node holds it.
@@ -429,55 +421,6 @@ func (s *Service) SetJoinCodeLifetime(ctx context.Context, v setting.Stored[int6
 	})
 }
 
-// SetRoles makes roles the set node holds and tells the control half. For
-// a Node in step, here or over a live link, it returns once the Node's
-// facts show the node-scope version derived from that set, or ctx ends.
-func (s *Service) SetRoles(ctx context.Context, node ID, roles []role.Name) (Node, error) {
-	want := role.Of(roles...).Names()
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return replaceRoles(ctx, db.New(tx), node, want)
-	})
-	if err != nil {
-		return Node{}, err
-	}
-	if err := s.reload(ctx); err != nil {
-		return Node{}, err
-	}
-	s.controls.Touch(node)
-	s.changed(node)
-	if err := s.AwaitDelivery(ctx, node); err != nil {
-		return Node{}, err
-	}
-	return s.Get(ctx, node)
-}
-
-func replaceRoles(ctx context.Context, q *db.Queries, node ID, want []role.Name) error {
-	if _, err := q.GetNode(ctx, node); errors.Is(err, storage.ErrNoRows) {
-		return ErrNotFound
-	} else if err != nil {
-		return err
-	}
-	held, err := q.NodeRoles(ctx, node)
-	if err != nil {
-		return err
-	}
-	for _, r := range held {
-		if slices.Contains(want, r) {
-			continue
-		}
-		if err := q.DeleteRole(ctx, db.DeleteRoleParams{NodeID: node, Role: r}); err != nil {
-			return err
-		}
-	}
-	now := storage.Now()
-	for _, r := range want {
-		if err := q.InsertRole(ctx, db.InsertRoleParams{NodeID: node, Role: r, AssignedAt: now}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // AwaitDelivery waits while node can receive its intent and its facts lag
 // the node scope the library derives now. A Node can receive while it is
 // in step, or while its link is live and matched and its Sync session is
@@ -622,10 +565,11 @@ type Node struct {
 	Self      bool
 	PairedAt  time.Time
 	Addresses link.Addresses
-	Roles     []role.Name
-	Version   []byte
-	Link      LinkState
-	Since     time.Time
+	// Roles is every Role the Node stands in, in table order.
+	Roles   []RoleView
+	Version []byte
+	Link    LinkState
+	Since   time.Time
 	// Build is the peer's, or this Node's own for Local; nil while Down.
 	Build *link.NodeInfo
 	Facts *nodev1.NodeFacts
@@ -727,7 +671,7 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 	if err != nil {
 		return Node{}, fmt.Errorf("node %s: %w", row.ID, err)
 	}
-	roles, err := s.assigned(ctx, s.cfg.Library, row.ID)
+	held, _, err := s.work(ctx, s.cfg.Library, row.ID)
 	if err != nil {
 		return Node{}, err
 	}
@@ -742,7 +686,7 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 		Self:      row.ID == s.self,
 		PairedAt:  row.PairedAt.Time(),
 		Addresses: addrs,
-		Roles:     roles,
+		Roles:     s.Board().Roles(row.ID, held),
 		Version:   version,
 	}
 	n.Facts, _ = s.controls.NodeFacts(row.ID)

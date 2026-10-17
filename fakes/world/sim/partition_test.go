@@ -79,9 +79,9 @@ func TestPartitionThenRedial(t *testing.T) {
 			t.Fatalf("listNodes shows seedbox %s since %s, want down since %s", box.Link.State, box.Link.Since, stalled.Format(time.RFC3339Nano))
 		}
 
-		set := a.SetRoles("home", box.ID, "searching")
-		if set.Link.State != "down" || set.Facts != nil {
-			t.Fatalf("setNodeRoles on a down Node answered link %s with facts %+v, want down at once", set.Link.State, set.Facts)
+		a.SetRoles("home", box.ID, "searching")
+		if box := seedbox(t, a); box.Link.State != "down" || box.Facts != nil || time.Since(down) != 0 {
+			t.Fatalf("setRoles on a down Node answered after %s with seedbox %s and facts %+v, want at once with seedbox down", time.Since(down), box.Link.State, box.Facts)
 		}
 		heal := down.Add(time.Minute)
 		time.Sleep(time.Until(heal))

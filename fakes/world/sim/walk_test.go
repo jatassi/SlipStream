@@ -23,11 +23,12 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
-	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -526,14 +527,19 @@ func TestAPayloadProbedAt720pFillsNothing(t *testing.T) {
 	})
 }
 
-// TestCreatingAnIndexerWithNoSearchingNodeConflicts takes Searching from
-// every Node: createIndexer answers 409.
-func TestCreatingAnIndexerWithNoSearchingNodeConflicts(t *testing.T) {
+// TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts cuts seedbox,
+// the one Node that holds Searching, off: before the offline grace no Node
+// may search, so createIndexer answers 409.
+func TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
-		s.Nodes[1].Roles = slices.DeleteFunc(s.Nodes[1].Roles, func(r role.Name) bool { return r == role.Searching })
 		s.Library.Indexers = nil
 		w := sim.Launch(t, s, sim.WithWalk())
+		synctest.Wait()
+		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
+		time.Sleep(link.Keepalive + link.WriteTimeout)
+		synctest.Wait()
 		worldtest.Expect(t, "createIndexer", w.API().Admin("home", http.MethodPost, "/api/v1/indexers",
 			`{"name":"Fixture Site","url":"http://127.0.0.1:1/torznab","apiKey":"key"}`), worldtest.Reply{
 			Status: http.StatusConflict,
