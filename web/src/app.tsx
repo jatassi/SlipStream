@@ -27,7 +27,9 @@ const sessionPages = new Set<string>(["/_app", "/portal", "/new-pin"]);
 
 function end({ queryClient, router, live }: Parts, reason: SessionEndReason): boolean {
   const session = queryClient.getQueryData(sessionQuery.queryKey);
-  const onSessionPage = router.state.matches.some(({ routeId }) => sessionPages.has(routeId));
+  const onSessionPage = router
+    .matchRoutes(router.state.location.pathname, router.state.location.search)
+    .some(({ routeId }) => sessionPages.has(routeId));
   if (session === undefined || (session === null && !onSessionPage)) {
     return false;
   }
