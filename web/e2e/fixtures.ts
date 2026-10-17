@@ -14,7 +14,13 @@ import {
 import { z } from "zod";
 
 import { type Fakeworld, fw } from "../harness/fakeworld.ts";
-import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
+import {
+  type Identity,
+  type Manifest,
+  type ManifestNode,
+  identity,
+  read,
+} from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
@@ -29,7 +35,8 @@ export type World = {
   node: ManifestNode;
   fw: Fakeworld;
   baseURL: string;
-  admin: () => NonNullable<Manifest["admin"]>;
+  admin: () => Identity;
+  member: () => Identity;
   setupCode: () => Promise<string>;
   api: (
     method: string,
@@ -189,7 +196,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { timeout: (launchTimeout + 10) * 1000 },
   ],
 
-  world: async ({ runDir, scenario, browserName }, use) => {
+  world: async ({ runDir, browserName }, use) => {
     const manifest = await read(runDir);
     const [node] = manifest.nodes;
     if (node === undefined) {
@@ -204,12 +211,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       node,
       fw: fw(runDir),
       baseURL: browserName === "chromium" ? node.browserUrl : node.url,
-      admin: () => {
-        if (manifest.admin === undefined) {
-          throw new Error(`Scenario ${scenario} has no Admin`);
-        }
-        return manifest.admin;
-      },
+      admin: () => identity(manifest, "admin"),
+      member: () => identity(manifest, "member"),
       setupCode: () => readSetupCode(node.log),
       api: async (method, path, body) => {
         const response = await fetch(new URL(path, node.url), {

@@ -39,9 +39,8 @@ test("a sign-in from another browser refreshes this tab's session once", async (
   // The guard reads the session, and the stream's opening resync refetches it.
   await expect.poll(() => sessionReads.length).toBe(2);
 
-  const { email, pin } = world.admin();
   const elsewhere = await (await newContext()).newPage();
-  await signIn(elsewhere, { email, pin });
+  await signIn(elsewhere, world.admin());
   await expect.poll(() => sessionReads.length).toBe(3);
 });
 
