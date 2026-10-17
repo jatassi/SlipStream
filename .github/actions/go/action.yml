@@ -33,6 +33,5 @@ runs:
         path: |
           ${{ runner.temp }}/go-build
           ${{ runner.temp }}/go-mod
-          ${{ runner.temp }}/golangci-lint
         key: ${{ inputs.cache }}-${{ github.sha }}
         restore-keys: ${{ inputs.cache }}-
