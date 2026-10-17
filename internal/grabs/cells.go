@@ -45,3 +45,38 @@ func (GrabCells) Unfinished(ctx context.Context, r storage.Reader[storage.Librar
 	}
 	return out, nil
 }
+
+// Settle records u on each unfinished Grab of work all of whose cells are
+// in gone. Settling one twice changes nothing.
+func (GrabCells) Settle(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, gone map[files.CellKey]bool, u files.Unwanted) (int, error) {
+	q := db.New(tx)
+	rows, err := q.ListTargetsOfWork(ctx, work)
+	if err != nil {
+		return 0, err
+	}
+	var order []GrabID
+	left := map[GrabID]bool{}
+	for _, row := range rows {
+		if row.Stage == Imported || row.Stage == Failed {
+			continue
+		}
+		if _, seen := left[row.ID]; !seen {
+			order = append(order, row.ID)
+			left[row.ID] = false
+		}
+		if !gone[files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}] {
+			left[row.ID] = true
+		}
+	}
+	n := 0
+	for _, id := range order {
+		if left[id] {
+			continue
+		}
+		if err := q.SettleGrab(ctx, db.SettleGrabParams{ID: id, Unwanted: &u}); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	return n, nil
+}

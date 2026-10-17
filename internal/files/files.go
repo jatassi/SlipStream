@@ -178,6 +178,10 @@ type Inflight interface {
 	// Unfinished lists the ids of every Grab not yet imported or failed,
 	// whose download may sit in a root's holding folder.
 	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
+	// Settle records u on each unfinished Grab of work whose every cell is
+	// in gone, for its probe or import to follow if its file fills
+	// nothing, and counts them.
+	Settle(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, gone map[CellKey]bool, u Unwanted) (int, error)
 }
 
 // NoGrabs is Inflight while nothing grabs.
@@ -189,6 +193,10 @@ func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], works
 
 func (NoGrabs) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
 	return nil, nil
+}
+
+func (NoGrabs) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[CellKey]bool, Unwanted) (int, error) {
+	return 0, nil
 }
 
 type Config struct {

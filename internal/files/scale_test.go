@@ -71,7 +71,7 @@ func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 	b.Run("Place", func(b *testing.B) {
 		for b.Loop() {
 			err := l.lib.Read(b.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-				p, err := svc.Place(ctx, r, in, false)
+				p, err := svc.Place(ctx, r, in)
 				if err == nil && len(p.Fills) != 3 {
 					b.Fatalf("the Bluray fills %d Targets, want 3", len(p.Fills))
 				}
@@ -85,7 +85,7 @@ func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 	b.Run("Import", func(b *testing.B) {
 		for b.Loop() {
 			err := l.lib.Write(b.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-				if _, err := svc.Import(ctx, tx, in); err != nil {
+				if _, _, err := svc.Import(ctx, tx, in); err != nil {
 					return err
 				}
 				return errRolledBack
@@ -95,4 +95,48 @@ func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 			}
 		}
 	})
+}
+
+const manyWorks = 500
+
+// BenchmarkPreviewingAChangeToAProfileOfManyWorks measures the preview of
+// reordering a Profile 500 Works want from, each of two Items holding a
+// file filling both its Targets: the preview loads, refills and renames
+// all 1,000 files and rolls back.
+func BenchmarkPreviewingAChangeToAProfileOfManyWorks(b *testing.B) {
+	l := open(b)
+	tiers := [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}
+	hd, any := l.target(b, "HD", tiers...), l.target(b, "Any", tiers...)
+	profile := l.profile(b, "Many", hd, any)
+	for w := range manyWorks {
+		key := works.Key(fmt.Sprintf("w%d", w))
+		l.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: fmt.Sprintf("Shelf %d", w), Children: []works.Entry{
+			{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}, {Key: "c2", Label: "Mittens"}}},
+		}}})
+		tree, _, err := l.works.Add(b.Context(), admin, contenttypetest.ID, key, works.Adding{
+			Monitor: true,
+			Also: func(ctx context.Context, tx *storage.Tx[storage.Library], s works.Summary) error {
+				return targets.Assign(ctx, tx, s, &profile)
+			},
+		})
+		if err != nil {
+			b.Fatal(err)
+		}
+		for i, it := range tree.Items {
+			l.place(b, it.ID, tree.ID, fmt.Sprintf("Shelf %d/%d.mkv", w, i), release.WEBDL1080p, hd.ID, any.ID)
+		}
+	}
+	svc := l.files(files.NoGrabs{})
+	reordered := targets.UpdateProfile{ID: profile, Spec: targets.ProfileSpec{Name: "Many", ContentType: contenttypetest.ID, Entries: []targets.Entry{
+		{Target: any.ID, Sourcing: targets.Download}, {Target: hd.ID, Sourcing: targets.Download},
+	}}}
+	for b.Loop() {
+		i, err := svc.Change(b.Context(), admin, reordered, files.Mode{Unwanted: files.Delete, Preview: true})
+		if err != nil {
+			b.Fatal(err)
+		}
+		if i.Works != manyWorks || i.Renamed != 2*manyWorks {
+			b.Fatalf("the preview = %+v, want %d Works and every file renamed", i, manyWorks)
+		}
+	}
 }

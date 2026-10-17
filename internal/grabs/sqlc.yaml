@@ -44,6 +44,11 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/files
               type: Edition
+          - column: grabs_grab.unwanted
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: Unwanted
+              pointer: true
           - column: grabs_grab.root_id
             go_type:
               import: github.com/jatassi/slipstream/internal/roots

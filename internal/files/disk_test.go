@@ -41,7 +41,7 @@ func (l *library) download(t *testing.T, svc *files.Files, tree works.Tree, item
 	var f files.File
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		f, err = svc.Import(ctx, tx, files.Incoming{
+		f, _, err = svc.Import(ctx, tx, files.Incoming{
 			WorkID: tree.ID, ItemID: tree.Items[item].ID, Edition: files.Standard, RootID: l.root.ID, Holding: holding,
 			Size: int64(len(content)), Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
 		})
@@ -179,12 +179,12 @@ func TestAnUpgradeTakesThePathOfTheFileItLeavesFillingNothing(t *testing.T) {
 	var placement files.Placement
 	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		incoming := files.Incoming{WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Holding: ".slipstream-incoming/g.mkv", Quality: release.WEBRip1080p}
-		_, err := svc.Place(ctx, r, incoming, false)
+		_, err := svc.Place(ctx, r, incoming)
 		if _, nothing := errors.AsType[*files.FillsNothingError](err); !nothing {
 			return fmt.Errorf("placing a WEBRip beside the tied WEB-DL: err = %w, want it fills nothing", err)
 		}
 		incoming.Quality = release.Bluray1080p
-		placement, err = svc.Place(ctx, r, incoming, false)
+		placement, err = svc.Place(ctx, r, incoming)
 		return err
 	})
 	if err != nil {
@@ -383,4 +383,8 @@ func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], wo
 
 func (u unfinished) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
 	return u, nil
+}
+
+func (unfinished) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
+	return 0, nil
 }

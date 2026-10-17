@@ -46,6 +46,7 @@ type GrabsGrab struct {
 	FailureMessage  *string
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
+	Unwanted        *files.Unwanted
 }
 
 type GrabsRefusal struct {

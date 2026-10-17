@@ -110,7 +110,7 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -142,8 +142,20 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.FailureMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Unwanted,
 	)
 	return i, err
+}
+
+const getUnwanted = `-- name: GetUnwanted :one
+SELECT unwanted FROM grabs_grab WHERE id = ?1
+`
+
+func (q *Queries) GetUnwanted(ctx context.Context, id GrabID) (*files.Unwanted, error) {
+	row := q.db.QueryRowContext(ctx, getUnwanted, id)
+	var unwanted *files.Unwanted
+	err := row.Scan(&unwanted)
+	return unwanted, err
 }
 
 const insertFill = `-- name: InsertFill :exec
@@ -304,7 +316,7 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -342,6 +354,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.FailureMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Unwanted,
 		); err != nil {
 			return nil, err
 		}
@@ -357,7 +370,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -395,6 +408,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.FailureMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Unwanted,
 		); err != nil {
 			return nil, err
 		}
@@ -673,5 +687,19 @@ func (q *Queries) RecordDownload(ctx context.Context, arg RecordDownloadParams) 
 		arg.ID,
 		arg.NodeID,
 	)
+	return err
+}
+
+const settleGrab = `-- name: SettleGrab :exec
+UPDATE grabs_grab SET unwanted = ?1 WHERE id = ?2
+`
+
+type SettleGrabParams struct {
+	Unwanted *files.Unwanted
+	ID       GrabID
+}
+
+func (q *Queries) SettleGrab(ctx context.Context, arg SettleGrabParams) error {
+	_, err := q.db.ExecContext(ctx, settleGrab, arg.Unwanted, arg.ID)
 	return err
 }

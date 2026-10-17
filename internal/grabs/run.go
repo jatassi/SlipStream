@@ -153,10 +153,15 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
+		unwanted, err := db.New(r).GetUnwanted(ctx, g.ID)
+		if err != nil {
+			return err
+		}
 		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
 			WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
 			Size: video.Size, Probe: files.Probe{Width: probe.Width, Height: probe.Height}, Quality: quality, GrabID: g.ID.UUID,
-		}, false)
+			Unwanted: unwanted,
+		})
 		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
 		return nil
 	})
@@ -271,7 +276,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 			}
 		}
 		if a.file != nil {
-			if _, err := gr.cfg.Files.Import(ctx, tx, *a.file); err != nil {
+			if err := gr.land(ctx, tx, g, *a.file); err != nil {
 				return err
 			}
 		}
@@ -283,6 +288,18 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	}
 	gr.entered(ctx, g, params.Next)
 	return nil
+}
+
+// land imports g's file in tx under the choice a change that took
+// its cells saved, if one did.
+func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in files.Incoming) error {
+	unwanted, err := db.New(tx).GetUnwanted(ctx, g.ID)
+	if err != nil {
+		return err
+	}
+	in.Unwanted = unwanted
+	_, _, err = gr.cfg.Files.Import(ctx, tx, in)
+	return err
 }
 
 // entered tells what g entering stage next changes beyond the library:

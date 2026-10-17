@@ -40,3 +40,8 @@ ALTER TABLE grabs_fill_next RENAME TO grabs_fill;
 
 CREATE INDEX grabs_target_target_id ON grabs_target (target_id);
 CREATE INDEX grabs_fill_target_id ON grabs_fill (target_id);
+
+-- What a Grab's probe or import does with its file if it fills nothing,
+-- as an Admin chose on saving a change that took its cells away: delete
+-- it, or keep it as a Kept file. NULL when no save did.
+ALTER TABLE grabs_grab ADD COLUMN unwanted TEXT CHECK (unwanted IN ('delete', 'keep'));

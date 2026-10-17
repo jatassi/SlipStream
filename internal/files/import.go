@@ -35,7 +35,20 @@ type Incoming struct {
 	Probe   Probe
 	Quality release.Quality
 	GrabID  storage.UUID
+	// Unwanted is what its Grab's import does if the file fills nothing,
+	// as an Admin chose when a save left its cells unwanted; nil when no
+	// save did.
+	Unwanted *Unwanted
 }
+
+// Unwanted is what becomes of a file a change leaves filling nothing: it
+// is deleted, or it stays as a Kept file.
+type Unwanted string
+
+const (
+	Delete Unwanted = "delete"
+	Keep   Unwanted = "keep"
+)
 
 // Placement is where a probed file would go and the Targets it would
 // fill, in Profile order. Kept is a file that would fill none.
@@ -70,17 +83,30 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	if err != nil {
 		return placed{}, err
 	}
-	p := placed{before: before, file: File{
+	fresh := File{
 		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Edition: in.Edition, RootID: in.RootID, Path: in.Holding,
 		Size: in.Size, Probe: in.Probe, GrabID: in.GrabID, Quality: in.Quality,
-	}}
-	p.after = before
-	p.after.files = append(slices.Clone(before.files), p.file)
-	p.after.fresh = p.file.ID
-	p.fills = refill(p.after)
-	was, is := filling(before.fills), filling(p.fills)
-	p.after.files = slices.DeleteFunc(p.after.files, func(g File) bool {
-		if g.ID == p.file.ID || !was[g.ID] || is[g.ID] {
+	}
+	after := before
+	after.files = append(slices.Clone(before.files), fresh)
+	after.fresh = fresh.ID
+	p, err := f.converge(ctx, r, before, after, refill(after), func(g File) bool {
+		return g.ID != fresh.ID || in.Unwanted != nil && *in.Unwanted == Delete
+	})
+	p.file = fresh
+	return p, err
+}
+
+// converge is a Work going from before to after, whose files are before's
+// and any fresh one, refilled as fills: a file that filled a cell before
+// and fills none after, or the fresh file filling none, goes when doom
+// says so and is named Kept otherwise. Every file is named under fills.
+func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]ID, doom func(File) bool) (placed, error) {
+	p := placed{before: before, after: after, fills: fills}
+	was, is := filling(before.fills), filling(fills)
+	p.after.files = slices.DeleteFunc(slices.Clone(after.files), func(g File) bool {
+		lost := g.ID == after.fresh || was[g.ID]
+		if !lost || is[g.ID] || !doom(g) {
 			return false
 		}
 		p.doomed = append(p.doomed, g)
@@ -89,48 +115,51 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	if err := f.named(ctx, r, &p.after, p.fills); err != nil {
 		return placed{}, err
 	}
+	var err error
 	p.names, err = names(p.after, p.fills)
 	return p, err
 }
 
 // Place answers, in r, where in would go and what it would fill, as
 // Import would decide now. A file that fills nothing is a
-// *FillsNothingError unless keep makes it a Kept file.
-func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming, keep bool) (Placement, error) {
+// *FillsNothingError unless its Grab's choice keeps it as a Kept file.
+func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) (Placement, error) {
 	p, err := f.place(ctx, r, in)
 	if err != nil {
 		return Placement{}, err
 	}
-	out := Placement{Path: p.names[p.file.ID].Path}
+	var out Placement
 	for _, t := range p.after.goals.Targets {
 		if p.fills[CellKey{Item: in.ItemID, Edition: in.Edition, Target: t.ID}] == p.file.ID {
 			out.Fills = append(out.Fills, t.ID)
 		}
 	}
 	out.Kept = len(out.Fills) == 0
-	if out.Kept && !keep {
+	if out.Kept && (in.Unwanted == nil || *in.Unwanted != Keep) {
 		return Placement{}, &FillsNothingError{Quality: in.Quality}
 	}
+	out.Path = p.names[p.file.ID].Path
 	return out, nil
 }
 
 // Import records in and converges its Work in tx: fills follow refill, a
 // file that loses its last fill to in is doomed (the one delete that
 // never asks, ADR 0002), files whose names change are renamed, and in is
-// queued to move from Holding to its name. A file a race left filling
-// nothing lands Kept. The disk queue does the IO once tx commits; the
-// caller pokes it.
-func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (File, error) {
+// queued to move from Holding to its name. A file that fills nothing is
+// doomed when its Grab's choice is Delete and lands Kept otherwise, as a
+// race leaves it; Import answers false for a doomed one. The disk queue
+// does the IO once tx commits; the caller pokes it.
+func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (File, bool, error) {
 	p, err := f.place(ctx, tx, in)
 	if err != nil {
-		return File{}, err
+		return File{}, false, err
 	}
 	if err := apply(ctx, db.New(tx), p); err != nil {
-		return File{}, err
+		return File{}, false, err
 	}
-	nm := p.names[p.file.ID]
+	nm, landed := p.names[p.file.ID]
 	p.file.Path, p.file.Label, p.file.Extra = nm.Path, nm.Label, nm.Extra
-	return p.file, nil
+	return p.file, landed, nil
 }
 
 // apply writes p: its fills, its dooms, every name that changed, and a
