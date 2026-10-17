@@ -203,7 +203,7 @@ func (l *Link) routes() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if err := l.inStep(r.Context(), sessionOf(r.Context())); err != nil {
+		if err := l.admitted(r.Context(), sessionOf(r.Context()), false); err != nil {
 			_ = errorWriter.Write(w, r, err)
 			return
 		}
@@ -212,9 +212,10 @@ func (l *Link) routes() http.Handler {
 	return m
 }
 
-// inStep waits for s's Hello, then reports whether s is live with a peer
-// on this version. A peer may call before its own side has the Welcome.
-func (l *Link) inStep(ctx context.Context, s *session) error {
+// admitted waits for s's Hello, then reports whether s is live with a peer
+// on this version, or on any version when acrossVersions. A peer may call
+// before its own side has the Welcome.
+func (l *Link) admitted(ctx context.Context, s *session, acrossVersions bool) error {
 	select {
 	case <-s.welcomed:
 	case <-s.mux.Done():
@@ -225,7 +226,7 @@ func (l *Link) inStep(ctx context.Context, s *session) error {
 	switch {
 	case l.live[s.key] != s:
 		return rpcError(connect.CodeUnavailable, ErrDisconnected)
-	case !s.matched:
+	case !s.matched && !acrossVersions:
 		return rpcError(connect.CodeFailedPrecondition, ErrMismatched)
 	}
 	return nil

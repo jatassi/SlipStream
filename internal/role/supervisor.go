@@ -23,8 +23,8 @@ type run struct {
 
 var errReturned = errors.New("returned while the Role was still assigned")
 
-// supervise runs each held Role while it is assigned and its intent is
-// cached, and reports the node scope's facts, until ctx ends.
+// supervise runs each held Role while it is assigned and, for a scoped
+// Role, its intent is cached, and reports the node scope's facts, until ctx ends.
 func (h *Holding) supervise(ctx context.Context) {
 	var roles sync.WaitGroup
 	defer roles.Wait()
@@ -53,7 +53,7 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 	for _, held := range h.cfg.Held {
 		r := h.runs[held.name]
 		_, cached := h.cache[string(held.name)]
-		want := cached && slices.Contains(h.assigned, held.name)
+		want := (cached || !held.scoped) && slices.Contains(h.assigned, held.name)
 		switch {
 		case want && r == nil:
 			rctx, cancel := context.WithCancel(ctx)

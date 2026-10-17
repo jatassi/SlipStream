@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/web"
 )
@@ -55,10 +56,19 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 		Log:            log,
 	})
 	surface.Mount(r, s)
-	srv := api.NewServer(r.Handler(), cfg.Timings.HTTP, log)
+	handler := serving.Front(r.Handler(), n.servingWorker)
+	srv := api.NewServer(handler, cfg.Timings.HTTP, log)
+	served := api.NewServer(handler, cfg.Timings.HTTP, log)
+	served.ConnContext = api.OverLink
 	n.stack.Go("http", func(context.Context) error {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serve HTTP: %w", err)
+		}
+		return nil
+	})
+	n.stack.Go("http-served", func(context.Context) error {
+		if err := served.Serve(n.served); !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve Serve streams: %w", err)
 		}
 		return nil
 	})
@@ -66,7 +76,10 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 		s.Hub.Close()
 		r.EndStreams()
 		n.logs.EndReads()
-		return srv.Shutdown(ctx)
+		if w := n.servingWorker(); w != nil {
+			w.Close()
+		}
+		return errors.Join(srv.Shutdown(ctx), served.Shutdown(ctx))
 	})
 	return nil
 }

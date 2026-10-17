@@ -1445,6 +1445,23 @@ export const RootsRootList = zod.object({
 export type RootsRootList = zod.input<typeof RootsRootList>;
 export type RootsRootListOutput = zod.output<typeof RootsRootList>;
 
+export const ServingWorker = zod.object({
+  controller: zod.string().describe("Its Controller's name"),
+  fingerprint: zod.string().describe("This Worker's key fingerprint, as its Controller lists it"),
+  holding: zod
+    .array(zod.string())
+    .describe("The labels of the Roles it holds beside Serving, in table order"),
+  name: zod.string().describe("This Worker's name"),
+  seeding: zod.int().describe("How many torrents it seeds"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("Since when this Worker can't reach its Controller; absent while it can"),
+});
+
+export type ServingWorker = zod.input<typeof ServingWorker>;
+export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
+
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
   value: zod.string(),

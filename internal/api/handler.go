@@ -33,13 +33,9 @@ var securityHeaders = []struct{ name, value string }{
 // first: security headers, CSRF, the mux. Each operation authenticates
 // its caller in its own access check.
 func (r *Router) Handler() http.Handler {
-	r.mux.Handle(apiTree, problemHandler(NotFound))
+	r.mux.Handle(apiTree, NotFound)
 	r.mux.Handle("/", webApp(r.services.Web))
 	return wrapWriter(withSecurityHeaders(r.crossOriginProtection(r.mux)))
-}
-
-func problemHandler(c *Code) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { writeProblem(w, c.problem()) })
 }
 
 func withSecurityHeaders(next http.Handler) http.Handler {
@@ -66,7 +62,7 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 			panic("api: trusted origin " + o.String() + ": " + err.Error())
 		}
 	}
-	cop.SetDenyHandler(problemHandler(CrossOrigin))
+	cop.SetDenyHandler(CrossOrigin)
 	protected := cop.Handler(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Header.Get(apiKeyHeader) != "" {

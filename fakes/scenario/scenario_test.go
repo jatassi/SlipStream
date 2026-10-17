@@ -86,7 +86,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (first-run, home, music, single-machine)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (first-run, home, music, serving, single-machine)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }

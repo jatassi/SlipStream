@@ -69,15 +69,23 @@ func (d Def[I, F, R]) Serve(
 // Hold is the Role's holder half: the supervisor runs run while this Node
 // holds the Role and its intent is cached.
 func (d Def[I, F, R]) Hold(run func(context.Context, Holder[I, F, R]) error) Held {
-	return Held{name: d.Name, run: func(ctx context.Context, h *Holding) error {
+	return Held{name: d.Name, scoped: true, run: func(ctx context.Context, h *Holding) error {
 		return run(ctx, holder[I, F, R]{h: h, scope: string(d.Name)})
 	}}
 }
 
-// Held is one Role's run function, for the supervisor.
+// Hold is the holder half of a Role with no intent, such as Serving: the
+// supervisor runs run while this Node holds the Role.
+func Hold(n Name, run func(context.Context) error) Held {
+	return Held{name: n, run: func(ctx context.Context, _ *Holding) error { return run(ctx) }}
+}
+
+// Held is one Role's run function, for the supervisor. A scoped Role runs
+// only once its intent is cached.
 type Held struct {
-	name Name
-	run  func(context.Context, *Holding) error
+	name   Name
+	scoped bool
+	run    func(context.Context, *Holding) error
 }
 
 // Control is one Role's Controller half.

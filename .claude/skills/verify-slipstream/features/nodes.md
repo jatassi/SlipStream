@@ -1,6 +1,6 @@
 # Nodes
 
-Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node the browser is talking to, at `/nodes/<id>`, titled with the Node's name, and a Node's pages are its sections: Overview, Web and API, Logs and Log settings. The Overview lists the Node's build version, when it started, its data folder and the addresses of its web, torrent and link listeners and its control socket, for any Node through the per-Node API. Web and API and Log settings edit the Node's own `config.yaml`, one field at a time. Logs streams the Node's log live, and Download logs saves its log folder as a zip. Restart restarts any Node, and the browser's own Node from the account menu, More and the palette too. `GET /api/v1/system` returns the facts of the Node that answers, plus the build stamp.
+Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node the browser is talking to, at `/nodes/<id>`, titled with the Node's name, and a Node's pages are its sections: Overview, Web and API, Logs and Log settings. The Overview lists the Node's build version, when it started, its data folder and the addresses of its web, torrent and link listeners and its control socket, for any Node through the per-Node API. Web and API and Log settings edit the Node's own `config.yaml`, one field at a time. Logs streams the Node's log live, and Download logs saves its log folder as a zip. Restart restarts any Node, and the browser's own Node from the account menu, More and the palette too. `GET /api/v1/system` returns the facts of the Node that answers, plus the build stamp. A Worker that holds Serving answers its own address with its Controller's app, the Controller's sign-in and passkeys included, and while its Controller can't be reached it shows a status card of what it holds.
 
 ## Sub-features
 
@@ -15,6 +15,8 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - `nodes-logs-viewer` Logs shows the Node's recent lines, then each new one: the time, a level chip, the subsystem and the message; it filters by minimum level, subsystem and search, `Pause` holds the list and reads `Paused, <n> new` until `Resume`, `Clear` empties the view only, a row expands to every attribute with `Copy as JSON`, scrolling up reads `Not following,` with `Jump to latest`, and a restarted Node draws `SlipStream restarted at <time>` (P-249).
 - `nodes-logs-download` `Download logs` saves a zip of the Node's log folder holding `slipstream.log`, and a Node that doesn't answer toasts `Couldn't download the logs.` instead (P-250).
 - `nodes-restart` the account menu's, More's and the palette's `Restart SlipStream…` and the Nodes header's `Restart` ask `Restart SlipStream?` (or `Restart <name>?` for a Worker); the browser's own Node shows `Restarting SlipStream…` over the page, and the page reloads onto the same address once a later `startedAt` answers, while a Worker's sections read `<name> is restarting…` until its link is up again. A restart onto a saved port reads `SlipStream is moving to port <port>` with `Open SlipStream on port <port>`, which opens the same page on the new port (P-010).
+- `nodes-serving` on a Worker holding Serving, its own address serves the Controller's app: the Admin signs in there with the Controller's PIN and lands on the Library, `GET /api/v1/system` there reports the Controller's data dir, the live stream carries the Controller's events, and a passkey added there signs in there.
+- `nodes-serving-unreachable` with the Controller stopped, every page at the Serving Worker's address lands on `/serving`, headed `home can't be reached from seedbox since <time>.` over `seedbox keeps seeding and finishes what it started.` and `Holding Searching and Downloading · seeding 0 torrents.`; its API answers 503 `controller_unreachable`, and `GET /api/v1/serving` answers the card's facts and no request. Once the Controller answers again the card goes back to the app.
 - `nodes-cli` `slipstream config set --data-dir <dir> <key> <value>` prints `<key>: <value>`, ending `, applies after restart` for a restart key, the Node's page shows the change, `config unset` prints the default, and `slipstream restart --data-dir <dir>` prints the Node's web address once its successor answers.
 
 ## How to get to it (user POV)
@@ -23,6 +25,7 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - Phone shell: the `More` tab, then the `Nodes` button in the sheet `More`, listed above `Tasks`, then a section's row in the list named for the Node; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
 - Both shells: the palette's `Go to Nodes`, `Go to Overview`, `Go to Web and API`, `Go to Logs` and `Go to Log settings` for the browser's own Node, and `Restart SlipStream…`.
 - API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live event `node.settings-changed`.
+- Serving: a Worker that holds Serving, at its own address (`{nodes.seedbox.browserUrl}` on `serving`); `/serving` is its status card, and `GET /api/v1/serving` (no sign-in) answers any Worker's facts.
 - Host CLI: `slipstream version` prints the same build stamp; `slipstream config set --data-dir <dir> <key> <value>`, `config unset` and `restart --data-dir <dir>`.
 
 ## Driving it with fakeworld and playwright cli
@@ -30,6 +33,7 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 Preconditions:
 
 - The baseline: a `home` run, doctor passing, `{runId}-admin-desktop` signed in.
+- The Serving steps want their own `serving` run, where seedbox holds Serving too, with doctor passing and `$FW browser $RUN` run; they open their own session at seedbox's address.
 
 Steps:
 
@@ -213,6 +217,41 @@ Steps:
   $FW doctor $RUN
   ```
 
+- **Sign in at the Serving Worker and add a passkey (`serving` run).** Open a session at seedbox's address with Chromium's virtual authenticator, sign in with the Admin's email and PIN, and choose `Add a passkey` in `Sign in faster here with a passkey`: the page lands on `/library` at seedbox's address, and its `GET /api/v1/system` reports `{nodes.home.dataDir}`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop open --config={runDir}/browser/desktop/playwright-cli.json
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop goto '{nodes.seedbox.browserUrl}/'
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop run-code 'async page => { const cdp = await page.context().newCDPSession(page); await cdp.send("WebAuthn.enable"); await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } }); }'
+  $FW exec $RUN --proof nodes/nodes-serving -- $PW cli -s={runId}-seedbox-desktop run-code 'async page => { await page.getByLabel("Email").fill("ada@example.test"); await page.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially("2468"); const prompt = page.getByRole("dialog", { name: "Sign in faster here with a passkey" }); await prompt.getByRole("button", { name: "Add a passkey" }).click(); await prompt.waitFor({ state: "hidden" }); await page.getByRole("heading", { name: "Library" }).waitFor(); return page.url(); }'
+  $FW exec $RUN --proof nodes/nodes-serving -- $PW cli -s={runId}-seedbox-desktop screenshot --filename={runDir}/proof/nodes/nodes-serving/library.png
+  $FW exec $RUN --proof nodes/nodes-serving -- $PW cli -s={runId}-seedbox-desktop run-code 'async page => (await page.evaluate(async () => (await fetch("/api/v1/system")).json())).dataDir'
+  $FW exec $RUN --proof nodes/nodes-serving -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.seedbox.url}/api/v1/system'
+  ```
+
+- **Sign out, then in with the passkey.** Choose `Account`, `Sign out` and `Sign out` in `Sign out of this device?`: the sign-in page's passkey ceremony answers 200 at once and the page is back on the Library at seedbox's address.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop click 'getByRole("button", { name: "Account" })'
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop click 'getByRole("menuitem", { name: "Sign out" })'
+  $FW exec $RUN --proof nodes/nodes-serving -- $PW cli -s={runId}-seedbox-desktop run-code 'async page => { const asserted = page.waitForResponse((r) => r.request().method() === "POST" && /\/api\/v1\/passkeys\/assertion\/[^/]+$/u.test(new URL(r.url()).pathname)); await page.getByRole("dialog", { name: "Sign out of this device?" }).getByRole("button", { name: "Sign out" }).click(); const status = (await asserted).status(); await page.getByRole("heading", { name: "Library" }).waitFor(); return [status, page.url()]; }'
+  ```
+
+- **Stop the Controller, then start it.** Stop home and reload: the page lands on `/serving` with the card's three lines, the API at seedbox's address answers 503, and `GET /api/v1/serving` names home, `since` and the Roles held. Start home: within a few seconds the card goes back to the Library.
+
+  ```sh
+  $FW node stop $RUN home
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop reload
+  $FW exec $RUN --proof nodes/nodes-serving-unreachable -- $PW cli -s={runId}-seedbox-desktop run-code 'async page => { await page.waitForURL(/\/serving$/, { timeout: 15000 }); return await page.getByRole("main").innerText(); }'
+  $FW exec $RUN --proof nodes/nodes-serving-unreachable -- $PW cli -s={runId}-seedbox-desktop snapshot --filename={runDir}/proof/nodes/nodes-serving-unreachable/card.aria.yml
+  $FW exec $RUN --proof nodes/nodes-serving-unreachable -- $PW cli -s={runId}-seedbox-desktop screenshot --filename={runDir}/proof/nodes/nodes-serving-unreachable/card.png
+  $FW exec $RUN --proof nodes/nodes-serving-unreachable -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.seedbox.url}/api/v1/system'
+  $FW exec $RUN --proof nodes/nodes-serving-unreachable -- curl -sS '{nodes.seedbox.url}/api/v1/serving'
+  $FW node start $RUN home
+  $FW exec $RUN --proof nodes/nodes-serving-unreachable -- $PW cli -s={runId}-seedbox-desktop run-code 'async page => { await page.getByRole("heading", { name: "Library" }).waitFor({ timeout: 30000 }); return page.url(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-seedbox-desktop close
+  ```
+
 ## Gotchas
 
 - A Worker chosen in the picker shows its own facts and settings through the Controller; an offline Worker's sections read `<name> is offline. Its settings and logs come back when it reconnects.` On the seedbox's own URL a Worker shows only the Worker page.
@@ -225,3 +264,5 @@ Steps:
 - `Open SlipStream on port <port>` is a button, not a link, and the page doesn't follow a move by itself.
 - After a Worker restart, the page keeps reading `<name> is restarting…` through any later outage of that Worker until it reloads, so reload before checking the offline sentence.
 - Port fallback needs the HTTP port held before a Node starts: stop seedbox, hold `{nodes.seedbox.listeners.http}` with another program, start seedbox, and read its Overview through the picker; free the port and restart seedbox after.
+- A Serving Worker's address is its own origin: a session or a passkey made at `{nodes.home.browserUrl}` doesn't carry to `{nodes.seedbox.browserUrl}`, so `bin/sign-in.ts`, which signs in at the Controller, can't open a session there. Sign in through the page instead.
+- Over plain HTTP only a `.localhost` name can hold a passkey, so a Serving Worker reached by IP address offers none, as any Node does.

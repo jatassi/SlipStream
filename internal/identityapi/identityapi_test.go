@@ -130,6 +130,8 @@ type call struct {
 	session              string
 	// from is the TCP peer, host the Host header.
 	from, host string
+	// overLink sends the request as a Serving Worker's Serve stream does.
+	overLink bool
 }
 
 func (n *node) do(c call) *httptest.ResponseRecorder {
@@ -149,6 +151,9 @@ func (n *node) do(c call) *httptest.ResponseRecorder {
 	}
 	if c.session != "" {
 		req.Header.Set("Cookie", identity.CookieName+"="+c.session)
+	}
+	if c.overLink {
+		req = req.WithContext(api.OverLink(req.Context(), nil))
 	}
 	w := httptest.NewRecorder()
 	n.h.ServeHTTP(w, req)
