@@ -67,8 +67,12 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if env.Releases != nil {
 		passkey = env.Releases.Passkey
 		for _, r := range env.Releases.Releases {
+			size := r.Size
+			if r.AdvertisedSize > 0 {
+				size = int64(r.AdvertisedSize)
+			}
 			listed = append(listed, Release{
-				Name: r.Name, Size: r.Size, InfoHash: r.InfoHash.String(),
+				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo,
 			})
 		}
@@ -86,6 +90,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 // Release is one item the site lists, and its .torrent.
 type Release struct {
 	Name string
+	// Size is what the listing advertises, not the payload's.
 	Size int64
 	// InfoHash is the torrent's v1 info hash, lowercase hex.
 	InfoHash string

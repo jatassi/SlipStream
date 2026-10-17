@@ -29,15 +29,15 @@ func singleMachine() Scenario {
 
 func quietOrchardReleases() []Release {
 	return []Release{
-		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true},
-		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40},
+		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true, AdvertisedSize: 8804682957},
+		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40, AdvertisedSize: 4724464026},
 	}
 }
 
 func movieLibrary() *Library {
 	return &Library{
 		Roots:    []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Targets:  []LibraryTarget{{Name: "1080p", Resolutions: []string{"1080p"}}},
+		Targets:  []LibraryTarget{{Name: "1080p", Tiers: [][]QualityKey{{"hdtv-1080p", "webrip-1080p", "webdl-1080p", "bluray-1080p", "remux-1080p"}}, Cutoff: "hdtv-1080p"}},
 		Profiles: []LibraryProfile{{Name: "Standard", ContentType: "movie", Targets: []string{"1080p"}}},
 		Indexers: []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
 	}
@@ -124,6 +124,11 @@ func TestParseRefuses(t *testing.T) {
 			"duration that is not one",
 			"seed: x\nnodes: [{name: home, setup: none}]\ntimings: {node: {stop_deadline: soon}}\n",
 			"scenario x: line 3: cannot unmarshal !!str `soon` into time.Duration",
+		},
+		{
+			"advertised size without a unit",
+			"seed: x\nnodes: [{name: home, setup: none}]\nreleases: [{name: A, tmdb_id: 1, video: {width: 2, height: 2, seconds: 1}, advertised_size: 8.2}]\n",
+			`scenario x: line 3: size "8.2" is not a number and a unit such as 8.2GiB`,
 		},
 		{
 			"node name",
@@ -316,6 +321,7 @@ releases:
       seconds: 6
     seeders: 12
     seeded: true
+    advertised_size: 8.2GiB
   - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
     tmdb_id: 9000001
     video:
@@ -323,6 +329,7 @@ releases:
       height: 720
       seconds: 6
     seeders: 40
+    advertised_size: 4.4GiB
 tracker:
   interval: 5s
 library:
@@ -331,8 +338,13 @@ library:
       folder: movies
   targets:
     - name: 1080p
-      resolutions:
-        - 1080p
+      tiers:
+        - - hdtv-1080p
+          - webrip-1080p
+          - webdl-1080p
+          - bluray-1080p
+          - remux-1080p
+      cutoff: hdtv-1080p
   profiles:
     - name: Standard
       content_type: movie

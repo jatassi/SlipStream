@@ -26,15 +26,17 @@ releases:
     video: {width: 1920, height: 1080, seconds: 6}
     seeders: 12
     seeded: true
+    advertised_size: 8.2GiB
   - name: The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW
     tmdb_id: 9000001
     video: {width: 1280, height: 720, seconds: 6}
     seeders: 40
     seeded: false
+    advertised_size: 4.4GiB
 tracker:
   interval: 5s
 library:
   roots: [{content_type: movie, folder: movies}]
-  targets: [{name: 1080p, resolutions: [1080p]}]
+  targets: [{name: 1080p, tiers: [[hdtv-1080p, webrip-1080p, webdl-1080p, bluray-1080p, remux-1080p]], cutoff: hdtv-1080p}]
   profiles: [{name: Standard, content_type: movie, targets: [1080p]}]
   indexers: [{name: Fixture Site, site: fixture-site}]

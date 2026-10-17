@@ -458,7 +458,7 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 		s := searches.Searches[0]
 		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","itemId":"` + itemOf(t, w, work) +
 			`","indexerId":"` + s.IndexerID + `","startedAt":"` + s.StartedAt + `","finishedAt":"` + *s.FinishedAt +
-			`","outcome":"indexer_unavailable","candidates":0,"grabId":null}]}` + "\n"})
+			`","outcome":"indexer_unavailable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
 		if gs := grabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}
@@ -501,7 +501,7 @@ func TestAPayloadProbedAt720pFillsNothing(t *testing.T) {
 		}))
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
-		expectFailed(t, g, "probing", "fills_nothing", "a 720p file fills no Target the Work still wants")
+		expectFailed(t, g, "probing", "fills_nothing", "a WEBDL-720p file fills no Target the Work still wants")
 		if got := g.stages(); !slices.Equal(got, []string{"fetching", "downloading", "probing", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading probing failed]", got)
 		}

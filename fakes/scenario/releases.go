@@ -1,9 +1,15 @@
 package scenario
 
 import (
+	"fmt"
+	"math"
 	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 )
 
 // Release is one release the fakes offer. The release catalog makes its
@@ -14,6 +20,58 @@ type Release struct {
 	Video   Video  `jsonschema:"required"                                     yaml:"video"`
 	Seeders int    `jsonschema:"minimum=0"                                    yaml:"seeders,omitempty"`
 	Seeded  bool   `yaml:"seeded,omitempty"`
+	// AdvertisedSize is the size fixture-site lists, separate from the
+	// payload's. Zero lists the payload's.
+	AdvertisedSize Bytes `yaml:"advertised_size,omitempty"`
+}
+
+// Bytes is a size in bytes, written as a number and a unit, like 8.2GiB.
+type Bytes int64
+
+var units = []struct {
+	name string
+	size int64
+}{{"TiB", 1 << 40}, {"GiB", 1 << 30}, {"MiB", 1 << 20}, {"KiB", 1 << 10}, {"B", 1}}
+
+const bytesPattern = `^\d+(\.\d+)?(TiB|GiB|MiB|KiB|B)$`
+
+var bytesForm = regexp.MustCompile(bytesPattern)
+
+func (b *Bytes) UnmarshalYAML(n *yaml.Node) error {
+	m := bytesForm.FindStringSubmatch(n.Value)
+	if n.Kind != yaml.ScalarNode || m == nil {
+		return &yaml.TypeError{Errors: []string{fmt.Sprintf("line %d: size %q is not a number and a unit such as 8.2GiB", n.Line, n.Value)}}
+	}
+	v, err := strconv.ParseFloat(strings.TrimSuffix(n.Value, m[2]), 64)
+	if err != nil {
+		return fmt.Errorf("line %d: size %q: %w", n.Line, n.Value, err)
+	}
+	for _, u := range units {
+		if u.name == m[2] {
+			*b = Bytes(math.Round(v * float64(u.size)))
+		}
+	}
+	return nil
+}
+
+// MarshalYAML writes b in the largest unit it fills, with the fewest
+// decimals that read back as b.
+func (b Bytes) MarshalYAML() (any, error) {
+	u := units[len(units)-1]
+	for _, larger := range units {
+		if int64(b) >= larger.size {
+			u = larger
+			break
+		}
+	}
+	v := float64(b) / float64(u.size)
+	for prec := 0; ; prec++ {
+		s := strconv.FormatFloat(v, 'f', prec, 64)
+		back, _ := strconv.ParseFloat(s, 64)
+		if Bytes(math.Round(back*float64(u.size))) == b {
+			return s + u.name, nil
+		}
+	}
 }
 
 // Video is a release's payload: ffmpeg's testsrc2 pattern at Width by
@@ -55,6 +113,9 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		}
 		if r.Seeders < 0 {
 			add("release %s has %d seeders", r.Name, r.Seeders)
+		}
+		if r.AdvertisedSize < 0 {
+			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
 		}
 	}
 }

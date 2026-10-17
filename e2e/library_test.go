@@ -19,8 +19,15 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 	}
 	s.Name = "music-library"
 	s.Library = &scenario.Library{
-		Roots:    []scenario.LibraryRoot{{ContentType: "music", Folder: "music"}},
-		Targets:  []scenario.LibraryTarget{{Name: "Lossless", Resolutions: []string{"1080p"}}, {Name: "Small", Resolutions: []string{"720p", "480p"}}},
+		Roots: []scenario.LibraryRoot{{ContentType: "music", Folder: "music"}},
+		Targets: []scenario.LibraryTarget{
+			{
+				Name: "Lossless", Tiers: [][]scenario.QualityKey{{"remux-1080p", "bluray-1080p"}, {"webdl-1080p"}}, Cutoff: "bluray-1080p",
+				Filters: []scenario.LibraryFilter{{Attribute: "language", Mode: "only", Values: []string{"en", "original"}}},
+				Sizes:   []scenario.LibrarySize{{Quality: "bluray-1080p", Min: 20, Max: new(100.0)}},
+			},
+			{Name: "Small", Tiers: [][]scenario.QualityKey{{"webdl-720p"}, {"dvd"}}, Cutoff: "dvd"},
+		},
 		Profiles: []scenario.LibraryProfile{{Name: "Standard", ContentType: "music", Targets: []string{"Small", "Lossless"}}},
 	}
 	run := worldtest.LaunchE2EScenario(t, s)
@@ -40,22 +47,25 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 
 	var targets struct {
 		Targets []struct {
-			ID        string `json:"id"`
-			CreatedAt string `json:"createdAt"`
+			ID        string                `json:"id"`
+			Profiles  []struct{ ID string } `json:"profiles"`
+			CreatedAt string                `json:"createdAt"`
 		} `json:"targets"`
 	}
 	reply = a.Admin("home", http.MethodGet, "/api/v1/targets", "")
 	decode(t, "listTargets", reply, &targets)
 	lossless, small := targets.Targets[0], targets.Targets[1]
+	standard := `[{"id":"` + lossless.Profiles[0].ID + `","name":"Standard"}]`
 	worldtest.Expect(t, "listTargets", reply, worldtest.Reply{Status: 200, Body: `{"targets":[` +
-		`{"id":"` + lossless.ID + `","name":"Lossless","resolutions":["1080p"],"createdAt":"` + lossless.CreatedAt + `"},` +
-		`{"id":"` + small.ID + `","name":"Small","resolutions":["720p","480p"],"createdAt":"` + small.CreatedAt + `"}]}` + "\n"})
+		`{"id":"` + lossless.ID + `","name":"Lossless","tiers":[["remux-1080p","bluray-1080p"],["webdl-1080p"]],"cutoff":"remux-1080p",` +
+		`"filters":[{"attribute":"language","mode":"only","values":["en","original"]}],` +
+		`"sizes":[{"quality":"remux-1080p","min":102,"max":null},{"quality":"bluray-1080p","min":20,"max":100},{"quality":"webdl-1080p","min":12.5,"max":null}],` +
+		`"profiles":` + standard + `,"contains":[],"createdAt":"` + lossless.CreatedAt + `"},` +
+		`{"id":"` + small.ID + `","name":"Small","tiers":[["webdl-720p"],["dvd"]],"cutoff":"dvd","filters":[],` +
+		`"sizes":[{"quality":"webdl-720p","min":12.5,"max":null},{"quality":"dvd","min":0,"max":null}],` +
+		`"profiles":` + standard + `,"contains":[],"createdAt":"` + small.CreatedAt + `"}]}` + "\n"})
 
-	var profiles struct {
-		Profiles []struct{ ID string } `json:"profiles"`
-	}
 	reply = a.Admin("home", http.MethodGet, "/api/v1/profiles", "")
-	decode(t, "listProfiles", reply, &profiles)
-	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[{"id":"` + profiles.Profiles[0].ID +
+	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[{"id":"` + lossless.Profiles[0].ID +
 		`","name":"Standard","contentType":"music","default":true,"targetIds":["` + small.ID + `","` + lossless.ID + `"]}]}` + "\n"})
 }

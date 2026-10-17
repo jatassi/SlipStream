@@ -15,6 +15,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 )
 
@@ -37,6 +38,10 @@ func schema(t *testing.T) []byte {
 	for _, name := range role.Names() {
 		roles = append(roles, string(name))
 	}
+	var qualities []any
+	for _, q := range release.Qualities() {
+		qualities = append(qualities, q.String())
+	}
 	r := jsonschema.Reflector{
 		Anonymous:                  true,
 		DoNotReference:             true,
@@ -50,6 +55,10 @@ func schema(t *testing.T) []byte {
 				return &jsonschema.Schema{Type: "string", Enum: setups}
 			case reflect.TypeFor[role.Name]():
 				return &jsonschema.Schema{Type: "string", Enum: roles}
+			case reflect.TypeFor[Bytes]():
+				return &jsonschema.Schema{Type: "string", Pattern: bytesPattern}
+			case reflect.TypeFor[QualityKey]():
+				return &jsonschema.Schema{Type: "string", Enum: qualities}
 			case reflect.TypeFor[fault.Fault]():
 				return &jsonschema.Schema{Type: "string"}
 			}

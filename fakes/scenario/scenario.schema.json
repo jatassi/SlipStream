@@ -501,6 +501,10 @@
           },
           "seeded": {
             "type": "boolean"
+          },
+          "advertised_size": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
           }
         },
         "additionalProperties": false,
@@ -552,27 +556,148 @@
               "name": {
                 "type": "string"
               },
-              "resolutions": {
+              "tiers": {
                 "items": {
-                  "type": "string",
-                  "enum": [
-                    "2160p",
-                    "1080p",
-                    "720p",
-                    "576p",
-                    "480p"
-                  ]
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "sdtv",
+                      "dvd",
+                      "webrip-480p",
+                      "hdtv-720p",
+                      "webrip-720p",
+                      "webdl-720p",
+                      "bluray-720p",
+                      "hdtv-1080p",
+                      "webrip-1080p",
+                      "webdl-1080p",
+                      "bluray-1080p",
+                      "remux-1080p",
+                      "hdtv-2160p",
+                      "webrip-2160p",
+                      "webdl-2160p",
+                      "bluray-2160p",
+                      "remux-2160p",
+                      "cam"
+                    ]
+                  },
+                  "type": "array"
                 },
                 "type": "array",
-                "minItems": 1,
-                "uniqueItems": true
+                "minItems": 1
+              },
+              "cutoff": {
+                "type": "string",
+                "enum": [
+                  "sdtv",
+                  "dvd",
+                  "webrip-480p",
+                  "hdtv-720p",
+                  "webrip-720p",
+                  "webdl-720p",
+                  "bluray-720p",
+                  "hdtv-1080p",
+                  "webrip-1080p",
+                  "webdl-1080p",
+                  "bluray-1080p",
+                  "remux-1080p",
+                  "hdtv-2160p",
+                  "webrip-2160p",
+                  "webdl-2160p",
+                  "bluray-2160p",
+                  "remux-2160p",
+                  "cam"
+                ]
+              },
+              "filters": {
+                "items": {
+                  "properties": {
+                    "attribute": {
+                      "type": "string",
+                      "enum": [
+                        "hdr",
+                        "video_codec",
+                        "audio_codec",
+                        "channels",
+                        "language"
+                      ]
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "only",
+                        "not"
+                      ]
+                    },
+                    "values": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "attribute",
+                    "mode",
+                    "values"
+                  ]
+                },
+                "type": "array"
+              },
+              "sizes": {
+                "items": {
+                  "properties": {
+                    "quality": {
+                      "type": "string",
+                      "enum": [
+                        "sdtv",
+                        "dvd",
+                        "webrip-480p",
+                        "hdtv-720p",
+                        "webrip-720p",
+                        "webdl-720p",
+                        "bluray-720p",
+                        "hdtv-1080p",
+                        "webrip-1080p",
+                        "webdl-1080p",
+                        "bluray-1080p",
+                        "remux-1080p",
+                        "hdtv-2160p",
+                        "webrip-2160p",
+                        "webdl-2160p",
+                        "bluray-2160p",
+                        "remux-2160p",
+                        "cam"
+                      ]
+                    },
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "quality"
+                  ]
+                },
+                "type": "array"
               }
             },
             "additionalProperties": false,
             "type": "object",
             "required": [
               "name",
-              "resolutions"
+              "tiers",
+              "cutoff"
             ]
           },
           "type": "array"

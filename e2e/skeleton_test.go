@@ -25,11 +25,12 @@ const (
 )
 
 type grabView struct {
-	ID       string `json:"id"`
-	NodeID   string `json:"nodeId"`
-	InfoHash string `json:"infoHash"`
-	Stage    string `json:"stage"`
-	Progress *struct {
+	ID          string `json:"id"`
+	ReleaseSize int64  `json:"releaseSize"`
+	NodeID      string `json:"nodeId"`
+	InfoHash    string `json:"infoHash"`
+	Stage       string `json:"stage"`
+	Progress    *struct {
 		Done  int64 `json:"done"`
 		Total int64 `json:"total"`
 	} `json:"progress"`
@@ -74,7 +75,39 @@ func walk(t *testing.T, name string) walked {
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
+	w.tookTheAdvertised(t, search)
 	return w
+}
+
+// tookTheAdvertised checks the search took the 1080p release at the size the site
+// advertised, noting its size went unchecked, and refused the 720p one
+// the 1080p Target doesn't accept.
+func (w *walked) tookTheAdvertised(t *testing.T, search string) {
+	t.Helper()
+	if want := int64(w.s.Releases[0].AdvertisedSize); w.grab.ReleaseSize != want {
+		t.Fatalf("the Grab's release size is %d, want the advertised %d", w.grab.ReleaseSize, want)
+	}
+	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
+	var list struct {
+		Searches []struct {
+			ItemID     string `json:"itemId"`
+			IndexerID  string `json:"indexerId"`
+			StartedAt  string `json:"startedAt"`
+			FinishedAt string `json:"finishedAt"`
+			Notes      []struct {
+				TargetID string `json:"targetId"`
+			} `json:"notes"`
+		} `json:"searches"`
+	}
+	decode(t, "listSearches", reply, &list)
+	if len(list.Searches) != 1 || len(list.Searches[0].Notes) != 1 {
+		t.Fatalf("listSearches = %s, want one search with one note", reply.Body)
+	}
+	r, target := list.Searches[0], list.Searches[0].Notes[0].TargetID
+	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemId":"` + r.ItemID +
+		`","indexerId":"` + r.IndexerID + `","startedAt":"` + r.StartedAt + `","finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
+		`"refused":[{"title":"The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW","reasons":[{"code":"quality_not_in_target","targetId":"` + target + `","value":"webdl-720p"}]}],` +
+		`"grabId":"` + w.grab.ID + `","notes":[{"code":"size_not_checked","targetId":"` + target + `"}]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the
@@ -225,7 +258,7 @@ func checkMet(t *testing.T, w walked) {
 		Status: 200,
 		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"standard","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":false,"state":"met",` +
 			`"file":{"id":"` + c.File.ID + `","path":"The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv","size":` + strconv.FormatInt(c.File.Size, 10) +
-			`,"probe":{"width":1920,"height":1080}}}]}` + "\n",
+			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}]}` + "\n",
 	})
 }
 

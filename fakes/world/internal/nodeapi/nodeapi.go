@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
@@ -134,17 +135,37 @@ func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, u
 	return indexer.ID, err
 }
 
-// CreateTarget creates a Target and returns its id.
-func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, name string, resolutions []string) (string, error) {
+// CreateTarget creates the Scenario Target t and returns its id.
+func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t scenario.LibraryTarget) (string, error) {
+	type filter struct {
+		Attribute string   `json:"attribute"`
+		Mode      string   `json:"mode"`
+		Values    []string `json:"values"`
+	}
+	type size struct {
+		Quality scenario.QualityKey `json:"quality"`
+		Min     float64             `json:"min"`
+		Max     *float64            `json:"max,omitempty"`
+	}
+	body := struct {
+		Name    string                  `json:"name"`
+		Tiers   [][]scenario.QualityKey `json:"tiers"`
+		Cutoff  scenario.QualityKey     `json:"cutoff"`
+		Filters []filter                `json:"filters,omitempty"`
+		Sizes   []size                  `json:"sizes,omitempty"`
+	}{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff}
+	for _, f := range t.Filters {
+		body.Filters = append(body.Filters, filter(f))
+	}
+	for _, z := range t.Sizes {
+		body.Sizes = append(body.Sizes, size(z))
+	}
 	var target struct {
 		ID string `json:"id"`
 	}
 	_, err := call(ctx, c, request{
-		what: "create Target " + name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
-		header: apiKeyHeader(apiKey), body: struct {
-			Name        string   `json:"name"`
-			Resolutions []string `json:"resolutions"`
-		}{name, resolutions}, want: http.StatusCreated,
+		what: "create Target " + t.Name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
+		header: apiKeyHeader(apiKey), body: body, want: http.StatusCreated,
 	}, &target)
 	return target.ID, err
 }

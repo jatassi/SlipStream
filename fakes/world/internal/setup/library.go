@@ -36,7 +36,7 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	}
 	targets := map[string]string{}
 	for _, t := range s.Library.Targets {
-		id, err := nodeapi.CreateTarget(ctx, c, controller, apiKey, t.Name, t.Resolutions)
+		id, err := nodeapi.CreateTarget(ctx, c, controller, apiKey, t)
 		if err != nil {
 			return err
 		}
