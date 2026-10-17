@@ -27,10 +27,32 @@ import type {
   CreateTarget409,
   CreateTarget422,
   CreateTarget500,
+  DeleteTarget401,
+  DeleteTarget403,
+  DeleteTarget404,
+  DeleteTarget409,
+  DeleteTarget422,
+  DeleteTarget500,
+  DuplicateTarget401,
+  DuplicateTarget403,
+  DuplicateTarget404,
+  DuplicateTarget409,
+  DuplicateTarget422,
+  DuplicateTarget500,
+  GetTarget401,
+  GetTarget403,
+  GetTarget404,
+  GetTarget409,
+  GetTarget422,
+  GetTarget500,
   ListProfiles401,
   ListProfiles403,
   ListProfiles409,
   ListProfiles500,
+  ListQualities401,
+  ListQualities403,
+  ListQualities409,
+  ListQualities500,
   ListTargets401,
   ListTargets403,
   ListTargets409,
@@ -39,6 +61,7 @@ import type {
   TargetsNewTarget,
   TargetsProfile,
   TargetsProfileList,
+  TargetsQualityList,
   TargetsTarget,
   TargetsTargetList,
 } from "../../model";
@@ -302,6 +325,122 @@ export const useCreateProfile = <
 > => {
   return useMutation(getCreateProfileMutationOptions(options), queryClient);
 };
+export const getListQualitiesUrl = () => {
+  return `/api/v1/qualities`;
+};
+
+/**
+ * @summary List the qualities a Target can accept, and the presets that order them
+ */
+export const listQualities = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsQualityList> => {
+  return apiFetch<TargetsQualityList>(getListQualitiesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListQualitiesQueryKey = () => {
+  return [`/api/v1/qualities`] as const;
+};
+
+export const getListQualitiesSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listQualities>>,
+  TError = ErrorType<ListQualities401 | ListQualities403 | ListQualities409 | ListQualities500>,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof listQualities>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListQualitiesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listQualities>>> = ({ signal }) =>
+    listQualities({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listQualities>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListQualitiesSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listQualities>>
+>;
+export type ListQualitiesSuspenseQueryError = ErrorType<
+  ListQualities401 | ListQualities403 | ListQualities409 | ListQualities500
+>;
+
+export function useListQualitiesSuspense<
+  TData = Awaited<ReturnType<typeof listQualities>>,
+  TError = ErrorType<ListQualities401 | ListQualities403 | ListQualities409 | ListQualities500>,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listQualities>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListQualitiesSuspense<
+  TData = Awaited<ReturnType<typeof listQualities>>,
+  TError = ErrorType<ListQualities401 | ListQualities403 | ListQualities409 | ListQualities500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listQualities>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListQualitiesSuspense<
+  TData = Awaited<ReturnType<typeof listQualities>>,
+  TError = ErrorType<ListQualities401 | ListQualities403 | ListQualities409 | ListQualities500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listQualities>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the qualities a Target can accept, and the presets that order them
+ */
+
+export function useListQualitiesSuspense<
+  TData = Awaited<ReturnType<typeof listQualities>>,
+  TError = ErrorType<ListQualities401 | ListQualities403 | ListQualities409 | ListQualities500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listQualities>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListQualitiesSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getListTargetsUrl = () => {
   return `/api/v1/targets`;
 };
@@ -417,7 +556,7 @@ export const getCreateTargetUrl = () => {
 };
 
 /**
- * @summary Create a Target from its resolutions
+ * @summary Create a Target from its tiers of qualities, cutoff, filters and sizes
  */
 export const createTarget = async (
   targetsNewTarget: TargetsNewTarget,
@@ -498,7 +637,7 @@ export type CreateTargetMutationError = ErrorType<
 export type CreateTargetMutationVariables = { data: TargetsNewTarget };
 
 /**
- * @summary Create a Target from its resolutions
+ * @summary Create a Target from its tiers of qualities, cutoff, filters and sizes
  */
 export const useCreateTarget = <
   TError = ErrorType<
@@ -523,4 +662,340 @@ export const useCreateTarget = <
   TContext
 > => {
   return useMutation(getCreateTargetMutationOptions(options), queryClient);
+};
+export const getDeleteTargetUrl = (targetId: string) => {
+  return `/api/v1/targets/${targetId}`;
+};
+
+/**
+ * @summary Delete a Target no Profile holds
+ */
+export const deleteTarget = async (
+  targetId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getDeleteTargetUrl(targetId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTargetMutationKey = () => ["deleteTarget"] as const;
+
+export const getDeleteTargetMutationOptions = <
+  TError = ErrorType<
+    | DeleteTarget401
+    | DeleteTarget403
+    | DeleteTarget404
+    | DeleteTarget409
+    | DeleteTarget422
+    | DeleteTarget500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTarget>>,
+    TError,
+    DeleteTargetMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTarget>>,
+  TError,
+  DeleteTargetMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteTargetMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTarget>>,
+    DeleteTargetMutationVariables
+  > = (props) => {
+    const { targetId } = props ?? {};
+
+    return deleteTarget(targetId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTargetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTarget>>>;
+
+export type DeleteTargetMutationError = ErrorType<
+  | DeleteTarget401
+  | DeleteTarget403
+  | DeleteTarget404
+  | DeleteTarget409
+  | DeleteTarget422
+  | DeleteTarget500
+>;
+export type DeleteTargetMutationVariables = { targetId: string };
+
+/**
+ * @summary Delete a Target no Profile holds
+ */
+export const useDeleteTarget = <
+  TError = ErrorType<
+    | DeleteTarget401
+    | DeleteTarget403
+    | DeleteTarget404
+    | DeleteTarget409
+    | DeleteTarget422
+    | DeleteTarget500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteTarget>>,
+      TError,
+      DeleteTargetMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTarget>>,
+  TError,
+  DeleteTargetMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteTargetMutationOptions(options), queryClient);
+};
+export const getGetTargetUrl = (targetId: string) => {
+  return `/api/v1/targets/${targetId}`;
+};
+
+/**
+ * @summary Get a Target
+ */
+export const getTarget = async (
+  targetId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsTarget> => {
+  return apiFetch<TargetsTarget>(getGetTargetUrl(targetId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTargetQueryKey = (targetId: string) => {
+  return [`/api/v1/targets/${targetId}`] as const;
+};
+
+export const getGetTargetSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTarget>>,
+  TError = ErrorType<
+    GetTarget401 | GetTarget403 | GetTarget404 | GetTarget409 | GetTarget422 | GetTarget500
+  >,
+>(
+  targetId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTarget>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTargetQueryKey(targetId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTarget>>> = ({ signal }) =>
+    getTarget(targetId, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTarget>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetTargetSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getTarget>>>;
+export type GetTargetSuspenseQueryError = ErrorType<
+  GetTarget401 | GetTarget403 | GetTarget404 | GetTarget409 | GetTarget422 | GetTarget500
+>;
+
+export function useGetTargetSuspense<
+  TData = Awaited<ReturnType<typeof getTarget>>,
+  TError = ErrorType<
+    GetTarget401 | GetTarget403 | GetTarget404 | GetTarget409 | GetTarget422 | GetTarget500
+  >,
+>(
+  targetId: string,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTarget>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTargetSuspense<
+  TData = Awaited<ReturnType<typeof getTarget>>,
+  TError = ErrorType<
+    GetTarget401 | GetTarget403 | GetTarget404 | GetTarget409 | GetTarget422 | GetTarget500
+  >,
+>(
+  targetId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTarget>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTargetSuspense<
+  TData = Awaited<ReturnType<typeof getTarget>>,
+  TError = ErrorType<
+    GetTarget401 | GetTarget403 | GetTarget404 | GetTarget409 | GetTarget422 | GetTarget500
+  >,
+>(
+  targetId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTarget>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get a Target
+ */
+
+export function useGetTargetSuspense<
+  TData = Awaited<ReturnType<typeof getTarget>>,
+  TError = ErrorType<
+    GetTarget401 | GetTarget403 | GetTarget404 | GetTarget409 | GetTarget422 | GetTarget500
+  >,
+>(
+  targetId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTarget>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetTargetSuspenseQueryOptions(targetId, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getDuplicateTargetUrl = (targetId: string) => {
+  return `/api/v1/targets/${targetId}/duplicate`;
+};
+
+/**
+ * @summary Copy a Target's rules under the first free name ending in copy
+ */
+export const duplicateTarget = async (
+  targetId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsTarget> => {
+  return apiFetch<TargetsTarget>(getDuplicateTargetUrl(targetId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDuplicateTargetMutationKey = () => ["duplicateTarget"] as const;
+
+export const getDuplicateTargetMutationOptions = <
+  TError = ErrorType<
+    | DuplicateTarget401
+    | DuplicateTarget403
+    | DuplicateTarget404
+    | DuplicateTarget409
+    | DuplicateTarget422
+    | DuplicateTarget500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof duplicateTarget>>,
+    TError,
+    DuplicateTargetMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof duplicateTarget>>,
+  TError,
+  DuplicateTargetMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDuplicateTargetMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof duplicateTarget>>,
+    DuplicateTargetMutationVariables
+  > = (props) => {
+    const { targetId } = props ?? {};
+
+    return duplicateTarget(targetId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DuplicateTargetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof duplicateTarget>>
+>;
+
+export type DuplicateTargetMutationError = ErrorType<
+  | DuplicateTarget401
+  | DuplicateTarget403
+  | DuplicateTarget404
+  | DuplicateTarget409
+  | DuplicateTarget422
+  | DuplicateTarget500
+>;
+export type DuplicateTargetMutationVariables = { targetId: string };
+
+/**
+ * @summary Copy a Target's rules under the first free name ending in copy
+ */
+export const useDuplicateTarget = <
+  TError = ErrorType<
+    | DuplicateTarget401
+    | DuplicateTarget403
+    | DuplicateTarget404
+    | DuplicateTarget409
+    | DuplicateTarget422
+    | DuplicateTarget500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof duplicateTarget>>,
+      TError,
+      DuplicateTargetMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof duplicateTarget>>,
+  TError,
+  DuplicateTargetMutationVariables,
+  TContext
+> => {
+  return useMutation(getDuplicateTargetMutationOptions(options), queryClient);
 };

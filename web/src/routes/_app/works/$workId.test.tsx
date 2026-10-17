@@ -7,7 +7,7 @@ import { downloading, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
 import { renderApp } from "../../../test/render-app";
-import { filled, grabbed, searching, workServer } from "../../../test/work-server";
+import { filled, grabbed, searching, upgradable, workServer } from "../../../test/work-server";
 
 const row = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
@@ -63,6 +63,23 @@ test("files.changed shows the new file without a reload", async () => {
     );
 });
 
+test("a cell below its Target's cutoff shows upgradable with its file", async () => {
+  const server = workServer();
+  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+
+  server.fileArrives(upgradable);
+
+  await expect
+    .element(row())
+    .toHaveTextContent("The Quiet OrchardUpgradableThe Quiet Orchard (2021) - 1080p.mkvMissing");
+  await expect
+    .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
+    .toHaveTextContent(
+      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021)1920×1080 · 500 MB",
+    );
+});
+
 test("a Work that is gone says so", async () => {
   renderApp({
     path: `/works/${orchardId}`,
@@ -97,7 +114,9 @@ test("Search starts a search and says so, and the run and its Grab show without 
     .toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLDownloading25%175 MB of 700 MB");
   await expect
     .element(
-      page.getByRole("progressbar", { name: "Downloading The.Quiet.Orchard.2021.1080p.WEB-DL" }),
+      page.getByRole("progressbar", {
+        name: "Downloading The.Quiet.Orchard.2021.1080p.WEB-DL",
+      }),
     )
     .toHaveAttribute("aria-valuenow", "25");
 

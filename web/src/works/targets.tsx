@@ -12,10 +12,10 @@ function CellState({ cell }: { cell: FilesCell | undefined }) {
   if (cell === undefined) {
     return null;
   }
-  if (cell.state === "met") {
+  if (cell.state === "met" || cell.state === "upgradable") {
     return (
       <span className="flex min-w-0 flex-col items-start gap-1">
-        <MetPill>Met</MetPill>
+        {cell.state === "met" ? <MetPill>Met</MetPill> : <Chip>Upgradable</Chip>}
         <span className="max-w-full truncate text-meta text-ink-3">
           <Data>{nameOf(cell.file.path)}</Data>
         </span>
@@ -63,7 +63,7 @@ export function Targets({
         columns={columnsOf(type, cells)}
         rows={work.items}
         rowKey={(item) => item.id}
-        lines={cells.some((cell) => cell.state === "met") ? 2 : 1}
+        lines={cells.some((cell) => "file" in cell) ? 2 : 1}
       />
     </Section>
   );

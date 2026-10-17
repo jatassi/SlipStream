@@ -9,6 +9,7 @@ import type {
   FilesFailedCell,
   FilesMetCell,
   FilesMissingCell,
+  FilesUpgradableCell,
 } from "../../model";
 
 export const getGetWorkCellsResponseFilesMissingCellMock = (
@@ -53,6 +54,46 @@ export const getGetWorkCellsResponseFilesFailedCellMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkCellsResponseFilesUpgradableCellMock = (
+  overrideResponse: Partial<FilesUpgradableCell> = {},
+): FilesUpgradableCell => ({
+  ...{
+    edition: faker.helpers.arrayElement(["standard"] as const),
+    file: {
+      id: faker.string.uuid(),
+      path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+      quality: faker.helpers.arrayElement([
+        "sdtv",
+        "dvd",
+        "webrip-480p",
+        "hdtv-720p",
+        "webrip-720p",
+        "webdl-720p",
+        "bluray-720p",
+        "hdtv-1080p",
+        "webrip-1080p",
+        "webdl-1080p",
+        "bluray-1080p",
+        "remux-1080p",
+        "hdtv-2160p",
+        "webrip-2160p",
+        "webdl-2160p",
+        "bluray-2160p",
+        "remux-2160p",
+        "cam",
+      ] as const),
+      size: faker.number.int({ min: 0 }),
+    },
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["upgradable"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
 export const getGetWorkCellsResponseFilesMetCellMock = (
   overrideResponse: Partial<FilesMetCell> = {},
 ): FilesMetCell => ({
@@ -62,6 +103,26 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
       id: faker.string.uuid(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),
       probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+      quality: faker.helpers.arrayElement([
+        "sdtv",
+        "dvd",
+        "webrip-480p",
+        "hdtv-720p",
+        "webrip-720p",
+        "webdl-720p",
+        "bluray-720p",
+        "hdtv-1080p",
+        "webrip-1080p",
+        "webdl-1080p",
+        "bluray-1080p",
+        "remux-1080p",
+        "hdtv-2160p",
+        "webrip-2160p",
+        "webdl-2160p",
+        "bluray-2160p",
+        "remux-2160p",
+        "cam",
+      ] as const),
       size: faker.number.int({ min: 0 }),
     },
     itemId: faker.string.uuid(),
@@ -81,6 +142,7 @@ export const getGetWorkCellsResponseMock = (
       { ...getGetWorkCellsResponseFilesMissingCellMock() },
       { ...getGetWorkCellsResponseFilesDownloadingCellMock() },
       { ...getGetWorkCellsResponseFilesFailedCellMock() },
+      { ...getGetWorkCellsResponseFilesUpgradableCellMock() },
       { ...getGetWorkCellsResponseFilesMetCellMock() },
     ]),
   ),

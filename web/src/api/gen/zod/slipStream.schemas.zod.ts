@@ -89,11 +89,44 @@ export const FilesLibraryFile = zod.object({
   id: zod.uuid(),
   path: zod.string().describe("Relative to its root, / separated"),
   probe: FilesProbe,
+  quality: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
   size: zod.int().min(filesLibraryFileSizeMin),
 });
 
 export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
+
+export const FilesUpgradableCell = zod.object({
+  edition: zod.enum(["standard"]),
+  file: FilesLibraryFile.describe("The file filling it, below its Target's cutoff"),
+  itemId: zod.uuid(),
+  state: zod.enum(["upgradable"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+});
+
+export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
+export type FilesUpgradableCellOutput = zod.output<typeof FilesUpgradableCell>;
 
 export const FilesMetCell = zod.object({
   edition: zod.enum(["standard"]),
@@ -112,6 +145,7 @@ export const FilesCell = zod.discriminatedUnion("state", [
   FilesMissingCell,
   FilesDownloadingCell,
   FilesFailedCell,
+  FilesUpgradableCell,
   FilesMetCell,
 ]);
 
@@ -236,6 +270,43 @@ export const GrabsGrabList = zod.object({
 export type GrabsGrabList = zod.input<typeof GrabsGrabList>;
 export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
 
+export const GrabsReason = zod.object({
+  attribute: zod
+    .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
+    .exactOptional()
+    .describe("The attribute a failed filter rules on"),
+  code: zod.enum([
+    "wrong_work",
+    "quality_not_in_target",
+    "filter",
+    "size_below",
+    "size_above",
+    "size_not_checked",
+    "not_an_upgrade",
+  ]),
+  targetId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Target whose verdict it is, absent for wrong_work"),
+  value: zod
+    .string()
+    .exactOptional()
+    .describe("The value a filter failed on, or the quality a Target doesn't accept"),
+});
+
+export type GrabsReason = zod.input<typeof GrabsReason>;
+export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
+
+export const GrabsRefusal = zod.object({
+  reasons: zod
+    .array(GrabsReason)
+    .describe("Each open cell's Target's failures and notes, in Profile order"),
+  title: zod.string(),
+});
+
+export type GrabsRefusal = zod.input<typeof GrabsRefusal>;
+export type GrabsRefusalOutput = zod.output<typeof GrabsRefusal>;
+
 export const grabsSearchCandidatesMin = 0;
 
 export const GrabsSearch = zod.object({
@@ -245,6 +316,11 @@ export const GrabsSearch = zod.object({
   id: zod.uuid(),
   indexerId: zod.uuid(),
   itemId: zod.uuid(),
+  notes: zod
+    .array(GrabsReason)
+    .describe(
+      "The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for",
+    ),
   outcome: zod
     .union([
       zod.literal("grabbed"),
@@ -255,6 +331,11 @@ export const GrabsSearch = zod.object({
     ])
     .nullable()
     .describe("Null while the run searches"),
+  refused: zod
+    .array(GrabsRefusal)
+    .describe(
+      "The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused",
+    ),
   startedAt: zod.iso.datetime({ offset: true }),
 });
 
@@ -1438,6 +1519,22 @@ export const TargetsChanged = zod.object({});
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
 
+export const TargetsFilter = zod.object({
+  attribute: zod.enum(["hdr", "video_codec", "audio_codec", "channels", "language"]),
+  mode: zod
+    .enum(["only", "not"])
+    .describe(
+      "Only passes a fact holding one of the values, not one holding none; an unknown fact passes",
+    ),
+  values: zod
+    .array(zod.string())
+    .min(1)
+    .describe("The attribute's values by name; a language is an ISO 639 code or original"),
+});
+
+export type TargetsFilter = zod.input<typeof TargetsFilter>;
+export type TargetsFilterOutput = zod.output<typeof TargetsFilter>;
+
 export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsNewProfileNameMax = 100;
 
@@ -1450,18 +1547,93 @@ export const TargetsNewProfile = zod.object({
 export type TargetsNewProfile = zod.input<typeof TargetsNewProfile>;
 export type TargetsNewProfileOutput = zod.output<typeof TargetsNewProfile>;
 
+export const targetsSizeMaxMin = 0;
+
+export const targetsSizeMinMin = 0;
+
+export const TargetsSize = zod.object({
+  max: zod.number().min(targetsSizeMaxMin).nullable().describe("MiB per minute; null is no limit"),
+  min: zod
+    .number()
+    .min(targetsSizeMinMin)
+    .describe("MiB per minute of the runtime the file covers"),
+  quality: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
+});
+
+export type TargetsSize = zod.input<typeof TargetsSize>;
+export type TargetsSizeOutput = zod.output<typeof TargetsSize>;
+
 export const targetsNewTargetNameMax = 100;
 
 export const TargetsNewTarget = zod.object({
+  cutoff: zod
+    .enum([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ])
+    .describe("Any quality of the tier at which a file is final"),
+  filters: zod.array(TargetsFilter).nullish().describe("An attribute left out is Any"),
   name: zod.string().min(1).max(targetsNewTargetNameMax),
-  resolutions: zod
-    .array(zod.enum(["2160p", "1080p", "720p", "576p", "480p"]))
+  sizes: zod
+    .array(TargetsSize)
+    .nullish()
+    .describe("An accepted quality left out takes its floor and no maximum"),
+  tiers: zod
+    .array(zod.array(zod.string()).nullable())
     .min(1)
-    .describe("Highest ranked first"),
+    .describe("Quality keys, best tier first; a tier's qualities rank as equal"),
 });
 
 export type TargetsNewTarget = zod.input<typeof TargetsNewTarget>;
 export type TargetsNewTargetOutput = zod.output<typeof TargetsNewTarget>;
+
+export const TargetsPreset = zod.object({
+  key: zod.enum(["disc-or-resolution", "anything-better", "resolution-only"]),
+  name: zod.string(),
+  tiers: zod
+    .array(zod.array(zod.string()).nullable())
+    .describe(
+      "Every quality, best tier first. Over chosen qualities, keep these tiers to them; with no upgrades, put the cutoff at the bottom tier",
+    ),
+});
+
+export type TargetsPreset = zod.input<typeof TargetsPreset>;
+export type TargetsPresetOutput = zod.output<typeof TargetsPreset>;
 
 export const targetsProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
@@ -1483,13 +1655,83 @@ export const TargetsProfileList = zod.object({
 export type TargetsProfileList = zod.input<typeof TargetsProfileList>;
 export type TargetsProfileListOutput = zod.output<typeof TargetsProfileList>;
 
-export const TargetsTarget = zod.object({
-  createdAt: zod.iso.datetime({ offset: true }),
+export const TargetsProfileRef = zod.object({
   id: zod.uuid(),
   name: zod.string(),
-  resolutions: zod
-    .array(zod.enum(["2160p", "1080p", "720p", "576p", "480p"]))
-    .describe("Highest ranked first"),
+});
+
+export type TargetsProfileRef = zod.input<typeof TargetsProfileRef>;
+export type TargetsProfileRefOutput = zod.output<typeof TargetsProfileRef>;
+
+export const targetsQualityFloorMin = 0;
+
+export const TargetsQuality = zod.object({
+  cinema: zod
+    .boolean()
+    .describe("A cinema recording: kept out of a Target unless an Admin adds it"),
+  floor: zod
+    .number()
+    .min(targetsQualityFloorMin)
+    .describe("A new Target's minimum size, in MiB per minute"),
+  key: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
+  name: zod.string(),
+  resolution: zod
+    .union([
+      zod.literal("2160p"),
+      zod.literal("1080p"),
+      zod.literal("720p"),
+      zod.literal("480p"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null for cinema sources"),
+  source: zod.enum(["tv", "hdtv", "dvd", "webrip", "webdl", "bluray", "remux", "cinema"]),
+});
+
+export type TargetsQuality = zod.input<typeof TargetsQuality>;
+export type TargetsQualityOutput = zod.output<typeof TargetsQuality>;
+
+export const TargetsQualityList = zod.object({
+  presets: zod.array(TargetsPreset).describe("The default first"),
+  qualities: zod.array(TargetsQuality).describe("Low to high, the presets' default order"),
+});
+
+export type TargetsQualityList = zod.input<typeof TargetsQualityList>;
+export type TargetsQualityListOutput = zod.output<typeof TargetsQualityList>;
+
+export const TargetsTarget = zod.object({
+  contains: zod
+    .array(zod.uuid())
+    .describe("The other Targets every file of which also meets this one"),
+  createdAt: zod.iso.datetime({ offset: true }),
+  cutoff: zod.string().describe("The first quality of the tier at which a file is final"),
+  filters: zod.array(TargetsFilter).describe("Every attribute that isn't Any, in attribute order"),
+  id: zod.uuid(),
+  name: zod.string(),
+  profiles: zod.array(TargetsProfileRef).describe("The Profiles holding it, by name"),
+  sizes: zod.array(TargetsSize).describe("Every accepted quality's size, in tier order"),
+  tiers: zod
+    .array(zod.array(zod.string()).nullable())
+    .describe("Quality keys, best tier first; a tier's qualities rank as equal"),
 });
 
 export type TargetsTarget = zod.input<typeof TargetsTarget>;
