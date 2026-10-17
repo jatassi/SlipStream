@@ -8,7 +8,7 @@ An Admin issues a Signup link for an email on Accounts. SlipStream emails it whe
 - `signup-link-email` the email reaches the `mail` capture with the subject `Ada Okafor invited you to <host>`, the button and the raw link in its text part.
 - `signup-link-pending` a pending link's `Actions for <email>` menu has `Copy link`, `Send again` (a new link, the old one withdrawn) and `Withdraw` (P-307).
 - `signup-link-account-exists` an email that already has an Account is refused on the field with `An Account already has that email`.
-- `signup-link-address` with no address set, the dialog asks for `SlipStream's address` inline, saves it and then makes the link.
+- `signup-link-address` with no address set, `Make the link` answers `Set SlipStream's address first, so links point somewhere people can reach` over the field `SlipStream's address`, filled with the address in use; `Make the link` again saves it and makes the link, which reads `Email is not set up, so copy the link and send it yourself.` when no email server is saved.
 - `signup-join` the link opens the guided flow, `Step 1 of 5` on the Node's name and `Step 1 of 4` on its IP address, and ends on the portal's Home signed in as the new Member (P-310).
 - `signup-join-phone` the same flow on the phone shell takes the PIN on the 80px keypad.
 - `signup-dead-link` a used link says `This link was already used, and each link works once, so sign in or ask Ada Okafor for a new one.` with `Sign in`; a made-up one names nobody.
