@@ -29,7 +29,12 @@ type Scenario struct {
 	Description string `yaml:"description"`
 	Seed        string `yaml:"seed"`
 	Admin       *Admin `yaml:"admin,omitempty"`
-	Nodes       []Node `jsonschema:"required,minItems=1,maxItems=31" yaml:"nodes"`
+	// Members are the Accounts beside the Admin. The world makes each
+	// through a Signup link the Admin issues.
+	Members []Member `yaml:"members,omitempty"`
+	// Mail saves fakes/smtp as the Controller's email setting.
+	Mail  bool   `yaml:"mail,omitempty"`
+	Nodes []Node `jsonschema:"required,minItems=1,maxItems=31" yaml:"nodes"`
 	// Timings holds the durations the Scenario shortens. A zero duration is
 	// unset, so the Node keeps its production value.
 	Timings node.TimingsBlock `yaml:"timings"`
@@ -55,6 +60,15 @@ type Admin struct {
 	Email       string `jsonschema:"required"                   yaml:"email"`
 	DisplayName string `jsonschema:"required"                   yaml:"display_name"`
 	PIN         string `jsonschema:"required,pattern=^[0-9]{4}$" yaml:"pin"`
+}
+
+// Member is an Account the world makes after setup, an Admin when Admin
+// is set.
+type Member struct {
+	Email       string `jsonschema:"required"                   yaml:"email"`
+	DisplayName string `jsonschema:"required"                   yaml:"display_name"`
+	PIN         string `jsonschema:"required,pattern=^[0-9]{4}$" yaml:"pin"`
+	Admin       bool   `yaml:"admin,omitempty"`
 }
 
 type Node struct {
@@ -136,6 +150,7 @@ func (s Scenario) Validate() error {
 	case s.Admin != nil && !pin.MatchString(s.Admin.PIN):
 		add("admin pin %q is not four digits", s.Admin.PIN)
 	}
+	s.checkMembers(add)
 	if s.Music != nil {
 		s.Music.check(add)
 	}
@@ -162,6 +177,29 @@ func (s Scenario) Validate() error {
 		return errors.New(strings.Join(problems, "\n"))
 	}
 	return nil
+}
+
+func (s Scenario) checkMembers(add func(format string, args ...any)) {
+	if s.Admin == nil {
+		if len(s.Members) > 0 {
+			add("members are set, but no admin issues their Signup links")
+		}
+		if s.Mail {
+			add("mail is set, but no admin saves it")
+		}
+		return
+	}
+	emails := []string{strings.ToLower(s.Admin.Email)}
+	for _, m := range s.Members {
+		email := strings.ToLower(m.Email)
+		if slices.Contains(emails, email) {
+			add("member email %s is used twice", m.Email)
+		}
+		emails = append(emails, email)
+		if !pin.MatchString(m.PIN) {
+			add("member %s pin %q is not four digits", m.Email, m.PIN)
+		}
+	}
 }
 
 // checkFaults checks what a rule needs before any front exists: an id of

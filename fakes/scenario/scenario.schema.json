@@ -28,6 +28,36 @@
         "pin"
       ]
     },
+    "members": {
+      "items": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "pin": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "display_name",
+          "pin"
+        ]
+      },
+      "type": "array"
+    },
+    "mail": {
+      "type": "boolean"
+    },
     "nodes": {
       "items": {
         "properties": {

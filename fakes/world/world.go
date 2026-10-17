@@ -35,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/internal/seeders"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/smtp"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
@@ -83,6 +84,7 @@ type Run struct {
 	nodes     []*nodeRun
 	used      map[string]bool
 	claims    setup.Claims
+	accounts  []setup.Account
 	control   *control.Server
 	captures  *captures
 
@@ -226,6 +228,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.checkListeners,
 		r.pinPorts,
 		r.setUp,
+		r.seedAccounts,
 		r.seedLibrary,
 		r.publish,
 	}
@@ -610,6 +613,27 @@ func (r *Run) setUp(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
+// seedAccounts makes the Scenario's Members and email setting on the
+// Controller, whose email goes to its smtp front.
+func (r *Run) seedAccounts(ctx context.Context, _ *unwind) error {
+	if len(r.scenario.Members) == 0 && !r.scenario.Mail {
+		return nil
+	}
+	var controller string
+	for _, n := range r.scenario.Nodes {
+		if n.Setup == scenario.SetupController {
+			controller = n.Name
+		}
+	}
+	smtpFront, _ := r.table.Find(fault.Target(smtp.Fake.Name), controller)
+	var err error
+	if r.accounts, err = setup.Accounts(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, smtpFront.AddrPort); err != nil {
+		return err
+	}
+	r.log.Info("accounts seeded")
+	return nil
+}
+
 // seedLibrary creates the Scenario's library on the Controller, its roots'
 // folders under the media dir and its Indexers at the site fronts of the
 // Node that holds Searching, which searches from them.
@@ -689,6 +713,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Fronts:      []Front{},
 		Links:       map[string]string{},
 		Releases:    []Release{},
+		Members:     []Member{},
 		APIKey:      r.claims.APIKey,
 	}
 	if r.scenario.Library != nil {
@@ -697,6 +722,9 @@ func (r *Run) buildManifest() (Manifest, error) {
 	m.Binary.Version = r.nodes[0].life.Ready().Version
 	if a := r.scenario.Admin; a != nil {
 		m.Admin = &Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
+	}
+	for _, a := range r.accounts {
+		m.Members = append(m.Members, Member{ID: a.ID, Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN, Admin: a.Admin})
 	}
 	for _, f := range r.fakes {
 		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.spec.URL(f.at), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...), Cues: append([]fake.CueSpec{}, f.spec.Cues...)})
