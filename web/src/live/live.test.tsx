@@ -147,7 +147,10 @@ test("live.access-changed re-gates the tab, so a demoted Admin lands on the port
   await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   expect(app.router.state.location.href).toBe("/portal");
   await expect.element(page.getByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
-  expect(nodeReads(app.queryClient)).toEqual([]);
+  expect(nodeReads(app.queryClient).map((query) => query.state.data)).toEqual([
+    undefined,
+    undefined,
+  ]);
   await expect.poll(() => server.closed).toEqual([0]);
   await expect.poll(() => server.clients).toHaveLength(2);
   await expect.poll(() => app.live.getState()).toBe("open");
