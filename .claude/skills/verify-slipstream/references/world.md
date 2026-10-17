@@ -57,6 +57,8 @@ status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | tru
 
 `fakeworld cue <run> <name> [<json args>]` plays a cue a fake declares; the manifest's `fakes[].cues` lists them. A cue changes only the world outside every Node. The `smtp` fake's cues each turn a play on, and `{"off": true}` turns it off: `smtp-auth-failure` (535), `smtp-defer` (451 to RCPT), `smtp-reject` (550 to RCPT), `smtp-tls-required` (530 to MAIL without TLS), `smtp-refused` (closed on accept) and `smtp-slow` (silent for `{"delay": "30s"}` before the greeting).
 
+`fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported.
+
 ## Captures and the event log
 
 `events.jsonl` in the run dir is the one ordered log of the run: launch, Node lifecycle, `node.error` lines, front opens and closes with bytes each way, faults, cues, steps, SSE messages and captures. Readers read the file, so they work on a live run, a stopped one and a downloaded CI bundle.

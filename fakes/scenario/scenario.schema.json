@@ -519,6 +519,9 @@
           "advertised_size": {
             "type": "string",
             "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+          },
+          "unlisted": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false,

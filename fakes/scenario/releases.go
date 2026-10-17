@@ -23,6 +23,9 @@ type Release struct {
 	// AdvertisedSize is the size fixture-site lists, separate from the
 	// payload's. Zero lists the payload's.
 	AdvertisedSize Bytes `yaml:"advertised_size,omitempty"`
+	// Unlisted keeps it out of fixture-site's feeds until the
+	// fixture-site-list cue lists it, as a release posted later.
+	Unlisted bool `yaml:"unlisted,omitempty"`
 }
 
 // Bytes is a size in bytes, written as a number and a unit, like 8.2GiB.
