@@ -246,7 +246,7 @@ func restart(args []string, types contenttype.Set) int {
 	reply, err := RestartNode(context.Background(), env)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "slipstream restart: %v\n", err)
-		return ExitFailed
+		return ExitCode(err)
 	}
 	fmt.Println(reply.URL)
 	return ExitOK

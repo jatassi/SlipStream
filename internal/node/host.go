@@ -46,8 +46,9 @@ func (h *nodeHost) SetConfig(changes []nodesystem.Change) (nodesystem.Config, er
 	return h.n.configView()
 }
 
-// Restart reports the port the Node serves on and, while http.listen
-// waits for a restart, the port it moves to.
+// Restart reports the port the Node serves on and, when the saved
+// http.listen names another one, the port it moves to. After a fallback
+// that is the configured port, which the successor tries first.
 func (h *nodeHost) Restart() (nodesystem.Restarting, error) {
 	f, err := h.Facts()
 	if err != nil {
@@ -58,11 +59,9 @@ func (h *nodeHost) Restart() (nodesystem.Restarting, error) {
 		return nodesystem.Restarting{}, err
 	}
 	r := nodesystem.Restarting{StartedAt: h.n.started, BoundPort: f.Listeners.HTTP.Port()}
-	h.n.cfgMu.Lock()
-	if next := saved.HTTP.Listen.Port(); next != h.n.cfg.HTTP.Listen.Port() && next != r.BoundPort {
+	if next := saved.HTTP.Listen.Port(); next != 0 && next != r.BoundPort {
 		r.NextPort = next
 	}
-	h.n.cfgMu.Unlock()
 	switch err := h.n.Restart(); {
 	case errors.Is(err, ErrAlreadyRestarting):
 		return nodesystem.Restarting{}, nodesystem.ErrAlreadyRestarting

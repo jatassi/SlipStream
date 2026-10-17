@@ -216,8 +216,9 @@ func TestConfigSections(t *testing.T) {
 
 func TestConfigWriter(t *testing.T) {
 	assertFindings(t, check(t, "config-writer", fixtureRepo(t, "config-writer")), []string{
-		"internal/node/settings.go:11: [config-writer] WriteFile writes config.yaml; change keys through config.Edit",
-		"internal/node/settings.go:14: [config-writer] Write writes config.yaml; change keys through config.Edit",
+		"internal/node/settings.go:12: [config-writer] WriteFile writes config.yaml; change keys through config.Edit",
+		"internal/node/settings.go:15: [config-writer] Write writes config.yaml; change keys through config.Edit",
+		"internal/node/settings.go:19: [config-writer] WriteFile writes config.yaml; change keys through config.Edit",
 	})
 }
 

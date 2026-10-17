@@ -18,7 +18,10 @@ func init() {
 	})
 }
 
-const configWriter = "internal/node/internal/config/edit.go"
+const (
+	configWriter  = "internal/node/internal/config/edit.go"
+	configPackage = "internal/node/internal/config"
+)
 
 // fileWriters are the calls that create, replace or write a file named by
 // one of their arguments.
@@ -44,7 +47,7 @@ func checkConfigWriter(repo *lint.Repo) ([]lint.Finding, error) {
 		imports := importNames(f)
 		ast.Inspect(f.Syntax, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
-			if !ok || !writesAFile(module, imports, call) || !namesConfigYAML(call.Args) {
+			if !ok || !writesAFile(module, imports, call) || !namesConfigYAML(module, imports, call.Args) {
 				return true
 			}
 			_, name, _ := qualifiedName(imports, call.Fun)
@@ -75,14 +78,19 @@ func writesAFile(module string, imports map[string]string, call *ast.CallExpr) b
 	return false
 }
 
-func namesConfigYAML(args []ast.Expr) bool {
+// namesConfigYAML reports an argument that spells config.yaml or names it
+// through config.SourceYAML.
+func namesConfigYAML(module string, imports map[string]string, args []ast.Expr) bool {
 	found := false
 	for _, arg := range args {
 		ast.Inspect(arg, func(n ast.Node) bool {
-			if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-				if s, err := strconv.Unquote(lit.Value); err == nil && path.Base(s) == "config.yaml" {
-					found = true
-				}
+			switch n := n.(type) {
+			case *ast.BasicLit:
+				s, err := strconv.Unquote(n.Value)
+				found = found || n.Kind == token.STRING && err == nil && path.Base(s) == "config.yaml"
+			case *ast.SelectorExpr:
+				pkg, name, ok := qualifiedName(imports, n)
+				found = found || ok && pkg == path.Join(module, configPackage) && name == "SourceYAML"
 			}
 			return !found
 		})

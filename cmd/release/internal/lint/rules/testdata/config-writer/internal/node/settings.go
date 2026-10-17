@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"example.com/app/internal/atomicfile"
+	"example.com/app/internal/node/internal/config"
 )
 
 func save(dir string, data []byte) error {
@@ -12,6 +13,10 @@ func save(dir string, data []byte) error {
 		return err
 	}
 	return atomicfile.Write(dir+"/config.yaml", data)
+}
+
+func saveBySource(dir string, data []byte) error {
+	return os.WriteFile(filepath.Join(dir, string(config.SourceYAML)), data, 0o600)
 }
 
 func read(dir string) ([]byte, error) {

@@ -151,6 +151,30 @@ func TestThePortANodeListensOnWaitsForNoRestart(t *testing.T) {
 	})
 }
 
+func TestARestartAfterAFallbackMovesToTheConfiguredPort(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		env, host := inMemory(fallbackEnv(t, "3"))
+		env.Restart = func() error { return nil }
+		held, err := host.Listen("tcp", "127.0.0.1:8484")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = held.Close() }()
+		n, c := startOn(t, env, host)
+		key := claimKey(t, n, c)
+
+		r := c.admin(key, http.MethodPost, "/api/v1/nodes/"+selfID(t, c, key)+"/restart", "")
+		accepted := decode[struct {
+			BoundPort uint16 `json:"boundPort"`
+			NextPort  uint16 `json:"nextPort"`
+		}](t, r, http.StatusAccepted)
+		if accepted.BoundPort != 8486 || accepted.NextPort != 8484 {
+			t.Fatalf("restartNode = %s, want boundPort 8486 and nextPort 8484", r.body)
+		}
+		<-n.Done()
+	})
+}
+
 func TestOnePortToTryFailsTheStart(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		env, host := inMemory(fallbackEnv(t, "1"))

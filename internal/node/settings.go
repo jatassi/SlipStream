@@ -27,27 +27,27 @@ var nodeSettings = []settingRow{
 	},
 	choiceRow{
 		desc:  setting.Choice[logs.Level]{Key: "log.level", Label: "Level", Options: logLevels},
-		rowOf: rowOf[logs.Level]{at: func(c *Config) *logs.Level { return &c.Log.Level }, applier: applyLog},
+		rowOf: rowOf[logs.Level]{at: func(c *Config) *logs.Level { return &c.Log.Level }, applies: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.max_size_mb", Label: "Rotate at", Min: 1, Max: 1000, Unit: setting.Noun{One: "MB", Many: "MB"}},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxSizeMB }, applier: applyLog},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxSizeMB }, applies: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.max_files", Label: "Files kept", Min: 0, Max: 100, Unit: setting.Noun{One: "file", Many: "files"}, Zero: "No limit"},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxFiles }, applier: applyLog},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxFiles }, applies: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.max_age_days", Label: "Days kept", Min: 0, Max: 3650, Unit: setting.Noun{One: "day", Many: "days"}, Zero: "No limit"},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxAgeDays }, applier: applyLog},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.MaxAgeDays }, applies: applyLog},
 	},
 	switchRow{
 		desc:  setting.Switch{Key: "log.compress", Label: "Compress rotated files"},
-		rowOf: rowOf[bool]{at: func(c *Config) *bool { return &c.Log.Compress }, applier: applyLog},
+		rowOf: rowOf[bool]{at: func(c *Config) *bool { return &c.Log.Compress }, applies: applyLog},
 	},
 	countRow{
 		desc:  setting.Count{Key: "log.viewer_lines", Label: "Lines kept for the viewer", Min: 100, Max: 50000, Unit: setting.Noun{One: "line", Many: "lines"}},
-		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.ViewerLines }, applier: applyLog},
+		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.ViewerLines }, applies: applyLog},
 	},
 }
 
@@ -58,7 +58,13 @@ var logLevels = []setting.Option[logs.Level]{
 	{Value: logs.Error, Label: "Error"},
 }
 
-func applyLog(n *Node, saved Config) error { return n.logs.Apply(saved.Log) }
+// liveApply applies a saved section to the running Node. Rows of one
+// section share it, so a change to several of them applies it once.
+type liveApply struct {
+	apply func(n *Node, saved Config) error
+}
+
+var applyLog = &liveApply{apply: func(n *Node, saved Config) error { return n.logs.Apply(saved.Log) }}
 
 func settingRowOf(key string) (settingRow, bool) {
 	for _, r := range nodeSettings {
@@ -84,7 +90,8 @@ type settingRow interface {
 	same(a, b *Config) bool
 	// adopt sets running's value to saved's.
 	adopt(running, saved *Config)
-	apply(n *Node, saved Config) error
+	// applier is how a live row applies, nil for a restart row.
+	applier() *liveApply
 }
 
 // view is what a row's field is drawn from: the saved and running Configs,
@@ -117,13 +124,13 @@ func (v view) fields() []setting.Field {
 // Config and, for a live row, how the Node applies a saved change.
 type rowOf[T comparable] struct {
 	at      func(*Config) *T
-	applier func(n *Node, saved Config) error
+	applies *liveApply
 }
 
-func (r rowOf[T]) live() bool                        { return r.applier != nil }
-func (r rowOf[T]) same(a, b *Config) bool            { return *r.at(a) == *r.at(b) }
-func (r rowOf[T]) adopt(running, saved *Config)      { *r.at(running) = *r.at(saved) }
-func (r rowOf[T]) apply(n *Node, saved Config) error { return r.applier(n, saved) }
+func (r rowOf[T]) live() bool                   { return r.applies != nil }
+func (r rowOf[T]) same(a, b *Config) bool       { return *r.at(a) == *r.at(b) }
+func (r rowOf[T]) adopt(running, saved *Config) { *r.at(running) = *r.at(saved) }
+func (r rowOf[T]) applier() *liveApply          { return r.applies }
 
 func (r rowOf[T]) about(v view, a setting.About) setting.About {
 	k := v.keys[a.Key]
@@ -338,8 +345,8 @@ func (f configFile) load() (Config, []Key, error) {
 // change is refused with a *nodesystem.Refusal.
 func (f configFile) set(changes []nodesystem.Change) (Config, []Key, error) {
 	saved, keys, err := f.load()
-	if err != nil {
-		return Config{}, nil, err
+	if err != nil || len(changes) == 0 {
+		return saved, keys, err
 	}
 	sources := keysByName(keys)
 	edits := make([]config.Change, len(changes))

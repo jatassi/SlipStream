@@ -117,7 +117,7 @@ func RestartNode(ctx context.Context, env Env) (StatusReply, error) {
 		}
 		select {
 		case <-ctx.Done():
-			return StatusReply{}, fmt.Errorf("node PID %d stopped to restart and no successor answered within %s", reply.PID, reply.Within+serviceStartWait)
+			return StatusReply{}, fmt.Errorf("node PID %d stopped to restart and no successor answered within %s; see the logs in %s", reply.PID, reply.Within+serviceStartWait, env.DataDir.LogsDir())
 		case <-tick.C:
 		}
 	}
@@ -145,7 +145,6 @@ func (n *Node) acquireLock() (*lock.Lock, error) {
 	}
 }
 
-// restartOf reads and removes restartOfVar from environ.
 func restartOf(environ []string) (rest []string, pid int, err error) {
 	i := slices.IndexFunc(environ, func(kv string) bool { return strings.HasPrefix(kv, restartOfVar+"=") })
 	if i < 0 {
@@ -158,7 +157,6 @@ func restartOf(environ []string) (rest []string, pid int, err error) {
 	return slices.Delete(slices.Clone(environ), i, i+1), pid, nil
 }
 
-// successorEnviron is environ for the process that follows this one.
 func successorEnviron(environ []string) []string {
 	return append(slices.Clone(environ), restartOfVar+"="+strconv.Itoa(os.Getpid()))
 }

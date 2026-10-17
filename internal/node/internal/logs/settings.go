@@ -7,16 +7,14 @@ import (
 
 // Settings is the log section: the level and the file's rotation.
 type Settings struct {
-	Level Level `yaml:"level"`
-	// MaxSizeMB is the size in megabytes at which the file rotates.
-	MaxSizeMB int `yaml:"max_size_mb"`
-	// MaxFiles is how many rotated files to keep, 0 for all of them.
+	Level     Level `yaml:"level"`
+	MaxSizeMB int   `yaml:"max_size_mb"`
+	// MaxFiles of 0 keeps every rotated file.
 	MaxFiles int `yaml:"max_files"`
-	// MaxAgeDays is how many days to keep a rotated file, 0 for no limit.
-	MaxAgeDays int  `yaml:"max_age_days"`
-	Compress   bool `yaml:"compress"`
-	// ViewerLines is how many recent records the Node keeps for the viewer.
-	ViewerLines int `yaml:"viewer_lines"`
+	// MaxAgeDays of 0 keeps rotated files of any age.
+	MaxAgeDays  int  `yaml:"max_age_days"`
+	Compress    bool `yaml:"compress"`
+	ViewerLines int  `yaml:"viewer_lines"`
 }
 
 func DefaultSettings() Settings {

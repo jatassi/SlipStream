@@ -134,8 +134,8 @@ type TimingsBlock struct {
 
 type Timings struct {
 	StopDeadline time.Duration `yaml:"stop_deadline"`
-	// RestartLockWait is how long a Windows successor waits for the process
-	// it follows to exit and free the data dir.
+	// RestartLockWait is how long a restarted process waits for the one it
+	// follows to release the data dir lock.
 	RestartLockWait time.Duration `yaml:"restart_lock_wait"`
 }
 

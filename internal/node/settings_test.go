@@ -127,6 +127,18 @@ func TestSetWritesAKeyAndUnsetReturnsItToItsDefault(t *testing.T) {
 	}
 }
 
+func TestSetWithNoChangesLeavesConfigYAMLAsWritten(t *testing.T) {
+	const yaml = "name: media\n\n# the log\nlog:\n  max_files: 3\n"
+	f := testConfigFile(t, yaml, "")
+	saved, _, err := f.set(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := readConfigYAML(t, f); got != yaml || saved.Log.MaxFiles != 3 {
+		t.Fatalf("config.yaml = %q with max_files %d, want it untouched with 3", got, saved.Log.MaxFiles)
+	}
+}
+
 func TestSetRefusesAndChangesNothing(t *testing.T) {
 	const yaml = "log:\n  max_files: 3\n"
 	for _, c := range []struct {

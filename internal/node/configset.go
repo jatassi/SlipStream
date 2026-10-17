@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/link"
@@ -70,13 +71,23 @@ func (n *Node) saveConfig(changes []nodesystem.Change) ([]Key, error) {
 	if err != nil {
 		return nil, err
 	}
+	var changed []settingRow
+	var appliers []*liveApply
 	for _, r := range nodeSettings {
 		if !r.live() || r.same(&saved, &n.cfg) {
 			continue
 		}
-		if err := r.apply(n, saved); err != nil {
+		changed = append(changed, r)
+		if !slices.Contains(appliers, r.applier()) {
+			appliers = append(appliers, r.applier())
+		}
+	}
+	for _, a := range appliers {
+		if err := a.apply(n, saved); err != nil {
 			return nil, err
 		}
+	}
+	for _, r := range changed {
 		r.adopt(&n.cfg, &saved)
 	}
 	return keys, nil
