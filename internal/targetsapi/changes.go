@@ -178,8 +178,8 @@ func wrongType(err error) error {
 }
 
 type newWants struct {
-	ProfileID string              `json:"profileId" format:"uuid"`
-	Editions  api.Patch[editions] `json:"editions" doc:"The Work's own Edition list, or null for its Profile's"`
+	ProfileID string                         `json:"profileId" format:"uuid"`
+	Editions  api.Patch[api.OneOf[editions]] `json:"editions" doc:"The Work's own Edition list, or null for its Profile's"`
 }
 
 type setWantsInput struct {
@@ -207,7 +207,7 @@ func (h handlers) setWorkWants(ctx context.Context, by identity.Admin, in *setWa
 	}
 	c := targets.SetWants{Work: work, Profile: targets.ProfileID{UUID: p}}
 	if own := in.Body.Editions.Value(); own != nil {
-		list, err := own.parse()
+		list, err := editionsFrom(*own)
 		if err != nil {
 			return nil, err
 		}

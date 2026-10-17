@@ -186,7 +186,7 @@ type InsertGrabParams struct {
 	ID              GrabID
 	WorkID          works.WorkID
 	ItemID          works.ItemID
-	Edition         files.Edition
+	Edition         targets.Edition
 	IndexerID       indexers.ID
 	NodeID          role.NodeID
 	ReleaseTitle    string
@@ -599,7 +599,7 @@ ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 type ListTargetsOfWorkRow struct {
 	ID       GrabID
 	ItemID   works.ItemID
-	Edition  files.Edition
+	Edition  targets.Edition
 	Stage    Stage
 	TargetID targets.TargetID
 }
@@ -643,7 +643,7 @@ ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 type ListTargetsOfWorksRow struct {
 	ID       GrabID
 	ItemID   works.ItemID
-	Edition  files.Edition
+	Edition  targets.Edition
 	Stage    Stage
 	TargetID targets.TargetID
 }

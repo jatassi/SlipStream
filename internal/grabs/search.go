@@ -12,9 +12,9 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
-	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -227,8 +227,31 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 }
 
 // pick decides among items for run's Item's open cells and stores the
-// releases it refused.
+// releases it refused. Every listed release of this Work records a
+// sighting of its cut first, so a cut seen now is wanted now.
 func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, items []indexers.Item) (*Pick, error) {
+	tree, err := gr.cfg.Works.TreeIn(ctx, tx, run.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	known, err := gr.cfg.Targets.CutsIn(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, tx, tree.ContentType, []works.WorkID{run.WorkID})
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]candidate, len(items))
+	for i, it := range items {
+		candidates[i] = candidateOf(it, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
+		if wrongWork(it, terms) {
+			continue
+		}
+		if err := targets.See(ctx, tx, run.ItemID, candidates[i].Facts.Cut, releaseKey(it)); err != nil {
+			return nil, err
+		}
+	}
 	open, err := gr.openCells(ctx, tx, run.WorkID)
 	if err != nil {
 		return nil, err
@@ -238,14 +261,6 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 		if c.Item.ID == run.ItemID {
 			item = append(item, c)
 		}
-	}
-	var runtime release.Fact[time.Duration]
-	if len(item) > 0 {
-		runtime = item[0].Timing.Runtime
-	}
-	candidates := make([]candidate, len(items))
-	for i, it := range items {
-		candidates[i] = candidateOf(it, run.ItemID, runtime)
 	}
 	pick, refused := decide(item, terms, candidates)
 	q := db.New(tx)
@@ -261,6 +276,15 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 	return pick, nil
 }
 
+// releaseKey is what a sighting keys it by: its info hash in hex, else its
+// title.
+func releaseKey(it indexers.Item) string {
+	if h, err := bencode.ParseInfoHash(it.InfoHash); err == nil {
+		return h.String()
+	}
+	return it.Title
+}
+
 func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result {
 	if ctx.Err() != nil {
 		return halted
@@ -271,7 +295,7 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 
 func insertGrab(ctx context.Context, q *db.Queries, run Search, idx indexers.Indexer, pick Pick, now storage.Time) (Grab, error) {
 	g := Grab{
-		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: files.Standard, Targets: pick.Targets,
+		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
 		Release: Release{Title: pick.Item.Title, Size: pick.Item.Size, Indexer: idx.ID, Link: pick.Item.Link},
 		Node:    idx.HomeNode, Stage: Fetching, Created: now.Time(),
 	}

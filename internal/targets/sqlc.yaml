@@ -74,3 +74,37 @@ sql:
             go_type:
               type: List
               pointer: true
+          - column: targets_profile.editions
+            go_type:
+              type: List
+          - column: targets_profile_cut.profile_id
+            go_type:
+              type: ProfileID
+          - column: targets_profile_cut.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_wants_cut.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: targets_wants_cut.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_cut.key
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_cut_alias.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_sighting.item_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID
+          - column: targets_sighting.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey

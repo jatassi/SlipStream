@@ -31,25 +31,24 @@ var schemaFiles embed.FS
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("files", schemaFiles) }
 
 type (
-	ID      = db.FileID
-	Edition = db.Edition
-	Probe   = db.Probe
+	ID    = db.FileID
+	Probe = db.Probe
 )
-
-const Standard = db.Standard
 
 // File is one library file of an Item. Path is where it belongs under its
 // root, '/' separated; until the disk queue moves it there, its bytes sit
 // where only the queue looks.
 type File struct {
-	ID      ID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
-	Edition Edition
-	RootID  roots.ID
-	Path    string
-	Size    int64
-	Probe   Probe
+	ID     ID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Cut is the file's own cut, which its name tags; the cells it can
+	// fill are its Work's list's.
+	Cut    release.CutKey
+	RootID roots.ID
+	Path   string
+	Size   int64
+	Probe  Probe
 	// GrabID is the Grab that brought it, zero for none.
 	GrabID storage.UUID
 	// Quality is release.File's over its Grab's release title, or its own
@@ -66,7 +65,7 @@ func (f File) Kept() bool { return f.Extra > 0 }
 
 // Facts is what f's row knows about it, for Judge.
 func (f File) Facts() release.Facts {
-	return release.Facts{Quality: release.Known(f.Quality), Cut: release.Standard, Size: release.Known(f.Size)}
+	return release.Facts{Quality: release.Known(f.Quality), Cut: f.Cut, Size: release.Known(f.Size)}
 }
 
 type Changed struct {
@@ -76,9 +75,9 @@ type Changed struct {
 var ChangedEvent = live.AdminEvent[Changed]("files.changed")
 
 // Add records f, whose bytes are already at its Path, filling each of
-// fills for its Item and Edition, and labels it after the first of them
-// in its Work's Profile order. It trusts fills: an import goes through
-// Import, which decides them.
+// fills for its Item at the Edition its cut fills, and labels it after
+// the first of them in its Work's Profile order. It trusts fills: an
+// import goes through Import, which decides them.
 func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.TargetID) (File, error) {
 	goals, err := targets.GoalsIn(ctx, tx, f.WorkID)
 	if err != nil {
@@ -96,7 +95,8 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 		return File{}, err
 	}
 	for _, t := range fills {
-		if err := q.InsertFill(ctx, db.InsertFillParams{FileID: f.ID, TargetID: t, ItemID: f.ItemID, Edition: f.Edition}); err != nil {
+		err := q.InsertFill(ctx, db.InsertFillParams{FileID: f.ID, TargetID: t, ItemID: f.ItemID, Edition: goals.Editions.Filling(f.Cut)})
+		if err != nil {
 			return File{}, err
 		}
 	}
@@ -105,7 +105,7 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 
 func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	return q.InsertFile(ctx, db.InsertFileParams{
-		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Edition: f.Edition, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Probe,
+		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Probe,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra,
 	})
 }
@@ -129,7 +129,7 @@ func (s State) String() string { return stateNames[s] }
 // CellKey names one cell: an Edition at a Target of an Item.
 type CellKey struct {
 	Item    works.ItemID
-	Edition Edition
+	Edition targets.Edition
 	Target  targets.TargetID
 }
 
@@ -139,7 +139,7 @@ type CellKey struct {
 // is the Item's, and Released whether it is out today.
 type Cell struct {
 	Item     works.Item
-	Edition  Edition
+	Edition  targets.Edition
 	Target   targets.Target
 	State    State
 	File     *File
@@ -239,7 +239,8 @@ func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.Work
 }
 
 // Cells computes a Work's cells in r: each Item in tree order, at each
-// Target of the Work's Profile in Profile order.
+// Edition it wants in list order, at each Target of the Work's Profile in
+// Profile order.
 func (f *Files) Cells(ctx context.Context, r storage.Reader[file], work works.WorkID) ([]Cell, error) {
 	w, err := f.load(ctx, r, work)
 	if err != nil {

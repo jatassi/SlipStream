@@ -16,6 +16,11 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CreateCut401,
+  CreateCut403,
+  CreateCut409,
+  CreateCut422,
+  CreateCut500,
   CreateProfile401,
   CreateProfile403,
   CreateProfile404,
@@ -27,6 +32,12 @@ import type {
   CreateTarget409,
   CreateTarget422,
   CreateTarget500,
+  DeleteCut401,
+  DeleteCut403,
+  DeleteCut404,
+  DeleteCut409,
+  DeleteCut422,
+  DeleteCut500,
   DeleteProfile401,
   DeleteProfile403,
   DeleteProfile404,
@@ -93,7 +104,10 @@ import type {
   SetWorkWants422,
   SetWorkWants500,
   SetWorkWantsParams,
+  TargetsCut,
+  TargetsCutChange,
   TargetsCutList,
+  TargetsNewCut,
   TargetsNewProfile,
   TargetsNewTarget,
   TargetsNewWants,
@@ -107,6 +121,13 @@ import type {
   TargetsTargetList,
   TargetsWants,
   TargetsWantsChange,
+  UpdateCut401,
+  UpdateCut403,
+  UpdateCut404,
+  UpdateCut409,
+  UpdateCut422,
+  UpdateCut500,
+  UpdateCutParams,
   UpdateProfile401,
   UpdateProfile403,
   UpdateProfile404,
@@ -148,7 +169,7 @@ export const getListCutsUrl = () => {
 };
 
 /**
- * @summary List the cuts an Edition list can name, built in or added by a Content Type
+ * @summary List the cuts an Edition list can name: built in, added by a Content Type, or custom
  */
 export const listCuts = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -224,7 +245,7 @@ export function useListCutsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the cuts an Edition list can name, built in or added by a Content Type
+ * @summary List the cuts an Edition list can name: built in, added by a Content Type, or custom
  */
 
 export function useListCutsSuspense<
@@ -247,6 +268,335 @@ export function useListCutsSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getCreateCutUrl = () => {
+  return `/api/v1/cuts`;
+};
+
+/**
+ * @summary Add a custom cut, keyed by its name's words, which every title parse reads from then on
+ */
+export const createCut = async (
+  targetsNewCut: TargetsNewCut,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsCut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<TargetsCut>(getCreateCutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(targetsNewCut),
+  });
+};
+
+export const getCreateCutMutationKey = () => ["createCut"] as const;
+
+export const getCreateCutMutationOptions = <
+  TError = ErrorType<CreateCut401 | CreateCut403 | CreateCut409 | CreateCut422 | CreateCut500>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCut>>,
+    TError,
+    CreateCutMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCut>>,
+  TError,
+  CreateCutMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCreateCutMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCut>>,
+    CreateCutMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCut(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCutMutationResult = NonNullable<Awaited<ReturnType<typeof createCut>>>;
+export type CreateCutMutationBody = TargetsNewCut;
+export type CreateCutMutationError = ErrorType<
+  CreateCut401 | CreateCut403 | CreateCut409 | CreateCut422 | CreateCut500
+>;
+export type CreateCutMutationVariables = { data: TargetsNewCut };
+
+/**
+ * @summary Add a custom cut, keyed by its name's words, which every title parse reads from then on
+ */
+export const useCreateCut = <
+  TError = ErrorType<CreateCut401 | CreateCut403 | CreateCut409 | CreateCut422 | CreateCut500>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createCut>>,
+      TError,
+      CreateCutMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createCut>>,
+  TError,
+  CreateCutMutationVariables,
+  TContext
+> => {
+  return useMutation(getCreateCutMutationOptions(options), queryClient);
+};
+export const getDeleteCutUrl = (cutKey: string) => {
+  return `/api/v1/cuts/${cutKey}`;
+};
+
+/**
+ * @summary Remove a custom cut no Edition list names and no file is of
+ */
+export const deleteCut = async (
+  cutKey: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getDeleteCutUrl(cutKey), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCutMutationKey = () => ["deleteCut"] as const;
+
+export const getDeleteCutMutationOptions = <
+  TError = ErrorType<
+    DeleteCut401 | DeleteCut403 | DeleteCut404 | DeleteCut409 | DeleteCut422 | DeleteCut500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCut>>,
+    TError,
+    DeleteCutMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCut>>,
+  TError,
+  DeleteCutMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteCutMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCut>>,
+    DeleteCutMutationVariables
+  > = (props) => {
+    const { cutKey } = props ?? {};
+
+    return deleteCut(cutKey, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCutMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCut>>>;
+
+export type DeleteCutMutationError = ErrorType<
+  DeleteCut401 | DeleteCut403 | DeleteCut404 | DeleteCut409 | DeleteCut422 | DeleteCut500
+>;
+export type DeleteCutMutationVariables = { cutKey: string };
+
+/**
+ * @summary Remove a custom cut no Edition list names and no file is of
+ */
+export const useDeleteCut = <
+  TError = ErrorType<
+    DeleteCut401 | DeleteCut403 | DeleteCut404 | DeleteCut409 | DeleteCut422 | DeleteCut500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteCut>>,
+      TError,
+      DeleteCutMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCut>>,
+  TError,
+  DeleteCutMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteCutMutationOptions(options), queryClient);
+};
+export const getUpdateCutUrl = (cutKey: string, params?: UpdateCutParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/cuts/${cutKey}?${stringifiedParams}`
+    : `/api/v1/cuts/${cutKey}`;
+};
+
+/**
+ * @summary Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact
+ */
+export const updateCut = async (
+  cutKey: string,
+  targetsNewCut: TargetsNewCut,
+  params?: UpdateCutParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsCutChange> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<TargetsCutChange>(getUpdateCutUrl(cutKey, params), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(targetsNewCut),
+  });
+};
+
+export const getUpdateCutMutationKey = () => ["updateCut"] as const;
+
+export const getUpdateCutMutationOptions = <
+  TError = ErrorType<
+    UpdateCut401 | UpdateCut403 | UpdateCut404 | UpdateCut409 | UpdateCut422 | UpdateCut500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCut>>,
+    TError,
+    UpdateCutMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCut>>,
+  TError,
+  UpdateCutMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateCutMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCut>>,
+    UpdateCutMutationVariables
+  > = (props) => {
+    const { cutKey, data, params } = props ?? {};
+
+    return updateCut(cutKey, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCutMutationResult = NonNullable<Awaited<ReturnType<typeof updateCut>>>;
+export type UpdateCutMutationBody = TargetsNewCut;
+export type UpdateCutMutationError = ErrorType<
+  UpdateCut401 | UpdateCut403 | UpdateCut404 | UpdateCut409 | UpdateCut422 | UpdateCut500
+>;
+export type UpdateCutMutationVariables = {
+  cutKey: string;
+  data: TargetsNewCut;
+  params?: UpdateCutParams;
+};
+
+/**
+ * @summary Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact
+ */
+export const useUpdateCut = <
+  TError = ErrorType<
+    UpdateCut401 | UpdateCut403 | UpdateCut404 | UpdateCut409 | UpdateCut422 | UpdateCut500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateCut>>,
+      TError,
+      UpdateCutMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateCut>>,
+  TError,
+  UpdateCutMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateCutMutationOptions(options), queryClient);
+};
 export const getListProfilesUrl = () => {
   return `/api/v1/profiles`;
 };

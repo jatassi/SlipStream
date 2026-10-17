@@ -4,7 +4,11 @@ import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
 import type {
+  TargetsAnyCut,
+  TargetsCut,
+  TargetsCutChange,
   TargetsCutList,
+  TargetsNamedCuts,
   TargetsProfile,
   TargetsProfileChange,
   TargetsProfileDetail,
@@ -29,8 +33,67 @@ export const getListCutsResponseMock = (
       : {}),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    origin: faker.helpers.arrayElement(["builtin", "type"] as const),
+    origin: faker.helpers.arrayElement(["builtin", "type", "custom"] as const),
   })),
+  ...overrideResponse,
+});
+
+export const getCreateCutResponseMock = (
+  overrideResponse: Partial<Extract<TargetsCut, object>> = {},
+): TargetsCut => ({
+  aliases: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  ...(faker.datatype.boolean()
+    ? { contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$") }
+    : {}),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  origin: faker.helpers.arrayElement(["builtin", "type", "custom"] as const),
+  ...overrideResponse,
+});
+
+export const getUpdateCutResponseMock = (
+  overrideResponse: Partial<Extract<TargetsCutChange, object>> = {},
+): TargetsCutChange => ({
+  cut: {
+    aliases: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$") }
+      : {}),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    origin: faker.helpers.arrayElement(["builtin", "type", "custom"] as const),
+  },
+  impact: {
+    downloading: faker.number.int({ min: 0 }),
+    newlyWanted: faker.number.int({ min: 0 }),
+    ownList: faker.number.int({ min: 0 }),
+    renamed: faker.number.int({ min: 0 }),
+    unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
+    works: faker.number.int({ min: 0 }),
+  },
+  ...overrideResponse,
+});
+
+export const getListProfilesResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getListProfilesResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
   ...overrideResponse,
 });
 
@@ -41,7 +104,10 @@ export const getListProfilesResponseMock = (
     () => ({
       contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
       default: faker.datatype.boolean(),
-      editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+      editions: faker.helpers.arrayElement([
+        { ...getListProfilesResponseTargetsAnyCutMock() },
+        { ...getListProfilesResponseTargetsNamedCutsMock() },
+      ]),
       id: faker.string.uuid(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -56,12 +122,34 @@ export const getListProfilesResponseMock = (
   ...overrideResponse,
 });
 
+export const getCreateProfileResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getCreateProfileResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
+  ...overrideResponse,
+});
+
 export const getCreateProfileResponseMock = (
   overrideResponse: Partial<Extract<TargetsProfile, object>> = {},
 ): TargetsProfile => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   default: faker.datatype.boolean(),
-  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  editions: faker.helpers.arrayElement([
+    { ...getCreateProfileResponseTargetsAnyCutMock() },
+    { ...getCreateProfileResponseTargetsNamedCutsMock() },
+  ]),
   id: faker.string.uuid(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -71,6 +159,25 @@ export const getCreateProfileResponseMock = (
     }),
   ),
   works: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getDeleteProfileResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getDeleteProfileResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
   ...overrideResponse,
 });
 
@@ -88,7 +195,10 @@ export const getDeleteProfileResponseMock = (
   profile: {
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     default: faker.datatype.boolean(),
-    editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+    editions: faker.helpers.arrayElement([
+      { ...getDeleteProfileResponseTargetsAnyCutMock() },
+      { ...getDeleteProfileResponseTargetsNamedCutsMock() },
+    ]),
     id: faker.string.uuid(),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -102,12 +212,34 @@ export const getDeleteProfileResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetProfileResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getGetProfileResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
+  ...overrideResponse,
+});
+
 export const getGetProfileResponseMock = (
   overrideResponse: Partial<Extract<TargetsProfileDetail, object>> = {},
 ): TargetsProfileDetail => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   default: faker.datatype.boolean(),
-  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  editions: faker.helpers.arrayElement([
+    { ...getGetProfileResponseTargetsAnyCutMock() },
+    { ...getGetProfileResponseTargetsNamedCutsMock() },
+  ]),
   estimates: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       bytes: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
@@ -130,6 +262,25 @@ export const getGetProfileResponseMock = (
   ...overrideResponse,
 });
 
+export const getUpdateProfileResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getUpdateProfileResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateProfileResponseMock = (
   overrideResponse: Partial<Extract<TargetsProfileChange, object>> = {},
 ): TargetsProfileChange => ({
@@ -144,7 +295,10 @@ export const getUpdateProfileResponseMock = (
   profile: {
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     default: faker.datatype.boolean(),
-    editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+    editions: faker.helpers.arrayElement([
+      { ...getUpdateProfileResponseTargetsAnyCutMock() },
+      { ...getUpdateProfileResponseTargetsNamedCutsMock() },
+    ]),
     id: faker.string.uuid(),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -158,12 +312,34 @@ export const getUpdateProfileResponseMock = (
   ...overrideResponse,
 });
 
+export const getMakeDefaultProfileResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getMakeDefaultProfileResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
+  ...overrideResponse,
+});
+
 export const getMakeDefaultProfileResponseMock = (
   overrideResponse: Partial<Extract<TargetsProfile, object>> = {},
 ): TargetsProfile => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   default: faker.datatype.boolean(),
-  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  editions: faker.helpers.arrayElement([
+    { ...getMakeDefaultProfileResponseTargetsAnyCutMock() },
+    { ...getMakeDefaultProfileResponseTargetsNamedCutsMock() },
+  ]),
   id: faker.string.uuid(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -568,13 +744,54 @@ export const getDuplicateTargetResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkWantsResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getGetWorkWantsResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
+  ...overrideResponse,
+});
+
 export const getGetWorkWantsResponseMock = (
   overrideResponse: Partial<Extract<TargetsWants, object>> = {},
 ): TargetsWants => ({
-  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  editions: faker.helpers.arrayElement([
+    { ...getGetWorkWantsResponseTargetsAnyCutMock() },
+    { ...getGetWorkWantsResponseTargetsNamedCutsMock() },
+  ]),
   from: faker.helpers.arrayElement(["profile", "work"] as const),
   profileId: faker.string.uuid(),
   profileName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
+export const getSetWorkWantsResponseTargetsAnyCutMock = (
+  overrideResponse: Partial<TargetsAnyCut> = {},
+): TargetsAnyCut => ({
+  ...{ kind: faker.helpers.arrayElement(["any"] as const) },
+  ...overrideResponse,
+});
+
+export const getSetWorkWantsResponseTargetsNamedCutsMock = (
+  overrideResponse: Partial<TargetsNamedCuts> = {},
+): TargetsNamedCuts => ({
+  ...{
+    cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["cuts"] as const),
+  },
   ...overrideResponse,
 });
 
@@ -590,7 +807,10 @@ export const getSetWorkWantsResponseMock = (
     works: faker.number.int({ min: 0 }),
   },
   wants: {
-    editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+    editions: faker.helpers.arrayElement([
+      { ...getSetWorkWantsResponseTargetsAnyCutMock() },
+      { ...getSetWorkWantsResponseTargetsNamedCutsMock() },
+    ]),
     from: faker.helpers.arrayElement(["profile", "work"] as const),
     profileId: faker.string.uuid(),
     profileName: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -615,6 +835,71 @@ export const getListCutsMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getListCutsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getCreateCutMockHandler = (
+  overrideResponse?:
+    | TargetsCut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<TargetsCut> | TargetsCut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/cuts",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCreateCutResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDeleteCutMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/cuts/:cutKey",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getUpdateCutMockHandler = (
+  overrideResponse?:
+    | TargetsCutChange
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<TargetsCutChange> | TargetsCutChange),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/cuts/:cutKey",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateCutResponseMock(),
         { status: 200 },
       );
     },
@@ -978,6 +1263,9 @@ export const getSetWorkWantsMockHandler = (
 };
 export const getTargetsMock = () => [
   getListCutsMockHandler(),
+  getCreateCutMockHandler(),
+  getDeleteCutMockHandler(),
+  getUpdateCutMockHandler(),
   getListProfilesMockHandler(),
   getCreateProfileMockHandler(),
   getDeleteProfileMockHandler(),

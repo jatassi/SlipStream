@@ -35,13 +35,17 @@ var (
 )
 
 func cell(t targets.Target, s files.State) files.Cell {
-	return files.Cell{Item: item, Edition: files.Standard, Target: t, State: s}
+	return cellOf(targets.AnyEdition, t, s)
+}
+
+func cellOf(e targets.Edition, t targets.Target, s files.State) files.Cell {
+	return files.Cell{Item: item, Edition: e, Target: t, State: s}
 }
 
 var orchard = indexers.Terms{Mode: "search", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 
 func listed(title string, seeders, size int64, ids map[string]string) candidate {
-	return candidateOf(indexers.Item{Title: title, Seeders: seeders, Size: size, IDs: ids}, item.ID, release.Fact[time.Duration]{})
+	return candidateOf(indexers.Item{Title: title, Seeders: seeders, Size: size, IDs: ids}, release.BuiltIn(), item.ID, release.Fact[time.Duration]{})
 }
 
 func notChecked(t targets.Target) Reason {
@@ -59,7 +63,7 @@ func TestDecideRanksByTargetThenTierThenSeedersSizeAndTitle(t *testing.T) {
 		listed("Orchard.1080p.BluRay.A", 1, 1, nil),
 	}
 	pick, refused := decide(open, orchard, candidates)
-	if want := (&Pick{Item: candidates[5].Item, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
+	if want := (&Pick{Item: candidates[5].Item, Edition: targets.AnyEdition, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
 		t.Fatalf("decide = %+v, %v; want %+v", pick, refused, want)
 	}
 	pick, _ = decide(open, orchard, candidates[:5])
@@ -67,7 +71,7 @@ func TestDecideRanksByTargetThenTierThenSeedersSizeAndTitle(t *testing.T) {
 		t.Fatalf("decide among tied 1080p web picked %s, want the larger, then first by title, Orchard.1080p.HDTV.B", pick.Item.Title)
 	}
 	pick, _ = decide(open[1:], orchard, candidates)
-	if want := (&Pick{Item: candidates[0].Item, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
+	if want := (&Pick{Item: candidates[0].Item, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
 		t.Fatalf("decide for Small = %+v, want WEB-DL 720p over a DVD in a lower tier: %+v", pick, want)
 	}
 	both := target("Any", release.WEBDL1080p, nil, []release.Quality{release.WEBDL1080p, release.WEBDL720p})
@@ -97,7 +101,7 @@ func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
 		{"Orchard.1080p.TS", []Reason{notIn(hd, "cam"), notIn(small, "cam")}},
 		{"Orchard.1080p.WEB-DL.Big", []Reason{{Reason: targets.Reason{Code: targets.SizeAbove}, Target: hd.ID}, notIn(small, "webdl-1080p")}},
 	}
-	if want := (&Pick{Item: candidates[1].Item, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
+	if want := (&Pick{Item: candidates[1].Item, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
 		t.Fatalf("decide = %+v, want the source-only WEB-DL as 720p for Small: %+v", pick, want)
 	}
 	if !reflect.DeepEqual(refused, want) {
@@ -113,6 +117,20 @@ func TestDecideAsksARankAboveTheFileFillingTheCell(t *testing.T) {
 	want := []Refusal{{"Orchard.1080p.WEBRip", []Reason{notChecked(hd), {Reason: targets.Reason{Code: targets.NotAnUpgrade}, Target: hd.ID}}}}
 	if pick == nil || pick.Item.Title != "Orchard.1080p.BluRay" || !reflect.DeepEqual(refused, want) {
 		t.Fatalf("decide over a held WEB-DL = %+v, %+v; want the Bluray and the WEBRip refused as %+v", pick, refused, want)
+	}
+}
+
+func TestDecideJudgesACandidateOnlyForTheCellsOfItsCut(t *testing.T) {
+	standard, extended := targets.EditionOf(release.Standard), targets.Edition("extended")
+	candidates := []candidate{listed("Orchard.1080p.BluRay", 90, 10, nil), listed("Orchard.EXTENDED.1080p.WEB-DL", 5, 10, nil)}
+	pick, refused := decide([]files.Cell{cellOf(standard, hd, files.Upgradable), cellOf(extended, hd, files.Missing)}, orchard, candidates)
+	if want := (&Pick{Item: candidates[0].Item, Edition: standard, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
+		t.Fatalf("decide over Standard then Extended = %+v, %+v; want the Standard Bluray for Standard's cell: %+v", pick, refused, want)
+	}
+	pick, refused = decide([]files.Cell{cellOf(extended, hd, files.Missing)}, orchard, candidates)
+	want := []Refusal{{"Orchard.1080p.BluRay", []Reason{{Reason: targets.Reason{Code: CutNotWanted, Value: "standard"}}}}}
+	if pick == nil || pick.Item.Title != "Orchard.EXTENDED.1080p.WEB-DL" || pick.Edition != extended || !reflect.DeepEqual(refused, want) {
+		t.Fatalf("decide over Extended alone = %+v, %+v; want the Extended WEB-DL and the Standard Bluray refused as %+v", pick, refused, want)
 	}
 }
 

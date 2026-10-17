@@ -97,3 +97,10 @@ CREATE TABLE files_doomed (
     path TEXT NOT NULL CHECK (path <> ''),
     sits TEXT CHECK (sits <> '')
 ) STRICT;
+
+-- A file's own cut, which names it; the Edition a fill is for is the cut
+-- a list wants, or any under any cut. Every Profile starts at any cut, so
+-- every Standard fill is an any fill.
+ALTER TABLE files_file RENAME COLUMN edition TO cut;
+CREATE INDEX files_file_cut ON files_file (cut);
+UPDATE files_fill SET edition = 'any' WHERE edition = 'standard';

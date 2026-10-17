@@ -10,7 +10,7 @@ export const getListGrabsResponseMock = (
 ): GrabsGrabList => ({
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? {
           failure: {
@@ -87,7 +87,7 @@ export const getGetGrabResponseMock = (
   overrideResponse: Partial<Extract<GrabsGrab, object>> = {},
 ): GrabsGrab => ({
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-  edition: faker.helpers.arrayElement(["standard"] as const),
+  edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean()
     ? {
         failure: {

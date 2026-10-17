@@ -110,11 +110,11 @@ func TestNames(t *testing.T) {
 				tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
 			}
 			for _, s := range c.files {
-				w.files = append(w.files, File{ID: ids[s.id], ItemID: scarf.ID, Edition: Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
+				w.files = append(w.files, File{ID: ids[s.id], ItemID: scarf.ID, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
 			}
 			fills := map[CellKey]ID{}
 			for target, id := range c.fills {
-				fills[CellKey{Item: scarf.ID, Edition: Standard, Target: target.ID}] = ids[id]
+				fills[CellKey{Item: scarf.ID, Edition: targets.AnyEdition, Target: target.ID}] = ids[id]
 			}
 			got, err := names(w, fills)
 			if err != nil {
@@ -134,14 +134,14 @@ func TestNames(t *testing.T) {
 func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
-	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Edition: Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
-	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Edition: Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
+	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
+	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
 	w := world{
 		tree: works.Tree{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{web}}, files: []File{held, fresh}, fresh: fresh.ID,
 		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing}"},
 		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
 	}
-	_, err := names(w, map[CellKey]ID{{Item: scarf.ID, Edition: Standard, Target: web.ID}: held.ID})
+	_, err := names(w, map[CellKey]ID{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: held.ID})
 	if !errors.Is(err, ErrNameClash) {
 		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
 	}

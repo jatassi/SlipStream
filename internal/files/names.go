@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
@@ -21,10 +22,12 @@ var ErrNameClash = errors.New("two files of the Work would take one name")
 // names names every file of w under fills. A filling file takes the first
 // Target in Profile order it fills. A Kept file takes the first Target it
 // meets, else its current label, plus " (extra N)": its N when no other
-// Kept file in its folder holds it, else the lowest free there. A file
-// whose label and N are unchanged keeps its path; one that changes keeps
-// its folder and takes the template's name. Two files on one path is
-// ErrNameClash.
+// Kept file in its folder holds it, else the lowest free there. A Kept
+// file that never had a label and meets no Target takes the Target its
+// Grab was meant to fill, else its quality's name. A file whose label, N
+// and cut's name are unchanged keeps its path; one that changes keeps its
+// folder and takes the template's name, its cut tagging it unless
+// Standard. Two files on one path is ErrNameClash.
 func names(w world, fills map[CellKey]ID) (map[ID]name, error) {
 	out, err := labels(w, fills)
 	if err != nil {
@@ -58,13 +61,15 @@ func labels(w world, fills map[CellKey]ID) (map[ID]name, error) {
 	folders := map[ID]string{}
 	var waiting []File
 	for _, f := range w.files {
-		if label, ok := filledBy(w.goals.Targets, fills, f); ok {
+		if label, ok := filledBy(w.goals, fills, f); ok {
 			out[f.ID] = name{Label: label}
 			continue
 		}
 		label := f.Label
 		if t, ok := firstMet(w.goals.Targets, f); ok {
 			label = t
+		} else if label == "" {
+			label = w.unlabeled(f)
 		}
 		folder, err := folderOf(w, f)
 		if err != nil {
@@ -94,16 +99,27 @@ func labels(w world, fills map[CellKey]ID) (map[ID]name, error) {
 	return out, nil
 }
 
+// unlabeled is the label of f, a Kept file that never had one and meets
+// no Target: the Target its Grab was meant to fill, else its quality's
+// name.
+func (w world) unlabeled(f File) string {
+	if f.ID == w.fresh && w.meant != "" {
+		return w.meant
+	}
+	return f.Quality.Info().Name
+}
+
 // renamed reports whether f takes a new path as nm: the file being placed
-// does, and so does one whose label or N changes.
+// does, and so does one whose label, N or cut's name changes.
 func renamed(w world, f File, nm name) bool {
-	return f.ID == w.fresh || nm.Label != f.Label || nm.Extra != f.Extra
+	return f.ID == w.fresh || nm.Label != f.Label || nm.Extra != f.Extra || w.retagged[f.Cut]
 }
 
 // filledBy is the first Target in Profile order f fills.
-func filledBy(ts []targets.Target, fills map[CellKey]ID, f File) (string, bool) {
-	for _, t := range ts {
-		if fills[CellKey{Item: f.ItemID, Edition: f.Edition, Target: t.ID}] == f.ID {
+func filledBy(g targets.Goals, fills map[CellKey]ID, f File) (string, bool) {
+	e := g.Editions.Filling(f.Cut)
+	for _, t := range g.Targets {
+		if fills[CellKey{Item: f.ItemID, Edition: e, Target: t.ID}] == f.ID {
 			return t.Name, true
 		}
 	}
@@ -134,11 +150,18 @@ func pathOf(w world, f File, nm name) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	label := nm.Label
+	core := naming.Core{Target: nm.Label}
 	if nm.Extra > 0 {
-		label += fmt.Sprintf(" (extra %d)", nm.Extra)
+		core.Target += fmt.Sprintf(" (extra %d)", nm.Extra)
 	}
-	file, err := naming.Render(w.templates.File, w.tokens[f.ItemID], naming.Core{Target: label})
+	if f.Cut != release.Standard {
+		cut, ok := w.cuts.Get(f.Cut)
+		if !ok {
+			return "", fmt.Errorf("file %s holds cut %s, which no cut has", f.ID, f.Cut)
+		}
+		core.EditionTag, core.Edition = "{edition-"+cut.Name+"}", cut.Name
+	}
+	file, err := naming.Render(w.templates.File, w.tokens[f.ItemID], core)
 	if err != nil {
 		return "", err
 	}

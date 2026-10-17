@@ -17,7 +17,7 @@ export const getGetWorkCellsResponseFilesUnreleasedCellMock = (
   overrideResponse: Partial<FilesUnreleasedCell> = {},
 ): FilesUnreleasedCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["unreleased"] as const),
     targetId: faker.string.uuid(),
@@ -31,7 +31,7 @@ export const getGetWorkCellsResponseFilesMissingCellMock = (
   overrideResponse: Partial<FilesMissingCell> = {},
 ): FilesMissingCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["missing"] as const),
     targetId: faker.string.uuid(),
@@ -45,7 +45,7 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
   overrideResponse: Partial<FilesDownloadingCell> = {},
 ): FilesDownloadingCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["downloading"] as const),
     targetId: faker.string.uuid(),
@@ -59,7 +59,7 @@ export const getGetWorkCellsResponseFilesFailedCellMock = (
   overrideResponse: Partial<FilesFailedCell> = {},
 ): FilesFailedCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["failed"] as const),
     targetId: faker.string.uuid(),
@@ -73,7 +73,7 @@ export const getGetWorkCellsResponseFilesUpgradableCellMock = (
   overrideResponse: Partial<FilesUpgradableCell> = {},
 ): FilesUpgradableCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: {
       id: faker.string.uuid(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -113,7 +113,7 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
   overrideResponse: Partial<FilesMetCell> = {},
 ): FilesMetCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: {
       id: faker.string.uuid(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),

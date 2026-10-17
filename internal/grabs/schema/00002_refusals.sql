@@ -45,3 +45,7 @@ CREATE INDEX grabs_fill_target_id ON grabs_fill (target_id);
 -- as an Admin chose on saving a change that took its cells away: delete
 -- it, or keep it as a Kept file. NULL when no save did.
 ALTER TABLE grabs_grab ADD COLUMN unwanted TEXT CHECK (unwanted IN ('delete', 'keep'));
+
+-- A Grab is for the Edition its cells want: a cut, or any under any cut.
+-- Every Profile starts at any cut, so every Standard Grab is an any Grab.
+UPDATE grabs_grab SET edition = 'any' WHERE edition = 'standard';

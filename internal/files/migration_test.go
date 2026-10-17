@@ -110,6 +110,7 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	if checked != len(want) {
 		t.Fatalf("checked %d files, want %d", checked, len(want))
 	}
+	distinct(t, lib, `SELECT DISTINCT edition FROM grabs_grab`, "any")
 }
 
 type seeded struct {
@@ -258,5 +259,34 @@ func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *te
 	want := map[string]string{both.String(): "Large 0", second.String(): "Small 0", none.String(): " 0"}
 	if !maps.Equal(got, want) {
 		t.Fatalf("migrated labels and extras = %v, want %v: the first filled Target in Profile order, and no Kept file", got, want)
+	}
+	distinct(t, lib, `SELECT DISTINCT cut FROM files_file`, "standard")
+	distinct(t, lib, `SELECT DISTINCT edition FROM files_fill`, "any")
+}
+
+// distinct checks the one value query reads in lib is want.
+func distinct(t *testing.T, lib *storage.DB[storage.Library], query, want string) {
+	t.Helper()
+	var got []string
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		rows, err := r.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var v string
+			if err := rows.Scan(&v); err != nil {
+				return fmt.Errorf("read a value: %w", err)
+			}
+			got = append(got, v)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("%s = %v after the migration, want only %s", query, got, want)
 	}
 }

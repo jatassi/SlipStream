@@ -1,6 +1,4 @@
-import type { TargetsEditionsKind } from "./targetsEditionsKind.ts";
+import type { TargetsAnyCut } from "./targetsAnyCut.ts";
+import type { TargetsNamedCuts } from "./targetsNamedCuts.ts";
 
-export interface TargetsEditions {
-  /** Any cut: one file per Target, of whatever cut */
-  kind: TargetsEditionsKind;
-}
+export type TargetsEditions = TargetsAnyCut | TargetsNamedCuts;

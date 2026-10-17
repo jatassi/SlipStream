@@ -23,7 +23,7 @@ type FilesFile struct {
 	ID      FileID
 	WorkID  works.WorkID
 	ItemID  works.ItemID
-	Edition Edition
+	Cut     release.CutKey
 	RootID  roots.ID
 	Path    string
 	Size    int64
@@ -38,7 +38,7 @@ type FilesFill struct {
 	FileID   FileID
 	TargetID targets.TargetID
 	ItemID   works.ItemID
-	Edition  Edition
+	Edition  targets.Edition
 }
 
 type FilesMove struct {

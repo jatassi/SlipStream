@@ -129,9 +129,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -170,9 +168,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -292,9 +288,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "file": {
@@ -338,9 +332,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -399,9 +391,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -441,9 +431,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "file": {
@@ -576,9 +564,7 @@
             "type": "string"
           },
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "The Edition it was grabbed to fill: any under any cut, else a cut key",
             "type": "string"
           },
           "failure": {
@@ -3415,6 +3401,22 @@
         ],
         "type": "object"
       },
+      "TargetsAnyCut": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "Any cut: one file per Target, of whatever cut",
+            "enum": [
+              "any"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "TargetsChanged": {
         "additionalProperties": false,
         "type": "object"
@@ -3423,7 +3425,7 @@
         "additionalProperties": false,
         "properties": {
           "aliases": {
-            "description": "The phrases that name it in a title or file name; Standard is read where none is named",
+            "description": "The phrases that name it in a title or file name, a custom cut's name first; Standard is read where none is named",
             "items": {
               "type": "string"
             },
@@ -3441,10 +3443,11 @@
             "type": "string"
           },
           "origin": {
-            "description": "Built into SlipStream, or added by a Content Type",
+            "description": "Built into SlipStream, added by a Content Type, or added by an Admin",
             "enum": [
               "builtin",
-              "type"
+              "type",
+              "custom"
             ],
             "type": "string"
           }
@@ -3457,11 +3460,27 @@
         ],
         "type": "object"
       },
+      "TargetsCutChange": {
+        "additionalProperties": false,
+        "properties": {
+          "cut": {
+            "$ref": "#/components/schemas/TargetsCut"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          }
+        },
+        "required": [
+          "impact",
+          "cut"
+        ],
+        "type": "object"
+      },
       "TargetsCutList": {
         "additionalProperties": false,
         "properties": {
           "cuts": {
-            "description": "The built-in cuts, Standard first, then each Content Type's by type",
+            "description": "The built-in cuts, Standard first, then each Content Type's by type, then the custom ones by name",
             "items": {
               "$ref": "#/components/schemas/TargetsCut"
             },
@@ -3474,20 +3493,21 @@
         "type": "object"
       },
       "TargetsEditions": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "description": "Any cut: one file per Target, of whatever cut",
-            "enum": [
-              "any"
-            ],
-            "type": "string"
-          }
+        "discriminator": {
+          "mapping": {
+            "any": "#/components/schemas/TargetsAnyCut",
+            "cuts": "#/components/schemas/TargetsNamedCuts"
+          },
+          "propertyName": "kind"
         },
-        "required": [
-          "kind"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TargetsAnyCut"
+          },
+          {
+            "$ref": "#/components/schemas/TargetsNamedCuts"
+          }
+        ]
       },
       "TargetsEntry": {
         "additionalProperties": false,
@@ -3626,6 +3646,55 @@
           "renamed",
           "newlyWanted",
           "downloading"
+        ],
+        "type": "object"
+      },
+      "TargetsNamedCuts": {
+        "additionalProperties": false,
+        "properties": {
+          "cuts": {
+            "description": "Cut keys in list order",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "kind": {
+            "description": "Named cuts: with Standard, each other cut once seen for an Item; without it, every cut outright",
+            "enum": [
+              "cuts"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "cuts"
+        ],
+        "type": "object"
+      },
+      "TargetsNewCut": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "description": "Other phrases that name it in a title; its name always does",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "name": {
+            "description": "Its key is the name's words in lower case joined by hyphens, fixed once made",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -8897,7 +8966,608 @@
             "apiKey": []
           }
         ],
-        "summary": "List the cuts an Edition list can name, built in or added by a Content Type",
+        "summary": "List the cuts an Edition list can name: built in, added by a Content Type, or custom",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "createCut",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewCut"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsCut"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Add a custom cut, keyed by its name's words, which every title parse reads from then on",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/cuts/{cutKey}": {
+      "delete": {
+        "operationId": "deleteCut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cutKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_in_use",
+                            "cut_not_custom",
+                            "standard_is_fixed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove a custom cut no Edition list names and no file is of",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateCut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cutKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewCut"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsCutChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_name_taken",
+                            "cut_not_custom",
+                            "impact_changed",
+                            "standard_is_fixed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact",
         "tags": [
           "targets"
         ],
@@ -15599,6 +16269,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "cut_not_found",
                             "invalid",
                             "target_not_found"
                           ],
@@ -16283,6 +16954,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "cut_not_found",
                             "invalid",
                             "profile_wrong_type",
                             "target_not_found"
@@ -24603,6 +25275,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "cut_not_found",
                             "invalid",
                             "profile_not_found",
                             "profile_wrong_type"

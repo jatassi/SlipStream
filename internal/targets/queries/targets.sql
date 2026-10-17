@@ -50,8 +50,8 @@ SELECT EXISTS (SELECT 1 FROM targets_profile WHERE name = sqlc.arg(name));
 SELECT EXISTS (SELECT 1 FROM targets_profile WHERE content_type = sqlc.arg(content_type) AND is_default = 1);
 
 -- name: InsertProfile :exec
-INSERT INTO targets_profile (id, name, content_type, is_default)
-VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(content_type), sqlc.arg(is_default));
+INSERT INTO targets_profile (id, name, content_type, is_default, editions)
+VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(content_type), sqlc.arg(is_default), sqlc.arg(editions));
 
 -- name: InsertProfileTarget :exec
 INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing)
@@ -120,8 +120,8 @@ ORDER BY w.work_id;
 -- name: ProfileNameTakenByOther :one
 SELECT EXISTS (SELECT 1 FROM targets_profile WHERE name = sqlc.arg(name) AND id <> sqlc.arg(id));
 
--- name: RenameProfile :exec
-UPDATE targets_profile SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+-- name: UpdateProfile :exec
+UPDATE targets_profile SET name = sqlc.arg(name), editions = sqlc.arg(editions) WHERE id = sqlc.arg(id);
 
 -- name: DeleteProfileTargets :exec
 DELETE FROM targets_profile_target WHERE profile_id = sqlc.arg(profile_id);
@@ -137,3 +137,65 @@ UPDATE targets_wants SET profile_id = sqlc.arg(to_profile) WHERE profile_id = sq
 
 -- name: SetWants :exec
 UPDATE targets_wants SET profile_id = sqlc.arg(profile_id), editions = sqlc.narg(editions) WHERE work_id = sqlc.arg(work_id);
+
+-- name: InsertProfileCut :exec
+INSERT INTO targets_profile_cut (profile_id, position, cut) VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(cut));
+
+-- name: DeleteProfileCuts :exec
+DELETE FROM targets_profile_cut WHERE profile_id = sqlc.arg(profile_id);
+
+-- name: ListProfileCuts :many
+SELECT * FROM targets_profile_cut ORDER BY profile_id, position;
+
+-- name: InsertWantsCut :exec
+INSERT INTO targets_wants_cut (work_id, position, cut) VALUES (sqlc.arg(work_id), sqlc.arg(position), sqlc.arg(cut));
+
+-- name: DeleteWantsCuts :exec
+DELETE FROM targets_wants_cut WHERE work_id = sqlc.arg(work_id);
+
+-- name: ListWantsCutsOf :many
+SELECT * FROM targets_wants_cut WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, position;
+
+-- name: ListProfilesNamingCut :many
+SELECT p.name FROM targets_profile_cut c
+JOIN targets_profile p ON p.id = c.profile_id
+WHERE c.cut = sqlc.arg(cut)
+ORDER BY p.name;
+
+-- name: CountOwnListsNamingCut :one
+SELECT count(*) FROM targets_wants_cut WHERE cut = sqlc.arg(cut);
+
+-- name: InsertCut :exec
+INSERT INTO targets_cut (key, name, created_at) VALUES (sqlc.arg(key), sqlc.arg(name), sqlc.arg(created_at));
+
+-- name: RenameCut :exec
+UPDATE targets_cut SET name = sqlc.arg(name) WHERE key = sqlc.arg(key);
+
+-- name: DeleteCut :exec
+DELETE FROM targets_cut WHERE key = sqlc.arg(key);
+
+-- name: ListCuts :many
+SELECT * FROM targets_cut ORDER BY name, key;
+
+-- name: InsertCutAlias :exec
+INSERT INTO targets_cut_alias (cut, position, alias) VALUES (sqlc.arg(cut), sqlc.arg(position), sqlc.arg(alias));
+
+-- name: DeleteCutAliases :exec
+DELETE FROM targets_cut_alias WHERE cut = sqlc.arg(cut);
+
+-- name: ListCutAliases :many
+SELECT * FROM targets_cut_alias ORDER BY cut, position;
+
+-- name: InsertSighting :exec
+INSERT INTO targets_sighting (item_id, cut, release, seen_at)
+VALUES (sqlc.arg(item_id), sqlc.arg(cut), sqlc.arg(release), sqlc.arg(seen_at))
+ON CONFLICT (item_id, cut, release) DO NOTHING;
+
+-- name: ListSightingsOf :many
+SELECT DISTINCT item_id, cut FROM targets_sighting WHERE item_id IN (sqlc.slice(item_ids)) ORDER BY item_id, cut;
+
+-- name: DeleteSightingsOfCut :exec
+DELETE FROM targets_sighting WHERE cut = sqlc.arg(cut);
+
+-- name: ListCutsOfProfile :many
+SELECT cut FROM targets_profile_cut WHERE profile_id = sqlc.arg(profile_id) ORDER BY position;

@@ -42,7 +42,7 @@ func (l *library) download(t *testing.T, svc *files.Files, tree works.Tree, item
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		f, _, err = svc.Import(ctx, tx, files.Incoming{
-			WorkID: tree.ID, ItemID: tree.Items[item].ID, Edition: files.Standard, RootID: l.root.ID, Holding: holding,
+			WorkID: tree.ID, ItemID: tree.Items[item].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
 			Size: int64(len(content)), Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
 		})
 		return err
@@ -155,10 +155,10 @@ func TestOneFileFillsEveryTargetItWinsAndSitsOnDiskOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Scarf standard Best upgradable wanted=true Shelf w1/Shelf w1 - Scarf - Best.mkv webdl-1080p 1920x1080\n" +
-		"Scarf standard Web met wanted=false Shelf w1/Shelf w1 - Scarf - Best.mkv webdl-1080p 1920x1080\n" +
-		"Mittens standard Best missing wanted=true\n" +
-		"Mittens standard Web missing wanted=true\n"
+	want := "Scarf any Best upgradable wanted=true Shelf w1/Shelf w1 - Scarf - Best.mkv webdl-1080p 1920x1080\n" +
+		"Scarf any Web met wanted=false Shelf w1/Shelf w1 - Scarf - Best.mkv webdl-1080p 1920x1080\n" +
+		"Mittens any Best missing wanted=true\n" +
+		"Mittens any Web missing wanted=true\n"
 	if got := lines(cells); got != want || cells[0].File.ID != f.ID || cells[1].File.ID != f.ID {
 		t.Fatalf("cells =\n%swant\n%s", got, want)
 	}
@@ -178,7 +178,7 @@ func TestAnUpgradeTakesThePathOfTheFileItLeavesFillingNothing(t *testing.T) {
 
 	var placement files.Placement
 	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		incoming := files.Incoming{WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Holding: ".slipstream-incoming/g.mkv", Quality: release.WEBRip1080p}
+		incoming := files.Incoming{WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: ".slipstream-incoming/g.mkv", Quality: release.WEBRip1080p}
 		_, err := svc.Place(ctx, r, incoming)
 		if _, nothing := errors.AsType[*files.FillsNothingError](err); !nothing {
 			return fmt.Errorf("placing a WEBRip beside the tied WEB-DL: err = %w, want it fills nothing", err)
@@ -286,7 +286,7 @@ func newCrashWorld(t *testing.T) crashWorld {
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		seed := func(path string, q release.Quality, fill targets.Target) error {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: c.w1.ID, ItemID: c.w1.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Path: path, Size: 1, Quality: q,
+				WorkID: c.w1.ID, ItemID: c.w1.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1, Quality: q,
 			}, []targets.TargetID{fill.ID})
 			return err
 		}

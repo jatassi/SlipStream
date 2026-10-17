@@ -56,6 +56,7 @@ var codes = []struct {
 	{targets.ErrNoType, contentTypeNotFound},
 	{targets.ErrNoTarget, targetNotFound},
 	{targets.ErrNoProfile, noSuchProfile},
+	{targets.ErrNoCut, cutNotFound},
 	{works.ErrNoWork, workNotFound},
 }
 
@@ -66,7 +67,7 @@ func answer(err error) error {
 	for _, bad := range []struct {
 		err   error
 		field string
-	}{{targets.ErrBadTiers, "tiers"}, {targets.ErrBadSize, "sizes"}, {targets.ErrBadFilter, "filters"}, {targets.ErrTargetTwice, "targets"}} {
+	}{{targets.ErrBadTiers, "tiers"}, {targets.ErrBadSize, "sizes"}, {targets.ErrBadFilter, "filters"}, {targets.ErrTargetTwice, "targets"}, {targets.ErrNoCuts, "editions.cuts"}, {targets.ErrCutTwice, "editions.cuts"}} {
 		if errors.Is(err, bad.err) {
 			return api.Invalid.On(bad.field, err.Error())
 		}
@@ -147,7 +148,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles",
 		Summary: "Create a Profile of Targets in Profile order; it is never the default",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound},
+		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound, cutNotFound},
 	}, h.createProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listProfiles",
@@ -170,7 +171,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles/{profileId}",
 		Summary: "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, profileWrongType, impactChanged},
+		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, impactChanged},
 	}, h.updateProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "deleteProfile",
@@ -192,9 +193,33 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "listCuts",
 		Method:  http.MethodGet,
 		Path:    "/cuts",
-		Summary: "List the cuts an Edition list can name, built in or added by a Content Type",
+		Summary: "List the cuts an Edition list can name: built in, added by a Content Type, or custom",
 		Status:  http.StatusOK,
 	}, h.listCuts)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "createCut",
+		Method:  http.MethodPost,
+		Path:    "/cuts",
+		Summary: "Add a custom cut, keyed by its name's words, which every title parse reads from then on",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{cutNameTaken},
+	}, h.createCut)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateCut",
+		Method:  http.MethodPut,
+		Path:    "/cuts/{cutKey}",
+		Summary: "Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{noSuchCut, standardIsFixed, cutNotCustom, cutNameTaken, impactChanged},
+	}, h.updateCut)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteCut",
+		Method:  http.MethodDelete,
+		Path:    "/cuts/{cutKey}",
+		Summary: "Remove a custom cut no Edition list names and no file is of",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{noSuchCut, standardIsFixed, cutNotCustom, cutInUse},
+	}, h.deleteCut)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getWorkWants",
 		Method:  http.MethodGet,
@@ -209,7 +234,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/works/{workId}/wants",
 		Summary: "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, profileNotFound, profileWrongType, impactChanged},
+		Errors:  []*api.Code{workNotFound, profileNotFound, profileWrongType, cutNotFound, impactChanged},
 	}, h.setWorkWants)
 }
 

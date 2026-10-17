@@ -17,10 +17,15 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
-const bluray = "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW"
+const (
+	bluray   = "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW"
+	extended = "The.Quiet.Orchard.2021.EXTENDED.1080p.WEB-DL.H264-FKW"
+	cutName  = "The Quiet Orchard (2021)/The Quiet Orchard (2021) - {edition-Extended} 1080p.mkv"
+)
 
 type filledCells struct {
 	Cells []struct {
+		Edition    string `json:"edition"`
 		TargetID   string `json:"targetId"`
 		TargetName string `json:"targetName"`
 		Wanted     bool   `json:"wanted"`
@@ -54,23 +59,52 @@ func (c filledCells) summary(t *testing.T) (lines []string, file string) {
 	return lines, file
 }
 
-// grabbedTargets launches the targets Scenario, adds its movie monitored
-// and searches it: the one listed release, the WEB-DL, is grabbed for
-// both of the Profile's Targets and imported.
-func grabbedTargets(t *testing.T) walked {
+// byEdition is each cell as "<Edition> <Target> <state> wanted=<bool>
+// <quality> <path>", whatever files they hold.
+func (c filledCells) byEdition() []string {
+	var lines []string
+	for _, cell := range c.Cells {
+		line := cell.Edition + " " + cell.TargetName + " " + cell.State
+		if cell.Wanted {
+			line += " wanted"
+		}
+		if cell.File != nil {
+			line += " " + cell.File.Quality + " " + cell.File.Path
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+// launchedTargets launches the targets Scenario.
+func launchedTargets(t *testing.T) walked {
 	t.Helper()
 	s, err := scenario.Load("targets")
 	if err != nil {
 		t.Fatal(err)
 	}
 	run := worldtest.Launch(t, "targets")
-	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
+	return walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
+}
+
+// add adds the Scenario's movie, monitored.
+func (w *walked) add(t *testing.T) {
+	t.Helper()
 	first := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(first.Work, &tr); err != nil || !first.Created {
 		t.Fatalf("addWork created %t, work %s: %v", first.Created, first.Work, err)
 	}
 	w.work = tr.ID
+}
+
+// grabbedTargets launches the targets Scenario, adds its movie monitored
+// and searches it: the one listed release, the WEB-DL, is grabbed for
+// both of the Profile's Targets and imported.
+func grabbedTargets(t *testing.T) walked {
+	t.Helper()
+	w := launchedTargets(t)
+	w.add(t)
 	if got, _ := w.cells(t).summary(t); !slices.Equal(got, []string{"1080p missing wanted", "HD missing wanted"}) {
 		t.Fatalf("before the search the cells are %q, want both Targets missing", got)
 	}
@@ -227,11 +261,108 @@ func created(t *testing.T, r worldtest.Reply) string {
 }
 
 func films(targets ...string) string {
+	return filmsOf(`{"kind":"any"}`, targets...)
+}
+
+// filmsOf is the Films body wanting editions, an Edition list on the
+// wire, from targets.
+func filmsOf(editions string, targets ...string) string {
 	var entries []string
 	for _, id := range targets {
 		entries = append(entries, `{"targetId":"`+id+`","sourcing":"download"}`)
 	}
-	return `{"name":"Films","contentType":"movie","targets":[` + strings.Join(entries, ",") + `],"editions":{"kind":"any"}}`
+	return `{"name":"Films","contentType":"movie","targets":[` + strings.Join(entries, ",") + `],"editions":` + editions + `}`
+}
+
+func cuts(keys ...string) string {
+	return `{"kind":"cuts","cuts":["` + strings.Join(keys, `","`) + `"]}`
+}
+
+// list cues fixture-site to list the unlisted release name.
+func (w *walked) list(t *testing.T, name string) {
+	t.Helper()
+	if _, err := w.run.Cue(worldtest.Context(t), site.List.Name, json.RawMessage(`{"release":"`+name+`"}`)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// grabbed searches and checks the search grabbed of candidates, and the
+// Grab imported.
+func (w *walked) grabbed(t *testing.T, candidates int) {
+	t.Helper()
+	found := w.searched(t, w.search(t))
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != candidates || found.GrabID == nil {
+		t.Fatalf("the search ended %+v, want a grab of %d candidates", found, candidates)
+	}
+	w.ended(t, *found.GrabID)
+	if w.grab.Stage != "imported" {
+		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
+	}
+}
+
+func (w *walked) cellsAre(t *testing.T, when string, want ...string) {
+	t.Helper()
+	if got := w.cells(t).byEdition(); !slices.Equal(got, want) {
+		t.Fatalf("%s the cells are %q, want %q", when, got, want)
+	}
+}
+
+func TestStandardAndExtendedWantsExtendedOnlyOnceASearchListsIt(t *testing.T) {
+	t.Parallel()
+	w := grabbedTargets(t)
+	profile := "/api/v1/profiles/" + w.named(t, "/api/v1/profiles", "profiles", "Films")
+	starter, hd := w.named(t, "/api/v1/targets", "targets", "1080p"), w.named(t, "/api/v1/targets", "targets", "HD")
+	w.put(t, profile, filmsOf(cuts("standard", "extended"), starter, hd), "works=1 ownList=0 unwanted=0 renamed=0 newlyWanted=0 downloading=0")
+	name := "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv"
+	standard := []string{"standard 1080p upgradable wanted webdl-1080p " + name, "standard HD upgradable wanted webdl-1080p " + name}
+	w.cellsAre(t, "under Standard and Extended", standard...)
+
+	found := w.searched(t, w.search(t))
+	if found.Outcome == nil || *found.Outcome != "nothing_acceptable" || found.Candidates != 1 {
+		t.Fatalf("a search listing only the held WEB-DL ended %+v, want nothing acceptable of 1", found)
+	}
+	w.cellsAre(t, "after a search listing no Extended release", standard...)
+
+	w.list(t, extended)
+	w.grabbed(t, 2)
+	holdsOnly(t, w.m, placed, "movies/"+cutName)
+	w.cellsAre(t, "after a search listed the Extended release",
+		append(standard, "extended 1080p upgradable wanted webdl-1080p "+cutName, "extended HD upgradable wanted webdl-1080p "+cutName)...)
+}
+
+// extendedFilled launches the targets Scenario with Films holding the
+// starter alone under any cut, lists the Extended WEB-DL beside the
+// WEB-DL, and searches: the Extended one, better seeded, fills the
+// starter. It answers Films' path and the starter's id.
+func extendedFilled(t *testing.T) (w walked, profile, starter string) {
+	t.Helper()
+	w = launchedTargets(t)
+	profile = "/api/v1/profiles/" + w.named(t, "/api/v1/profiles", "profiles", "Films")
+	starter = w.named(t, "/api/v1/targets", "targets", "1080p")
+	w.put(t, profile, films(starter), "works=0 ownList=0 unwanted=0 renamed=0 newlyWanted=0 downloading=0")
+	w.list(t, extended)
+	w.add(t)
+	w.grabbed(t, 2)
+	holdsOnly(t, w.m, "movies/"+cutName)
+	return w, profile, starter
+}
+
+func TestUnderAnyCutAnExtendedReleaseFillsTheOnlyTarget(t *testing.T) {
+	t.Parallel()
+	w, _, _ := extendedFilled(t)
+	w.cellsAre(t, "after the search", "any 1080p upgradable wanted webdl-1080p "+cutName)
+}
+
+func TestRemovingACutWithKeepKeepsItsFileAndAddingItBackRestoresItsName(t *testing.T) {
+	t.Parallel()
+	w, profile, starter := extendedFilled(t)
+	w.put(t, profile+"?unwanted=keep", filmsOf(cuts("standard"), starter), "works=1 ownList=0 unwanted=1 renamed=0 newlyWanted=1 downloading=0")
+	holdsOnly(t, w.m, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - {edition-Extended} 1080p (extra 1).mkv")
+	w.cellsAre(t, "under Standard alone", "standard 1080p missing wanted")
+
+	w.put(t, profile, filmsOf(cuts("standard", "extended"), starter), "works=1 ownList=0 unwanted=0 renamed=1 newlyWanted=0 downloading=0")
+	holdsOnly(t, w.m, "movies/"+cutName)
+	w.cellsAre(t, "with Extended back", "standard 1080p missing wanted", "extended 1080p upgradable wanted webdl-1080p "+cutName)
 }
 
 func TestTakingTheTargetsAwayKeepsOrDeletesTheFileAsTheSaveChooses(t *testing.T) {

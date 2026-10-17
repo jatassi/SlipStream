@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -23,11 +24,20 @@ type world struct {
 	fills  map[CellKey]ID
 	grabs  map[CellKey]GrabState
 	timing map[works.ItemID]targets.Timing
-	today  time.Time
+	// seen is each Item's sighted cuts and its files' cuts; cuts is every
+	// cut, which names files.
+	seen  map[works.ItemID][]release.CutKey
+	cuts  targets.Cuts
+	today time.Time
 	// fresh is the file being placed, which takes its folder and its name
 	// from the templates. Until names gives it one, its Path is where its
 	// bytes are held.
 	fresh ID
+	// meant is the name of the first Target the fresh file's Grab was
+	// meant to fill, which labels it should it fill and meet none.
+	meant string
+	// retagged is each cut whose name changes, so its files take new names.
+	retagged map[release.CutKey]bool
 	// templates and tokens are loaded by named, for names alone.
 	templates naming.Templates
 	tokens    map[works.ItemID]map[string]string
@@ -58,6 +68,10 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
+	known, err := f.cfg.Targets.CutsIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	timing := map[works.ItemID]targets.Timing{}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
 		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, byType[typ])
@@ -66,6 +80,16 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		}
 		maps.Copy(timing, of)
 	}
+	var items []works.ItemID
+	for _, t := range trees {
+		for _, it := range t.Items {
+			items = append(items, it.ID)
+		}
+	}
+	seen, err := targets.SeenIn(ctx, r, items)
+	if err != nil {
+		return nil, err
+	}
 	grabs, err := f.cfg.Grabs.GrabCells(ctx, r, ids)
 	if err != nil {
 		return nil, err
@@ -73,7 +97,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	out := make([]world, len(trees))
 	at := make(map[works.WorkID]*world, len(trees))
 	for i, t := range trees {
-		out[i] = world{tree: t, goals: goals[t.ID], fills: map[CellKey]ID{}, grabs: grabs, timing: timing, today: f.cfg.Today()}
+		out[i] = world{tree: t, goals: goals[t.ID], fills: map[CellKey]ID{}, grabs: grabs, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
 		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
@@ -86,6 +110,9 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		w := at[row.WorkID]
 		w.files = append(w.files, File(row))
 		of[row.ID] = w
+		if !slices.Contains(seen[row.ItemID], row.Cut) {
+			seen[row.ItemID] = append(seen[row.ItemID], row.Cut)
+		}
 	}
 	fills, err := q.ListFillsOfWorks(ctx, ids)
 	if err != nil {
@@ -141,35 +168,38 @@ func (w world) byID() map[ID]*File {
 	return out
 }
 
-// cells crosses each Item with the Profile's Targets in order. A filled
-// cell is met at or past the Target's cutoff, else upgradable. An empty
-// one is downloading or failed from its latest Grab, unreleased until the
-// Item is out, else missing.
+// cells crosses each Item with each Edition it wants, in list order, and
+// the Profile's Targets in order. A filled cell is met at or past the
+// Target's cutoff, else upgradable. An empty one is downloading or failed
+// from its latest Grab, unreleased until the Item is out, else missing.
+// A cut not seen for the Item makes no cell, so it never counts.
 func cells(w world) []Cell {
 	files := w.byID()
 	var out []Cell
 	for _, it := range w.tree.Items {
 		timing := w.timing[it.ID]
 		released := timing.ReleasedBy(w.today)
-		for _, t := range w.goals.Targets {
-			key := CellKey{Item: it.ID, Edition: Standard, Target: t.ID}
-			c := Cell{Item: it, Edition: Standard, Target: t, State: Missing, Timing: timing, Released: released}
-			if id, ok := w.fills[key]; ok {
-				c.File = files[id]
+		for _, e := range targets.Wanted(w.goals.Editions, w.seen[it.ID]) {
+			for _, t := range w.goals.Targets {
+				key := CellKey{Item: it.ID, Edition: e, Target: t.ID}
+				c := Cell{Item: it, Edition: e, Target: t, State: Missing, Timing: timing, Released: released}
+				if id, ok := w.fills[key]; ok {
+					c.File = files[id]
+				}
+				switch {
+				case c.File != nil && final(t, *c.File):
+					c.State = Met
+				case c.File != nil:
+					c.State = Upgradable
+				case w.grabs[key] == GrabDownloading:
+					c.State = Downloading
+				case w.grabs[key] == GrabFailed:
+					c.State = Failed
+				case !released:
+					c.State = Unreleased
+				}
+				out = append(out, c)
 			}
-			switch {
-			case c.File != nil && final(t, *c.File):
-				c.State = Met
-			case c.File != nil:
-				c.State = Upgradable
-			case w.grabs[key] == GrabDownloading:
-				c.State = Downloading
-			case w.grabs[key] == GrabFailed:
-				c.State = Failed
-			case !released:
-				c.State = Unreleased
-			}
-			out = append(out, c)
 		}
 	}
 	return out

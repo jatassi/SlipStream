@@ -1,7 +1,10 @@
 import * as zod from "zod";
 
 import {
+  TargetsCut,
+  TargetsCutChange,
   TargetsCutList,
+  TargetsNewCut,
   TargetsNewProfile,
   TargetsNewTarget,
   TargetsNewWants,
@@ -18,9 +21,56 @@ import {
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List the cuts an Edition list can name, built in or added by a Content Type
+ * @summary List the cuts an Edition list can name: built in, added by a Content Type, or custom
  */
 export const ListCutsResponse = TargetsCutList;
+
+/**
+ * @summary Add a custom cut, keyed by its name's words, which every title parse reads from then on
+ */
+export const CreateCutBody = TargetsNewCut;
+
+export const CreateCutResponse = TargetsCut;
+
+/**
+ * @summary Remove a custom cut no Edition list names and no file is of
+ */
+export const DeleteCutParams = zod.object({
+  cutKey: zod.string(),
+});
+
+export const DeleteCutResponse = zod.void();
+
+/**
+ * @summary Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact
+ */
+export const UpdateCutParams = zod.object({
+  cutKey: zod.string(),
+});
+
+export const updateCutQueryUnwantedDefault = `delete`;
+export const updateCutQueryConfirmMin = 0;
+
+export const UpdateCutQueryParams = zod.object({
+  preview: zod.boolean().exactOptional().describe("Answer the change's Impact and save nothing"),
+  unwanted: zod
+    .enum(["delete", "keep"])
+    .default(updateCutQueryUnwantedDefault)
+    .describe(
+      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+    ),
+  confirm: zod
+    .int()
+    .min(updateCutQueryConfirmMin)
+    .exactOptional()
+    .describe(
+      "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+});
+
+export const UpdateCutBody = TargetsNewCut;
+
+export const UpdateCutResponse = TargetsCutChange;
 
 /**
  * @summary List the Profiles, each with the count of Works wanting from it

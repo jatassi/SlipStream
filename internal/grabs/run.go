@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // outcome is what a step decided. A step does its IO outside any Write;
@@ -141,7 +142,6 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		return classify(ctx, err, ProbeFailed)
 	}
 	ext := path.Ext(video.Path)
-	quality, _ := g.facts(probe).Quality.Get()
 	var p Plan
 	var placeErr error
 	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -157,10 +157,15 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
+		facts, err := gr.facts(ctx, r, g, tree.ContentType, probe)
+		if err != nil {
+			return err
+		}
+		quality, _ := facts.Quality.Get()
 		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
-			WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
+			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
 			Size: video.Size, Probe: files.Probe{Width: probe.Width, Height: probe.Height}, Quality: quality, GrabID: g.ID.UUID,
-			Unwanted: unwanted,
+			Meant: g.Targets, Unwanted: unwanted,
 		})
 		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
 		return nil
@@ -239,17 +244,21 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return fail{ImportFailed, err.Error()}
 	}
-	quality, _ := g.facts(g.Plan.Probe).Quality.Get()
 	return advance{to: Imported, file: &files.Incoming{
-		WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, RootID: g.Plan.Root.ID, Holding: holding, Size: info.Size(),
-		Probe: files.Probe{Width: g.Plan.Probe.Width, Height: g.Plan.Probe.Height}, Quality: quality, GrabID: g.ID.UUID,
+		WorkID: g.WorkID, ItemID: g.ItemID, RootID: g.Plan.Root.ID, Holding: holding, Size: info.Size(),
+		Probe: files.Probe{Width: g.Plan.Probe.Width, Height: g.Plan.Probe.Height}, GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
 }
 
-// facts is what g's file is: its release's source and cut, and the
-// resolution its probe measured.
-func (g Grab) facts(p media.Probe) release.Facts {
-	return release.File(g.Release.Title, release.BuiltIn(), p.Resolution())
+// facts is what g's file is, read in r: its release's source and cut,
+// among the cuts a title of Content Type typ can name, and the resolution
+// its probe measured.
+func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, p media.Probe) (release.Facts, error) {
+	known, err := gr.cfg.Targets.CutsIn(ctx, r)
+	if err != nil {
+		return release.Facts{}, err
+	}
+	return release.File(g.Release.Title, known.For(typ), p.Resolution()), nil
 }
 
 // commit applies o to g in one Write that compares on g's stage, so a
@@ -290,14 +299,23 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	return nil
 }
 
-// land imports g's file in tx under the choice a change that took
-// its cells saved, if one did.
+// land imports g's file in tx, with its facts, under the choice a change
+// that took its cells saved, if one did.
 func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in files.Incoming) error {
 	unwanted, err := db.New(tx).GetUnwanted(ctx, g.ID)
 	if err != nil {
 		return err
 	}
-	in.Unwanted = unwanted
+	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
+	if err != nil {
+		return err
+	}
+	facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Probe)
+	if err != nil {
+		return err
+	}
+	in.Unwanted, in.Cut = unwanted, facts.Cut
+	in.Quality, _ = facts.Quality.Get()
 	_, _, err = gr.cfg.Files.Import(ctx, tx, in)
 	return err
 }

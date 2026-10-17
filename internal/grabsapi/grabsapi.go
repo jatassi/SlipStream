@@ -148,7 +148,7 @@ type grab struct {
 	ID           string    `json:"id" format:"uuid"`
 	WorkID       string    `json:"workId" format:"uuid"`
 	ItemID       string    `json:"itemId" format:"uuid"`
-	Edition      string    `json:"edition" enum:"standard"`
+	Edition      string    `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string  `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
 	ReleaseTitle string    `json:"releaseTitle"`
 	ReleaseSize  int64     `json:"releaseSize" minimum:"0"`

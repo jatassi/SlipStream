@@ -40,14 +40,14 @@ func randomWorld(t *testing.T, r *rand.Rand) world {
 	}
 	for range r.IntN(7) {
 		w.files = append(w.files, File{
-			ID: ID{UUID: storage.NewUUID()}, ItemID: w.tree.Items[r.IntN(len(w.tree.Items))].ID, Edition: Standard,
+			ID: ID{UUID: storage.NewUUID()}, ItemID: w.tree.Items[r.IntN(len(w.tree.Items))].ID, Cut: release.Standard,
 			Quality: all[r.IntN(len(all))],
 		})
 	}
 	for _, it := range w.tree.Items {
 		for _, target := range w.goals.Targets {
 			if len(w.files) > 0 && r.IntN(2) == 0 {
-				w.fills[CellKey{Item: it.ID, Edition: Standard, Target: target.ID}] = w.files[r.IntN(len(w.files))].ID
+				w.fills[CellKey{Item: it.ID, Edition: targets.AnyEdition, Target: target.ID}] = w.files[r.IntN(len(w.files))].ID
 			}
 		}
 	}
@@ -75,7 +75,7 @@ func checkBest(t *testing.T, w world, fills map[CellKey]ID) {
 	for _, it := range w.tree.Items {
 		for _, target := range w.goals.Targets {
 			best, met := bestRank(w, it.ID, target)
-			id, filled := fills[CellKey{Item: it.ID, Edition: Standard, Target: target.ID}]
+			id, filled := fills[CellKey{Item: it.ID, Edition: targets.AnyEdition, Target: target.ID}]
 			if filled != met {
 				t.Fatalf("cell %s filled %t, want %t", target.Name, filled, met)
 			}
@@ -113,9 +113,9 @@ func TestATieKeepsTheIncumbentElseTheOldestFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	hd.ID = targets.TargetID{UUID: storage.NewUUID()}
-	key := CellKey{Item: item.ID, Edition: Standard, Target: hd.ID}
+	key := CellKey{Item: item.ID, Edition: targets.AnyEdition, Target: hd.ID}
 	file := func(q release.Quality) File {
-		return File{ID: ID{UUID: storage.NewUUID()}, ItemID: item.ID, Edition: Standard, Quality: q}
+		return File{ID: ID{UUID: storage.NewUUID()}, ItemID: item.ID, Cut: release.Standard, Quality: q}
 	}
 	older, newer, better := file(release.WEBDL1080p), file(release.WEBRip1080p), file(release.Remux1080p)
 	at := func(fills map[CellKey]ID, fs ...File) ID {

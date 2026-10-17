@@ -36,7 +36,7 @@ export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
 export const FilesUnreleasedCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["unreleased"]).describe("Its Item has no release date, or a later one"),
   targetId: zod.uuid(),
@@ -48,7 +48,7 @@ export type FilesUnreleasedCell = zod.input<typeof FilesUnreleasedCell>;
 export type FilesUnreleasedCellOutput = zod.output<typeof FilesUnreleasedCell>;
 
 export const FilesMissingCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["missing"]),
   targetId: zod.uuid(),
@@ -60,7 +60,7 @@ export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
 export type FilesMissingCellOutput = zod.output<typeof FilesMissingCell>;
 
 export const FilesDownloadingCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["downloading"]),
   targetId: zod.uuid(),
@@ -72,7 +72,7 @@ export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
 export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
 
 export const FilesFailedCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["failed"]),
   targetId: zod.uuid(),
@@ -128,7 +128,7 @@ export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
 
 export const FilesUpgradableCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe("The file filling it, below its Target's cutoff"),
   itemId: zod.uuid(),
   state: zod.enum(["upgradable"]),
@@ -141,7 +141,7 @@ export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
 export type FilesUpgradableCellOutput = zod.output<typeof FilesUpgradableCell>;
 
 export const FilesMetCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe("The file filling it"),
   itemId: zod.uuid(),
   state: zod.enum(["met"]),
@@ -266,7 +266,9 @@ export const grabsGrabReleaseSizeMin = 0;
 
 export const GrabsGrab = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
-  edition: zod.enum(["standard"]),
+  edition: zod
+    .string()
+    .describe("The Edition it was grabbed to fill: any under any cut, else a cut key"),
   failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
@@ -1549,6 +1551,13 @@ export const SystemStatus = zod.object({
 export type SystemStatus = zod.input<typeof SystemStatus>;
 export type SystemStatusOutput = zod.output<typeof SystemStatus>;
 
+export const TargetsAnyCut = zod.object({
+  kind: zod.enum(["any"]).describe("Any cut: one file per Target, of whatever cut"),
+});
+
+export type TargetsAnyCut = zod.input<typeof TargetsAnyCut>;
+export type TargetsAnyCutOutput = zod.output<typeof TargetsAnyCut>;
+
 export const TargetsChanged = zod.object({});
 
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
@@ -1560,7 +1569,7 @@ export const TargetsCut = zod.object({
   aliases: zod
     .array(zod.string())
     .describe(
-      "The phrases that name it in a title or file name; Standard is read where none is named",
+      "The phrases that name it in a title or file name, a custom cut's name first; Standard is read where none is named",
     ),
   contentType: zod
     .string()
@@ -1570,25 +1579,93 @@ export const TargetsCut = zod.object({
   key: zod.string(),
   name: zod.string(),
   origin: zod
-    .enum(["builtin", "type"])
-    .describe("Built into SlipStream, or added by a Content Type"),
+    .enum(["builtin", "type", "custom"])
+    .describe("Built into SlipStream, added by a Content Type, or added by an Admin"),
 });
 
 export type TargetsCut = zod.input<typeof TargetsCut>;
 export type TargetsCutOutput = zod.output<typeof TargetsCut>;
 
+export const targetsUnwantedFilesBytesMin = 0;
+
+export const targetsUnwantedFilesFilesMin = 0;
+
+export const TargetsUnwantedFiles = zod.object({
+  bytes: zod.int().min(targetsUnwantedFilesBytesMin),
+  files: zod.int().min(targetsUnwantedFilesFilesMin),
+});
+
+export type TargetsUnwantedFiles = zod.input<typeof TargetsUnwantedFiles>;
+export type TargetsUnwantedFilesOutput = zod.output<typeof TargetsUnwantedFiles>;
+
+export const targetsImpactDownloadingMin = 0;
+
+export const targetsImpactNewlyWantedMin = 0;
+
+export const targetsImpactOwnListMin = 0;
+
+export const targetsImpactRenamedMin = 0;
+
+export const targetsImpactWorksMin = 0;
+
+export const TargetsImpact = zod.object({
+  downloading: zod
+    .int()
+    .min(targetsImpactDownloadingMin)
+    .describe("Downloads in flight for cells that go; their files follow the save's choice"),
+  newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
+  ownList: zod
+    .int()
+    .min(targetsImpactOwnListMin)
+    .describe("Works that keep their own Edition list through a change to their Profile's"),
+  renamed: zod
+    .int()
+    .min(targetsImpactRenamedMin)
+    .describe("Files that still fill a cell and change name"),
+  unwanted: TargetsUnwantedFiles.describe(
+    "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
+  ),
+  works: zod
+    .int()
+    .min(targetsImpactWorksMin)
+    .describe("Works whose cells, fills or file names change"),
+});
+
+export type TargetsImpact = zod.input<typeof TargetsImpact>;
+export type TargetsImpactOutput = zod.output<typeof TargetsImpact>;
+
+export const TargetsCutChange = zod.object({
+  cut: TargetsCut,
+  impact: TargetsImpact,
+});
+
+export type TargetsCutChange = zod.input<typeof TargetsCutChange>;
+export type TargetsCutChangeOutput = zod.output<typeof TargetsCutChange>;
+
 export const TargetsCutList = zod.object({
   cuts: zod
     .array(TargetsCut)
-    .describe("The built-in cuts, Standard first, then each Content Type's by type"),
+    .describe(
+      "The built-in cuts, Standard first, then each Content Type's by type, then the custom ones by name",
+    ),
 });
 
 export type TargetsCutList = zod.input<typeof TargetsCutList>;
 export type TargetsCutListOutput = zod.output<typeof TargetsCutList>;
 
-export const TargetsEditions = zod.object({
-  kind: zod.enum(["any"]).describe("Any cut: one file per Target, of whatever cut"),
+export const TargetsNamedCuts = zod.object({
+  cuts: zod.array(zod.string()).min(1).describe("Cut keys in list order"),
+  kind: zod
+    .enum(["cuts"])
+    .describe(
+      "Named cuts: with Standard, each other cut once seen for an Item; without it, every cut outright",
+    ),
 });
+
+export type TargetsNamedCuts = zod.input<typeof TargetsNamedCuts>;
+export type TargetsNamedCutsOutput = zod.output<typeof TargetsNamedCuts>;
+
+export const TargetsEditions = zod.discriminatedUnion("kind", [TargetsAnyCut, TargetsNamedCuts]);
 
 export type TargetsEditions = zod.input<typeof TargetsEditions>;
 export type TargetsEditionsOutput = zod.output<typeof TargetsEditions>;
@@ -1638,53 +1715,25 @@ export const TargetsFilter = zod.object({
 export type TargetsFilter = zod.input<typeof TargetsFilter>;
 export type TargetsFilterOutput = zod.output<typeof TargetsFilter>;
 
-export const targetsUnwantedFilesBytesMin = 0;
+export const targetsNewCutAliasesMax = 20;
 
-export const targetsUnwantedFilesFilesMin = 0;
+export const targetsNewCutNameMax = 100;
 
-export const TargetsUnwantedFiles = zod.object({
-  bytes: zod.int().min(targetsUnwantedFilesBytesMin),
-  files: zod.int().min(targetsUnwantedFilesFilesMin),
+export const TargetsNewCut = zod.object({
+  aliases: zod
+    .array(zod.string())
+    .max(targetsNewCutAliasesMax)
+    .exactOptional()
+    .describe("Other phrases that name it in a title; its name always does"),
+  name: zod
+    .string()
+    .min(1)
+    .max(targetsNewCutNameMax)
+    .describe("Its key is the name's words in lower case joined by hyphens, fixed once made"),
 });
 
-export type TargetsUnwantedFiles = zod.input<typeof TargetsUnwantedFiles>;
-export type TargetsUnwantedFilesOutput = zod.output<typeof TargetsUnwantedFiles>;
-
-export const targetsImpactDownloadingMin = 0;
-
-export const targetsImpactNewlyWantedMin = 0;
-
-export const targetsImpactOwnListMin = 0;
-
-export const targetsImpactRenamedMin = 0;
-
-export const targetsImpactWorksMin = 0;
-
-export const TargetsImpact = zod.object({
-  downloading: zod
-    .int()
-    .min(targetsImpactDownloadingMin)
-    .describe("Downloads in flight for cells that go; their files follow the save's choice"),
-  newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
-  ownList: zod
-    .int()
-    .min(targetsImpactOwnListMin)
-    .describe("Works that keep their own Edition list through a change to their Profile's"),
-  renamed: zod
-    .int()
-    .min(targetsImpactRenamedMin)
-    .describe("Files that still fill a cell and change name"),
-  unwanted: TargetsUnwantedFiles.describe(
-    "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
-  ),
-  works: zod
-    .int()
-    .min(targetsImpactWorksMin)
-    .describe("Works whose cells, fills or file names change"),
-});
-
-export type TargetsImpact = zod.input<typeof TargetsImpact>;
-export type TargetsImpactOutput = zod.output<typeof TargetsImpact>;
+export type TargetsNewCut = zod.input<typeof TargetsNewCut>;
+export type TargetsNewCutOutput = zod.output<typeof TargetsNewCut>;
 
 export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsNewProfileNameMax = 100;

@@ -139,6 +139,7 @@ type Payloads interface {
 type Config struct {
 	Library  *storage.DB[file]
 	Works    *works.Works
+	Targets  *targets.Targets
 	Files    *files.Files
 	Indexers *indexers.Indexers
 	Terms    map[works.TypeID]indexers.Facet
@@ -222,10 +223,11 @@ type Entered struct {
 }
 
 type Grab struct {
-	ID      GrabID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
-	Edition files.Edition
+	ID     GrabID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Edition is what its cells want: its release's cut, or any.
+	Edition targets.Edition
 	Targets []targets.TargetID
 	Release Release
 	// Node is the Indexer's home Node, which downloads the release.

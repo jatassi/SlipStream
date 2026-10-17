@@ -1,6 +1,6 @@
 -- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(root_id), sqlc.arg(path),
+INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
     sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra));
 
 -- name: RenameFile :exec
@@ -63,3 +63,9 @@ SELECT * FROM files_doomed ORDER BY file_id;
 
 -- name: DeleteDoomed :exec
 DELETE FROM files_doomed WHERE file_id = sqlc.arg(file_id);
+
+-- name: ListWorksOfCuts :many
+SELECT DISTINCT work_id FROM files_file WHERE cut IN (sqlc.slice(cuts)) ORDER BY work_id;
+
+-- name: CountFilesOfCut :one
+SELECT count(*) FROM files_file WHERE cut = sqlc.arg(cut);

@@ -16,6 +16,17 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const countFilesOfCut = `-- name: CountFilesOfCut :one
+SELECT count(*) FROM files_file WHERE cut = ?1
+`
+
+func (q *Queries) CountFilesOfCut(ctx context.Context, cut release.CutKey) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFilesOfCut, cut)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteDoomed = `-- name: DeleteDoomed :exec
 DELETE FROM files_doomed WHERE file_id = ?1
 `
@@ -40,7 +51,7 @@ DELETE FROM files_fill WHERE item_id = ?1 AND edition = ?2 AND target_id = ?3
 
 type DeleteFillParams struct {
 	ItemID   works.ItemID
-	Edition  Edition
+	Edition  targets.Edition
 	TargetID targets.TargetID
 }
 
@@ -118,7 +129,7 @@ func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) erro
 }
 
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra)
+INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11, ?12)
 `
@@ -127,7 +138,7 @@ type InsertFileParams struct {
 	ID      FileID
 	WorkID  works.WorkID
 	ItemID  works.ItemID
-	Edition Edition
+	Cut     release.CutKey
 	RootID  roots.ID
 	Path    string
 	Size    int64
@@ -143,7 +154,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.ID,
 		arg.WorkID,
 		arg.ItemID,
-		arg.Edition,
+		arg.Cut,
 		arg.RootID,
 		arg.Path,
 		arg.Size,
@@ -165,7 +176,7 @@ type InsertFillParams struct {
 	FileID   FileID
 	TargetID targets.TargetID
 	ItemID   works.ItemID
-	Edition  Edition
+	Edition  targets.Edition
 }
 
 func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
@@ -252,7 +263,7 @@ func (q *Queries) ListFileIDs(ctx context.Context) ([]FileID, error) {
 }
 
 const listFilesOfWorks = `-- name: ListFilesOfWorks :many
-SELECT id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFile, error) {
@@ -278,7 +289,7 @@ func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.ID,
 			&i.WorkID,
 			&i.ItemID,
-			&i.Edition,
+			&i.Cut,
 			&i.RootID,
 			&i.Path,
 			&i.Size,
@@ -429,6 +440,43 @@ func (q *Queries) ListMoves(ctx context.Context) ([]ListMovesRow, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorksOfCuts = `-- name: ListWorksOfCuts :many
+SELECT DISTINCT work_id FROM files_file WHERE cut IN (/*SLICE:cuts*/?) ORDER BY work_id
+`
+
+func (q *Queries) ListWorksOfCuts(ctx context.Context, cuts []release.CutKey) ([]works.WorkID, error) {
+	query := listWorksOfCuts
+	var queryParams []interface{}
+	if len(cuts) > 0 {
+		for _, v := range cuts {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:cuts*/?", strings.Repeat(",?", len(cuts))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:cuts*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

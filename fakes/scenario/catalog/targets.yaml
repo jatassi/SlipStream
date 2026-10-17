@@ -2,7 +2,8 @@
 description: >-
   One Node set up as the Controller, whose movies want the starter 1080p
   and HD, a second Target of the same qualities. fixture-site lists a
-  1080p WEB-DL, and a 1080p Bluray once the fixture-site-list cue posts it.
+  1080p WEB-DL, and a 1080p Bluray or an Extended 1080p WEB-DL once the
+  fixture-site-list cue posts it.
 seed: targets
 admin:
   email: ada@example.test
@@ -34,6 +35,13 @@ releases:
     seeders: 30
     seeded: true
     advertised_size: 9.8GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.EXTENDED.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 20
+    seeded: true
+    advertised_size: 8.9GiB
     unlisted: true
 tracker:
   interval: 5s

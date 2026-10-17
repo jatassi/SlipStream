@@ -52,7 +52,8 @@ var (
 	ErrNoReplacement    = errors.New("no Profile has the id a deleted Profile's Works would move to")
 )
 
-// InUseError is a Target that Profiles hold, By their names.
+// InUseError is a Target that Profiles hold, By their names, or a cut
+// that lists or files hold, By the Profiles and a count of the rest.
 type InUseError struct{ By []string }
 
 func (e *InUseError) Error() string {

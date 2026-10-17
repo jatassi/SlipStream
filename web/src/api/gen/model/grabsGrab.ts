@@ -1,12 +1,12 @@
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
-import type { GrabsGrabEdition } from "./grabsGrabEdition.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsProgress } from "./grabsProgress.ts";
 
 export interface GrabsGrab {
   createdAt: string;
-  edition: GrabsGrabEdition;
+  /** The Edition it was grabbed to fill: any under any cut, else a cut key */
+  edition: string;
   /** Why it failed, absent unless it did */
   failure?: GrabsFailure;
   /** Each stage it entered, oldest first */

@@ -10,6 +10,18 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+type TargetsCut struct {
+	Key       release.CutKey
+	Name      string
+	CreatedAt storage.Time
+}
+
+type TargetsCutAlias struct {
+	Cut      release.CutKey
+	Position int64
+	Alias    string
+}
+
 type TargetsFilter struct {
 	TargetID  TargetID
 	Attribute Attribute
@@ -28,6 +40,13 @@ type TargetsProfile struct {
 	Name        string
 	ContentType works.TypeID
 	IsDefault   bool
+	Editions    List
+}
+
+type TargetsProfileCut struct {
+	ProfileID ProfileID
+	Position  int64
+	Cut       release.CutKey
 }
 
 type TargetsProfileTarget struct {
@@ -46,6 +65,13 @@ type TargetsQuality struct {
 	MaxMibPerMinute *float64
 }
 
+type TargetsSighting struct {
+	ItemID  works.ItemID
+	Cut     release.CutKey
+	Release string
+	SeenAt  storage.Time
+}
+
 type TargetsStarter struct {
 	ID       Singleton
 	TargetID *TargetID
@@ -62,4 +88,10 @@ type TargetsWant struct {
 	WorkID    works.WorkID
 	ProfileID ProfileID
 	Editions  *List
+}
+
+type TargetsWantsCut struct {
+	WorkID   works.WorkID
+	Position int64
+	Cut      release.CutKey
 }

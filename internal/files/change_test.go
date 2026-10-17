@@ -89,10 +89,10 @@ func TestTakingEveryTargetAwayKeepsTheFileAsKeptAndPuttingThemBackRestoresIt(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Scarf standard Web met wanted=false Shelf w1/Shelf w1 - Scarf - Web.mkv webdl-1080p 1920x1080\n" +
-		"Scarf standard HD upgradable wanted=true Shelf w1/Shelf w1 - Scarf - Web.mkv webdl-1080p 1920x1080\n" +
-		"Mittens standard Web missing wanted=true\n" +
-		"Mittens standard HD missing wanted=true\n"
+	want := "Scarf any Web met wanted=false Shelf w1/Shelf w1 - Scarf - Web.mkv webdl-1080p 1920x1080\n" +
+		"Scarf any HD upgradable wanted=true Shelf w1/Shelf w1 - Scarf - Web.mkv webdl-1080p 1920x1080\n" +
+		"Mittens any Web missing wanted=true\n" +
+		"Mittens any HD missing wanted=true\n"
 	if lines(cells) != want {
 		t.Fatalf("cells =\n%swant\n%s", lines(cells), want)
 	}
@@ -218,8 +218,8 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 		t.Fatalf("deleting Discs into HDs = %+v, want %+v: the Kept WEB-DL fills HD again", got, want)
 	}
 	if snap := s.snapshot(t, s.svc, s.tree.ID); snap != "Shelf w1/Shelf w1 - Scarf - HD.mkv=webdl\nHDs\n"+
-		"Scarf standard HD upgradable wanted=true Shelf w1/Shelf w1 - Scarf - HD.mkv webdl-1080p 1920x1080\n"+
-		"Mittens standard HD missing wanted=true\n" {
+		"Scarf any HD upgradable wanted=true Shelf w1/Shelf w1 - Scarf - HD.mkv webdl-1080p 1920x1080\n"+
+		"Mittens any HD missing wanted=true\n" {
 		t.Fatalf("after the delete:\n%s", snap)
 	}
 	for _, c := range []struct {
@@ -240,23 +240,30 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 
 func TestAnImportWhoseCellsWentFollowsTheSavedChoice(t *testing.T) {
 	for _, c := range []struct {
+		name   string
 		choice files.Unwanted
+		meant  bool
 		disk   map[string]string
 		landed bool
 	}{
-		{files.Delete, map[string]string{}, false},
-		{files.Keep, map[string]string{"Shelf w1/Shelf w1 - Scarf - (extra 1).mkv": "webdl"}, true},
+		{"delete", files.Delete, false, map[string]string{}, false},
+		{"keep named by its quality", files.Keep, false, map[string]string{"Shelf w1/Shelf w1 - Scarf - WEBDL-1080p (extra 1).mkv": "webdl"}, true},
+		{"keep named by the Target its Grab meant", files.Keep, true, map[string]string{"Shelf w1/Shelf w1 - Scarf - Disc (extra 1).mkv": "webdl"}, true},
 	} {
-		t.Run(string(c.choice), func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			l := open(t)
 			empty := l.profile(t, "Empty")
 			tree := l.work(t, "w1", true, &empty)
+			var meant []targets.TargetID
+			if c.meant {
+				meant = []targets.TargetID{{UUID: storage.NewUUID()}, l.target(t, "Disc", []release.Quality{release.Bluray1080p}).ID}
+			}
 			svc := l.files(files.NoGrabs{})
 			holding := files.HoldingOf(storage.NewUUID(), ".mkv")
 			l.put(t, holding, "webdl")
 			in := files.Incoming{
-				WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Holding: holding,
-				Size: 5, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p, Unwanted: &c.choice,
+				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
+				Size: 5, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p, Unwanted: &c.choice, Meant: meant,
 			}
 			var landed bool
 			err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {

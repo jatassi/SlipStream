@@ -341,7 +341,7 @@ func TestProfilesAreListedWithTheirWorksMadeDefaultAndEstimated(t *testing.T) {
 		Create(ctx, identity.Admin{}, contenttypetest.ID, t.TempDir()))
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: root.ID, Path: "a.mkv", Size: 2000 << 20, Quality: release.WEBDL1080p,
+			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "a.mkv", Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: must[storage.UUID](t)(storage.ParseUUID(s.starter))}})
 		return err
 	})

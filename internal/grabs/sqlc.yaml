@@ -42,7 +42,7 @@ sql:
               type: NodeID
           - column: grabs_grab.edition
             go_type:
-              import: github.com/jatassi/slipstream/internal/files
+              import: github.com/jatassi/slipstream/internal/targets
               type: Edition
           - column: grabs_grab.unwanted
             go_type:

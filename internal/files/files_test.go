@@ -154,7 +154,7 @@ func (l *library) place(t testing.TB, item works.ItemID, work works.WorkID, path
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work, ItemID: item, Edition: files.Standard, RootID: l.root.ID, Path: path, Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
+			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
 		}, fills)
 		return err
 	})
@@ -186,18 +186,18 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - HD.mkv", release.WEBRip1080p, hd.ID)
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - UHD.mkv", release.WEBDL2160p, uhd.ID)
 	svc := l.files(grabbing{
-		{Item: mittens, Edition: files.Standard, Target: uhd.ID}: files.GrabDownloading,
-		{Item: mittens, Edition: files.Standard, Target: hd.ID}:  files.GrabFailed,
-		{Item: scarf, Edition: files.Standard, Target: hd.ID}:    files.GrabDownloading,
+		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: files.GrabDownloading,
+		{Item: mittens, Edition: targets.AnyEdition, Target: hd.ID}:  files.GrabFailed,
+		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    files.GrabDownloading,
 	})
 	_, cells, err := svc.WorkCells(t.Context(), admin, watched.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Scarf standard UHD upgradable wanted=true Shelf w1/Scarf - UHD.mkv webdl-2160p 1920x1080\n" +
-		"Scarf standard HD met wanted=false Shelf w1/Scarf - HD.mkv webrip-1080p 1920x1080\n" +
-		"Mittens standard UHD downloading wanted=false\n" +
-		"Mittens standard HD failed wanted=true\n"
+	want := "Scarf any UHD upgradable wanted=true Shelf w1/Scarf - UHD.mkv webdl-2160p 1920x1080\n" +
+		"Scarf any HD met wanted=false Shelf w1/Scarf - HD.mkv webrip-1080p 1920x1080\n" +
+		"Mittens any UHD downloading wanted=false\n" +
+		"Mittens any HD failed wanted=true\n"
 	if got := lines(cells); got != want {
 		t.Fatalf("cells =\n%swant\n%s", got, want)
 	}
@@ -207,8 +207,8 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = "Scarf standard HD missing wanted=false\n" +
-		"Mittens standard HD missing wanted=false\n"
+	want = "Scarf any HD missing wanted=false\n" +
+		"Mittens any HD missing wanted=false\n"
 	if got := lines(cells); got != want {
 		t.Fatalf("cells of a Work wanting from Small =\n%swant\n%s", got, want)
 	}
@@ -218,8 +218,8 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = "Scarf standard 1080p missing wanted=true\n" +
-		"Mittens standard 1080p missing wanted=true\n"
+	want = "Scarf any 1080p missing wanted=true\n" +
+		"Mittens any 1080p missing wanted=true\n"
 	if got := lines(cells); got != want {
 		t.Fatalf("cells of a Work added with no Profile =\n%swant the type's default, holding the starter\n%s", got, want)
 	}
@@ -233,12 +233,12 @@ func TestAnItemNotOutYetIsUnreleasedAndUnwanted(t *testing.T) {
 	l.fx.SetTiming(scarf, targets.Timing{Released: release.Known(tomorrow)})
 	l.fx.SetTiming(mittens, targets.Timing{})
 	starter := must[[]targets.Target](t)(l.targets.ListTargets(t.Context(), admin))[0]
-	items, cells, err := l.files(grabbing{{Item: mittens, Edition: files.Standard, Target: starter.ID}: files.GrabFailed}).WorkCells(t.Context(), admin, tree.ID)
+	items, cells, err := l.files(grabbing{{Item: mittens, Edition: targets.AnyEdition, Target: starter.ID}: files.GrabFailed}).WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Scarf standard 1080p unreleased wanted=false\n" +
-		"Mittens standard 1080p failed wanted=false\n"
+	want := "Scarf any 1080p unreleased wanted=false\n" +
+		"Mittens any 1080p failed wanted=false\n"
 	if got := lines(cells); got != want {
 		t.Fatalf("cells =\n%swant\n%s", got, want)
 	}
@@ -293,7 +293,7 @@ func TestACellIsFilledOnce(t *testing.T) {
 	tree := l.work(t, "w1", true, nil)
 	l.place(t, tree.Items[0].ID, tree.ID, "a.mkv", release.WEBDL1080p, hd.ID)
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
+		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
 		return err
 	})
 	if err == nil || !strings.Contains(err.Error(), "UNIQUE constraint failed: files_fill.item_id, files_fill.edition, files_fill.target_id") {
@@ -314,7 +314,7 @@ func TestATargetsEstimateIsItsFilesRateOverTheProfilesRuntime(t *testing.T) {
 		t.Helper()
 		err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: work, ItemID: item, Edition: files.Standard, RootID: l.root.ID, Path: path, Size: mib << 20, Quality: release.WEBDL1080p,
+				WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: mib << 20, Quality: release.WEBDL1080p,
 			}, fills)
 			return err
 		})
@@ -338,5 +338,59 @@ func TestATargetsEstimateIsItsFilesRateOverTheProfilesRuntime(t *testing.T) {
 	want := map[targets.TargetID]files.Estimate{hd.ID: {MiBPerMinute: rate, Bytes: int64(rate * 160 * (1 << 20))}}
 	if len(got) != 1 || got[hd.ID] != want[hd.ID] {
 		t.Fatalf("Estimates = %+v, want %+v: HD's files of known runtime over Standard's 160 known minutes, and no estimate for UHD", got, want)
+	}
+}
+
+func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
+	l := open(t)
+	hd := l.target(t, "HD", []release.Quality{release.WEBDL1080p})
+	listed := func(name string, cuts ...release.CutKey) targets.ProfileID {
+		list := must[targets.Editions](t)(targets.NamedCuts(cuts...))
+		p := must[targets.Profile](t)(l.targets.CreateProfile(t.Context(), admin, targets.ProfileSpec{
+			Name: name, ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}}, Editions: list,
+		}))
+		return p.ID
+	}
+	both, outright := listed("Both", release.Standard, "extended"), listed("Outright", "extended", "imax")
+	tree := l.work(t, "w1", true, &both)
+	scarf, mittens := tree.Items[0].ID, tree.Items[1].ID
+	svc := l.files(files.NoGrabs{})
+	cells := func(w works.WorkID) string {
+		t.Helper()
+		_, cells, err := svc.WorkCells(t.Context(), admin, w)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lines(cells)
+	}
+	if got, want := cells(tree.ID), "Scarf standard HD missing wanted=true\nMittens standard HD missing wanted=true\n"; got != want {
+		t.Fatalf("cells before any sighting =\n%swant Standard alone\n%s", got, want)
+	}
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for _, key := range []string{"a", "b"} {
+			if err := targets.See(ctx, tx, scarf, "extended", key); err != nil {
+				return err
+			}
+		}
+		if err := targets.See(ctx, tx, scarf, "imax", "c"); err != nil {
+			return err
+		}
+		_, err := files.Add(ctx, tx, files.File{
+			WorkID: tree.ID, ItemID: mittens, Cut: "extended", RootID: l.root.ID, Path: "Shelf w1/Mittens.mkv", Size: 1024, Quality: release.WEBDL1080p,
+		}, []targets.TargetID{hd.ID})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Scarf standard HD missing wanted=true\nScarf extended HD missing wanted=true\n" +
+		"Mittens standard HD missing wanted=true\nMittens extended HD met wanted=false Shelf w1/Mittens.mkv webdl-1080p 0x0\n"
+	if got := cells(tree.ID); got != want {
+		t.Fatalf("cells once Scarf's Extended is seen and Mittens holds an Extended file =\n%swant\n%s", got, want)
+	}
+	other := l.work(t, "w2", true, &outright)
+	want = "Scarf extended HD missing wanted=true\nScarf imax HD missing wanted=true\nMittens extended HD missing wanted=true\nMittens imax HD missing wanted=true\n"
+	if got := cells(other.ID); got != want {
+		t.Fatalf("cells of a list without Standard =\n%swant every cut it names outright\n%s", got, want)
 	}
 }

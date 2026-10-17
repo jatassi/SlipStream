@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
 	"github.com/jatassi/slipstream/internal/works"
@@ -15,7 +16,7 @@ import (
 // every Work it touches.
 type Change interface {
 	touches(ctx context.Context, q *db.Queries) (Touched, error)
-	apply(ctx context.Context, q *db.Queries) error
+	apply(ctx context.Context, q *db.Queries, known Cuts) error
 }
 
 // UpdateTarget replaces Target ID's name and rules with Spec.
@@ -43,11 +44,19 @@ type SetWants struct {
 	Own     *Editions
 }
 
+// UpdateCut replaces custom cut Key's name and aliases with Spec. Its key
+// stays, and every file of it takes the new name.
+type UpdateCut struct {
+	Key  release.CutKey
+	Spec CutSpec
+}
+
 // Touched is what a Change may change, read before it applies: the Works
-// whose Goals it changes and, for a Profile's Edition change, how many of
-// them keep their own list.
+// whose Goals it changes, the cuts whose files it renames and, for a
+// Profile's Edition change, how many Works keep their own list.
 type Touched struct {
 	Works   []works.WorkID
+	Cuts    []release.CutKey
 	OwnList int
 }
 
@@ -56,11 +65,12 @@ func Touches(ctx context.Context, r storage.Reader[file], c Change) (Touched, er
 	return c.touches(ctx, db.New(r))
 }
 
-// Apply checks c as a create checks its record and writes it in tx. Only
-// files.Change calls it: a rule written without a refill leaves fills and
-// names that no longer match their cells.
-func Apply(ctx context.Context, tx *storage.Tx[file], c Change) error {
-	return c.apply(ctx, db.New(tx))
+// Apply checks c as a create checks its record, against known, every cut
+// in tx, and writes it in tx. Only files.Change calls it: a rule written
+// without a refill leaves fills and names that no longer match their
+// cells.
+func Apply(ctx context.Context, tx *storage.Tx[file], known Cuts, c Change) error {
+	return c.apply(ctx, db.New(tx), known)
 }
 
 func (c UpdateTarget) touches(ctx context.Context, q *db.Queries) (Touched, error) {
@@ -68,7 +78,7 @@ func (c UpdateTarget) touches(ctx context.Context, q *db.Queries) (Touched, erro
 	return Touched{Works: ws}, err
 }
 
-func (c UpdateTarget) apply(ctx context.Context, q *db.Queries) error {
+func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	t, err := NewTarget(c.Spec)
 	if err != nil {
 		return err
@@ -113,13 +123,16 @@ func (c UpdateProfile) touches(ctx context.Context, q *db.Queries) (Touched, err
 	return out, err
 }
 
-func (c UpdateProfile) apply(ctx context.Context, q *db.Queries) error {
+func (c UpdateProfile) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 	p, err := profileIn(ctx, q, c.ID)
 	switch {
 	case err != nil:
 		return err
 	case p.ContentType != c.Spec.ContentType:
 		return ErrProfileWrongType
+	}
+	if err := known.check(c.Spec.Editions, p.ContentType); err != nil {
+		return err
 	}
 	switch taken, err := q.ProfileNameTakenByOther(ctx, db.ProfileNameTakenByOtherParams{Name: c.Spec.Name, ID: c.ID}); {
 	case err != nil:
@@ -130,7 +143,13 @@ func (c UpdateProfile) apply(ctx context.Context, q *db.Queries) error {
 	if err := checkEntries(ctx, q, c.Spec.Entries); err != nil {
 		return err
 	}
-	if err := q.RenameProfile(ctx, db.RenameProfileParams{ID: c.ID, Name: c.Spec.Name}); err != nil {
+	if err := q.UpdateProfile(ctx, db.UpdateProfileParams{ID: c.ID, Name: c.Spec.Name, Editions: listOf(c.Spec.Editions)}); err != nil {
+		return err
+	}
+	if err := q.DeleteProfileCuts(ctx, c.ID); err != nil {
+		return err
+	}
+	if err := insertProfileCuts(ctx, q, c.ID, c.Spec.Editions); err != nil {
 		return err
 	}
 	if err := q.DeleteProfileTargets(ctx, c.ID); err != nil {
@@ -144,7 +163,7 @@ func (c DeleteProfile) touches(ctx context.Context, q *db.Queries) (Touched, err
 	return Touched{Works: ws}, err
 }
 
-func (c DeleteProfile) apply(ctx context.Context, q *db.Queries) error {
+func (c DeleteProfile) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	gone, err := profileIn(ctx, q, c.ID)
 	switch {
 	case err != nil:
@@ -170,7 +189,7 @@ func (c SetWants) touches(context.Context, *db.Queries) (Touched, error) { //nol
 	return Touched{Works: []works.WorkID{c.Work}}, nil
 }
 
-func (c SetWants) apply(ctx context.Context, q *db.Queries) error {
+func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 	row, err := q.GetWants(ctx, c.Work)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
@@ -187,9 +206,50 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries) error {
 	}
 	var own *db.List
 	if c.Own != nil {
+		if err := known.check(*c.Own, now.ContentType); err != nil {
+			return err
+		}
 		own = new(listOf(*c.Own))
 	}
-	return q.SetWants(ctx, db.SetWantsParams{WorkID: c.Work, ProfileID: c.Profile, Editions: own})
+	if err := q.SetWants(ctx, db.SetWantsParams{WorkID: c.Work, ProfileID: c.Profile, Editions: own}); err != nil {
+		return err
+	}
+	if err := q.DeleteWantsCuts(ctx, c.Work); err != nil {
+		return err
+	}
+	if c.Own == nil {
+		return nil
+	}
+	for i, cut := range c.Own.cuts {
+		if err := q.InsertWantsCut(ctx, db.InsertWantsCutParams{WorkID: c.Work, Position: int64(i + 1), Cut: cut}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c UpdateCut) touches(context.Context, *db.Queries) (Touched, error) { //nolint:unparam // the other kinds read to answer
+	return Touched{Cuts: []release.CutKey{c.Key}}, nil
+}
+
+func (c UpdateCut) apply(ctx context.Context, q *db.Queries, known Cuts) error {
+	if err := known.custom(c.Key); err != nil {
+		return err
+	}
+	aliases, err := c.Spec.aliases()
+	if err != nil {
+		return err
+	}
+	if known.claimed(CutSpec{Name: c.Spec.Name, Aliases: aliases}, c.Key) {
+		return ErrCutNameTaken
+	}
+	if err := q.RenameCut(ctx, db.RenameCutParams{Key: c.Key, Name: c.Spec.Name}); err != nil {
+		return err
+	}
+	if err := q.DeleteCutAliases(ctx, c.Key); err != nil {
+		return err
+	}
+	return insertAliases(ctx, q, c.Key, aliases)
 }
 
 // profileIn reads Profile id, ErrNoProfile when none has it.
@@ -201,7 +261,11 @@ func profileIn(ctx context.Context, q *db.Queries, id ProfileID) (Profile, error
 	case err != nil:
 		return Profile{}, err
 	}
-	return Profile{ID: row.ID, Name: row.Name, ContentType: row.ContentType, Default: row.IsDefault}, nil
+	cuts, err := q.ListCutsOfProfile(ctx, id)
+	if err != nil {
+		return Profile{}, err
+	}
+	return Profile{ID: row.ID, Name: row.Name, ContentType: row.ContentType, Default: row.IsDefault, Editions: editionsOf(row.Editions, cuts)}, nil
 }
 
 // sameType refuses Profile id unless it exists and is for typ.

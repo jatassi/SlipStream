@@ -65,7 +65,7 @@ func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 	l, tree := longWork(b)
 	svc := l.files(files.NoGrabs{})
 	in := files.Incoming{
-		WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID,
+		WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID,
 		Holding: files.HoldingOf(storage.NewUUID(), ".mkv"), Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.Bluray1080p,
 	}
 	b.Run("Place", func(b *testing.B) {

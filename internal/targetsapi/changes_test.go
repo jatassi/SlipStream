@@ -43,7 +43,7 @@ func shelved(t *testing.T) (s *served, ids map[string]string) {
 		Create(ctx, identity.Admin{}, contenttypetest.ID, t.TempDir()))
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
+			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
 			Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: must[storage.UUID](t)(storage.ParseUUID(s.starter))}})
 		return err
@@ -222,6 +222,9 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@none","editions":null}`, http.StatusUnprocessableEntity, `{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`},
 		{http.MethodPut, "/api/v1/works/@work/wants?unwanted=maybe", `{"profileId":"@small","editions":null}`, http.StatusUnprocessableEntity, `@invalid`},
 		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"cuts"}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"bogus"}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"cuts","cuts":[]}}`, http.StatusUnprocessableEntity, `@invalid`},
+		{http.MethodPut, "/api/v1/works/@work/wants", `{"profileId":"@small","editions":{"kind":"cuts","cuts":["a","a"]}}`, http.StatusUnprocessableEntity, `@invalid`},
 	} {
 		path, body := fill(c.path, ids), fill(c.body, ids)
 		if c.want == "@invalid" {

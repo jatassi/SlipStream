@@ -102,6 +102,63 @@ INSERT INTO targets_wants (work_id, profile_id)
 SELECT w.id, p.id FROM works_work w
 JOIN targets_profile p ON p.content_type = w.content_type AND p.is_default = 1;
 
--- A Work's own Edition list, which replaces its Profile's. NULL is the
--- Profile's. Any cut is the only list until cuts can be chosen.
-ALTER TABLE targets_wants ADD COLUMN editions TEXT CHECK (editions IN ('any'));
+-- A Work's own Edition list, which replaces its Profile's: any cut, or
+-- the cuts targets_wants_cut names. NULL is the Profile's.
+ALTER TABLE targets_wants ADD COLUMN editions TEXT CHECK (editions IN ('any', 'cuts'));
+
+-- A Profile's Edition list: any cut, or the cuts targets_profile_cut
+-- names in order. Every Profile that existed wants any cut.
+ALTER TABLE targets_profile ADD COLUMN editions TEXT NOT NULL DEFAULT 'any' CHECK (editions IN ('any', 'cuts'));
+
+-- A named list's cuts, in list order. A cut is a key: built-in and
+-- Content Type cuts live in code, so only targets_cut rows can be checked
+-- here, and targets refuses to delete a custom cut a list names.
+CREATE TABLE targets_profile_cut (
+    profile_id BLOB NOT NULL REFERENCES targets_profile (id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 1),
+    cut TEXT NOT NULL CHECK (cut NOT IN ('', 'any')),
+    PRIMARY KEY (profile_id, position),
+    UNIQUE (profile_id, cut)
+) STRICT;
+
+CREATE INDEX targets_profile_cut_cut ON targets_profile_cut (cut);
+
+CREATE TABLE targets_wants_cut (
+    work_id BLOB NOT NULL REFERENCES targets_wants (work_id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 1),
+    cut TEXT NOT NULL CHECK (cut NOT IN ('', 'any')),
+    PRIMARY KEY (work_id, position),
+    UNIQUE (work_id, cut)
+) STRICT;
+
+CREATE INDEX targets_wants_cut_cut ON targets_wants_cut (cut);
+
+-- The Admin's own cuts. The key is the name's slug, fixed at creation;
+-- the name is matched in titles, as is each alias.
+CREATE TABLE targets_cut (
+    key TEXT PRIMARY KEY NOT NULL CHECK (key NOT IN ('', 'any')),
+    name TEXT NOT NULL UNIQUE CHECK (name <> ''),
+    created_at INTEGER NOT NULL
+) STRICT;
+
+CREATE TABLE targets_cut_alias (
+    cut TEXT NOT NULL REFERENCES targets_cut (key) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 1),
+    alias TEXT NOT NULL CHECK (alias <> ''),
+    PRIMARY KEY (cut, position),
+    UNIQUE (cut, alias)
+) STRICT;
+
+-- A release of a cut an Indexer listed covering an Item. release is its
+-- info hash in hex, or its title when the Indexer sent none. A file of a
+-- cut counts as seen too, read from files and never stored here.
+CREATE TABLE targets_sighting (
+    item_id BLOB NOT NULL REFERENCES works_item (id) ON DELETE CASCADE,
+    cut TEXT NOT NULL CHECK (cut NOT IN ('', 'any')),
+    release TEXT NOT NULL CHECK (release <> ''),
+    seen_at INTEGER NOT NULL,
+    PRIMARY KEY (item_id, cut, release)
+) STRICT;
+
+CREATE INDEX targets_sighting_cut ON targets_sighting (cut);
+CREATE INDEX targets_sighting_release ON targets_sighting (release);

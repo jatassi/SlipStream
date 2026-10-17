@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
 	"github.com/jatassi/slipstream/internal/works"
@@ -52,8 +53,15 @@ func (t *Targets) CreateProfile(ctx context.Context, _ identity.Admin, s Profile
 	if _, ok := t.cfg.Types[s.ContentType]; !ok {
 		return Profile{}, ErrNoType
 	}
-	p := Profile{ID: ProfileID{UUID: storage.NewUUID()}, Name: s.Name, ContentType: s.ContentType, Entries: s.Entries}
+	p := Profile{ID: ProfileID{UUID: storage.NewUUID()}, Name: s.Name, ContentType: s.ContentType, Entries: s.Entries, Editions: s.Editions}
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		known, err := t.CutsIn(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if err := known.check(p.Editions, p.ContentType); err != nil {
+			return err
+		}
 		return insertProfile(ctx, db.New(tx), p)
 	})
 	if err != nil {
@@ -73,10 +81,23 @@ func insertProfile(ctx context.Context, q *db.Queries, p Profile) error {
 	if err := checkEntries(ctx, q, p.Entries); err != nil {
 		return err
 	}
-	if err := q.InsertProfile(ctx, db.InsertProfileParams{ID: p.ID, Name: p.Name, ContentType: p.ContentType, IsDefault: p.Default}); err != nil {
+	err := q.InsertProfile(ctx, db.InsertProfileParams{ID: p.ID, Name: p.Name, ContentType: p.ContentType, IsDefault: p.Default, Editions: listOf(p.Editions)})
+	if err != nil {
+		return err
+	}
+	if err := insertProfileCuts(ctx, q, p.ID, p.Editions); err != nil {
 		return err
 	}
 	return insertEntries(ctx, q, p.ID, p.Entries)
+}
+
+func insertProfileCuts(ctx context.Context, q *db.Queries, id ProfileID, e Editions) error {
+	for i, c := range e.cuts {
+		if err := q.InsertProfileCut(ctx, db.InsertProfileCutParams{ProfileID: id, Position: int64(i + 1), Cut: c}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkEntries refuses a Target named twice or that doesn't exist.
@@ -169,6 +190,10 @@ func listProfiles(ctx context.Context, q *db.Queries) ([]Profile, error) {
 	if err != nil {
 		return nil, err
 	}
+	cuts, err := q.ListProfileCuts(ctx)
+	if err != nil {
+		return nil, err
+	}
 	counts, err := q.CountWants(ctx)
 	if err != nil {
 		return nil, err
@@ -177,13 +202,20 @@ func listProfiles(ctx context.Context, q *db.Queries) ([]Profile, error) {
 	for _, m := range members {
 		held[m.ProfileID] = append(held[m.ProfileID], Entry{Target: m.TargetID, Sourcing: m.Sourcing})
 	}
+	named := map[ProfileID][]release.CutKey{}
+	for _, c := range cuts {
+		named[c.ProfileID] = append(named[c.ProfileID], c.Cut)
+	}
 	wanting := map[ProfileID]int{}
 	for _, c := range counts {
 		wanting[c.ProfileID] = int(c.Works)
 	}
 	out := make([]Profile, len(rows))
 	for i, row := range rows {
-		out[i] = Profile{ID: row.ID, Name: row.Name, ContentType: row.ContentType, Default: row.IsDefault, Entries: held[row.ID], Works: wanting[row.ID]}
+		out[i] = Profile{
+			ID: row.ID, Name: row.Name, ContentType: row.ContentType, Default: row.IsDefault, Entries: held[row.ID],
+			Editions: editionsOf(row.Editions, named[row.ID]), Works: wanting[row.ID],
+		}
 	}
 	return out, nil
 }

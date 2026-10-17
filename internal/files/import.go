@@ -3,6 +3,7 @@ package files
 import (
 	"context"
 	"errors"
+	"maps"
 	"path"
 	"slices"
 
@@ -25,16 +26,19 @@ func HoldingOf(id storage.UUID, ext string) string { return incomingDir + "/" + 
 // Incoming is a downloaded file whose bytes sit at Holding under its root,
 // placed there before the Write that imports it.
 type Incoming struct {
-	WorkID  works.WorkID
-	ItemID  works.ItemID
-	Edition Edition
-	RootID  roots.ID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Cut is the file's own, its Grab's release's.
+	Cut    release.CutKey
+	RootID roots.ID
 	// Holding is root-relative, '/' separated; its extension is the file's.
 	Holding string
 	Size    int64
 	Probe   Probe
 	Quality release.Quality
 	GrabID  storage.UUID
+	// Meant is the Targets its Grab was meant to fill, in Profile order.
+	Meant []targets.TargetID
 	// Unwanted is what its Grab's import does if the file fills nothing,
 	// as an Admin chose when a save left its cells unwanted; nil when no
 	// save did.
@@ -84,12 +88,19 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 		return placed{}, err
 	}
 	fresh := File{
-		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Edition: in.Edition, RootID: in.RootID, Path: in.Holding,
+		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
 		Size: in.Size, Probe: in.Probe, GrabID: in.GrabID, Quality: in.Quality,
 	}
 	after := before
 	after.files = append(slices.Clone(before.files), fresh)
 	after.fresh = fresh.ID
+	after.seen = maps.Clone(before.seen)
+	if !slices.Contains(after.seen[in.ItemID], in.Cut) {
+		after.seen[in.ItemID] = append(slices.Clone(after.seen[in.ItemID]), in.Cut)
+	}
+	if after.meant, err = targets.NameOfFirst(ctx, r, in.Meant); err != nil {
+		return placed{}, err
+	}
 	p, err := f.converge(ctx, r, before, after, refill(after), func(g File) bool {
 		return g.ID != fresh.ID || in.Unwanted != nil && *in.Unwanted == Delete
 	})
@@ -100,9 +111,11 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 // converge is a Work going from before to after, whose files are before's
 // and any fresh one, refilled as fills: a file that filled a cell before
 // and fills none after, or the fresh file filling none, goes when doom
-// says so and is named Kept otherwise. Every file is named under fills.
+// says so and is named Kept otherwise. Every file is named under fills
+// and after's cut names.
 func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]ID, doom func(File) bool) (placed, error) {
 	p := placed{before: before, after: after, fills: fills}
+	p.after.retagged = retagged(before.cuts, after.cuts)
 	was, is := filling(before.fills), filling(fills)
 	p.after.files = slices.DeleteFunc(slices.Clone(after.files), func(g File) bool {
 		lost := g.ID == after.fresh || was[g.ID]
@@ -120,6 +133,17 @@ func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, af
 	return p, err
 }
 
+// retagged is each cut of is whose name differs in was.
+func retagged(was, is targets.Cuts) map[release.CutKey]bool {
+	out := map[release.CutKey]bool{}
+	for _, c := range is.All() {
+		if old, ok := was.Get(c.Key); ok && old.Name != c.Name {
+			out[c.Key] = true
+		}
+	}
+	return out
+}
+
 // Place answers, in r, where in would go and what it would fill, as
 // Import would decide now. A file that fills nothing is a
 // *FillsNothingError unless its Grab's choice keeps it as a Kept file.
@@ -129,8 +153,9 @@ func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) 
 		return Placement{}, err
 	}
 	var out Placement
+	e := p.after.goals.Editions.Filling(in.Cut)
 	for _, t := range p.after.goals.Targets {
-		if p.fills[CellKey{Item: in.ItemID, Edition: in.Edition, Target: t.ID}] == p.file.ID {
+		if p.fills[CellKey{Item: in.ItemID, Edition: e, Target: t.ID}] == p.file.ID {
 			out.Fills = append(out.Fills, t.ID)
 		}
 	}

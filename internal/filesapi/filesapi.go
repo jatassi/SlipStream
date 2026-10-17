@@ -54,7 +54,7 @@ func (cell) Variants() (discriminator string, variants []any) {
 // CellBase is exported so the document carries the fields each cell embeds.
 type CellBase struct {
 	ItemID     string `json:"itemId" format:"uuid"`
-	Edition    string `json:"edition" enum:"standard"`
+	Edition    string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
 	TargetID   string `json:"targetId" format:"uuid"`
 	TargetName string `json:"targetName"`
 	Wanted     bool   `json:"wanted" doc:"Missing or failed, and its Item monitored and released"`

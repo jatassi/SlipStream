@@ -24,7 +24,7 @@ type GrabsGrab struct {
 	ID              GrabID
 	WorkID          works.WorkID
 	ItemID          works.ItemID
-	Edition         files.Edition
+	Edition         targets.Edition
 	Source          string
 	IndexerID       indexers.ID
 	NodeID          role.NodeID

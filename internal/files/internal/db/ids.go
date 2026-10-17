@@ -10,12 +10,6 @@ import (
 
 type FileID struct{ storage.UUID }
 
-// Edition is a cut of an Item. Every Edition is Standard until Editions
-// arrive.
-type Edition string
-
-const Standard Edition = "standard"
-
 // Probe is what probing found in a file.
 type Probe struct {
 	Width  int `json:"width"`

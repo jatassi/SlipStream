@@ -168,3 +168,23 @@ func TestBuiltInCuts(t *testing.T) {
 		}
 	}
 }
+
+func TestACustomCutsSlugAndPhraseAreTheWordsATitleReads(t *testing.T) {
+	for name, want := range map[string]release.CutKey{
+		"Black and Chrome":    "black-and-chrome",
+		"Director's Superfan": "directors-superfan",
+		"  Fan.Edit  ":        "fan-edit",
+		"Édition Spéciale":    "édition-spéciale",
+		"?!":                  "",
+	} {
+		if got := release.Slug(name); got != want {
+			t.Errorf("Slug(%q) = %q, want %q", name, got, want)
+		}
+	}
+	if !release.SamePhrase("Black & Chrome", "BLACK CHROME") || release.SamePhrase("Black & Chrome", "Black and Chrome") {
+		t.Error("SamePhrase reads & as a separator between words, not as and")
+	}
+	if !release.SamePhrase("Fan's Cut", "FANS-CUT") || release.SamePhrase("Fan Cut", "Fan Cuts") {
+		t.Error("SamePhrase must match the same words, case and marks aside, and nothing more")
+	}
+}

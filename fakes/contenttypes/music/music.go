@@ -214,7 +214,7 @@ func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item wor
 }
 
 func (*Music) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Target}"}
+	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Edition} {Target}"}
 }
 
 // SearchTerms answers indexers' empty answer: music isn't searched.

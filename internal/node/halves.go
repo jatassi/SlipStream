@@ -161,6 +161,7 @@ func (n *Node) startController(ctx context.Context) error {
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
+		Targets:   goals,
 		Files:     shelf,
 		Indexers:  registry,
 		Terms:     contenttype.Project(opened, func(t contenttype.Type) indexers.Facet { return t }),

@@ -510,3 +510,40 @@ func TestAOneOfIsANamedUnionDiscriminatedOnItsProperty(t *testing.T) {
 		t.Fatalf("panic = %q", got)
 	}
 }
+
+type drawn struct {
+	Body struct {
+		Shape OneOf[shape] `json:"shape"`
+	}
+}
+
+func TestAOneOfDecodesTheVariantItsDiscriminatorNames(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	var got any
+	Register(r.Owner("geometry", Public), Public, Op{ID: "drawShape", Method: http.MethodPost, Path: "/shapes", Status: http.StatusNoContent},
+		func(_ context.Context, _ identity.Anyone, in *drawn) (*struct{}, error) {
+			got = in.Body.Shape.Value()
+			return nil, nil
+		})
+	h := r.Handler()
+	for body, want := range map[string]any{
+		`{"shape":{"kind":"square","side":3}}`:   square{Kind: "square", Side: 3},
+		`{"shape":{"kind":"circle","radius":2}}`: circle{Kind: "circle", Radius: 2},
+	} {
+		got = nil
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/shapes", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if w.Code != http.StatusNoContent || got != want {
+			t.Errorf("drawShape %s = %d %s, decoded %#v; want 204 and %#v", body, w.Code, w.Body, got, want)
+		}
+	}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/shapes", strings.NewReader(`{"shape":{"kind":"square","radius":2}}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("drawShape with a circle's field on a square = %d %s, want 422", w.Code, w.Body)
+	}
+}

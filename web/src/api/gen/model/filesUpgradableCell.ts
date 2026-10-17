@@ -1,9 +1,9 @@
 import type { FilesLibraryFile } from "./filesLibraryFile.ts";
-import type { FilesUpgradableCellEdition } from "./filesUpgradableCellEdition.ts";
 import type { FilesUpgradableCellState } from "./filesUpgradableCellState.ts";
 
 export interface FilesUpgradableCell {
-  edition: FilesUpgradableCellEdition;
+  /** any under any cut, else the key of the cut the cell wants */
+  edition: string;
   /** The file filling it, below its Target's cutoff */
   file: FilesLibraryFile;
   itemId: string;

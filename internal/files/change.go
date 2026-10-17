@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -94,17 +96,31 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err != nil {
 		return Impact{}, err
 	}
-	trees := make([]works.Tree, len(touched.Works))
-	for i, w := range touched.Works {
-		if trees[i], err = f.cfg.Works.TreeIn(ctx, tx, w); err != nil {
+	q := db.New(tx)
+	tagged, err := q.ListWorksOfCuts(ctx, touched.Cuts)
+	if err != nil {
+		return Impact{}, err
+	}
+	var trees []works.Tree
+	for _, w := range append(touched.Works, tagged...) {
+		if slices.ContainsFunc(trees, func(t works.Tree) bool { return t.ID == w }) {
+			continue
+		}
+		tree, err := f.cfg.Works.TreeIn(ctx, tx, w)
+		if err != nil {
 			return Impact{}, err
 		}
+		trees = append(trees, tree)
 	}
 	before, err := f.worlds(ctx, tx, trees)
 	if err != nil {
 		return Impact{}, err
 	}
-	if err := targets.Apply(ctx, tx, c); err != nil {
+	known, err := f.cfg.Targets.CutsIn(ctx, tx)
+	if err != nil {
+		return Impact{}, err
+	}
+	if err := targets.Apply(ctx, tx, known, c); err != nil {
 		return Impact{}, err
 	}
 	afters, err := f.worlds(ctx, tx, trees)
@@ -112,7 +128,6 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		return Impact{}, err
 	}
 	impact := Impact{OwnList: touched.OwnList}
-	q := db.New(tx)
 	for i, was := range before {
 		after := afters[i]
 		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
@@ -200,4 +215,10 @@ func gone(from, to []Cell) map[CellKey]bool {
 		delete(out, keyOf(c))
 	}
 	return out
+}
+
+// HeldOf counts the library's files of cut in r, for targets.DeleteCut.
+func HeldOf(ctx context.Context, r storage.Reader[file], cut release.CutKey) (int, error) {
+	n, err := db.New(r).CountFilesOfCut(ctx, cut)
+	return int(n), err
 }

@@ -1,5 +1,7 @@
 package release
 
+import "strings"
+
 // CutKey names a cut: a built-in's key, a Content Type's, or a custom
 // cut's slug. Never "any".
 type CutKey string
@@ -32,3 +34,14 @@ func BuiltIn() []Cut {
 		{"ultimate", "Ultimate", []string{"Ultimate", "Ultimate Cut", "Ultimate Edition"}},
 	}
 }
+
+// Slug is the key a custom cut named name takes: the words a title reads
+// in it, in lower case, joined by hyphens. A name with no word has no
+// slug.
+func Slug(name string) CutKey {
+	return CutKey(strings.ToLower(strings.Join(strings.Fields(words(name)), "-")))
+}
+
+// SamePhrase reports whether a and b read as the same words in a title,
+// so no two cuts can claim one phrase.
+func SamePhrase(a, b string) bool { return words(a) == words(b) }

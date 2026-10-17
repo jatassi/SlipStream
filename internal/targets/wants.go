@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
 	"github.com/jatassi/slipstream/internal/works"
@@ -62,6 +63,14 @@ func GoalsOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (ma
 	if len(rows) < len(ws) {
 		return nil, works.ErrNoWork
 	}
+	cuts, err := q.ListWantsCutsOf(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+	named := map[works.WorkID][]release.CutKey{}
+	for _, c := range cuts {
+		named[c.WorkID] = append(named[c.WorkID], c.Cut)
+	}
 	profiles, err := listProfiles(ctx, q)
 	if err != nil {
 		return nil, err
@@ -83,7 +92,7 @@ func GoalsOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (ma
 		g := Goals{Profile: profileOf[row.ProfileID]}
 		g.Editions, g.Own = g.Profile.Editions, row.Editions != nil
 		if g.Own {
-			g.Editions = editionsOf(*row.Editions)
+			g.Editions = editionsOf(*row.Editions, named[row.WorkID])
 		}
 		for _, e := range g.Profile.Entries {
 			g.Targets = append(g.Targets, targetOf[e.Target])
@@ -117,4 +126,20 @@ func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ wor
 		return nil, ErrNoType
 	}
 	return facet.Timings(ctx, r, ws)
+}
+
+// NameOfFirst is the name of the first of ids a Target still has in r,
+// empty when none does.
+func NameOfFirst(ctx context.Context, r storage.Reader[file], ids []TargetID) (string, error) {
+	q := db.New(r)
+	for _, id := range ids {
+		t, err := q.GetTarget(ctx, id)
+		switch {
+		case err == nil:
+			return t.Name, nil
+		case !errors.Is(err, storage.ErrNoRows):
+			return "", err
+		}
+	}
+	return "", nil
 }

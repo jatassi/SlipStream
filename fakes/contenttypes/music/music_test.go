@@ -362,6 +362,13 @@ func TestNamingTokensNameATrack(t *testing.T) {
 	if got, want := folder+"/"+file, "The Lanterns/The Lanterns - 1-02 - Paper Boats FLAC"; got != want {
 		t.Fatalf("named %q, want %q", got, want)
 	}
+	deluxe, err := naming.Render(templates.File, tokens, naming.Core{Target: "FLAC", EditionTag: "{edition-Deluxe}", Edition: "Deluxe"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "The Lanterns - 1-02 - Paper Boats Deluxe FLAC"; deluxe != want {
+		t.Fatalf("named the Deluxe file %q, want %q", deluxe, want)
+	}
 }
 
 func timings(t *testing.T, s scenario.Scenario, artist works.Key) map[works.Key]targets.Timing {
