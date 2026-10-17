@@ -84,6 +84,22 @@ test("a link the server didn't answer for offers Try again", async () => {
   await expect.element(page.getByText("Ada Okafor invited you to forge.")).toBeVisible();
 });
 
+test("a second link opened in the same tab replaces the first", async () => {
+  const { router } = renderApp({
+    path: "/signup#token=tok-1",
+    handlers: linkServer("signup-links", [liveLink()]).handlers,
+  });
+  await expect.element(page.getByText("Ada Okafor invited you to forge.")).toBeVisible();
+  router.history.push("/signup#token=nope");
+  await expect
+    .element(
+      page.getByText(
+        "This link does not work, so check that you have all of it or ask the person who sent it for a new one.",
+      ),
+    )
+    .toBeVisible();
+});
+
 async function typePin(label: string, pin: string) {
   await userEvent.click(page.getByRole("textbox", { name: label, exact: true }));
   await userEvent.keyboard(pin);

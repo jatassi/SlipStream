@@ -37,21 +37,28 @@ export type LinkState =
 
 const unknownLink: Dead = { state: "dead", reason: "unknown" };
 
+function tokenIn(hash: string): string | undefined {
+  const raw = new URLSearchParams(hash).get("token");
+  return raw === null || raw === "" ? undefined : raw;
+}
+
 // The token rides in the fragment so it never reaches a log or a Referer.
-// The page keeps it and drops it from the address bar.
+// The page keeps it and drops it from the address bar. Another link opened
+// in the same tab changes only the fragment, so the browser doesn't reload
+// and the page takes the new token.
 function useFragmentToken(): string | undefined {
   const navigate = useNavigate();
-  const hash = useLocation({ select: (location) => location.hash });
-  const [token] = useState(() => {
-    const raw = new URLSearchParams(hash).get("token");
-    return raw === null || raw === "" ? undefined : raw;
-  });
+  const fromHash = useLocation({ select: (location) => tokenIn(location.hash) });
+  const [token, setToken] = useState(fromHash);
+  if (fromHash !== undefined && fromHash !== token) {
+    setToken(fromHash);
+  }
   useEffect(() => {
-    if (token !== undefined) {
+    if (fromHash !== undefined) {
       void navigate({ to: ".", hash: "", replace: true });
     }
-  }, [token, navigate]);
-  return token;
+  }, [fromHash, navigate]);
+  return fromHash ?? token;
 }
 
 export function useLink(kind: LinkKind): { link: LinkState; recheck: () => void } {

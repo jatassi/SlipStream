@@ -49,7 +49,7 @@ export function LinkPage({
   } else if (link.state === "dead") {
     body = <DeadLink dead={link.dead} noun={kinds[kind].noun} onTryAgain={recheck} />;
   } else {
-    body = <Live token={link.token} link={link.link} linkDied={recheck} />;
+    body = <Live key={link.token} token={link.token} link={link.link} linkDied={recheck} />;
   }
   return <EntryPage title={title}>{body}</EntryPage>;
 }
