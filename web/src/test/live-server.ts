@@ -53,11 +53,19 @@ export function seeded(
   for (const key of Object.values(keys)) {
     queryClient.setQueryData(key, {});
   }
+  const invalidated = new Set<string>();
+  queryClient.getQueryCache().subscribe((event) => {
+    if (event.type === "updated" && event.action.type === "invalidate") {
+      invalidated.add(event.query.queryHash);
+    }
+  });
   return () =>
     Object.fromEntries(
       Object.entries(keys).map(([name, key]) => [
         name,
-        queryClient.getQueryState(key)?.isInvalidated,
+        invalidated.has(
+          queryClient.getQueryCache().find({ queryKey: key, exact: true })?.queryHash ?? "",
+        ),
       ]),
     );
 }
