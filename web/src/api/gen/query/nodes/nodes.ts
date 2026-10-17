@@ -46,6 +46,7 @@ import type {
   NodesRolesChange,
   NodesSettings,
   NodesSettingsPatch,
+  NodesWriteOffBody,
   PlanRoles401,
   PlanRoles403,
   PlanRoles404,
@@ -63,6 +64,12 @@ import type {
   UpdateNodeSettings409,
   UpdateNodeSettings422,
   UpdateNodeSettings500,
+  WriteOff401,
+  WriteOff403,
+  WriteOff404,
+  WriteOff409,
+  WriteOff422,
+  WriteOff500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -953,3 +960,117 @@ export function useGetNodeSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getWriteOffUrl = (id: string) => {
+  return `/api/v1/nodes/${id}/write-offs`;
+};
+
+/**
+ * @summary Give up the work a Node holds for Roles, live or offline; its files are kept
+ */
+export const writeOff = async (
+  id: string,
+  nodesWriteOffBody: NodesWriteOffBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesOutcome> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NodesOutcome>(getWriteOffUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(nodesWriteOffBody),
+  });
+};
+
+export const getWriteOffMutationKey = () => ["writeOff"] as const;
+
+export const getWriteOffMutationOptions = <
+  TError = ErrorType<
+    WriteOff401 | WriteOff403 | WriteOff404 | WriteOff409 | WriteOff422 | WriteOff500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof writeOff>>,
+    TError,
+    WriteOffMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof writeOff>>,
+  TError,
+  WriteOffMutationVariables,
+  TContext
+> => {
+  const mutationKey = getWriteOffMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof writeOff>>,
+    WriteOffMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return writeOff(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WriteOffMutationResult = NonNullable<Awaited<ReturnType<typeof writeOff>>>;
+export type WriteOffMutationBody = NodesWriteOffBody;
+export type WriteOffMutationError = ErrorType<
+  WriteOff401 | WriteOff403 | WriteOff404 | WriteOff409 | WriteOff422 | WriteOff500
+>;
+export type WriteOffMutationVariables = { id: string; data: NodesWriteOffBody };
+
+/**
+ * @summary Give up the work a Node holds for Roles, live or offline; its files are kept
+ */
+export const useWriteOff = <
+  TError = ErrorType<
+    WriteOff401 | WriteOff403 | WriteOff404 | WriteOff409 | WriteOff422 | WriteOff500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof writeOff>>,
+      TError,
+      WriteOffMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof writeOff>>,
+  TError,
+  WriteOffMutationVariables,
+  TContext
+> => {
+  return useMutation(getWriteOffMutationOptions(options), queryClient);
+};

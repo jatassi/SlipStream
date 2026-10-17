@@ -36,9 +36,12 @@ type Nodes interface {
 }
 
 // NodeScope is the node scope as the control half derives it: the Roles a
-// Node holds, assigned or covering.
+// Node holds, assigned or covering, the Roles it no longer holds but still
+// holds work for, so it drains them, and its name.
 type NodeScope struct {
-	Holds []Name
+	Holds    []Name
+	Draining []Name
+	Name     string
 }
 
 type ControlsConfig struct {
@@ -46,9 +49,13 @@ type ControlsConfig struct {
 	Nodes   Nodes
 	// Scope derives the node scope.
 	Scope func(ctx context.Context, r storage.Reader[storage.Library], node NodeID) (NodeScope, error)
-	// Changed is called after a Node's session or facts change. It must not
-	// block.
+	// Changed is called after a Node's session or node-scope facts change,
+	// and after a Role's facts change in a way its Def's Notable reports.
+	// It must not block.
 	Changed func(node NodeID)
+	// Touched is called after a Role's Control.Touch, with the Role's name
+	// and the Nodes touched. It must not block.
+	Touched func(scope string, nodes []NodeID)
 	// InStep is called when node's Sync session attaches and when it ends,
 	// and Seen after each frame its holder sends after Open. Neither may
 	// block.
@@ -129,7 +136,6 @@ func (c *Controls) Touch(nodes ...NodeID) { c.touch(nodeScope, nodes) }
 
 func (c *Controls) touch(scope string, nodes []NodeID) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	for _, node := range nodes {
 		if s := c.sessions[node]; s != nil {
 			s.dirty[scope] = true
@@ -138,6 +144,10 @@ func (c *Controls) touch(scope string, nodes []NodeID) {
 			default:
 			}
 		}
+	}
+	c.mu.Unlock()
+	if scope != nodeScope && c.cfg.Touched != nil {
+		c.cfg.Touched(scope, nodes)
 	}
 }
 
@@ -160,7 +170,7 @@ func (c *Controls) NodeVersion(ctx context.Context, node NodeID) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	return version(nodeIntent(scope.Holds))
+	return version(nodeIntent(scope))
 }
 
 func (c *Controls) factsOf(node NodeID, scope string) (*anypb.Any, bool) {
@@ -373,17 +383,24 @@ func (c *Controls) sort(sess *controlSession, batch []*nodev1.Up) ([]*nodev1.Res
 	return results, nil
 }
 
+// storeFacts keeps f as its Node's facts for its scope, and tells the
+// roster the Node changed when they are node-scope facts or notable ones.
 func (c *Controls) storeFacts(sess *controlSession, f *nodev1.Facts) {
 	c.mu.Lock()
 	current := c.sessions[sess.node] == sess
+	var last *anypb.Any
 	if current {
 		if c.facts[sess.node] == nil {
 			c.facts[sess.node] = map[string]*anypb.Any{}
 		}
+		last = c.facts[sess.node][f.GetScope()]
 		c.facts[sess.node][f.GetScope()] = f.GetPayload()
 	}
 	c.mu.Unlock()
-	if current && c.cfg.Changed != nil {
+	if !current || c.cfg.Changed == nil {
+		return
+	}
+	if srv := c.served[f.GetScope()]; f.GetScope() == nodeScope || srv != nil && srv.notableAny(last, f.GetPayload()) {
 		c.cfg.Changed(sess.node)
 	}
 }
@@ -412,8 +429,9 @@ func (c *Controls) sync(ctx context.Context, sess *controlSession, s controlStre
 	return nil
 }
 
-// derive is node's intent for the scopes in dirty, as sync reads it: Role
-// scopes in the node scope's order, then the node scope.
+// derive is node's intent for the scopes in dirty, as sync reads it: the
+// scopes of the Roles it holds, then of those it drains, then the node
+// scope.
 func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]bool) ([]*nodev1.Intent, error) {
 	all := dirty == nil || dirty[nodeScope]
 	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
@@ -429,7 +447,7 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		intents = append(intents, &nodev1.Intent{Scope: scope, Version: v, Payload: mustAny(msg)})
 		return nil
 	}
-	for _, name := range scope.Holds {
+	for _, name := range slices.Concat(scope.Holds, scope.Draining) {
 		srv := c.served[string(name)]
 		if srv == nil || !all && !dirty[string(name)] {
 			continue
@@ -443,17 +461,21 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		}
 	}
 	if all {
-		if err := add(nodeScope, nodeIntent(scope.Holds)); err != nil {
+		if err := add(nodeScope, nodeIntent(scope)); err != nil {
 			return nil, err
 		}
 	}
 	return intents, nil
 }
 
-func nodeIntent(holds []Name) *nodev1.NodeIntent {
-	roles := make([]string, len(holds))
-	for i, n := range holds {
-		roles[i] = string(n)
+func nodeIntent(s NodeScope) *nodev1.NodeIntent {
+	return &nodev1.NodeIntent{Roles: roleStrings(s.Holds), Draining: roleStrings(s.Draining), Name: s.Name}
+}
+
+func roleStrings(ns []Name) []string {
+	out := make([]string, len(ns))
+	for i, n := range ns {
+		out[i] = string(n)
 	}
-	return &nodev1.NodeIntent{Roles: roles}
+	return out
 }

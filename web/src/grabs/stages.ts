@@ -106,4 +106,8 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   import_failed: {
     cause: "SlipStream couldn't put the file in the library.",
   },
+  node_written_off: {
+    cause: "What the Node downloading it held was written off. Its files are kept.",
+    recovery: searchAgain,
+  },
 };

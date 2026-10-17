@@ -47,6 +47,7 @@ type cluster struct {
 
 	mu       sync.Mutex
 	assigned map[role.NodeID][]role.Name
+	draining map[role.NodeID][]role.Name
 }
 
 func (c *cluster) Self() role.NodeID { return c.controllerID }
@@ -64,13 +65,22 @@ func (c *cluster) NodeOf(key link.Key) (role.NodeID, bool) {
 func (c *cluster) scopeOf(_ context.Context, _ storage.Reader[storage.Library], node role.NodeID) (role.NodeScope, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return role.NodeScope{Holds: slices.Clone(c.assigned[node])}, nil
+	return role.NodeScope{Holds: slices.Clone(c.assigned[node]), Draining: slices.Clone(c.draining[node])}, nil
 }
 
 // assign sets node's Roles and touches its node scope, as setRoles does.
 func (c *cluster) assign(node role.NodeID, roles ...role.Name) {
 	c.mu.Lock()
 	c.assigned[node] = roles
+	c.mu.Unlock()
+	c.controls.Touch(node)
+}
+
+// drain sets the Roles node drains and touches its node scope, as the
+// roster does when an owner's count of its work changes.
+func (c *cluster) drain(node role.NodeID, roles ...role.Name) {
+	c.mu.Lock()
+	c.draining[node] = roles
 	c.mu.Unlock()
 	c.controls.Touch(node)
 }
@@ -98,6 +108,7 @@ func newCluster(t *testing.T, controllerVersion, workerVersion string) *cluster 
 		controllerID: role.NodeID{UUID: storage.NewUUID()},
 		workerID:     role.NodeID{UUID: storage.NewUUID()},
 		assigned:     map[role.NodeID][]role.Name{},
+		draining:     map[role.NodeID][]role.Name{},
 	}
 	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Log: discard}, c.probe)
 	lockstep.Handle(c.controls.Handler())
@@ -111,13 +122,13 @@ type holder struct {
 	stop  func()
 }
 
-func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local]) *holder {
+func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local], held ...role.Held) *holder {
 	t.Helper()
 	probe := roletest.NewProbe(local)
 	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
 		Local:    local,
 		Upstream: role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key),
-		Held:     []role.Held{probe.Held()},
+		Held:     append([]role.Held{probe.Held()}, held...),
 		Timings:  timings,
 		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:      discard,
@@ -210,6 +221,117 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 		check(t, "unassigned, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
 		if w.Holds(roletest.Name) {
 			t.Error("the Worker still holds the probe once unassigned")
+		}
+	})
+}
+
+// TestADrainingRoleRunsUntilItIsReleased unticks the probe on the Worker
+// while the Worker still holds work for it: the same run goes on, starting
+// nothing new, until the Worker no longer drains it, and only then is the
+// probe released, once.
+func TestADrainingRoleRunsUntilItIsReleased(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setIntent(t, c.workerID, "held")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+
+		c.mu.Lock()
+		c.assigned[c.workerID], c.draining[c.workerID] = nil, []role.Name{roletest.Name}
+		c.mu.Unlock()
+		c.controls.Touch(c.workerID)
+		synctest.Wait()
+		check(t, "draining, the probe", snapshot(t, w.probe), `"held" live may start false`)
+		if s, _ := w.probe.Snapshot(); !s.Draining {
+			t.Error("the draining probe's snapshot does not say it drains")
+		}
+		check(t, "draining, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [probe] restarting []")
+		if !w.Holds(roletest.Name) {
+			t.Error("the Worker's dispatch gate refuses the probe it drains")
+		}
+		if starts, releases := w.probe.Starts(), w.probe.Releases(); starts != 1 || releases != 0 {
+			t.Errorf("draining, the probe started %d times and was released %d times, want once and never", starts, releases)
+		}
+
+		c.drain(c.workerID)
+		synctest.Wait()
+		check(t, "let go, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
+		if w.Holds(roletest.Name) {
+			t.Error("the Worker's dispatch gate still admits the probe it let go")
+		}
+		if got := w.probe.Releases(); got != 1 {
+			t.Errorf("let go, the probe was released %d times, want once", got)
+		}
+
+		c.assign(c.workerID, roletest.Name)
+		synctest.Wait()
+		check(t, "ticked again, the probe", snapshot(t, w.probe), `"held" live may start true`)
+		if starts := w.probe.Starts(); starts != 2 {
+			t.Errorf("ticked again, the probe started %d times, want twice", starts)
+		}
+	})
+}
+
+// TestARoleIsReleasedOnlyWhenLetGo crashes the probe, so it restarts, and
+// then stops the holder half: neither releases it.
+func TestARoleIsReleasedOnlyWhenLetGo(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+		w.probe.Crash()
+		time.Sleep(timings.RestartMin)
+		synctest.Wait()
+		if starts := w.probe.Starts(); starts != 2 {
+			t.Fatalf("after its crash the probe started %d times, want twice", starts)
+		}
+		w.stop()
+		if got := w.probe.Releases(); got != 0 {
+			t.Errorf("after a crash and a shutdown the probe was released %d times, want never", got)
+		}
+	})
+}
+
+// TestARoleWithNoIntentRunsWhileHeld holds Serving, which has no intent:
+// it runs once its node scope names it and is released once it doesn't.
+func TestARoleWithNoIntentRunsWhileHeld(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var mu sync.Mutex
+		var runs, releases int
+		serving := role.HoldRun(role.Serving, func(ctx context.Context) error {
+			mu.Lock()
+			runs++
+			mu.Unlock()
+			<-ctx.Done()
+			return ctx.Err()
+		}, func(context.Context) error {
+			mu.Lock()
+			defer mu.Unlock()
+			releases++
+			return nil
+		})
+		count := func() (int, int) {
+			mu.Lock()
+			defer mu.Unlock()
+			return runs, releases
+		}
+		c := newCluster(t, "", "")
+		c.assign(c.workerID, role.Serving)
+		c.startWorker(t, storagetest.Local(t, role.LocalSchema()), serving)
+		c.pair.Connect(t)
+		synctest.Wait()
+		check(t, "holding Serving, the Worker's facts", nodeFacts(c, c.workerID), "assigned [serving] running [serving] restarting []")
+		if r, rel := count(); r != 1 || rel != 0 {
+			t.Errorf("holding Serving it ran %d times and was released %d times, want once and never", r, rel)
+		}
+		c.assign(c.workerID)
+		synctest.Wait()
+		if r, rel := count(); r != 1 || rel != 1 {
+			t.Errorf("let go, Serving ran %d times and was released %d times, want once each", r, rel)
 		}
 	})
 }

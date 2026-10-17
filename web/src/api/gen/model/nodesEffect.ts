@@ -4,6 +4,7 @@ import type { NodesHandedBack } from "./nodesHandedBack.ts";
 import type { NodesLetsGo } from "./nodesLetsGo.ts";
 import type { NodesMoves } from "./nodesMoves.ts";
 import type { NodesPinned } from "./nodesPinned.ts";
+import type { NodesWritesOff } from "./nodesWritesOff.ts";
 
 export type NodesEffect =
   | NodesGains
@@ -11,4 +12,5 @@ export type NodesEffect =
   | NodesDrains
   | NodesHandedBack
   | NodesPinned
-  | NodesMoves;
+  | NodesMoves
+  | NodesWritesOff;

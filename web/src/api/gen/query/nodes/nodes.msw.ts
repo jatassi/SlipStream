@@ -16,6 +16,7 @@ import type {
   NodesPinned,
   NodesRoleBoard,
   NodesSettings,
+  NodesWritesOff,
 } from "../../model";
 
 export const getListNodesResponseMock = (
@@ -346,6 +347,34 @@ export const getSetRolesResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getSetRolesResponseNodesWritesOffMock = (
+  overrideResponse: Partial<NodesWritesOff> = {},
+): NodesWritesOff => ({
+  ...{
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["writes-off"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getSetRolesResponseMock = (
   overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
 ): NodesOutcome => ({
@@ -394,6 +423,7 @@ export const getSetRolesResponseMock = (
       { ...getSetRolesResponseNodesHandedBackMock() },
       { ...getSetRolesResponseNodesPinnedMock() },
       { ...getSetRolesResponseNodesMovesMock() },
+      { ...getSetRolesResponseNodesWritesOffMock() },
     ]),
   ),
   forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -586,6 +616,34 @@ export const getPlanRolesResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getPlanRolesResponseNodesWritesOffMock = (
+  overrideResponse: Partial<NodesWritesOff> = {},
+): NodesWritesOff => ({
+  ...{
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["writes-off"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getPlanRolesResponseMock = (
   overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
 ): NodesOutcome => ({
@@ -634,6 +692,7 @@ export const getPlanRolesResponseMock = (
       { ...getPlanRolesResponseNodesHandedBackMock() },
       { ...getPlanRolesResponseNodesPinnedMock() },
       { ...getPlanRolesResponseNodesMovesMock() },
+      { ...getPlanRolesResponseNodesWritesOffMock() },
     ]),
   ),
   forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -820,6 +879,275 @@ export const getGetNodeResponseMock = (
     ] as const),
   })),
   self: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesGainsMock = (
+  overrideResponse: Partial<NodesGains> = {},
+): NodesGains => ({
+  ...{
+    kind: faker.helpers.arrayElement(["gains"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesLetsGoMock = (
+  overrideResponse: Partial<NodesLetsGo> = {},
+): NodesLetsGo => ({
+  ...{
+    kind: faker.helpers.arrayElement(["lets-go"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesDrainsMock = (
+  overrideResponse: Partial<NodesDrains> = {},
+): NodesDrains => ({
+  ...{
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["drains"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesHandedBackMock = (
+  overrideResponse: Partial<NodesHandedBack> = {},
+): NodesHandedBack => ({
+  ...{
+    from: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    kind: faker.helpers.arrayElement(["handed-back"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    to: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesPinnedMock = (
+  overrideResponse: Partial<NodesPinned> = {},
+): NodesPinned => ({
+  ...{
+    kind: faker.helpers.arrayElement(["pinned"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesMovesMock = (
+  overrideResponse: Partial<NodesMoves> = {},
+): NodesMoves => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["moves"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    to: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseNodesWritesOffMock = (
+  overrideResponse: Partial<NodesWritesOff> = {},
+): NodesWritesOff => ({
+  ...{
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["writes-off"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getWriteOffResponseMock = (
+  overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
+): NodesOutcome => ({
+  basis: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  checks: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      reason: faker.helpers.arrayElement([
+        "role_taken",
+        "probe_fails",
+        "probe_weak",
+        "offline_unchecked",
+        "reach_failed",
+        "reached",
+        "nothing_to_test",
+        "node_is_controller",
+        "node_holds_work",
+        "nothing_held",
+        "keeps_role",
+      ] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            role: faker.helpers.arrayElement([
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving",
+            ] as const),
+          }
+        : {}),
+      verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  effects: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getWriteOffResponseNodesGainsMock() },
+      { ...getWriteOffResponseNodesLetsGoMock() },
+      { ...getWriteOffResponseNodesDrainsMock() },
+      { ...getWriteOffResponseNodesHandedBackMock() },
+      { ...getWriteOffResponseNodesPinnedMock() },
+      { ...getWriteOffResponseNodesMovesMock() },
+      { ...getWriteOffResponseNodesWritesOffMock() },
+    ]),
+  ),
+  forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      nodeId: faker.string.uuid(),
+      roles: faker.helpers.arrayElements([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ] as const),
+    }),
+  ),
+  next: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    nodeId: faker.string.uuid(),
+    roles: faker.helpers.arrayElements([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+  })),
   ...overrideResponse,
 });
 
@@ -1012,6 +1340,30 @@ export const getGetNodeMockHandler = (
     options,
   );
 };
+
+export const getWriteOffMockHandler = (
+  overrideResponse?:
+    | NodesOutcome
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<NodesOutcome> | NodesOutcome),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/nodes/:id/write-offs",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getWriteOffResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getNodesMock = () => [
   getListNodesMockHandler(),
   getCreateJoinCodeMockHandler(),
@@ -1021,4 +1373,5 @@ export const getNodesMock = () => [
   getGetNodeSettingsMockHandler(),
   getUpdateNodeSettingsMockHandler(),
   getGetNodeMockHandler(),
+  getWriteOffMockHandler(),
 ];

@@ -327,7 +327,7 @@ func owners() []nodes.Owner {
 
 // heldRoles is every Role this binary runs, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local]) []role.Held {
-	return []role.Held{downloading.Def.Hold(n.downloads.Run(local))}
+	return []role.Held{downloading.Def.Hold(n.downloads.Run(local), n.downloads.Release)}
 }
 
 // claimPeers is how the link treats peers: as the half that started does,

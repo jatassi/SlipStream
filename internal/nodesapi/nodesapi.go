@@ -42,13 +42,18 @@ var (
 	nodeNotFound  = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	rolesStale    = api.NewCarrying[outcome](http.StatusConflict, "roles_stale", "The Roles changed since this was planned", "outcome")
 	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "A guardrail blocks this change", "outcome")
+	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node holds nothing to write off for these Roles", "outcome")
+	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "The Node is the last that can hold a Role it would write off", "outcome")
 )
 
-// blockedAs is the code each guardrail that can block a set answers with.
+// blockedAs is the code each guardrail that can block a change answers
+// with.
 var blockedAs = map[nodes.Reason]api.Carrying[outcome]{
 	nodes.RoleTaken:   rolesBlocked,
 	nodes.ProbeFails:  rolesBlocked,
 	nodes.ReachFailed: rolesBlocked,
+	nodes.NothingHeld: nothingHeld,
+	nodes.KeepsRole:   keepsRole,
 }
 
 type joinCode struct {
@@ -213,6 +218,32 @@ func (b rolesChange) change() (nodes.SetRoles, error) {
 	return c, nil
 }
 
+type writeOffInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body writeOffBody
+}
+
+type writeOffBody struct {
+	Roles []string `json:"roles" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" minItems:"1" nullable:"false" doc:"The Roles whose work the Node holds to give up. A Role still ticked on the Node is unticked."`
+}
+
+// change is the write-off as nodes reads it, or the problem with it.
+func (in writeOffInput) change() (nodes.WriteOff, error) {
+	id, err := nodeID(in.ID)
+	if err != nil {
+		return nodes.WriteOff{}, err
+	}
+	var set role.Set
+	for _, r := range in.Body.Roles {
+		name, err := role.ParseName(r)
+		if err != nil {
+			return nodes.WriteOff{}, api.Invalid
+		}
+		set = set.With(name)
+	}
+	return nodes.WriteOff{Node: id, Roles: set}, nil
+}
+
 type assignment struct {
 	NodeID string   `json:"nodeId" format:"uuid"`
 	Roles  []string `json:"roles" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" nullable:"false"`
@@ -279,7 +310,7 @@ type check struct {
 type effect struct{}
 
 func (effect) Variants() (discriminator string, variants []any) {
-	return "kind", []any{gains{}, letsGo{}, drains{}, handedBack{}, pinned{}, moves{}}
+	return "kind", []any{gains{}, letsGo{}, drains{}, handedBack{}, pinned{}, moves{}, writesOff{}}
 }
 
 type gains struct {
@@ -328,6 +359,14 @@ type moves struct {
 	Words string `json:"words"`
 }
 
+type writesOff struct {
+	Kind  string `json:"kind" enum:"writes-off"`
+	Node  named  `json:"node"`
+	Role  string `json:"role" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving"`
+	Held  held   `json:"held"`
+	Words string `json:"words"`
+}
+
 func effectOf(e nodes.Effect) any {
 	switch e := e.(type) {
 	case nodes.Gains:
@@ -346,8 +385,10 @@ func effectOf(e nodes.Effect) any {
 		return pinned{Kind: "pinned", Node: namedOf(e.Node), Role: string(e.Role), Words: e.Words()}
 	case nodes.Moves:
 		return moves{Kind: "moves", Role: string(e.Role), From: namedOf(e.From), To: namedOf(e.To), Held: heldOf(e.Held), Words: e.Words()}
+	case nodes.WritesOff:
+		return writesOff{Kind: "writes-off", Node: namedOf(e.Node), Role: string(e.Role), Held: heldOf(e.Held), Words: e.Words()}
 	}
-	panic(fmt.Sprintf("nodesapi: no answer for the %T effect a set can't make", e))
+	panic(fmt.Sprintf("nodesapi: no answer for the %T effect a set or a write-off can't make", e))
 }
 
 type roleBoard struct {
@@ -497,6 +538,15 @@ func Routes(r *api.Router, roster Roster) {
 		Errors:  []*api.Code{nodeNotFound, rolesStale.Code, rolesBlocked.Code},
 	}, h.setRoles)
 
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "writeOff",
+		Method:  http.MethodPost,
+		Path:    "/nodes/{id}/write-offs",
+		Summary: "Give up the work a Node holds for Roles, live or offline; its files are kept",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotFound, nothingHeld.Code, keepsRole.Code},
+	}, h.writeOff)
+
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getNodeSettings",
 		Method:  http.MethodGet,
@@ -579,6 +629,18 @@ func (h handlers) planRoles(ctx context.Context, _ identity.Admin, in *rolesInpu
 
 func (h handlers) setRoles(ctx context.Context, _ identity.Admin, in *rolesInput) (*outcomeOutput, error) {
 	c, err := in.Body.change()
+	if err != nil {
+		return nil, err
+	}
+	out, err := open(h.roster).Apply(ctx, c)
+	if err != nil {
+		return nil, refusal(err)
+	}
+	return &outcomeOutput{Body: outcomeOf(out)}, nil
+}
+
+func (h handlers) writeOff(ctx context.Context, _ identity.Admin, in *writeOffInput) (*outcomeOutput, error) {
+	c, err := in.change()
 	if err != nil {
 		return nil, err
 	}

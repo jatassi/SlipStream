@@ -159,13 +159,15 @@ func TestTheJoinCodeLifetimeIsASettingField(t *testing.T) {
 	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":null}`, http.StatusOK, field(3600, true))
 }
 
+type effect struct {
+	Kind  string `json:"kind"`
+	Words string `json:"words"`
+}
+
 type outcome struct {
-	Basis   string `json:"basis"`
-	Effects []struct {
-		Kind  string `json:"kind"`
-		Words string `json:"words"`
-	} `json:"effects"`
-	Checks []struct {
+	Basis   string   `json:"basis"`
+	Effects []effect `json:"effects"`
+	Checks  []struct {
 		Reason string `json:"reason"`
 		Words  string `json:"words"`
 	} `json:"checks"`
@@ -285,5 +287,73 @@ func TestTheRoleOperations(t *testing.T) {
 	call(t, s, http.MethodPut, roles, set(stale.Outcome.Basis, assign(home, ""), assign(home, "")), http.StatusUnprocessableEntity, &twice)
 	if twice.Code != "invalid" {
 		t.Fatalf("a set naming home twice answered %+v, want invalid", twice)
+	}
+}
+
+// box and seed both download and only box holds a torrent: writing off
+// seed's Downloading is refused for holding nothing, and writing off box's
+// gives it up.
+func TestTheWriteOffOperation(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema())
+	boxID, seedID := storage.NewUUID(), storage.NewUUID()
+	pairDownloading(t, lib, map[storage.UUID]string{boxID: "box", seedID: "seed"})
+	owners := nodestest.Unowned()
+	for i, o := range owners {
+		if o.Role == role.Downloading {
+			owners[i].Held = func(_ context.Context, _ storage.Reader[storage.Library], node nodes.ID) (nodes.Held, error) {
+				if node.UUID == boxID {
+					return nodes.Held{Units: 1, Noun: nodes.Noun{One: "torrent", Many: "torrents"}}, nil
+				}
+				return nodes.Held{}, nil
+			}
+		}
+	}
+	ns, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unadvertised{}, Changed: changes{}, Owners: owners, Log: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
+	writeOff := func(id string) string { return "/api/v1/nodes/" + id + "/write-offs" }
+	const downloads = `{"roles":["downloading"]}`
+
+	var empty problem
+	call(t, s, http.MethodPost, writeOff(seedID.String()), downloads, http.StatusConflict, &empty)
+	if empty.Code != "nothing_held" || len(empty.Outcome.Checks) != 1 || empty.Outcome.Checks[0].Reason != "nothing_held" {
+		t.Fatalf("writing off what seed doesn't hold answered %+v, want nothing_held", empty)
+	}
+	var wrote outcome
+	call(t, s, http.MethodPost, writeOff(boxID.String()), downloads, http.StatusOK, &wrote)
+	if !slices.ContainsFunc(wrote.Effects, func(e effect) bool { return e.Kind == "writes-off" }) {
+		t.Fatalf("writing off box's Downloading answered %+v, want a writes-off effect", wrote)
+	}
+	var unknown problem
+	call(t, s, http.MethodPost, writeOff(storage.NewUUID().String()), downloads, http.StatusNotFound, &unknown)
+	if unknown.Code != "node_not_found" {
+		t.Fatalf("writing off on an unknown Node answered %+v, want node_not_found", unknown)
+	}
+	var bad problem
+	call(t, s, http.MethodPost, writeOff(boxID.String()), `{"roles":["juggling"]}`, http.StatusUnprocessableEntity, &bad)
+	if bad.Code != "invalid" {
+		t.Fatalf("writing off an unknown Role answered %+v, want invalid", bad)
+	}
+}
+
+// pairDownloading pairs each named Node into lib with Downloading ticked.
+func pairDownloading(t *testing.T, lib *storage.DB[storage.Library], named map[storage.UUID]string) {
+	t.Helper()
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for id, name := range named {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), ?, 0)", id, name); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, 'downloading', 0)", id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

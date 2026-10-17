@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/link"
@@ -54,6 +55,8 @@ func (s *Service) Holds(r role.Name, node ID) bool { return s.Who(r).Holds(node)
 
 func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick(prefer) }
 
+func (s *Service) WrittenOff(r role.Name, node ID) bool { return s.Who(r).WrittenOff(node) }
+
 // InStep reports whether node's Sync session is attached, always for the
 // Controller.
 func (s *Service) InStep(node ID) bool {
@@ -80,8 +83,8 @@ func (s *Service) update(change func(in *inputs, now time.Time)) {
 
 // refresh changes the roster's inputs and derives the board. A board that
 // reads differently replaces the last one, closing its Changed, and tells
-// Admins about each Node it changed. The Controller's node scope is
-// touched when what it covers changed.
+// Admins about each Node it changed. A Node's node scope is touched when
+// what it drains changed, and the Controller's when what it covers did.
 func (s *Service) refresh(change func(in *inputs, now time.Time)) {
 	s.rmu.Lock()
 	now := time.Now()
@@ -97,11 +100,18 @@ func (s *Service) refresh(change func(in *inputs, now time.Time)) {
 		return
 	}
 	close(old.changed)
+	var touch []ID
 	for _, id := range differing(old, next) {
 		s.changed(id)
+		if old.drains(id) != next.drains(id) {
+			touch = append(touch, id)
+		}
 	}
-	if old.covering() != next.covering() {
-		s.controls.Touch(s.self)
+	if old.covering() != next.covering() && !slices.Contains(touch, s.self) {
+		touch = append(touch, s.self)
+	}
+	if len(touch) > 0 {
+		s.controls.Touch(touch...)
 	}
 }
 
@@ -227,17 +237,63 @@ func (s *Service) seen(node ID) {
 }
 
 // scope is the node scope: the Roles assigned to node, with the Roles the
-// Controller covers on its own, then Always.
+// Controller covers on its own, then Always; the Roles node drains; and
+// its name.
 func (s *Service) scope(ctx context.Context, r storage.Reader[file], node ID) (role.NodeScope, error) {
-	assigned, err := db.New(r).NodeRoles(ctx, node)
+	q := db.New(r)
+	row, err := q.GetNode(ctx, node)
 	if err != nil {
 		return role.NodeScope{}, err
 	}
+	assigned, err := q.NodeRoles(ctx, node)
+	if err != nil {
+		return role.NodeScope{}, err
+	}
+	board := s.Board()
 	holds := role.Of(assigned...)
 	if node == s.self {
-		holds |= s.Board().covering()
+		holds |= board.covering()
 	}
-	return role.NodeScope{Holds: append(holds.Names(), s.cfg.Always...)}, nil
+	return role.NodeScope{Holds: append(holds.Names(), s.cfg.Always...), Draining: board.drains(node).Names(), Name: row.Name}, nil
+}
+
+// touched notes that an owner's intent for nodes changed, so the work it
+// counts may have: Run settles the forfeits and reads the roster again.
+func (s *Service) touched(string, []ID) {
+	select {
+	case s.recount <- struct{}{}:
+	default:
+	}
+}
+
+// settle deletes each forfeit whose owner counts no work left on its Node,
+// then reads the roster again, so the board's draining and written-off
+// Roles follow what each owner still holds.
+func (s *Service) settle(ctx context.Context) error {
+	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		forfeits, err := q.ListForfeits(ctx)
+		if err != nil {
+			return err
+		}
+		for _, f := range forfeits {
+			held, err := s.owners[f.Role].Held(ctx, tx, f.NodeID)
+			if err != nil {
+				return fmt.Errorf("count %s work on node %s: %w", f.Role, f.NodeID, err)
+			}
+			if held.Units > 0 {
+				continue
+			}
+			if err := q.DeleteForfeit(ctx, db.DeleteForfeitParams(f)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("settle the forfeits: %w", err)
+	}
+	return s.reload(ctx)
 }
 
 // situation is what Plan reads now: each live Node as a Seat, away unless
@@ -289,10 +345,12 @@ func (s *Service) work(ctx context.Context, r storage.Reader[file], node ID) (he
 // Run follows the link and the board's clock until ctx ends: it notes
 // which Nodes' links are live on another build, records the addresses a
 // Worker's Hello advertises, re-derives the board whenever it wakes, so
-// at each edge, and writes seen_at every seen_persist and when a session
+// at each edge, settles the forfeits at its start and whenever an owner's
+// intent changed, and writes seen_at every seen_persist and when a session
 // ends.
 func (s *Service) Run(ctx context.Context) error {
 	changes := s.cfg.Link.Subscribe(ctx)
+	s.touched("", nil)
 	persist := time.NewTicker(s.cfg.Timings.SeenPersist)
 	defer persist.Stop()
 	edge := time.NewTimer(0)
@@ -316,6 +374,10 @@ func (s *Service) Run(ctx context.Context) error {
 		case <-edge.C:
 		case <-s.rearm:
 			s.persistSeen(ctx, false)
+		case <-s.recount:
+			if err := s.settle(ctx); err != nil && ctx.Err() == nil {
+				s.cfg.Log.Error("settle what owners hold", "err", err.Error())
+			}
 		case <-persist.C:
 			s.persistSeen(ctx, true)
 		}

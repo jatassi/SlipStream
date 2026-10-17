@@ -137,6 +137,8 @@ type Service struct {
 	saved map[ID]time.Time
 	board atomic.Pointer[Board]
 	rearm chan struct{}
+	// recount wakes Run to settle the forfeits.
+	recount chan struct{}
 }
 
 // Open creates this Node's own row when it has none, holding every Role
@@ -154,6 +156,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		revisions: map[ID]string{},
 		saved:     map[ID]time.Time{},
 		rearm:     make(chan struct{}, 1),
+		recount:   make(chan struct{}, 1),
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -207,6 +210,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		Nodes:   s,
 		Scope:   s.scope,
 		Changed: s.changed,
+		Touched: s.touched,
 		InStep:  s.inStep,
 		Seen:    s.seen,
 		Log:     cfg.Log,

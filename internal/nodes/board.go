@@ -130,6 +130,22 @@ func (b *Board) covering() role.Set {
 	return out
 }
 
+// drains is the Roles id no longer holds but still holds tied work for:
+// those it drains or writes off.
+func (b *Board) drains(id ID) role.Set {
+	i, ok := b.index(id)
+	if !ok {
+		return 0
+	}
+	var out role.Set
+	for r, st := range b.states[i] {
+		if st == Draining || st == WritingOff {
+			out = out.With(r)
+		}
+	}
+	return out
+}
+
 // RoleView is one Role a Node stands in and the tied work it holds for it.
 type RoleView struct {
 	Role  role.Name

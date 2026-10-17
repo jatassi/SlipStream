@@ -385,9 +385,11 @@ type schedule struct {
 	ticked   time.Time
 }
 
-// Run reconciles until ctx ends. Each pass reads every open search run and
-// unfinished Grab and starts the step each is due, unless it runs or backs
-// off. A restart needs no recovery: the first pass is the recovery.
+// Run reconciles until ctx ends. Each pass settles what the Admin wrote
+// off, reads every open search run and unfinished Grab and starts the step
+// each is due, unless it runs or backs off. A pass runs at each change of
+// the roster too. A restart needs no recovery: the first pass is the
+// recovery.
 func (gr *Grabs) Run(ctx context.Context) error {
 	gr.retainTransfers(ctx)
 	s := schedule{
@@ -398,7 +400,8 @@ func (gr *Grabs) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	for {
-		searches, grabs, err := gr.open(ctx)
+		changed := gr.cfg.Roster.Changed()
+		searches, grabs, err := gr.settled(ctx)
 		now := time.Now()
 		if err == nil {
 			for _, run := range searches {
@@ -411,7 +414,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			}
 			gr.publishProgress(ctx, &s, now, grabs)
 		} else if ctx.Err() == nil {
-			gr.cfg.Log.Error("read the open Grabs", "err", err.Error())
+			gr.cfg.Log.Error("read or settle the open Grabs", "err", err.Error())
 		}
 		timer.Reset(s.next(now, grabs, err != nil, gr.cfg.Timings))
 		select {
@@ -419,6 +422,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			delete(s.inflight, r.id)
 			s.record(r, time.Now(), gr.cfg.Timings, gr.cfg.Rand)
 		case <-gr.poke:
+		case <-changed:
 		case <-timer.C:
 		case <-ctx.Done():
 			for range s.inflight {
@@ -427,6 +431,20 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// settled is the open search runs and unfinished Grabs once what the
+// Admin wrote off is settled.
+func (gr *Grabs) settled(ctx context.Context) ([]Search, []Grab, error) {
+	searches, grabs, err := gr.open(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	changed, err := gr.settleWriteOffs(ctx, grabs)
+	if err != nil || !changed {
+		return searches, grabs, err
+	}
+	return gr.open(ctx)
 }
 
 // retainTransfers drops each Transfer record and staging file that no

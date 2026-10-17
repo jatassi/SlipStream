@@ -21,10 +21,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// NodeIntent is the node scope's intent: the Roles assigned to the Node.
+// NodeIntent is the node scope's intent: the Roles the Node holds, the
+// Roles it no longer holds but still drains, and its name.
 type NodeIntent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Roles         []string               `protobuf:"bytes,1,rep,name=roles,proto3" json:"roles,omitempty"`
+	Draining      []string               `protobuf:"bytes,2,rep,name=draining,proto3" json:"draining,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -64,6 +67,20 @@ func (x *NodeIntent) GetRoles() []string {
 		return x.Roles
 	}
 	return nil
+}
+
+func (x *NodeIntent) GetDraining() []string {
+	if x != nil {
+		return x.Draining
+	}
+	return nil
+}
+
+func (x *NodeIntent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
 }
 
 // NodeFacts is the node scope's facts: the Roles the holder half has
@@ -158,10 +175,12 @@ var File_slipstream_node_v1_scope_proto protoreflect.FileDescriptor
 
 const file_slipstream_node_v1_scope_proto_rawDesc = "" +
 	"\n" +
-	"\x1eslipstream/node/v1/scope.proto\x12\x12slipstream.node.v1\"\"\n" +
+	"\x1eslipstream/node/v1/scope.proto\x12\x12slipstream.node.v1\"R\n" +
 	"\n" +
 	"NodeIntent\x12\x14\n" +
-	"\x05roles\x18\x01 \x03(\tR\x05roles\"\xda\x01\n" +
+	"\x05roles\x18\x01 \x03(\tR\x05roles\x12\x1a\n" +
+	"\bdraining\x18\x02 \x03(\tR\bdraining\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"\xda\x01\n" +
 	"\tNodeFacts\x12\x1a\n" +
 	"\bassigned\x18\x01 \x03(\tR\bassigned\x12\x18\n" +
 	"\arunning\x18\x02 \x03(\tR\arunning\x12\x1e\n" +

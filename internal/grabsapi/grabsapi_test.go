@@ -55,11 +55,12 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 // nobody is a roster where no Node holds Downloading.
 type nobody struct{}
 
-func (nobody) Holds(role.Name, role.NodeID) bool     { return false }
-func (nobody) InStep(role.NodeID) bool               { return true }
-func (nobody) Changed() <-chan struct{}              { return nil }
-func (nobody) Touch(...role.NodeID)                  {}
-func (nobody) Facts(role.NodeID) (*dlv1.Facts, bool) { return nil, false }
+func (nobody) Holds(role.Name, role.NodeID) bool      { return false }
+func (nobody) InStep(role.NodeID) bool                { return true }
+func (nobody) WrittenOff(role.Name, role.NodeID) bool { return false }
+func (nobody) Changed() <-chan struct{}               { return nil }
+func (nobody) Touch(...role.NodeID)                   {}
+func (nobody) Facts(role.NodeID) (*dlv1.Facts, bool)  { return nil, false }
 
 // site answers every search with one 1080p release.
 type site struct {
