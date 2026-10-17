@@ -47,6 +47,12 @@ func TestOf(t *testing.T) {
 			wantNotInert: []string{"docs/parity-matrix.md"},
 		},
 		{
+			name:         "vendored skill is read by a lint",
+			changes:      []nativetouch.Change{modified(".claude/skills/anatomy/kit/tube.mjs"), modified(".claude/skills/pr/SKILL.md")},
+			want:         PR,
+			wantNotInert: []string{".claude/skills/anatomy/kit/tube.mjs"},
+		},
+		{
 			name:         "rename out of docs",
 			changes:      []nativetouch.Change{{Old: nativetouch.Side{Path: "docs/notes.go"}, New: nativetouch.Side{Path: "internal/notes.go"}}},
 			want:         PR,

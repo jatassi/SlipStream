@@ -4,6 +4,7 @@
     "openapi.json",
     "src/routeTree.gen.ts",
     "src/theme.gen.css",
-    "src/theme.gen.ts"
+    "src/theme.gen.ts",
+    "vendor/**"
   ]
 }

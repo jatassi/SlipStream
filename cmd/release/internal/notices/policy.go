@@ -27,6 +27,7 @@ type Policy struct {
 	Allow     []string   `json:"allow"`
 	Deny      []Denial   `json:"deny"`
 	Overrides []Override `json:"overrides"`
+	Vendored  []Vendored `json:"vendored"`
 }
 
 func loadPolicy(path string) (Policy, error) {
