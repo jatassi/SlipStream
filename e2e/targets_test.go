@@ -360,7 +360,7 @@ func TestRemovingACutWithKeepKeepsItsFileAndAddingItBackRestoresItsName(t *testi
 	holdsOnly(t, w.m, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - {edition-Extended} 1080p (extra 1).mkv")
 	w.cellsAre(t, "under Standard alone", "standard 1080p missing wanted")
 
-	w.put(t, profile, filmsOf(cuts("standard", "extended"), starter), "works=1 ownList=0 unwanted=0 renamed=1 newlyWanted=0 downloading=0")
+	w.put(t, profile, filmsOf(cuts("standard", "extended"), starter), "works=1 ownList=0 unwanted=0 renamed=1 newlyWanted=1 downloading=0")
 	holdsOnly(t, w.m, "movies/"+cutName)
 	w.cellsAre(t, "with Extended back", "standard 1080p missing wanted", "extended 1080p upgradable wanted webdl-1080p "+cutName)
 }

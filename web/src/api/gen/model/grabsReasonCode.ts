@@ -1,5 +1,6 @@
 export type GrabsReasonCode =
   | "wrong_work"
+  | "cut_not_wanted"
   | "quality_not_in_target"
   | "filter"
   | "size_below"

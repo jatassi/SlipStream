@@ -197,6 +197,7 @@ export const getListSearchesResponseMock = (
             : {}),
           code: faker.helpers.arrayElement([
             "wrong_work",
+            "cut_not_wanted",
             "quality_not_in_target",
             "filter",
             "size_below",
@@ -238,6 +239,7 @@ export const getListSearchesResponseMock = (
               : {}),
             code: faker.helpers.arrayElement([
               "wrong_work",
+              "cut_not_wanted",
               "quality_not_in_target",
               "filter",
               "size_below",

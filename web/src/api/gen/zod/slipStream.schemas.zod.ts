@@ -314,6 +314,7 @@ export const GrabsReason = zod.object({
     .describe("The attribute a failed filter rules on"),
   code: zod.enum([
     "wrong_work",
+    "cut_not_wanted",
     "quality_not_in_target",
     "filter",
     "size_below",
@@ -324,11 +325,13 @@ export const GrabsReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe("The Target whose verdict it is, absent for wrong_work"),
+    .describe("The Target whose verdict it is, absent for wrong_work and cut_not_wanted"),
   value: zod
     .string()
     .exactOptional()
-    .describe("The value a filter failed on, or the quality a Target doesn't accept"),
+    .describe(
+      "The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants",
+    ),
 });
 
 export type GrabsReason = zod.input<typeof GrabsReason>;

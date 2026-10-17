@@ -67,10 +67,10 @@ type searchStarted struct {
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,quality_not_in_target,filter,size_below,size_above,size_not_checked,not_an_upgrade"`
-	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work"`
+	Code      string `json:"code" enum:"wrong_work,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,not_an_upgrade"`
+	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work and cut_not_wanted"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
-	Value     string `json:"value,omitempty" doc:"The value a filter failed on, or the quality a Target doesn't accept"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants"`
 }
 
 func reasonsOf(rs []grabs.Reason) []reason {

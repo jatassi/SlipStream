@@ -174,18 +174,43 @@ func (i *Impact) add(p placed, from, to []Cell) {
 			i.Renamed++
 		}
 	}
-	wanted := map[CellKey]bool{}
+	type spot struct {
+		item   works.ItemID
+		target targets.TargetID
+	}
+	prior := map[spot][]Cell{}
 	for _, c := range from {
-		wanted[keyOf(c)] = c.Wanted()
+		at := spot{c.Item.ID, c.Target.ID}
+		prior[at] = append(prior[at], c)
 	}
 	for _, c := range to {
-		if c.Wanted() && !wanted[keyOf(c)] {
+		if c.Wanted() && !slices.ContainsFunc(prior[spot{c.Item.ID, c.Target.ID}], func(b Cell) bool { return b.Wanted() && continues(b, c) }) {
 			i.NewlyWanted++
 		}
 	}
 	if changed {
 		i.Works++
 	}
+}
+
+// continues reports whether after, a cell at before's Item and Target,
+// is the cell before was: one of the same Edition or, across a switch
+// between any cut and named cuts, one the same file fills, or none does.
+func continues(before, after Cell) bool {
+	switch {
+	case before.Edition == after.Edition:
+		return true
+	case before.Edition != targets.AnyEdition && after.Edition != targets.AnyEdition:
+		return false
+	}
+	return fileOf(before) == fileOf(after)
+}
+
+func fileOf(c Cell) ID {
+	if c.File == nil {
+		return ID{}
+	}
+	return c.File.ID
 }
 
 func keyOf(c Cell) CellKey { return CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID} }
