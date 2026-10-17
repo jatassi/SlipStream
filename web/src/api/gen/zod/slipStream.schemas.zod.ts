@@ -1342,6 +1342,7 @@ export type NodesRolesChangeOutput = zod.output<typeof NodesRolesChange>;
 
 export const NodesSettings = zod.object({
   joinCodeLifetime: SettingDurationField,
+  offlineGrace: SettingDurationField,
 });
 
 export type NodesSettings = zod.input<typeof NodesSettings>;
@@ -1356,6 +1357,7 @@ export type NodesSettingsChangedOutput = zod.output<typeof NodesSettingsChanged>
 
 export const NodesSettingsPatch = zod.object({
   joinCodeLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  offlineGrace: zod.int().nullish().describe("Seconds; null resets it to its default"),
 });
 
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
@@ -1653,10 +1655,23 @@ export const SettingField = zod.discriminatedUnion("kind", [
 export type SettingField = zod.input<typeof SettingField>;
 export type SettingFieldOutput = zod.output<typeof SettingField>;
 
+export const ShellAlerts = zod.object({
+  nodes: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+    ),
+});
+
+export type ShellAlerts = zod.input<typeof ShellAlerts>;
+export type ShellAlertsOutput = zod.output<typeof ShellAlerts>;
+
 export const shellCountsActivityMin = 0;
 
 export const ShellCounts = zod.object({
   activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
+  alerts: ShellAlerts,
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;

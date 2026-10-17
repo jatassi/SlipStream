@@ -2686,10 +2686,14 @@
         "properties": {
           "joinCodeLifetime": {
             "$ref": "#/components/schemas/SettingDurationField"
+          },
+          "offlineGrace": {
+            "$ref": "#/components/schemas/SettingDurationField"
           }
         },
         "required": [
-          "joinCodeLifetime"
+          "joinCodeLifetime",
+          "offlineGrace"
         ],
         "type": "object"
       },
@@ -2710,6 +2714,14 @@
         "additionalProperties": false,
         "properties": {
           "joinCodeLifetime": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offlineGrace": {
             "description": "Seconds; null resets it to its default",
             "format": "int64",
             "type": [
@@ -3610,6 +3622,26 @@
         ],
         "type": "object"
       },
+      "ShellAlerts": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "description": "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "type": "object"
+      },
       "ShellCounts": {
         "additionalProperties": false,
         "properties": {
@@ -3618,10 +3650,14 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "alerts": {
+            "$ref": "#/components/schemas/ShellAlerts"
           }
         },
         "required": [
-          "activity"
+          "activity",
+          "alerts"
         ],
         "type": "object"
       },

@@ -17,7 +17,9 @@ const mainNav = () => page.getByRole("navigation", { name: "Main" });
 const tabs = () => page.getByRole("navigation", { name: "Tabs" });
 
 function counting(activity: number) {
-  return http.get("*/api/v1/counts", () => HttpResponse.json({ activity }));
+  return http.get("*/api/v1/counts", () =>
+    HttpResponse.json({ activity, alerts: { nodes: null } }),
+  );
 }
 
 const listed = (count: number): WorksListedWork[] =>

@@ -1054,6 +1054,8 @@ export * from "./settingWindowField.ts";
 export * from "./settingWindowFieldApplies.ts";
 export * from "./settingWindowFieldKind.ts";
 export * from "./settingWindowFieldSource.ts";
+export * from "./shellAlerts.ts";
+export * from "./shellAlertsNodes.ts";
 export * from "./shellCounts.ts";
 export * from "./startEmailChange401.ts";
 export * from "./startEmailChange401Code.ts";

@@ -71,7 +71,7 @@ type Node interface {
 	indexersapi.Registry
 	filesapi.Library
 	grabsapi.Pipeline
-	shellapi.Pipeline
+	shellapi.Shell
 	systemapi.Systems
 	tasksapi.Clock
 	servingapi.Worker

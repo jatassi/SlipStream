@@ -3,6 +3,7 @@ package nodes
 import (
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/role"
@@ -85,14 +86,31 @@ type NodeView struct {
 	Settling bool
 }
 
+// Alert is what the Nodes nav row's dot says about every Node at once.
+type Alert uint8
+
+const (
+	NoAlert Alert = iota
+	// Warning: a Node is away past the blip, or the Controller covers a
+	// Role.
+	Warning
+	// Failing: a Node is out of step past the offline grace.
+	Failing
+)
+
+func (a Alert) String() string { return [...]string{"", "warn", "fail"}[a] }
+
 // Board is the roster at one instant. It never changes once derived, and
 // its Changed channel closes when a newer board replaces it.
 type Board struct {
 	nodes   []NodeView
 	states  []map[role.Name]RoleState
 	forfeit []role.Set
+	alert   Alert
 	changed chan struct{}
 }
+
+func (b *Board) Alert() Alert { return b.alert }
 
 func (b *Board) Changed() <-chan struct{} { return b.changed }
 
@@ -110,7 +128,7 @@ func (b *Board) index(id ID) (int, bool) {
 
 // same reports whether b and o say the same about every Node.
 func (b *Board) same(o *Board) bool {
-	return slices.Equal(b.nodes, o.nodes) && slices.Equal(b.forfeit, o.forfeit) &&
+	return b.alert == o.alert && slices.Equal(b.nodes, o.nodes) && slices.Equal(b.forfeit, o.forfeit) &&
 		slices.EqualFunc(b.states, o.states, maps.Equal)
 }
 
@@ -230,6 +248,74 @@ func (h Holders) Pick(prefer ID) (ID, bool) {
 
 func (h Holders) Lapsed(n ID) bool { return h.State(n) == Lapsed }
 
+// Absence is how a Node assigned a Role stands while it is out of step.
+type Absence struct {
+	// Since is its last Sync frame, or the Controller's start when it sent
+	// none since.
+	Since    time.Time
+	Standing Standing
+	// Lapsed: out of step past the offline grace, so its portable work
+	// moves.
+	Lapsed bool
+}
+
+// Away is how n stands while it is assigned the Role and out of step.
+func (h Holders) Away(n ID) (Absence, bool) {
+	st := h.State(n)
+	if st != Away && st != Lapsed {
+		return Absence{}, false
+	}
+	v, _ := h.b.Node(n)
+	return Absence{Since: v.Since, Standing: v.Standing, Lapsed: st == Lapsed}, true
+}
+
+// Route is where the Role's work homed on home goes now: home while it
+// may; nowhere while home is away within the grace, so the work waits for
+// it; else Pick(home).
+func (h Holders) Route(home ID) (ID, bool) {
+	if a, away := h.Away(home); away && !a.Lapsed {
+		return ID{}, false
+	}
+	return h.Pick(home)
+}
+
+// Why is why no Node may take new work for the Role, in words, or "" when
+// one may.
+func (h Holders) Why() string {
+	var reasons []string
+	for _, n := range h.b.nodes {
+		if h.May(n.ID) {
+			return ""
+		}
+		switch h.State(n.ID) {
+		case Holding:
+			reasons = append(reasons, n.Name+" is back and settling")
+		case Away, Lapsed:
+			reasons = append(reasons, n.Name+" is "+standingWords(n))
+		case NoState, Draining, WritingOff, Covering:
+		}
+	}
+	switch len(reasons) {
+	case 0:
+		return "no Node holds " + h.r.Label()
+	case 1:
+		return reasons[0] + ", and no other Node " + h.r.Purpose()
+	}
+	return strings.Join(reasons[:len(reasons)-1], ", ") + " and " + reasons[len(reasons)-1]
+}
+
+func standingWords(v NodeView) string {
+	since := " since " + v.Since.UTC().Format(time.RFC3339)
+	switch v.Standing {
+	case Reconnecting:
+		return "reconnecting"
+	case MismatchedNode:
+		return "on another version" + since
+	case InStep, Offline, LapsedNode:
+	}
+	return "offline" + since
+}
+
 func (h Holders) Covering() bool {
 	for _, n := range h.b.nodes {
 		if n.Controller {
@@ -258,6 +344,12 @@ func derive(in inputs, now time.Time) *Board {
 	for i, n := range in.nodes {
 		b.nodes[i] = in.view(n, now)
 		b.forfeit[i] = n.forfeit
+		switch {
+		case in.lapsed(n, now):
+			b.alert = Failing
+		case b.alert == NoAlert && b.nodes[i].Standing != InStep && b.nodes[i].Standing != Reconnecting:
+			b.alert = Warning
+		}
 	}
 	for i, n := range in.nodes {
 		states := map[role.Name]RoleState{}
@@ -267,6 +359,9 @@ func derive(in inputs, now time.Time) *Board {
 			}
 		}
 		b.states[i] = states
+	}
+	if b.alert == NoAlert && b.covering() != 0 {
+		b.alert = Warning
 	}
 	return b
 }
