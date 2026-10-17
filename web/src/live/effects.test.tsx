@@ -1,3 +1,4 @@
+import { HttpResponse, delay, http } from "msw";
 import { expect, test } from "vitest";
 
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
@@ -11,7 +12,6 @@ import {
   getListSessionsQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
-import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListWorksQueryKey } from "../api/gen/query/works/works";
 import {
   getGetTaskQueryKey,
@@ -122,6 +122,34 @@ test("tasks.changed invalidates every tasks query and nothing else", async () =>
     .toEqual({ list: true, task: true, settings: true, open: true, works: false });
 });
 
+test("a burst of tasks.changed starts one refetch and one more after it, not one per event", async () => {
+  const server = liveServer();
+  let asked = 0;
+  const open = http.get("*/api/v1/tasks/runs/open", async () => {
+    asked += 1;
+    const answer = asked;
+    await delay(200);
+    return HttpResponse.json({ headerDelaySeconds: answer, runs: [] });
+  });
+  const app = renderApp({ path: "/system", handlers: [...server.handlers, open] });
+  const fetchStatus = () =>
+    app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.fetchStatus;
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect.poll(() => asked > 0 && fetchStatus() === "idle").toBe(true);
+  const before = asked;
+
+  for (let i = 0; i < 5; i += 1) {
+    server.clients[0]?.send({ event: "tasks.changed", data: { taskId: "housekeeping" } });
+  }
+  await expect.poll(fetchStatus).toBe("fetching");
+  await expect.poll(fetchStatus).toBe("idle");
+  expect(asked - before).toBe(2);
+  expect(app.queryClient.getQueryData(getListOpenTaskRunsQueryKey())).toEqual({
+    headerDelaySeconds: asked,
+    runs: [],
+  });
+});
+
 const openRun = (runId: number, taskId: string) => ({
   runId,
   taskId,
@@ -139,7 +167,10 @@ test("tasks.progress moves that open run in place", async () => {
   const open = { headerDelaySeconds: 5, runs: [openRun(1, "housekeeping"), openRun(2, "tidy")] };
   const app = renderApp({
     path: "/system",
-    handlers: [...server.handlers, getListOpenTaskRunsMockHandler(open)],
+    handlers: [
+      ...server.handlers,
+      http.get("*/api/v1/tasks/runs/open", () => HttpResponse.json(open)),
+    ],
   });
   await expect.poll(() => app.live.getState()).toBe("open");
   await expect

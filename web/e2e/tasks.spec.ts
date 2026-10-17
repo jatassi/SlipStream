@@ -25,7 +25,7 @@ const seedboxUnit = (page: Page) =>
 const progress = /home, seedbox · \d of 6 steps/u;
 
 async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
-  await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=1500ms" });
+  await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=4s" });
   return () => world.fw.fault.clear("slow-link");
 }
 
