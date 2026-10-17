@@ -9,15 +9,17 @@ import {
 } from "../api/gen/query/identity/identity";
 import { getGetMailSettingsSuspenseQueryOptions } from "../api/gen/query/mail/mail";
 import {
+  getListCutsSuspenseQueryOptions,
   getListProfilesSuspenseQueryOptions,
   getListQualitiesSuspenseQueryOptions,
   getListTargetsSuspenseQueryOptions,
 } from "../api/gen/query/targets/targets";
 import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/works";
 import { ensureQuery, freshQuery } from "../api/query-client";
+import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
-import { TargetsSection } from "../targets/targets-section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
+import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
@@ -88,6 +90,18 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
       ]);
     },
     component: ProfilesSection,
+    wide: true,
+  },
+  {
+    id: "editions",
+    label: "Editions",
+    load: async (queryClient) => {
+      await Promise.all([
+        ensureQuery(queryClient, getListCutsSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+      ]);
+    },
+    component: EditionsSection,
     wide: true,
   },
 ];

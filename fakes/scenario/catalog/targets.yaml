@@ -43,6 +43,13 @@ releases:
     seeded: true
     advertised_size: 8.9GiB
     unlisted: true
+  - name: The.Quiet.Orchard.2021.Superfan.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 9}
+    seeders: 15
+    seeded: true
+    advertised_size: 8.4GiB
+    unlisted: true
 tracker:
   interval: 5s
 library:

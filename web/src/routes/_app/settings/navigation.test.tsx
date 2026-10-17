@@ -48,7 +48,7 @@ test("on phone, Settings lists its sections, and each pushes with a back link to
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Address", "Email", "Sign-in", "API key", "Targets", "Profiles"]);
+  ).toEqual(["Address", "Email", "Sign-in", "API key", "Targets", "Profiles", "Editions"]);
 
   await userEvent.click(sections.getByRole("link", { name: "Email" }));
   await expect.poll(() => router.state.location.pathname).toBe("/settings/email");
