@@ -308,6 +308,8 @@ func TestEverySettingHasAFloorAndACeiling(t *testing.T) {
 func TestThePINTurnsOffOnlyAfterTheWait(t *testing.T) {
 	n := newNode(t)
 	res, _ := n.claimed()
+	expect(t, n.patchSettings(res.APIKey, `{"pinWaitAfter":2}`), 422, outOfRange("Between 3 and 9 wrong PINs."))
+	expect(t, n.patchSettings(res.APIKey, `{"pinOffAfter":3}`), 422, outOfRange("Between 6 and 20 wrong PINs."))
 	expect(t, n.patchSettings(res.APIKey, `{"pinWaitAfter":6,"pinOffAfter":6}`), 422, outOfRange("Between 7 and 20 wrong PINs."))
 	expect(t, n.patchSettings(res.APIKey, `{"pinWaitAfter":10}`), 422, outOfRange("Between 3 and 9 wrong PINs."))
 	w := n.patchSettings(res.APIKey, `{"pinWaitAfter":8}`)

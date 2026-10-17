@@ -55,28 +55,42 @@ func settingsOf(o identity.SignInOverrides) *settingsOutput {
 	}}
 }
 
-func signInChange(b settingsPatch) (identity.SignInChange, error) {
+// signInChange parses b. A PIN count outside its own bounds is refused with
+// the bounds the other count narrows it to, as the GET answers them.
+func signInChange(b settingsPatch, stored identity.SignInOverrides) (identity.SignInChange, error) {
+	next := stored
+	if b.PINWaitAfter.Sent() {
+		next.PINWaitAfter = b.PINWaitAfter.Value()
+	}
+	if b.PINOffAfter.Sent() {
+		next.PINOffAfter = b.PINOffAfter.Value()
+	}
+	wait, off := identity.PINLimits(next)
 	var c identity.SignInChange
 	for _, f := range []struct {
-		patch api.Patch[int64]
-		parse func(*int64) (setting.Stored[int64], error)
-		into  **setting.Stored[int64]
+		patch    api.Patch[int64]
+		parse    func(*int64) (setting.Stored[int64], error)
+		narrowed func(*int64) (setting.Stored[int64], error)
+		into     **setting.Stored[int64]
 	}{
-		{b.PINWaitAfter, identity.PINWaitAfter.Parse, &c.PINWaitAfter},
-		{b.PINWait, identity.PINWaitLength.Parse, &c.PINWait},
-		{b.PINOffAfter, identity.PINOffAfter.Parse, &c.PINOffAfter},
-		{b.AddressFailures, identity.AddressFailures.Parse, &c.AddressFailures},
-		{b.AddressWindow, identity.AddressWindow.Parse, &c.AddressWindow},
-		{b.ReconfirmWindow, identity.ReconfirmWindow.Parse, &c.ReconfirmWindow},
-		{b.SessionLifetime, identity.SessionLifetime.Parse, &c.SessionLifetime},
-		{b.SignupLinkLifetime, identity.SignupLinkLifetime.Parse, &c.SignupLinkLifetime},
-		{b.ResetLinkLifetime, identity.ResetLinkLifetime.Parse, &c.ResetLinkLifetime},
-		{b.EmailLinkLifetime, identity.EmailLinkLifetime.Parse, &c.EmailLinkLifetime},
+		{b.PINWaitAfter, identity.PINWaitAfter.Parse, wait.Parse, &c.PINWaitAfter},
+		{b.PINWait, identity.PINWaitLength.Parse, nil, &c.PINWait},
+		{b.PINOffAfter, identity.PINOffAfter.Parse, off.Parse, &c.PINOffAfter},
+		{b.AddressFailures, identity.AddressFailures.Parse, nil, &c.AddressFailures},
+		{b.AddressWindow, identity.AddressWindow.Parse, nil, &c.AddressWindow},
+		{b.ReconfirmWindow, identity.ReconfirmWindow.Parse, nil, &c.ReconfirmWindow},
+		{b.SessionLifetime, identity.SessionLifetime.Parse, nil, &c.SessionLifetime},
+		{b.SignupLinkLifetime, identity.SignupLinkLifetime.Parse, nil, &c.SignupLinkLifetime},
+		{b.ResetLinkLifetime, identity.ResetLinkLifetime.Parse, nil, &c.ResetLinkLifetime},
+		{b.EmailLinkLifetime, identity.EmailLinkLifetime.Parse, nil, &c.EmailLinkLifetime},
 	} {
 		if !f.patch.Sent() {
 			continue
 		}
 		v, err := f.parse(f.patch.Value())
+		if err != nil && f.narrowed != nil {
+			_, err = f.narrowed(f.patch.Value())
+		}
 		if err != nil {
 			return c, err
 		}
@@ -97,11 +111,16 @@ func getSettings(lib Library) func(context.Context, identity.Admin, *struct{}) (
 
 func updateSettings(lib Library) func(context.Context, identity.Admin, *settingsInput) (*settingsOutput, error) {
 	return func(ctx context.Context, a identity.Admin, in *settingsInput) (*settingsOutput, error) {
-		c, err := signInChange(in.Body)
+		svc := open(lib)
+		stored, err := svc.SignInSettings(ctx, a)
+		if err != nil {
+			return nil, err
+		}
+		c, err := signInChange(in.Body, stored)
 		if err != nil {
 			return nil, settingapi.Refused(err)
 		}
-		o, err := open(lib).SetSignInSettings(ctx, a, c)
+		o, err := svc.SetSignInSettings(ctx, a, c)
 		if err != nil {
 			return nil, settingapi.Refused(err)
 		}
