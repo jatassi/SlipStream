@@ -35,7 +35,8 @@ type world struct {
 	// events is the Controller's live stream: each value is one event,
 	// written and flushed when the test sends it.
 	events chan string
-	// release stops the Serving run and waits for it to return.
+	// release stops the Serving run, waits for it to return and releases
+	// the Role, as the supervisor does when the Worker lets Serving go.
 	release func() error
 }
 
@@ -103,7 +104,10 @@ func start(t *testing.T, controllerVersion, workerVersion string) *world {
 		events: events,
 		release: sync.OnceValue(func() error {
 			stop()
-			return <-ran
+			if err := <-ran; err != nil {
+				return err
+			}
+			return w.Release(context.Background())
 		}),
 	}
 	t.Cleanup(func() { _ = wd.release() })

@@ -68,6 +68,7 @@ const (
 	FillsNothing       Code = "fills_nothing"
 	TransferFailed     Code = "transfer_failed"
 	ImportFailed       Code = "import_failed"
+	NodeWrittenOff     Code = "node_written_off"
 )
 
 const (
@@ -127,6 +128,9 @@ type Roster interface {
 	InStep(node role.NodeID) bool
 	// Changed is closed at the roster's next change.
 	Changed() <-chan struct{}
+	// WrittenOff reports whether the Admin wrote off what node holds for
+	// r, so its owner gives that work up.
+	WrittenOff(r role.Name, node role.NodeID) bool
 }
 
 // Downloads is the Downloading Role's Controller half.

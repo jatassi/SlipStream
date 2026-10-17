@@ -57,8 +57,17 @@ SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListTorrentsOfNode :many
 SELECT id, info_hash, metainfo FROM grabs_grab
-WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
 ORDER BY info_hash, id;
+
+-- name: ListDownloadingNodes :many
+SELECT DISTINCT node_id FROM grabs_grab
+WHERE stage NOT IN ('imported', 'failed') OR info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY node_id;
+
+-- name: DropSeeding :execrows
+UPDATE grabs_grab SET seed_dropped_at = sqlc.arg(seed_dropped_at), updated_at = sqlc.arg(seed_dropped_at)
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL;
 
 -- name: InsertSearch :exec
 INSERT INTO grabs_search (id, work_id, item_id, indexer_id, started_at)
@@ -83,4 +92,4 @@ ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: CountTorrentsOfNode :one
 SELECT count(*) AS torrents, CAST(coalesce(sum(release_size), 0) AS INTEGER) AS bytes FROM grabs_grab
-WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL;
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL;

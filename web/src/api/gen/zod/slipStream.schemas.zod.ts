@@ -170,6 +170,7 @@ export const GrabsFailure = zod.object({
     "fills_nothing",
     "transfer_failed",
     "import_failed",
+    "node_written_off",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
@@ -1194,6 +1195,28 @@ export const NodesMoves = zod.object({
 export type NodesMoves = zod.input<typeof NodesMoves>;
 export type NodesMovesOutput = zod.output<typeof NodesMoves>;
 
+export const NodesWritesOff = zod.object({
+  held: NodesHeld,
+  kind: zod.enum(["writes-off"]),
+  node: NodesNamed,
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  words: zod.string(),
+});
+
+export type NodesWritesOff = zod.input<typeof NodesWritesOff>;
+export type NodesWritesOffOutput = zod.output<typeof NodesWritesOff>;
+
 export const NodesEffect = zod.discriminatedUnion("kind", [
   NodesGains,
   NodesLetsGo,
@@ -1201,6 +1224,7 @@ export const NodesEffect = zod.discriminatedUnion("kind", [
   NodesHandedBack,
   NodesPinned,
   NodesMoves,
+  NodesWritesOff,
 ]);
 
 export type NodesEffect = zod.input<typeof NodesEffect>;
@@ -1336,6 +1360,31 @@ export const NodesSettingsPatch = zod.object({
 
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
 export type NodesSettingsPatchOutput = zod.output<typeof NodesSettingsPatch>;
+
+export const NodesWriteOffBody = zod.object({
+  roles: zod
+    .array(
+      zod.enum([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ]),
+    )
+    .min(1)
+    .describe(
+      "The Roles whose work the Node holds to give up. A Role still ticked on the Node is unticked.",
+    ),
+});
+
+export type NodesWriteOffBody = zod.input<typeof NodesWriteOffBody>;
+export type NodesWriteOffBodyOutput = zod.output<typeof NodesWriteOffBody>;
 
 export const ownPatchInputBodyDisplayNameMax = 100;
 

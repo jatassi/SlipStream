@@ -72,12 +72,12 @@ func NewWorker(l Link, controller link.Key, t Timings, log *slog.Logger) *Worker
 }
 
 // Run is the Serving Role's run: the Worker serves through its Controller
-// until ctx ends, then releases.
+// until ctx ends.
 func (w *Worker) Run(ctx context.Context) error {
 	w.serve(true)
 	<-ctx.Done()
 	w.serve(false)
-	return w.Release(context.WithoutCancel(ctx))
+	return nil
 }
 
 // Release lets the open requests finish for serving.drain, then closes

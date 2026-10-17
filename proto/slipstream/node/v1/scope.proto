@@ -2,9 +2,12 @@ syntax = "proto3";
 
 package slipstream.node.v1;
 
-// NodeIntent is the node scope's intent: the Roles assigned to the Node.
+// NodeIntent is the node scope's intent: the Roles the Node holds, the
+// Roles it no longer holds but still drains, and its name.
 message NodeIntent {
   repeated string roles = 1;
+  repeated string draining = 2;
+  string name = 3;
 }
 
 // NodeFacts is the node scope's facts: the Roles the holder half has

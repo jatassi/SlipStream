@@ -252,7 +252,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	side := n.pairing
 	controller := side.Controller()
 	front := serving.NewWorker(n.link, controller.Key, n.cfg.Timings.Serving, n.rootLog.With("subsystem", "serving"))
-	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key), []role.Held{role.Hold(role.Serving, front.Run)})
+	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key), []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
 	if err != nil {
 		return err
 	}
@@ -334,7 +334,7 @@ func owners() []nodes.Owner {
 
 // heldRoles is every Role this binary runs, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local]) []role.Held {
-	return []role.Held{downloading.Def.Hold(n.downloads.Run(local))}
+	return []role.Held{downloading.Def.Hold(n.downloads.Run(local), n.downloads.Release)}
 }
 
 // claimPeers is how the link treats peers: as the half that started does,

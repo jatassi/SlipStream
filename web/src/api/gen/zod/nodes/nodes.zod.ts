@@ -9,6 +9,7 @@ import {
   NodesRolesChange,
   NodesSettings,
   NodesSettingsPatch,
+  NodesWriteOffBody,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -60,3 +61,14 @@ export const GetNodeParams = zod.object({
 });
 
 export const GetNodeResponse = NodesNode;
+
+/**
+ * @summary Give up the work a Node holds for Roles, live or offline; its files are kept
+ */
+export const WriteOffParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const WriteOffBody = NodesWriteOffBody;
+
+export const WriteOffResponse = NodesOutcome;

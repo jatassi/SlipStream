@@ -1,6 +1,7 @@
 package downloading_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"iter"
@@ -158,16 +159,83 @@ func TestAKeptTorrentDownloadsAndReportsEachGrabOnce(t *testing.T) {
 	})
 }
 
-func TestOutOfStepTheClientStartsNothingNew(t *testing.T) {
+func TestOutOfStepOrDrainingTheClientStartsNothingNew(t *testing.T) {
+	for name, s := range map[string]role.Snapshot[*dlv1.Intent]{
+		"out of step": {Standing: role.Unreachable},
+		"draining":    {Standing: role.Live, Draining: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				payload := []byte("orchard")
+				meta, hash := torrent(t, "Orchard.mkv", payload)
+				c := start(t, map[bencode.InfoHash][]byte{hash: payload})
+				s.Intent = intent(&dlv1.Torrent{InfoHash: hash[:], Metainfo: meta, GrabId: storage.NewUUID().Bytes()})
+				c.h.intents <- s
+				synctest.Wait()
+				if _, err := c.Path(hash, 0); !errors.Is(err, downloading.ErrNotPresent) {
+					t.Fatalf("Path of a torrent listed %s = %v, want ErrNotPresent", name, err)
+				}
+			})
+		})
+	}
+}
+
+// TestALetGoTorrentLeavesTheEngineAndKeepsItsFiles drops one torrent from
+// the intent, then releases the Role: each leaves the engine, and its
+// file stays.
+func TestALetGoTorrentLeavesTheEngineAndKeepsItsFiles(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		meta, hash := torrent(t, "Orchard.mkv", []byte("orchard"))
-		c := start(t, nil)
-		c.h.intents <- role.Snapshot[*dlv1.Intent]{Intent: intent(&dlv1.Torrent{InfoHash: hash[:], Metainfo: meta, GrabId: storage.NewUUID().Bytes()}), Standing: role.Unreachable}
+		first, second := []byte("orchard"), []byte("meadow")
+		firstMeta, firstHash := torrent(t, "Orchard.mkv", first)
+		secondMeta, secondHash := torrent(t, "Meadow.mkv", second)
+		c := start(t, map[bencode.InfoHash][]byte{firstHash: first, secondHash: second})
+		both := intent(
+			&dlv1.Torrent{InfoHash: firstHash[:], Metainfo: firstMeta, GrabId: storage.NewUUID().Bytes()},
+			&dlv1.Torrent{InfoHash: secondHash[:], Metainfo: secondMeta, GrabId: storage.NewUUID().Bytes()},
+		)
+		c.h.intents <- role.Snapshot[*dlv1.Intent]{Intent: both, Standing: role.Live}
 		synctest.Wait()
-		if _, err := c.Path(hash, 0); !errors.Is(err, downloading.ErrNotPresent) {
-			t.Fatalf("Path of a torrent added out of step = %v, want ErrNotPresent", err)
+
+		kept := func(what string, h bencode.InfoHash, name string, payload []byte) {
+			t.Helper()
+			if _, err := c.Path(h, 0); !errors.Is(err, downloading.ErrNotPresent) {
+				t.Errorf("%s, Path of %s = %v, want ErrNotPresent", what, name, err)
+			}
+			if b, err := os.ReadFile(filepath.Join(c.dir, h.String(), name)); err != nil || !bytes.Equal(b, payload) {
+				t.Errorf("%s, %s holds %q, %v; want %q", what, name, b, err, payload)
+			}
 		}
+		c.h.intents <- role.Snapshot[*dlv1.Intent]{Intent: intent(both.Torrents[1]), Standing: role.Live}
+		synctest.Wait()
+		kept("out of the intent", firstHash, "Orchard.mkv", first)
+		if _, err := c.Path(secondHash, 0); err != nil {
+			t.Fatalf("Path of the torrent still listed = %v", err)
+		}
+		if err := c.Release(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		kept("released", secondHash, "Meadow.mkv", second)
 	})
+}
+
+func TestOnlyAChangeOfTorrentsIsNotable(t *testing.T) {
+	a, b := &dlv1.TorrentFacts{InfoHash: []byte{1}}, &dlv1.TorrentFacts{InfoHash: []byte{2}}
+	progressed := &dlv1.TorrentFacts{InfoHash: []byte{1}, Done: 7}
+	for _, tc := range []struct {
+		name       string
+		last, next []*dlv1.TorrentFacts
+		want       bool
+	}{
+		{"the first torrent", nil, []*dlv1.TorrentFacts{a}, true},
+		{"progress", []*dlv1.TorrentFacts{a}, []*dlv1.TorrentFacts{progressed}, false},
+		{"another torrent", []*dlv1.TorrentFacts{a}, []*dlv1.TorrentFacts{b}, true},
+		{"one more", []*dlv1.TorrentFacts{a}, []*dlv1.TorrentFacts{a, b}, true},
+		{"one gone", []*dlv1.TorrentFacts{a, b}, []*dlv1.TorrentFacts{b}, true},
+	} {
+		if got := downloading.Def.Notable(&dlv1.Facts{Torrents: tc.last}, &dlv1.Facts{Torrents: tc.next}); got != tc.want {
+			t.Errorf("%s: notable = %v, want %v", tc.name, got, tc.want)
+		}
+	}
 }
 
 func TestATorrentTheEngineRefusesFails(t *testing.T) {

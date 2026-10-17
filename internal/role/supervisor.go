@@ -14,17 +14,18 @@ import (
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 )
 
-// run is one assigned Role's goroutine, guarded by Holding.mu.
+// run is one held or draining Role's goroutine, guarded by Holding.mu.
 type run struct {
 	cancel     context.CancelFunc
 	restarting bool
 	stopping   bool
 }
 
-var errReturned = errors.New("returned while the Role was still assigned")
+var errReturned = errors.New("returned while the Role was still held")
 
-// supervise runs each held Role while it is assigned and, for a scoped
-// Role, its intent is cached, and reports the node scope's facts, until ctx ends.
+// supervise runs each Role while the Node holds or drains it and, for a
+// scoped Role, its intent is cached, releases each one it lets go, and
+// reports the node scope's facts, until ctx ends.
 func (h *Holding) supervise(ctx context.Context) {
 	var roles sync.WaitGroup
 	defer roles.Wait()
@@ -53,7 +54,7 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 	for _, held := range h.cfg.Held {
 		r := h.runs[held.name]
 		_, cached := h.cache[string(held.name)]
-		want := (cached || !held.scoped) && slices.Contains(h.assigned, held.name)
+		want := (cached || !held.scoped) && (slices.Contains(h.assigned, held.name) || slices.Contains(h.draining, held.name))
 		switch {
 		case want && r == nil:
 			rctx, cancel := context.WithCancel(ctx)
@@ -62,6 +63,7 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 			roles.Go(func() {
 				defer cancel()
 				h.keep(rctx, held, r)
+				h.release(ctx, held)
 				h.mu.Lock()
 				delete(h.runs, held.name)
 				h.wake()
@@ -74,9 +76,21 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 	}
 }
 
+// release lets held go once its run returned. Its run returns only once
+// canceled, so with ctx alive the Node let the Role go; a shutdown ends
+// ctx and keeps what the Role holds.
+func (h *Holding) release(ctx context.Context, held Held) {
+	if ctx.Err() != nil {
+		return
+	}
+	if err := held.release(ctx); err != nil {
+		h.cfg.Log.Error("release a Role", "role", string(held.name), "err", err)
+	}
+}
+
 // nodeFacts is the node scope's facts. The caller holds h.mu.
 func (h *Holding) nodeFacts() *nodev1.NodeFacts {
-	f := &nodev1.NodeFacts{Assigned: nodeIntent(h.assigned).GetRoles(), AppliedVersion: h.cache[nodeScope].version, SettingsRevision: h.host.SettingsRevision}
+	f := &nodev1.NodeFacts{Assigned: roleStrings(h.assigned), AppliedVersion: h.cache[nodeScope].version, SettingsRevision: h.host.SettingsRevision}
 	if h.host.HTTPAddress.IsValid() {
 		f.HttpAddress = h.host.HTTPAddress.String()
 	}

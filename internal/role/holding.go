@@ -47,6 +47,8 @@ type Holding struct {
 	standing Standing
 	cache    map[string]cached
 	assigned []Name
+	draining []Name
+	name     string
 	// waits holds, per scope, a channel closed at its next change.
 	waits map[string]chan struct{}
 	// changed is closed at any change the supervisor acts on.
@@ -123,11 +125,19 @@ func (h *Holding) Run(ctx context.Context) error {
 	return nil
 }
 
-// Holds reports whether this Node's last intent assigns it r.
+// Holds reports whether this Node's last intent assigns it r or has it
+// drain r: the holder's dispatch gate.
 func (h *Holding) Holds(r Name) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return slices.Contains(h.assigned, r)
+	return slices.Contains(h.assigned, r) || slices.Contains(h.draining, r)
+}
+
+// Name is this Node's name, as its last intent gives it.
+func (h *Holding) Name() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.name
 }
 
 // remember caches an intent in memory. The caller holds h.mu or owns h.
@@ -137,18 +147,49 @@ func (h *Holding) remember(scope string, c cached) error {
 		if err := c.payload.UnmarshalTo(in); err != nil {
 			return fmt.Errorf("node intent: %w", err)
 		}
-		h.assigned = make([]Name, len(in.GetRoles()))
-		for i, r := range in.GetRoles() {
-			h.assigned[i] = Name(r)
+		draining := names(in.GetDraining())
+		for _, r := range symmetricDifference(h.draining, draining) {
+			h.notify(string(r))
 		}
+		h.assigned, h.draining, h.name = names(in.GetRoles()), draining, in.GetName()
 	}
 	h.cache[scope] = c
+	h.notify(scope)
+	h.wake()
+	return nil
+}
+
+// notify closes the channel scope's watchers wait on. The caller holds
+// h.mu or owns h.
+func (h *Holding) notify(scope string) {
 	if ch := h.waits[scope]; ch != nil {
 		close(ch)
 		delete(h.waits, scope)
 	}
-	h.wake()
-	return nil
+}
+
+func names(roles []string) []Name {
+	out := make([]Name, len(roles))
+	for i, r := range roles {
+		out[i] = Name(r)
+	}
+	return out
+}
+
+// symmetricDifference is every Name in exactly one of a and b.
+func symmetricDifference(a, b []Name) []Name {
+	var out []Name
+	for _, n := range a {
+		if !slices.Contains(b, n) {
+			out = append(out, n)
+		}
+	}
+	for _, n := range b {
+		if !slices.Contains(a, n) {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // wake closes changed. The caller holds h.mu.
@@ -157,7 +198,9 @@ func (h *Holding) wake() {
 	h.changed = make(chan struct{})
 }
 
-func (h *Holding) watch(scope string) (*anypb.Any, Standing, <-chan struct{}) {
+// watch is scope's cached intent, the standing, whether the Node drains
+// the Role, and a channel closed when any of them changes.
+func (h *Holding) watch(scope string) (payload *anypb.Any, standing Standing, draining bool, changed <-chan struct{}) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	ch := h.waits[scope]
@@ -165,7 +208,7 @@ func (h *Holding) watch(scope string) (*anypb.Any, Standing, <-chan struct{}) {
 		ch = make(chan struct{})
 		h.waits[scope] = ch
 	}
-	return h.cache[scope].payload, h.standing, ch
+	return h.cache[scope].payload, h.standing, slices.Contains(h.draining, Name(scope)), ch
 }
 
 func (h *Holding) setStanding(s Standing) {
