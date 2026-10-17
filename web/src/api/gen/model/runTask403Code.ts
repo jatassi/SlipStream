@@ -1,1 +1,1 @@
-export type RunTask403Code = "needs_admin";
+export type RunTask403Code = "needs_admin" | "pin_required";

@@ -1,1 +1,1 @@
-export type ListTargets403Code = "needs_admin";
+export type ListTargets403Code = "needs_admin" | "pin_required";

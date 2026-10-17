@@ -6,6 +6,10 @@ import {
   getListGrabsQueryKey,
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
+import {
+  getListPasskeysQueryKey,
+  getListSessionsQueryKey,
+} from "../api/gen/query/identity/identity";
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListWorksQueryKey } from "../api/gen/query/works/works";
@@ -82,6 +86,22 @@ test("grabs.search-changed invalidates only that Work's searches", async () => {
     data: { searchId: grab, workId: orchard },
   });
   await expect.poll(invalidated).toEqual({ orchard: true, harvest: false });
+});
+
+test("identity.passkeys-changed invalidates your passkey list", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/", handlers: server.handlers });
+  await expect.poll(() => app.live.getState()).toBe("open");
+  const invalidated = seeded(app, {
+    passkeys: getListPasskeysQueryKey(),
+    sessions: getListSessionsQueryKey(),
+  });
+
+  server.clients[0]?.send({
+    event: "identity.passkeys-changed",
+    data: { account: "1b3d5f7a-9c1e-4a3c-8e5a-7c9e1b3d5f7a" },
+  });
+  await expect.poll(invalidated).toEqual({ passkeys: true, sessions: false });
 });
 
 test("tasks.changed invalidates every tasks query and nothing else", async () => {

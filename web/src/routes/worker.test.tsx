@@ -3,11 +3,11 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { problem, signedOut } from "../test/handlers";
+import { noPasskeys, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 
 const workerNode = [
-  getGetStatusMockHandler({ claim: "worker" }),
+  getGetStatusMockHandler({ claim: "worker", passkeys: noPasskeys }),
   http.get("*/api/v1/session", () =>
     problem(409, "worker_node", "This Node is a Worker. Manage it from its Controller."),
   ),

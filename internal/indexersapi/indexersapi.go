@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 type Registry interface {
@@ -31,6 +32,7 @@ var (
 	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
 	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Indexer didn't answer")
 	indexerRefused     = api.NewCode(http.StatusUnprocessableEntity, "indexer_refused", "The Indexer refused the request")
+	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 )
 
 func answer(err error) error {
@@ -45,6 +47,8 @@ func answer(err error) error {
 		return indexerNameTaken
 	case errors.Is(err, indexers.ErrNoSearchingNode):
 		return noSearchingNode
+	case errors.Is(err, indexers.ErrNoIndexer):
+		return indexerNotFound
 	}
 	return err
 }
@@ -60,12 +64,13 @@ type indexer struct {
 	Protocol    string       `json:"protocol" enum:"torznab"`
 	URL         string       `json:"url"`
 	HomeNodeID  string       `json:"homeNodeId" format:"uuid" doc:"The Node that reaches the Indexer"`
+	APIKeySet   bool         `json:"apiKeySet" doc:"False when the key was dropped and an Admin must enter it again"`
 	SearchModes []searchMode `json:"searchModes" nullable:"false" doc:"By mode"`
 	CreatedAt   time.Time    `json:"createdAt"`
 }
 
 func indexerOf(x indexers.Indexer) indexer {
-	out := indexer{ID: x.ID.String(), Name: x.Name, Protocol: x.Protocol, URL: x.URL, HomeNodeID: x.HomeNode.String(), SearchModes: []searchMode{}, CreatedAt: x.CreatedAt}
+	out := indexer{ID: x.ID.String(), Name: x.Name, Protocol: x.Protocol, URL: x.URL, HomeNodeID: x.HomeNode.String(), APIKeySet: x.Key.Set(), SearchModes: []searchMode{}, CreatedAt: x.CreatedAt}
 	for _, m := range slices.Sorted(maps.Keys(x.Caps.Modes)) {
 		out.SearchModes = append(out.SearchModes, searchMode{Mode: m, Params: x.Caps.Modes[m]})
 	}
@@ -81,6 +86,15 @@ type newIndexer struct {
 type createIndexerInput struct{ Body newIndexer }
 
 type indexerOutput struct{ Body indexer }
+
+type newAPIKey struct {
+	APIKey string `json:"apiKey" maxLength:"256"`
+}
+
+type apiKeyInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body newAPIKey
+}
 
 type indexerList struct {
 	Indexers []indexer `json:"indexers" nullable:"false" doc:"By name"`
@@ -108,12 +122,33 @@ func Routes(r *api.Router, registry Registry) {
 		Summary: "List the Indexers",
 		Status:  http.StatusOK,
 	}, h.listIndexers)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setIndexerAPIKey",
+		Method:  http.MethodPut,
+		Path:    "/indexers/{id}/api-key",
+		Summary: "Enter an Indexer's API key again, once its home Node has read its caps with it",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{indexerNotFound, indexerUnavailable, indexerRefused},
+	}, h.setIndexerAPIKey)
 }
 
 type handlers struct{ registry Registry }
 
 func (h handlers) createIndexer(ctx context.Context, by identity.Admin, in *createIndexerInput) (*indexerOutput, error) {
 	x, err := open(h.registry).Create(ctx, by, indexers.Draft{Name: in.Body.Name, URL: in.Body.URL, APIKey: in.Body.APIKey})
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &indexerOutput{Body: indexerOf(x)}, nil
+}
+
+func (h handlers) setIndexerAPIKey(ctx context.Context, by identity.Admin, in *apiKeyInput) (*indexerOutput, error) {
+	id, err := storage.ParseUUID(in.ID)
+	if err != nil {
+		return nil, indexerNotFound
+	}
+	x, err := open(h.registry).SetAPIKey(ctx, by, indexers.ID{UUID: id}, in.Body.APIKey)
 	if err != nil {
 		return nil, answer(err)
 	}

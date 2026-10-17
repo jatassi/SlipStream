@@ -4,7 +4,15 @@ import {
   getListGrabsQueryKey,
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
-import { getGetSessionQueryKey } from "../api/gen/query/identity/identity";
+import {
+  getGetAccountQueryKey,
+  getGetSessionQueryKey,
+  getListAccountSessionsQueryKey,
+  getListAccountsQueryKey,
+  getListPasskeysQueryKey,
+  getListSessionsQueryKey,
+  getListSignupLinksQueryKey,
+} from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
@@ -22,12 +30,30 @@ const everyPath = (pattern: RegExp) => ({
     typeof path === "string" && pattern.test(path),
 });
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
+const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
+const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 
 export const effects = {
   ...systemEffects,
-  "identity.sessions-changed": (_data, { queryClient }) => {
+  "identity.sessions-changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(data.account) });
+    void queryClient.invalidateQueries({ queryKey: getListAccountSessionsQueryKey(data.account) });
+  },
+  "identity.accounts-changed": (_data, { queryClient }) => {
+    void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+    void queryClient.invalidateQueries(everyAccount);
+  },
+  "identity.passkeys-changed": (_data, { queryClient }) => {
+    void queryClient.invalidateQueries({ queryKey: getListPasskeysQueryKey() });
+  },
+  "identity.links-changed": (_data, { queryClient }) => {
+    void queryClient.invalidateQueries({ queryKey: getListSignupLinksQueryKey() });
+    void queryClient.invalidateQueries(everySignupLink);
   },
   "works.changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListWorksQueryKey() });

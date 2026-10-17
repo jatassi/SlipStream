@@ -9,11 +9,12 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT id, name, protocol, url, api_key, home_node_id, caps, created_at FROM indexers_indexer WHERE id = ?1
+SELECT id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at FROM indexers_indexer WHERE id = ?1
 `
 
 func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer, error) {
@@ -24,7 +25,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer
 		&i.Name,
 		&i.Protocol,
 		&i.Url,
-		&i.ApiKey,
+		&i.ApiKeySealed,
 		&i.HomeNodeID,
 		&i.Caps,
 		&i.CreatedAt,
@@ -33,19 +34,19 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (IndexersIndexer
 }
 
 const insertIndexer = `-- name: InsertIndexer :exec
-INSERT INTO indexers_indexer (id, name, protocol, url, api_key, home_node_id, caps, created_at)
+INSERT INTO indexers_indexer (id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
 `
 
 type InsertIndexerParams struct {
-	ID         IndexerID
-	Name       string
-	Protocol   string
-	Url        string
-	ApiKey     string
-	HomeNodeID role.NodeID
-	Caps       string
-	CreatedAt  storage.Time
+	ID           IndexerID
+	Name         string
+	Protocol     string
+	Url          string
+	ApiKeySealed secret.Sealed
+	HomeNodeID   role.NodeID
+	Caps         string
+	CreatedAt    storage.Time
 }
 
 func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) error {
@@ -54,7 +55,7 @@ func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) er
 		arg.Name,
 		arg.Protocol,
 		arg.Url,
-		arg.ApiKey,
+		arg.ApiKeySealed,
 		arg.HomeNodeID,
 		arg.Caps,
 		arg.CreatedAt,
@@ -63,7 +64,7 @@ func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) er
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT id, name, protocol, url, api_key, home_node_id, caps, created_at FROM indexers_indexer ORDER BY name
+SELECT id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at FROM indexers_indexer ORDER BY name
 `
 
 func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
@@ -80,7 +81,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]IndexersIndexer, error) {
 			&i.Name,
 			&i.Protocol,
 			&i.Url,
-			&i.ApiKey,
+			&i.ApiKeySealed,
 			&i.HomeNodeID,
 			&i.Caps,
 			&i.CreatedAt,
@@ -107,4 +108,22 @@ func (q *Queries) NameTaken(ctx context.Context, name string) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const setIndexerKey = `-- name: SetIndexerKey :execrows
+UPDATE indexers_indexer SET api_key_sealed = ?1, caps = ?2 WHERE id = ?3
+`
+
+type SetIndexerKeyParams struct {
+	ApiKeySealed secret.Sealed
+	Caps         string
+	ID           IndexerID
+}
+
+func (q *Queries) SetIndexerKey(ctx context.Context, arg SetIndexerKeyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setIndexerKey, arg.ApiKeySealed, arg.Caps, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

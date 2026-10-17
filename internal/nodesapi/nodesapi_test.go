@@ -62,12 +62,6 @@ func (unadvertised) Subscribe(context.Context) <-chan link.Change { return nil }
 
 func (unadvertised) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
 
-type quiet struct{}
-
-func (quiet) Publish(context.Context, storage.UUID, identity.SessionsChanged) {}
-
-func (quiet) EndSession(storage.UUID) {}
-
 type changes struct{}
 
 func (changes) Publish(context.Context, nodes.Changed) {}
@@ -83,7 +77,7 @@ func claimed(t *testing.T, lib *storage.DB[storage.Library], log *slog.Logger) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := identity.New(t.Context(), lib, keys.PINPepper(), quiet{}, quiet{})
+	svc, err := identity.New(t.Context(), identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: identitytest.Hub(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +96,7 @@ func claimed(t *testing.T, lib *storage.DB[storage.Library], log *slog.Logger) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	return svc, gate, admin.APIKey
+	return svc, gate, admin.APIKey.Reveal()
 }
 
 func TestAJoinCodeNeedsALinkAddress(t *testing.T) {

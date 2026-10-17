@@ -5,6 +5,8 @@ package faketest
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -23,14 +25,32 @@ import (
 )
 
 // Served is a running fake and a client that reaches it, trusting its
-// certificate when it serves TLS. Faults plays on every connection and
-// request, and a test may set and clear its rules as it goes. RunDir holds
-// the event log its captures write.
+// certificate when it serves TLS. Roots is the CA its certificates chain
+// to, for a client of another protocol. Faults plays on every connection
+// and request, and a test may set and clear its rules as it goes. RunDir
+// holds the event log its captures write.
 type Served struct {
 	Address fake.Address
 	Client  *http.Client
+	Roots   *x509.CertPool
 	Faults  *fault.Plan
 	RunDir  string
+	env     fake.Env
+}
+
+// Cue plays the fake's cue name with args, as fakeworld cue does, and
+// answers its result.
+func (s Served) Cue(t testing.TB, name string, args any) any {
+	t.Helper()
+	raw, err := json.Marshal(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := s.env.Cue(t.Context(), name, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 // Records are the records the fake's captures wrote so far.
@@ -74,8 +94,8 @@ func WithFaults(rules ...fault.Rule) Option {
 	return func(o *options) { o.rules = append(o.rules, rules...) }
 }
 
-// Loopback serves spec on 127.0.0.1, behind a leaf from a run CA when
-// spec.TLS is set. It stops when the test ends.
+// Loopback serves spec on 127.0.0.1, behind a leaf from a run CA for a
+// FrontTLS spec and with that leaf in its Env for an OwnTLS one. It stops when the test ends.
 func Loopback(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option) Served {
 	t.Helper()
 	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
@@ -112,14 +132,15 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	}
 	front := fault.Front{Target: fault.Target(spec.Name), Origin: o.origin, Layers: fault.Conn | fault.HTTP}
 	plan := fault.NewPlan([]fault.Front{front}, nil)
-	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS}
+	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS == fake.FrontTLS}
 	l = plan.Listener(l, front)
-	if spec.TLS {
-		leaf, err := authority.Leaf("127.0.0.1", spec.Name+".fake.localhost")
-		if err != nil {
-			t.Fatal(err)
-		}
-		l = tls.NewListener(l, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12})
+	leaf, err := authority.Leaf("127.0.0.1", spec.Name+".fake.localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	served := &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}
+	if spec.TLS == fake.FrontTLS {
+		l = tls.NewListener(l, served)
 		tr.TLSClientConfig = &tls.Config{RootCAs: authority.Pool(), MinVersion: tls.VersionTLS12}
 	}
 	runDir := t.TempDir()
@@ -130,6 +151,9 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	t.Cleanup(func() { _ = log.Close() })
 	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
 	env.Releases, env.Fronts, env.Files = o.releases, o.fronts, runDir
+	if spec.TLS == fake.OwnTLS {
+		env.Leaf = served
+	}
 	server, err := spec.New(s, env)
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +171,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 			t.Errorf("fake %s: %v", spec.Name, err)
 		}
 	})
-	return Served{Address: at, Client: &http.Client{Transport: tr}, Faults: plan, RunDir: runDir}
+	return Served{Address: at, Client: &http.Client{Transport: tr}, Roots: authority.Pool(), Faults: plan, RunDir: runDir, env: env}
 }
 
 // ownRules are the Scenario's fault rules whose Target is spec's fake, as

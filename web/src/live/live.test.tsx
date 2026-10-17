@@ -1,6 +1,6 @@
 import { http } from "msw";
 import { afterEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import { getGetSystemQueryKey } from "../api/gen/query/system/system";
@@ -9,7 +9,7 @@ import {
   getListWorksQueryKey,
   getSearchCatalogQueryKey,
 } from "../api/gen/query/works/works";
-import { ada, problem } from "../test/handlers";
+import { ada, grace, problem } from "../test/handlers";
 import { liveServer, seeded } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
@@ -114,13 +114,47 @@ test("live.session-ended clears this tab and every other tab", async () => {
   await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
   const second = renderApp({ path: "/" });
   await expect.poll(() => server.clients.length).toBe(2);
+  await expect.poll(() => second.queryClient.isFetching()).toBe(0);
 
   server.signOut();
+  await second.queryClient.refetchQueries();
   server.clients[0]?.send({ event: "live.session-ended", data: { reason: "signed-out" } });
   await expect.poll(() => first.router.state.location.href).toBe("/sign-in?reason=signed-out");
   await expect.poll(() => second.router.state.location.href).toBe("/sign-in?reason=signed-out");
   expect(first.queryClient.getQueryData(getGetSystemQueryKey())).toBeUndefined();
   expect(second.queryClient.getQueryData(getGetSystemQueryKey())).toBeUndefined();
+});
+
+test("live.access-changed re-gates the tab, so a demoted Admin lands on the portal", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/system", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "This Node" })).toBeVisible();
+  await expect.poll(() => app.live.getState()).toBe("open");
+
+  server.become({ ...ada, admin: false });
+  server.clients[0]?.dispatchEvent(new MessageEvent("live.access-changed", { data: "{}" }));
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(app.router.state.location.href).toBe("/portal");
+  await expect.element(page.getByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+  expect(app.queryClient.getQueryData(getGetSystemQueryKey())).toBeUndefined();
+  await expect.poll(() => server.closed).toEqual([0]);
+  await expect.poll(() => server.clients).toHaveLength(2);
+  await expect.poll(() => app.live.getState()).toBe("open");
+});
+
+test("live.access-changed keeps a promoted Member in the portal they were in, with Admin links", async () => {
+  const server = liveServer();
+  server.become(grace);
+  const app = renderApp({ path: "/portal", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await expect.poll(() => app.live.getState()).toBe("open");
+
+  server.become({ ...grace, admin: true });
+  server.clients[0]?.dispatchEvent(new MessageEvent("live.access-changed", { data: "{}" }));
+  await expect.poll(() => server.clients).toHaveLength(2);
+  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await expect.element(page.getByRole("menuitem", { name: "Back to Library" })).toBeVisible();
+  expect(app.router.state.location.href).toBe("/portal");
 });
 
 test("an event that fails to parse is reported once and resyncs", async () => {

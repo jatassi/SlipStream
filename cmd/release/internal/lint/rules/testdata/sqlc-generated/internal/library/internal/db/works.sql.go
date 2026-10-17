@@ -12,7 +12,7 @@ import (
 )
 
 type ListWorksParams struct {
-	RootID RootID
+	RootID  RootID
 	AfterAt storage.Time
 	Limit   int64
 }

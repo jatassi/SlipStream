@@ -85,8 +85,6 @@ func Open(ctx context.Context, lib *storage.DB[file], path string) (*Keys, error
 // never rotates: a new pepper would need every PIN again.
 func (k *Keys) PINPepper() []byte { return k.derive("slipstream pin pepper") }
 
-func (k *Keys) CredentialKey() []byte { return k.derive("slipstream credential key") }
-
 func (k *Keys) check() []byte { return k.derive("slipstream key check") }
 
 func (k *Keys) derive(info string) []byte {

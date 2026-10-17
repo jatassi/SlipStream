@@ -7,7 +7,7 @@ import (
 )
 
 // Level is an operation's access level. Its type parameter is the principal
-// its handlers receive. The four values below are the whole set.
+// its handlers receive. The seven values below are the whole set.
 type Level[P any] struct {
 	*access
 	admit admitFunc[P]
@@ -48,21 +48,35 @@ var (
 			return gate.Run(ctx, c, setupCode, next)
 		},
 	}
+	// Bearer admits a session that must set a new PIN, which every other
+	// session level refuses with pin_required.
+	Bearer = Level[identity.Bearer]{
+		&access{name: "bearer", rank: 2, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount, WorkerNode}, authenticates: true, byClaim: true},
+		narrowed(identity.Caller.Bearer),
+	}
 	Account = Level[identity.Account]{
-		&access{name: "account", rank: 2, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount, WorkerNode}, authenticates: true, byClaim: true},
+		&access{name: "account", rank: 3, security: []map[string][]string{{schemeSession: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount, PINRequired, WorkerNode}, authenticates: true, byClaim: true},
 		narrowed(identity.Caller.Account),
 	}
+	Confirmed = Level[identity.Account]{
+		&access{name: "confirmed", rank: 4, security: []map[string][]string{{schemeSession: {scopeReconfirmed}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAccount, PINRequired, NeedsReconfirm, WorkerNode}, authenticates: true, byClaim: true},
+		narrowed(identity.Caller.Confirmed),
+	}
 	Admin = Level[identity.Admin]{
-		&access{name: "admin", rank: 3, security: []map[string][]string{{schemeSession: {"admin"}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, NeedsAdmin, WorkerNode}, authenticates: true, byClaim: true},
+		&access{name: "admin", rank: 5, security: []map[string][]string{{schemeSession: {scopeAdmin}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, PINRequired, NeedsAdmin, WorkerNode}, authenticates: true, byClaim: true},
 		narrowed(identity.Caller.Admin),
+	}
+	Reconfirmed = Level[identity.Admin]{
+		&access{name: "reconfirmed", rank: 6, security: []map[string][]string{{schemeSession: {scopeAdmin, scopeReconfirmed}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, PINRequired, NeedsAdmin, NeedsReconfirm, WorkerNode}, authenticates: true, byClaim: true},
+		narrowed(identity.Caller.Reconfirmed),
 	}
 )
 
-// zeroLevel ends the panic for a Level that is none of the four, such as
+// zeroLevel ends the panic for a Level that is none of the seven, such as
 // another package's api.Level[identity.Admin]{}.
-const zeroLevel = "a zero api.Level; use api.Public, api.Setup, api.Account or api.Admin"
+const zeroLevel = "a zero api.Level; use api.Public, api.Setup, api.Bearer, api.Account, api.Confirmed, api.Admin or api.Reconfirmed"
 
-var levels = []*access{Public.access, Setup.access, Account.access, Admin.access}
+var levels = []*access{Public.access, Setup.access, Bearer.access, Account.access, Confirmed.access, Admin.access, Reconfirmed.access}
 
 func narrowed[P any](narrow func(identity.Caller) (P, error)) admitFunc[P] {
 	return func(_ context.Context, _ *identity.Gate, c identity.Caller, _ string, next func(P)) error {
@@ -79,4 +93,7 @@ const (
 	schemeSession   = "session"
 	schemeAPIKey    = "apiKey"
 	schemeSetupCode = "setupCode"
+
+	scopeAdmin       = "admin"
+	scopeReconfirmed = "reconfirmed"
 )

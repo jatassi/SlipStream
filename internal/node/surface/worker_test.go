@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -30,6 +31,7 @@ type worker struct{}
 
 func (worker) Claim(context.Context) (system.Claim, error) { return system.Worker, nil }
 func (worker) Identity() (*identity.Service, bool)         { return nil, false }
+func (worker) Mail() (*mail.Mail, bool)                    { return nil, false }
 
 func (worker) ClaimController(context.Context, func(*identity.Service) error) error {
 	panic("a Worker's closed gate admitted claimController")

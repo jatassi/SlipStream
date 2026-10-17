@@ -64,9 +64,11 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 	}
 	want := Scenario{
 		Name:        "home",
-		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading.",
+		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading. Grace joins as a Member by Signup link, and fakes/smtp is the email setting.",
 		Seed:        "home",
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
+		Members:     []Member{{Email: "grace@example.test", DisplayName: "Grace Hopper", PIN: "1357"}},
+		Mail:        true,
 		Nodes: []Node{
 			{Name: "home", Setup: SetupController, Roles: []role.Name{role.Storage, role.Converting, role.Subtitles, role.Metadata, role.MediaServerLink, role.Notifying, role.Serving}},
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
@@ -132,6 +134,26 @@ func TestParseRefuses(t *testing.T) {
 			"pin",
 			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"12a4\"}\nnodes: [{name: home, setup: controller}]\n",
 			`scenario x: admin pin "12a4" is not four digits`,
+		},
+		{
+			"members without an admin",
+			"seed: x\nmembers: [{email: grace@example.test, display_name: Grace, pin: \"1357\"}]\nnodes: [{name: home, setup: none}]\n",
+			"scenario x: members are set, but no admin issues their Signup links",
+		},
+		{
+			"mail without an admin",
+			"seed: x\nmail: true\nnodes: [{name: home, setup: none}]\n",
+			"scenario x: mail is set, but no admin saves it",
+		},
+		{
+			"member email used twice",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nmembers: [{email: Ada@Example.test, display_name: Ada Again, pin: \"1357\"}]\nnodes: [{name: home, setup: controller}]\n",
+			"scenario x: member email Ada@Example.test is used twice",
+		},
+		{
+			"member pin",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nmembers: [{email: grace@example.test, display_name: Grace, pin: \"135\"}]\nnodes: [{name: home, setup: controller}]\n",
+			`scenario x: member grace@example.test pin "135" is not four digits`,
 		},
 		{
 			"two controllers",

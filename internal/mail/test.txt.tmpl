@@ -1,0 +1,9 @@
+{{define "subject"}}Test email from {{or .ServerName "SlipStream"}}{{end}}
+{{define "body"}}This is a test email from SlipStream{{if .ServerName}} at {{.ServerName}}{{end}}.
+
+Email is set up. Signup links, Reset links and notices will arrive the same way.
+{{if .URL}}
+{{button "Open SlipStream" .URL}}
+{{end}}{{end}}
+{{define "footer"}}
+You got this email because you chose Send test email in Settings.{{end}}

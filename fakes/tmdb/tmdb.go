@@ -18,7 +18,7 @@ import (
 
 var Fake = fake.Spec{
 	Name: "tmdb",
-	TLS:  true,
+	TLS:  fake.FrontTLS,
 	New:  newServer,
 	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
 		e.TMDB.API = endpoint.MustParseURL(at.URL(root))

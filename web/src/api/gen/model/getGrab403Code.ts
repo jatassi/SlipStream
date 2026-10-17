@@ -1,1 +1,1 @@
-export type GetGrab403Code = "needs_admin";
+export type GetGrab403Code = "needs_admin" | "pin_required";

@@ -1,8 +1,12 @@
 import type { LiveEventFilesChanged } from "./liveEventFilesChanged.ts";
 import type { LiveEventGrabsChanged } from "./liveEventGrabsChanged.ts";
 import type { LiveEventGrabsSearchChanged } from "./liveEventGrabsSearchChanged.ts";
+import type { LiveEventIdentityAccountsChanged } from "./liveEventIdentityAccountsChanged.ts";
+import type { LiveEventIdentityLinksChanged } from "./liveEventIdentityLinksChanged.ts";
+import type { LiveEventIdentityPasskeysChanged } from "./liveEventIdentityPasskeysChanged.ts";
 import type { LiveEventIdentitySessionsChanged } from "./liveEventIdentitySessionsChanged.ts";
 import type { LiveEventIndexersChanged } from "./liveEventIndexersChanged.ts";
+import type { LiveEventLiveAccessChanged } from "./liveEventLiveAccessChanged.ts";
 import type { LiveEventLiveResync } from "./liveEventLiveResync.ts";
 import type { LiveEventLiveSessionEnded } from "./liveEventLiveSessionEnded.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
@@ -17,8 +21,12 @@ export type LiveEvent =
   | LiveEventFilesChanged
   | LiveEventGrabsChanged
   | LiveEventGrabsSearchChanged
+  | LiveEventIdentityAccountsChanged
+  | LiveEventIdentityLinksChanged
+  | LiveEventIdentityPasskeysChanged
   | LiveEventIdentitySessionsChanged
   | LiveEventIndexersChanged
+  | LiveEventLiveAccessChanged
   | LiveEventLiveResync
   | LiveEventLiveSessionEnded
   | LiveEventNodesChanged

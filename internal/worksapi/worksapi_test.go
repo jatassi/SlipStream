@@ -26,12 +26,6 @@ import (
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
 
-type quiet struct{}
-
-func (quiet) Publish(context.Context, storage.UUID, identity.SessionsChanged) {}
-
-func (quiet) EndSession(storage.UUID) {}
-
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
@@ -62,7 +56,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := identity.New(t.Context(), lib, keys.PINPepper(), quiet{}, quiet{})
+	svc, err := identity.New(t.Context(), identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: identitytest.Hub(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +89,7 @@ func serve(t *testing.T) *server {
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	worksapi.Routes(r, shelf{w})
-	return &server{handler: r.Handler(), fx: fx, apiKey: admin.APIKey, session: admin.Cookie.Value, log: logged}
+	return &server{handler: r.Handler(), fx: fx, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {

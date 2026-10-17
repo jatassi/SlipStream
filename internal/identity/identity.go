@@ -1,5 +1,6 @@
-// Package identity owns Accounts, sessions, the API key, the session
-// lifetime setting, PIN hashing, the principal types and authentication.
+// Package identity owns Accounts, sessions, the API key, the sign-in
+// settings, PIN hashing and its limits, the principal types and
+// authentication.
 // Only identity builds a principal.
 package identity
 
@@ -18,7 +19,10 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
+	"github.com/jatassi/slipstream/internal/identity/passkey"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -32,6 +36,7 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("identity", 
 type (
 	AccountID = db.AccountID
 	SessionID = db.SessionID
+	PasskeyID = db.PasskeyID
 )
 
 // SessionsChanged reaches an Account's streams when one of its sessions
@@ -40,16 +45,18 @@ type SessionsChanged struct {
 	Account string `json:"account" format:"uuid"`
 }
 
-var SessionsChangedEvent = live.AccountEvent[SessionsChanged]("identity.sessions-changed")
+// AccountsChanged reaches Admins when an Account is added, changed or
+// deleted.
+type AccountsChanged struct{}
 
-// SessionsPublisher is SessionsChangedEvent bound to the hub.
-type SessionsPublisher interface {
-	Publish(ctx context.Context, account storage.UUID, v SessionsChanged)
-}
+// LinksChanged reaches Admins when a Signup link is issued, used or ends.
+type LinksChanged struct{}
 
-type SessionEnder interface {
-	EndSession(session storage.UUID)
-}
+var (
+	SessionsChangedEvent = live.AccountEvent[SessionsChanged]("identity.sessions-changed")
+	AccountsChangedEvent = live.AdminEvent[AccountsChanged]("identity.accounts-changed")
+	LinksChangedEvent    = live.AdminEvent[LinksChanged]("identity.links-changed")
+)
 
 const (
 	CookieName = "slipstream_session"
@@ -61,29 +68,55 @@ const (
 	apiKeyPrefix = "ssk_"
 )
 
-type Service struct {
-	lib      *storage.DB[file]
-	pins     *pins
-	dummy    string
-	lifetime time.Duration
-	sessions SessionsPublisher
-	ends     SessionEnder
+type Config struct {
+	Library *storage.DB[file]
+	Pepper  []byte
+	// Sealer seals the Signup link tokens kept for Copy link.
+	Sealer *secret.Sealer
+	// Hub carries identity's events and ends sessions' streams.
+	Hub *live.Hub
+	// Mail sends the emails whose outcome the caller waits for, and Outbox
+	// those that go out after the response.
+	Mail   mail.Sender
+	Outbox *mail.Outbox
 }
 
-// New reads the session lifetime once and builds the dummy hash an unknown
-// email verifies against.
-func New(ctx context.Context, lib *storage.DB[file], pepper []byte, sessions SessionsPublisher, ends SessionEnder) (*Service, error) {
-	days, err := db.New(lib).GetSessionLifetimeDays(ctx)
-	if err != nil {
-		return nil, err
-	}
+type Service struct {
+	lib        *storage.DB[file]
+	pins       *pins
+	dummy      string
+	sealer     *secret.Sealer
+	hub        *live.Hub
+	sessions   live.AccountPublisher[SessionsChanged]
+	passkeys   live.AccountPublisher[PasskeysChanged]
+	accounts   live.AdminPublisher[AccountsChanged]
+	links      live.AdminPublisher[LinksChanged]
+	mail       mail.Sender
+	outbox     *mail.Outbox
+	shadow     *shadowLedger
+	limiter    *limiter
+	ceremonies *passkey.Ceremonies
+}
+
+// New builds the dummy hash an unknown email verifies against. It reads no
+// setting: every setting is read at use.
+func New(ctx context.Context, cfg Config) (*Service, error) {
 	s := &Service{
-		lib:      lib,
-		pins:     newPINs(pepper),
-		lifetime: time.Duration(days) * 24 * time.Hour,
-		sessions: sessions,
-		ends:     ends,
+		lib:        cfg.Library,
+		pins:       newPINs(cfg.Pepper),
+		sealer:     cfg.Sealer,
+		hub:        cfg.Hub,
+		sessions:   SessionsChangedEvent.Bind(cfg.Hub),
+		passkeys:   PasskeysChangedEvent.Bind(cfg.Hub),
+		accounts:   AccountsChangedEvent.Bind(cfg.Hub),
+		links:      LinksChangedEvent.Bind(cfg.Hub),
+		mail:       cfg.Mail,
+		outbox:     cfg.Outbox,
+		shadow:     newShadowLedger(),
+		limiter:    newLimiter(),
+		ceremonies: passkey.NewCeremonies(),
 	}
+	var err error
 	if s.dummy, err = s.pins.hash(ctx, PIN{digits: "0000"}); err != nil {
 		return nil, err
 	}
@@ -98,7 +131,7 @@ func (s *Service) HasAdmin(ctx context.Context) (bool, error) {
 // the cookie of its new session.
 type Claimed struct {
 	Profile Profile
-	APIKey  string
+	APIKey  APIKey
 	Cookie  *http.Cookie
 }
 
@@ -110,10 +143,10 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		return Claimed{}, err
 	}
 	profile := Profile{ID: AccountID{UUID: storage.NewUUID()}, Email: normalizeEmail(email), DisplayName: displayName, Admin: true}
-	apiKey := apiKeyPrefix + newToken()
+	apiKey := newAPIKey()
 	token := newToken()
-	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
+	var lifetime time.Duration
+	err = s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
 		admin, err := q.HasAdmin(ctx)
 		if err != nil {
 			return err
@@ -121,74 +154,148 @@ func (s *Service) ClaimController(ctx context.Context, c Claim, email, displayNa
 		if admin {
 			return ErrAlreadyClaimed
 		}
-		now := storage.Now()
+		set, err := readSettings(ctx, q)
+		if err != nil {
+			return err
+		}
+		lifetime = set.SessionLifetime
 		err = q.InsertAccount(ctx, db.InsertAccountParams{
 			ID:          profile.ID,
 			Email:       profile.Email,
 			DisplayName: profile.DisplayName,
 			Admin:       true,
 			PinHash:     hash,
-			CreatedAt:   now,
+			CreatedAt:   fx.now,
 		})
 		if err != nil {
 			return err
 		}
-		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(apiKey), CreatedAt: now}); err != nil {
+		if err := q.InsertAPIKey(ctx, db.InsertAPIKeyParams{TokenHash: digest(apiKey.token), CreatedAt: fx.now}); err != nil {
 			return err
 		}
-		return insertSession(ctx, q, profile.ID, token, c.address, now)
+		row, err := q.GetAccount(ctx, profile.ID)
+		if err != nil {
+			return err
+		}
+		_, err = startSession(ctx, q, fx, c.client, row, token, false)
+		return err
 	})
 	if err != nil {
 		return Claimed{}, err
 	}
-	s.sessionsChanged(ctx, profile.ID)
-	return Claimed{Profile: profile, APIKey: apiKey, Cookie: s.cookie(token, c.tls)}, nil
+	return Claimed{Profile: profile, APIKey: apiKey, Cookie: cookie(token, c.https, lifetime)}, nil
 }
+
+// SignedIn is any way in: a PIN, a Signup link, a Reset link.
+// PasskeyPrompt is the "Sign in faster here" sheet, which the same Write
+// marks shown on the new session, so Not now holds until the next sign-in.
+type SignedIn struct {
+	Profile       Profile
+	Cookie        *http.Cookie
+	PINRequired   bool
+	KeyPrompt     KeyPrompt
+	PasskeyPrompt bool
+}
+
+var ErrAccountDisabled = errors.New("identity: the Account is turned off")
 
 // SignIn verifies email and pin and starts a session. An unknown email
-// verifies against the dummy hash, so both failures cost one argon2id and
-// return ErrPINWrong.
-func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (Profile, *http.Cookie, error) {
-	row, err := db.New(s.lib).GetAccountByEmail(ctx, normalizeEmail(email))
-	known := err == nil
-	if err != nil && !errors.Is(err, storage.ErrNoRows) {
-		return Profile{}, nil, err
-	}
-	hash := s.dummy
-	if known {
-		hash = row.PinHash
-	}
-	ok, err := s.pins.verify(ctx, pin, hash)
+// verifies against the dummy hash and keeps a shadow ledger, so it answers
+// exactly as a real Account does. A turned-off Account is refused only
+// once its PIN checks out, so the refusal reveals nothing without it.
+func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (SignedIn, error) {
+	set, err := readSettings(ctx, db.New(s.lib))
 	if err != nil {
-		return Profile{}, nil, err
+		return SignedIn{}, err
 	}
-	if !ok || !known {
-		return Profile{}, nil, ErrPINWrong
+	sub, err := s.subjectByEmail(ctx, email)
+	if err != nil {
+		return SignedIn{}, err
+	}
+	pass, err := s.checkPIN(ctx, a.client, sub, pin, set)
+	if err != nil {
+		return SignedIn{}, err
 	}
 	token := newToken()
-	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return insertSession(ctx, db.New(tx), row.ID, token, a.address, storage.Now())
+	var out SignedIn
+	disabled := false
+	err = s.afterPIN(ctx, pass, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		row, err := q.GetAccount(ctx, sub.account)
+		if err != nil {
+			return err
+		}
+		if !row.DisabledAt.IsZero() {
+			disabled = true
+			return nil
+		}
+		out, err = startSession(ctx, q, fx, a.client, row, token, false)
+		return err
 	})
 	if err != nil {
-		return Profile{}, nil, err
+		return SignedIn{}, err
 	}
-	s.sessionsChanged(ctx, row.ID)
-	profile := Profile{ID: row.ID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin}
-	return profile, s.cookie(token, a.tls), nil
+	if disabled {
+		return SignedIn{}, ErrAccountDisabled
+	}
+	out.Cookie = cookie(token, a.https, set.SessionLifetime)
+	return out, nil
 }
 
-// SignOut ends a's session and its open streams and returns the cookie
+func (s *Service) signInBy(ctx context.Context, c client, fn func(ctx context.Context, q *db.Queries, fx *effects) (AccountID, error)) (SignedIn, error) {
+	token := newToken()
+	var out SignedIn
+	var lifetime time.Duration
+	err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		id, err := fn(ctx, q, fx)
+		if err != nil {
+			return err
+		}
+		set, err := readSettings(ctx, q)
+		if err != nil {
+			return err
+		}
+		lifetime = set.SessionLifetime
+		row, err := q.GetAccount(ctx, id)
+		if err != nil {
+			return err
+		}
+		out, err = startSession(ctx, q, fx, c, row, token, false)
+		return err
+	})
+	if err != nil {
+		return SignedIn{}, err
+	}
+	out.Cookie = cookie(token, c.https, lifetime)
+	return out, nil
+}
+
+func (s *Service) subjectByEmail(ctx context.Context, email string) (subject, error) {
+	email = normalizeEmail(email)
+	row, err := db.New(s.lib).GetAccountByEmail(ctx, email)
+	if errors.Is(err, storage.ErrNoRows) {
+		return subject{email: email, hash: s.dummy}, nil
+	}
+	if err != nil {
+		return subject{}, err
+	}
+	return subjectOf(row), nil
+}
+
+func profileOf(row db.IdentityAccount) Profile {
+	return Profile{ID: row.ID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin}
+}
+
+// SignOut ends b's session and its open streams and returns the cookie
 // that clears it.
-func (s *Service) SignOut(ctx context.Context, a Account) (*http.Cookie, error) {
-	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return db.New(tx).DeleteSession(ctx, a.session)
+func (s *Service) SignOut(ctx context.Context, b Bearer) (*http.Cookie, error) {
+	err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		fx.endSession(b.s.profile.ID, b.s.session, live.SignedOut)
+		return q.DeleteSession(ctx, b.s.session)
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.ends.EndSession(a.session.UUID)
-	s.sessionsChanged(ctx, a.profile.ID)
-	return clearCookie(a.tls), nil
+	return clearCookie(b.https), nil
 }
 
 // Request is what authentication reads from an HTTP request.
@@ -197,13 +304,17 @@ type Request struct {
 	APIKey string
 	// Session is the session cookie's value, "" when absent.
 	Session string
+	// Address and HTTPS are the client's, after http.trusted_proxies.
 	Address netip.Addr
-	TLS     bool
+	HTTPS   bool
+	// Host is the request's Host, its port included.
+	Host      string
+	UserAgent string
 }
 
 // Unauthenticated is r's caller as nobody, its credentials unread.
 func (r Request) Unauthenticated() Caller {
-	return Caller{client: client{address: r.Address, tls: r.TLS}}
+	return Caller{client: client{address: r.Address, https: r.HTTPS, host: r.Host, userAgent: r.UserAgent}}
 }
 
 // Authenticate resolves r's Caller. A request with an API key
@@ -228,26 +339,30 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 	}
 	row, err := db.New(s.lib).GetSession(ctx, digest(r.Session))
 	if errors.Is(err, storage.ErrNoRows) {
-		return c, clearCookie(r.TLS), nil
+		return c, clearCookie(r.HTTPS), nil
 	}
 	if err != nil {
 		return Caller{}, nil, err
 	}
-	u, err := s.use(ctx, row.SessionID, row.AccountID, row.LastSeenAt)
+	lifetime := SessionLifetime.Value(row.SessionLifetimeSeconds)
+	u, err := s.use(ctx, row.SessionID, row.AccountID, row.LastSeenAt, lifetime)
 	if err != nil {
 		return Caller{}, nil, err
 	}
 	if u == expired {
-		return c, clearCookie(r.TLS), nil
+		return c, clearCookie(r.HTTPS), nil
 	}
+	window := ReconfirmWindow.Value(row.ReconfirmWindowSeconds)
 	c.kind = sessionCaller
-	c.account = Account{
-		client:  c.client,
-		profile: Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
-		session: row.SessionID,
+	c.s = signedIn{
+		profile:     Profile{ID: row.AccountID, Email: row.Email, DisplayName: row.DisplayName, Admin: row.Admin},
+		session:     row.SessionID,
+		confirmed:   time.Since(row.ConfirmedAt.Time()) <= window,
+		pinRequired: row.PinRequired,
+		keyPrompt:   row.KeyPrompt,
 	}
 	if u == slid {
-		return c, s.cookie(r.Session, r.TLS), nil
+		return c, cookie(r.Session, r.HTTPS, lifetime), nil
 	}
 	return c, nil, nil
 }
@@ -255,14 +370,14 @@ func (s *Service) Authenticate(ctx context.Context, r Request) (Caller, *http.Co
 // Renew counts a's open stream as use of its session, under the same rule
 // as a request. A session that expired or is gone returns ErrSignedOut.
 func (s *Service) Renew(ctx context.Context, a Account) error {
-	seen, err := db.New(s.lib).GetSessionLastSeen(ctx, a.session)
+	row, err := db.New(s.lib).GetSessionUse(ctx, a.s.session)
 	if errors.Is(err, storage.ErrNoRows) {
 		return ErrSignedOut
 	}
 	if err != nil {
 		return err
 	}
-	u, err := s.use(ctx, a.session, a.profile.ID, seen)
+	u, err := s.use(ctx, a.s.session, a.s.profile.ID, row.LastSeenAt, SessionLifetime.Value(row.SessionLifetimeSeconds))
 	if err != nil {
 		return err
 	}
@@ -282,23 +397,19 @@ const (
 
 // use is one use of a session last seen at seen. An expired session is
 // deleted and its streams end. One idle longer than lifetime/720 slides.
-func (s *Service) use(ctx context.Context, session SessionID, account AccountID, seen storage.Time) (sessionUse, error) {
+func (s *Service) use(ctx context.Context, session SessionID, account AccountID, seen storage.Time, lifetime time.Duration) (sessionUse, error) {
 	now := storage.Now()
 	idle := now.Time().Sub(seen.Time())
 	switch {
-	case idle > s.lifetime:
-		err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-			return db.New(tx).DeleteSession(ctx, session)
+	case idle > lifetime:
+		err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+			fx.endSession(account, session, live.Expired)
+			return q.DeleteSession(ctx, session)
 		})
-		if err != nil {
-			return 0, err
-		}
-		s.ends.EndSession(session.UUID)
-		s.sessionsChanged(ctx, account)
-		return expired, nil
-	case idle > s.lifetime/slideDivisor:
-		err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-			return db.New(tx).TouchSession(ctx, db.TouchSessionParams{LastSeenAt: now, ID: session})
+		return expired, err
+	case idle > lifetime/slideDivisor:
+		err := s.write(ctx, func(ctx context.Context, q *db.Queries, _ *effects) error {
+			return q.TouchSession(ctx, db.TouchSessionParams{LastSeenAt: now, ID: session})
 		})
 		return slid, err
 	}
@@ -308,40 +419,35 @@ func (s *Service) use(ctx context.Context, session SessionID, account AccountID,
 // PruneSessions deletes every session idle past the session lifetime, for
 // every Account, and ends its streams as a use of it would.
 func (s *Service) PruneSessions(ctx context.Context) error {
-	var pruned []db.ListIdleSessionsRow
-	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		before := storage.FromTime(time.Now().Add(-s.lifetime))
-		var err error
-		if pruned, err = q.ListIdleSessions(ctx, before); err != nil {
+	err := s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
+		set, err := readSettings(ctx, q)
+		if err != nil {
 			return err
+		}
+		before := storage.FromTime(fx.now.Time().Add(-set.SessionLifetime))
+		pruned, err := q.ListIdleSessions(ctx, before)
+		if err != nil {
+			return err
+		}
+		for _, p := range pruned {
+			fx.endSession(p.AccountID, p.ID, live.Expired)
 		}
 		return q.DeleteIdleSessions(ctx, before)
 	})
 	if err != nil {
 		return fmt.Errorf("prune idle sessions: %w", err)
 	}
-	for i, p := range pruned {
-		s.ends.EndSession(p.ID.UUID)
-		if i == 0 || pruned[i-1].AccountID != p.AccountID {
-			s.sessionsChanged(ctx, p.AccountID)
-		}
-	}
 	return nil
 }
 
-func (s *Service) sessionsChanged(ctx context.Context, account AccountID) {
-	s.sessions.Publish(ctx, account.UUID, SessionsChanged{Account: account.String()})
-}
-
 // cookie builds the session cookie: slipstream_session=<token>; Path=/;
-// Max-Age=<lifetime>; HttpOnly; SameSite=Lax, plus Secure over TLS.
-func (s *Service) cookie(token string, secure bool) *http.Cookie {
-	return &http.Cookie{ //nolint:gosec // Secure only over TLS: a LAN Node is reached by plain HTTP
+// Max-Age=<lifetime>; HttpOnly; SameSite=Lax, plus Secure over HTTPS.
+func cookie(token string, secure bool, lifetime time.Duration) *http.Cookie {
+	return &http.Cookie{ //nolint:gosec // Secure only over HTTPS: a LAN Node is reached by plain HTTP
 		Name:     CookieName,
 		Value:    token,
 		Path:     "/",
-		MaxAge:   int(s.lifetime / time.Second),
+		MaxAge:   int(lifetime / time.Second),
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
@@ -349,7 +455,7 @@ func (s *Service) cookie(token string, secure bool) *http.Cookie {
 }
 
 func clearCookie(secure bool) *http.Cookie {
-	return &http.Cookie{ //nolint:gosec // Secure only over TLS: a LAN Node is reached by plain HTTP
+	return &http.Cookie{ //nolint:gosec // Secure only over HTTPS: a LAN Node is reached by plain HTTP
 		Name:     CookieName,
 		Path:     "/",
 		MaxAge:   -1,
@@ -359,15 +465,36 @@ func clearCookie(secure bool) *http.Cookie {
 	}
 }
 
-func insertSession(ctx context.Context, q *db.Queries, account AccountID, token string, address netip.Addr, now storage.Time) error {
-	return q.InsertSession(ctx, db.InsertSessionParams{
-		ID:         SessionID{UUID: storage.NewUUID()},
-		TokenHash:  digest(token),
-		AccountID:  account,
-		Address:    address.String(),
-		CreatedAt:  now,
-		LastSeenAt: now,
+// startSession is the one session insert.
+func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account db.IdentityAccount, token string, pinRequired bool) (SignedIn, error) {
+	prompt := false
+	if rp, v := c.relyingParty(); v.Available && account.KeyPrompt == KeyPromptAsk {
+		held, err := q.CountPasskeysAt(ctx, db.CountPasskeysAtParams{AccountID: account.ID, RelyingParty: rp.ID()})
+		if err != nil {
+			return SignedIn{}, err
+		}
+		prompt = held == 0
+	}
+	err := q.InsertSession(ctx, db.InsertSessionParams{
+		ID:          SessionID{UUID: storage.NewUUID()},
+		TokenHash:   digest(token),
+		AccountID:   account.ID,
+		Address:     c.address.String(),
+		CreatedAt:   fx.now,
+		LastSeenAt:  fx.now,
+		ConfirmedAt: fx.now,
+		Device:      deviceLabel(c.userAgent),
+		PinRequired: pinRequired,
+		Prompted:    prompt,
 	})
+	if err != nil {
+		return SignedIn{}, err
+	}
+	fx.sessionsChanged(account.ID)
+	if err := q.StampSignIn(ctx, db.StampSignInParams{LastSignInAt: fx.now, ID: account.ID}); err != nil {
+		return SignedIn{}, err
+	}
+	return SignedIn{Profile: profileOf(account), PINRequired: pinRequired, KeyPrompt: account.KeyPrompt, PasskeyPrompt: prompt}, nil
 }
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }

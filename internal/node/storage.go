@@ -8,6 +8,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -23,6 +24,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 	core := []storage.Schema[storage.Library]{
 		secret.Schema(),
 		identity.Schema(),
+		mail.Schema(),
 		nodes.Schema(),
 		role.LibrarySchema(),
 		works.Schema(),

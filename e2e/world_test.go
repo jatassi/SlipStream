@@ -34,7 +34,7 @@ func TestFirstRun(t *testing.T) {
 	if home.Setup != scenario.SetupNone || home.Claim != world.ClaimUnclaimed || m.Admin != nil || m.APIKey != "" {
 		t.Fatalf("manifest: setup %s, claim %s, admin %+v, apiKey %q; want an Unclaimed Node and no Admin", home.Setup, home.Claim, m.Admin, m.APIKey)
 	}
-	worldtest.Expect(t, "GET /api/v1/status", api(t, run).Get("home", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"unclaimed"}` + "\n"})
+	worldtest.Expect(t, "GET /api/v1/status", api(t, run).Get("home", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	for name, want := range map[string]bool{"node.key": true, "library.db": false, "library.key": false, "local.db": false} {
 		if _, err := os.Stat(filepath.Join(home.DataDir, name)); (err == nil) != want {
 			t.Errorf("the Unclaimed data dir holds %s: %v, want %v", name, err == nil, want)
@@ -71,7 +71,7 @@ func TestSingleMachine(t *testing.T) {
 		t.Fatalf("listeners.http on %s, want 127.0.0.2", addr)
 	}
 	worldtest.Expect(t, "GET /api/v1/system without a key", a.Get("home", "/api/v1/system"), worldtest.Reply{Status: 401, Body: `{"status":401,"code":"signed_out","title":"Sign in to continue"}` + "\n"})
-	worldtest.Expect(t, "GET /api/v1/status", a.Get("home", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"controller"}` + "\n"})
+	worldtest.Expect(t, "GET /api/v1/status", a.Get("home", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"controller","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 
 	rows := a.Nodes("home")
 	every := []string{"searching", "downloading", "storage", "converting", "subtitles", "metadata", "media-server-link", "notifying", "serving"}

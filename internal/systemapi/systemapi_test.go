@@ -18,7 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/system"
@@ -52,8 +51,8 @@ func newNode(t *testing.T, f system.Facts) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := live.NewHub([]live.Event{identity.SessionsChangedEvent})
-	svc, err := identity.New(ctx, lib, keys.PINPepper(), identity.SessionsChangedEvent.Bind(hub), hub)
+	hub := identitytest.Hub(t)
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,12 +98,30 @@ func expect(t *testing.T, w *httptest.ResponseRecorder, status int, body string)
 	}
 }
 
+const plainHTTP = `"passkeys":{"available":false,"reason":"plain_http"}`
+
 func TestHealthAndStatusArePublic(t *testing.T) {
 	n := newNode(t, facts)
 	expect(t, n.do(http.MethodGet, "/api/v1/health", "", nil), 200, `{"status":"ok"}`+"\n")
-	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed"}`+"\n")
+	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed",`+plainHTTP+`}`+"\n")
 	n.claim()
-	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"controller"}`+"\n")
+	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"controller",`+plainHTTP+`}`+"\n")
+}
+
+func TestStatusSaysWhetherThisAddressCanHoldAPasskey(t *testing.T) {
+	n := newNode(t, facts)
+	for target, passkeys := range map[string]string{
+		"http://home.localhost:8484":     `{"available":true}`,
+		"http://localhost:8484":          `{"available":true}`,
+		"https://media.example.com":      `{"available":true}`,
+		"https://media.example.com:8443": `{"available":true}`,
+		"http://media.example.com":       `{"available":false,"reason":"plain_http"}`,
+		"https://192.168.1.20:8484":      `{"available":false,"reason":"ip_address"}`,
+		"http://[::1]:8484":              `{"available":false,"reason":"ip_address"}`,
+		"https://nas:8484":               `{"available":false,"reason":"not_a_domain"}`,
+	} {
+		expect(t, n.do(http.MethodGet, target+"/api/v1/status", "", nil), 200, `{"claim":"unclaimed","passkeys":`+passkeys+`}`+"\n")
+	}
 }
 
 func TestSystemReportsTheFactsToTheAPIKey(t *testing.T) {
@@ -147,7 +164,7 @@ func TestAWorkerReportsItsClaimAndSendsAdminsToItsController(t *testing.T) {
 	r := api.NewRouter(api.Services{Node: worker{}, Gate: gate, Web: fstest.MapFS{}, Log: log})
 	systemapi.Routes(r, facts, worker{})
 	n := &node{t: t, h: r.Handler()}
-	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker"}`+"\n")
+	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker",`+plainHTTP+`}`+"\n")
 	expect(t, n.do(http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": "ssk_made-up"}), 409,
 		`{"status":409,"code":"worker_node","title":"This Node is a Worker. Manage it from its Controller."}`+"\n")
 }

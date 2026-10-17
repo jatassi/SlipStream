@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/jatassi/slipstream/internal/identity"
 )
 
 type Admin struct {
@@ -164,6 +166,97 @@ func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, c
 	return profile.ID, err
 }
 
+// SetAddress sets the address the Controller builds its links on.
+func SetAddress(ctx context.Context, c *http.Client, baseURL, apiKey, address string) error {
+	var set struct{}
+	_, err := call(ctx, c, request{
+		what: "set the address", method: http.MethodPut, url: baseURL + "/api/v1/identity/address",
+		header: apiKeyHeader(apiKey), body: struct {
+			Address string `json:"address"`
+		}{address}, want: http.StatusOK,
+	}, &set)
+	return err
+}
+
+func CreateSignupLink(ctx context.Context, c *http.Client, baseURL, apiKey, email string) (string, error) {
+	var issued struct {
+		URL string `json:"url"`
+	}
+	_, err := call(ctx, c, request{
+		what: "issue a Signup link for " + email, method: http.MethodPost, url: baseURL + "/api/v1/signup-links",
+		header: apiKeyHeader(apiKey), body: struct {
+			Email string `json:"email"`
+		}{email}, want: http.StatusCreated,
+	}, &issued)
+	return issued.URL, err
+}
+
+// RedeemSignupLink makes the Account a Signup link's token was issued for,
+// as its page does, and returns the Account's id and the session cookie
+// the redeem signed in with.
+func RedeemSignupLink(ctx context.Context, c *http.Client, baseURL, token, displayName, pin string) (string, *http.Cookie, error) {
+	var joined struct {
+		Account struct {
+			ID string `json:"id"`
+		} `json:"account"`
+	}
+	var cookies []*http.Cookie
+	_, err := call(ctx, c, request{
+		what: "redeem the Signup link for " + displayName, method: http.MethodPost, url: baseURL + "/api/v1/signup-links/by-token/" + token + "/account",
+		body: struct {
+			DisplayName string `json:"displayName"`
+			PIN         string `json:"pin"`
+		}{displayName, pin}, want: http.StatusOK, cookies: &cookies,
+	}, &joined)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, ck := range cookies {
+		if ck.Name == identity.CookieName {
+			return joined.Account.ID, ck, nil
+		}
+	}
+	return "", nil, fmt.Errorf("redeem the Signup link for %s: no session cookie", displayName)
+}
+
+func SignOut(ctx context.Context, c *http.Client, baseURL string, cookie *http.Cookie) error {
+	_, err := call(ctx, c, request{
+		what: "sign out", method: http.MethodDelete, url: baseURL + "/api/v1/session",
+		header: http.Header{"Cookie": {cookie.String()}}, want: http.StatusNoContent,
+	}, nil)
+	return err
+}
+
+func MakeAdmin(ctx context.Context, c *http.Client, baseURL, apiKey, id string) error {
+	var account struct{}
+	_, err := call(ctx, c, request{
+		what: "make Account " + id + " an Admin", method: http.MethodPatch, url: baseURL + "/api/v1/accounts/" + id,
+		header: apiKeyHeader(apiKey), body: struct {
+			Admin bool `json:"admin"`
+		}{true}, want: http.StatusOK,
+	}, &account)
+	return err
+}
+
+// Mail is the email setting as the world saves it: a server without TLS
+// or sign-in.
+type Mail struct {
+	Host        string `json:"host"`
+	Port        uint16 `json:"port"`
+	Security    string `json:"security"`
+	FromAddress string `json:"fromAddress"`
+	FromName    string `json:"fromName"`
+}
+
+func SetMail(ctx context.Context, c *http.Client, baseURL, apiKey string, m Mail) error {
+	var settings struct{}
+	_, err := call(ctx, c, request{
+		what: "save the email setting", method: http.MethodPatch, url: baseURL + "/api/v1/mail/settings",
+		header: apiKeyHeader(apiKey), body: m, want: http.StatusOK,
+	}, &settings)
+	return err
+}
+
 func apiKeyHeader(key string) http.Header { return http.Header{"X-Api-Key": {key}} }
 
 type request struct {
@@ -171,6 +264,7 @@ type request struct {
 	header            http.Header
 	body              any
 	want              int
+	cookies           *[]*http.Cookie
 }
 
 // call sends r once and decodes a reply with the status r wants into out.
@@ -205,6 +299,12 @@ func call(ctx context.Context, c *http.Client, r request, out any) ([]byte, erro
 	}
 	if res.StatusCode != r.want {
 		return nil, fmt.Errorf("%s: %d %s", r.what, res.StatusCode, bytes.TrimSpace(reply))
+	}
+	if r.cookies != nil {
+		*r.cookies = res.Cookies()
+	}
+	if out == nil {
+		return nil, nil
 	}
 	if err := json.Unmarshal(reply, out); err != nil {
 		return nil, fmt.Errorf("%s: %w", r.what, err)

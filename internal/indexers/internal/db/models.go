@@ -6,16 +6,17 @@ package db
 
 import (
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 type IndexersIndexer struct {
-	ID         IndexerID
-	Name       string
-	Protocol   string
-	Url        string
-	ApiKey     string
-	HomeNodeID role.NodeID
-	Caps       string
-	CreatedAt  storage.Time
+	ID           IndexerID
+	Name         string
+	Protocol     string
+	Url          string
+	ApiKeySealed secret.Sealed
+	HomeNodeID   role.NodeID
+	Caps         string
+	CreatedAt    storage.Time
 }

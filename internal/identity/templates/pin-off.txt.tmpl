@@ -1,0 +1,6 @@
+{{define "subject"}}Your SlipStream PIN was turned off{{end}}
+{{define "body"}}Someone typed the wrong PIN for {{.Email}} {{.Count}} times in a row, so your PIN no longer works.
+
+You can still sign in with a passkey, or ask an Admin for a Reset link.{{end}}
+{{define "footer"}}
+SlipStream sends this whenever wrong PINs turn a PIN off.{{end}}

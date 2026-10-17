@@ -19,7 +19,7 @@ func TestTheTierJournalsItsCallsAndWaits(t *testing.T) {
 	run := worldtest.Launch(t, "single-machine")
 	m := run.Manifest()
 	a := api(t, run)
-	worldtest.Expect(t, "GET /api/v1/status", a.Get("home", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"controller"}` + "\n"})
+	worldtest.Expect(t, "GET /api/v1/status", a.Get("home", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"controller","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	polls := 0
 	worldtest.Until(t, "home answers twice", func() (bool, error) {
 		polls++
@@ -43,7 +43,7 @@ func TestTheTierJournalsItsCallsAndWaits(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("the journal holds\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
-	if out, err := os.ReadFile(filepath.Join(m.RunDir, "journal", "1.out")); err != nil || string(out) != `{"claim":"controller"}`+"\n" {
+	if out, err := os.ReadFile(filepath.Join(m.RunDir, "journal", "1.out")); err != nil || string(out) != `{"claim":"controller","passkeys":{"available":false,"reason":"ip_address"}}`+"\n" {
 		t.Fatalf("journal/1.out = %q, %v", out, err)
 	}
 	argv, err := world.Expand(m, []string{"{nodes.home.url}/api/v1/status"})

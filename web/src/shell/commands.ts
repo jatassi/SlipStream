@@ -1,16 +1,22 @@
-import { Add01Icon, Logout01Icon, SidebarLeftIcon } from "@hugeicons/core-free-icons";
+import {
+  Add01Icon,
+  FingerPrintAddIcon,
+  Link01Icon,
+  Logout01Icon,
+  SidebarLeftIcon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 
 import { type ShellKind, useShell } from "../ui/shell-context";
 import { addLabel } from "../works/fields";
-import { useSignOut } from "./account";
 import { type NavRow, useAdminNav, useContentTypes } from "./nav";
+import { askSignOut } from "./sign-out";
 import { toggleSidebar } from "./sidebar-state";
 
 export type CommandContext = {
   readonly navigate: UseNavigateResult<string>;
-  readonly signOut: () => void;
 };
 
 export type Command = {
@@ -33,13 +39,38 @@ const commands: readonly Command[] = [
     run: toggleSidebar,
   },
   {
+    id: "new-signup-link",
+    label: "New Signup link",
+    icon: Link01Icon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/accounts", search: { newLink: true } });
+    },
+  },
+  {
+    id: "your-account",
+    label: "Your Account",
+    icon: UserCircleIcon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/account" });
+    },
+  },
+  {
+    id: "add-passkey",
+    label: "Add a passkey",
+    icon: FingerPrintAddIcon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/account", search: { add: "passkey" } });
+    },
+  },
+  {
     id: "sign-out",
     label: "Sign out",
     icon: Logout01Icon,
     audience: "admin",
-    run: ({ signOut }) => {
-      signOut();
-    },
+    run: askSignOut,
   },
 ];
 
@@ -84,7 +115,7 @@ function useAddCommands(): Command[] {
 }
 
 export function useCommandContext(): CommandContext {
-  return { navigate: useNavigate(), signOut: useSignOut() };
+  return { navigate: useNavigate() };
 }
 
 export function useAdminCommands(): Command[] {
