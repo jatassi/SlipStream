@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { env } from "node:process";
 
-import { AxeBuilder } from "@axe-core/playwright";
 import {
   type Browser,
   type BrowserContext,
@@ -22,11 +21,12 @@ import {
   read,
 } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
+import { expectAccessible } from "./accessible.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
-export { expect };
+export { expect, expectAccessible };
 
 export type Scenario = "single-machine" | "first-run" | "home";
 
@@ -65,7 +65,6 @@ declare global {
 }
 
 const launchTimeout = 60;
-const wcag = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
 
 function binary(variable: "TEST_SLIPSTREAM_BINARY" | "TEST_FAKEWORLD_BINARY"): string {
   const path = env[variable];
@@ -105,20 +104,6 @@ function testCommand(testInfo: TestInfo): string {
     throw new Error(`test ${testInfo.title} has no file in its title path`);
   }
   return `bun run --cwd web e2e ${file.replaceAll("\\", "/")}:${testInfo.line} --project ${testInfo.project.name}`;
-}
-
-export async function expectAccessible(page: Page): Promise<void> {
-  // Base UI gives its focus guards role="button" in WebKit, so VoiceOver can
-  // land on them; they are focus traps, not commands, and have no name.
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(wcag)
-    .exclude("[data-base-ui-focus-guard]")
-    .analyze();
-  const found = violations.map(
-    (violation) =>
-      `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
-  );
-  expect(found, `axe on ${page.url()}`).toEqual([]);
 }
 
 async function guard(context: BrowserContext, origin: string): Promise<() => Promise<void>> {

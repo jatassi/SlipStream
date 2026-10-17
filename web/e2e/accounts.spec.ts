@@ -217,10 +217,10 @@ test("making an Admin a Member moves their open tab to the portal", async ({
 
   await openAccount(adminPage, grace.displayName);
   await adminPage.getByRole("button", { name: "Make Member" }).click();
-  const confirm = adminPage.getByRole("dialog", { name: `Make ${grace.displayName} a Member?` });
-  await confirm.getByRole("button", { name: "Make Member" }).click();
-  // Its fading Make Member button fails axe's contrast check at teardown.
-  await expect(confirm).toBeHidden();
+  await adminPage
+    .getByRole("dialog", { name: `Make ${grace.displayName} a Member?` })
+    .getByRole("button", { name: "Make Member" })
+    .click();
 
   await expect(tab.getByRole("heading", { name: "Home" })).toBeVisible();
   expect(tab.url()).toBe(`${world.baseURL}/portal`);
