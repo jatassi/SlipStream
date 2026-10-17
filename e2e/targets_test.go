@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/tracker"
-	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
@@ -128,10 +126,7 @@ func (w *walked) cells(t *testing.T) filledCells {
 // payload of release name.
 func (w *walked) holds(t *testing.T, name string) {
 	t.Helper()
-	holdsOnly(t, w.m, placed)
-	if _, err := world.MatchRelease(w.m, filepath.Join(w.m.MediaDir, filepath.FromSlash(placed)), name); err != nil {
-		t.Fatal(err)
-	}
+	w.holdsRelease(t, placed, name)
 }
 
 func TestOneFileFillsTwoTargetsAndSitsOnDiskOnce(t *testing.T) {

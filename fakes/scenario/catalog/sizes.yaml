@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, whose movies want one Target, Sized:
+  1080p WEB-DL at 20 to 100 MiB per minute, TrueHD audio only and no 2.0
+  channels. fixture-site lists The Quiet Orchard (104 minutes) as an
+  in-range WEB-DL, a bloated encode above the range and a tiny one below
+  it, and The Lantern Keeper, whose runtime TMDB doesn't know, as one
+  WEB-DL. No title names its audio or channels.
+seed: sizes
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000002
+      imdb_id: tt9000002
+      title: The Lantern Keeper
+      released: 2019-09-06
+      runtime: 0m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 50
+    advertised_size: 14GiB
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 80
+    advertised_size: 1.5GiB
+  - name: The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000002
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 4GiB
+tracker:
+  interval: 5s
+library:
+  roots: [{content_type: movie, folder: movies}]
+  targets:
+    - name: Sized
+      tiers: [[webdl-1080p]]
+      cutoff: webdl-1080p
+      filters:
+        - {attribute: audio_codec, mode: only, values: [TrueHD]}
+        - {attribute: channels, mode: not, values: ["2.0"]}
+      sizes: [{quality: webdl-1080p, min: 20, max: 100}]
+  profiles: [{name: Films, content_type: movie, targets: [Sized], default: true}]
+  indexers: [{name: Fixture Site, site: fixture-site}]
