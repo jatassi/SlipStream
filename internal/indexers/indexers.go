@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -105,8 +104,9 @@ func (e *UnavailableError) Unwrap() error { return e.Err }
 // Roster is the Nodes and the Roles they hold.
 type Roster interface {
 	Self() role.NodeID
-	// HoldersByPairing is every Node holding r, first paired first.
-	HoldersByPairing(ctx context.Context, r role.Name) ([]role.NodeID, error)
+	// Pick is prefer when it may take new r work, else the Controller when
+	// it may, else the first Node by id that may.
+	Pick(r role.Name, prefer role.NodeID) (role.NodeID, bool)
 }
 
 type Config struct {
@@ -140,7 +140,7 @@ func (x *Indexers) Create(ctx context.Context, _ identity.Admin, d Draft) (Index
 	case taken:
 		return Indexer{}, ErrNameTaken
 	}
-	home, err := x.home(ctx)
+	home, err := x.home()
 	if err != nil {
 		return Indexer{}, err
 	}
@@ -206,17 +206,11 @@ func (x *Indexers) SetAPIKey(ctx context.Context, _ identity.Admin, id ID, key s
 	return idx, nil
 }
 
-func (x *Indexers) home(ctx context.Context) (role.NodeID, error) {
-	holders, err := x.cfg.Roster.HoldersByPairing(ctx, role.Searching)
-	switch {
-	case err != nil:
-		return role.NodeID{}, err
-	case len(holders) == 0:
-		return role.NodeID{}, ErrNoSearchingNode
-	case slices.Contains(holders, x.cfg.Roster.Self()):
-		return x.cfg.Roster.Self(), nil
+func (x *Indexers) home() (role.NodeID, error) {
+	if node, ok := x.cfg.Roster.Pick(role.Searching, x.cfg.Roster.Self()); ok {
+		return node, nil
 	}
-	return holders[0], nil
+	return role.NodeID{}, ErrNoSearchingNode
 }
 
 // List lists every Indexer by name.

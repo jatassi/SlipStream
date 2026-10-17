@@ -7,11 +7,15 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
+	"math/rand/v2"
+	"net/http"
 	"net/netip"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -22,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -64,21 +69,38 @@ type controller struct {
 	lib  *storage.DB[storage.Library]
 	svc  *nodes.Service
 	pub  *published
+	stop func()
+}
+
+// lockstep serves the Controls' Sync streams once the Service is open.
+func (s *side) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, h := s.svc.Controls().Handler()
+	h.ServeHTTP(w, r)
 }
 
 func startController(t *testing.T) *controller {
 	t.Helper()
 	net := fault.NewNetwork()
 	s := &side{}
-	node := linktest.Start(t, net, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair})
-	pub := &published{}
+	node := linktest.Start(t, net, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Lockstep: s})
 	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
+	c := &controller{net: net, node: node, lib: lib}
+	c.open(t, s)
+	return c
+}
+
+// open opens the roster on c's library and runs it until the test ends.
+func (c *controller) open(t *testing.T, s *side) {
+	t.Helper()
+	pub := &published{}
 	svc, err := nodes.Open(t.Context(), nodes.Config{
-		Library: lib,
-		Key:     node.Key,
+		Library: c.lib,
+		Key:     c.node.Key,
 		Name:    "home",
-		Link:    node.Link,
+		Link:    c.node.Link,
 		Changed: pub,
+		Owners:  nodestest.Unowned(),
+		Timings: nodes.DefaultTimings(),
 		Log:     discard,
 	})
 	if err != nil {
@@ -91,11 +113,45 @@ func startController(t *testing.T) *controller {
 		defer close(done)
 		_ = svc.Run(ctx)
 	}()
-	t.Cleanup(func() {
+	stop := sync.OnceFunc(func() {
 		cancel()
 		<-done
 	})
-	return &controller{net: net, node: node, lib: lib, svc: svc, pub: pub}
+	t.Cleanup(stop)
+	c.svc, c.pub, c.stop = svc, pub, stop
+}
+
+// hold runs w's holder half in session with the Controller until stop or
+// the test's end.
+func (c *controller) hold(t *testing.T, w *linktest.Node) (stop func()) {
+	t.Helper()
+	return holder(t, role.OverLink(w.Link, c.node.Key))
+}
+
+func holder(t *testing.T, upstream role.Upstream) (stop func()) {
+	t.Helper()
+	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
+		Local:    storagetest.Local(t, role.LocalSchema()),
+		Upstream: upstream,
+		Timings:  role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second},
+		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Log:      discard,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = h.Run(ctx)
+	}()
+	stop = sync.OnceFunc(func() {
+		cancel()
+		<-done
+	})
+	t.Cleanup(stop)
+	return stop
 }
 
 func (c *controller) mint(t *testing.T) nodes.JoinCode {
@@ -181,30 +237,82 @@ func TestAKnownKeyKeepsItsRoles(t *testing.T) {
 	})
 }
 
-func TestHoldersByPairingListTheFirstPairedFirst(t *testing.T) {
+// A Worker whose link is live but whose Sync session is not attached is
+// not in step: it takes no new work until its holder half is in session.
+func TestOnlyANodeWhoseSyncIsAttachedMayTakeNewWork(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startController(t)
-		var ids []role.NodeID
-		for i, name := range []string{"box", "crate"} {
-			w := c.worker(t, name, "127.0.0."+strconv.Itoa(3+i))
-			_, id := c.pair(t, w, c.mint(t), name)
-			w.Drop(c.node.Key)
-			synctest.Wait()
-			ids = append(ids, id)
-			time.Sleep(time.Minute)
+		w := c.worker(t, "box", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "box")
+		w.Drop(c.node.Key)
+		synctest.Wait()
+		if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Searching}); err != nil {
+			t.Fatal(err)
 		}
-		for _, id := range []role.NodeID{ids[1], ids[0]} {
-			if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Searching}); err != nil {
-				t.Fatal(err)
-			}
+		w.Keep(c.node.Target())
+		synctest.Wait()
+		if _, live := w.State(c.node.Key).(link.Live); !live {
+			t.Fatal("box's link to home is not live")
 		}
-		holders, err := c.svc.HoldersByPairing(t.Context(), role.Searching)
-		if want := []role.NodeID{c.svc.Self(), ids[0], ids[1]}; err != nil || !slices.Equal(holders, want) {
-			t.Fatalf("searching holders = %v, %v; want the Controller, box, crate %v", holders, err, want)
+		if got, ok := c.svc.Pick(role.Searching, id); !ok || got != c.svc.Self() || c.svc.InStep(id) {
+			t.Fatalf("with box's link live and no Sync session, Pick(box) = %s, %v and box in step %v; want home, out of step", got, ok, c.svc.InStep(id))
 		}
-		holders, err = c.svc.HoldersByPairing(t.Context(), role.Downloading)
-		if want := []role.NodeID{c.svc.Self()}; err != nil || !slices.Equal(holders, want) {
-			t.Fatalf("downloading holders = %v, %v; want the Controller alone", holders, err)
+		changed := c.svc.Changed()
+		c.hold(t, w)
+		synctest.Wait()
+		select {
+		case <-changed:
+		default:
+			t.Fatal("the roster did not change when box's Sync session attached")
+		}
+		if got, ok := c.svc.Pick(role.Searching, id); !ok || got != id || !c.svc.InStep(id) {
+			t.Fatalf("with box in session, Pick(box) = %s, %v and box in step %v; want box", got, ok, c.svc.InStep(id))
+		}
+	})
+}
+
+// seedbox in session holds Searching. Gone past the offline grace from
+// its last Sync frame, it lapses and the Controller covers Searching in
+// its own node scope.
+func TestTheControllerCoversALapsedNodesSearching(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		w := c.worker(t, "seedbox", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "seedbox")
+		holder(t, role.InProcess(c.svc.Controls()))
+		stop := c.hold(t, w)
+		if _, err := c.svc.SetRoles(t.Context(), id, []role.Name{role.Searching}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.svc.SetRoles(t.Context(), c.svc.Self(), []role.Name{role.Downloading}); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		holding, err := c.svc.Controls().NodeVersion(t.Context(), c.svc.Self())
+		if err != nil {
+			t.Fatal(err)
+		}
+		stop()
+		synctest.Wait()
+		left := time.Now()
+		if who := c.svc.Who(role.Searching); who.Covering() || !who.Serves(id) {
+			t.Fatalf("just after seedbox left: covering %v, seedbox serves %v; want seedbox away and still serving", who.Covering(), who.Serves(id))
+		}
+		time.Sleep(time.Until(left.Add(nodes.OfflineGrace.Default)))
+		synctest.Wait()
+		who := c.svc.Who(role.Searching)
+		if !who.Lapsed(id) || !who.Covering() {
+			t.Fatalf("at the grace: seedbox lapsed %v, home covering %v; want both", who.Lapsed(id), who.Covering())
+		}
+		covering, err := c.svc.Controls().NodeVersion(t.Context(), c.svc.Self())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Equal(covering, holding) {
+			t.Fatal("home's node scope did not change when it began to cover Searching")
+		}
+		if !c.pub.has(c.svc.Self().String()) || !c.pub.has(id.String()) {
+			t.Fatal("nodes.changed was not published for home and seedbox at the lapse")
 		}
 	})
 }
@@ -350,37 +458,6 @@ func TestTheNodesSetPassesTheAudit(t *testing.T) {
 	storagetest.AuditLibrary(t, []storage.Schema[storage.Library]{nodes.Schema()})
 }
 
-func TestAwaitInStepReturnsOnceTheNodesLinkIsLive(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		c := startController(t)
-		w := c.worker(t, "box", "127.0.0.3")
-		_, id := c.pair(t, w, c.mint(t), "box")
-		w.Drop(c.node.Key)
-		synctest.Wait()
-		if err := c.svc.AwaitInStep(t.Context(), c.svc.Self()); err != nil {
-			t.Fatalf("AwaitInStep(self) = %v, want nil at once", err)
-		}
-		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
-		err := c.svc.AwaitInStep(ctx, id)
-		cancel()
-		if !errors.Is(err, context.DeadlineExceeded) {
-			t.Fatalf("AwaitInStep(box) while down = %v, want the deadline", err)
-		}
-		done := make(chan error, 1)
-		go func() { done <- c.svc.AwaitInStep(t.Context(), id) }()
-		synctest.Wait()
-		select {
-		case err := <-done:
-			t.Fatalf("AwaitInStep(box) returned %v before box connected", err)
-		default:
-		}
-		w.Keep(c.node.Target())
-		if err := <-done; err != nil {
-			t.Fatalf("AwaitInStep(box) = %v once box connected, want nil", err)
-		}
-	})
-}
-
 func TestTheLifetimeMigrationKeepsOnlyAnOverride(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -419,6 +496,147 @@ func TestTheLifetimeMigrationKeepsOnlyAnOverride(t *testing.T) {
 	}
 }
 
+// A Role with no owner fails every test that opens a roster, before the
+// roster writes anything.
+func TestOpenPanicsOnARoleWithNoOwner(t *testing.T) {
+	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
+	for _, tc := range []struct {
+		name   string
+		owners []nodes.Owner
+		want   string
+	}{
+		{"none", slices.DeleteFunc(nodestest.Unowned(), func(o nodes.Owner) bool { return o.Role == role.Storage }), "nodes: the storage Role has no owner"},
+		{"two", append(nodestest.Unowned(), nodes.Unowned(role.Searching)), "nodes: the searching Role has two owners"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if got := recover(); got == nil || !strings.HasPrefix(fmt.Sprint(got), tc.want) {
+					t.Errorf("Open panicked with %v, want %s", got, tc.want)
+				}
+				if rows := cells(t, lib, "SELECT id FROM nodes_node"); len(rows) != 0 {
+					t.Errorf("Open wrote %d Nodes before it panicked", len(rows))
+				}
+			}()
+			_, _ = nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: tc.owners, Log: discard})
+		})
+	}
+}
+
+type unlinked struct{}
+
+func (unlinked) State(link.Key) link.State { return link.Down{} }
+
+func (unlinked) Subscribe(context.Context) <-chan link.Change { return nil }
+
+func (unlinked) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
+
+// TestTheRosterMigrationKeepsEveryNode migrates a library holding two
+// Nodes with Roles, an address and a used Join Code: every row and
+// reference survives the rebuild, and a tombstone may then share a live
+// Node's name but not stand in for its key.
+func TestTheRosterMigrationKeepsEveryNode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	homeKey, boxKey := bytes.Repeat([]byte{1}, 32), bytes.Repeat([]byte{2}, 32)
+	home, box := role.NodeID{UUID: storage.NewUUID()}, role.NodeID{UUID: storage.NewUUID()}
+	populate(t, path, []stmt{
+		{"INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, ?, 'home', 1), (?, ?, 'box', 2)", []any{home, homeKey, box, boxKey}},
+		{"INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, 'searching', 1), (?, 'downloading', 2)", []any{home, box}},
+		{"INSERT INTO nodes_address (node_id, position, address) VALUES (?, 0, '127.0.0.3:8485')", []any{box}},
+		{"INSERT INTO nodes_join_code (secret_hash, created_at, expires_at, used_by, used_at) VALUES (?, 1, 2, ?, 2)", []any{bytes.Repeat([]byte{3}, 32), box}},
+	})
+	lib, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{nodes.Schema(), role.LibrarySchema()}, nil, storage.DefaultTimings(), discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = lib.Close() })
+
+	for query, want := range map[string]string{
+		"SELECT name || ' ' || hex(public_key) || ' ' || paired_at || ' ' || ifnull(seen_at, '-') || ' ' || ifnull(removed_at, '-') FROM nodes_node ORDER BY paired_at": "home " + strings.Repeat("01", 32) + " 1 - -,box " + strings.Repeat("02", 32) + " 2 - -",
+		"SELECT n.name || ' ' || r.role FROM nodes_role r JOIN nodes_node n ON n.id = r.node_id ORDER BY r.assigned_at":                                                 "home searching,box downloading",
+		"SELECT n.name || ' ' || a.address FROM nodes_address a JOIN nodes_node n ON n.id = a.node_id":                                                                  "box 127.0.0.3:8485",
+		"SELECT n.name FROM nodes_join_code c JOIN nodes_node n ON n.id = c.used_by":                                                                                    "box",
+		"SELECT ifnull(offline_grace_seconds, '-') FROM nodes_settings":                                                                                                 "-",
+	} {
+		if got := joined(t, lib, query); got != want {
+			t.Errorf("%s\n= %q, want %q", query, got, want)
+		}
+	}
+
+	insert := func(query string, args ...any) error {
+		return lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, query, args...)
+			return err
+		})
+	}
+	if err := insert("INSERT INTO nodes_node (id, name, paired_at, removed_at, removed_key) VALUES (?, 'box', 3, 4, ?)", role.NodeID{UUID: storage.NewUUID()}, boxKey); err != nil {
+		t.Fatalf("a tombstone named like a live Node: %v, want it stored", err)
+	}
+	if err := insert("INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, ?, 'box', 5)", role.NodeID{UUID: storage.NewUUID()}, bytes.Repeat([]byte{4}, 32)); err == nil {
+		t.Error("a second live Node named box was stored, want the name refused")
+	}
+	if err := insert("INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, ?, 'crate', 5)", role.NodeID{UUID: storage.NewUUID()}, boxKey); err == nil {
+		t.Error("a second live Node with box's key was stored, want the key refused")
+	}
+	if err := insert("INSERT INTO nodes_node (id, name, paired_at) VALUES (?, 'crate', 5)", role.NodeID{UUID: storage.NewUUID()}); err == nil {
+		t.Error("a live Node with no key was stored, want it refused")
+	}
+
+	svc, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Key: link.Key(homeKey), Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: discard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := svc.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, n := range list {
+		got = append(got, fmt.Sprintf("%s %v %v", n.Name, n.Self, n.Roles))
+	}
+	if want := []string{"home true [searching]", "box false [downloading]"}; !slices.Equal(got, want) {
+		t.Fatalf("the migrated roster lists %q, want %q", got, want)
+	}
+}
+
+type stmt struct {
+	query string
+	args  []any
+}
+
+// populate makes a library at path on the nodes schema before the roster
+// migration and runs stmts in it.
+func populate(t *testing.T, path string, stmts []stmt) {
+	t.Helper()
+	old, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{nodes.Schema().Through(2)}, nil, storage.DefaultTimings(), discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = old.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for _, st := range stmts {
+			if _, err := tx.ExecContext(ctx, st.query, st.args...); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// joined is query's single column, rows joined by commas.
+func joined(t *testing.T, lib *storage.DB[storage.Library], query string) string {
+	t.Helper()
+	var out []string
+	for _, v := range cells(t, lib, query) {
+		out = append(out, string(v))
+	}
+	return strings.Join(out, ",")
+}
+
 func TestPruneJoinCodesKeepsAnExpiredCodeOneLifetime(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startController(t)
@@ -454,7 +672,7 @@ func TestPruneJoinCodesKeepsAnExpiredCodeOneLifetime(t *testing.T) {
 	})
 }
 
-func TestReachIsEachNodesLinkAndWhenItEnteredIt(t *testing.T) {
+func TestReachIsEachNodesSyncSessionAndWhenItWasLastSeen(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startController(t)
 		opened := time.Now()
@@ -468,18 +686,23 @@ func TestReachIsEachNodesLinkAndWhenItEnteredIt(t *testing.T) {
 		}
 		synctest.Wait()
 		reach(c.svc.Self(), nodes.Local, opened)
-		reach(id, nodes.Up, opened)
+		reach(id, nodes.Down, opened)
 		reach(role.NodeID{UUID: storage.NewUUID()}, nodes.Down, opened)
 		time.Sleep(time.Minute)
-		w.Drop(c.node.Key)
+		stop := c.hold(t, w)
 		synctest.Wait()
-		reach(id, nodes.Down, opened.Add(time.Minute))
-		time.Sleep(time.Minute)
-		w.Keep(c.node.Target())
-		if err := c.svc.AwaitInStep(t.Context(), id); err != nil {
-			t.Fatal(err)
+		reach(id, nodes.Up, opened.Add(time.Minute))
+		time.Sleep(20 * time.Second)
+		stop()
+		synctest.Wait()
+		lastBeat := opened.Add(time.Minute + 15*time.Second)
+		reach(id, nodes.Down, lastBeat)
+		if got := cells(t, c.lib, "SELECT seen_at FROM nodes_node WHERE name = 'box'"); len(got) != 1 || string(got[0]) != strconv.FormatInt(lastBeat.UnixMicro(), 10) {
+			t.Fatalf("box's seen_at is %s, want its last Beat at %d", got, lastBeat.UnixMicro())
 		}
-		synctest.Wait()
-		reach(id, nodes.Up, opened.Add(2*time.Minute))
+		c.stop()
+		time.Sleep(time.Hour)
+		c.open(t, &side{})
+		reach(id, nodes.Down, lastBeat)
 	})
 }

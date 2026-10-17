@@ -82,6 +82,23 @@ func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countTorrentsOfNode = `-- name: CountTorrentsOfNode :one
+SELECT count(*) AS torrents, CAST(coalesce(sum(release_size), 0) AS INTEGER) AS bytes FROM grabs_grab
+WHERE node_id = ?1 AND info_hash IS NOT NULL
+`
+
+type CountTorrentsOfNodeRow struct {
+	Torrents int64
+	Bytes    int64
+}
+
+func (q *Queries) CountTorrentsOfNode(ctx context.Context, nodeID role.NodeID) (CountTorrentsOfNodeRow, error) {
+	row := q.db.QueryRowContext(ctx, countTorrentsOfNode, nodeID)
+	var i CountTorrentsOfNodeRow
+	err := row.Scan(&i.Torrents, &i.Bytes)
+	return i, err
+}
+
 const finishSearch = `-- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = ?1, outcome = ?2, candidates = ?3,
     grab_id = ?4

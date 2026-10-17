@@ -123,13 +123,6 @@ func (p *nodeProc) await(msg string) map[string]any {
 	}
 }
 
-func expectRows(t *testing.T, got []string, want ...string) {
-	t.Helper()
-	if fmt.Sprint(got) != fmt.Sprint(want) {
-		t.Fatalf("listNodes rows %v, want %v", got, want)
-	}
-}
-
 // TestJoinByEnvironment launches single-machine and starts a second
 // binary with SLIPSTREAM_JOIN_CODE: it joins as a Worker, the code reaches
 // no log, and a restart with the same code changes nothing.
@@ -164,13 +157,16 @@ func TestJoinByEnvironment(t *testing.T) {
 	}
 	var rows []string
 	id := ""
-	for _, n := range a.Nodes("home") {
-		rows = append(rows, n.Name+" "+n.Link.State)
-		if n.Name == "box" {
-			id = n.ID
+	worldtest.Until(t, "home lists box's link up", func() (bool, error) {
+		rows, id = nil, ""
+		for _, n := range a.Nodes("home") {
+			rows = append(rows, n.Name+" "+n.Link.State)
+			if n.Name == "box" {
+				id = n.ID
+			}
 		}
-	}
-	expectRows(t, rows, "home local", "box up")
+		return fmt.Sprint(rows) == fmt.Sprint([]string{"home local", "box up"}), nil
+	})
 
 	stopNode(t, box, dir)
 	again := startNode(t, dir, env...)

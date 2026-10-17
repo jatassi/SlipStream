@@ -101,7 +101,7 @@ func local(ctx context.Context, err error) outcome {
 }
 
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
-	if !slices.Contains(gr.cfg.Roster.Holders(role.Downloading), g.Node) {
+	if !gr.cfg.Roster.Holds(role.Downloading, g.Node) {
 		return fail{NoDownloadClient, "the Indexer's home Node doesn't hold Downloading"}
 	}
 	idx, err := indexers.Get(ctx, gr.cfg.Library, g.Release.Indexer)
@@ -337,9 +337,9 @@ const (
 	halted
 )
 
-// step runs g's due step and commits its outcome. A wait first awaits the
-// Node's link, so a link that comes back resumes the step after one
-// backoff.
+// step runs g's due step and commits its outcome. A wait on a Node out of
+// step first awaits the roster's next change, so a Node that comes back
+// resumes the step after one backoff.
 func (gr *Grabs) step(ctx context.Context, g Grab) result {
 	if gr.cfg.BeforeStep != nil {
 		gr.cfg.BeforeStep(ctx, g.Stage)
@@ -350,8 +350,13 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 		return halted
 	case wait:
 		gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", o.cause.Error())
-		if err := gr.cfg.Roster.AwaitInStep(ctx, g.Node); err != nil {
-			return halted
+		changed := gr.cfg.Roster.Changed()
+		if !gr.cfg.Roster.InStep(g.Node) {
+			select {
+			case <-changed:
+			case <-ctx.Done():
+				return halted
+			}
 		}
 		return waited
 	}

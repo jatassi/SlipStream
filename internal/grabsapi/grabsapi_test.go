@@ -55,10 +55,11 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 // nobody is a roster where no Node holds Downloading.
 type nobody struct{}
 
-func (nobody) Holders(role.Name) []role.NodeID                { return nil }
-func (nobody) AwaitInStep(context.Context, role.NodeID) error { return nil }
-func (nobody) Touch(...role.NodeID)                           {}
-func (nobody) Facts(role.NodeID) (*dlv1.Facts, bool)          { return nil, false }
+func (nobody) Holds(role.Name, role.NodeID) bool     { return false }
+func (nobody) InStep(role.NodeID) bool               { return true }
+func (nobody) Changed() <-chan struct{}              { return nil }
+func (nobody) Touch(...role.NodeID)                  {}
+func (nobody) Facts(role.NodeID) (*dlv1.Facts, bool) { return nil, false }
 
 // site answers every search with one 1080p release.
 type site struct {
@@ -150,7 +151,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 
 	home, indexer := storage.NewUUID(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
 			return err
 		}
 		key := sealer.Seal([]byte("k"), secret.NewColumn("indexers_indexer.api_key_sealed").Row(indexer.String()))

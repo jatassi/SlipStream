@@ -236,6 +236,8 @@ func (h *Holding) session(ctx context.Context, s holderStream) (bool, error) {
 	if err := h.sendFacts(s, true); err != nil {
 		return false, err
 	}
+	beat := time.NewTicker(h.cfg.Timings.Beat)
+	defer beat.Stop()
 	for {
 		var err error
 		select {
@@ -243,6 +245,8 @@ func (h *Holding) session(ctx context.Context, s holderStream) (bool, error) {
 			err = hs.receive(ctx, downs)
 		case <-h.post:
 			err = hs.flush(ctx)
+		case <-beat.C:
+			err = s.Send(&nodev1.Up{Frame: &nodev1.Up_Beat{Beat: &nodev1.Beat{}}})
 		case <-ctx.Done():
 			err = fmt.Errorf("role session: %w", ctx.Err())
 		}

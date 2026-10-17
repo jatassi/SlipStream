@@ -73,7 +73,7 @@ func (q *Queries) GetJoinCodeLifetime(ctx context.Context) (*int64, error) {
 }
 
 const getNode = `-- name: GetNode :one
-SELECT id, public_key, name, paired_at FROM nodes_node WHERE id = ?1
+SELECT id, public_key, name, paired_at, seen_at, removed_at, removed_key FROM nodes_node WHERE id = ?1 AND removed_at IS NULL
 `
 
 func (q *Queries) GetNode(ctx context.Context, id role.NodeID) (NodesNode, error) {
@@ -84,12 +84,15 @@ func (q *Queries) GetNode(ctx context.Context, id role.NodeID) (NodesNode, error
 		&i.PublicKey,
 		&i.Name,
 		&i.PairedAt,
+		&i.SeenAt,
+		&i.RemovedAt,
+		&i.RemovedKey,
 	)
 	return i, err
 }
 
 const getNodeByKey = `-- name: GetNodeByKey :one
-SELECT id, public_key, name, paired_at FROM nodes_node WHERE public_key = ?1
+SELECT id, public_key, name, paired_at, seen_at, removed_at, removed_key FROM nodes_node WHERE public_key = ?1
 `
 
 func (q *Queries) GetNodeByKey(ctx context.Context, publicKey []byte) (NodesNode, error) {
@@ -100,37 +103,22 @@ func (q *Queries) GetNodeByKey(ctx context.Context, publicKey []byte) (NodesNode
 		&i.PublicKey,
 		&i.Name,
 		&i.PairedAt,
+		&i.SeenAt,
+		&i.RemovedAt,
+		&i.RemovedKey,
 	)
 	return i, err
 }
 
-const holdersByPairing = `-- name: HoldersByPairing :many
-SELECT n.id FROM nodes_node n JOIN nodes_role r ON r.node_id = n.id
-WHERE r.role = ?1
-ORDER BY n.paired_at, n.id
+const getOfflineGrace = `-- name: GetOfflineGrace :one
+SELECT offline_grace_seconds FROM nodes_settings WHERE id = 1
 `
 
-func (q *Queries) HoldersByPairing(ctx context.Context, argRole role.Name) ([]role.NodeID, error) {
-	rows, err := q.db.QueryContext(ctx, holdersByPairing, argRole)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []role.NodeID
-	for rows.Next() {
-		var id role.NodeID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetOfflineGrace(ctx context.Context) (*int64, error) {
+	row := q.db.QueryRowContext(ctx, getOfflineGrace)
+	var offline_grace_seconds *int64
+	err := row.Scan(&offline_grace_seconds)
+	return offline_grace_seconds, err
 }
 
 const insertAddress = `-- name: InsertAddress :exec
@@ -231,8 +219,40 @@ func (q *Queries) ListAddresses(ctx context.Context) ([]NodesAddress, error) {
 	return items, nil
 }
 
+const listForfeits = `-- name: ListForfeits :many
+SELECT node_id, role FROM nodes_forfeit ORDER BY node_id, role
+`
+
+type ListForfeitsRow struct {
+	NodeID role.NodeID
+	Role   role.Name
+}
+
+func (q *Queries) ListForfeits(ctx context.Context) ([]ListForfeitsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listForfeits)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListForfeitsRow
+	for rows.Next() {
+		var i ListForfeitsRow
+		if err := rows.Scan(&i.NodeID, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNodes = `-- name: ListNodes :many
-SELECT id, public_key, name, paired_at FROM nodes_node ORDER BY id
+SELECT id, public_key, name, paired_at, seen_at, removed_at, removed_key FROM nodes_node WHERE removed_at IS NULL ORDER BY id
 `
 
 func (q *Queries) ListNodes(ctx context.Context) ([]NodesNode, error) {
@@ -249,6 +269,9 @@ func (q *Queries) ListNodes(ctx context.Context) ([]NodesNode, error) {
 			&i.PublicKey,
 			&i.Name,
 			&i.PairedAt,
+			&i.SeenAt,
+			&i.RemovedAt,
+			&i.RemovedKey,
 		); err != nil {
 			return nil, err
 		}
@@ -291,7 +314,7 @@ func (q *Queries) ListRoles(ctx context.Context) ([]NodesRole, error) {
 }
 
 const nameTaken = `-- name: NameTaken :one
-SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = ?1)
+SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = ?1 AND removed_at IS NULL)
 `
 
 func (q *Queries) NameTaken(ctx context.Context, name string) (bool, error) {
@@ -375,6 +398,20 @@ type SetPairedAtParams struct {
 
 func (q *Queries) SetPairedAt(ctx context.Context, arg SetPairedAtParams) error {
 	_, err := q.db.ExecContext(ctx, setPairedAt, arg.PairedAt, arg.ID)
+	return err
+}
+
+const setSeenAt = `-- name: SetSeenAt :exec
+UPDATE nodes_node SET seen_at = ?1 WHERE id = ?2
+`
+
+type SetSeenAtParams struct {
+	SeenAt storage.Time
+	ID     role.NodeID
+}
+
+func (q *Queries) SetSeenAt(ctx context.Context, arg SetSeenAtParams) error {
+	_, err := q.db.ExecContext(ctx, setSeenAt, arg.SeenAt, arg.ID)
 	return err
 }
 

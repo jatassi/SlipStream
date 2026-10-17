@@ -85,7 +85,9 @@ func (r roster) Key(node role.NodeID) (link.Key, bool) {
 	return k, ok
 }
 
-func (r roster) Holders(n role.Name) []role.NodeID { return r.holders[n] }
+func (r roster) Serves(n role.Name, node role.NodeID) bool {
+	return slices.Contains(r.holders[n], node)
+}
 
 // cluster is a Controller and a Worker over linktest, each with every test
 // service mounted.
@@ -207,9 +209,6 @@ func TestTheControllerCallsNodesItPicks(t *testing.T) {
 			if got := c.pingers[node].calls.Load(); got != 1 {
 				t.Errorf("node %v's pinger ran %d times, want 1", node, got)
 			}
-		}
-		if got := rpctestv1connect.SearchService.Holders(c.cluster); !slices.Equal(got, []role.NodeID{c.controllerID, c.workerID}) {
-			t.Errorf("Holders = %v", got)
 		}
 		res, err := rpctestv1connect.SearchService.On(c.cluster, c.workerID).Search(t.Context(), &rpctestv1.SearchRequest{})
 		if err != nil || link.Key(res.GetCaller()) != c.Controller.Key || c.searchers[c.workerID].calls.Load() != 1 {
