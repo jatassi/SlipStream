@@ -48,6 +48,10 @@ const optionTexts = (name: string) =>
 
 const [modifier] = paletteShortcut.keys.split("+");
 const pressShortcut = () => userEvent.keyboard(`{${modifier}>}k{/${modifier}}`);
+const openFromCapsule = async () => {
+  await userEvent.click(capsule());
+  await expect.element(palette().getByRole("combobox", { name: label })).toHaveFocus();
+};
 
 test("the shortcut opens the palette, and Enter on a typed Work opens its page", async () => {
   const { router } = renderApp({ path: "/library", handlers: library() });
@@ -148,7 +152,7 @@ test("Toggle sidebar collapses the sidebar", async () => {
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect.poll(() => nav.element().getBoundingClientRect().width).toBe(228);
 
-  await userEvent.click(capsule());
+  await openFromCapsule();
   await userEvent.keyboard("toggle");
   await expect.poll(() => optionTexts("Commands")).toEqual(["Toggle sidebar"]);
   await userEvent.keyboard("{Enter}");
@@ -164,7 +168,7 @@ test("Add a Film opens the Add page for its Content Type", async () => {
 
 test("Go to Log settings opens that section of the browser's own Node", async () => {
   const { router } = renderApp({ path: "/library", handlers: library() });
-  await userEvent.click(capsule());
+  await openFromCapsule();
   await userEvent.keyboard("log set");
   await expect.poll(() => optionTexts("Commands")).toEqual(["Go to Log settingshome"]);
   await userEvent.keyboard("{Enter}");
@@ -178,7 +182,7 @@ test("Go to Log settings opens that section of the browser's own Node", async ()
 
 test("an unmatched query suggests what to try", async () => {
   renderApp({ path: "/library", handlers: library() });
-  await userEvent.click(capsule());
+  await openFromCapsule();
   await userEvent.keyboard("zzz");
   await expect
     .element(palette().getByText(/^Nothing matches/u))
