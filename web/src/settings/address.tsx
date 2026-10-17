@@ -7,8 +7,19 @@ import { toast } from "../ui/toast";
 
 const addressForm = z.object({ address: z.string().trim().min(1, "Enter an address") });
 
+// Browsers treat localhost and *.localhost as secure, so plain HTTP holds a
+// passkey there, as the relying-party rule on the server says.
+function refusesPasskeys(address: string): boolean {
+  const url = URL.parse(address.trim());
+  return (
+    url?.protocol === "http:" &&
+    url.hostname !== "localhost" &&
+    !url.hostname.endsWith(".localhost")
+  );
+}
+
 function describe(address: string, saved: string): string {
-  if (address.trim().startsWith("http://")) {
+  if (refusesPasskeys(address)) {
     return "A plain-HTTP address can't hold passkeys. Use https:// for passkeys to work.";
   }
   return saved === ""

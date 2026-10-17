@@ -92,6 +92,25 @@ test("/settings opens on Address, which suggests the address in use while none i
     .toBeVisible();
 });
 
+test("a plain-HTTP address at a .localhost name holds passkeys, so it gets no warning", async () => {
+  renderApp({
+    path: "/settings/address",
+    handlers: [getGetAddressMockHandler({ ...noAddress, address: "http://home.localhost:8484" })],
+  });
+  await expect.element(field("Address")).toHaveValue("http://home.localhost:8484");
+  await expect
+    .element(page.getByText("Signup, Reset and email links are built on this address."))
+    .toBeVisible();
+  await userEvent.fill(field("Address"), "http://media-pc:8484");
+  await expect
+    .element(
+      page.getByText(
+        "A plain-HTTP address can't hold passkeys. Use https:// for passkeys to work.",
+      ),
+    )
+    .toBeVisible();
+});
+
 test("saving the address sends it, and an IP address is refused on the field", async () => {
   const sent: unknown[] = [];
   renderApp({
