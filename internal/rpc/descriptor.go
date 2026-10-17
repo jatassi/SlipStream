@@ -62,11 +62,6 @@ func (s NodeService[H]) Mount(d *Dispatch, impl H) {
 	d.mount(s.name, "", func(srv *connect.Server) { s.register(srv, impl) })
 }
 
-// Holders is every Node the roster says holds the Role.
-func (s RoleService[H]) Holders(c *Cluster) []role.NodeID {
-	return c.roster.Holders(s.role)
-}
-
 // On is node's implementation. A node the roster says does not hold the
 // Role fails every call with NotHolder, before sending.
 func (s RoleService[H]) On(c *Cluster, node role.NodeID) H {

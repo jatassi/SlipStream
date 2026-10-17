@@ -35,15 +35,26 @@ type Nodes interface {
 	NodeOf(key link.Key) (NodeID, bool)
 }
 
+// NodeScope is the node scope as the control half derives it: the Roles a
+// Node holds, assigned or covering.
+type NodeScope struct {
+	Holds []Name
+}
+
 type ControlsConfig struct {
 	Library *storage.DB[storage.Library]
 	Nodes   Nodes
-	// Assigned derives the node scope: the Roles assigned to node.
-	Assigned func(ctx context.Context, r storage.Reader[storage.Library], node NodeID) ([]Name, error)
+	// Scope derives the node scope.
+	Scope func(ctx context.Context, r storage.Reader[storage.Library], node NodeID) (NodeScope, error)
 	// Changed is called after a Node's session or facts change. It must not
 	// block.
 	Changed func(node NodeID)
-	Log     *slog.Logger
+	// InStep is called when node's Sync session attaches and when it ends,
+	// and Seen after each frame its holder sends after Open. Neither may
+	// block.
+	InStep func(node NodeID, attached bool)
+	Seen   func(node NodeID)
+	Log    *slog.Logger
 }
 
 // Controls is the control half: one session per holder, deriving its
@@ -145,11 +156,11 @@ func (c *Controls) NodeFacts(node NodeID) (*nodev1.NodeFacts, bool) {
 
 // NodeVersion is the node-scope version the library derives for node now.
 func (c *Controls) NodeVersion(ctx context.Context, node NodeID) ([]byte, error) {
-	assigned, err := c.cfg.Assigned(ctx, c.cfg.Library, node)
+	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
 	if err != nil {
 		return nil, err
 	}
-	return version(nodeIntent(assigned))
+	return version(nodeIntent(scope.Holds))
 }
 
 func (c *Controls) factsOf(node NodeID, scope string) (*anypb.Any, bool) {
@@ -279,6 +290,9 @@ func (c *Controls) attach(s *controlSession) {
 	if old != nil {
 		old.cancel()
 	}
+	if c.cfg.InStep != nil {
+		c.cfg.InStep(s.node, true)
+	}
 }
 
 func (c *Controls) detach(s *controlSession) {
@@ -289,6 +303,9 @@ func (c *Controls) detach(s *controlSession) {
 		delete(c.facts, s.node)
 	}
 	c.mu.Unlock()
+	if current && c.cfg.InStep != nil {
+		c.cfg.InStep(s.node, false)
+	}
 	if current && c.cfg.Changed != nil {
 		c.cfg.Changed(s.node)
 	}
@@ -297,22 +314,15 @@ func (c *Controls) detach(s *controlSession) {
 // receive stores a batch's facts and applies its results in one Write,
 // then acks them.
 func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch storage.UUID, s controlStream, batch []*nodev1.Up) error {
-	var results []*nodev1.Result
-	for _, u := range batch {
-		switch f := u.GetFrame().(type) {
-		case *nodev1.Up_Facts:
-			c.storeFacts(sess, f.Facts)
-		case *nodev1.Up_Result:
-			results = append(results, f.Result)
-		default:
-			return fmt.Errorf("unexpected frame %T after Open", f)
-		}
+	results, err := c.sort(sess, batch)
+	if err != nil {
+		return err
 	}
 	if len(results) == 0 {
 		return nil
 	}
 	var top uint64
-	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		if top, err = watermark.Get(ctx, tx, sess.node.UUID, epoch); err != nil {
 			return err
@@ -340,6 +350,27 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 		return err
 	}
 	return s.Send(&nodev1.Down{Frame: &nodev1.Down_Ack{Ack: &nodev1.Ack{Seq: top}}})
+}
+
+// sort stores a batch's facts, notes that its Node was seen and returns
+// its results.
+func (c *Controls) sort(sess *controlSession, batch []*nodev1.Up) ([]*nodev1.Result, error) {
+	var results []*nodev1.Result
+	for _, u := range batch {
+		switch f := u.GetFrame().(type) {
+		case *nodev1.Up_Facts:
+			c.storeFacts(sess, f.Facts)
+		case *nodev1.Up_Result:
+			results = append(results, f.Result)
+		case *nodev1.Up_Beat:
+		default:
+			return nil, fmt.Errorf("unexpected frame %T after Open", f)
+		}
+	}
+	if len(batch) > 0 && c.cfg.Seen != nil {
+		c.cfg.Seen(sess.node)
+	}
+	return results, nil
 }
 
 func (c *Controls) storeFacts(sess *controlSession, f *nodev1.Facts) {
@@ -382,10 +413,10 @@ func (c *Controls) sync(ctx context.Context, sess *controlSession, s controlStre
 }
 
 // derive is node's intent for the scopes in dirty, as sync reads it: Role
-// scopes in assigned order, then the node scope.
+// scopes in the node scope's order, then the node scope.
 func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]bool) ([]*nodev1.Intent, error) {
 	all := dirty == nil || dirty[nodeScope]
-	assigned, err := c.cfg.Assigned(ctx, c.cfg.Library, node)
+	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
 	if err != nil {
 		return nil, fmt.Errorf("derive node intent: %w", err)
 	}
@@ -398,7 +429,7 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		intents = append(intents, &nodev1.Intent{Scope: scope, Version: v, Payload: mustAny(msg)})
 		return nil
 	}
-	for _, name := range assigned {
+	for _, name := range scope.Holds {
 		srv := c.served[string(name)]
 		if srv == nil || !all && !dirty[string(name)] {
 			continue
@@ -412,16 +443,16 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		}
 	}
 	if all {
-		if err := add(nodeScope, nodeIntent(assigned)); err != nil {
+		if err := add(nodeScope, nodeIntent(scope.Holds)); err != nil {
 			return nil, err
 		}
 	}
 	return intents, nil
 }
 
-func nodeIntent(assigned []Name) *nodev1.NodeIntent {
-	roles := make([]string, len(assigned))
-	for i, n := range assigned {
+func nodeIntent(holds []Name) *nodev1.NodeIntent {
+	roles := make([]string, len(holds))
+	for i, n := range holds {
 		roles[i] = string(n)
 	}
 	return &nodev1.NodeIntent{Roles: roles}

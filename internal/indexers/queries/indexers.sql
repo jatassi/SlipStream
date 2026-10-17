@@ -13,3 +13,6 @@ SELECT * FROM indexers_indexer WHERE id = sqlc.arg(id);
 
 -- name: SetIndexerKey :execrows
 UPDATE indexers_indexer SET api_key_sealed = sqlc.arg(api_key_sealed), caps = sqlc.arg(caps) WHERE id = sqlc.arg(id);
+
+-- name: CountHomedOn :one
+SELECT count(*) FROM indexers_indexer WHERE home_node_id = sqlc.arg(home_node_id);

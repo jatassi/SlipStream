@@ -107,6 +107,9 @@ func TestWipedWorkerPairsAgain(t *testing.T) {
 
 	id := a.Join("home", "seedbox", worldtest.SetupCode(t, run, "seedbox"))
 	worldtest.Expect(t, "seedbox GET /api/v1/status after it joined", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
+	worldtest.Until(t, "home lists seedbox-2's link up", func() (bool, error) {
+		return row(t, a.Nodes("home"), id).Link.State == "up", nil
+	})
 	rows := a.Nodes("home")
 	again, was := row(t, rows, id), row(t, rows, box.NodeID)
 	if len(rows) != 3 || id == box.NodeID || again.Name != "seedbox-2" || again.Link.State != "up" || len(again.Roles) != 0 || was.Link.State != "down" {

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -45,8 +46,15 @@ type roster struct {
 
 func (r roster) Self() role.NodeID { return r.self }
 
-func (r roster) HoldersByPairing(context.Context, role.Name) ([]role.NodeID, error) {
-	return r.holders, nil
+// Pick is prefer when it holds Searching, else the first holder.
+func (r roster) Pick(_ role.Name, prefer role.NodeID) (role.NodeID, bool) {
+	if slices.Contains(r.holders, prefer) {
+		return prefer, true
+	}
+	if len(r.holders) == 0 {
+		return role.NodeID{}, false
+	}
+	return r.holders[0], true
 }
 
 // disconnected is a home Node whose link is down.

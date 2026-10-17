@@ -15,6 +15,12 @@ type NodesAddress struct {
 	Address  string
 }
 
+type NodesForfeit struct {
+	NodeID     role.NodeID
+	Role       role.Name
+	DeclaredAt storage.Time
+}
+
 type NodesJoinCode struct {
 	SecretHash []byte
 	CreatedAt  storage.Time
@@ -24,10 +30,13 @@ type NodesJoinCode struct {
 }
 
 type NodesNode struct {
-	ID        role.NodeID
-	PublicKey []byte
-	Name      string
-	PairedAt  storage.Time
+	ID         role.NodeID
+	PublicKey  []byte
+	Name       string
+	PairedAt   storage.Time
+	SeenAt     storage.Time
+	RemovedAt  storage.Time
+	RemovedKey []byte
 }
 
 type NodesRole struct {
@@ -39,4 +48,5 @@ type NodesRole struct {
 type NodesSetting struct {
 	ID                      Singleton
 	JoinCodeLifetimeSeconds *int64
+	OfflineGraceSeconds     *int64
 }

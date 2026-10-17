@@ -17,6 +17,7 @@ message Up {
     Open open = 1;
     Facts facts = 2;
     Result result = 3;
+    Beat beat = 4;
   }
 }
 
@@ -40,6 +41,10 @@ message Result {
   uint64 seq = 2;
   google.protobuf.Any payload = 3;
 }
+
+// A holder sends a Beat every role.beat, so a session that carries nothing
+// else still shows the Controller it is alive.
+message Beat {}
 
 message Down {
   oneof frame {

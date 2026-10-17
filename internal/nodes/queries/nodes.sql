@@ -1,14 +1,14 @@
 -- name: ListNodes :many
-SELECT * FROM nodes_node ORDER BY id;
+SELECT * FROM nodes_node WHERE removed_at IS NULL ORDER BY id;
 
 -- name: GetNode :one
-SELECT * FROM nodes_node WHERE id = sqlc.arg(id);
+SELECT * FROM nodes_node WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: GetNodeByKey :one
 SELECT * FROM nodes_node WHERE public_key = sqlc.arg(public_key);
 
 -- name: NameTaken :one
-SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = sqlc.arg(name));
+SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = sqlc.arg(name) AND removed_at IS NULL);
 
 -- name: InsertNode :exec
 INSERT INTO nodes_node (id, public_key, name, paired_at)
@@ -16,6 +16,9 @@ VALUES (sqlc.arg(id), sqlc.arg(public_key), sqlc.arg(name), sqlc.arg(paired_at))
 
 -- name: SetPairedAt :exec
 UPDATE nodes_node SET paired_at = sqlc.arg(paired_at) WHERE id = sqlc.arg(id);
+
+-- name: SetSeenAt :exec
+UPDATE nodes_node SET seen_at = sqlc.arg(seen_at) WHERE id = sqlc.arg(id);
 
 -- name: ListAddresses :many
 SELECT * FROM nodes_address ORDER BY node_id, position;
@@ -64,7 +67,8 @@ SELECT join_code_lifetime_seconds FROM nodes_settings WHERE id = 1;
 -- name: SetJoinCodeLifetime :exec
 UPDATE nodes_settings SET join_code_lifetime_seconds = sqlc.arg(join_code_lifetime_seconds) WHERE id = 1;
 
--- name: HoldersByPairing :many
-SELECT n.id FROM nodes_node n JOIN nodes_role r ON r.node_id = n.id
-WHERE r.role = sqlc.arg(role)
-ORDER BY n.paired_at, n.id;
+-- name: ListForfeits :many
+SELECT node_id, role FROM nodes_forfeit ORDER BY node_id, role;
+
+-- name: GetOfflineGrace :one
+SELECT offline_grace_seconds FROM nodes_settings WHERE id = 1;

@@ -57,8 +57,9 @@ func redialAt(seed string, down, heal time.Time) time.Time {
 
 // TestPartitionThenRedial stalls the path between home and seedbox past
 // keepalive and write_timeout: seedbox's Probe turns Unreachable and home
-// lists it down. Roles set while it is down reach it once the path heals,
-// at the instant seedbox's seeded link stream picks for its re-dial.
+// lists it down since its last Sync frame, which came before the stall.
+// Roles set while it is down reach it once the path heals, at the instant
+// seedbox's seeded link stream picks for its re-dial.
 func TestPartitionThenRedial(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe())
@@ -74,8 +75,8 @@ func TestPartitionThenRedial(t *testing.T) {
 			t.Fatalf("seedbox's Probe stands %s after the stall, want unreachable", got)
 		}
 		box := seedbox(t, a)
-		if box.Link.State != "down" || box.Link.Since != down.Format(time.RFC3339Nano) {
-			t.Fatalf("listNodes shows seedbox %s since %s, want down since %s", box.Link.State, box.Link.Since, down.Format(time.RFC3339Nano))
+		if box.Link.State != "down" || box.Link.Since != stalled.Format(time.RFC3339Nano) {
+			t.Fatalf("listNodes shows seedbox %s since %s, want down since %s", box.Link.State, box.Link.Since, stalled.Format(time.RFC3339Nano))
 		}
 
 		set := a.SetRoles("home", box.ID, "searching")

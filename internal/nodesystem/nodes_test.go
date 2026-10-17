@@ -143,7 +143,7 @@ func (r roster) Key(node role.NodeID) (link.Key, bool) {
 	return k, ok
 }
 
-func (roster) Holders(role.Name) []role.NodeID { return nil }
+func (roster) Serves(role.Name, role.NodeID) bool { return false }
 
 var boxFacts = system.Facts{
 	DataDir:        "/srv/box",

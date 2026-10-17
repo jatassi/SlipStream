@@ -95,7 +95,9 @@ func (n *Node) startController(ctx context.Context) error {
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads}, n.env.Test.Served...),
+		Owners:          owners(),
 		Always:          n.env.Test.Always,
+		Timings:         n.cfg.Timings.Nodes,
 		Log:             n.rootLog.With("subsystem", "nodes"),
 	})
 	if err != nil {
@@ -305,6 +307,22 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 		LogPoll:       n.cfg.Timings.Link.LogPoll,
 		LogArchiveTTL: n.cfg.Timings.Link.LogArchiveTTL,
 	}))
+}
+
+// owners is each Role's owner: the feature that keeps its work.
+func owners() []nodes.Owner {
+	return []nodes.Owner{
+		indexers.SearchingOwner,
+		grabs.DownloadingOwner,
+		nodes.Unowned(role.Storage),
+		nodes.Unowned(role.Converting),
+		nodes.Unowned(role.Subtitles),
+		nodes.Unowned(role.Metadata),
+		nodes.Unowned(role.MediaServerLink),
+		nodes.Unowned(role.Notifying),
+		nodes.Unowned(role.Relaying),
+		nodes.Unowned(role.Serving),
+	}
 }
 
 // heldRoles is every Role this binary runs, one held line each.

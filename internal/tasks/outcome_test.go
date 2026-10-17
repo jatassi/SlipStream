@@ -21,7 +21,7 @@ type knows struct{ node role.NodeID }
 
 func (k knows) Key(node role.NodeID) (link.Key, bool) { return link.Key{1}, node == k.node }
 
-func (knows) Holders(role.Name) []role.NodeID { return nil }
+func (knows) Serves(role.Name, role.NodeID) bool { return false }
 
 func TestClassify(t *testing.T) {
 	seedbox := role.NodeID{UUID: storage.NewUUID()}

@@ -142,9 +142,7 @@ type alone struct{ self role.NodeID }
 
 func (a alone) Self() role.NodeID { return a.self }
 
-func (a alone) HoldersByPairing(context.Context, role.Name) ([]role.NodeID, error) {
-	return []role.NodeID{a.self}, nil
-}
+func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool) { return a.self, true }
 
 type discard struct{}
 

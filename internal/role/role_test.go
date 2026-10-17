@@ -25,7 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-var timings = role.Timings{RestartMin: time.Second, RestartMax: time.Minute}
+var timings = role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second}
 
 // partitioned is how long a stalled path takes to end its session:
 // keepalive, then write_timeout, plus a margin.
@@ -61,10 +61,10 @@ func (c *cluster) NodeOf(key link.Key) (role.NodeID, bool) {
 	return role.NodeID{}, false
 }
 
-func (c *cluster) assignedTo(_ context.Context, _ storage.Reader[storage.Library], node role.NodeID) ([]role.Name, error) {
+func (c *cluster) scopeOf(_ context.Context, _ storage.Reader[storage.Library], node role.NodeID) (role.NodeScope, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return slices.Clone(c.assigned[node]), nil
+	return role.NodeScope{Holds: slices.Clone(c.assigned[node])}, nil
 }
 
 // assign sets node's Roles and touches its node scope, as setNodeRoles
@@ -100,7 +100,7 @@ func newCluster(t *testing.T, controllerVersion, workerVersion string) *cluster 
 		workerID:     role.NodeID{UUID: storage.NewUUID()},
 		assigned:     map[role.NodeID][]role.Name{},
 	}
-	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Assigned: c.assignedTo, Log: discard}, c.probe)
+	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Log: discard}, c.probe)
 	lockstep.Handle(c.controls.Handler())
 	return c
 }

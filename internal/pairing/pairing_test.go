@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/pairing"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -57,6 +58,7 @@ func startController(t *testing.T, net *fault.Network, name, addr string, advert
 		Name:    name,
 		Link:    node.Link,
 		Changed: nodes.ChangedEvent.Bind(hub),
+		Owners:  nodestest.Unowned(),
 		Log:     discard,
 	})
 	if err != nil {

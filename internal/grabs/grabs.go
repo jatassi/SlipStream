@@ -121,9 +121,12 @@ var (
 
 // Roster is the Nodes and the Roles they hold.
 type Roster interface {
-	Holders(r role.Name) []role.NodeID
-	// AwaitInStep returns once node's link is live and matched.
-	AwaitInStep(ctx context.Context, node role.NodeID) error
+	// Holds reports whether node holds r, in step or not.
+	Holds(r role.Name, node role.NodeID) bool
+	// InStep reports whether node's Sync session is attached.
+	InStep(node role.NodeID) bool
+	// Changed is closed at the roster's next change.
+	Changed() <-chan struct{}
 }
 
 // Downloads is the Downloading Role's Controller half.

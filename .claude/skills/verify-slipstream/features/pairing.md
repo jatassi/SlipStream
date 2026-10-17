@@ -4,7 +4,7 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 
 ## Sub-features
 
-- `pairing-roster` the Controller lists every paired Node with its link state and Roles over `GET /api/v1/nodes`.
+- `pairing-roster` the Controller lists every paired Node with its link state and Roles over `GET /api/v1/nodes`: a Worker reads `up` while its Sync session is attached, and once it stops, `down` since its last Sync frame.
 - `pairing-wipe` a stopped, wiped seedbox starts Unclaimed on its first address: `{"claim":"unclaimed"}`.
 - `pairing-join-code` the Controller issues a single-use Join Code, `SLP1-…`, over `POST /api/v1/nodes/join-codes`.
 - `pairing-join` `slipstream join` pairs the stopped Node and prints `joined home as seedbox-2 (node <id>); link up to <address>`.
@@ -31,10 +31,16 @@ Steps:
   $FW exec $RUN --proof pairing/pairing-roster -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
   ```
 
-- **Wipe the seedbox.** Stop it, then empty its data dir. Each prints the Node's manifest entry with `"state":"stopped"`.
+- **Stop the seedbox.** It prints the Node's manifest entry with `"state":"stopped"`. The roster then reads `seedbox` `down`, with `since` at or before the stop: its last Sync frame, not the moment the Controller noticed.
 
   ```sh
   $FW node stop $RUN seedbox
+  $FW exec $RUN --proof pairing/pairing-roster -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  ```
+
+- **Wipe the seedbox.** Empty its data dir. It prints the Node's manifest entry with `"state":"stopped"`.
+
+  ```sh
   $FW node wipe $RUN seedbox
   ```
 
