@@ -1,3 +1,4 @@
+import { signIn } from "../harness/sign-in.ts";
 import { type Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures.ts";
@@ -40,10 +41,7 @@ test("a sign-in from another browser refreshes this tab's session once", async (
 
   const { email, pin } = world.admin();
   const elsewhere = await (await newContext()).newPage();
-  await elsewhere.goto("/sign-in");
-  await elsewhere.getByLabel("Email").fill(email);
-  await elsewhere.getByRole("textbox", { name: "PIN", exact: true }).pressSequentially(pin);
-  await expect(elsewhere.getByRole("heading", { name: "Library" })).toBeVisible();
+  await signIn(elsewhere, { email, pin });
   await expect.poll(() => sessionReads.length).toBe(3);
 });
 

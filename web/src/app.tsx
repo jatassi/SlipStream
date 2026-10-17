@@ -20,10 +20,15 @@ type Parts = {
   live: LiveStream;
 };
 
+// The pages that show a session. A tab whose session read already came back
+// signed out still follows the others to Sign in from one of these, and stays
+// put anywhere else.
+const sessionPages = new Set<string>(["/_app", "/portal", "/new-pin"]);
+
 function end({ queryClient, router, live }: Parts, reason: SessionEndReason): boolean {
-  // A tab whose session read already came back signed out still follows the
-  // others to Sign in. Only a cleared cache means this tab has ended.
-  if (queryClient.getQueryData(sessionQuery.queryKey) === undefined) {
+  const session = queryClient.getQueryData(sessionQuery.queryKey);
+  const onSessionPage = router.state.matches.some(({ routeId }) => sessionPages.has(routeId));
+  if (session === undefined || (session === null && !onSessionPage)) {
     return false;
   }
   const { href } = router.state.location;

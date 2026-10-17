@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
+import { declinePasskeyPrompt } from "../harness/sign-in.ts";
 import { signOut } from "./shell.ts";
 
 async function signIn(page: Page, email: string, pin: string) {
@@ -25,6 +26,7 @@ test("sign-in returns to the page asked for and sign-out ends the session", asyn
 
   await page.getByLabel("Email").clear();
   await signIn(page, `  ${email.toUpperCase()}  `, pin);
+  await declinePasskeyPrompt(page);
   await expect(page.getByRole("heading", { name: "This Node" })).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/system`);
   await expectAccessible(page);
@@ -43,6 +45,7 @@ test("sign-in ignores a redirect to another site", async ({ page, world }) => {
   const { email, pin } = world.admin();
   await page.goto("/sign-in?redirect=//evil.example");
   await signIn(page, email, pin);
+  await declinePasskeyPrompt(page);
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/library`);
 });
