@@ -1,12 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { settingsSections, sectionOf } from "../../../settings/sections";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Segmented } from "../../../ui/segmented";
+import { PageTabs, pageTab } from "../../../ui/page-tabs";
+import { useShell } from "../../../ui/shell-context";
 import { Skeleton } from "../../../ui/skeleton";
-
-const sectionOptions = settingsSections.map(({ id, label }) => ({ value: id, label }));
 
 export const Route = createFileRoute("/_app/settings/$section")({
   staticData: { title: loaderTitle },
@@ -19,23 +18,34 @@ export const Route = createFileRoute("/_app/settings/$section")({
   component: SettingsPage,
 });
 
+// On phone each section is a pushed page under the Settings list, so only
+// the desktop shell draws the tabs.
 function SettingsPage() {
-  const { section } = Route.useParams();
-  const navigate = Route.useNavigate();
-  const Section = sectionOf(section).component;
+  const { section: id } = Route.useParams();
+  const section = sectionOf(id);
+  const body = (
+    <div className={`flex flex-col gap-6 ${section.wide === true ? "" : "max-w-[560px]"}`}>
+      <section.component key={id} />
+    </div>
+  );
+  if (useShell() === "phone") {
+    return <Page>{body}</Page>;
+  }
   return (
-    <Page>
-      <div className="flex max-w-[560px] flex-col gap-6">
-        <Segmented
-          label="Settings section"
-          options={sectionOptions}
-          value={section}
-          onValueChange={(next) => {
-            void navigate({ params: { section: next } });
-          }}
-        />
-        <Section key={section} />
-      </div>
+    <Page title="Settings">
+      <PageTabs label="Settings">
+        {settingsSections.map((row) => (
+          <Link
+            key={row.id}
+            to="/settings/$section"
+            params={{ section: row.id }}
+            className={pageTab}
+          >
+            {row.label}
+          </Link>
+        ))}
+      </PageTabs>
+      {body}
     </Page>
   );
 }

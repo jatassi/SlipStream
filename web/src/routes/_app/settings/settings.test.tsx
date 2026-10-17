@@ -81,14 +81,18 @@ test("/settings opens on Address, which suggests the address in use while none i
     path: "/settings",
     handlers: [getGetAddressMockHandler(noAddress)],
   });
-  await expect.element(page.getByRole("heading", { name: "Address" })).toBeVisible();
-  expect(router.state.location.pathname).toBe("/settings/address");
+  await expect.element(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+  await expect.poll(() => router.state.location.pathname).toBe("/settings/address");
+  const tabs = page.getByRole("navigation", { name: "Settings" });
   expect(
-    page
-      .getByRole("radio")
+    tabs
+      .getByRole("link")
       .all()
-      .map((option) => option.element().textContent),
+      .map((link) => link.element().textContent),
   ).toEqual(["Address", "Email", "Sign-in", "API key"]);
+  await expect
+    .element(tabs.getByRole("link", { name: "Address" }))
+    .toHaveAttribute("aria-current", "page");
   await expect.element(field("Address")).toHaveValue("http://media-pc:8484");
   await expect
     .element(
@@ -230,7 +234,6 @@ test("Regenerate asks first, then shows the new key once with Copy", async () =>
       }),
     ],
   });
-  await expect.element(page.getByRole("heading", { name: "API key" })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Regenerate" }));
   const dialog = page.getByRole("dialog", { name: "Regenerate the API key?" });
   await expect
@@ -265,7 +268,11 @@ test("Sign-in groups its settings and saves one, reading them again after", asyn
       }),
     ],
   });
-  await expect.element(page.getByRole("heading", { name: "Sign-in", level: 1 })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Sign-in" }),
+    )
+    .toHaveAttribute("aria-current", "page");
   expect(
     page
       .getByRole("heading", { level: 2 })
