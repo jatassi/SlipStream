@@ -105,7 +105,52 @@ func Routes(r *api.Router, goals Goals) {
 	o := r.Owner("targets", api.Admin)
 	h := handlers{goals}
 
-	registerTargets(o, h)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listQualities",
+		Method:  http.MethodGet,
+		Path:    "/qualities",
+		Summary: "List the qualities a Target can accept, and the presets that order them",
+		Status:  http.StatusOK,
+	}, h.listQualities)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "createTarget",
+		Method:  http.MethodPost,
+		Path:    "/targets",
+		Summary: "Create a Target from its tiers of qualities, cutoff, filters and sizes",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget},
+	}, h.createTarget)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listTargets",
+		Method:  http.MethodGet,
+		Path:    "/targets",
+		Summary: "List the Targets",
+		Status:  http.StatusOK,
+	}, h.listTargets)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getTarget",
+		Method:  http.MethodGet,
+		Path:    "/targets/{targetId}",
+		Summary: "Get a Target",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{noSuchTarget},
+	}, h.getTarget)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "duplicateTarget",
+		Method:  http.MethodPost,
+		Path:    "/targets/{targetId}/duplicate",
+		Summary: "Copy a Target's rules under the first free name ending in copy",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{noSuchTarget},
+	}, h.duplicateTarget)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteTarget",
+		Method:  http.MethodDelete,
+		Path:    "/targets/{targetId}",
+		Summary: "Delete a Target no Profile holds",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{noSuchTarget, targetInUse},
+	}, h.deleteTarget)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "createProfile",

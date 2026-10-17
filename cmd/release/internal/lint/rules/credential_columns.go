@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
@@ -96,8 +95,7 @@ func plainCredential(column string) bool {
 type tableColumn struct{ table, column string }
 
 // finalColumns applies each dir's migrations and returns the columns of
-// the tables each made. A set whose data step reads a table another set
-// has yet to make waits a round; a round that applies nothing fails.
+// the tables each made.
 func finalColumns(dirs []string, fsyss map[string]fstest.MapFS) (map[string][]tableColumn, error) {
 	ctx := context.Background()
 	conn, err := sql.Open("sqlite", ":memory:")
@@ -106,33 +104,9 @@ func finalColumns(dirs []string, fsyss map[string]fstest.MapFS) (map[string][]ta
 	}
 	defer func() { _ = conn.Close() }()
 	conn.SetMaxOpenConns(1)
-	provs := map[string]*goose.Provider{}
-	for i, dir := range dirs {
-		prov, err := goose.NewProvider(goose.DialectSQLite3, conn, fsyss[dir], goose.WithDisableGlobalRegistry(true), goose.WithLogger(goose.NopLogger()),
-			goose.WithTableName(fmt.Sprintf("goose_set%d", i)))
-		if err != nil {
-			return nil, fmt.Errorf("%s: read the migrations: %w", dir, err)
-		}
-		provs[dir] = prov
-	}
-	owner := map[string]string{}
-	for pending := dirs; len(pending) > 0; {
-		var waiting []string
-		var first error
-		for _, dir := range pending {
-			_, err := provs[dir].Up(ctx)
-			if err := claimTables(ctx, conn, owner, dir); err != nil {
-				return nil, err
-			}
-			if err != nil {
-				waiting = append(waiting, dir)
-				first = cmp.Or(first, fmt.Errorf("%s: apply the migrations: %w", dir, err))
-			}
-		}
-		if len(waiting) == len(pending) {
-			return nil, first
-		}
-		pending = waiting
+	owner, err := applyAll(ctx, conn, dirs, fsyss)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := conn.QueryContext(ctx, `SELECT m.name, p.name FROM sqlite_schema AS m, pragma_table_info(m.name) AS p
 		WHERE m.type = 'table' AND m.name NOT LIKE 'goose%' AND m.name NOT LIKE 'sqlite%' ORDER BY m.name, p.cid`)
@@ -152,6 +126,43 @@ func finalColumns(dirs []string, fsyss map[string]fstest.MapFS) (map[string][]ta
 		return nil, fmt.Errorf("read the schema: %w", err)
 	}
 	return out, nil
+}
+
+// applyAll applies each dir's migrations to conn and returns the dir that
+// made each table. A set whose data step reads a table another set has yet
+// to make waits a round; a round that applies nothing fails.
+func applyAll(ctx context.Context, conn *sql.DB, dirs []string, fsyss map[string]fstest.MapFS) (map[string]string, error) {
+	provs := map[string]*goose.Provider{}
+	for i, dir := range dirs {
+		prov, err := goose.NewProvider(goose.DialectSQLite3, conn, fsyss[dir], goose.WithDisableGlobalRegistry(true), goose.WithLogger(goose.NopLogger()),
+			goose.WithTableName(fmt.Sprintf("goose_set%d", i)))
+		if err != nil {
+			return nil, fmt.Errorf("%s: read the migrations: %w", dir, err)
+		}
+		provs[dir] = prov
+	}
+	owner := map[string]string{}
+	for pending := dirs; len(pending) > 0; {
+		var waiting []string
+		var first error
+		for _, dir := range pending {
+			_, upErr := provs[dir].Up(ctx)
+			if err := claimTables(ctx, conn, owner, dir); err != nil {
+				return nil, err
+			}
+			if upErr != nil {
+				waiting = append(waiting, dir)
+				if first == nil {
+					first = fmt.Errorf("%s: apply the migrations: %w", dir, upErr)
+				}
+			}
+		}
+		if len(waiting) == len(pending) {
+			return nil, first
+		}
+		pending = waiting
+	}
+	return owner, nil
 }
 
 // claimTables records dir as the owner of every table no set owns yet.

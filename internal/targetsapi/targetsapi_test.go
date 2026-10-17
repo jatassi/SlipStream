@@ -39,7 +39,7 @@ var times = regexp.MustCompile(`"\d{4}-\d{2}-\d{2}T[0-9:.]+Z"`)
 
 // get compares the reply to a GET of path with want, in which each @name
 // stands for the id ids names.
-func get(t *testing.T, s *ownertest.Owner, path string, want string, ids map[string]string) {
+func get(t *testing.T, s *ownertest.Owner, path, want string, ids map[string]string) {
 	t.Helper()
 	for name, id := range ids {
 		want = strings.ReplaceAll(want, "@"+name, id)

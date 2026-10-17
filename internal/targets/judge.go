@@ -114,7 +114,7 @@ func (s Size) judge(size release.Fact[int64], runtime release.Fact[time.Duration
 	return Reason{}, false
 }
 
-func (f Filters) judge(facts release.Facts) []Reason {
+func (f *Filters) judge(facts release.Facts) []Reason {
 	checks := map[Attribute]func() (string, bool){
 		HDR:        func() (string, bool) { return passes(f.HDR, facts.HDR, listedIn(f.HDR)) },
 		VideoCodec: func() (string, bool) { return passes(f.Video, single(facts.Video), listedIn(f.Video)) },
