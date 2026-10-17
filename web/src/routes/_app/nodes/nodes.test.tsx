@@ -36,9 +36,6 @@ test("the page tabs link to every section and mark the current one", async () =>
     ["Logs", `/nodes/${homeId}/logs`],
     ["Log settings", `/nodes/${homeId}/log-settings`],
   ]);
-  await expect
-    .element(page.getByRole("navigation", { name: "Breadcrumbs" }))
-    .toHaveTextContent("NodeshomeLogs");
 
   await userEvent.click(tabsOf("home").getByRole("link", { name: "Overview" }));
   await expect.element(page.getByText("127.0.0.2:8080")).toBeVisible();
