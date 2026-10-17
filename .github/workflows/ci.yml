@@ -238,7 +238,9 @@ jobs:
       # installs them on every run.
       - if: runner.os == 'Linux'
         working-directory: web
-        run: bun run e2e:install --with-deps
+        run: |
+          bun install --frozen-lockfile
+          bun run e2e:install --with-deps
       - run: go run ./cmd/release test -tier component
       # Lint runs on every target so gofmt, line endings and the cgo type
       # check are proven on each OS, and runs even when a test fails.
