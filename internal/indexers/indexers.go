@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -59,11 +60,13 @@ const protocol = "torznab"
 
 // Indexer is a Torznab Indexer and the Node that reaches it.
 type Indexer struct {
-	ID        ID
-	Name      string
-	Protocol  string
-	URL       string
-	APIKey    string
+	ID       ID
+	Name     string
+	Protocol string
+	URL      string
+	// Key is zero when the migration that sealed keys dropped it, until an
+	// Admin enters it again.
+	Key       secret.Sealed
 	HomeNode  role.NodeID
 	Caps      Caps
 	CreatedAt time.Time
@@ -82,6 +85,8 @@ type Publisher interface {
 var (
 	ErrNameTaken       = errors.New("another Indexer has that name")
 	ErrNoSearchingNode = errors.New("no Node holds Searching")
+	ErrAPIKeyDropped   = errors.New("the Indexer's API key was dropped; enter it again")
+	ErrNoIndexer       = errors.New("no such Indexer")
 )
 
 // UnavailableError is a call that didn't reach the Indexer or brought
@@ -106,7 +111,9 @@ type Roster interface {
 
 type Config struct {
 	Library *storage.DB[file]
-	Roster  Roster
+	// Sealer opens an Indexer's key only to put it on the wire.
+	Sealer *secret.Sealer
+	Roster Roster
 	// Searching reaches the Searching service on a Node.
 	Searching func(role.NodeID) searchv1connect.SearchingServiceHandler
 	Changed   Publisher
@@ -137,7 +144,8 @@ func (x *Indexers) Create(ctx context.Context, _ identity.Admin, d Draft) (Index
 	if err != nil {
 		return Indexer{}, err
 	}
-	idx := Indexer{ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Protocol: protocol, URL: d.URL, APIKey: d.APIKey, HomeNode: home}
+	idx := Indexer{ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Protocol: protocol, URL: d.URL, HomeNode: home}
+	idx.Key = x.cfg.Sealer.Seal([]byte(d.APIKey), apiKeyColumn.Row(idx.ID.String()))
 	if idx.Caps, err = x.caps(ctx, idx); err != nil {
 		return Indexer{}, err
 	}
@@ -156,8 +164,40 @@ func (x *Indexers) Create(ctx context.Context, _ identity.Admin, d Draft) (Index
 			return ErrNameTaken
 		}
 		return q.InsertIndexer(ctx, db.InsertIndexerParams{
-			ID: idx.ID, Name: idx.Name, Protocol: protocol, Url: idx.URL, ApiKey: idx.APIKey, HomeNodeID: home, Caps: string(caps), CreatedAt: created,
+			ID: idx.ID, Name: idx.Name, Protocol: protocol, Url: idx.URL, ApiKeySealed: idx.Key, HomeNodeID: home, Caps: string(caps), CreatedAt: created,
 		})
+	})
+	if err != nil {
+		return Indexer{}, err
+	}
+	x.cfg.Changed.Publish(ctx, Changed{IndexerID: idx.ID.String()})
+	return idx, nil
+}
+
+// SetAPIKey enters Indexer id's key again, once its home Node has read the
+// caps with it.
+func (x *Indexers) SetAPIKey(ctx context.Context, _ identity.Admin, id ID, key string) (Indexer, error) {
+	idx, err := Get(ctx, x.cfg.Library, id)
+	if errors.Is(err, storage.ErrNoRows) {
+		return Indexer{}, ErrNoIndexer
+	}
+	if err != nil {
+		return Indexer{}, err
+	}
+	idx.Key = x.cfg.Sealer.Seal([]byte(key), apiKeyColumn.Row(idx.ID.String()))
+	if idx.Caps, err = x.caps(ctx, idx); err != nil {
+		return Indexer{}, err
+	}
+	caps, err := json.Marshal(idx.Caps)
+	if err != nil {
+		return Indexer{}, fmt.Errorf("encode the caps: %w", err)
+	}
+	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		n, err := db.New(tx).SetIndexerKey(ctx, db.SetIndexerKeyParams{ApiKeySealed: idx.Key, Caps: string(caps), ID: id})
+		if err == nil && n == 0 {
+			return ErrNoIndexer
+		}
+		return err
 	})
 	if err != nil {
 		return Indexer{}, err
@@ -209,7 +249,7 @@ func Get(ctx context.Context, r storage.Reader[file], id ID) (Indexer, error) {
 }
 
 func indexer(row db.IndexersIndexer) (Indexer, error) {
-	idx := Indexer{ID: row.ID, Name: row.Name, Protocol: row.Protocol, URL: row.Url, APIKey: row.ApiKey, HomeNode: row.HomeNodeID, CreatedAt: row.CreatedAt.Time()}
+	idx := Indexer{ID: row.ID, Name: row.Name, Protocol: row.Protocol, URL: row.Url, Key: row.ApiKeySealed, HomeNode: row.HomeNodeID, CreatedAt: row.CreatedAt.Time()}
 	if err := json.Unmarshal([]byte(row.Caps), &idx.Caps); err != nil {
 		return Indexer{}, fmt.Errorf("indexer %s: decode the caps: %w", row.ID, err)
 	}
@@ -217,7 +257,11 @@ func indexer(row db.IndexersIndexer) (Indexer, error) {
 }
 
 func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {
-	res, err := x.cfg.Searching(idx.HomeNode).Caps(ctx, &searchv1.CapsRequest{Indexer: wire(idx)})
+	w, err := x.wire(idx)
+	if err != nil {
+		return Caps{}, err
+	}
+	res, err := x.cfg.Searching(idx.HomeNode).Caps(ctx, &searchv1.CapsRequest{Indexer: w})
 	if err != nil {
 		return Caps{}, unavailable(err)
 	}
@@ -234,7 +278,11 @@ func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {
 // Search asks idx's home Node to search for terms and parses the answer.
 // It fails with *UnavailableError or *RefusedError.
 func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Item, error) {
-	res, err := x.cfg.Searching(idx.HomeNode).Search(ctx, &searchv1.SearchRequest{Indexer: wire(idx), Params: Query(idx.Caps, terms)})
+	w, err := x.wire(idx)
+	if err != nil {
+		return nil, err
+	}
+	res, err := x.cfg.Searching(idx.HomeNode).Search(ctx, &searchv1.SearchRequest{Indexer: w, Params: Query(idx.Caps, terms)})
 	if err != nil {
 		return nil, unavailable(err)
 	}
@@ -251,15 +299,31 @@ func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Item
 // FetchTorrent asks idx's home Node for the .torrent at link, which must
 // be on the Indexer's own host. It fails with *UnavailableError.
 func (x *Indexers) FetchTorrent(ctx context.Context, idx Indexer, link string) ([]byte, error) {
-	res, err := x.cfg.Searching(idx.HomeNode).FetchTorrent(ctx, &searchv1.FetchTorrentRequest{Indexer: wire(idx), Url: link})
+	w, err := x.wire(idx)
+	if err != nil {
+		return nil, err
+	}
+	res, err := x.cfg.Searching(idx.HomeNode).FetchTorrent(ctx, &searchv1.FetchTorrentRequest{Indexer: w, Url: link})
 	if err != nil {
 		return nil, unavailable(err)
 	}
 	return res.GetTorrent(), nil
 }
 
-func wire(idx Indexer) *searchv1.Indexer {
-	return &searchv1.Indexer{Url: idx.URL, ApiKey: idx.APIKey}
+var apiKeyColumn = secret.NewColumn("indexers_indexer.api_key_sealed")
+
+// wire is the one place an Indexer's key is opened, for the length of one
+// call to its home Node. A dropped key fails as an *UnavailableError the
+// same call can't recover from.
+func (x *Indexers) wire(idx Indexer) (*searchv1.Indexer, error) {
+	if !idx.Key.Set() {
+		return nil, &UnavailableError{Err: ErrAPIKeyDropped}
+	}
+	key, err := x.cfg.Sealer.Open(idx.Key, apiKeyColumn.Row(idx.ID.String()))
+	if err != nil {
+		return nil, fmt.Errorf("indexer %s: %w", idx.ID, err)
+	}
+	return &searchv1.Indexer{Url: idx.URL, ApiKey: string(key)}, nil
 }
 
 // answered is the Torznab error body holds, else an *UnavailableError for

@@ -13,6 +13,14 @@ export const getGetStatusResponseMock = (
   overrideResponse: Partial<Extract<SystemStatus, object>> = {},
 ): SystemStatus => ({
   claim: faker.helpers.arrayElement(["unclaimed", "controller", "worker"] as const),
+  passkeys: {
+    available: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? {
+          reason: faker.helpers.arrayElement(["ip_address", "plain_http", "not_a_domain"] as const),
+        }
+      : {}),
+  },
   ...overrideResponse,
 });
 

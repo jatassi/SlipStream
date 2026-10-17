@@ -1,1 +1,1 @@
-export type GetWork403Code = "needs_admin";
+export type GetWork403Code = "needs_admin" | "pin_required";

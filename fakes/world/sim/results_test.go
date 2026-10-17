@@ -132,7 +132,7 @@ func TestSupervisorRestarts(t *testing.T) {
 		if starts := w.Node("seedbox").Probe().Starts(); starts != 2 {
 			t.Fatalf("the Probe started %d times, want 2", starts)
 		}
-		worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker"}` + "\n"})
+		worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	})
 }
 

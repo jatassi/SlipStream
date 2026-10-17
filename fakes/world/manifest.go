@@ -46,7 +46,9 @@ type Manifest struct {
 	Releases []Release         `json:"releases"`
 	Browser  Browser           `json:"browser"`
 	Admin    *Admin            `json:"admin,omitempty"`
-	APIKey   string            `json:"apiKey,omitempty"`
+	// Members are the Scenario's Members, each with its Account's id.
+	Members []Member `json:"members"`
+	APIKey  string   `json:"apiKey,omitempty"`
 }
 
 type ScenarioRef struct {
@@ -138,6 +140,14 @@ type Admin struct {
 	Email       string `json:"email"`
 	DisplayName string `json:"displayName"`
 	PIN         string `json:"pin"`
+}
+
+type Member struct {
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName"`
+	PIN         string `json:"pin"`
+	Admin       bool   `json:"admin"`
 }
 
 // ReadManifest and writeAtomically go through os.Root because on Windows it

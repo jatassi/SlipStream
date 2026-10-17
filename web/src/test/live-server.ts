@@ -1,5 +1,7 @@
 import { HttpResponse, http, sse } from "msw";
 
+import type { IdentityAccount } from "../api/gen/model";
+
 import { type LiveMap, ada, problem } from "./handlers";
 import type { renderApp } from "./render-app";
 
@@ -20,10 +22,11 @@ export function liveServer() {
   const clients: Client[] = [];
   const closed: number[] = [];
   let signedIn = true;
+  let account: IdentityAccount = ada;
   const handlers = [
     http.get("*/api/v1/session", () =>
       signedIn
-        ? HttpResponse.json({ account: ada })
+        ? HttpResponse.json({ account, pinRequired: false, keyPrompt: "ask" })
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     sse<LiveMap>("*/api/v1/events", ({ client }) => {
@@ -41,29 +44,34 @@ export function liveServer() {
     signOut() {
       signedIn = false;
     },
+    become(next: IdentityAccount) {
+      account = next;
+    },
   };
 }
 
 // seeded caches an empty answer under each key and reads which were since
-// invalidated, or refetched because something observes them.
+// invalidated.
 export function seeded(
   { queryClient }: ReturnType<typeof renderApp>,
   keys: Record<string, readonly unknown[]>,
 ) {
-  const updates = new Map<string, number | undefined>();
-  for (const [name, key] of Object.entries(keys)) {
+  for (const key of Object.values(keys)) {
     queryClient.setQueryData(key, {});
-    updates.set(name, queryClient.getQueryState(key)?.dataUpdateCount);
   }
-  return () =>
-    Object.fromEntries(
-      Object.entries(keys).map(([name, key]) => {
-        const state = queryClient.getQueryState(key);
-        return [
-          name,
-          state !== undefined &&
-            (state.isInvalidated || state.dataUpdateCount !== updates.get(name)),
-        ];
-      }),
-    );
+  // An active query refetches once invalidated, which clears the flag, so
+  // each key remembers having been invalidated.
+  const seen = new Set<readonly unknown[]>();
+  const note = () => {
+    for (const key of Object.values(keys)) {
+      if (queryClient.getQueryState(key)?.isInvalidated === true) {
+        seen.add(key);
+      }
+    }
+  };
+  queryClient.getQueryCache().subscribe(note);
+  return () => {
+    note();
+    return Object.fromEntries(Object.entries(keys).map(([name, key]) => [name, seen.has(key)]));
+  };
 }

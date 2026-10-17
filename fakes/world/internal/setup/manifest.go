@@ -60,15 +60,14 @@ func Entry(n Ran, m Member) (Node, error) {
 	if err != nil {
 		return Node{}, err
 	}
-	host := n.Spec.Name + ".localhost"
 	return Node{
 		Name:       n.Spec.Name,
 		Setup:      n.Spec.Setup,
 		Claim:      claimAfter[n.Spec.Setup],
 		Address:    n.Address.String(),
-		Host:       host,
+		Host:       Host(n.Spec.Name),
 		URL:        url(n.Ready),
-		BrowserURL: fmt.Sprintf("http://%s:%d", host, n.Ready.Listeners.HTTP.Port()),
+		BrowserURL: BrowserURL(n.Spec.Name, n.Ready),
 		Listeners:  listeners,
 		DataDir:    n.DataDir,
 		State:      n.State,
@@ -80,6 +79,14 @@ func Entry(n Ran, m Member) (Node, error) {
 		NodeID:     m.ID,
 		Roles:      m.Roles,
 	}, nil
+}
+
+// Host is the name a browser reaches Node name by.
+func Host(name string) string { return name + ".localhost" }
+
+// BrowserURL is where a browser reaches Node name, by its Host.
+func BrowserURL(name string, ready node.Ready) string {
+	return fmt.Sprintf("http://%s:%d", Host(name), ready.Listeners.HTTP.Port())
 }
 
 func Listeners(l node.Listeners) (map[string]string, error) {

@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { env } from "node:process";
 
-import { AxeBuilder } from "@axe-core/playwright";
 import {
   type Browser,
   type BrowserContext,
@@ -14,13 +13,20 @@ import {
 import { z } from "zod";
 
 import { type Fakeworld, fw } from "../harness/fakeworld.ts";
-import { type Manifest, type ManifestNode, read } from "../harness/manifest.ts";
+import {
+  type Identity,
+  type Manifest,
+  type ManifestNode,
+  identity,
+  read,
+} from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
+import { expectAccessible } from "./accessible.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, warmUpWebKit } from "./warm-up.ts";
 
-export { expect };
+export { expect, expectAccessible };
 
 export type Scenario = "single-machine" | "first-run" | "home";
 
@@ -29,7 +35,8 @@ export type World = {
   node: ManifestNode;
   fw: Fakeworld;
   baseURL: string;
-  admin: () => NonNullable<Manifest["admin"]>;
+  admin: () => Identity;
+  member: () => Identity;
   setupCode: () => Promise<string>;
   api: (
     method: string,
@@ -58,7 +65,6 @@ declare global {
 }
 
 const launchTimeout = 60;
-const wcag = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
 
 function binary(variable: "TEST_SLIPSTREAM_BINARY" | "TEST_FAKEWORLD_BINARY"): string {
   const path = env[variable];
@@ -98,20 +104,6 @@ function testCommand(testInfo: TestInfo): string {
     throw new Error(`test ${testInfo.title} has no file in its title path`);
   }
   return `bun run --cwd web e2e ${file.replaceAll("\\", "/")}:${testInfo.line} --project ${testInfo.project.name}`;
-}
-
-export async function expectAccessible(page: Page): Promise<void> {
-  // Base UI gives its focus guards role="button" in WebKit, so VoiceOver can
-  // land on them; they are focus traps, not commands, and have no name.
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(wcag)
-    .exclude("[data-base-ui-focus-guard]")
-    .analyze();
-  const found = violations.map(
-    (violation) =>
-      `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
-  );
-  expect(found, `axe on ${page.url()}`).toEqual([]);
 }
 
 async function guard(context: BrowserContext, origin: string): Promise<() => Promise<void>> {
@@ -189,7 +181,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { timeout: (launchTimeout + 10) * 1000 },
   ],
 
-  world: async ({ runDir, scenario, browserName }, use) => {
+  world: async ({ runDir, browserName }, use) => {
     const manifest = await read(runDir);
     const [node] = manifest.nodes;
     if (node === undefined) {
@@ -204,12 +196,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       node,
       fw: fw(runDir),
       baseURL: browserName === "chromium" ? node.browserUrl : node.url,
-      admin: () => {
-        if (manifest.admin === undefined) {
-          throw new Error(`Scenario ${scenario} has no Admin`);
-        }
-        return manifest.admin;
-      },
+      admin: () => identity(manifest, "admin"),
+      member: () => identity(manifest, "member"),
       setupCode: () => readSetupCode(node.log),
       api: async (method, path, body) => {
         const response = await fetch(new URL(path, node.url), {

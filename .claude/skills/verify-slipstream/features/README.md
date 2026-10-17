@@ -40,7 +40,15 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 
 - [Shell](./shell.md) covers the desktop sidebar and top bar, the phone tab bar and More sheet, the palette, toasts, titles, errors and not-found, the portal and the startup sequence.
 - [Setup](./setup.md) covers the Setup code from the Controller's log, a wrong code, the setup link that fills it in, and creating the first Admin on `first-run`.
-- [Sign-in](./sign-in.md) covers Email and PIN, a wrong PIN, returning to the page asked for, saved state and sign-out.
+- [Sign-in](./sign-in.md) covers Email and PIN for an Admin and a Member, a wrong PIN and the wait it earns, the per-address limit, returning to the page asked for, saved state and sign-out.
+- [Signup links](./signup-links.md) covers issuing a Signup link, its email, the pending list, a dead link and joining on desktop and phone.
+- [Passkeys](./passkeys.md) covers the prompt after sign-in, adding one with Chromium's virtual authenticator, signing in with it, the deep link and the IP address that can't hold one.
+- [Sessions](./sessions.md) covers the devices list on Your Account, signing out one or every other device, and an Admin ending a person's sessions.
+- [Re-confirm](./reconfirm.md) covers `Confirm it's you` past the window, cancel, a wrong PIN and the API key that skips it.
+- [Reset links](./reset-links.md) covers sending a Reset link, the open tab it signs out, setting a new PIN, its email and `slipstream admin reset` on the host.
+- [Accounts](./accounts.md) covers the Accounts list, making an Admin a Member and the re-gated tab, the last Admin, turning an Account off and the Member's portal.
+- [Settings](./settings.md) covers Settings > Address, Email with its test email, and Sign-in.
+- [API key](./api-key.md) covers Settings > API key, regenerating it and the old key refused.
 - [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
 - [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.

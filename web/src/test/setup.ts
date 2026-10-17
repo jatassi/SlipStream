@@ -29,6 +29,7 @@ beforeEach(() => {
   writePref("startupPlayed", true);
   writePref("sidebarCollapsed", false);
   writePref("startupOff", false);
+  writePref("lastEmail", "");
   onTestFinished(() => {
     worker.resetHandlers();
   });

@@ -121,14 +121,30 @@ func (p EveryonePublisher[T]) Publish(ctx context.Context, v T) {
 // Resync means refetch everything: events may have been missed.
 type Resync struct{}
 
+type EndReason string
+
+const (
+	// SignedOut is this device's own Sign out.
+	SignedOut EndReason = "signed-out"
+	Expired   EndReason = "expired"
+	// Revoked is a session ended from somewhere else: another device, an
+	// Admin or a Reset link.
+	Revoked EndReason = "revoked"
+)
+
 // SessionEnded means the stream's session ended and the stream closes.
 type SessionEnded struct {
-	Reason string `json:"reason" enum:"signed-out,expired"`
+	Reason EndReason `json:"reason" enum:"signed-out,expired,revoked"`
 }
 
+// AccessChanged means the Account's access changed, such as its admin
+// flag: the session lives on, and the tab reads it again and reconnects.
+type AccessChanged struct{}
+
 var (
-	ResyncEvent       = EveryoneEvent[Resync]("live.resync")
-	SessionEndedEvent = AccountEvent[SessionEnded]("live.session-ended")
+	ResyncEvent        = EveryoneEvent[Resync]("live.resync")
+	SessionEndedEvent  = AccountEvent[SessionEnded]("live.session-ended")
+	AccessChangedEvent = AccountEvent[AccessChanged]("live.access-changed")
 )
 
 // Viewer is who a subscription reads for, fixed at connect.
@@ -187,9 +203,9 @@ type watcher struct {
 
 // NewHub builds a hub over every declared event. It panics on a duplicate
 // name or a payload type used twice. events is surface.Events; the hub adds
-// ResyncEvent and SessionEndedEvent itself.
+// its control events itself.
 func NewHub(events []Event) *Hub {
-	all := append([]Event{ResyncEvent, SessionEndedEvent}, events...)
+	all := append([]Event{ResyncEvent, SessionEndedEvent, AccessChangedEvent}, events...)
 	byName := make(map[string]Event, len(all))
 	byPayload := make(map[reflect.Type]Event, len(all))
 	for _, e := range all {
@@ -234,7 +250,7 @@ func (h *Hub) Watch(ctx context.Context, events ...Event) <-chan struct{} {
 	return w.woken
 }
 
-// Events is every event the hub carries, its two control events included,
+// Events is every event the hub carries, its control events included,
 // ordered by name.
 func (h *Hub) Events() []Event {
 	return slices.SortedFunc(maps.Values(h.events), func(a, b Event) int { return strings.Compare(a.Name(), b.Name()) })
@@ -305,13 +321,35 @@ func (h *Hub) Subscribe(viewer Viewer, lastEventID string) *Subscription {
 }
 
 // EndSession makes each of the session's subscriptions return
-// SessionEnded{"signed-out"} and then ErrEnded.
-func (h *Hub) EndSession(session storage.UUID) {
+// SessionEnded{why} and then ErrEnded. Like Publish it panics inside a
+// Write: a rolled-back delete must not have ended anyone's stream.
+func (h *Hub) EndSession(ctx context.Context, session storage.UUID, why EndReason) {
+	if storage.InWrite(ctx) {
+		panic("live: EndSession inside Write; end sessions after the commit")
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for s := range h.subs {
 		if s.viewer.Session == session {
-			s.state = signingOut
+			s.state, s.final = ending, Message{Name: SessionEndedEvent.Name(), Data: SessionEnded{Reason: why}}
+		}
+	}
+	h.wake()
+}
+
+// EndAccountStreams makes each of the Account's subscriptions return
+// AccessChanged and then ErrEnded, so its tabs reconnect as a Viewer read
+// afresh. A subscription whose session already ended keeps that ending.
+// Like Publish it panics inside a Write.
+func (h *Hub) EndAccountStreams(ctx context.Context, account storage.UUID) {
+	if storage.InWrite(ctx) {
+		panic("live: EndAccountStreams inside Write; end streams after the commit")
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for s := range h.subs {
+		if s.viewer.Account == account && s.state == reading {
+			s.state, s.final = ending, Message{Name: AccessChangedEvent.Name(), Data: AccessChanged{}}
 		}
 	}
 	h.wake()
@@ -332,7 +370,7 @@ type subscriptionState uint8
 
 const (
 	reading subscriptionState = iota
-	signingOut
+	ending
 	ended
 )
 
@@ -342,6 +380,7 @@ type Subscription struct {
 	hub    *Hub
 	viewer Viewer
 	state  subscriptionState
+	final  Message
 	next   int64
 	resync bool
 }
@@ -373,9 +412,9 @@ func (s *Subscription) take() (Message, bool, error) {
 	case reading:
 	case ended:
 		return Message{}, false, ErrEnded
-	case signingOut:
+	case ending:
 		s.end()
-		return Message{Name: SessionEndedEvent.Name(), Data: SessionEnded{Reason: "signed-out"}}, true, nil
+		return s.final, true, nil
 	}
 	if s.next < h.oldest() {
 		s.next = h.head + 1

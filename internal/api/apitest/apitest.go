@@ -1,5 +1,6 @@
 // Package apitest holds the access walk: every operation in the document,
-// called as nobody, a Member, an Admin and the API key.
+// called as nobody, a Member, an Admin, each with a lapsed confirm, a
+// session that must set a new PIN, and the API key.
 package apitest
 
 import (
@@ -16,13 +17,18 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
-// Credentials are the walk's callers. Member and Admin each return a fresh
-// session token per call, so an operation that signs out can't sign the
-// walk out.
+// Credentials are the walk's callers. Each returns a fresh credential per
+// call, so an operation that signs out or regenerates the API key can't
+// lock the walk out. The lapsed sessions confirmed longer ago than the
+// re-confirm window; PINRequired is an Admin's session that must set a new
+// PIN.
 type Credentials struct {
-	Member func() string
-	Admin  func() string
-	APIKey string
+	Member       func() string
+	Admin        func() string
+	LapsedMember func() string
+	LapsedAdmin  func() string
+	PINRequired  func() string
+	APIKey       func() string
 }
 
 // pass is any status but 401 and 403.
@@ -47,34 +53,50 @@ func (w want) met(status int, code string) bool {
 	return status == w.status && code == w.code
 }
 
-var callers = []string{"nobody", "member", "admin", "api key"}
+var callers = []string{"nobody", "member", "admin", "lapsed member", "lapsed admin", "pin required", "api key"}
 
-var alreadyClaimed, workerNode = want{409, "already_claimed"}, want{409, "worker_node"}
+var (
+	alreadyClaimed = want{409, "already_claimed"}
+	workerNode     = want{409, "worker_node"}
+	signedOut      = want{401, "signed_out"}
+	needsAccount   = want{403, "needs_account"}
+	needsAdmin     = want{403, "needs_admin"}
+	needsReconfirm = want{403, "needs_reconfirm"}
+	pinRequired    = want{403, "pin_required"}
+)
 
 // walk is what each caller, in callers' order, must get at each level. A
 // setup operation is walked on a claimed Node.
 var walk = map[string][]want{
-	"public":  {pass, pass, pass, pass},
-	"setup":   {alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed},
-	"account": {{401, "signed_out"}, pass, pass, {403, "needs_account"}},
-	"admin":   {{401, "signed_out"}, {403, "needs_admin"}, pass, pass},
+	"public":      {pass, pass, pass, pass, pass, pass, pass},
+	"setup":       {alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed},
+	"bearer":      {signedOut, pass, pass, pass, pass, pass, needsAccount},
+	"account":     {signedOut, pass, pass, pass, pass, pinRequired, needsAccount},
+	"confirmed":   {signedOut, pass, pass, needsReconfirm, needsReconfirm, pinRequired, needsAccount},
+	"admin":       {signedOut, needsAdmin, pass, needsAdmin, pass, pinRequired, pass},
+	"reconfirmed": {signedOut, needsAdmin, pass, needsAdmin, needsReconfirm, pinRequired, pass},
 }
 
-// workerWalk is the walk on a Worker, which holds no Account: every Account
-// and Admin check answers worker_node before reading a credential.
-var workerWalk = map[string][]want{
-	"public":  {pass, pass, pass, pass},
-	"setup":   {alreadyClaimed, alreadyClaimed, alreadyClaimed, alreadyClaimed},
-	"account": {workerNode, workerNode, workerNode, workerNode},
-	"admin":   {workerNode, workerNode, workerNode, workerNode},
-}
+// workerWalk is the walk on a Worker, which holds no Account: every check
+// that needs a session or the API key answers worker_node before reading a
+// credential.
+var workerWalk = func() map[string][]want {
+	w := map[string][]want{"public": walk["public"], "setup": walk["setup"]}
+	for _, level := range []string{"bearer", "account", "confirmed", "admin", "reconfirmed"} {
+		w[level] = slices.Repeat([]want{workerNode}, len(callers))
+	}
+	return w
+}()
 
 // madeUp are credentials no Node issued, which is all a Worker's caller can
 // hold.
-var madeUp = Credentials{ //nolint:gosec // credentials no Node issued
-	Member: func() string { return "made-up-member-session" },
-	Admin:  func() string { return "made-up-admin-session" },
-	APIKey: "ssk_made-up",
+var madeUp = Credentials{
+	Member:       func() string { return "made-up-member-session" },
+	Admin:        func() string { return "made-up-admin-session" },
+	LapsedMember: func() string { return "made-up-lapsed-member-session" },
+	LapsedAdmin:  func() string { return "made-up-lapsed-admin-session" },
+	PINRequired:  func() string { return "made-up-pin-required-session" },
+	APIKey:       func() string { return "ssk_made-up" },
 }
 
 const zeroUUID = "00000000-0000-0000-0000-000000000000"
@@ -148,14 +170,16 @@ func check(handler http.Handler, method, route, target string, op operation, c C
 	}
 	var breaches []string
 	for i, who := range callers {
+		sessions := map[string]func() string{
+			"member": c.Member, "admin": c.Admin, "lapsed member": c.LapsedMember,
+			"lapsed admin": c.LapsedAdmin, "pin required": c.PINRequired,
+		}
 		status, code := send(handler, method, target, func(h http.Header) {
-			switch who {
-			case "member":
-				h.Set("Cookie", identity.CookieName+"="+c.Member())
-			case "admin":
-				h.Set("Cookie", identity.CookieName+"="+c.Admin())
-			case "api key":
-				h.Set("X-Api-Key", c.APIKey)
+			switch {
+			case who == "api key":
+				h.Set("X-Api-Key", c.APIKey())
+			case sessions[who] != nil:
+				h.Set("Cookie", identity.CookieName+"="+sessions[who]())
 			}
 		})
 		if !wants[i].met(status, code) {

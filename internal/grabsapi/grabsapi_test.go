@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -118,10 +119,11 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	terms := &terms{}
 	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
+	sealer := secrettest.Sealer(t)
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Files: files.New(files.Config{Library: lib, Works: w, Grabs: grabs.GrabCells{}}),
 		Indexers: indexers.New(indexers.Config{
-			Library: lib, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
+			Library: lib, Sealer: sealer, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
 			Changed: discard[indexers.Changed]{},
 		}),
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: nobody{}, Downloads: nobody{},
@@ -151,7 +153,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', 'k', ?, '{}', 0)`, indexer, home)
+		key := sealer.Seal([]byte("k"), secret.NewColumn("indexers_indexer.api_key_sealed").Row(indexer.String()))
+		_, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', ?, ?, '{}', 0)`, indexer, key, home)
 		return err
 	})
 	if err != nil {

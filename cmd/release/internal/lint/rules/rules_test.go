@@ -214,6 +214,13 @@ func TestConfigSections(t *testing.T) {
 	})
 }
 
+func TestCredentialColumns(t *testing.T) {
+	assertFindings(t, check(t, "credential-columns", fixtureRepo(t, "credential-columns")), []string{
+		"internal/vault/schema/00001_vault.sql:4: [credential-columns] vault_login.password holds a credential in plain text; seal it as password_sealed or keep only its digest as password_hash",
+		"internal/vault/schema/00002_vault_cookie.sql:2: [credential-columns] vault_login.tracker_cookie holds a credential in plain text; seal it as tracker_cookie_sealed or keep only its digest as tracker_cookie_hash",
+	})
+}
+
 func TestMigrationVersions(t *testing.T) {
 	repo := fixtureRepo(t, "migration-versions")
 	untracked := filepath.Join(repo.Root, "internal", "library", "schema", "00003_untracked.sql")
@@ -286,6 +293,24 @@ func TestHumaConfined(t *testing.T) {
 		"internal/api/apitest/walk.go:3: [huma-confined]" + outside,
 		"internal/nodes/nodes_test.go:3: [huma-confined]" + outside,
 		"internal/nodes/nodesapi/routes.go:6: [huma-confined]" + outside,
+	})
+}
+
+func TestMailConfined(t *testing.T) {
+	const outside = " go-mail imported outside internal/mail; send through a mail.Sender"
+	assertFindings(t, check(t, "mail-confined", fixtureRepo(t, "mail-confined")), []string{
+		"fakes/smtp/smtp_test.go:3: [mail-confined]" + outside,
+		"internal/identity/emails.go:6: [mail-confined]" + outside,
+		"internal/mail/mailtest/mailtest.go:3: [mail-confined]" + outside,
+	})
+}
+
+func TestWebauthnConfined(t *testing.T) {
+	const outside = " go-webauthn imported outside internal/identity/passkey; run ceremonies through passkey.Ceremonies"
+	assertFindings(t, check(t, "webauthn-confined", fixtureRepo(t, "webauthn-confined")), []string{
+		"internal/identity/passkey/passkeytest/passkeytest.go:3: [webauthn-confined]" + outside,
+		"internal/identity/passkeys.go:6: [webauthn-confined]" + outside,
+		"internal/identityapi/passkeys.go:3: [webauthn-confined]" + outside,
 	})
 }
 

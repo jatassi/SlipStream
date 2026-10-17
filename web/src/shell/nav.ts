@@ -4,9 +4,11 @@ import {
   LibraryIcon,
   Search01Icon,
   ServerStack01Icon,
+  Settings01Icon,
   Task01Icon,
   TimeScheduleIcon,
   UserCircleIcon,
+  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -25,6 +27,8 @@ export type NavId =
   | "library"
   | "activity"
   | "this-node"
+  | "accounts"
+  | "settings"
   | "tasks"
   | "home"
   | "search"
@@ -44,6 +48,7 @@ export type NavRow = {
 };
 
 const contentTypeLibrary = "/library/$contentType";
+const settingsSection = "/settings/$section";
 
 export type NavChild = {
   id: string;
@@ -83,6 +88,22 @@ export const adminNav: NavTable = [
     label: "This Node",
     icon: ServerStack01Icon,
     to: "/system",
+    audience: "admin",
+    place: "system",
+  },
+  {
+    id: "accounts",
+    label: "Accounts",
+    icon: UserGroupIcon,
+    to: "/accounts",
+    audience: "admin",
+    place: "system",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings01Icon,
+    to: "/settings",
     audience: "admin",
     place: "system",
   },
@@ -176,4 +197,5 @@ export const navPaths: ReadonlySet<string> = new Set([
   ...adminNav.map((row) => row.to),
   ...portalNav.map((row) => row.to),
   contentTypeLibrary,
+  settingsSection,
 ]);

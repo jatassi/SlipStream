@@ -120,7 +120,9 @@ test("an item without an icon lines its label up with the icon rows", async () =
     />,
   );
   await userEvent.click(page.getByRole("button", { name: "Account" }));
-  const menu = page.getByRole("menu", { name: "Account" }).element();
+  const menuLocator = page.getByRole("menu", { name: "Account" });
+  await expect.element(menuLocator).toBeVisible();
+  const menu = menuLocator.element();
   const labelLeft = (text: string) => {
     const walker = document.createTreeWalker(menu, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()?.textContent !== text) {}

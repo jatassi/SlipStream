@@ -1,0 +1,13 @@
+Subject: Ada Okafor invited you to slipstream.example.com
+
+Ada Okafor invited you to SlipStream at slipstream.example.com. Choose your name and a PIN to make your Account.
+
+Make your Account: https://slipstream.example.com/signup#token=Zm9vYmFy
+
+The link works once, until Friday, October 23, 2026 at 3:04 PM UTC.
+
+This replaces the link sent on Thursday, October 15, 2026 at 9:30 AM UTC, which no longer works.
+
+If the button doesn't work, open this address: https://slipstream.example.com/signup#token=Zm9vYmFy
+
+If you did not expect this email, you can ignore it. Nothing changes until the link is used.

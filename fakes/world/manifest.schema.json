@@ -409,6 +409,37 @@
         "pin"
       ]
     },
+    "members": {
+      "items": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "pin": {
+            "type": "string"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "pin",
+          "admin"
+        ]
+      },
+      "type": "array"
+    },
     "apiKey": {
       "type": "string"
     }
@@ -431,6 +462,7 @@
     "fronts",
     "links",
     "releases",
-    "browser"
+    "browser",
+    "members"
   ]
 }

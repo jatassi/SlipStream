@@ -14,12 +14,15 @@ import (
 	"time"
 )
 
-// Settings is the http config section. Both keys are machine-specific.
+// Settings is the http config section. Every key is machine-specific.
 type Settings struct {
 	Listen netip.AddrPort `yaml:"listen"`
 	// TrustedOrigins are origins the CSRF check accepts beyond the request's
 	// own, for a reverse proxy that rewrites Host.
 	TrustedOrigins []Origin `yaml:"trusted_origins"`
+	// TrustedProxies are the reverse proxies whose forwarded client address
+	// and scheme are believed. Nothing else reads forwarded headers.
+	TrustedProxies []Proxy `yaml:"trusted_proxies"`
 }
 
 func DefaultSettings() Settings {
