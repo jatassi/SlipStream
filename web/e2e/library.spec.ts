@@ -13,6 +13,10 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
   await expect(page.getByRole("list", { name: "Results" })).toHaveText("The Quiet Orchard2021Add");
 
   await page.getByRole("button", { name: "Add The Quiet Orchard" }).click();
+  await page
+    .getByRole("dialog", { name: "Add The Quiet Orchard" })
+    .getByRole("button", { name: "Add Movie" })
+    .click();
   await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
     "Added The Quiet Orchard",
