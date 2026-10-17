@@ -8,7 +8,7 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 - `pairing-wipe` a stopped, wiped seedbox starts Unclaimed on its first address: `{"claim":"unclaimed"}`.
 - `pairing-join-code` the Controller issues a single-use Join Code, `SLP1-…`, over `POST /api/v1/nodes/join-codes`.
 - `pairing-join` `slipstream join` pairs the stopped Node and prints `joined home as seedbox-2 (node <id>); link up to <address>`.
-- `pairing-worker-page` the Worker's own URL lands on `/worker`, headed `This Node is a Worker. Manage it from its Controller.`
+- `pairing-worker-page` the Worker's own URL lands on `/worker`, headed `This Node is a Worker. Manage it from its Controller.` over its `Name`, its `Controller` and its `Key`, the fingerprint of its Node key.
 
 ## How to get to it (user POV)
 
@@ -61,12 +61,13 @@ Steps:
 
   The status reads `{"claim":"worker"}`. The roster lists `seedbox` `down` with its old Roles and `seedbox-2` `up` with none.
 
-- **Open the Worker page.** The URL ends `/worker` and the heading reads `This Node is a Worker. Manage it from its Controller.`
+- **Open the Worker page.** The URL ends `/worker`, the heading reads `This Node is a Worker. Manage it from its Controller.`, and the rows read the Worker's `Name`, `Controller` `home` and its `Key`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.seedbox.browserUrl}/'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.waitForURL(/\/worker$/); }'
   $FW exec $RUN --proof pairing/pairing-worker-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/pairing/pairing-worker-page/worker.png
+  $FW exec $RUN --proof pairing/pairing-worker-page -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("main")' --filename={runDir}/proof/pairing/pairing-worker-page/worker.aria.yml
   ```
 
 ## Gotchas

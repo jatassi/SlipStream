@@ -2985,6 +2985,48 @@
         ],
         "type": "object"
       },
+      "ServingWorker": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "description": "Its Controller's name",
+            "type": "string"
+          },
+          "fingerprint": {
+            "description": "This Worker's key fingerprint, as its Controller lists it",
+            "type": "string"
+          },
+          "holding": {
+            "description": "The labels of the Roles it holds beside Serving, in table order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "This Worker's name",
+            "type": "string"
+          },
+          "seeding": {
+            "description": "How many torrents it seeds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "since": {
+            "description": "Since when this Worker can't reach its Controller; absent while it can",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "fingerprint",
+          "controller",
+          "holding",
+          "seeding"
+        ],
+        "type": "object"
+      },
       "SettingChoiceField": {
         "additionalProperties": false,
         "properties": {
@@ -16393,6 +16435,79 @@
           "roots"
         ],
         "x-slipstream-access": "admin"
+      }
+    },
+    "/serving": {
+      "get": {
+        "operationId": "getServing",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServingWorker"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_a_worker"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [],
+        "summary": "Report this Worker's name, key and Controller, and what it holds and seeds; a Serving Worker answers it itself",
+        "tags": [
+          "serving"
+        ],
+        "x-slipstream-access": "public"
       }
     },
     "/session": {

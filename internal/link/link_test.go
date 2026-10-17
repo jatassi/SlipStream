@@ -288,6 +288,54 @@ func TestATransferStreamBetweenVersionsIsRefused(t *testing.T) {
 	})
 }
 
+// A Serving Worker keeps serving through an update, so a Serve stream
+// opens and reaches its handler between versions, while the other kinds
+// stay refused on the same session.
+func TestAServeStreamCrossesVersions(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		peers := make(chan link.Key, 2)
+		served := map[link.Kind]func(link.Key, link.Stream){
+			link.KindServe:    record(peers)[link.KindTransfer],
+			link.KindTransfer: record(peers)[link.KindTransfer],
+		}
+		p := linktest.New(t, linktest.Side{Version: "0.0.0-a", Streams: served}, linktest.Side{Version: "0.0.0-b"})
+		p.Connect(t)
+		st, err := p.Worker.OpenStream(t.Context(), p.Controller.Key, link.KindServe)
+		if err != nil {
+			t.Fatalf("opening a Serve stream between versions = %v", err)
+		}
+		if _, err := st.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+			t.Fatalf("reading a Serve stream its handler closed = %v", err)
+		}
+		if peer := <-peers; peer != p.Worker.Key {
+			t.Fatalf("the handler saw %s, want the Worker", peer.Fingerprint())
+		}
+		raw, err := p.Worker.RawStream(t.Context(), p.Controller.Key, link.KindTransfer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := raw.Read(make([]byte, 1)); err == nil || err.Error() != "stream reset by remote, error code: 0" {
+			t.Fatalf("reading a Transfer stream opened between versions = %v", err)
+		}
+		expectNoPeer(t, peers)
+	})
+}
+
+func TestAServeStreamOnAnUnwelcomedSessionIsRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		peers := make(chan link.Key, 1)
+		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: map[link.Kind]func(link.Key, link.Stream){link.KindServe: record(peers)[link.KindTransfer]}})
+		st, err := p.Controller.UnwelcomedStream(t.Context(), p.Worker.Target(), link.KindServe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.Read(make([]byte, 1)); err == nil {
+			t.Fatal("a Serve stream on a session with no Hello was served")
+		}
+		expectNoPeer(t, peers)
+	})
+}
+
 func TestATransferStreamOnAnUnwelcomedSessionIsRefused(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		peers := make(chan link.Key, 1)

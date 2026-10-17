@@ -330,6 +330,7 @@ func TestARoleWithNoIntentRunsWhileHeld(t *testing.T) {
 		}
 		c.assign(c.workerID)
 		synctest.Wait()
+		check(t, "let go, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
 		if r, rel := count(); r != 1 || rel != 1 {
 			t.Errorf("let go, Serving ran %d times and was released %d times, want once each", r, rel)
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -26,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -62,6 +64,8 @@ type half struct {
 	// on a Worker.
 	transfers *transfers.Receiver
 	source    *transfers.Source
+	// serving proxies to the Controller while a Worker holds Serving.
+	serving *serving.Worker
 }
 
 // startController starts the Controller half: the control half, its own
@@ -104,7 +108,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	controls := side.Controls()
-	holding, local, err := n.startHolding(ctx, role.InProcess(controls))
+	holding, local, err := n.startHolding(ctx, role.InProcess(controls), nil)
 	if err != nil {
 		return err
 	}
@@ -247,7 +251,8 @@ func (n *Node) openTypes(client *http.Client) map[works.TypeID]contenttype.Type 
 func (n *Node) startWorker(ctx context.Context) error {
 	side := n.pairing
 	controller := side.Controller()
-	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key))
+	front := serving.NewWorker(n.link, controller.Key, n.cfg.Timings.Serving, n.rootLog.With("subsystem", "serving"))
+	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key), []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
 	if err != nil {
 		return err
 	}
@@ -257,7 +262,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, holding: holding, source: transfers.NewSource(transfers.SourceConfig{
+	n.setHalf(&half{peers: side, dispatch: dispatch, holding: holding, serving: front, source: transfers.NewSource(transfers.SourceConfig{
 		Payloads:   n.downloads,
 		Controller: controller.Key,
 		Hooks:      n.env.Test.Transfers,
@@ -265,12 +270,14 @@ func (n *Node) startWorker(ctx context.Context) error {
 	})})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
+	n.claimed.Go("serving", front.Follow)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local})
 	return nil
 }
 
-// startHolding opens local.db and runs the holder half toward upstream.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream) (*role.Holding, *storage.DB[storage.Local], error) {
+// startHolding opens local.db and runs the holder half toward upstream,
+// holding the half's own Roles beside every Node's.
+func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, own []role.Held) (*role.Holding, *storage.DB[storage.Local], error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
 		return nil, nil, err
@@ -279,7 +286,7 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream) (*role.
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:    local,
 		Upstream: upstream,
-		Held:     append(n.heldRoles(local), n.env.Test.held(local)...),
+		Held:     slices.Concat(n.heldRoles(local), own, n.env.Test.held(local)),
 		Timings:  n.cfg.Timings.Role,
 		Rand:     n.roleRand,
 		Log:      n.rootLog.With("subsystem", "role"),
@@ -349,8 +356,27 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 }
 
 // claimStreams serves Transfer streams with the Worker half's source, and
-// resets them on any other Node.
+// Serve streams from a Node that serves on the Controller, and resets
+// them on any other Node.
 type claimStreams struct{ n *Node }
+
+func (c claimStreams) serve(peer link.Key, s link.Stream) {
+	if h := c.n.half.Load(); h != nil && h.nodes != nil {
+		if id, ok := h.nodes.NodeOf(peer); ok && h.nodes.Serves(role.Serving, id) {
+			c.n.served.Offer(s)
+			return
+		}
+	}
+	_ = s.Reset()
+}
+
+// servingWorker is the Worker half's Serving, nil on any other Node.
+func (n *Node) servingWorker() *serving.Worker {
+	if h := n.half.Load(); h != nil {
+		return h.serving
+	}
+	return nil
+}
 
 func (c claimStreams) transfer(peer link.Key, s link.Stream) {
 	if h := c.n.half.Load(); h != nil && h.source != nil {

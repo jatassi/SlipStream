@@ -37,6 +37,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -185,13 +186,16 @@ type Node struct {
 
 	// Set during start, before the Node is ready. cfgMu guards the Node
 	// settings table's keys in cfg, which setConfig changes later.
-	cfgMu     sync.Mutex
-	cfg       Config
-	key       link.PrivateKey
-	info      link.NodeInfo
-	hub       *live.Hub
-	gate      *identity.Gate
-	link      *link.Link
+	cfgMu sync.Mutex
+	cfg   Config
+	key   link.PrivateKey
+	info  link.NodeInfo
+	hub   *live.Hub
+	gate  *identity.Gate
+	link  *link.Link
+	// served is the Controller's end of the Serve streams Serving Workers
+	// open.
+	served    *serving.Listener
 	pairing   *pairing.Pairing
 	lockstep  *http.ServeMux
 	roleRand  *rand.Rand

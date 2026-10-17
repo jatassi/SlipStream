@@ -127,6 +127,19 @@ func (c *Client) note(ev engine.Event) {
 	}
 }
 
+// Seeding is how many finished torrents the client holds.
+func (c *Client) Seeding() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for h := range c.byHash {
+		if c.finished[h] {
+			n++
+		}
+	}
+	return n
+}
+
 // Path is where file index of torrent h lies on this Node, ErrNotPresent
 // until the client finished h.
 func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {

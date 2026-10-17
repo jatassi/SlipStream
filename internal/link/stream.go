@@ -19,12 +19,16 @@ const (
 	KindServe Kind = 3
 )
 
+// crossesVersions reports whether kind is admitted on a session with a
+// peer on another version. Only Serve is.
+func crossesVersions(kind Kind) bool { return kind == KindServe }
+
 // Stream is one stream of a session. Reset abandons it in both directions.
 type Stream = mux.Stream
 
-// OpenStream opens a stream of kind on key's live session. It is lockstep
-// work, so it fails before sending with ErrDisconnected, or ErrMismatched
-// when the peer runs another version.
+// OpenStream opens a stream of kind on key's live session. It fails before
+// sending with ErrDisconnected, or, for every kind but Serve, with
+// ErrMismatched when the peer runs another version.
 func (l *Link) OpenStream(ctx context.Context, key Key, kind Kind) (Stream, error) {
 	l.mu.Lock()
 	s := l.live[key]
@@ -32,7 +36,7 @@ func (l *Link) OpenStream(ctx context.Context, key Key, kind Kind) (Stream, erro
 	switch {
 	case s == nil:
 		return nil, ErrDisconnected
-	case !s.matched:
+	case !s.matched && !crossesVersions(kind):
 		return nil, ErrMismatched
 	}
 	st, err := wire.Open(ctx, s.mux, wire.Kind(kind))
@@ -43,8 +47,9 @@ func (l *Link) OpenStream(ctx context.Context, key Key, kind Kind) (Stream, erro
 }
 
 // HandleStream serves kind with h, given the peer's key. The link resets a
-// stream from a session that isn't live with a peer on this version before
-// h sees it. Call it before Serve and before any dial.
+// stream from a session that isn't live, or, for every kind but Serve,
+// whose peer runs another version, before h sees it. Call it before Serve
+// and before any dial.
 func (l *Link) HandleStream(kind Kind, h func(peer Key, s Stream)) {
 	k := wire.Kind(kind)
 	if k == wire.RPC {
@@ -53,8 +58,9 @@ func (l *Link) HandleStream(kind Kind, h func(peer Key, s Stream)) {
 	if l.kinds[k] != nil {
 		panic(fmt.Sprintf("link: kind %d already has a handler", kind))
 	}
+	across := crossesVersions(kind)
 	l.kinds[k] = func(s *session, st Stream) {
-		if l.inStep(l.ctx, s) != nil {
+		if l.admitted(l.ctx, s, across) != nil {
 			_ = st.Reset()
 			return
 		}
