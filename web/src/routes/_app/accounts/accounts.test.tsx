@@ -177,29 +177,28 @@ test("with no address set, the dialog asks for it, saves it and then makes the l
   ]);
 });
 
+const pendingLinkHandlers = (calls: string[]) => [
+  ...accountsPage(),
+  getGetSignupLinkMockHandler({
+    link: pending,
+    url: "https://media.example.test/signup#token=first",
+  }),
+  http.post("*/api/v1/signup-links/:id/resend", ({ params }) => {
+    calls.push(`resend ${String(params["id"])}`);
+    return HttpResponse.json(
+      { ...issued("lin@example.test"), email: { outcome: "sent" } },
+      { status: 201 },
+    );
+  }),
+  http.delete("*/api/v1/signup-links/:id", ({ params }) => {
+    calls.push(`withdraw ${String(params["id"])}`);
+    return new HttpResponse(null, { status: 204 });
+  }),
+];
+
 test("a pending link copies, sends again and withdraws", async () => {
   const calls: string[] = [];
-  renderApp({
-    path: "/accounts",
-    handlers: [
-      ...accountsPage(),
-      getGetSignupLinkMockHandler({
-        link: pending,
-        url: "https://media.example.test/signup#token=first",
-      }),
-      http.post("*/api/v1/signup-links/:id/resend", ({ params }) => {
-        calls.push(`resend ${String(params["id"])}`);
-        return HttpResponse.json(
-          { ...issued("lin@example.test"), email: { outcome: "sent" } },
-          { status: 201 },
-        );
-      }),
-      http.delete("*/api/v1/signup-links/:id", ({ params }) => {
-        calls.push(`withdraw ${String(params["id"])}`);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    ],
-  });
+  renderApp({ path: "/accounts", handlers: pendingLinkHandlers(calls) });
 
   await userEvent.click(actions());
   await userEvent.click(page.getByRole("menuitem", { name: "Copy link" }));
@@ -213,6 +212,11 @@ test("a pending link copies, sends again and withdraws", async () => {
   await userEvent.click(actions());
   await userEvent.click(page.getByRole("menuitem", { name: "Send again" }));
   const resend = page.getByRole("dialog", { name: "Send a new Signup link?" });
+  await expect
+    .element(
+      resend.getByText("A new link goes to lin@example.test, and the old one stops working."),
+    )
+    .toBeVisible();
   await userEvent.click(resend.getByRole("button", { name: "Send again" }));
   const resent = page.getByRole("dialog", { name: "New Signup link" });
   await expect.element(resent.getByText("Emailed it to lin@example.test.")).toBeVisible();

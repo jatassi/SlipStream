@@ -92,8 +92,8 @@ function ResendDialogs({ acting, setActing }: Props) {
         }}
       >
         <p>
-          {acting?.kind === "resend" ? acting.link.email : "They"} get a new link, and the old one
-          stops working.
+          A new link goes to {acting?.kind === "resend" ? acting.link.email : "them"}, and the old
+          one stops working.
         </p>
       </ConfirmDialog>
       <Dialog
