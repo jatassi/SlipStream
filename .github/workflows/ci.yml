@@ -71,7 +71,7 @@ jobs:
         run: go run ./cmd/release proto-frozen -base "$BASE"
         env:
           BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
-      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && steps.go.outputs.cache-hit != 'true'
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -98,7 +98,6 @@ jobs:
         uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      # Vitest and Playwright run under Node through bun run.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -109,11 +108,6 @@ jobs:
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
-      - uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/ms-playwright
-          key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/slipstream-native
@@ -129,11 +123,6 @@ jobs:
           second="$(sudo "$RUNNER_TEMP/fakeworld" setup-loopback)"
           echo "$second"
           test "$second" = "loopback aliases already set up"
-      # The browsers' system libraries are not in the cache, so Linux
-      # installs them on every run.
-      - if: runner.os == 'Linux'
-        working-directory: web
-        run: bun run e2e:install --with-deps
       # Windows runners keep TEMP on C:, which is far slower than D:, and the
       # Nodes' data dirs live under TEMP.
       - if: runner.os == 'Windows'
@@ -141,7 +130,7 @@ jobs:
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - id: test
-        run: go run ./cmd/release test
+        run: go run ./cmd/release test -tier go
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
           TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.goos == 'windows' && '.exe' || '' }}
@@ -196,14 +185,91 @@ jobs:
           name: docker-context-${{ matrix.target }}
           path: ${{ runner.temp }}/docker-context.tar
           if-no-files-found: error
+      # Only main saves, and every other ref restores main's newest cache.
+      # A save per branch push evicts main's caches from the repo's 10 GB.
+      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/go-build
+            ${{ runner.temp }}/go-mod
+            ${{ runner.temp }}/golangci-lint
+          key: ${{ steps.go.outputs.cache-key }}
+
+  web:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    name: web (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@v5
+      - if: matrix.xcode
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
+      - id: go
+        uses: ./.github/actions/go
+        with:
+          cache: go-web-${{ matrix.target }}
+      # Vitest and Playwright run under Node through bun run.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      - run: go run ./cmd/release build
+      - if: matrix.goos == 'darwin'
+        run: |
+          eval "$(go run ./cmd/release deps env)"
+          go build -o "$RUNNER_TEMP/fakeworld" ./cmd/fakeworld
+          sudo "$RUNNER_TEMP/fakeworld" setup-loopback
+      # The browsers' system libraries are not in the cache, so Linux
+      # installs them on every run.
+      - if: runner.os == 'Linux'
+        working-directory: web
+        run: bun run e2e:install --with-deps
+      - if: runner.os == 'Windows'
+        run: |
+          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - id: component
+        run: go run ./cmd/release test -tier component
+      - id: browser
+        if: ${{ !cancelled() }}
+        run: go run ./cmd/release test -tier browser
+        env:
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.goos == 'windows' && '.exe' || '' }}
+          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      - if: failure() && steps.browser.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fakeworld-runs-web-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
+          if-no-files-found: ignore
       # Lint runs on every target so gofmt, line endings and the cgo type
       # check are proven on each OS, and runs even when a test fails.
       - if: ${{ !cancelled() }}
         run: go run ./cmd/release lint
-      # Pushes save the cache that pull requests restore. Pull requests do not
-      # save, because a pull request's cache is visible to that pull request
-      # alone.
-      - if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && steps.go.outputs.cache-hit != 'true' }}
+      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v4
         with:
           path: |
@@ -289,18 +355,18 @@ jobs:
 
   native-gate:
     if: always()
-    needs: [plan, build]
+    needs: [plan, build, web]
     runs-on: ubuntu-24.04
     steps:
-      # A docs-only change plans no builds, so the build job is skipped and
-      # this gate still reports.
       - run: |
           test "$PLAN" = success
           if [ "$PLANNED" = true ]; then test "$BUILD" = success; else test "$BUILD" = skipped; fi
+          if [ "$PLANNED" = true ]; then test "$WEB" = success; else test "$WEB" = skipped; fi
         env:
           PLAN: ${{ needs.plan.result }}
           PLANNED: ${{ needs.plan.outputs.build }}
           BUILD: ${{ needs.build.result }}
+          WEB: ${{ needs.web.result }}
 
   image:
     needs: [plan, build]
