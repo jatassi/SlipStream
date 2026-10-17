@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-import { isApiError, sentenceOf } from "../api/errors";
 import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Section } from "../ui/section";
+import { refusalOf } from "./attempt";
 import type { EditorSection } from "./editor";
 
 export type Save<Draft> = {
@@ -11,10 +11,6 @@ export type Save<Draft> = {
   /** Saves the draft; a refusal it throws shows under the button. */
   readonly onSave: (draft: Draft) => Promise<unknown>;
 };
-
-// A save can refuse with a sentence of its own, as a ConfirmDialog's action can.
-const refusalOf = (error: unknown): string =>
-  error instanceof Error && !isApiError(error) ? error.message : sentenceOf(error);
 
 function SaveBar<Draft>({
   draft,
