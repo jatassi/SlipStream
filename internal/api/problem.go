@@ -29,6 +29,9 @@ func NewCode(status int, name, title string) *Code {
 
 func (c *Code) Error() string { return c.name }
 
+// ServeHTTP answers c as the problem, for a handler that is no operation.
+func (c *Code) ServeHTTP(w http.ResponseWriter, _ *http.Request) { writeProblem(w, c.problem()) }
+
 func (c *Code) problem() *Problem {
 	return &Problem{Status: c.status, Code: c.name, Title: c.title}
 }

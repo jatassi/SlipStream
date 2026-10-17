@@ -14,6 +14,7 @@ import { Route as ConfirmEmailRouteImport } from "./routes/confirm-email";
 import { Route as NewPinRouteImport } from "./routes/new-pin";
 import { Route as PortalRouteImport } from "./routes/portal";
 import { Route as ResetRouteImport } from "./routes/reset";
+import { Route as ServingRouteImport } from "./routes/serving";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
 import { Route as SignupRouteImport } from "./routes/signup";
@@ -71,6 +72,11 @@ const PortalRoute = PortalRouteImport.update({
 const ResetRoute = ResetRouteImport.update({
   id: "/reset",
   path: "/reset",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ServingRoute = ServingRouteImport.update({
+  id: "/serving",
+  path: "/serving",
   getParentRoute: () => rootRouteImport,
 } as any);
 const SetupRoute = SetupRouteImport.update({
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
   "/reset": typeof ResetRoute;
+  "/serving": typeof ServingRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
   "/reset": typeof ResetRoute;
+  "/serving": typeof ServingRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
   "/reset": typeof ResetRoute;
+  "/serving": typeof ServingRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | "/new-pin"
     | "/portal"
     | "/reset"
+    | "/serving"
     | "/setup"
     | "/sign-in"
     | "/signup"
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | "/confirm-email"
     | "/new-pin"
     | "/reset"
+    | "/serving"
     | "/setup"
     | "/sign-in"
     | "/signup"
@@ -445,6 +456,7 @@ export interface FileRouteTypes {
     | "/new-pin"
     | "/portal"
     | "/reset"
+    | "/serving"
     | "/setup"
     | "/sign-in"
     | "/signup"
@@ -487,6 +499,7 @@ export interface RootRouteChildren {
   NewPinRoute: typeof NewPinRoute;
   PortalRoute: typeof PortalRouteWithChildren;
   ResetRoute: typeof ResetRoute;
+  ServingRoute: typeof ServingRoute;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
   SignupRoute: typeof SignupRoute;
@@ -529,6 +542,13 @@ declare module "@tanstack/react-router" {
       path: "/reset";
       fullPath: "/reset";
       preLoaderRoute: typeof ResetRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/serving": {
+      id: "/serving";
+      path: "/serving";
+      fullPath: "/serving";
+      preLoaderRoute: typeof ServingRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/setup": {
@@ -892,6 +912,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewPinRoute: NewPinRoute,
   PortalRoute: PortalRouteWithChildren,
   ResetRoute: ResetRoute,
+  ServingRoute: ServingRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SignupRoute: SignupRoute,

@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
+	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/shellapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
@@ -73,6 +74,7 @@ type Node interface {
 	shellapi.Pipeline
 	systemapi.Systems
 	tasksapi.Clock
+	servingapi.Worker
 }
 
 // Services are what the operations run against. Document passes none.
@@ -99,6 +101,7 @@ func Mount(r *api.Router, s Services) {
 	grabsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)
+	servingapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

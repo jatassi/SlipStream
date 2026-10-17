@@ -19,8 +19,10 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -119,6 +121,22 @@ func (n *Node) claim(ctx context.Context) (system.Claim, error) {
 type surfaceNode struct{ n *Node }
 
 func (s surfaceNode) Claim(ctx context.Context) (system.Claim, error) { return s.n.claim(ctx) }
+
+func (s surfaceNode) Worker() (servingapi.Facts, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.serving == nil {
+		return servingapi.Facts{}, false
+	}
+	rec, _ := s.n.pairing.Record()
+	f := servingapi.Facts{Name: s.n.cfg.Name, Fingerprint: s.n.key.Public().Fingerprint(), Controller: rec.ControllerName, Seeding: s.n.downloads.Seeding()}
+	f.Since, _ = h.serving.Unreachable()
+	for _, r := range role.Names() {
+		if r != role.Serving && h.holding.Holds(r) {
+			f.Holding = append(f.Holding, r)
+		}
+	}
+	return f, true
+}
 
 func (s surfaceNode) Identity() (*identity.Service, bool) {
 	lib := s.n.lib.Load()

@@ -112,13 +112,13 @@ type holder struct {
 	stop  func()
 }
 
-func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local]) *holder {
+func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local], held ...role.Held) *holder {
 	t.Helper()
 	probe := roletest.NewProbe(local)
 	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
 		Local:    local,
 		Upstream: role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key),
-		Held:     []role.Held{probe.Held()},
+		Held:     append([]role.Held{probe.Held()}, held...),
 		Timings:  timings,
 		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:      discard,
@@ -211,6 +211,35 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 		check(t, "unassigned, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
 		if w.Holds(roletest.Name) {
 			t.Error("the Worker still holds the probe once unassigned")
+		}
+	})
+}
+
+// Serving has no intent, so its run starts as soon as the node scope
+// assigns it and stops once the scope drops it.
+func TestARoleWithNoIntentRunsWhileAssigned(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		var runs, stops int
+		serving := role.Hold(role.Serving, func(ctx context.Context) error {
+			runs++
+			<-ctx.Done()
+			stops++
+			return nil
+		})
+		c.startWorker(t, storagetest.Local(t, role.LocalSchema()), serving)
+		c.pair.Connect(t)
+		c.assign(c.workerID, role.Serving)
+		synctest.Wait()
+		check(t, "assigned, the Worker's facts", nodeFacts(c, c.workerID), "assigned [serving] running [serving] restarting []")
+		if runs != 1 || stops != 0 {
+			t.Fatalf("assigned Serving ran %d times and stopped %d", runs, stops)
+		}
+		c.assign(c.workerID)
+		synctest.Wait()
+		check(t, "unassigned, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
+		if runs != 1 || stops != 1 {
+			t.Fatalf("unassigned Serving ran %d times and stopped %d", runs, stops)
 		}
 	})
 }

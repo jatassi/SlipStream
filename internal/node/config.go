@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -134,6 +135,7 @@ type TimingsBlock struct {
 	Downloading downloading.Timings `yaml:"downloading"`
 	Media       media.Timings       `yaml:"media"`
 	Mail        mail.Timings        `yaml:"mail"`
+	Serving     serving.Timings     `yaml:"serving"`
 }
 
 type Timings struct {
@@ -191,6 +193,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Downloading: downloading.DefaultTimings(),
 			Media:       media.DefaultTimings(),
 			Mail:        mail.DefaultTimings(),
+			Serving:     serving.DefaultTimings(),
 		},
 	}
 }

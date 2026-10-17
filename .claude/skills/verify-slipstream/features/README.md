@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, and `serving` is `home` with Serving on seedbox too.
 
 ## Conventions
 
@@ -52,6 +52,6 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
 - [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.
-- [Nodes](./nodes.md) covers the Nodes page, its sections and Node picker, Web and API and Log settings, the live Logs and Download logs, Restart, and `GET /api/v1/system`.
+- [Nodes](./nodes.md) covers the Nodes page, its sections and Node picker, Web and API and Log settings, the live Logs and Download logs, Restart, `GET /api/v1/system`, and Serving on a Worker: its address serving the Controller's app and the status card while the Controller can't be reached.
 - [Tasks](./tasks.md) covers the Tasks page, a task's detail page, Run now and Cancel, the header capsule and the phone's running list, cadence and Schedule settings, and Housekeeping going Partial and back when seedbox stops and starts.
 - [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

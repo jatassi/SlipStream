@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 )
 
@@ -43,12 +46,55 @@ func (ps proxies) trust(a netip.Addr) bool {
 	return false
 }
 
-// clientOf is req's client address and whether it used HTTPS. They are the
-// TCP peer's and this connection's, unless the peer is a trusted proxy:
-// then the address is the rightmost X-Forwarded-For entry that isn't one,
-// and HTTPS is the last X-Forwarded-Proto value. A malformed entry ends the
-// walk at the last proxy seen, never a guess past it.
+type overLink struct{}
+
+// OverLink is http.Server's ConnContext for the connections a Serving
+// Worker opens over the link: their requests' client is the address the
+// Worker's Forwarded header names, over plain HTTP.
+func OverLink(ctx context.Context, _ net.Conn) context.Context {
+	return context.WithValue(ctx, overLink{}, true)
+}
+
+// Forwarded is the Forwarded header a Serving Worker sends for client.
+func Forwarded(client netip.Addr) string {
+	if client.Is6() {
+		return `for="[` + client.String() + `]"`
+	}
+	return "for=" + client.String()
+}
+
+// forwardedFor is the for= address of the last element of a Forwarded
+// header, or the zero address.
+func forwardedFor(header string) netip.Addr {
+	elements := strings.Split(header, ",")
+	for pair := range strings.SplitSeq(elements[len(elements)-1], ";") {
+		name, value, _ := strings.Cut(strings.TrimSpace(pair), "=")
+		if !strings.EqualFold(name, "for") {
+			continue
+		}
+		if unquoted, err := strconv.Unquote(value); err == nil {
+			value = unquoted
+		}
+		if a, ok := parseHop(value); ok {
+			return a
+		}
+		a, _ := parseHop(strings.TrimSuffix(strings.TrimPrefix(value, "["), "]"))
+		return a
+	}
+	return netip.Addr{}
+}
+
+// clientOf is req's client address and whether it used HTTPS. Over the
+// link they are the Serving Worker's Forwarded address and plain HTTP.
+// Otherwise they are the TCP peer's and this connection's, unless the peer
+// is a trusted proxy: then the address is the rightmost X-Forwarded-For
+// entry that isn't one, and HTTPS is the last X-Forwarded-Proto value. A
+// malformed entry ends the walk at the last proxy seen, never a guess past
+// it.
 func (ps proxies) clientOf(req *http.Request) (netip.Addr, bool) {
+	if req.Context().Value(overLink{}) != nil {
+		return forwardedFor(req.Header.Get("Forwarded")), false
+	}
 	peer, _ := netip.ParseAddrPort(req.RemoteAddr)
 	addr, https := peer.Addr().Unmap(), req.TLS != nil
 	if !ps.trust(addr) {

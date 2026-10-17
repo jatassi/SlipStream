@@ -27,7 +27,7 @@ var linkMechanism = []string{"internal/link/...", "internal/rpc", "internal/role
 
 // linkOwners may hold a *link.Link: the Node runtime and the packages it
 // hands the link to.
-var linkOwners = []string{"internal/link/...", "internal/node", "internal/rpc", "internal/role", "internal/nodes", "internal/pairing", "internal/transfers", "fakes/..."}
+var linkOwners = []string{"internal/link/...", "internal/node", "internal/rpc", "internal/role", "internal/nodes", "internal/pairing", "internal/transfers", "internal/serving", "fakes/..."}
 
 var transportModules = []string{"connectrpc.com/connect", "golang.org/x/net/http2"}
 
