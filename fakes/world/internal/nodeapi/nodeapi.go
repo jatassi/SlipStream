@@ -137,37 +137,55 @@ func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, u
 
 // CreateTarget creates the Scenario Target t and returns its id.
 func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t scenario.LibraryTarget) (string, error) {
-	type filter struct {
-		Attribute string   `json:"attribute"`
-		Mode      string   `json:"mode"`
-		Values    []string `json:"values"`
-	}
-	type size struct {
-		Quality scenario.QualityKey `json:"quality"`
-		Min     float64             `json:"min"`
-		Max     *float64            `json:"max,omitempty"`
-	}
-	body := struct {
-		Name    string                  `json:"name"`
-		Tiers   [][]scenario.QualityKey `json:"tiers"`
-		Cutoff  scenario.QualityKey     `json:"cutoff"`
-		Filters []filter                `json:"filters,omitempty"`
-		Sizes   []size                  `json:"sizes,omitempty"`
-	}{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff}
-	for _, f := range t.Filters {
-		body.Filters = append(body.Filters, filter(f))
-	}
-	for _, z := range t.Sizes {
-		body.Sizes = append(body.Sizes, size(z))
-	}
 	var target struct {
 		ID string `json:"id"`
 	}
 	_, err := call(ctx, c, request{
 		what: "create Target " + t.Name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
-		header: apiKeyHeader(apiKey), body: body, want: http.StatusCreated,
+		header: apiKeyHeader(apiKey), body: targetBody(t), want: http.StatusCreated,
 	}, &target)
 	return target.ID, err
+}
+
+// UpdateTarget replaces Target id's rules with the Scenario Target t's,
+// deleting any file they leave filling nothing.
+func UpdateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, id string, t scenario.LibraryTarget) error {
+	_, err := call(ctx, c, request{
+		what: "update Target " + t.Name, method: http.MethodPut, url: baseURL + "/api/v1/targets/" + id,
+		header: apiKeyHeader(apiKey), body: targetBody(t), want: http.StatusOK,
+	}, nil)
+	return err
+}
+
+type targetFilter struct {
+	Attribute string   `json:"attribute"`
+	Mode      string   `json:"mode"`
+	Values    []string `json:"values"`
+}
+
+type targetSize struct {
+	Quality scenario.QualityKey `json:"quality"`
+	Min     float64             `json:"min"`
+	Max     *float64            `json:"max,omitempty"`
+}
+
+type newTarget struct {
+	Name    string                  `json:"name"`
+	Tiers   [][]scenario.QualityKey `json:"tiers"`
+	Cutoff  scenario.QualityKey     `json:"cutoff"`
+	Filters []targetFilter          `json:"filters,omitempty"`
+	Sizes   []targetSize            `json:"sizes,omitempty"`
+}
+
+func targetBody(t scenario.LibraryTarget) newTarget {
+	body := newTarget{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff}
+	for _, f := range t.Filters {
+		body.Filters = append(body.Filters, targetFilter(f))
+	}
+	for _, z := range t.Sizes {
+		body.Sizes = append(body.Sizes, targetSize(z))
+	}
+	return body
 }
 
 // ListTargets lists the Targets' ids by name.

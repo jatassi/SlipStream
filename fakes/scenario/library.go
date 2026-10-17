@@ -29,7 +29,8 @@ type LibraryRoot struct {
 
 // LibraryTarget is a Target as an Admin creates it: tiers of quality keys,
 // best first, the quality whose tier is the cutoff, filters by attribute
-// and sizes in MiB per minute for some accepted qualities.
+// and sizes in MiB per minute for some accepted qualities. One named after
+// the starter replaces the starter's rules.
 type LibraryTarget struct {
 	Name    string          `jsonschema:"required"            yaml:"name"`
 	Tiers   [][]QualityKey  `jsonschema:"required,minItems=1" yaml:"tiers"`

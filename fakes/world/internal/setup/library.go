@@ -48,15 +48,19 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	return nil
 }
 
-// goals creates lib's Targets and Profiles, making each Profile that says
-// so its Content Type's default.
+// goals creates lib's Targets, replacing the rules of one whose name a
+// Target has, such as the starter, and its Profiles, making each Profile
+// that says so its Content Type's default.
 func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controller, apiKey string) error {
 	targets, err := nodeapi.ListTargets(ctx, c, controller, apiKey)
 	if err != nil {
 		return err
 	}
 	for _, t := range lib.Targets {
-		if _, made := targets[t.Name]; made {
+		if id, made := targets[t.Name]; made {
+			if err := nodeapi.UpdateTarget(ctx, c, controller, apiKey, id, t); err != nil {
+				return err
+			}
 			continue
 		}
 		id, err := nodeapi.CreateTarget(ctx, c, controller, apiKey, t)
