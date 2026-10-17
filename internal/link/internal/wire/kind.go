@@ -13,8 +13,8 @@ import (
 // carries.
 type Kind byte
 
-// RPC is one h2c connection. Other kinds are reserved for Transfers and
-// relay forwards.
+// RPC is one h2c connection. Other kinds are reserved for Transfers,
+// Serving and relay forwards.
 const RPC Kind = 1
 
 func Open(ctx context.Context, s *mux.Session, k Kind) (mux.Stream, error) {

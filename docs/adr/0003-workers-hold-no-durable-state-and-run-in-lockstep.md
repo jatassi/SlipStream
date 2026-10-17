@@ -17,3 +17,4 @@ Nodes trust each other by public keys pinned at Pairing, not by certificates. Ei
 - Changing the handshake or update path breaks every older Worker in the field, so those two stay fixed across releases.
 - The offline suite fakes the Node link twice. An in-memory link with fault injection drives simulation tests, and real Node processes on loopback behind a fault proxy drive the end-to-end suite.
 - A mismatched Relay Node or Serving Worker keeps forwarding and proxying during an update, because forwarding isn't a job. Decided in the [coherence pass](https://github.com/jatassi/SlipStream/pull/112), Q14.
+- A Role leaves a Node by draining or by a write off. A draining Node finishes the work it holds for the Role and takes nothing new. A write off gives that work up on a live or an offline Node and keeps its files. Decided in [Nodes, Pairing and Roles](https://github.com/jatassi/SlipStream/issues/140).

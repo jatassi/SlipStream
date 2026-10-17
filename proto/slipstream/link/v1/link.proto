@@ -63,6 +63,7 @@ message Paired {
   bytes node_id = 1;
   // name is the Worker's name as the Controller recorded it.
   string name = 2;
+  // controller_name is the Controller's own Node name.
   string controller_name = 3;
 }
 
@@ -112,6 +113,9 @@ enum RefusedReason {
   REFUSED_REASON_JOIN_CODE_EXPIRED = 3;
   REFUSED_REASON_JOIN_CODE_USED = 4;
   REFUSED_REASON_NOT_A_CONTROLLER = 5;
+  // The Controller removed this key. It refuses the key's Hello and still
+  // answers its Pair, so the Node can join again with a new Join Code.
+  REFUSED_REASON_REMOVED = 6;
 }
 
 message GetManifestRequest {

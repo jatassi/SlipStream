@@ -13,6 +13,21 @@
 //
 // Its text is "SLP1-" and upper-case unpadded Crockford base32 in
 // dash-joined groups of five.
+//
+// The package also holds the Node address, which a Node prints when it
+// can't reach its Controller so the Controller can dial it: format SLN1,
+// frozen on the same terms, so a later format takes SLN2. Before encoding,
+// an SLN1 address is
+//
+//	32       the Node's raw Ed25519 public key
+//	1        address count, 1 to 8
+//	7 or 19  per address, in dial order: family (4 or 6), 4 or 16 IP bytes, big-endian port
+//	4        SHA-256 of every byte before it, first 4 bytes
+//
+// Its text is "SLN1-" and the same base32 in the same groups. It parses as
+// an SLP1 code does: ignoring case, whitespace and dashes after the prefix,
+// reading O as 0 and I and L as 1, and refusing text other than what its
+// bytes encode to.
 package joincode
 
 import (
