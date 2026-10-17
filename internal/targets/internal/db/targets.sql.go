@@ -13,6 +13,34 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const deleteTarget = `-- name: DeleteTarget :execrows
+DELETE FROM targets_target WHERE id = ?1
+`
+
+func (q *Queries) DeleteTarget(ctx context.Context, id TargetID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteTarget, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const getTarget = `-- name: GetTarget :one
+SELECT id, name, created_at, cutoff_tier FROM targets_target WHERE id = ?1
+`
+
+func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, error) {
+	row := q.db.QueryRowContext(ctx, getTarget, id)
+	var i TargetsTarget
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.CutoffTier,
+	)
+	return i, err
+}
+
 const hasDefaultProfile = `-- name: HasDefaultProfile :one
 SELECT EXISTS (SELECT 1 FROM targets_profile WHERE content_type = ?1 AND is_default = 1)
 `
@@ -33,6 +61,43 @@ func (q *Queries) HasTarget(ctx context.Context, id TargetID) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const insertFilter = `-- name: InsertFilter :exec
+INSERT INTO targets_filter (target_id, attribute, mode) VALUES (?1, ?2, ?3)
+`
+
+type InsertFilterParams struct {
+	TargetID  TargetID
+	Attribute Attribute
+	Mode      Mode
+}
+
+func (q *Queries) InsertFilter(ctx context.Context, arg InsertFilterParams) error {
+	_, err := q.db.ExecContext(ctx, insertFilter, arg.TargetID, arg.Attribute, arg.Mode)
+	return err
+}
+
+const insertFilterValue = `-- name: InsertFilterValue :exec
+INSERT INTO targets_filter_value (target_id, attribute, position, value)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertFilterValueParams struct {
+	TargetID  TargetID
+	Attribute Attribute
+	Position  int64
+	Value     string
+}
+
+func (q *Queries) InsertFilterValue(ctx context.Context, arg InsertFilterValueParams) error {
+	_, err := q.db.ExecContext(ctx, insertFilterValue,
+		arg.TargetID,
+		arg.Attribute,
+		arg.Position,
+		arg.Value,
+	)
+	return err
 }
 
 const insertProfile = `-- name: InsertProfile :exec
@@ -73,39 +138,57 @@ func (q *Queries) InsertProfileTarget(ctx context.Context, arg InsertProfileTarg
 	return err
 }
 
-const insertResolution = `-- name: InsertResolution :exec
-INSERT INTO targets_resolution (target_id, position, resolution)
-VALUES (?1, ?2, ?3)
+const insertQuality = `-- name: InsertQuality :exec
+INSERT INTO targets_quality (target_id, quality, tier, position, min_mib_per_minute, max_mib_per_minute)
+VALUES (?1, ?2, ?3, ?4, ?5,
+    ?6)
 `
 
-type InsertResolutionParams struct {
-	TargetID   TargetID
-	Position   int64
-	Resolution release.Resolution
+type InsertQualityParams struct {
+	TargetID        TargetID
+	Quality         release.Quality
+	Tier            int64
+	Position        int64
+	MinMibPerMinute float64
+	MaxMibPerMinute *float64
 }
 
-func (q *Queries) InsertResolution(ctx context.Context, arg InsertResolutionParams) error {
-	_, err := q.db.ExecContext(ctx, insertResolution, arg.TargetID, arg.Position, arg.Resolution)
+func (q *Queries) InsertQuality(ctx context.Context, arg InsertQualityParams) error {
+	_, err := q.db.ExecContext(ctx, insertQuality,
+		arg.TargetID,
+		arg.Quality,
+		arg.Tier,
+		arg.Position,
+		arg.MinMibPerMinute,
+		arg.MaxMibPerMinute,
+	)
 	return err
 }
 
 const insertTarget = `-- name: InsertTarget :exec
-INSERT INTO targets_target (id, name, created_at) VALUES (?1, ?2, ?3)
+INSERT INTO targets_target (id, name, created_at, cutoff_tier)
+VALUES (?1, ?2, ?3, ?4)
 `
 
 type InsertTargetParams struct {
-	ID        TargetID
-	Name      string
-	CreatedAt storage.Time
+	ID         TargetID
+	Name       string
+	CreatedAt  storage.Time
+	CutoffTier int64
 }
 
 func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) error {
-	_, err := q.db.ExecContext(ctx, insertTarget, arg.ID, arg.Name, arg.CreatedAt)
+	_, err := q.db.ExecContext(ctx, insertTarget,
+		arg.ID,
+		arg.Name,
+		arg.CreatedAt,
+		arg.CutoffTier,
+	)
 	return err
 }
 
 const listDefaultTargets = `-- name: ListDefaultTargets :many
-SELECT t.id, t.name, t.created_at FROM targets_profile_target pt
+SELECT t.id, t.name, t.created_at, t.cutoff_tier FROM targets_profile_target pt
 JOIN targets_profile p ON p.id = pt.profile_id
 JOIN targets_target t ON t.id = pt.target_id
 WHERE p.content_type = ?1 AND p.is_default = 1
@@ -121,7 +204,106 @@ func (q *Queries) ListDefaultTargets(ctx context.Context, contentType works.Type
 	var items []TargetsTarget
 	for rows.Next() {
 		var i TargetsTarget
-		if err := rows.Scan(&i.ID, &i.Name, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.CutoffTier,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilterValues = `-- name: ListFilterValues :many
+SELECT target_id, attribute, position, value FROM targets_filter_value ORDER BY target_id, attribute, position
+`
+
+func (q *Queries) ListFilterValues(ctx context.Context) ([]TargetsFilterValue, error) {
+	rows, err := q.db.QueryContext(ctx, listFilterValues)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsFilterValue
+	for rows.Next() {
+		var i TargetsFilterValue
+		if err := rows.Scan(
+			&i.TargetID,
+			&i.Attribute,
+			&i.Position,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilters = `-- name: ListFilters :many
+SELECT target_id, attribute, mode FROM targets_filter ORDER BY target_id, attribute
+`
+
+func (q *Queries) ListFilters(ctx context.Context) ([]TargetsFilter, error) {
+	rows, err := q.db.QueryContext(ctx, listFilters)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsFilter
+	for rows.Next() {
+		var i TargetsFilter
+		if err := rows.Scan(&i.TargetID, &i.Attribute, &i.Mode); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHolders = `-- name: ListHolders :many
+SELECT pt.target_id, p.id, p.name FROM targets_profile_target pt
+JOIN targets_profile p ON p.id = pt.profile_id
+ORDER BY p.name, p.id
+`
+
+type ListHoldersRow struct {
+	TargetID TargetID
+	ID       ProfileID
+	Name     string
+}
+
+func (q *Queries) ListHolders(ctx context.Context) ([]ListHoldersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listHolders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHoldersRow
+	for rows.Next() {
+		var i ListHoldersRow
+		if err := rows.Scan(&i.TargetID, &i.ID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -194,20 +376,27 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]TargetsProfile, error) {
 	return items, nil
 }
 
-const listResolutions = `-- name: ListResolutions :many
-SELECT target_id, position, resolution FROM targets_resolution ORDER BY target_id, position
+const listQualities = `-- name: ListQualities :many
+SELECT target_id, quality, tier, position, min_mib_per_minute, max_mib_per_minute FROM targets_quality ORDER BY target_id, position
 `
 
-func (q *Queries) ListResolutions(ctx context.Context) ([]TargetsResolution, error) {
-	rows, err := q.db.QueryContext(ctx, listResolutions)
+func (q *Queries) ListQualities(ctx context.Context) ([]TargetsQuality, error) {
+	rows, err := q.db.QueryContext(ctx, listQualities)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TargetsResolution
+	var items []TargetsQuality
 	for rows.Next() {
-		var i TargetsResolution
-		if err := rows.Scan(&i.TargetID, &i.Position, &i.Resolution); err != nil {
+		var i TargetsQuality
+		if err := rows.Scan(
+			&i.TargetID,
+			&i.Quality,
+			&i.Tier,
+			&i.Position,
+			&i.MinMibPerMinute,
+			&i.MaxMibPerMinute,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -222,7 +411,7 @@ func (q *Queries) ListResolutions(ctx context.Context) ([]TargetsResolution, err
 }
 
 const listTargets = `-- name: ListTargets :many
-SELECT id, name, created_at FROM targets_target ORDER BY name, id
+SELECT id, name, created_at, cutoff_tier FROM targets_target ORDER BY name, id
 `
 
 func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
@@ -234,7 +423,12 @@ func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
 	var items []TargetsTarget
 	for rows.Next() {
 		var i TargetsTarget
-		if err := rows.Scan(&i.ID, &i.Name, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.CutoffTier,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

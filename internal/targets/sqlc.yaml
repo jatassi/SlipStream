@@ -7,6 +7,7 @@ sql:
       go:
         package: db
         out: internal/db
+        emit_pointers_for_null_types: true
         overrides:
           - column: "*.*_at"
             go_type:
@@ -15,13 +16,28 @@ sql:
           - column: targets_target.id
             go_type:
               type: TargetID
-          - column: targets_resolution.target_id
+          - column: targets_quality.target_id
             go_type:
               type: TargetID
-          - column: targets_resolution.resolution
+          - column: targets_quality.quality
             go_type:
               import: github.com/jatassi/slipstream/internal/release
-              type: Resolution
+              type: Quality
+          - column: targets_filter.target_id
+            go_type:
+              type: TargetID
+          - column: targets_filter.attribute
+            go_type:
+              type: Attribute
+          - column: targets_filter.mode
+            go_type:
+              type: Mode
+          - column: targets_filter_value.target_id
+            go_type:
+              type: TargetID
+          - column: targets_filter_value.attribute
+            go_type:
+              type: Attribute
           - column: targets_profile.id
             go_type:
               type: ProfileID

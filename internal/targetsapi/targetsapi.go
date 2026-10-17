@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -33,6 +31,9 @@ var (
 	profileNameTaken    = api.NewCode(http.StatusConflict, "profile_name_taken", "A Profile already has that name")
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	targetNotFound      = api.NewCode(http.StatusUnprocessableEntity, "target_not_found", "No Target has that id")
+	noSuchTarget        = api.NewCode(http.StatusNotFound, "target_not_found", "No Target has that id")
+	qualityNotInTarget  = api.NewCode(http.StatusUnprocessableEntity, "quality_not_in_target", "The Target doesn't accept that quality")
+	targetInUse         = api.NewCode(http.StatusConflict, "target_in_use", "Profiles hold the Target")
 )
 
 var codes = []struct {
@@ -46,27 +47,26 @@ var codes = []struct {
 }
 
 func answer(err error) error {
+	if inUse, ok := errors.AsType[*targets.InUseError](err); ok {
+		return targetInUse.Because(inUse.Error())
+	}
+	for _, bad := range []struct {
+		err   error
+		field string
+	}{{targets.ErrBadTiers, "tiers"}, {targets.ErrBadSize, "sizes"}, {targets.ErrBadFilter, "filters"}} {
+		if errors.Is(err, bad.err) {
+			return api.Invalid.On(bad.field, err.Error())
+		}
+	}
+	if errors.Is(err, targets.ErrQualityNotInTarget) {
+		return qualityNotInTarget.Because(err.Error())
+	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {
 			return c.code
 		}
 	}
 	return err
-}
-
-type target struct {
-	ID          string    `json:"id" format:"uuid"`
-	Name        string    `json:"name"`
-	Resolutions []string  `json:"resolutions" nullable:"false" enum:"2160p,1080p,720p,576p,480p" doc:"Highest ranked first"`
-	CreatedAt   time.Time `json:"createdAt"`
-}
-
-func targetOf(t targets.Target) target {
-	out := target{ID: t.ID.String(), Name: t.Name, Resolutions: []string{}, CreatedAt: t.CreatedAt.Time()}
-	for _, r := range t.Resolutions {
-		out.Resolutions = append(out.Resolutions, r.String())
-	}
-	return out
 }
 
 type profile struct {
@@ -84,21 +84,6 @@ func profileOf(p targets.Profile) profile {
 	}
 	return out
 }
-
-type newTarget struct {
-	Name        string   `json:"name" minLength:"1" maxLength:"100"`
-	Resolutions []string `json:"resolutions" nullable:"false" minItems:"1" uniqueItems:"true" enum:"2160p,1080p,720p,576p,480p" doc:"Highest ranked first"`
-}
-
-type createTargetInput struct{ Body newTarget }
-
-type targetOutput struct{ Body target }
-
-type targetList struct {
-	Targets []target `json:"targets" nullable:"false" doc:"By name"`
-}
-
-type targetListOutput struct{ Body targetList }
 
 type newProfile struct {
 	Name        string   `json:"name" minLength:"1" maxLength:"100"`
@@ -120,22 +105,7 @@ func Routes(r *api.Router, goals Goals) {
 	o := r.Owner("targets", api.Admin)
 	h := handlers{goals}
 
-	api.Register(o, api.Admin, api.Op{
-		ID:      "createTarget",
-		Method:  http.MethodPost,
-		Path:    "/targets",
-		Summary: "Create a Target from its resolutions",
-		Status:  http.StatusCreated,
-		Errors:  []*api.Code{targetNameTaken},
-	}, h.createTarget)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "listTargets",
-		Method:  http.MethodGet,
-		Path:    "/targets",
-		Summary: "List the Targets",
-		Status:  http.StatusOK,
-	}, h.listTargets)
+	registerTargets(o, h)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "createProfile",
@@ -156,34 +126,6 @@ func Routes(r *api.Router, goals Goals) {
 }
 
 type handlers struct{ goals Goals }
-
-func (h handlers) createTarget(ctx context.Context, by identity.Admin, in *createTargetInput) (*targetOutput, error) {
-	resolutions := make([]release.Resolution, len(in.Body.Resolutions))
-	for i, s := range in.Body.Resolutions {
-		r, err := release.ParseResolution(s)
-		if err != nil {
-			return nil, api.Invalid
-		}
-		resolutions[i] = r
-	}
-	t, err := open(h.goals).CreateTarget(ctx, by, in.Body.Name, resolutions)
-	if err != nil {
-		return nil, answer(err)
-	}
-	return &targetOutput{Body: targetOf(t)}, nil
-}
-
-func (h handlers) listTargets(ctx context.Context, by identity.Admin, _ *struct{}) (*targetListOutput, error) {
-	list, err := open(h.goals).ListTargets(ctx, by)
-	if err != nil {
-		return nil, err
-	}
-	out := targetList{Targets: []target{}}
-	for _, t := range list {
-		out.Targets = append(out.Targets, targetOf(t))
-	}
-	return &targetListOutput{Body: out}, nil
-}
 
 func (h handlers) createProfile(ctx context.Context, by identity.Admin, in *createProfileInput) (*profileOutput, error) {
 	ids := make([]targets.TargetID, len(in.Body.TargetIDs))

@@ -1,6 +1,9 @@
 package release
 
-import "fmt"
+import (
+	"database/sql/driver"
+	"fmt"
+)
 
 // Source is where a release's video came from.
 type Source uint8
@@ -15,6 +18,10 @@ const (
 	Remux
 	Cinema // CAM, HDCAM, TS, HDTS, TELESYNC
 )
+
+var sourceKeys = [...]string{TV: "tv", HDTV: "hdtv", DVD: "dvd", WEBRip: "webrip", WEBDL: "webdl", Bluray: "bluray", Remux: "remux", Cinema: "cinema"}
+
+func (s Source) String() string { return sourceKeys[s] }
 
 // Quality is one of the 18 fixed qualities. Its value is its place in the
 // table, which is only the presets' default order: a Target's tiers rank.
@@ -91,6 +98,18 @@ func Qualities() []Quality {
 func (q Quality) Info() QualityInfo { return qualities[q-1] }
 
 func (q Quality) String() string { return q.Info().Key }
+
+func (q Quality) Value() (driver.Value, error) { return q.String(), nil }
+
+func (q *Quality) Scan(v any) error {
+	s, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("scan a quality from %T", v)
+	}
+	parsed, err := ParseQuality(s)
+	*q = parsed
+	return err
+}
 
 func ParseQuality(key string) (Quality, error) {
 	for _, q := range Qualities() {

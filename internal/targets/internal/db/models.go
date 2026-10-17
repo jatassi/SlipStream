@@ -10,6 +10,19 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+type TargetsFilter struct {
+	TargetID  TargetID
+	Attribute Attribute
+	Mode      Mode
+}
+
+type TargetsFilterValue struct {
+	TargetID  TargetID
+	Attribute Attribute
+	Position  int64
+	Value     string
+}
+
 type TargetsProfile struct {
 	ID          ProfileID
 	Name        string
@@ -23,14 +36,18 @@ type TargetsProfileTarget struct {
 	TargetID  TargetID
 }
 
-type TargetsResolution struct {
-	TargetID   TargetID
-	Position   int64
-	Resolution release.Resolution
+type TargetsQuality struct {
+	TargetID        TargetID
+	Quality         release.Quality
+	Tier            int64
+	Position        int64
+	MinMibPerMinute float64
+	MaxMibPerMinute *float64
 }
 
 type TargetsTarget struct {
-	ID        TargetID
-	Name      string
-	CreatedAt storage.Time
+	ID         TargetID
+	Name       string
+	CreatedAt  storage.Time
+	CutoffTier int64
 }
