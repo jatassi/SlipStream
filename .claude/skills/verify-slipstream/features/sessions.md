@@ -25,7 +25,7 @@ Preconditions:
 
 Steps:
 
-- **List the devices.** On the desktop session open `/portal/account`. `Devices` lists two sessions, `Chrome on Linux` from `127.0.0.1`, and the desktop's is this device.
+- **List the devices.** On the desktop session open `/portal/account`. `Devices` lists each session Grace holds, every one `Chrome on Linux` from `127.0.0.1`, this one first as `This device`. With more than one other, each row's button is `Sign out Chrome on Linux`; pick one by `.nth()`, and its dialog `Sign out Chrome on Linux?` names when it was last active.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-member-desktop goto '{nodes.home.browserUrl}/portal/account'
@@ -53,7 +53,8 @@ Steps:
 
 ## Gotchas
 
-- Every session comes from loopback, so every device reads `127.0.0.1`; tell them apart by the `current` mark and the device label.
+- Every session comes from loopback, and the presets set no user agent, so every device reads `Chrome on Linux` from `127.0.0.1`; tell them apart by `This device` and the last-active time.
+- A closed `playwright cli` session leaves its server session behind until it is signed out or expires, so a run that signed Grace in before lists more than two.
 - The world signs the session it redeemed Grace's Signup link with out again, so Grace starts with no devices.
 - Ending another Account's sessions is Reconfirmed: an Admin session older than the re-confirm window gets the `Confirm it's you` dialog.
 - A session loaded from `auth/member-desktop.json` is the same server session as the file, so ending it ends the saved state. Run `bin/sign-in.ts` again before reusing the file.

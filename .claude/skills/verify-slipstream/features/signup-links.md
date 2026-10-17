@@ -40,10 +40,10 @@ Steps:
   $FW exec $RUN --proof signup-links/signup-link-issue -- $PW cli -s={runId}-admin-desktop --raw eval 'document.querySelector("input[readonly]").value'
   ```
 
-- **Read the email.** The capture holds one `smtp.message` to `lin@example.test`. `open` copies `message.eml`, `message.html` and `message.txt`; the text part ends with the same link.
+- **Read the email.** The capture holds one `smtp.message` to `lin@example.test`, sent before the dialog says `Emailed it to`, so `list` finds it. `open` copies `message.eml`, `message.html` and `message.txt`; the text part holds the same link.
 
   ```sh
-  $FW mail wait $RUN --where 'to=["lin@example.test"]' --timeout 30s
+  $FW mail list $RUN --where 'to=["lin@example.test"]'
   $FW mail open $RUN <seq> --proof signup-links/signup-link-email
   ```
 
@@ -69,12 +69,13 @@ Steps:
   $FW exec $RUN --proof signup-links/signup-link-pending -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/signup-links'
   ```
 
-- **Withdraw and resend.** Issue a link for `alan@example.test`, then from its `Actions for alan@example.test` menu choose `Send again` and confirm `Send again`: a second email arrives, and the first link's page reads `This link was replaced or cancelled, so ask Ada Okafor whether a new one is on its way.` `Withdraw` empties the list.
+- **Withdraw and resend.** Issue a link for `alan@example.test`, then from its `Actions for alan@example.test` menu choose `Send again`. The dialog `Send a new Signup link?` reads `A new link goes to alan@example.test, and the old one stops working.`; confirm `Send again` and a second email arrives, and the first link's page reads `This link was replaced or cancelled, so ask Ada Okafor whether a new one is on its way.` `Withdraw` empties the list.
 
 ## Gotchas
 
 - The link is built on the configured address, `{nodes.home.browserUrl}`, never the Node's IP. Open it in a Chromium session from the run's config, whose host-resolver rules resolve `home.localhost`.
 - The token sits in the fragment, so it never shows in a request log. Read it from the dialog's field or from `message.txt`.
+- `mail wait` waits for a record after the last step's start, and SlipStream sends the email before the dialog answers, so after the click use `mail list`.
 - The launch makes Grace through a Signup link before it saves the email setting, so the `mail` capture starts empty.
 - Issuing a link is a Reconfirmed action. A session signed in under 15 minutes ago is confirmed; an older one gets the `Confirm it's you` dialog ([re-confirm](./reconfirm.md)).
 - `signup-link-address` needs a Controller with no address: run it on `single-machine`, which has no Members, so the world leaves the address unset.

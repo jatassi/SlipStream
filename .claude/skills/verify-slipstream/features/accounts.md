@@ -7,7 +7,7 @@ Accounts lists every Account with its name, email, role, passkey count and last 
 - `accounts-list` `Accounts` lists Ada as an Admin and Grace as a Member in the table `Accounts`.
 - `accounts-make-admin` `Make Admin` on a Member's page gives the admin flag; their open portal tab can now open Admin pages.
 - `accounts-demote-regate` `Make Member`, confirmed in `Make <name> a Member?`, moves the person's open Admin tab to `/portal` with no sign-in.
-- `accounts-last-admin` demoting the only Admin is refused inside the dialog.
+- `accounts-last-admin` demoting the only Admin is refused inside the dialog with `SlipStream needs at least one Admin who is turned on`, as the API's 409 `last_admin`.
 - `accounts-turn-off` `Turn off` ends the Account's sessions, and its sign-in reads `This Account is turned off. Ask an Admin to turn it back on.`
 - `accounts-portal` an Admin opens the portal's pages as a Member does (P-317).
 
@@ -49,6 +49,26 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Make Grace Hopper a Member?" }).getByRole("button", { name: "Make Member" })'
   $FW exec $RUN -- $PW cli -s={runId}-member-desktop run-code 'async page => { await page.getByRole("heading", { name: "Home" }).waitFor({ timeout: 10000 }); }'
   $FW exec $RUN --proof accounts/accounts-demote-regate -- $PW cli -s={runId}-member-desktop screenshot --filename={runDir}/proof/accounts/accounts-demote-regate/portal.png
+  ```
+
+- **The last Admin.** Open `Ada Okafor`, choose `Make Member` and confirm. The dialog stays open with the alert `SlipStream needs at least one Admin who is turned on`; `Cancel` closes it.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/accounts'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("table", { name: "Accounts" }).getByRole("link", { name: "Ada Okafor" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Make Member" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Make Ada Okafor a Member?" }).getByRole("button", { name: "Make Member" })'
+  $FW exec $RUN --proof accounts/accounts-last-admin -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/accounts/accounts-last-admin/refused.aria.yml
+  ```
+
+- **Turn one off.** On a Member who isn't needed later, such as Lin from the [signup links](./signup-links.md) recipe, choose `Turn off` and confirm `Turn off Lin Wei?`. The page offers `Turn on`, and Lin's sign-in answers 403 `account_disabled`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/accounts'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("table", { name: "Accounts" }).getByRole("link", { name: "Lin Wei" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Turn off" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Turn off Lin Wei?" }).getByRole("button", { name: "Turn off" })'
+  $FW exec $RUN --proof accounts/accounts-turn-off -- curl -sS -i -X POST -H 'Content-Type: application/json' -d '{"email":"lin@example.test","pin":"8642"}' '{nodes.home.url}/api/v1/session'
   ```
 
 ## Gotchas

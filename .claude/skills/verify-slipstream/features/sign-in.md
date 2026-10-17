@@ -85,10 +85,20 @@ Steps:
   $FW exec $RUN --proof sign-in/sign-in-pin-wait -- curl -sS -i -X POST -H 'Content-Type: application/json' -d '{"email":"grace@example.test","pin":"1357"}' '{nodes.home.url}/api/v1/session'
   ```
 
+- **The address limit.** Lower it to its floor, ten failures in a minute, then fail once from each of ten made-up emails. The next sign-in from loopback, even Ada's right PIN, answers 429 `too_many_attempts`, and the page reads `Too many failed attempts from this address. Wait before trying again.` with the time. Put both settings back after.
+
+  ```sh
+  $FW exec $RUN -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"addressFailures":10,"addressWindow":60}' '{nodes.home.url}/api/v1/identity/settings'
+  for i in $(seq 1 10); do $FW exec $RUN -- curl -sS -o /dev/null -X POST -H 'Content-Type: application/json' -d "{\"email\":\"nobody$i@example.test\",\"pin\":\"0000\"}" '{nodes.home.url}/api/v1/session'; done
+  $FW exec $RUN --proof sign-in/sign-in-per-address -- curl -sS -i -X POST -H 'Content-Type: application/json' -d '{"email":"ada@example.test","pin":"2468"}' '{nodes.home.url}/api/v1/session'
+  $FW exec $RUN -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"addressFailures":null,"addressWindow":null}' '{nodes.home.url}/api/v1/identity/settings'
+  ```
+
 ## Gotchas
 
 - The PIN field submits on its fourth digit; there is no need to choose `Sign in`.
 - The PIN is four digit boxes named `PIN`, `PIN digit 2 of 4` and so on. Click the first and `type` the digits, as a person does.
 - Every sign-in comes from loopback, and each address counts its failures: 30 failed sign-ins in 15 minutes, by default, refuse every sign-in from loopback until the window passes, whoever signs in. Successes never count. Sign each identity in once per run, reuse the saved state, and put `sign-in-pin-wait` last or on its own run.
+- One email waits after `Wrong PINs before a wait`, made-up emails too, and an attempt that waits doesn't count against the address. Fail from a different email each time to reach the address limit.
 - `bin/sign-in.ts` signs in with the manifest's PIN. After a Reset link or Change PIN has replaced it, sign that person in by hand.
 - A session loaded from `auth/admin-desktop.json` carries the same server session as the saved file, so signing out there ends the saved state too. Sign out from a separate session, as above, or run `bin/sign-in.ts` again afterwards.

@@ -5,8 +5,8 @@ Actions that change who can get in or what a credential is ask for the PIN or a 
 ## Sub-features
 
 - `reconfirm-dialog` past the window, a Reconfirmed action opens `Confirm it's you` reading `Enter your PIN to continue.`, and the right PIN runs the action with nothing to redo (P-235).
-- `reconfirm-cancel` `Cancel` leaves the action undone with the Node's `needs_reconfirm` answer.
-- `reconfirm-wrong-pin` a wrong PIN in the dialog says so and counts toward the PIN's limits.
+- `reconfirm-cancel` `Cancel` leaves the action undone, and the action's dialog reads `Confirm it's you to continue`.
+- `reconfirm-wrong-pin` a wrong PIN in the dialog reads `That PIN is wrong.` and counts toward the PIN's limits.
 - `reconfirm-api-key` the same action with `X-Api-Key` succeeds with no confirm.
 
 ## How to get to it (user POV)

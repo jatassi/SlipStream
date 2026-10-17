@@ -4,10 +4,10 @@ Settings holds the Controller-wide settings an Admin tunes. Address is the origi
 
 ## Sub-features
 
-- `settings-address` Settings > Address shows the saved address, suggests the one in use while none is set, warns that a plain-HTTP address other than `localhost` or `*.localhost` can't hold passkeys, refuses an IP address with `The address must be a name, not an IP address` and saves with `Saved the address`.
+- `settings-address` Settings > Address shows the saved address, suggests the one in use while none is set, warns `A plain-HTTP address can't hold passkeys. Use https:// for passkeys to work.` for a plain-HTTP address other than `localhost` or `*.localhost`, refuses an IP address with `The address must be a name, not an IP address` and saves with `Saved the address`.
 - `settings-email` Settings > Email reads `Every email SlipStream sends goes through <host>.` over the fields `Server`, `Port`, `Security`, `Username`, `Password`, `From address` and `From name`, keeps the password write-only and saves with `Saved the email settings`.
 - `settings-email-test` `Send a test email` reads `Sent a test email to ada@example.test.` and the `mail` capture holds it; under `smtp-reject` it reads `The test email failed. The mail server said: 550 5.1.1 Mailbox unavailable`.
-- `settings-sign-in` Settings > Sign-in groups its settings under `Wrong PINs`, `Failed attempts from one address`, `Sessions and re-confirm` and `Link lifetimes`, saves one and refuses a value outside its bounds (P-238).
+- `settings-sign-in` Settings > Sign-in groups its settings under `Wrong PINs`, `Failed attempts from one address`, `Sessions and re-confirm` and `Link lifetimes`, saves one and refuses a value outside its bounds on the field, as `Between 3 and 9 wrong PINs.` while the PIN turns off after 10 (P-238).
 
 ## How to get to it (user POV)
 
@@ -36,7 +36,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/email'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Send a test email" })'
   $FW exec $RUN --proof settings/settings-email-test -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/settings/settings-email-test/sent.png
-  $FW mail wait $RUN --where 'to=["ada@example.test"]' --timeout 30s
+  $FW mail list $RUN --where 'to=["ada@example.test"]'
   ```
 
 - **A failing server.** Play `smtp-reject` and send the test again. The page reads `The test email failed. The mail server said: 550 5.1.1 Mailbox unavailable`. Turn the cue off after.
@@ -48,7 +48,7 @@ Steps:
   $FW cue $RUN smtp-reject '{"off": true}'
   ```
 
-- **Sign-in.** Open `/settings/sign-in`, set `Wrong PINs before a wait` to `4` and save its group. The API reads the new value back; `2` is refused as out of range.
+- **Sign-in.** Open `/settings/sign-in`, set `Wrong PINs before a wait` to `4` and save its group. The API reads the new value back; `2` is refused as out of range, on the field and over the API with the same bounds.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/sign-in'
