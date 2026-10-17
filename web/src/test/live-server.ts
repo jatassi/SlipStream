@@ -59,11 +59,19 @@ export function seeded(
   for (const key of Object.values(keys)) {
     queryClient.setQueryData(key, {});
   }
-  return () =>
-    Object.fromEntries(
-      Object.entries(keys).map(([name, key]) => [
-        name,
-        queryClient.getQueryState(key)?.isInvalidated,
-      ]),
-    );
+  // An active query refetches once invalidated, which clears the flag, so
+  // each key remembers having been invalidated.
+  const seen = new Set<readonly unknown[]>();
+  const note = () => {
+    for (const key of Object.values(keys)) {
+      if (queryClient.getQueryState(key)?.isInvalidated === true) {
+        seen.add(key);
+      }
+    }
+  };
+  queryClient.getQueryCache().subscribe(note);
+  return () => {
+    note();
+    return Object.fromEntries(Object.entries(keys).map(([name, key]) => [name, seen.has(key)]));
+  };
 }
