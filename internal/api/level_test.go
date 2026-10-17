@@ -20,8 +20,8 @@ func TestAZeroLevelIsNoLevel(t *testing.T) {
 	}{
 		{func() {
 			api.Register(o, api.Level[identity.Admin]{}, api.Op{ID: "getFixture", Method: http.MethodGet, Path: "/fixture"}, handler)
-		}, "getFixture: a zero api.Level; use api.Public, api.Setup, api.Account or api.Admin"},
-		{func() { r.Owner("nodes", api.Level[identity.Admin]{}) }, "api: owner nodes: its floor is a zero api.Level; use api.Public, api.Setup, api.Account or api.Admin"},
+		}, "getFixture: a zero api.Level; use api.Public, api.Setup, api.Bearer, api.Account, api.Confirmed, api.Admin or api.Reconfirmed"},
+		{func() { r.Owner("nodes", api.Level[identity.Admin]{}) }, "api: owner nodes: its floor is a zero api.Level; use api.Public, api.Setup, api.Bearer, api.Account, api.Confirmed, api.Admin or api.Reconfirmed"},
 	} {
 		if got := panicOf(tc.register); got != tc.want {
 			t.Errorf("panic = %q, want %q", got, tc.want)

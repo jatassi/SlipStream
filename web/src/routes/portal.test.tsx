@@ -1,6 +1,7 @@
 import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { accountLists } from "../test/account";
 import { signedInAsGrace } from "../test/handlers";
 import { asPhone } from "../test/viewport";
 import { renderApp } from "../test/render-app";
@@ -50,13 +51,15 @@ test("the top nav turns to glass after 24px of scroll", async () => {
   await expect.poll(filter).toBe("none");
 });
 
-test("the avatar menu opens Account and the page shows the Member's name", async () => {
-  const { router } = renderApp({ path: "/portal", handlers: [signedInAsGrace] });
+test("the avatar menu opens Your Account with the Member's name", async () => {
+  const { router } = renderApp({ path: "/portal", handlers: [signedInAsGrace, ...accountLists()] });
   await userEvent.click(page.getByRole("button", { name: "Account" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Account" }));
   await expect.poll(() => router.state.location.href).toBe("/portal/account");
-  await expect.element(page.getByText("You're signed in as Grace Lindqvist.")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Your Account", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("list", { name: "Profile" }).getByText("Grace Lindqvist"))
+    .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Back to Library" }))
     .not.toBeInTheDocument();
@@ -97,7 +100,7 @@ test("an Admin can open the portal to see what Members see", async () => {
 
 test("on a phone an Admin finds the way back to Library on the portal's Account page", async () => {
   await asPhone();
-  const { router } = renderApp({ path: "/portal/account" });
+  const { router } = renderApp({ path: "/portal/account", handlers: accountLists() });
   await userEvent.click(page.getByRole("button", { name: "Back to Library" }));
   await expect.poll(() => router.state.location.href).toBe("/library");
   await expect

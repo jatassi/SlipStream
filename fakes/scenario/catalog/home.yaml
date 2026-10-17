@@ -2,11 +2,17 @@
 description: >-
   Two Nodes. The Controller home holds every Role but Acquire and Relaying.
   The Worker seedbox pairs by Join Code and holds Searching and Downloading.
+  Grace joins as a Member by Signup link, and fakes/smtp is the email setting.
 seed: home
 admin:
   email: ada@example.test
   display_name: Ada Okafor
   pin: "2468"
+members:
+  - email: grace@example.test
+    display_name: Grace Hopper
+    pin: "1357"
+mail: true
 nodes:
   - name: home
     setup: controller

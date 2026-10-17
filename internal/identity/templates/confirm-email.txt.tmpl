@@ -1,0 +1,10 @@
+{{define "subject"}}Confirm your new email for {{.ServerName}}{{end}}
+{{define "body"}}Confirm that {{.Email}} is the new email for your SlipStream Account at {{.ServerName}}. Your email changes when you open this link.
+
+{{button "Confirm this email" .URL}}
+
+The link works once, until {{.Expires}}.{{end}}
+{{define "footer"}}
+If the button doesn't work, open this address: {{.URL}}
+
+If you did not expect this email, you can ignore it. Nothing changes until the link is used.{{end}}

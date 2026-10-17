@@ -123,20 +123,35 @@ func (a *API) SignIn(name string) string {
 	if a.m.Admin == nil {
 		a.t.Fatal("the run has no Admin to sign in as")
 	}
+	return a.signIn(name, a.m.Admin.Email, a.m.Admin.PIN, `{"email":"{admin.email}","pin":"{admin.pin}"}`)
+}
+
+// SignInAs signs in to the Node named name by email and PIN, and returns
+// the session.
+func (a *API) SignInAs(name, email, pin string) string {
+	a.t.Helper()
+	return a.signIn(name, email, pin, "")
+}
+
+func (a *API) signIn(name, email, pin, bodyArg string) string {
+	a.t.Helper()
 	body, err := json.Marshal(struct {
 		Email string `json:"email"`
 		PIN   string `json:"pin"`
-	}{a.m.Admin.Email, a.m.Admin.PIN})
+	}{email, pin})
 	if err != nil {
 		a.t.Fatal(err)
 	}
-	reply, cookies := a.do(request{node: name, method: http.MethodPost, path: "/api/v1/session", body: string(body), bodyArg: `{"email":"{admin.email}","pin":"{admin.pin}"}`})
+	if bodyArg == "" {
+		bodyArg = world.Literal(string(body))
+	}
+	reply, cookies := a.do(request{node: name, method: http.MethodPost, path: "/api/v1/session", body: string(body), bodyArg: bodyArg})
 	for _, c := range cookies {
 		if c.Name == identity.CookieName && reply.Status == http.StatusOK {
 			return c.Value
 		}
 	}
-	a.t.Fatalf("signIn as %s = %d %s, want 200 with a session cookie", a.m.Admin.Email, reply.Status, reply.Body)
+	a.t.Fatalf("signIn as %s = %d %s, want 200 with a session cookie", email, reply.Status, reply.Body)
 	return ""
 }
 
@@ -287,7 +302,7 @@ func CheckHome(t *testing.T, a *API) {
 	if link := netip.MustParseAddrPort(box.Listeners["link"]).Addr(); box.Claim != world.ClaimWorker || box.Setup != scenario.SetupJoin || link != netip.MustParseAddr("127.0.0.3") {
 		t.Fatalf("the manifest has seedbox with claim %s, setup %s and listeners.link on %s; want worker, join and 127.0.0.3", box.Claim, box.Setup, link)
 	}
-	Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), Reply{200, `{"claim":"worker"}` + "\n"})
+	Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), Reply{200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	Expect(t, "seedbox GET /api/v1/system", a.Admin("seedbox", http.MethodGet, "/api/v1/system", ""),
 		Reply{409, `{"status":409,"code":"worker_node","title":"This Node is a Worker. Manage it from its Controller."}` + "\n"})
 

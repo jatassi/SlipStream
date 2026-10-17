@@ -6,6 +6,7 @@ import { NotFound, ShellError } from "../shell/errors";
 import { portalNav, portalRows } from "../shell/nav";
 import { PhoneFrame } from "../shell/phone/frame";
 import { PortalDesktop } from "../shell/portal/desktop";
+import { SessionDialogs } from "../shell/session-dialogs";
 import { type ShellKind, useShell } from "../ui/shell-context";
 
 export const Route = createFileRoute("/portal")({
@@ -44,6 +45,7 @@ function PortalFrame({ children }: { children: ReactNode }) {
   return (
     <div className="isolate">
       <Shell>{children}</Shell>
+      <SessionDialogs />
     </div>
   );
 }

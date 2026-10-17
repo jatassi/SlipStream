@@ -242,10 +242,10 @@ func TestEndSessionEndsOnlyThatSessionsSubscriptions(t *testing.T) {
 		tab2 := h.Subscribe(member, "946684800000000")
 		other := h.Subscribe(live.Viewer{Account: alice, Session: aliceTab2}, "946684800000000")
 		pub.notices.Publish(t.Context(), notice{Text: "before"})
-		h.EndSession(aliceSession)
+		h.EndSession(t.Context(), aliceSession, live.Revoked)
 		pub.notices.Publish(t.Context(), notice{Text: "after"})
 		for _, s := range []*live.Subscription{tab1, tab2} {
-			expect(t, s, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: "signed-out"}})
+			expect(t, s, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.Revoked}})
 			if _, err := s.Next(t.Context()); !errors.Is(err, live.ErrEnded) {
 				t.Errorf("Next after session-ended = %v, want %v", err, live.ErrEnded)
 			}
@@ -257,6 +257,26 @@ func TestEndSessionEndsOnlyThatSessionsSubscriptions(t *testing.T) {
 	})
 }
 
+func TestEndAccountStreamsReGatesOnlyThatAccountsTabs(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h, pub := newHub(t)
+		tab1 := h.Subscribe(member, "946684800000000")
+		tab2 := h.Subscribe(live.Viewer{Account: alice, Session: aliceTab2}, "946684800000000")
+		signedOut := h.Subscribe(live.Viewer{Account: alice, Session: aliceTab2}, "946684800000000")
+		other := h.Subscribe(admin, "946684800000000")
+		h.EndSession(t.Context(), aliceTab2, live.Revoked)
+		h.EndAccountStreams(t.Context(), alice)
+		pub.notices.Publish(t.Context(), notice{Text: "after"})
+		expect(t, tab1, live.Message{Name: "live.access-changed", Data: live.AccessChanged{}})
+		expect(t, tab2, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.Revoked}})
+		expect(t, signedOut, live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.Revoked}})
+		if _, err := tab1.Next(t.Context()); !errors.Is(err, live.ErrEnded) {
+			t.Errorf("Next after access-changed = %v, want %v", err, live.ErrEnded)
+		}
+		expect(t, other, live.Message{ID: start + 1, Name: "notices.posted", Data: notice{Text: "after"}})
+	})
+}
+
 func TestEndSessionWakesAWaitingReader(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		h, _ := newHub(t)
@@ -264,8 +284,8 @@ func TestEndSessionWakesAWaitingReader(t *testing.T) {
 		got := make(chan live.Message)
 		go func() { got <- next(t, s) }()
 		synctest.Wait()
-		h.EndSession(aliceSession)
-		if msg, want := <-got, (live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: "signed-out"}}); msg != want {
+		h.EndSession(t.Context(), aliceSession, live.SignedOut)
+		if msg, want := <-got, (live.Message{Name: "live.session-ended", Data: live.SessionEnded{Reason: live.SignedOut}}); msg != want {
 			t.Errorf("Next = %+v, want %+v", msg, want)
 		}
 	})
@@ -370,13 +390,24 @@ func TestPublishInsideWritePanics(t *testing.T) {
 	})
 }
 
+func TestEndSessionInsideWritePanics(t *testing.T) {
+	h, _ := newHub(t)
+	lib := storagetest.Library(t)
+	assertPanics(t, "live: EndSession inside Write; end sessions after the commit", func() {
+		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
+			h.EndSession(ctx, aliceSession, live.Revoked)
+			return nil
+		})
+	})
+}
+
 func TestEventsListsEveryEventWithTheControlEvents(t *testing.T) {
 	h, _ := newHub(t)
 	var names []string
 	for _, e := range h.Events() {
 		names = append(names, e.Name())
 	}
-	want := "identity.sessions-changed live.resync live.session-ended nodes.changed notices.posted"
+	want := "identity.sessions-changed live.access-changed live.resync live.session-ended nodes.changed notices.posted"
 	if got := strings.Join(names, " "); got != want {
 		t.Fatalf("Events = %s, want %s", got, want)
 	}

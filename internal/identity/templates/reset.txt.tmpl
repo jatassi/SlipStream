@@ -1,0 +1,8 @@
+{{define "subject"}}Reset your PIN for {{.ServerName}}{{end}}
+{{define "body"}}{{.AdminName}} sent you a link to set a new PIN. It works once, until {{.Expires}}. Your devices were signed out when it was sent.
+
+{{button "Set a new PIN" .URL}}{{end}}
+{{define "footer"}}
+If the button doesn't work, open this address: {{.URL}}
+
+If you did not expect this email, you can ignore it. Nothing changes until the link is used.{{end}}

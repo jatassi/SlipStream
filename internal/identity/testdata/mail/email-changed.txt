@@ -1,0 +1,7 @@
+Subject: Your SlipStream email was changed
+
+Your SlipStream email was changed to grace@hopper.example. SlipStream sends its emails there from now on.
+
+If you didn't ask for this, ask an Admin to change it back.
+
+SlipStream sends this to your old address whenever your email changes.

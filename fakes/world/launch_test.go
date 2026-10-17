@@ -90,7 +90,7 @@ func stubScenario() scenario.Scenario {
 
 var echo = fake.Spec{
 	Name: "echo",
-	TLS:  true,
+	TLS:  fake.FrontTLS,
 	New: func(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
 		return fake.HTTP(env, fake.Routes{"echo": {Pattern: "/", Handler: func(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.WriteString(w, "echo to "+fake.OriginOf(r.Context())+"\n")

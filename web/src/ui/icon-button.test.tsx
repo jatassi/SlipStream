@@ -31,8 +31,10 @@ test("Space presses an icon button named by its label", async () => {
       }}
     />,
   );
+  const button = page.getByRole("button", { name: "Close" });
+  await expect.element(button).toBeVisible();
   await userEvent.tab();
-  await expect.element(page.getByRole("button", { name: "Close" })).toHaveFocus();
+  await expect.element(button).toHaveFocus();
   await userEvent.keyboard(" ");
   expect(pressed).toBe(1);
 });

@@ -41,8 +41,8 @@ func serve(t *testing.T, heartbeat time.Duration) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := live.NewHub([]live.Event{identity.SessionsChangedEvent})
-	svc, err := identity.New(ctx, lib, keys.PINPepper(), identity.SessionsChangedEvent.Bind(hub), hub)
+	hub := identitytest.Hub(t)
+	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Hub: hub})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,6 +209,35 @@ func TestASlowHeartbeatDelaysTheNextOne(t *testing.T) {
 			if got := next(t, s); got != ": keepalive\n" || time.Since(opened) != want {
 				t.Fatalf("after %v read %q, want a keepalive after %v", time.Since(opened), got, want)
 			}
+		}
+	})
+}
+
+func TestSigningOutEndsTheSessionsStream(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := serve(t, 2*time.Hour)
+		session := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
+		s := n.stream(session)
+		next(t, s)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "http://slipstream/api/v1/session", http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Cookie", identity.CookieName+"="+session)
+		req.Header.Set("Origin", "http://slipstream")
+		res, err := n.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusNoContent {
+			t.Fatalf("deleteSession = %d, want 204", res.StatusCode)
+		}
+		if got, want := next(t, s), "event: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
+			t.Fatalf("read %q, want %q", got, want)
+		}
+		if msg, err := s.Next(t.Context()); !errors.Is(err, io.EOF) {
+			t.Fatalf("read %q, %v; want the stream to end", msg, err)
 		}
 	})
 }

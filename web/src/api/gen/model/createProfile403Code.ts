@@ -1,1 +1,1 @@
-export type CreateProfile403Code = "needs_admin";
+export type CreateProfile403Code = "needs_admin" | "pin_required";

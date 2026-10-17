@@ -27,6 +27,18 @@ const listed = (count: number): WorksListedWork[] =>
     label: `Orchard ${index + 1}`,
   }));
 
+const moreButtons = [
+  "Films",
+  "This Node",
+  "Accounts",
+  "Settings",
+  "Tasks",
+  "Your Account",
+  "Open the portal",
+  "Sign out",
+  "Cancel",
+];
+
 test("the phone shell has a tab bar, with the Activity count as a badge", async () => {
   await asPhone();
   renderApp({ path: "/library", handlers: [counting(2)] });
@@ -78,7 +90,7 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
       .getByRole("button")
       .all()
       .map((button) => button.element().textContent),
-  ).toEqual(["Films", "This Node", "Tasks", "Open the portal", "Sign out", "Cancel"]);
+  ).toEqual(moreButtons);
   const startup = sheet.getByRole("switch", { name: "Startup sequence" });
   await expect.element(startup).toBeChecked();
   await userEvent.click(sheet.getByText("Startup sequence"));

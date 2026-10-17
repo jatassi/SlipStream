@@ -1,6 +1,9 @@
+import * as zod from "zod";
+
 import {
   IndexersIndexer,
   IndexersIndexerList,
+  IndexersNewAPIKey,
   IndexersNewIndexer,
 } from "../slipStream.schemas.zod.ts";
 
@@ -15,3 +18,14 @@ export const ListIndexersResponse = IndexersIndexerList;
 export const CreateIndexerBody = IndexersNewIndexer;
 
 export const CreateIndexerResponse = IndexersIndexer;
+
+/**
+ * @summary Enter an Indexer's API key again, once its home Node has read its caps with it
+ */
+export const SetIndexerAPIKeyParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const SetIndexerAPIKeyBody = IndexersNewAPIKey;
+
+export const SetIndexerAPIKeyResponse = IndexersIndexer;

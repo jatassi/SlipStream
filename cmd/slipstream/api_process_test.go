@@ -99,7 +99,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 		t.Fatalf("the setup code record logs %v, readiness reports %s", logged, ready.SetupCode)
 	}
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/health", "", nil), 200, `{"status":"ok"}`+"\n")
-	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed"}`+"\n")
+	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 
 	claimed := claimController(t, ready, ready.SetupCode)
 	var res struct {
@@ -141,7 +141,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	if _, has := again.readyRecord()["setup_code"]; has {
 		t.Fatalf("a claimed Node's readiness record has a setup_code: %v", again.readyRecord())
 	}
-	expectReply(t, call(t, readyAgain, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"controller"}`+"\n")
+	expectReply(t, call(t, readyAgain, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"controller","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 	expectReply(t, claimController(t, readyAgain, ready.SetupCode), 409, `{"status":409,"code":"already_claimed","title":"This Node is already set up"}`+"\n")
 }
 

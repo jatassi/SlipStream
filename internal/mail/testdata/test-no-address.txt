@@ -1,0 +1,7 @@
+Subject: Test email from SlipStream
+
+This is a test email from SlipStream.
+
+Email is set up. Signup links, Reset links and notices will arrive the same way.
+
+You got this email because you chose Send test email in Settings.

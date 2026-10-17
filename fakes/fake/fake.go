@@ -4,6 +4,7 @@ package fake
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,11 +21,24 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
+type TLSMode uint8
+
+const (
+	NoTLS TLSMode = iota
+	// FrontTLS has the world terminate TLS with a leaf from the run CA
+	// before Serve sees a connection.
+	FrontTLS
+	// OwnTLS has the fake speak TLS itself, inside its own protocol, with
+	// the run-CA leaf in Env.Leaf. Its fronts pass bytes through.
+	OwnTLS
+)
+
 type Spec struct {
 	Name string
-	// TLS asks the world to terminate TLS with a leaf from the run CA before
-	// Serve sees a connection.
-	TLS bool
+	TLS  TLSMode
+	// Scheme is the URL scheme of a fake that doesn't speak HTTP, such as
+	// smtp, and empty for one that does.
+	Scheme string
 	// ContentType is the id of the Content Type whose metadata source the
 	// fake serves, empty for a core boundary. The world starts such a fake
 	// only for a binary that registers the type.
@@ -47,6 +61,13 @@ type Spec struct {
 	// answers the body of a 200. doctor checks each is the fake's front for
 	// the Node that dials it. nil is a fake no Admin types.
 	Entered func(get func(path string) ([]byte, error)) ([]Entered, error)
+}
+
+func (s Spec) URL(at Address) string {
+	if s.Scheme != "" {
+		return s.Scheme + "://" + at.AddrPort.String()
+	}
+	return at.URL("")
 }
 
 // Entered is one address an Admin typed: what a person calls it, its URL
@@ -104,6 +125,9 @@ type Env struct {
 	Fronts Fronts
 	// Files is the run dir a capture's files land under.
 	Files string
+	// Leaf serves a run-CA certificate for 127.0.0.1 and
+	// <name>.fake.localhost, for an OwnTLS fake, and is nil otherwise.
+	Leaf *tls.Config
 
 	captures []CaptureSpec
 	sink     Sink
@@ -196,6 +220,13 @@ var wildcard = regexp.MustCompile(`\{([^{}.]+)(?:\.{3})?\}`)
 
 type originKey struct{}
 
+// ConnContext is ctx carrying the origin of the front c arrived through,
+// which OriginOf reads and a capture records.
+func ConnContext(ctx context.Context, c net.Conn) context.Context {
+	front, _ := fault.FrontOf(c)
+	return context.WithValue(ctx, originKey{}, front.Origin)
+}
+
 // OriginOf is the Node whose front a request arrived through, "world" for
 // the world's own front, and "" outside a world.
 func OriginOf(ctx context.Context) string {
@@ -214,10 +245,7 @@ func (s httpServer) Serve(ctx context.Context, l net.Listener) error {
 		Handler:           s.h,
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
-		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			front, _ := fault.FrontOf(c)
-			return context.WithValue(ctx, originKey{}, front.Origin)
-		},
+		ConnContext:       ConnContext,
 	}
 	stop := context.AfterFunc(ctx, func() { _ = srv.Close() })
 	defer stop()

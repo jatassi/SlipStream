@@ -1,0 +1,3 @@
+{{define "body"}}<p style="margin:0 0 16px;">Someone typed the wrong PIN for {{.Email}} {{.Count}} times in a row, so your PIN no longer works.</p>
+<p style="margin:0 0 16px;">You can still sign in with a passkey, or ask an Admin for a Reset link.</p>{{end}}
+{{define "footer"}}<p style="margin:0;">SlipStream sends this whenever wrong PINs turn a PIN off.</p>{{end}}

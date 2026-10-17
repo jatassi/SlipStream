@@ -1,1 +1,1 @@
-export type GetNodeSettings403Code = "needs_admin";
+export type GetNodeSettings403Code = "needs_admin" | "pin_required";

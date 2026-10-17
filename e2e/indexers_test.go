@@ -27,6 +27,6 @@ func TestHomeSeedsTheFixtureSiteIndexerOnTheSeedbox(t *testing.T) {
 	decode(t, "listIndexers", reply, &listed)
 	ix := listed.Indexers[0]
 	worldtest.Expect(t, "listIndexers", reply, worldtest.Reply{Status: 200, Body: `{"indexers":[{"id":"` + ix.ID + `","name":"Fixture Site","protocol":"torznab",` +
-		`"url":"` + site + `/torznab","homeNodeId":"` + m.Nodes[1].NodeID + `",` +
+		`"url":"` + site + `/torznab","homeNodeId":"` + m.Nodes[1].NodeID + `","apiKeySet":true,` +
 		`"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}],"createdAt":"` + ix.CreatedAt + `"}]}` + "\n"})
 }

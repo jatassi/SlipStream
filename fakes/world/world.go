@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base32"
 	"encoding/hex"
 	"encoding/json"
@@ -34,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/internal/seeders"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/smtp"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
@@ -82,6 +84,7 @@ type Run struct {
 	nodes     []*nodeRun
 	used      map[string]bool
 	claims    setup.Claims
+	accounts  []setup.Account
 	control   *control.Server
 	captures  *captures
 
@@ -225,6 +228,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.checkListeners,
 		r.pinPorts,
 		r.setUp,
+		r.seedAccounts,
 		r.seedLibrary,
 		r.publish,
 	}
@@ -373,6 +377,13 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
 		f.env.Releases, f.env.Fronts, f.env.Files = r.releases, r.table, r.runDir
+		if f.spec.TLS == fake.OwnTLS {
+			leaf, err := r.leaf(f.spec.Name)
+			if err != nil {
+				return fmt.Errorf("fake %s: %w", f.spec.Name, err)
+			}
+			f.env.Leaf = &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}
+		}
 		server, err := f.spec.New(r.scenario, f.env)
 		if err != nil {
 			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
@@ -383,7 +394,7 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 		fctx, cancel := context.WithCancel(r.life)
 		f.cancel, f.done = cancel, make(chan error, 1)
 		go func() { f.done <- server.Serve(fctx, f.inbox) }()
-		r.log.Info("fake started", "fake", f.spec.Name, "url", f.at.URL(""))
+		r.log.Info("fake started", "fake", f.spec.Name, "url", f.spec.URL(f.at))
 		undo.push(func() {
 			if err := f.stop(); err != nil {
 				r.log.Error("fake stopped", "fake", f.spec.Name, "err", err.Error())
@@ -602,6 +613,25 @@ func (r *Run) setUp(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
+func (r *Run) seedAccounts(ctx context.Context, _ *unwind) error {
+	if len(r.scenario.Members) == 0 && !r.scenario.Mail {
+		return nil
+	}
+	var controller string
+	for _, n := range r.scenario.Nodes {
+		if n.Setup == scenario.SetupController {
+			controller = n.Name
+		}
+	}
+	smtpFront, _ := r.table.Find(fault.Target(smtp.Fake.Name), controller)
+	var err error
+	if r.accounts, err = setup.Accounts(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, smtpFront.AddrPort); err != nil {
+		return err
+	}
+	r.log.Info("accounts seeded")
+	return nil
+}
+
 // seedLibrary creates the Scenario's library on the Controller, its roots'
 // folders under the media dir and its Indexers at the site fronts of the
 // Node that holds Searching, which searches from them.
@@ -681,6 +711,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		Fronts:      []Front{},
 		Links:       map[string]string{},
 		Releases:    []Release{},
+		Members:     []Member{},
 		APIKey:      r.claims.APIKey,
 	}
 	if r.scenario.Library != nil {
@@ -690,13 +721,16 @@ func (r *Run) buildManifest() (Manifest, error) {
 	if a := r.scenario.Admin; a != nil {
 		m.Admin = &Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}
 	}
+	for _, a := range r.accounts {
+		m.Members = append(m.Members, Member{ID: a.ID, Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN, Admin: a.Admin})
+	}
 	for _, f := range r.fakes {
-		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.at.URL(""), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...), Cues: append([]fake.CueSpec{}, f.spec.Cues...)})
+		m.Fakes = append(m.Fakes, Fake{Name: f.spec.Name, URL: f.spec.URL(f.at), Captures: append([]fake.CaptureSpec{}, f.spec.Captures...), Cues: append([]fake.CueSpec{}, f.spec.Cues...)})
 	}
 	for _, f := range r.table {
 		entry := Front{Target: string(f.Target), Node: f.Node, Address: f.Address.AddrPort.String()}
-		if slices.ContainsFunc(r.fakes, func(fr *fakeRun) bool { return fault.Target(fr.spec.Name) == f.Target }) {
-			entry.URL = f.Address.URL("")
+		if i := slices.IndexFunc(r.fakes, func(fr *fakeRun) bool { return fault.Target(fr.spec.Name) == f.Target }); i >= 0 {
+			entry.URL = r.fakes[i].spec.URL(f.Address)
 		}
 		m.Fronts = append(m.Fronts, entry)
 	}

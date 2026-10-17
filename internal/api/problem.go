@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -34,12 +36,39 @@ func (c *Code) problem() *Problem {
 // Because answers c with detail, a reason a person reads beside the title.
 func (c *Code) Because(detail string) error { return &explained{code: c, detail: detail} }
 
+// Until answers c with Retry-After set to the whole seconds until t, and t
+// in detail.
+func (c *Code) Until(t time.Time) error {
+	return &explained{code: c, detail: t.UTC().Format(time.RFC3339), retryAfter: t}
+}
+
+// Fields answers c with one field error per entry, for a check the
+// operation's schema can't express.
+func (c *Code) Fields(errs ...FieldError) error { return &explained{code: c, fields: errs} }
+
 type explained struct {
-	code   *Code
-	detail string
+	code       *Code
+	detail     string
+	retryAfter time.Time
+	fields     []FieldError
 }
 
 func (e *explained) Error() string { return e.code.name + ": " + e.detail }
+
+func (e *explained) answer(code *Code) error {
+	p := code.problem()
+	if e == nil {
+		return p
+	}
+	p.Detail, p.Errors = e.detail, e.fields
+	if e.retryAfter.IsZero() {
+		return p
+	}
+	wait := max(time.Until(e.retryAfter), 0)
+	seconds := int64((wait + time.Second - 1) / time.Second)
+	p.headers = http.Header{"Retry-After": {strconv.FormatInt(seconds, 10)}}
+	return p
+}
 
 var (
 	BadRequest           = NewCode(http.StatusBadRequest, "bad_request", "The request is malformed")
@@ -61,6 +90,8 @@ var (
 	AlreadyClaimed = NewCode(http.StatusConflict, "already_claimed", "This Node is already set up")
 	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site cannot do this")
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
+	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")
+	NeedsReconfirm = NewCode(http.StatusForbidden, "needs_reconfirm", "Confirm it's you to continue")
 )
 
 var humaStatusCodes = map[int]*Code{
@@ -85,6 +116,8 @@ var identityCodes = []struct {
 	{identity.ErrSetupBusy, SetupBusy},
 	{identity.ErrAlreadyClaimed, AlreadyClaimed},
 	{identity.ErrWorkerNode, WorkerNode},
+	{identity.ErrPINRequired, PINRequired},
+	{identity.ErrNeedsReconfirm, NeedsReconfirm},
 }
 
 func identityCode(err error) (*Code, bool) {
@@ -105,6 +138,8 @@ type Problem struct {
 	Title  string       `json:"title"`
 	Detail string       `json:"detail,omitempty"`
 	Errors []FieldError `json:"errors,omitempty" nullable:"false"`
+
+	headers http.Header
 }
 
 type FieldError struct {
@@ -115,6 +150,8 @@ type FieldError struct {
 func (p *Problem) Error() string { return p.Code }
 
 func (p *Problem) GetStatus() int { return p.Status }
+
+func (p *Problem) GetHeaders() http.Header { return p.headers }
 
 func (p *Problem) ContentType(string) string { return problemType }
 

@@ -3,10 +3,13 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { ada, problem, signedOut } from "../test/handlers";
+import { ada, noPasskeys, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 
-const unclaimed = [signedOut, getGetStatusMockHandler({ claim: "unclaimed" })];
+const unclaimed = [
+  signedOut,
+  getGetStatusMockHandler({ claim: "unclaimed", passkeys: noPasskeys }),
+];
 const apiKey = `ssk_${"A".repeat(43)}`;
 
 function claimServer(answer: () => Response) {
@@ -15,11 +18,11 @@ function claimServer(answer: () => Response) {
   const handlers = [
     http.get("*/api/v1/session", () =>
       claimed
-        ? HttpResponse.json({ account: ada })
+        ? HttpResponse.json({ account: ada, pinRequired: false, keyPrompt: "ask" })
         : problem(401, "signed_out", "Sign in to continue"),
     ),
     http.get("*/api/v1/status", () =>
-      HttpResponse.json({ claim: claimed ? "controller" : "unclaimed" }),
+      HttpResponse.json({ claim: claimed ? "controller" : "unclaimed", passkeys: noPasskeys }),
     ),
     http.post("*/api/v1/setup/controller", async ({ request }) => {
       claims.push({ code: request.headers.get("X-Setup-Code"), body: await request.json() });

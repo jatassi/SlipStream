@@ -1,1 +1,1 @@
-export type SearchCatalog403Code = "needs_admin";
+export type SearchCatalog403Code = "needs_admin" | "pin_required";

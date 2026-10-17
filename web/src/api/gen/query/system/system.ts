@@ -147,7 +147,7 @@ export const getGetStatusUrl = () => {
 };
 
 /**
- * @summary Report whether the Node is Unclaimed, a Controller or a Worker
+ * @summary Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey
  */
 export const getStatus = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -221,7 +221,7 @@ export function useGetStatusSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Report whether the Node is Unclaimed, a Controller or a Worker
+ * @summary Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey
  */
 
 export function useGetStatusSuspense<

@@ -3,12 +3,12 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { useAccount } from "../../session/session";
 import { Menu } from "../../ui/menu";
-import { Avatar, fromPortal, useSignOut } from "../account";
+import { Avatar, fromPortal } from "../account";
+import { askSignOut } from "../sign-out";
 
 export function AccountMenu() {
   const { displayName, admin } = useAccount();
   const navigate = useNavigate();
-  const signOut = useSignOut();
   return (
     <Menu
       label="Account"
@@ -40,7 +40,7 @@ export function AccountMenu() {
               },
             ]
           : []),
-        { label: "Sign out", icon: Logout01Icon, onSelect: signOut },
+        { label: "Sign out", icon: Logout01Icon, onSelect: askSignOut },
       ]}
     />
   );
