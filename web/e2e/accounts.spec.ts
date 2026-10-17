@@ -222,6 +222,6 @@ test("making an Admin a Member moves their open tab to the portal", async ({
     .getByRole("button", { name: "Make Member" })
     .click();
 
-  await expect(tab.getByRole("heading", { name: "Home" })).toBeVisible();
-  expect(tab.url()).toBe(`${world.baseURL}/portal`);
+  await expect(tab).toHaveURL(`${world.baseURL}/portal`);
+  await expect(tab.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 });
