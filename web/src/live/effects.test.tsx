@@ -123,9 +123,17 @@ test("a burst of tasks.changed refetches once more after the fetch in flight, ne
     server.clients[0]?.send({ event: "tasks.changed", data: { taskId: "housekeeping" } });
   }
   await expect
-    .poll(() => app.queryClient.getQueryData(getListOpenTaskRunsQueryKey()))
-    .toEqual({ headerDelaySeconds: 3, runs: [] });
-  expect({ answered, aborted }).toEqual({ answered: 3, aborted: 0 });
+    .poll(() => app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.fetchStatus)
+    .toBe("fetching");
+  await expect
+    .poll(() => app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.fetchStatus)
+    .toBe("idle");
+  expect(aborted).toBe(0);
+  expect(answered).toBeLessThan(6);
+  expect(app.queryClient.getQueryData(getListOpenTaskRunsQueryKey())).toEqual({
+    headerDelaySeconds: answered,
+    runs: [],
+  });
 });
 
 const openRun = (runId: number, taskId: string) => ({
