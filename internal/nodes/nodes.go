@@ -71,6 +71,8 @@ type Link interface {
 	State(key link.Key) link.State
 	Subscribe(ctx context.Context) <-chan link.Change
 	Advertised() (link.Addresses, bool)
+	// Reset closes key's live session, keeping whoever dials it.
+	Reset(key link.Key)
 }
 
 type Config struct {
@@ -94,7 +96,11 @@ type Config struct {
 	// test's, as the simulation tier runs roletest's Probe.
 	Always  []role.Name
 	Timings Timings
-	Log     *slog.Logger
+	// Stall is how long a Worker's Sync stream may carry nothing before
+	// the roster closes its link, so a wedged Worker whose link still
+	// answers pings goes out of step and redials.
+	Stall time.Duration
+	Log   *slog.Logger
 }
 
 var (
@@ -213,6 +219,8 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		Touched: s.touched,
 		InStep:  s.inStep,
 		Seen:    s.seen,
+		Stalled: s.stalled,
+		Stall:   cfg.Stall,
 		Log:     cfg.Log,
 	}, cfg.Served...)
 	return s, nil

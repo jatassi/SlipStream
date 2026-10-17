@@ -184,7 +184,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 				LogPoll:       20 * time.Second,
 				LogArchiveTTL: 10 * time.Minute,
 			},
-			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second},
+			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second, Stall: 45 * time.Second},
 			Nodes:       nodes.DefaultTimings(),
 			Works:       works.DefaultTimings(),
 			Indexers:    indexers.DefaultTimings(),

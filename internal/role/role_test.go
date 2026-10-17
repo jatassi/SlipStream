@@ -110,7 +110,7 @@ func newCluster(t *testing.T, controllerVersion, workerVersion string) *cluster 
 		assigned:     map[role.NodeID][]role.Name{},
 		draining:     map[role.NodeID][]role.Name{},
 	}
-	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Log: discard}, c.probe)
+	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Stall: 45 * time.Second, Log: discard}, c.probe)
 	lockstep.Handle(c.controls.Handler())
 	return c
 }

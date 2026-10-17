@@ -228,6 +228,13 @@ func (s *Service) inStep(node ID, attached bool) {
 	})
 }
 
+// stalled closes the link of a Node whose Sync stream went silent.
+func (s *Service) stalled(node ID) {
+	if key, ok := s.Key(node); ok {
+		s.cfg.Link.Reset(key)
+	}
+}
+
 func (s *Service) seen(node ID) {
 	s.rmu.Lock()
 	defer s.rmu.Unlock()

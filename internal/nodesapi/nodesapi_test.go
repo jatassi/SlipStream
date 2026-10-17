@@ -83,6 +83,8 @@ func (unadvertised) Subscribe(context.Context) <-chan link.Change { return nil }
 
 func (unadvertised) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
 
+func (unadvertised) Reset(link.Key) {}
+
 type changes struct{}
 
 func (changes) Publish(context.Context, nodes.Changed) {}

@@ -35,7 +35,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
-		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
+		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
 		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.downloading.facts", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 	}
 	if !slices.Equal(paths, want) {
@@ -124,7 +124,7 @@ func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
 func TestTheLinkAndRoleSectionsHaveTheirDefaults(t *testing.T) {
 	cfg := Defaults(noTypes, install.Dev)
 	got := fmt.Sprint(cfg.Link, cfg.Timings.Link, cfg.Timings.Role)
-	if want := "{[::]:8485 [] 16777216} {10s 25s 10s 1s 1m0s 300ms 20s 10m0s} {1s 1m0s 15s}"; got != want {
+	if want := "{[::]:8485 [] 16777216} {10s 25s 10s 1s 1m0s 300ms 20s 10m0s} {1s 1m0s 15s 45s}"; got != want {
 		t.Fatalf("link, timings.link, timings.role = %s, want %s", got, want)
 	}
 	if host, _ := os.Hostname(); cfg.Name != host {

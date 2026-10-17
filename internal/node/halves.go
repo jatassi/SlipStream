@@ -102,6 +102,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Owners:          owners(),
 		Always:          n.env.Test.Always,
 		Timings:         n.cfg.Timings.Nodes,
+		Stall:           n.cfg.Timings.Role.Stall,
 		Log:             n.rootLog.With("subsystem", "nodes"),
 	})
 	if err != nil {

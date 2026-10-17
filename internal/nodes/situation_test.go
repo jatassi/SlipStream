@@ -20,6 +20,8 @@ func (noLink) Subscribe(context.Context) <-chan link.Change { return nil }
 
 func (noLink) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
 
+func (noLink) Reset(link.Key) {}
+
 type unheard struct{}
 
 func (unheard) Publish(context.Context, Changed) {}
