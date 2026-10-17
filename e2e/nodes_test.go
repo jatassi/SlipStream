@@ -1,10 +1,16 @@
 package e2e
 
 import (
+	"encoding/json"
+	"net"
+	"net/http"
+	"net/netip"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
-	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -44,8 +50,48 @@ func TestARestartedNodeKeepsItsPort(t *testing.T) {
 	worldtest.Until(t, "home lists seedbox's link up", func() (bool, error) {
 		return row(t, a.Nodes("home"), box.NodeID).Link.State == "up", nil
 	})
-	if r := world.Doctor(worldtest.Context(t), run.Manifest().RunDir, testbin.ModuleRoot(t)); !r.OK {
-		t.Fatalf("doctor after the restart:\n%s", r)
+	doctor(t, run)
+}
+
+func TestANodeWhoseWebPortIsHeldFallsBack(t *testing.T) {
+	t.Parallel()
+	run := worldtest.Launch(t, "home")
+	a := api(t, run)
+	box := a.Node("seedbox")
+	configured := box.Listeners["http"]
+	act(t, run, "seedbox", world.StopNode)
+	held, err := new(net.ListenConfig).Listen(worldtest.Context(t), "tcp", configured)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = held.Close() }()
+
+	bound := act(t, run, "seedbox", world.StartNode).Listeners["http"]
+	if port, was := netip.MustParseAddrPort(bound).Port(), netip.MustParseAddrPort(configured).Port(); port <= was || port >= was+10 {
+		t.Fatalf("seedbox bound http %s with %s held, want one of the next 9 ports", bound, configured)
+	}
+	a = api(t, run)
+	linkUp(t, a, box.NodeID, "")
+	r := a.Admin("home", http.MethodGet, "/api/v1/nodes/"+box.NodeID+"/system", "")
+	var report struct {
+		HTTP struct {
+			Configured string `json:"configured"`
+		} `json:"http"`
+		Listeners struct {
+			HTTP string `json:"http"`
+		} `json:"listeners"`
+	}
+	if err := json.Unmarshal([]byte(r.Body), &report); r.Status != http.StatusOK || err != nil || report.HTTP.Configured != configured || report.Listeners.HTTP != bound {
+		t.Fatalf("home getNodeSystem seedbox = %d %s; want http.configured %s and listeners.http %s", r.Status, r.Body, configured, bound)
+	}
+
+	logged, err := os.ReadFile(filepath.Join(box.DataDir, "logs", "slipstream.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	warn := `"level":"WARN","msg":"web port taken, serving on a later one","subsystem":"http","configured":"` + configured + `","bound":"` + bound + `"}`
+	if !strings.Contains(string(logged), warn) {
+		t.Fatalf("seedbox's slipstream.log holds no %s:\n%s", warn, logged)
 	}
 }
 

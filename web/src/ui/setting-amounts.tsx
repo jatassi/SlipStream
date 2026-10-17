@@ -72,12 +72,14 @@ function UnitPicker({
   units,
   unit,
   amount,
+  disabled,
   onPick,
 }: {
   field: SettingDurationField;
   units: readonly DurationUnit[];
   unit: DurationUnit;
   amount: string;
+  disabled: boolean;
   onPick: (unit: DurationUnit) => void;
 }) {
   const wordOf = (candidate: DurationUnit) => nounOf(Number(amount), candidate);
@@ -88,6 +90,7 @@ function UnitPicker({
       label={`${field.label} unit`}
       options={units.map((candidate) => ({ value: candidate.many, label: wordOf(candidate) }))}
       value={unit.many}
+      disabled={disabled}
       onValueChange={(many) => {
         onPick(units.find((candidate) => candidate.many === many) ?? unit);
       }}
@@ -95,7 +98,14 @@ function UnitPicker({
   );
 }
 
-function DurationControl({ field, busy, invalid, submit, onEdit }: ControlProps<"duration">) {
+function DurationControl({
+  field,
+  busy,
+  invalid,
+  disabled,
+  submit,
+  onEdit,
+}: ControlProps<"duration">) {
   const units = unitsOf(field);
   const [unit, setUnit] = useState(() => unitFor(field.value, units));
   const [amount, setAmount] = useState(() => String(field.value / unit.seconds));
@@ -110,6 +120,7 @@ function DurationControl({ field, busy, invalid, submit, onEdit }: ControlProps<
         label={field.label}
         value={amount}
         invalid={invalid}
+        disabled={disabled}
         inputMode="decimal"
         onChange={(value) => {
           setAmount(value);
@@ -121,6 +132,7 @@ function DurationControl({ field, busy, invalid, submit, onEdit }: ControlProps<
         units={units}
         unit={unit}
         amount={amount}
+        disabled={disabled}
         onPick={(picked) => {
           setUnit(picked);
           onEdit();
@@ -145,6 +157,9 @@ export const durationKind: Kind<"duration"> = {
   Control: DurationControl,
 };
 
+const countAmount = (field: SettingCountField, count: number): string =>
+  count === 0 && field.zero !== undefined ? field.zero : countWords(count, field.unit);
+
 const countRange = (field: SettingCountField) =>
   `Between ${field.min} and ${countWords(field.max, field.unit)}.`;
 
@@ -159,8 +174,9 @@ function parseCount(field: SettingCountField, amount: string): Draft<"count"> {
   return count < field.min || count > field.max ? { refused: countRange(field) } : { value: count };
 }
 
-function CountControl({ field, busy, invalid, submit, onEdit }: ControlProps<"count">) {
+function CountControl({ field, busy, invalid, disabled, submit, onEdit }: ControlProps<"count">) {
   const [amount, setAmount] = useState(String(field.value));
+  const zero = amount.trim() === "0" && field.zero !== undefined;
   return (
     <form
       onSubmit={onSubmit(() => {
@@ -172,25 +188,72 @@ function CountControl({ field, busy, invalid, submit, onEdit }: ControlProps<"co
         label={field.label}
         value={amount}
         invalid={invalid}
+        disabled={disabled}
         inputMode="numeric"
         onChange={(value) => {
           setAmount(value);
           onEdit();
         }}
       />
-      <span className={unitLook}>{nounOf(Number(amount), field.unit)}</span>
+      <span className={unitLook}>{zero ? field.zero : nounOf(Number(amount), field.unit)}</span>
       <SaveButton shown={amount.trim() !== String(field.value)} busy={busy} />
     </form>
   );
 }
 
 export const countKind: Kind<"count"> = {
-  words: (field) => countWords(field.value, field.unit),
+  words: (field) => countAmount(field, field.value),
   hints: (field) => [
-    `${defaultHint(field, countWords(field.default, field.unit))} ${countRange(field)}`,
+    [
+      defaultHint(field, countAmount(field, field.default)),
+      countRange(field),
+      ...(field.zero === undefined ? [] : [`0 means ${field.zero.toLowerCase()}.`]),
+    ].join(" "),
     ...(field.floor === undefined
       ? []
       : [`At least ${countWords(field.min, field.unit)}. ${field.floor}`]),
   ],
   Control: CountControl,
+};
+
+const portRange = "Between 1 and 65535.";
+const highestPort = 65_535;
+
+function parsePort(amount: string): Draft<"port"> {
+  if (!/^\d+$/u.test(amount.trim())) {
+    return { refused: portRange };
+  }
+  const port = Number(amount);
+  return port < 1 || port > highestPort ? { refused: portRange } : { value: port };
+}
+
+function PortControl({ field, busy, invalid, disabled, submit, onEdit }: ControlProps<"port">) {
+  const [amount, setAmount] = useState(String(field.value));
+  return (
+    <form
+      onSubmit={onSubmit(() => {
+        submit(parsePort(amount));
+      })}
+      className={controlRow}
+    >
+      <AmountInput
+        label={field.label}
+        value={amount}
+        invalid={invalid}
+        disabled={disabled}
+        inputMode="numeric"
+        onChange={(value) => {
+          setAmount(value);
+          onEdit();
+        }}
+      />
+      <SaveButton shown={amount.trim() !== String(field.value)} busy={busy} />
+    </form>
+  );
+}
+
+export const portKind: Kind<"port"> = {
+  words: (field) => String(field.value),
+  hints: (field) => [defaultHint(field, String(field.default))],
+  Control: PortControl,
 };

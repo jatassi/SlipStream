@@ -40,7 +40,7 @@ export function ReadOnlyField({
 }: {
   label: string;
   value: string;
-  description: string;
+  description?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [copied, markCopied] = useCopied();
@@ -71,9 +71,11 @@ export function ReadOnlyField({
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <Field.Description className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-        {description}
-      </Field.Description>
+      {description !== undefined && (
+        <Field.Description className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
+          {description}
+        </Field.Description>
+      )}
     </Field.Root>
   );
 }

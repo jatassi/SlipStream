@@ -17,7 +17,12 @@ import { renderApp } from "../../../test/render-app";
 
 const noAddress: IdentityAddress = { address: "", suggestedAddress: "http://media-pc:8484" };
 
-const about = { source: "database", applies: "live", isDefault: true } as const;
+const about = {
+  source: "database",
+  applies: "live",
+  isDefault: true,
+  pendingRestart: false,
+} as const;
 const wrongPINs = { one: "wrong PIN", many: "wrong PINs" };
 
 const count = (key: string, label: string, value: number, min: number, max: number) => ({
@@ -26,6 +31,7 @@ const count = (key: string, label: string, value: number, min: number, max: numb
   key: `identity.${key}`,
   label,
   value,
+  running: value,
   default: value,
   min,
   max,
@@ -38,6 +44,7 @@ const duration = (key: string, label: string, value: number) => ({
   key: `identity.${key}`,
   label,
   value,
+  running: value,
   default: value,
   min: 60,
   max: 2_592_000,

@@ -17,7 +17,7 @@ The Controller runs each Scheduled task on its cadence and records every run wit
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Tasks`, below `This Node`, which opens `/tasks`; a task's name opens `/tasks/<id>`. The capsule sits in the top bar while a run is shown.
+- Desktop shell: the sidebar's `Tasks`, below `Nodes`, which opens `/tasks`; a task's name opens `/tasks/<id>`. The capsule sits in the top bar while a run is shown.
 - Phone shell: the `More` tab, then `Tasks`; the `Running tasks` list heads `Activity`.
 - Both shells: the palette's `Go to Tasks`.
 - API (Admin): `GET /api/v1/tasks`, `GET /api/v1/tasks/{taskId}`, `POST /api/v1/tasks/{taskId}/runs`, `DELETE /api/v1/tasks/runs/{runId}`, `PATCH /api/v1/tasks/{taskId}`, `GET` and `PATCH /api/v1/tasks/settings`, `GET /api/v1/tasks/runs/open`; live events `tasks.changed` and `tasks.progress`.

@@ -67,16 +67,19 @@ func (x *NodeIntent) GetRoles() []string {
 }
 
 // NodeFacts is the node scope's facts: the Roles the holder half has
-// assigned, running and waiting to restart, and the node-scope version it
-// applied.
+// assigned, running and waiting to restart, the node-scope version it
+// applied, the address its web server bound, and a digest of its Node
+// settings view, which changes whenever the view does.
 type NodeFacts struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Assigned       []string               `protobuf:"bytes,1,rep,name=assigned,proto3" json:"assigned,omitempty"`
-	Running        []string               `protobuf:"bytes,2,rep,name=running,proto3" json:"running,omitempty"`
-	Restarting     []string               `protobuf:"bytes,3,rep,name=restarting,proto3" json:"restarting,omitempty"`
-	AppliedVersion []byte                 `protobuf:"bytes,4,opt,name=applied_version,json=appliedVersion,proto3" json:"applied_version,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Assigned         []string               `protobuf:"bytes,1,rep,name=assigned,proto3" json:"assigned,omitempty"`
+	Running          []string               `protobuf:"bytes,2,rep,name=running,proto3" json:"running,omitempty"`
+	Restarting       []string               `protobuf:"bytes,3,rep,name=restarting,proto3" json:"restarting,omitempty"`
+	AppliedVersion   []byte                 `protobuf:"bytes,4,opt,name=applied_version,json=appliedVersion,proto3" json:"applied_version,omitempty"`
+	HttpAddress      string                 `protobuf:"bytes,5,opt,name=http_address,json=httpAddress,proto3" json:"http_address,omitempty"`
+	SettingsRevision string                 `protobuf:"bytes,6,opt,name=settings_revision,json=settingsRevision,proto3" json:"settings_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *NodeFacts) Reset() {
@@ -137,6 +140,20 @@ func (x *NodeFacts) GetAppliedVersion() []byte {
 	return nil
 }
 
+func (x *NodeFacts) GetHttpAddress() string {
+	if x != nil {
+		return x.HttpAddress
+	}
+	return ""
+}
+
+func (x *NodeFacts) GetSettingsRevision() string {
+	if x != nil {
+		return x.SettingsRevision
+	}
+	return ""
+}
+
 var File_slipstream_node_v1_scope_proto protoreflect.FileDescriptor
 
 const file_slipstream_node_v1_scope_proto_rawDesc = "" +
@@ -144,14 +161,16 @@ const file_slipstream_node_v1_scope_proto_rawDesc = "" +
 	"\x1eslipstream/node/v1/scope.proto\x12\x12slipstream.node.v1\"\"\n" +
 	"\n" +
 	"NodeIntent\x12\x14\n" +
-	"\x05roles\x18\x01 \x03(\tR\x05roles\"\x8a\x01\n" +
+	"\x05roles\x18\x01 \x03(\tR\x05roles\"\xda\x01\n" +
 	"\tNodeFacts\x12\x1a\n" +
 	"\bassigned\x18\x01 \x03(\tR\bassigned\x12\x18\n" +
 	"\arunning\x18\x02 \x03(\tR\arunning\x12\x1e\n" +
 	"\n" +
 	"restarting\x18\x03 \x03(\tR\n" +
 	"restarting\x12'\n" +
-	"\x0fapplied_version\x18\x04 \x01(\fR\x0eappliedVersionB\xd3\x01\n" +
+	"\x0fapplied_version\x18\x04 \x01(\fR\x0eappliedVersion\x12!\n" +
+	"\fhttp_address\x18\x05 \x01(\tR\vhttpAddress\x12+\n" +
+	"\x11settings_revision\x18\x06 \x01(\tR\x10settingsRevisionB\xd3\x01\n" +
 	"\x16com.slipstream.node.v1B\n" +
 	"ScopeProtoP\x01ZCgithub.com/jatassi/slipstream/internal/pb/slipstream/node/v1;nodev1\xa2\x02\x03SNX\xaa\x02\x12Slipstream.Node.V1\xca\x02\x12Slipstream\\Node\\V1\xe2\x02\x1eSlipstream\\Node\\V1\\GPBMetadata\xea\x02\x14Slipstream::Node::V1b\x06proto3"
 

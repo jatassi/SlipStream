@@ -14,21 +14,24 @@ export function Segmented<V extends string>({
   label,
   options,
   value,
+  disabled = false,
   onValueChange,
 }: {
   label: string;
   options: readonly SegmentedOption<V>[];
   value: V;
+  disabled?: boolean;
   onValueChange: (value: V) => void;
 }) {
   return (
     <RadioGroup
       aria-label={label}
       value={value}
+      disabled={disabled}
       onValueChange={(next) => {
         onValueChange(next);
       }}
-      className={`${tracks[useShell()]} gap-0.5 rounded-capsule bg-fill p-0.5 ring-1 ring-hairline ring-inset`}
+      className={`${tracks[useShell()]} gap-0.5 rounded-capsule data-disabled:opacity-40 bg-fill p-0.5 ring-1 ring-hairline ring-inset`}
     >
       {options.map((option) => (
         <Radio.Root

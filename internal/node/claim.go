@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -167,6 +168,14 @@ func (s surfaceNode) Nodes() (*nodes.Service, bool) {
 		return nil, false
 	}
 	return h.nodes, true
+}
+
+func (s surfaceNode) Systems() (*nodesystem.Nodes, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.systems == nil {
+		return nil, false
+	}
+	return h.systems, true
 }
 
 func (s surfaceNode) Works() (*works.Works, bool) {

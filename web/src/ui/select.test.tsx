@@ -49,3 +49,31 @@ test("Esc closes the popup and leaves the value", async () => {
   await expect.element(page.getByRole("listbox")).not.toBeInTheDocument();
   await expect.element(page.getByRole("combobox", { name: "Quality" })).toHaveTextContent("Any");
 });
+
+const dot = (word: string) => (
+  <span data-testid={`dot-${word}`} className="size-1.5 rounded-capsule bg-ink-1">
+    <span className="sr-only">{word}</span>
+  </span>
+);
+
+const nodes = [
+  { value: "home", label: "home", leading: dot("online") },
+  { value: "seedbox", label: "seedbox", leading: dot("offline") },
+] as const;
+
+function Picker() {
+  const [value, setValue] = useState<(typeof nodes)[number]["value"]>("home");
+  return <Select label="Node" options={nodes} value={value} onValueChange={setValue} />;
+}
+
+test("an option's leading mark sits before its label in the list and on the trigger", async () => {
+  renderKit(<Picker />);
+  const select = page.getByRole("combobox", { name: "Node" });
+  await expect.element(select).toHaveTextContent("onlinehome");
+  await select.click();
+  const seedbox = page.getByRole("option", { name: "offline seedbox" });
+  await expect.element(seedbox).toBeVisible();
+  await seedbox.click();
+  await expect.element(select).toHaveTextContent("offlineseedbox");
+  await expect.element(select.getByTestId("dot-offline")).toBeVisible();
+});

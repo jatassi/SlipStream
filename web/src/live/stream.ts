@@ -4,6 +4,7 @@ import { isProblem } from "../api/errors";
 import { getSession } from "../api/gen/query/identity/identity";
 import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
+import { type Source, openSource } from "./source";
 import type {
   LiveEffect,
   LiveEffects,
@@ -50,7 +51,7 @@ class Stream {
   state: LiveState = "idle";
   readonly listeners = new Set<() => void>();
   private running: { ready: Promise<void>; settle: () => void } | undefined;
-  private source: EventSource | undefined;
+  private source: Source | undefined;
   private reopens = 0;
   private reopenTimer: ReturnType<typeof setTimeout> | undefined;
   private releaseTimer: ReturnType<typeof setTimeout> | undefined;
@@ -101,20 +102,16 @@ class Stream {
   }
 
   private readonly open = () => {
-    const source = new EventSource(streamUrl);
-    this.source = source;
-    source.addEventListener("open", () => {
-      this.reopens = 0;
-      this.setState("open");
+    this.source = openSource(streamUrl, eventNames, {
+      open: () => {
+        this.reopens = 0;
+        this.setState("open");
+      },
+      error: (closed) => {
+        this.onError(closed);
+      },
+      message: this.onMessage,
     });
-    source.addEventListener("error", () => {
-      if (this.source === source) {
-        this.onError(source);
-      }
-    });
-    for (const name of eventNames) {
-      source.addEventListener(name, this.onMessage);
-    }
     if (this.state === "idle" || this.state === "paused") {
       this.setState("connecting");
     }
@@ -127,10 +124,10 @@ class Stream {
     this.reopenTimer = undefined;
   }
 
-  private onError(source: EventSource) {
+  private onError(closed: boolean) {
     this.running?.settle();
     this.setState("reconnecting");
-    if (source.readyState === EventSource.CLOSED) {
+    if (closed) {
       this.close();
       void this.recover();
     }

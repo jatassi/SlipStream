@@ -434,6 +434,11 @@ func TestTheAccessWalkPassesOnAStartedNode(t *testing.T) {
 	if len(breaches) != 0 {
 		t.Fatalf("breaches:\n%s", strings.Join(breaches, "\n"))
 	}
+	select {
+	case <-n.stopping:
+		t.Fatal("the walk's zero-UUID restartNode stopped the Node")
+	default:
+	}
 }
 
 // TestAConnectionWithNoRequestYetDoesNotHoldStop holds a connection open the

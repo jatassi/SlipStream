@@ -1,7 +1,10 @@
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate, shellNav } from "./shell.ts";
 
-test("the shell reaches every destination and titles each tab", async ({ adminPage: page }) => {
+test("the shell reaches every destination and titles each tab", async ({
+  adminPage: page,
+  world,
+}) => {
   await expect(shellNav(page)).toBeVisible();
   await expect(page).toHaveTitle("Library · SlipStream");
 
@@ -10,9 +13,11 @@ test("the shell reaches every destination and titles each tab", async ({ adminPa
   await expect(page).toHaveTitle("Activity · SlipStream");
   await expectAccessible(page);
 
-  await navigate(page, "This Node");
-  await expect(page.getByRole("heading", { name: "This Node" })).toBeVisible();
-  await expect(page).toHaveTitle("This Node · SlipStream");
+  await navigate(page, "Nodes");
+  await expect(
+    page.getByRole("heading", { name: isPhone(page) ? "Nodes" : world.node.name, level: 1 }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle(`${world.node.name} · SlipStream`);
 
   await navigate(page, "Library");
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
@@ -28,7 +33,7 @@ test("the sidebar collapses to a rail that stays, and the phone's More lists the
       .getByRole("button", { name: "More" })
       .click();
     const sheet = page.getByRole("dialog", { name: "More" });
-    await expect(sheet.getByRole("button", { name: "This Node" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Nodes" })).toBeVisible();
     await expect(sheet.getByText(/^SlipStream \S+$/u)).toBeVisible();
     await expectAccessible(page);
     await sheet.getByRole("button", { name: "Cancel" }).click();

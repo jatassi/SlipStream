@@ -11,12 +11,12 @@ import (
 func init() {
 	lint.Register(lint.Rule{
 		Name:  "routes-placement",
-		Doc:   "api.Register and api.RegisterStream are referenced only from Routes in an <owner>api package (spec #129, Lint rules)",
+		Doc:   "api.Register, api.RegisterStream and api.RegisterDownload are referenced only from Routes in an <owner>api package (spec #129, Lint rules)",
 		Check: checkRoutesPlacement,
 	})
 }
 
-var registerFuncs = []string{"Register", "RegisterStream"}
+var registerFuncs = []string{"Register", "RegisterStream", "RegisterDownload"}
 
 func checkRoutesPlacement(repo *lint.Repo) ([]lint.Finding, error) {
 	module, err := modulePath(repo)

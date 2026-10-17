@@ -3,7 +3,9 @@
 // running, stopped, killed and exited, and a process that exits while no
 // action is under way leaves it exited. Each process writes node.spawned,
 // node.ready, node.error and node.exited records, and each stop, kill and
-// wipe a node.stopped, node.killed or node.wiped record once done.
+// wipe a node.stopped, node.killed or node.wiped record once done. A Node
+// that restarts prints its readiness record again, which writes
+// node.restarted and node.ready.
 package lifecycle
 
 import (
@@ -36,21 +38,23 @@ const (
 type Action string
 
 const (
-	Start Action = "start"
-	Stop  Action = "stop"
-	Kill  Action = "kill"
-	Wipe  Action = "wipe"
+	Start   Action = "start"
+	Stop    Action = "stop"
+	Kill    Action = "kill"
+	Restart Action = "restart"
+	Wipe    Action = "wipe"
 )
 
 // Actions is every action, in the order fakeworld lists them.
-var Actions = []Action{Stop, Kill, Start, Wipe}
+var Actions = []Action{Stop, Kill, Start, Restart, Wipe}
 
 // from is the states each action may start from.
 var from = map[Action][]State{
-	Start: {Stopped, Killed, Exited},
-	Stop:  {Running},
-	Kill:  {Running},
-	Wipe:  {Stopped},
+	Start:   {Stopped, Killed, Exited},
+	Stop:    {Running},
+	Kill:    {Running},
+	Restart: {Running},
+	Wipe:    {Stopped},
 }
 
 // Config is what a Node runs: the binary's run on its data dir, with its
@@ -63,11 +67,12 @@ type Config struct {
 	Log     string
 	// Record appends a record an action writes, ctx carrying its step.
 	Record func(ctx context.Context, rec events.Record)
-	// Append appends a record no action asked for: node.error and
-	// node.exited.
+	// Append appends a record no action asked for: node.error,
+	// node.exited, and a restart's node.restarted and node.ready.
 	Append func(rec events.Record)
-	// Exited hears a Node that left running with no action asking it to.
-	Exited func()
+	// Changed hears a Node that left running with no action asking it to,
+	// and a running Node that restarted.
+	Changed func()
 }
 
 // Spawned is node.spawned's data.
@@ -85,6 +90,13 @@ type exited struct {
 	Code int `json:"code"`
 }
 
+// restarted is node.restarted's data. A restart in place keeps the PID,
+// and a successor has its own.
+type restarted struct {
+	OldPID int `json:"oldPid"`
+	PID    int `json:"pid"`
+}
+
 type Node struct {
 	cfg Config
 
@@ -96,7 +108,14 @@ type Node struct {
 	mu    sync.Mutex
 	state State
 	ready node.Ready
-	proc  *proc.Process
+	// proc is the process Start spawned. Its stderr outlives it while a
+	// successor it started for a restart holds the same pipe.
+	proc *proc.Process
+	// pid is the latest process's: proc's, or that of the successor whose
+	// readiness record came last.
+	pid int
+	// announced is closed by the next readiness record.
+	announced chan struct{}
 	// leaving is the state an action ending the process moves to on its
 	// exit.
 	leaving State
@@ -129,7 +148,7 @@ func (n *Node) PID() int {
 	if n.state != Running {
 		return 0
 	}
-	return n.proc.PID
+	return n.pid
 }
 
 // Live is the readiness record of the running Node.
@@ -150,6 +169,8 @@ func (n *Node) Do(ctx context.Context, a Action) error {
 		return n.Stop(ctx)
 	case Kill:
 		return n.Kill(ctx)
+	case Restart:
+		return n.Restart(ctx)
 	case Wipe:
 		return n.Wipe(ctx)
 	default:
@@ -184,18 +205,15 @@ func (n *Node) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("node %s: %w", name, err)
 	}
-	readies := make(chan node.Ready, 1)
+	ready := n.expectReady()
 	found := false
 	watch := func(line []byte) {
 		if errorLine(line) {
 			n.cfg.Append(events.Record{Kind: events.NodeError, Node: name, Data: line})
 		}
-		if found {
-			return
-		}
 		if rec, err := node.ParseReady(line); err == nil {
+			n.adopt(rec, found)
 			found = true
-			readies <- rec
 		}
 	}
 	p, err := proc.Start(ctx, n.cfg.Binary, []string{"run", "--data-dir", n.cfg.DataDir.Path()}, n.cfg.Env, logFile, watch)
@@ -205,24 +223,43 @@ func (n *Node) Start(ctx context.Context) error {
 	}
 	gone := make(chan struct{})
 	n.mu.Lock()
-	n.state, n.proc, n.gone, n.leaving = Running, p, gone, ""
+	n.state, n.proc, n.pid, n.gone, n.leaving = Running, p, p.PID, gone, ""
 	n.mu.Unlock()
 	n.cfg.Record(ctx, events.Record{Kind: events.NodeSpawned, Node: name, Data: data(Spawned{PID: p.PID, DataDir: n.cfg.DataDir.Path()})})
 	go n.await(p, logFile, gone)
 	select {
-	case ready := <-readies:
-		n.cfg.Record(ctx, events.Record{Kind: events.NodeReady, Node: name, Data: data(struct {
-			PID int `json:"pid"`
-		}{ready.PID})})
-		n.mu.Lock()
-		n.ready = ready
-		n.mu.Unlock()
+	case <-ready:
+		n.cfg.Record(ctx, events.Record{Kind: events.NodeReady, Node: name, Data: data(pid{n.Ready().PID})})
 		return nil
 	case <-gone:
 		return fmt.Errorf("node %s exited with code %d before it was ready\n%s", name, p.ExitCode(), strings.Join(p.Tail(), "\n"))
 	case <-ctx.Done():
 		return fmt.Errorf("node %s was not ready: %w", name, ctx.Err())
 	}
+}
+
+func (n *Node) expectReady() <-chan struct{} {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.announced = make(chan struct{})
+	return n.announced
+}
+
+// adopt takes a readiness record as the Node's latest. One past the
+// process's first is a restart, which the Node announces itself.
+func (n *Node) adopt(ready node.Ready, again bool) {
+	n.mu.Lock()
+	old := n.pid
+	n.ready, n.pid = ready, ready.PID
+	announced := n.announced
+	n.announced = make(chan struct{})
+	n.mu.Unlock()
+	if again {
+		n.cfg.Changed()
+		n.cfg.Append(events.Record{Kind: events.NodeRestarted, Node: n.cfg.Name, Data: data(restarted{OldPID: old, PID: ready.PID})})
+		n.cfg.Append(events.Record{Kind: events.NodeReady, Node: n.cfg.Name, Data: data(pid{ready.PID})})
+	}
+	close(announced)
 }
 
 // await records p's exit and moves the Node to the state the action that
@@ -240,7 +277,7 @@ func (n *Node) await(p *proc.Process, logFile *os.File, gone chan struct{}) {
 	n.mu.Unlock()
 	close(gone)
 	if to == Exited {
-		n.cfg.Exited()
+		n.cfg.Changed()
 	}
 }
 
@@ -271,7 +308,7 @@ func (n *Node) Stop(ctx context.Context) error {
 		return err
 	}
 	p, gone := n.leave(Stopped)
-	if err := n.stop(ctx); err != nil {
+	if err := n.command(ctx, "stop"); err != nil {
 		n.stay()
 		return err
 	}
@@ -280,15 +317,40 @@ func (n *Node) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (n *Node) stop(ctx context.Context) error {
-	res, err := proc.Run(ctx, n.cfg.Binary, []string{"stop", "--data-dir", n.cfg.DataDir.Path()}, n.cfg.Env)
+// command runs slipstream cmd on the Node's data dir.
+func (n *Node) command(ctx context.Context, cmd string) error {
+	res, err := proc.Run(ctx, n.cfg.Binary, []string{cmd, "--data-dir", n.cfg.DataDir.Path()}, n.cfg.Env)
 	if err != nil {
 		return fmt.Errorf("node %s: %w", n.cfg.Name, err)
 	}
 	if res.Code != 0 {
-		return fmt.Errorf("node %s: slipstream stop exited with code %d: %s", n.cfg.Name, res.Code, strings.TrimSpace(string(res.Stderr)))
+		return fmt.Errorf("node %s: slipstream %s exited with code %d: %s", n.cfg.Name, cmd, res.Code, strings.TrimSpace(string(res.Stderr)))
 	}
 	return nil
+}
+
+// Restart runs slipstream restart on the Node's data dir and returns once
+// the Node's next readiness record is in.
+func (n *Node) Restart(ctx context.Context) error {
+	n.act.Lock()
+	defer n.act.Unlock()
+	if err := n.may(Restart); err != nil {
+		return err
+	}
+	n.mu.Lock()
+	p, ready, gone := n.proc, n.announced, n.gone
+	n.mu.Unlock()
+	if err := n.command(ctx, "restart"); err != nil {
+		return err
+	}
+	select {
+	case <-ready:
+		return nil
+	case <-gone:
+		return fmt.Errorf("node %s exited with code %d before it was ready again\n%s", n.cfg.Name, p.ExitCode(), strings.Join(p.Tail(), "\n"))
+	case <-ctx.Done():
+		return fmt.Errorf("node %s was not ready again: %w", n.cfg.Name, ctx.Err())
+	}
 }
 
 // Kill kills the Node's process and returns once it has exited.
@@ -299,13 +361,26 @@ func (n *Node) Kill(ctx context.Context) error {
 		return err
 	}
 	p, gone := n.leave(Killed)
-	if err := p.Kill(); err != nil {
+	if err := n.kill(p); err != nil {
 		n.stay()
 		return fmt.Errorf("node %s: %w", n.cfg.Name, err)
 	}
 	<-gone
 	n.cfg.Record(ctx, events.Record{Kind: events.NodeKilled, Node: n.cfg.Name, Data: data(pid{p.PID})})
 	return nil
+}
+
+// kill kills p and the successor a restart left holding its stderr.
+func (n *Node) kill(p *proc.Process) error {
+	n.mu.Lock()
+	latest := n.pid
+	n.mu.Unlock()
+	if latest != p.PID {
+		if err := proc.Kill(latest); err != nil {
+			return err
+		}
+	}
+	return p.Kill()
 }
 
 // Wipe empties the stopped Node's data dir but its config.yaml, so it
@@ -355,9 +430,9 @@ func (n *Node) End(ctx context.Context) Ending {
 	var e Ending
 	if n.State() == Running {
 		p, gone := n.leave(Stopped)
-		if err := n.stop(ctx); err != nil {
+		if err := n.command(ctx, "stop"); err != nil {
 			e.StopFailed = strings.TrimPrefix(err.Error(), "node "+n.cfg.Name+": ")
-			if kerr := p.Kill(); kerr != nil {
+			if kerr := n.kill(p); kerr != nil {
 				e.StopFailed += "; " + kerr.Error()
 			}
 		}
@@ -384,7 +459,7 @@ func ParseAction(s string) (Action, error) {
 	if a := Action(s); slices.Contains(Actions, a) {
 		return a, nil
 	}
-	return "", fmt.Errorf("%q is not a Node action: stop, kill, start or wipe", s)
+	return "", fmt.Errorf("%q is not a Node action: stop, kill, start, restart or wipe", s)
 }
 
 func data(v any) json.RawMessage {

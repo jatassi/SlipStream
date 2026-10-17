@@ -13,7 +13,12 @@ export interface SettingChoiceField {
   key: string;
   kind: SettingChoiceFieldKind;
   label: string;
+  /** The environment variable that sets the value; the control is read-only */
+  lockedBy?: string;
   options: SettingChoiceOption[];
+  /** The saved value differs from the running one until the Node restarts */
+  pendingRestart: boolean;
+  running: string;
   source: SettingChoiceFieldSource;
   value: string;
 }

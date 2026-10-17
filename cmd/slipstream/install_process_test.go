@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/internal/node"
@@ -103,6 +104,7 @@ func TestABadMarkerExitsWithTheUsageCodeNamingIt(t *testing.T) {
 func TestStatusAnswersOnceReady(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
+	launched := time.Now()
 	p := startNode(t, dir)
 	ready := p.ready()
 	res := slipstream(t, childEnv(), "status", "--data-dir", dir)
@@ -115,6 +117,7 @@ func TestStatusAnswersOnceReady(t *testing.T) {
 	}
 	url := "http://localhost:" + strconv.Itoa(int(ready.Listeners.HTTP.Port())) + "/setup#code=" + ready.SetupCode
 	want := map[string]any{"pid": float64(ready.PID), "version": ready.Version, "install": "dev", "mode": "run", "claim": "unclaimed", "url": url}
+	startedSince(t, got, launched)
 	if !maps.Equal(got, want) {
 		t.Fatalf("status = %v, want %v", got, want)
 	}

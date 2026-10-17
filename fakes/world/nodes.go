@@ -13,10 +13,11 @@ import (
 type NodeAction = lifecycle.Action
 
 const (
-	StartNode = lifecycle.Start
-	StopNode  = lifecycle.Stop
-	KillNode  = lifecycle.Kill
-	WipeNode  = lifecycle.Wipe
+	StartNode   = lifecycle.Start
+	StopNode    = lifecycle.Stop
+	KillNode    = lifecycle.Kill
+	RestartNode = lifecycle.Restart
+	WipeNode    = lifecycle.Wipe
 )
 
 // ParseNodeAction reads an action's name, as fakeworld node and the
@@ -24,7 +25,7 @@ const (
 func ParseNodeAction(s string) (NodeAction, error) { return lifecycle.ParseAction(s) }
 
 // Node runs action a on the Node name and answers its manifest entry,
-// rewritten with the Node's new state and PID.
+// rewritten with the Node's new state, PID and addresses.
 func (r *Run) Node(ctx context.Context, name string, a NodeAction) (Node, error) {
 	i := slices.IndexFunc(r.nodes, func(n *nodeRun) bool { return n.spec.Name == name })
 	if i < 0 {
@@ -36,9 +37,10 @@ func (r *Run) Node(ctx context.Context, name string, a NodeAction) (Node, error)
 	return r.rewriteNode(i)
 }
 
-// nodeExited rewrites the manifest for Node i, which exited unasked. A
-// Node that exits during launch fails the launch, which writes none.
-func (r *Run) nodeExited(i int) {
+// nodeChanged rewrites the manifest for Node i, which exited unasked or
+// restarted. A Node that exits during launch fails the launch, which
+// writes none.
+func (r *Run) nodeChanged(i int) {
 	if _, err := r.rewriteNode(i); err != nil && !errors.Is(err, errUnpublished) {
 		r.log.Error("manifest", "node", r.nodes[i].spec.Name, "err", err.Error())
 	}
@@ -46,8 +48,8 @@ func (r *Run) nodeExited(i int) {
 
 var errUnpublished = errors.New("the run has no manifest: it is launching or stopping")
 
-// rewriteNode writes the manifest again, atomically, with Node i's state
-// and PID as they are now.
+// rewriteNode writes the manifest again, atomically, with Node i's entry
+// as it is now.
 func (r *Run) rewriteNode(i int) (Node, error) {
 	r.manifestMu.Lock()
 	defer r.manifestMu.Unlock()
@@ -56,8 +58,11 @@ func (r *Run) rewriteNode(i int) (Node, error) {
 	}
 	m := r.manifest
 	m.Nodes = slices.Clone(m.Nodes)
-	n := r.nodes[i]
-	m.Nodes[i].State, m.Nodes[i].PID = n.life.State(), n.life.PID()
+	entry, err := r.entry(i)
+	if err != nil {
+		return Node{}, err
+	}
+	m.Nodes[i] = entry
 	if err := writeAtomically(filepath.Join(r.runDir, manifestFile), marshal(m)); err != nil {
 		return Node{}, err
 	}

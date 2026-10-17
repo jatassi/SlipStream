@@ -214,6 +214,14 @@ func TestConfigSections(t *testing.T) {
 	})
 }
 
+func TestConfigWriter(t *testing.T) {
+	assertFindings(t, check(t, "config-writer", fixtureRepo(t, "config-writer")), []string{
+		"internal/node/settings.go:12: [config-writer] WriteFile writes config.yaml; change keys through config.Edit",
+		"internal/node/settings.go:15: [config-writer] Write writes config.yaml; change keys through config.Edit",
+		"internal/node/settings.go:19: [config-writer] WriteFile writes config.yaml; change keys through config.Edit",
+	})
+}
+
 func TestCredentialColumns(t *testing.T) {
 	assertFindings(t, check(t, "credential-columns", fixtureRepo(t, "credential-columns")), []string{
 		"internal/vault/schema/00001_vault.sql:4: [credential-columns] vault_login.password holds a credential in plain text; seal it as password_sealed or keep only its digest as password_hash",

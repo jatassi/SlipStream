@@ -1,6 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
+
 import type { TasksSchedule, TasksSchedulePatch } from "../api/gen/model";
 import { useUpdateTaskSettings } from "../api/gen/query/tasks/tasks";
 import { countWords, durationWords } from "../format";
+import { adoptTaskSettings } from "../live/adopt";
 import { Details } from "../ui/details";
 import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
@@ -9,8 +12,11 @@ const summary = ({ jitterPercent, jitterCap, headerDelay, partialWarnIntervals }
   `Interval tasks start up to ${countWords(jitterPercent.value, jitterPercent.unit)} late, at most ${durationWords(jitterCap.value)}. A scheduled run shows in the header after ${durationWords(headerDelay.value)}. A Partial run warns once a unit has gone ${countWords(partialWarnIntervals.value, partialWarnIntervals.unit)} without success.`;
 
 export function Schedule({ settings }: { settings: TasksSchedule }) {
+  const queryClient = useQueryClient();
   const update = useUpdateTaskSettings();
-  const save = (data: TasksSchedulePatch) => update.mutateAsync({ data });
+  const save = async (data: TasksSchedulePatch) => {
+    adoptTaskSettings(queryClient, await update.mutateAsync({ data }));
+  };
   return (
     <Section title="Schedule">
       <SettingGroup>

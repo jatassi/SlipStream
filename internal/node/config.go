@@ -3,9 +3,12 @@ package node
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"io/fs"
 	"net/netip"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -13,11 +16,13 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
+	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -38,6 +43,7 @@ type Config struct {
 	HTTP      api.Settings     `yaml:"http"`
 	Link      link.Settings    `yaml:"link"`
 	Join      pairing.Settings `yaml:"join"`
+	Log       logs.Settings    `yaml:"log"`
 	Endpoints EndpointsBlock   `yaml:"endpoints"`
 	Timings   TimingsBlock     `yaml:"timings"`
 }
@@ -130,21 +136,27 @@ type TimingsBlock struct {
 
 type Timings struct {
 	StopDeadline time.Duration `yaml:"stop_deadline"`
+	// RestartLockWait is how long a restarted process waits for the one it
+	// follows to release the data dir lock.
+	RestartLockWait time.Duration `yaml:"restart_lock_wait"`
 }
 
 func DefaultTimings() Timings {
-	return Timings{StopDeadline: 30 * time.Second}
+	return Timings{StopDeadline: 30 * time.Second, RestartLockWait: 30 * time.Second}
 }
 
-// Defaults is every key's default, with a fresh section for each of
-// types' endpoints. The link and role sections have theirs here, since
-// only the composition root binds link.listen.
-func Defaults(types contenttype.Set) Config {
+// Defaults is every key's default for an install of kind, with a fresh
+// section for each of types' endpoints. The link and role sections have
+// theirs here, since only the composition root binds link.listen.
+func Defaults(types contenttype.Set, kind install.Kind) Config {
 	name, _ := os.Hostname()
+	http := api.DefaultSettings()
+	http.PortsToTry = kind.PortsToTry()
 	return Config{
 		Name:    name,
 		Torrent: engine.DefaultSettings(),
-		HTTP:    api.DefaultSettings(),
+		HTTP:    http,
+		Log:     logs.DefaultSettings(),
 		Endpoints: EndpointsBlock{
 			TMDB:         tmdb.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
@@ -165,6 +177,8 @@ func Defaults(types contenttype.Set) Config {
 				RedialMin:     time.Second,
 				RedialMax:     time.Minute,
 				FallbackDelay: 300 * time.Millisecond,
+				LogPoll:       20 * time.Second,
+				LogArchiveTTL: 10 * time.Minute,
 			},
 			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
 			Works:       works.DefaultTimings(),
@@ -182,9 +196,14 @@ type Key = config.Key
 
 // LoadConfig resolves the configuration of the Node on dir. An empty seed
 // becomes 16 random bytes in hex, reported with source random.
-func LoadConfig(dir DataDir, environ []string, types contenttype.Set) (Config, []Key, error) {
-	cfg := Defaults(types)
-	keys, err := config.Load(&cfg, dir.Path(), environ)
+func LoadConfig(dir DataDir, environ []string, types contenttype.Set, kind install.Kind) (Config, []Key, error) {
+	return loadConfig(os.DirFS(dir.Path()), environ, types, kind)
+}
+
+// loadConfig is LoadConfig with config.yaml and .env read from fsys.
+func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind install.Kind) (Config, []Key, error) {
+	cfg := Defaults(types, kind)
+	keys, err := config.LoadFS(&cfg, fsys, environ)
 	if err != nil {
 		return Config{}, nil, &ConfigError{Err: err}
 	}
@@ -201,13 +220,52 @@ func LoadConfig(dir DataDir, environ []string, types contenttype.Set) (Config, [
 	return cfg, keys, nil
 }
 
-// CheckConfig holds the rules no leaf type carries.
+// CheckConfig holds the rules no leaf type carries: the Node settings
+// table's ranges, and a web port the Node binds for something else.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
 			fail("link.advertise", err)
 		}
 	}
+	for _, r := range nodeSettings {
+		if err := r.check(c); err != nil {
+			fail(r.key(), err)
+		}
+	}
+	if err := c.webPortUsed(); err != nil {
+		fail("http.listen", err)
+	}
+}
+
+// PortUsedError is http.listen's port configured for another of the
+// Node's listeners, which then can never bind it.
+type PortUsedError struct {
+	Port uint16
+	// Other is what uses the port: "the Node link" or "the torrent client".
+	Other string
+}
+
+func (e *PortUsedError) Error() string {
+	return fmt.Sprintf("%s already uses port %d", e.Other, e.Port)
+}
+
+// Sentence is the error as the port's field shows it.
+func (e *PortUsedError) Sentence() string {
+	return strings.ToUpper(e.Other[:1]) + e.Error()[1:] + "."
+}
+
+func (c *Config) webPortUsed() error {
+	port := c.HTTP.Listen.Port()
+	for _, other := range []struct {
+		addr netip.AddrPort
+		name string
+	}{{c.Link.Listen, "the Node link"}, {c.Torrent.Listen, "the torrent client"}} {
+		if port != 0 && other.addr.Port() == port {
+			return &PortUsedError{Port: port, Other: other.name}
+		}
+	}
+	return nil
 }
 
 // overrides are the keys a layer set to something other than the default.

@@ -2,8 +2,6 @@ package node
 
 import (
 	"encoding/json"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/netip"
 	"os"
@@ -17,7 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
-	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -227,14 +224,7 @@ func TestAPairingRecordOfAnotherSchemaRefusesTheStart(t *testing.T) {
 func TestAnUnclaimedNodeRefusesEveryHandshake(t *testing.T) {
 	net := fault.NewNetwork()
 	boxEnv, boxHost := machine(t, net, "127.0.0.3", "box")
-	open := boxEnv.OpenLog
-	boxEnv.OpenLog = func(dir string, stderr io.Writer) (*logs.Log, error) {
-		l, err := open(dir, stderr)
-		if err == nil {
-			l.Level.Set(slog.LevelDebug)
-		}
-		return l, err
-	}
+	boxEnv.Environ = append(boxEnv.Environ, "SLIPSTREAM_LOG_LEVEL=debug")
 	synctest.Test(t, func(t *testing.T) {
 		box, bc := startOn(t, boxEnv, boxHost)
 		boxKey, err := link.OpenKey(boxEnv.DataDir.Path())

@@ -1,15 +1,15 @@
-import { Logout01Icon, UserCircleIcon } from "@hugeicons/core-free-icons";
+import { UserCircleIcon } from "@hugeicons/core-free-icons";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useAccount } from "../../session/session";
 import { Menu } from "../../ui/menu";
-import { Avatar, startupLabel, toPortal, useStartupOn } from "../account";
-import { askSignOut } from "../sign-out";
+import { Avatar, startupLabel, toPortal, useLeaveActions, useStartupOn } from "../account";
 
 export function AccountFoot({ collapsed }: { collapsed: boolean }) {
   const account = useAccount();
   const navigate = useNavigate();
   const [startupOn, setStartupOn] = useStartupOn();
+  const leave = useLeaveActions();
   return (
     <div className="shrink-0 px-2.5 pt-2 pb-3 shadow-[inset_0_1px_0_var(--color-hairline)]">
       <Menu
@@ -46,7 +46,7 @@ export function AccountFoot({ collapsed }: { collapsed: boolean }) {
             onCheckedChange: setStartupOn,
           },
           "separator",
-          { label: "Sign out", icon: Logout01Icon, onSelect: askSignOut },
+          ...leave,
         ]}
       />
     </div>

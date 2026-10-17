@@ -38,11 +38,11 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("table", { name: "Accounts" }).getByRole("link", { name: "Grace Hopper" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Make Admin" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Make Grace Hopper an Admin?" }).getByRole("button", { name: "Make Admin" })'
-  $FW exec $RUN -- $PW cli -s={runId}-member-desktop goto '{nodes.home.browserUrl}/system'
-  $FW exec $RUN --proof accounts/accounts-make-admin -- $PW cli -s={runId}-member-desktop screenshot --filename={runDir}/proof/accounts/accounts-make-admin/this-node.png
+  $FW exec $RUN -- $PW cli -s={runId}-member-desktop goto '{nodes.home.browserUrl}/nodes'
+  $FW exec $RUN --proof accounts/accounts-make-admin -- $PW cli -s={runId}-member-desktop screenshot --filename={runDir}/proof/accounts/accounts-make-admin/nodes.png
   ```
 
-- **Make her a Member again.** Choose `Make Member` and confirm. Grace's tab, still on This Node, moves to the portal's Home by itself.
+- **Make her a Member again.** Choose `Make Member` and confirm. Grace's tab, still on Nodes, moves to the portal's Home by itself.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Make Member" })'

@@ -1,12 +1,12 @@
 import { defineConfig } from "orval";
 
-import { liftLiveEvents } from "./orval/live-events.ts";
+import { liftStreams } from "./orval/streams.ts";
 
 const document = "./openapi.json";
 
 export default defineConfig({
   api: {
-    input: { target: document, override: { transformer: liftLiveEvents } },
+    input: { target: document, override: { transformer: liftStreams } },
     output: {
       mode: "tags-split",
       target: "src/api/gen/query",
@@ -35,7 +35,7 @@ export default defineConfig({
     },
   },
   apiZod: {
-    input: { target: document, override: { transformer: liftLiveEvents } },
+    input: { target: document, override: { transformer: liftStreams } },
     output: {
       mode: "tags-split",
       target: "src/api/gen/zod",

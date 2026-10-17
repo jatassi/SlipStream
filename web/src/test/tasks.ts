@@ -20,7 +20,12 @@ export const tasksNow = new Date(local(16, 23));
 
 export const steps = { one: "step", many: "steps" } as const;
 
-const about = { source: "database", applies: "live", isDefault: true } as const;
+const about = {
+  source: "database",
+  applies: "live",
+  isDefault: true,
+  pendingRestart: false,
+} as const;
 
 const day = 86_400;
 
@@ -30,6 +35,7 @@ export const dailyCadence: SettingDurationField = {
   label: "Every",
   kind: "duration",
   value: day,
+  running: day,
   default: day,
   min: day,
   max: 7 * day,
@@ -42,6 +48,7 @@ const waitOverdue: SettingChoiceField = {
   label: "When overdue",
   kind: "choice",
   value: "wait",
+  running: "wait",
   default: "wait",
   options: [
     { value: "catch-up", label: "Catch up" },
@@ -85,6 +92,7 @@ export const schedule: TasksSchedule = {
     label: "Maintenance window",
     kind: "window",
     value: { start: "04:00", end: "06:00" },
+    running: { start: "04:00", end: "06:00" },
     default: { start: "04:00", end: "06:00" },
     zone: "Europe/London",
   },
@@ -93,6 +101,7 @@ export const schedule: TasksSchedule = {
     key: "tasks.overdue",
     label: "Overdue tasks",
     value: "catch-up",
+    running: "catch-up",
     default: "catch-up",
   },
   runsKept: {
@@ -101,6 +110,7 @@ export const schedule: TasksSchedule = {
     label: "Runs kept per task",
     kind: "count",
     value: 50,
+    running: 50,
     default: 50,
     min: 1,
     max: 1000,
@@ -112,6 +122,7 @@ export const schedule: TasksSchedule = {
     label: "Jitter",
     kind: "count",
     value: 10,
+    running: 10,
     default: 10,
     min: 0,
     max: 50,
@@ -123,6 +134,7 @@ export const schedule: TasksSchedule = {
     label: "Longest jitter",
     kind: "duration",
     value: 300,
+    running: 300,
     default: 300,
     min: 0,
     max: 3600,
@@ -134,6 +146,7 @@ export const schedule: TasksSchedule = {
     label: "Show a scheduled run in the header after",
     kind: "duration",
     value: 5,
+    running: 5,
     default: 5,
     min: 0,
     max: 300,
@@ -145,6 +158,7 @@ export const schedule: TasksSchedule = {
     label: "Warn when a unit has not succeeded for",
     kind: "count",
     value: 3,
+    running: 3,
     default: 3,
     min: 1,
     max: 100,
@@ -195,7 +209,12 @@ const detailUnits: TasksDetail["units"] = [
   },
 ];
 
-type TaskState = { tasks: TasksTask[]; open: TasksOpenRuns; runs: TasksRun[] };
+type TaskState = {
+  tasks: TasksTask[];
+  open: TasksOpenRuns;
+  runs: TasksRun[];
+  settings: TasksSchedule;
+};
 
 const detailOf = (state: TaskState, id: string): TasksDetail | undefined => {
   const task = state.tasks.find((candidate) => candidate.id === id);
@@ -213,7 +232,7 @@ export function taskServer({
   sentence?: TasksOverview["sentence"];
   open?: TasksOpenRuns;
 }) {
-  const state: TaskState = { tasks, open, runs: [succeededRun] };
+  const state: TaskState = { tasks, open, runs: [succeededRun], settings: schedule };
   const writes: { method: string; path: string; body: unknown }[] = [];
   const record = async (request: Request, path: string) => {
     const text = await request.text();
@@ -224,7 +243,11 @@ export function taskServer({
       HttpResponse.json(overviewOf(state.tasks, { multinode, ...(sentence && { sentence }) })),
     ),
     http.get("*/api/v1/tasks/runs/open", () => HttpResponse.json(state.open)),
-    http.get("*/api/v1/tasks/settings", () => HttpResponse.json(schedule)),
+    http.get("*/api/v1/tasks/settings", () => HttpResponse.json(state.settings)),
+    http.patch("*/api/v1/tasks/settings", async ({ request }) => {
+      await record(request, "settings");
+      return HttpResponse.json(state.settings);
+    }),
     http.delete("*/api/v1/tasks/runs/:runId", async ({ request, params }) => {
       await record(request, `runs/${String(params["runId"])}`);
       return new HttpResponse(null, { status: 204 });

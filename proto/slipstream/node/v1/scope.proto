@@ -8,11 +8,14 @@ message NodeIntent {
 }
 
 // NodeFacts is the node scope's facts: the Roles the holder half has
-// assigned, running and waiting to restart, and the node-scope version it
-// applied.
+// assigned, running and waiting to restart, the node-scope version it
+// applied, the address its web server bound, and a digest of its Node
+// settings view, which changes whenever the view does.
 message NodeFacts {
   repeated string assigned = 1;
   repeated string running = 2;
   repeated string restarting = 3;
   bytes applied_version = 4;
+  string http_address = 5;
+  string settings_revision = 6;
 }

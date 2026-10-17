@@ -10,7 +10,7 @@ $FW exec $RUN --proof <f>/<s> -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' '{
 - `{apiKey}` is the manifest's key for the Scenario's Admin. `{nodes.<n>.url}` is the Node's HTTP address; the API needs no `.localhost` name.
 - An API read is the second view of every UI proof: after the screen shows a state, read the same state over the API with `--proof`, so the response sits beside the screenshot.
 - `-i` keeps the status line and headers in the proof. Leave it off when the body is the proof.
-- The routes are in `web/openapi.json`. Reads the skeleton ships: `GET /api/v1/system` (This Node), `GET /api/v1/status` (`{"claim":...}`, no key needed), `GET /api/v1/nodes`, `GET /api/v1/works`, `GET /api/v1/works/{id}/searches`, `GET /api/v1/grabs`, `GET /api/v1/grabs/{id}`, `GET /api/v1/indexers`.
+- The routes are in `web/openapi.json`. Reads the skeleton ships: `GET /api/v1/system` (the Nodes Overview), `GET /api/v1/status` (`{"claim":...}`, no key needed), `GET /api/v1/nodes`, `GET /api/v1/works`, `GET /api/v1/works/{id}/searches`, `GET /api/v1/grabs`, `GET /api/v1/grabs/{id}`, `GET /api/v1/indexers`.
 - Ids are drawn fresh in each run (UUIDv7), so a recipe never hard-codes one. Find an id from a list read, and address the UI by accessible name.
 
 ## The live stream

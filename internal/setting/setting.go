@@ -82,6 +82,7 @@ func (d Duration) Field(override *int64) DurationField {
 		About:   about(d.Key, d.Label, override == nil),
 		Kind:    "duration",
 		Value:   seconds(d.Value(override)),
+		Running: seconds(d.Value(override)),
 		Default: seconds(d.Default),
 		Min:     seconds(d.Min),
 		Max:     seconds(d.Max),
@@ -135,6 +136,7 @@ type Count struct {
 	Key, Label        string
 	Default, Min, Max int64
 	Unit              Noun
+	Zero              string
 	Floor             string
 }
 
@@ -171,10 +173,12 @@ func (c Count) Field(override *int64) CountField {
 		About:   about(c.Key, c.Label, override == nil),
 		Kind:    "count",
 		Value:   c.Value(override),
+		Running: c.Value(override),
 		Default: c.Default,
 		Min:     c.Min,
 		Max:     c.Max,
 		Unit:    c.Unit,
+		Zero:    c.Zero,
 		Floor:   c.Floor,
 	}
 }
@@ -235,6 +239,7 @@ func (c Choice[T]) Field(override *T) ChoiceField {
 		About:   about(c.Key, c.Label, override == nil),
 		Kind:    "choice",
 		Value:   string(c.Value(override)),
+		Running: string(c.Value(override)),
 		Default: string(c.Default),
 		Options: make([]ChoiceOption, len(c.Options)),
 	}
@@ -307,6 +312,7 @@ func (w Window) Field(override *Span, zone string) WindowField {
 		About:   about(w.Key, w.Label, override == nil),
 		Kind:    "window",
 		Value:   w.Value(override).times(),
+		Running: w.Value(override).times(),
 		Default: w.Default.times(),
 		Zone:    zone,
 	}
@@ -318,4 +324,68 @@ func (w Window) Check() error {
 		return fmt.Errorf("setting %s: default %+v is not a non-empty daily span", w.Key, d)
 	}
 	return nil
+}
+
+// Port is a TCP port, 1 to 65535.
+type Port struct {
+	Key, Label string
+	Default    uint16
+}
+
+func (p Port) Value(override *uint16) uint16 {
+	if override == nil {
+		return p.Default
+	}
+	return *override
+}
+
+// Parse accepts a port number; nil resets.
+func (p Port) Parse(n *int64) (Stored[uint16], error) {
+	if n == nil {
+		return Stored[uint16]{}, nil
+	}
+	if *n < 1 || *n > 65535 {
+		return Stored[uint16]{}, refuse(p.Key, "Between 1 and 65535.")
+	}
+	return override(uint16(*n)), nil
+}
+
+func (p Port) Field(override *uint16) PortField {
+	return PortField{
+		About:   about(p.Key, p.Label, override == nil),
+		Kind:    "port",
+		Value:   int64(p.Value(override)),
+		Running: int64(p.Value(override)),
+		Default: int64(p.Default),
+	}
+}
+
+func (p Port) Check() error {
+	if p.Default == 0 {
+		return fmt.Errorf("setting %s: default 0 is not a port", p.Key)
+	}
+	return nil
+}
+
+// Switch is on or off.
+type Switch struct {
+	Key, Label string
+	Default    bool
+}
+
+func (s Switch) Value(override *bool) bool {
+	if override == nil {
+		return s.Default
+	}
+	return *override
+}
+
+func (s Switch) Field(override *bool) SwitchField {
+	return SwitchField{
+		About:   about(s.Key, s.Label, override == nil),
+		Kind:    "switch",
+		Value:   s.Value(override),
+		Running: s.Value(override),
+		Default: s.Default,
+	}
 }

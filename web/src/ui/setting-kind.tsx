@@ -6,6 +6,8 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingPortField,
+  SettingSwitchField,
   SettingTimes,
   SettingWindowField,
 } from "../api/gen/model";
@@ -16,6 +18,8 @@ export type Fields = {
   count: SettingCountField;
   choice: SettingChoiceField;
   window: SettingWindowField;
+  port: SettingPortField;
+  switch: SettingSwitchField;
 };
 
 export type Values = {
@@ -23,6 +27,8 @@ export type Values = {
   count: number;
   choice: string;
   window: SettingTimes;
+  port: number;
+  switch: boolean;
 };
 
 export type SettingKind = keyof Fields;
@@ -35,6 +41,7 @@ export type ControlProps<K extends SettingKind> = {
   field: Fields[K];
   busy: boolean;
   invalid: boolean;
+  disabled: boolean;
   submit: (draft: Draft<K>) => void;
   onEdit: () => void;
 };
@@ -49,7 +56,7 @@ export const labelLook =
   "text-body font-semibold text-ink-2 in-data-[density=touch]:text-body-touch in-data-[density=touch]:font-semibold";
 
 export const inputLook =
-  "h-(--input-height) rounded-item bg-well px-3 text-body text-ink-1 tabular-nums ring-1 ring-hairline ring-inset aria-invalid:ring-fail-line in-data-[density=touch]:text-input-touch";
+  "h-(--input-height) rounded-item bg-well px-3 text-body text-ink-1 tabular-nums ring-1 ring-hairline ring-inset aria-invalid:ring-fail-line disabled:opacity-40 in-data-[density=touch]:text-input-touch";
 
 export const controlRow =
   "grid grid-cols-[auto_auto_minmax(0,1fr)] items-center justify-items-start gap-x-2 gap-y-1.5";
@@ -82,17 +89,19 @@ export function AmountInput({
   label,
   value,
   invalid,
+  disabled,
   inputMode,
   onChange,
 }: {
   label: string;
   value: string;
   invalid: boolean;
+  disabled: boolean;
   inputMode: "decimal" | "numeric";
   onChange: (value: string) => void;
 }) {
   return (
-    <Field.Root invalid={invalid} className="contents">
+    <Field.Root invalid={invalid} disabled={disabled} className="contents">
       <Field.Label className={`col-span-full ${labelLook}`}>{label}</Field.Label>
       <Input
         inputMode={inputMode}

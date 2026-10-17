@@ -1,14 +1,17 @@
 // Package systemapi holds the Node's liveness, claim state and runtime
-// facts.
+// facts, and each Node's system as its Controller manages it: its facts,
+// settings, restart, log stream and log archive.
 package systemapi
 
 import (
 	"context"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -37,10 +40,16 @@ type statusOutput struct {
 type report struct {
 	Build     build     `json:"build"`
 	DataDir   string    `json:"dataDir"`
+	LogsDir   string    `json:"logsDir"`
 	PID       int       `json:"pid"`
 	Seed      string    `json:"seed"`
 	StartedAt time.Time `json:"startedAt"`
+	HTTP      httpFacts `json:"http"`
 	Listeners listeners `json:"listeners"`
+}
+
+type httpFacts struct {
+	Configured string `json:"configured" doc:"http.listen at start; listeners.http differs after a fallback to a later port"`
 }
 
 // build is the build stamp, or only stamped false for an unstamped build.
@@ -81,9 +90,11 @@ func reportOf(f system.Facts) report {
 	return report{
 		Build:     b,
 		DataDir:   f.DataDir,
+		LogsDir:   f.LogsDir,
 		PID:       f.PID,
 		Seed:      f.Seed,
 		StartedAt: f.StartedAt,
+		HTTP:      httpFacts{Configured: f.HTTPConfigured.String()},
 		Listeners: listeners{
 			HTTP:    f.Listeners.HTTP.String(),
 			Torrent: f.Listeners.Torrent.String(),
@@ -98,8 +109,14 @@ type Claims interface {
 	Claim(context.Context) (system.Claim, error)
 }
 
-// Routes reports facts and the claim.
-func Routes(r *api.Router, facts system.Facts, claims Claims) {
+// Node is the running Node as the operations reach it.
+type Node interface {
+	Claims
+	Systems
+}
+
+// Routes reports this Node's facts and claim, and every Node's system.
+func Routes(r *api.Router, facts system.Facts, node Node) {
 	o := r.Owner("system", api.Public)
 
 	api.Register(o, api.Public, api.Op{
@@ -119,7 +136,7 @@ func Routes(r *api.Router, facts system.Facts, claims Claims) {
 		Summary: "Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey",
 		Status:  http.StatusOK,
 	}, func(ctx context.Context, a identity.Anyone, _ *struct{}) (*statusOutput, error) {
-		claim, err := claims.Claim(ctx)
+		claim, err := node.Claim(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -136,4 +153,60 @@ func Routes(r *api.Router, facts system.Facts, claims Claims) {
 	}, func(context.Context, identity.Admin, *struct{}) (*reportOutput, error) {
 		return &reportOutput{Body: reportOf(facts)}, nil
 	})
+
+	h := nodeHandlers{node}
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getNodeSystem",
+		Method:  http.MethodGet,
+		Path:    "/nodes/{id}/system",
+		Summary: "Report a Node's build, data dir, process and listeners",
+		Status:  http.StatusOK,
+		Errors:  reach,
+	}, h.getNodeSystem)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getNodeConfig",
+		Method:  http.MethodGet,
+		Path:    "/nodes/{id}/config",
+		Summary: "Get a Node's settings, by section",
+		Status:  http.StatusOK,
+		Errors:  reach,
+	}, h.getNodeConfig)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateNodeConfig",
+		Method:  http.MethodPatch,
+		Path:    "/nodes/{id}/config",
+		Summary: "Change a Node's settings, every key or none",
+		Status:  http.StatusOK,
+		Errors:  slices.Concat(reach, []*api.Code{setByEnvironment, settingapi.ErrOutOfRange, portUsedByNode, unknownSetting, configNotWritable}),
+	}, h.updateNodeConfig)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "restartNode",
+		Method:  http.MethodPost,
+		Path:    "/nodes/{id}/restart",
+		Summary: "Restart a Node; it answers before it stops",
+		Status:  http.StatusAccepted,
+		Errors:  slices.Concat(reach, []*api.Code{alreadyRestarting}),
+	}, h.restartNode)
+
+	api.RegisterStream(o, api.Admin, api.Op{
+		ID:      "streamNodeLogs",
+		Method:  http.MethodGet,
+		Path:    "/nodes/{id}/logs/stream",
+		Summary: "Stream a Node's log: its recent records, then each as it comes",
+		Status:  http.StatusOK,
+		Errors:  reach,
+	}, logEvents, h.streamNodeLogs)
+
+	api.RegisterDownload(o, api.Admin, api.Op{
+		ID:      "downloadNodeLogs",
+		Method:  http.MethodGet,
+		Path:    "/nodes/{id}/logs/archive",
+		Summary: "Download a zip of a Node's log folder",
+		Status:  http.StatusOK,
+		Errors:  reach,
+	}, "application/zip", h.downloadNodeLogs)
 }

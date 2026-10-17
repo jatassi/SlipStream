@@ -116,9 +116,20 @@ export const getListTasksResponseMock = (
               key: faker.string.alpha({ length: { min: 10, max: 20 } }),
               kind: faker.helpers.arrayElement(["duration"] as const),
               label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              ...(faker.datatype.boolean()
+                ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
               max: faker.number.int(),
               min: faker.number.int(),
-              source: faker.helpers.arrayElement(["database"] as const),
+              pendingRestart: faker.datatype.boolean(),
+              running: faker.number.int(),
+              source: faker.helpers.arrayElement([
+                "database",
+                "default",
+                "config.yaml",
+                ".env",
+                "env",
+              ] as const),
               step: faker.number.int(),
               value: faker.number.int(),
             },
@@ -207,6 +218,9 @@ export const getListTasksResponseMock = (
             key: faker.string.alpha({ length: { min: 10, max: 20 } }),
             kind: faker.helpers.arrayElement(["choice"] as const),
             label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            ...(faker.datatype.boolean()
+              ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
             options: Array.from(
               { length: faker.number.int({ min: 1, max: 10 }) },
               (_, i) => i + 1,
@@ -214,7 +228,15 @@ export const getListTasksResponseMock = (
               label: faker.string.alpha({ length: { min: 10, max: 20 } }),
               value: faker.string.alpha({ length: { min: 10, max: 20 } }),
             })),
-            source: faker.helpers.arrayElement(["database"] as const),
+            pendingRestart: faker.datatype.boolean(),
+            running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            source: faker.helpers.arrayElement([
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env",
+            ] as const),
             value: faker.string.alpha({ length: { min: 10, max: 20 } }),
           },
           runNow: {
@@ -254,9 +276,20 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["duration"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       max: faker.number.int(),
       min: faker.number.int(),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       step: faker.number.int(),
       value: faker.number.int(),
     },
@@ -273,9 +306,20 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["duration"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       max: faker.number.int(),
       min: faker.number.int(),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       step: faker.number.int(),
       value: faker.number.int(),
     },
@@ -292,14 +336,28 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["count"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       max: faker.number.int(),
       min: faker.number.int(),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       unit: {
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
         one: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
       value: faker.number.int(),
+      ...(faker.datatype.boolean()
+        ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
     },
     overdue: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -311,13 +369,24 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["choice"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           label: faker.string.alpha({ length: { min: 10, max: 20 } }),
           value: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       value: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     partialWarnIntervals: {
@@ -333,14 +402,28 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["count"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       max: faker.number.int(),
       min: faker.number.int(),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       unit: {
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
         one: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
       value: faker.number.int(),
+      ...(faker.datatype.boolean()
+        ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
     },
     runsKept: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -355,14 +438,28 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["count"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       max: faker.number.int(),
       min: faker.number.int(),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       unit: {
         many: faker.string.alpha({ length: { min: 10, max: 20 } }),
         one: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
       value: faker.number.int(),
+      ...(faker.datatype.boolean()
+        ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
     },
     window: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -377,7 +474,21 @@ export const getListTasksResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["window"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      source: faker.helpers.arrayElement(["database"] as const),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      pendingRestart: faker.datatype.boolean(),
+      running: {
+        end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       value: {
         end: faker.string.alpha({ length: { min: 10, max: 20 } }),
         start: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -427,9 +538,20 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["duration"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     step: faker.number.int(),
     value: faker.number.int(),
   },
@@ -446,9 +568,20 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["duration"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     step: faker.number.int(),
     value: faker.number.int(),
   },
@@ -465,14 +598,28 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["count"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     unit: {
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
       one: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
   },
   overdue: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -484,13 +631,24 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["choice"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         value: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     value: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   partialWarnIntervals: {
@@ -506,14 +664,28 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["count"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     unit: {
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
       one: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
   },
   runsKept: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -528,14 +700,28 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["count"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     unit: {
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
       one: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
   },
   window: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -550,7 +736,21 @@ export const getGetTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["window"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    source: faker.helpers.arrayElement(["database"] as const),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     value: {
       end: faker.string.alpha({ length: { min: 10, max: 20 } }),
       start: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -576,9 +776,20 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["duration"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     step: faker.number.int(),
     value: faker.number.int(),
   },
@@ -595,9 +806,20 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["duration"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     step: faker.number.int(),
     value: faker.number.int(),
   },
@@ -614,14 +836,28 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["count"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     unit: {
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
       one: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
   },
   overdue: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -633,13 +869,24 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["choice"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         value: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     value: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   partialWarnIntervals: {
@@ -655,14 +902,28 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["count"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     unit: {
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
       one: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
   },
   runsKept: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -677,14 +938,28 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["count"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     max: faker.number.int(),
     min: faker.number.int(),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     unit: {
       many: faker.string.alpha({ length: { min: 10, max: 20 } }),
       one: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
   },
   window: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
@@ -699,7 +974,21 @@ export const getUpdateTaskSettingsResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["window"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    source: faker.helpers.arrayElement(["database"] as const),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     value: {
       end: faker.string.alpha({ length: { min: 10, max: 20 } }),
       start: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -802,9 +1091,20 @@ export const getGetTaskResponseMock = (
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         kind: faker.helpers.arrayElement(["duration"] as const),
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ...(faker.datatype.boolean()
+          ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
         max: faker.number.int(),
         min: faker.number.int(),
-        source: faker.helpers.arrayElement(["database"] as const),
+        pendingRestart: faker.datatype.boolean(),
+        running: faker.number.int(),
+        source: faker.helpers.arrayElement([
+          "database",
+          "default",
+          "config.yaml",
+          ".env",
+          "env",
+        ] as const),
         step: faker.number.int(),
         value: faker.number.int(),
       },
@@ -893,13 +1193,24 @@ export const getGetTaskResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["choice"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           label: faker.string.alpha({ length: { min: 10, max: 20 } }),
           value: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       value: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
     runNow: {
@@ -987,9 +1298,20 @@ export const getUpdateTaskResponseMock = (
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       kind: faker.helpers.arrayElement(["duration"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       max: faker.number.int(),
       min: faker.number.int(),
-      source: faker.helpers.arrayElement(["database"] as const),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
       step: faker.number.int(),
       value: faker.number.int(),
     },
@@ -1076,13 +1398,24 @@ export const getUpdateTaskResponseMock = (
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["choice"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         value: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
-    source: faker.helpers.arrayElement(["database"] as const),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
     value: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   runNow: {

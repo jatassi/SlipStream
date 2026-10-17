@@ -70,7 +70,7 @@ test("the sidebar lists Library with each enabled Content Type, Activity and the
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Library", "Films", "Activity", "This Node", "Accounts", "Settings", "Tasks"]);
+  ).toEqual(["Library", "Films", "Activity", "Nodes", "Accounts", "Settings", "Tasks"]);
   await expect
     .element(mainNav().getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");
@@ -137,9 +137,13 @@ test("the tab is titled after the page, and follows navigation", async () => {
   renderApp({ path: "/activity" });
   await expect.poll(() => document.title).toBe("Activity · SlipStream");
 
-  await userEvent.click(mainNav().getByRole("link", { name: "This Node" }));
-  await expect.poll(() => document.title).toBe("This Node · SlipStream");
-  await expect.element(breadcrumbs()).toHaveTextContent("This Node");
+  await userEvent.click(mainNav().getByRole("link", { name: "Nodes" }));
+  await expect.poll(() => document.title).toBe("home · SlipStream");
+  await expect.element(breadcrumbs()).toHaveTextContent("Nodeshome");
+  expect(crumbLinks()).toEqual([["Nodes", "/nodes"]]);
+  await expect
+    .element(mainNav().getByRole("link", { name: "Nodes" }))
+    .toHaveAttribute("aria-current", "page");
 });
 
 test("a Work's page is titled with its label, under its Content Type's library", async () => {

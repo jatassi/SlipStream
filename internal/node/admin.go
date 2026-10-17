@@ -94,7 +94,7 @@ func resetOffline(ctx context.Context, env Env, req identity.ResetRequest) (stri
 	if claim, _ := (offline{env.DataDir}).Claim(ctx); claim != system.Controller {
 		return "", identity.NotAController()
 	}
-	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types)
+	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)
 	if err != nil {
 		return "", err
 	}

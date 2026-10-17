@@ -12,11 +12,14 @@ import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 import { type ShellKind, useShell } from "../ui/shell-context";
 import { addLabel } from "../works/fields";
 import { type NavRow, useAdminNav, useContentTypes } from "./nav";
+import { useNodeSectionCommands } from "./node-sections";
+import { restartSelf, useRestartSelf } from "./restart/use-restart-self";
 import { askSignOut } from "./sign-out";
 import { toggleSidebar } from "./sidebar-state";
 
 export type CommandContext = {
   readonly navigate: UseNavigateResult<string>;
+  readonly restart: () => void;
 };
 
 export type Command = {
@@ -63,6 +66,15 @@ const commands: readonly Command[] = [
     audience: "admin",
     run: ({ navigate }) => {
       void navigate({ to: "/account", search: { add: "passkey" } });
+    },
+  },
+  {
+    id: "restart",
+    label: restartSelf.label,
+    icon: restartSelf.icon,
+    audience: "admin",
+    run: ({ restart }) => {
+      restart();
     },
   },
   {
@@ -115,12 +127,17 @@ function useAddCommands(): Command[] {
 }
 
 export function useCommandContext(): CommandContext {
-  return { navigate: useNavigate() };
+  return { navigate: useNavigate(), restart: useRestartSelf() };
 }
 
 export function useAdminCommands(): Command[] {
   const shell = useShell();
-  return [...useGoToCommands(), ...useAddCommands(), ...commands].filter(
+  return [
+    ...useGoToCommands(),
+    ...useNodeSectionCommands(),
+    ...useAddCommands(),
+    ...commands,
+  ].filter(
     (command) =>
       command.audience === "admin" && (command.shell === undefined || command.shell === shell),
   );

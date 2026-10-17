@@ -6,8 +6,9 @@ import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { type NavRow, adminNav } from "./nav";
+import { thisPage } from "./reload";
 
-type Fact = { readonly label: string; readonly value: ReactNode };
+export type Fact = { readonly label: string; readonly value: ReactNode };
 
 type Failure = {
   readonly sentence: string;
@@ -43,8 +44,16 @@ const sentence = "text-sentence text-ink-1 in-data-[density=touch]:text-sentence
 const card =
   "flex max-w-[560px] flex-col gap-2 rounded-card bg-glass p-4 ring-1 ring-hairline ring-inset";
 
-function FailureCard({ error, retry }: { error: unknown; retry: ReactNode }) {
-  const { sentence: said, facts, forAdmins } = failureOf(error);
+/** The error page's card: one plain sentence, its action, then the machinery under Details. */
+export function ProblemCard({
+  said,
+  action,
+  facts,
+}: {
+  said: string;
+  action: ReactNode;
+  facts: readonly Fact[];
+}) {
   return (
     <div className={card}>
       <Details
@@ -53,17 +62,7 @@ function FailureCard({ error, retry }: { error: unknown; retry: ReactNode }) {
             {said}
           </span>
         }
-        action={
-          <div className="my-2">
-            {forAdmins ? (
-              <Button nativeButton={false} render={<Link to="/portal" />}>
-                Open the portal
-              </Button>
-            ) : (
-              retry
-            )}
-          </div>
-        }
+        action={<div className="my-2">{action}</div>}
       >
         <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
           {facts.map(({ label, value }) => (
@@ -75,6 +74,25 @@ function FailureCard({ error, retry }: { error: unknown; retry: ReactNode }) {
         </dl>
       </Details>
     </div>
+  );
+}
+
+function FailureCard({ error, retry }: { error: unknown; retry: ReactNode }) {
+  const { sentence: said, facts, forAdmins } = failureOf(error);
+  return (
+    <ProblemCard
+      said={said}
+      facts={facts}
+      action={
+        forAdmins ? (
+          <Button nativeButton={false} render={<Link to="/portal" />}>
+            Open the portal
+          </Button>
+        ) : (
+          retry
+        )
+      }
+    />
   );
 }
 
@@ -110,7 +128,7 @@ export function ShellError({ error }: ErrorComponentProps) {
         retry={
           <Button
             onClick={() => {
-              location.reload();
+              thisPage.reload();
             }}
           >
             Reload

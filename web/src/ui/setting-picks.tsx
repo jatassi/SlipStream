@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { SettingChoiceField, SettingTimes } from "../api/gen/model";
 import { Segmented } from "./segmented";
 import { Select } from "./select";
+import { Switch } from "./switch";
 import {
   type ControlProps,
   type Draft,
@@ -22,7 +23,7 @@ const optionWords = (field: SettingChoiceField, value: string) =>
 
 const segmentsAtMost = 3;
 
-function ChoiceControl({ field, submit }: ControlProps<"choice">) {
+function ChoiceControl({ field, busy, disabled, submit }: ControlProps<"choice">) {
   const choose = (value: string) => {
     if (value !== field.value) {
       submit({ value });
@@ -33,6 +34,7 @@ function ChoiceControl({ field, submit }: ControlProps<"choice">) {
       label={field.label}
       options={field.options}
       value={field.value}
+      disabled={disabled || busy}
       onValueChange={choose}
     />
   ) : (
@@ -44,6 +46,7 @@ function ChoiceControl({ field, submit }: ControlProps<"choice">) {
         label={field.label}
         options={field.options}
         value={field.value}
+        disabled={disabled || busy}
         onValueChange={choose}
       />
     </div>
@@ -73,15 +76,17 @@ function TimeInput({
   label,
   value,
   invalid,
+  disabled,
   onChange,
 }: {
   label: string;
   value: string;
   invalid: boolean;
+  disabled: boolean;
   onChange: (value: string) => void;
 }) {
   return (
-    <Field.Root invalid={invalid} className="flex items-center gap-2">
+    <Field.Root invalid={invalid} disabled={disabled} className="flex items-center gap-2">
       <Field.Label className={unitLook}>{label}</Field.Label>
       <Input
         type="time"
@@ -93,7 +98,7 @@ function TimeInput({
   );
 }
 
-function WindowControl({ field, busy, invalid, submit, onEdit }: ControlProps<"window">) {
+function WindowControl({ field, busy, invalid, disabled, submit, onEdit }: ControlProps<"window">) {
   const [times, setTimes] = useState(field.value);
   const edit = (next: SettingTimes) => {
     setTimes(next);
@@ -112,6 +117,7 @@ function WindowControl({ field, busy, invalid, submit, onEdit }: ControlProps<"w
             label="From"
             value={times.start}
             invalid={invalid}
+            disabled={disabled}
             onChange={(start) => {
               edit({ ...times, start });
             }}
@@ -120,6 +126,7 @@ function WindowControl({ field, busy, invalid, submit, onEdit }: ControlProps<"w
             label="to"
             value={times.end}
             invalid={invalid}
+            disabled={disabled}
             onChange={(end) => {
               edit({ ...times, end });
             }}
@@ -141,4 +148,25 @@ export const windowKind: Kind<"window"> = {
   words: (field) => `${windowWords(field.value)} ${field.zone}`,
   hints: (field) => [defaultHint(field, windowWords(field.default))],
   Control: WindowControl,
+};
+
+const onOff = (on: boolean) => (on ? "On" : "Off");
+
+function SwitchSetting({ field, busy, disabled, submit }: ControlProps<"switch">) {
+  return (
+    <Switch
+      label={field.label}
+      checked={field.value}
+      disabled={disabled || busy}
+      onCheckedChange={(on) => {
+        submit({ value: on });
+      }}
+    />
+  );
+}
+
+export const switchKind: Kind<"switch"> = {
+  words: (field) => onOff(field.value),
+  hints: (field) => [defaultHint(field, onOff(field.default))],
+  Control: SwitchSetting,
 };

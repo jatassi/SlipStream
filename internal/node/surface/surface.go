@@ -42,6 +42,7 @@ var Events = []live.Event{
 	identity.LinksChangedEvent,
 	identity.PasskeysChangedEvent,
 	nodes.ChangedEvent,
+	nodes.SettingsChangedEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
 	targets.ChangedEvent,
@@ -70,6 +71,7 @@ type Node interface {
 	filesapi.Library
 	grabsapi.Pipeline
 	shellapi.Pipeline
+	systemapi.Systems
 	tasksapi.Clock
 }
 

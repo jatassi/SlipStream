@@ -109,6 +109,10 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 		return n.serveJoin, nil
 	case StatusOp.Name:
 		return n.serveStatus, nil
+	case ConfigOp.Name:
+		return n.serveConfig, nil
+	case RestartOp.Name:
+		return n.serveRestart, nil
 	case identity.ResetOp.Name:
 		return n.serveAdminReset, nil
 	}

@@ -8,6 +8,7 @@ import {
   getListWorksMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchard, orchardId } from "../../test/library";
+import { homeId } from "../../test/nodes";
 import { asPhone } from "../../test/viewport";
 import { paletteShortcut } from "../palette-state";
 import { renderApp } from "../../test/render-app";
@@ -47,6 +48,10 @@ const optionTexts = (name: string) =>
 
 const [modifier] = paletteShortcut.keys.split("+");
 const pressShortcut = () => userEvent.keyboard(`{${modifier}>}k{/${modifier}}`);
+const openFromCapsule = async () => {
+  await userEvent.click(capsule());
+  await expect.element(palette().getByRole("combobox", { name: label })).toHaveFocus();
+};
 
 test("the shortcut opens the palette, and Enter on a typed Work opens its page", async () => {
   const { router } = renderApp({ path: "/library", handlers: library() });
@@ -76,21 +81,28 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
     )
     .toEqual(["Works", "Commands"]);
   expect(optionTexts("Works")).toEqual(["The Quiet OrchardFilm", "Dune: Part TwoFilm"]);
-  expect(optionTexts("Commands")).toEqual([
-    "Go to Library",
-    "Go to FilmsLibrary",
-    "Go to Activity",
-    "Go to This Node",
-    "Go to Accounts",
-    "Go to Settings",
-    "Go to Tasks",
-    "Add a Film",
-    "Toggle sidebar",
-    "New Signup link",
-    "Your Account",
-    "Add a passkey",
-    "Sign out",
-  ]);
+  await expect
+    .poll(() => optionTexts("Commands"))
+    .toEqual([
+      "Go to Library",
+      "Go to FilmsLibrary",
+      "Go to Activity",
+      "Go to Nodes",
+      "Go to Accounts",
+      "Go to Settings",
+      "Go to Tasks",
+      "Go to Overviewhome",
+      "Go to Web and APIhome",
+      "Go to Logshome",
+      "Go to Log settingshome",
+      "Add a Film",
+      "Toggle sidebar",
+      "New Signup link",
+      "Your Account",
+      "Add a passkey",
+      "Restart SlipStream…",
+      "Sign out",
+    ]);
   await expect.element(palette().getByText("Esc")).toBeVisible();
 
   await userEvent.keyboard("{Escape}");
@@ -140,7 +152,7 @@ test("Toggle sidebar collapses the sidebar", async () => {
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect.poll(() => nav.element().getBoundingClientRect().width).toBe(228);
 
-  await userEvent.click(capsule());
+  await openFromCapsule();
   await userEvent.keyboard("toggle");
   await expect.poll(() => optionTexts("Commands")).toEqual(["Toggle sidebar"]);
   await userEvent.keyboard("{Enter}");
@@ -154,9 +166,23 @@ test("Add a Film opens the Add page for its Content Type", async () => {
   await expect.poll(() => router.state.location.href).toBe("/add?contentType=cinema");
 });
 
+test("Go to Log settings opens that section of the browser's own Node", async () => {
+  const { router } = renderApp({ path: "/library", handlers: library() });
+  await openFromCapsule();
+  await userEvent.keyboard("log set");
+  await expect.poll(() => optionTexts("Commands")).toEqual(["Go to Log settingshome"]);
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/log-settings`);
+  await expect
+    .element(
+      page.getByRole("navigation", { name: "home" }).getByRole("link", { name: "Log settings" }),
+    )
+    .toHaveAttribute("aria-current", "page");
+});
+
 test("an unmatched query suggests what to try", async () => {
   renderApp({ path: "/library", handlers: library() });
-  await userEvent.click(capsule());
+  await openFromCapsule();
   await userEvent.keyboard("zzz");
   await expect
     .element(palette().getByText(/^Nothing matches/u))

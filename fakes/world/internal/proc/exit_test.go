@@ -17,6 +17,9 @@ func TestMain(m *testing.M) {
 		_, _ = io.Copy(io.Discard, os.Stdin)
 		os.Exit(0)
 	}
+	if os.Getenv("PROC_TEST_EXIT") == "1" {
+		os.Exit(0)
+	}
 	os.Exit(m.Run())
 }
 
@@ -47,5 +50,17 @@ func TestWaitExit(t *testing.T) {
 	}
 	if err := proc.WaitExit(worldtest.Context(t), pid); err != nil {
 		t.Fatalf("WaitExit on a reaped process = %v", err)
+	}
+}
+
+func TestKillingAProcessThatHasExitedSucceeds(t *testing.T) {
+	t.Parallel()
+	p, err := proc.Start(worldtest.Context(t), os.Args[0], nil, append(os.Environ(), "PROC_TEST_EXIT=1"), io.Discard, func([]byte) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-p.Exited()
+	if err := p.Kill(); err != nil {
+		t.Fatalf("Kill after the process exited = %v", err)
 	}
 }

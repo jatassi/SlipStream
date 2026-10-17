@@ -15,9 +15,16 @@ export interface SettingCountField {
   key: string;
   kind: SettingCountFieldKind;
   label: string;
+  /** The environment variable that sets the value; the control is read-only */
+  lockedBy?: string;
   max: number;
   min: number;
+  /** The saved value differs from the running one until the Node restarts */
+  pendingRestart: boolean;
+  running: number;
   source: SettingCountFieldSource;
   unit: SettingNoun;
   value: number;
+  /** The words for 0, such as No limit */
+  zero?: string;
 }

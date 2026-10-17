@@ -13,6 +13,11 @@ export interface SettingWindowField {
   key: string;
   kind: SettingWindowFieldKind;
   label: string;
+  /** The environment variable that sets the value; the control is read-only */
+  lockedBy?: string;
+  /** The saved value differs from the running one until the Node restarts */
+  pendingRestart: boolean;
+  running: SettingTimes;
   source: SettingWindowFieldSource;
   value: SettingTimes;
   /** The time zone's name, such as Europe/London */

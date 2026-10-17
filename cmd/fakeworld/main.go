@@ -41,10 +41,11 @@ const usageText = `usage: fakeworld <command>
       wait for a fault.fired record after the last step's start
   cue <run-dir> <name> [<args>]
       play a cue a fake declares, its arguments one JSON object
-  node stop|kill|start|wipe <run-dir> <node>
+  node stop|kill|start|restart|wipe <run-dir> <node>
       stop the Node with slipstream stop, kill its process, start it again
-      on the same config.yaml, or empty a stopped Node's data dir but its
-      config.yaml, and print its manifest entry
+      on the same config.yaml, restart it with slipstream restart, or empty
+      a stopped Node's data dir but its config.yaml, and print its manifest
+      entry
   browser <run-dir>
       write the playwright cli config of each shell the manifest's browser
       block names and print their paths

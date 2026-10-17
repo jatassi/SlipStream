@@ -1,1 +1,1 @@
-export type SettingCountFieldSource = "database";
+export type SettingCountFieldSource = "database" | "default" | "config.yaml" | ".env" | "env";

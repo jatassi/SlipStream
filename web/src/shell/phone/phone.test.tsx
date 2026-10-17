@@ -29,12 +29,13 @@ const listed = (count: number): WorksListedWork[] =>
 
 const moreButtons = [
   "Films",
-  "This Node",
+  "Nodes",
   "Accounts",
   "Settings",
   "Tasks",
   "Your Account",
   "Open the portal",
+  "Restart SlipStream…",
   "Sign out",
   "Cancel",
 ];
@@ -59,30 +60,31 @@ test("the phone shell has a tab bar, with the Activity count as a badge", async 
   await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
 });
 
+const system = getGetSystemMockHandler({
+  build: { stamped: true, version: "0.4.0" },
+  dataDir: "/data/home",
+  logsDir: "/data/home/logs",
+  http: { configured: "127.0.0.2:8080" },
+  listeners: {
+    http: "127.0.0.2:8080",
+    torrent: "127.0.0.2:6881",
+    link: "127.0.0.2:8485",
+    control: "/data/home/control.sock",
+  },
+  pid: 4242,
+  seed: "home",
+  startedAt: "2026-10-12T09:00:00Z",
+});
+
 test("More opens a sheet with the rest of the nav and the version, and Cancel closes it", async () => {
   await asPhone();
   const { router } = renderApp({
     path: "/library",
-    handlers: [
-      getListContentTypesMockHandler({ contentTypes: [cinema] }),
-      getGetSystemMockHandler({
-        build: { stamped: true, version: "0.4.0" },
-        dataDir: "/data/home",
-        listeners: {
-          http: "127.0.0.2:8080",
-          torrent: "127.0.0.2:6881",
-          link: "127.0.0.2:8485",
-          control: "/data/home/control.sock",
-        },
-        pid: 4242,
-        seed: "home",
-        startedAt: "2026-10-12T09:00:00Z",
-      }),
-    ],
+    handlers: [getListContentTypesMockHandler({ contentTypes: [cinema] }), system],
   });
   await userEvent.click(tabs().getByRole("button", { name: "More" }));
   const sheet = page.getByRole("dialog", { name: "More" });
-  await expect.element(sheet.getByRole("button", { name: "This Node" })).toBeVisible();
+  await expect.element(sheet.getByRole("button", { name: "Nodes" })).toBeVisible();
   await expect.element(sheet.getByText("SlipStream 0.4.0")).toBeVisible();
   await expect.element(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
   expect(
@@ -101,9 +103,10 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
   await expect.element(sheet).not.toBeInTheDocument();
 
   await userEvent.click(tabs().getByRole("button", { name: "More" }));
-  await userEvent.click(sheet.getByRole("button", { name: "This Node" }));
+  await userEvent.click(sheet.getByRole("button", { name: "Nodes" }));
   await expect.element(sheet).not.toBeInTheDocument();
-  await expect.poll(() => router.state.location.href).toBe("/system");
+  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  expect(router.state.location.pathname).toMatch(/^\/nodes\/[0-9a-f-]{36}$/u);
   await expect
     .element(tabs().getByRole("button", { name: "More" }))
     .not.toHaveAttribute("aria-current");

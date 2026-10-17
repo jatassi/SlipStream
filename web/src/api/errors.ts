@@ -48,3 +48,14 @@ export function fieldErrors(error: ApiError): Record<string, string> {
     error.errors.map(({ location, message }) => [location.replace(/^body\./u, ""), message]),
   );
 }
+
+/** What a failed call tells the person: the problem's detail or title, or that the Node didn't answer. */
+export function sentenceOf(error: unknown): string {
+  if (isApiError(error)) {
+    return error.detail ?? error.title;
+  }
+  if (error instanceof UnreachableError) {
+    return error.message;
+  }
+  throw error;
+}

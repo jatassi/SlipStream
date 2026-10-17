@@ -213,7 +213,7 @@ test("making an Admin a Member moves their open tab to the portal", async ({
   const tab = await (await newContext()).newPage();
   await signIn(tab, { ...grace, admin: true });
   await tab.goto("/system");
-  await expect(tab.getByRole("heading", { name: "This Node" })).toBeVisible();
+  await expect(tab.getByRole("heading", { name: "Overview" })).toBeVisible();
 
   await openAccount(adminPage, grace.displayName);
   await adminPage.getByRole("button", { name: "Make Member" }).click();
@@ -222,6 +222,6 @@ test("making an Admin a Member moves their open tab to the portal", async ({
     .getByRole("button", { name: "Make Member" })
     .click();
 
-  await expect(tab.getByRole("heading", { name: "Home" })).toBeVisible();
-  expect(tab.url()).toBe(`${world.baseURL}/portal`);
+  await expect(tab).toHaveURL(`${world.baseURL}/portal`);
+  await expect(tab.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 });

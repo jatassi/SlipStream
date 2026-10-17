@@ -30,6 +30,13 @@ test("on desktop a warning line names its subject and offers one warn action", a
   expect(fixed).toStrictEqual(["check"]);
 });
 
+test("a warning that has no start time leaves out its since", async () => {
+  const { since: _since, ...timeless } = relayWarning([]);
+  const line = renderKit(<WarningLine {...timeless} />);
+  await expect.element(page.getByRole("button", { name: "Check relay" })).toBeVisible();
+  expect(line.textContent).toBe("Degradedrelay-fraHalf its probes time out.Check relay");
+});
+
 test("on a phone a warning line is a row that opens a sheet with its detail and action", async () => {
   const fixed: string[] = [];
   renderKit(<WarningLine {...relayWarning(fixed)} />, { shell: "phone" });

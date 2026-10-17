@@ -149,7 +149,7 @@ func TestJoinByEnvironment(t *testing.T) {
 	if r.Claim.String() != "unclaimed" {
 		t.Fatalf("box was ready as %s, want unclaimed until its Join", r.Claim)
 	}
-	if want := (node.Key{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: "env"}); !slices.Contains(r.Overrides, want) {
+	if want := (node.Key{Key: "join.code", Value: "SLP1-[redacted]", Default: "", Source: "env", Env: "SLIPSTREAM_JOIN_CODE"}); !slices.Contains(r.Overrides, want) {
 		t.Fatalf("overrides = %+v, want %+v among them", r.Overrides, want)
 	}
 	if claimed := box.await("claimed"); claimed["claim"] != "worker" {

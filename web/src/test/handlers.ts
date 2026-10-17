@@ -7,6 +7,7 @@ import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
+import { home, nodesAre } from "./nodes";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
   "../api/gen/query/**/*.msw.ts",
@@ -74,6 +75,7 @@ export const baseHandlers: RequestHandler[] = [
   signedInAsAda,
   resyncStream,
   nothingMoving,
+  nodesAre(home),
   noTaskRunning,
   ...tagMocks,
 ];

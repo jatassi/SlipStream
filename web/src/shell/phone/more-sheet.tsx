@@ -1,11 +1,10 @@
-import { Logout01Icon, UserCircleIcon } from "@hugeicons/core-free-icons";
+import { UserCircleIcon } from "@hugeicons/core-free-icons";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useAccount } from "../../session/session";
 import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "../../ui/sheet";
-import { Avatar, startupLabel, toPortal, useStartupOn } from "../account";
+import { Avatar, startupLabel, toPortal, useLeaveActions, useStartupOn } from "../account";
 import type { ShownRow } from "../nav";
-import { askSignOut } from "../sign-out";
 import { MoreNav } from "./more-nav";
 import { setMoreOpen, useMoreOpen } from "./more-state";
 import { Version } from "./version";
@@ -40,9 +39,11 @@ export function MoreSheet({ rows }: { rows: readonly ShownRow[] }) {
         >
           {toPortal.label}
         </SheetItem>
-        <SheetItem icon={Logout01Icon} onClick={askSignOut}>
-          Sign out
-        </SheetItem>
+        {useLeaveActions().map((action) => (
+          <SheetItem key={action.label} icon={action.icon} onClick={action.onSelect}>
+            {action.label}
+          </SheetItem>
+        ))}
         <SheetToggle checked={startupOn} onCheckedChange={setStartupOn}>
           {startupLabel}
         </SheetToggle>

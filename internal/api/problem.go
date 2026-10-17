@@ -42,6 +42,12 @@ func (c *Code) Until(t time.Time) error {
 	return &explained{code: c, detail: t.UTC().Format(time.RFC3339), retryAfter: t}
 }
 
+// On answers c about the request body's member field: the problem's
+// detail and its one field error, at body.<field>, are detail.
+func (c *Code) On(field, detail string) error {
+	return &explained{code: c, detail: detail, fields: []FieldError{{Location: "body." + field, Message: detail}}}
+}
+
 // Fields answers c with one field error per entry, for a check the
 // operation's schema can't express.
 func (c *Code) Fields(errs ...FieldError) error { return &explained{code: c, fields: errs} }

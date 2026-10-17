@@ -80,6 +80,7 @@ type facts struct {
 	Running        []string `json:"running" nullable:"false"`
 	Restarting     []string `json:"restarting" nullable:"false"`
 	AppliedVersion string   `json:"appliedVersion"`
+	HTTPAddress    string   `json:"httpAddress" doc:"The address the Node's web server bound; empty until it binds"`
 }
 
 func nodeOf(n nodes.Node) node {
@@ -109,6 +110,7 @@ func nodeOf(n nodes.Node) node {
 			Running:        nonNil(f.GetRunning()),
 			Restarting:     nonNil(f.GetRestarting()),
 			AppliedVersion: hex.EncodeToString(f.GetAppliedVersion()),
+			HTTPAddress:    f.GetHttpAddress(),
 		}
 	}
 	return out

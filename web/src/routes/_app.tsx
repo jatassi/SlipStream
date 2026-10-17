@@ -5,9 +5,8 @@ import { requireEntry } from "../session/gate";
 import { DesktopShell } from "../shell/desktop/layout";
 import { NotFound, ShellError } from "../shell/errors";
 import { adminNav } from "../shell/nav";
-import { Palette } from "../shell/palette/palette";
 import { PhoneShell } from "../shell/phone/layout";
-import { SessionDialogs } from "../shell/session-dialogs";
+import { Overlays } from "../shell/overlays";
 import { type ShellKind, useShell } from "../ui/shell-context";
 
 export const Route = createFileRoute("/_app")({
@@ -40,8 +39,7 @@ function AppFrame({ children }: { children: ReactNode }) {
   return (
     <div className="isolate">
       <Shell>{children}</Shell>
-      <Palette />
-      <SessionDialogs />
+      <Overlays />
     </div>
   );
 }

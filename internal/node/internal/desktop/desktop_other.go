@@ -7,6 +7,9 @@ import "errors"
 // HasLoginItem reports whether the OS has a login item the app manages.
 const HasLoginItem = false
 
+// RestartOnMainThread is false: with no tray, any goroutine may exec.
+const RestartOnMainThread = false
+
 // Run returns once app is done. Linux shows no tray, as in v1, so app
 // differs from run only by the browser hand-off.
 func Run(app App, opts Options) {

@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/nodes"
 	rpctestv1 "github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1"
@@ -122,7 +123,7 @@ var inUTC = sim.Edit(func(_ string, e *node.Env) { e.Zone = time.UTC })
 func partition(t *testing.T, w *sim.World) time.Time {
 	t.Helper()
 	flip(t, w.Path("home", "seedbox"), fault.Stall{})
-	link := node.Defaults(contenttype.Set{}).Timings.Link
+	link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 	time.Sleep(link.Keepalive + link.WriteTimeout)
 	synctest.Wait()
 	return time.Now()

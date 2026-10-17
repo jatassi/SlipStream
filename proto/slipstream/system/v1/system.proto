@@ -1,0 +1,155 @@
+// NodeSystemService is a Node's system as an Admin manages it from the
+// Controller: its facts, its config.yaml settings, its restart, its log
+// and the zip of its log folder. Every Node serves it, the Controller
+// included.
+syntax = "proto3";
+
+package slipstream.system.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service NodeSystemService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  rpc GetFacts(GetFactsRequest) returns (GetFactsResponse);
+  rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
+  // SetConfig changes every key or none. A refusal is an answer, not an
+  // error.
+  rpc SetConfig(SetConfigRequest) returns (SetConfigResponse);
+  // Restart answers before the Node stops. A Node already stopping fails
+  // it with ABORTED when a restart stops it, UNAVAILABLE otherwise.
+  rpc Restart(RestartRequest) returns (RestartResponse);
+  // ReadLogs answers at once with the records after after, or waits up to
+  // the serving Node's timings.link.log_poll for the next, or answers
+  // with none.
+  rpc ReadLogs(ReadLogsRequest) returns (ReadLogsResponse);
+  // OpenLogArchive zips the log folder into a temp file, which the Node
+  // deletes after its last chunk is read or timings.link.log_archive_ttl.
+  rpc OpenLogArchive(OpenLogArchiveRequest) returns (OpenLogArchiveResponse);
+  rpc ReadLogArchive(ReadLogArchiveRequest) returns (ReadLogArchiveResponse);
+}
+
+message GetFactsRequest {}
+
+message GetFactsResponse {
+  // build is absent for an unstamped build.
+  Build build = 1;
+  string data_dir = 2;
+  string logs_dir = 3;
+  int64 pid = 4;
+  string seed = 5;
+  int64 started_at_unix_nano = 6;
+  string http_configured = 7;
+  string http = 8;
+  string torrent = 9;
+  string link = 10;
+  string control = 11;
+}
+
+message Build {
+  string version = 1;
+  string commit = 2;
+  string fingerprint = 3;
+  string target = 4;
+  string native_bundle = 5;
+  string libtorrent = 6;
+}
+
+message GetConfigRequest {}
+
+message GetConfigResponse {
+  Config config = 1;
+}
+
+message Config {
+  repeated ConfigSection sections = 1;
+}
+
+// ConfigSection holds each field as its JSON wire form; both ends run the
+// same build.
+message ConfigSection {
+  string id = 1;
+  repeated bytes fields = 2;
+}
+
+message SetConfigRequest {
+  repeated Change changes = 1;
+}
+
+message Change {
+  string key = 1;
+  oneof value {
+    bool reset = 2;
+    int64 number = 3;
+    string word = 4;
+    bool switch = 5;
+    string text = 6;
+  }
+}
+
+message SetConfigResponse {
+  oneof result {
+    Config config = 1;
+    Refusal refused = 2;
+  }
+}
+
+message Refusal {
+  string key = 1;
+  // reason is a nodesystem.Reason's name, such as out_of_range.
+  string reason = 2;
+  string sentence = 3;
+  string variable = 4;
+}
+
+message RestartRequest {}
+
+message RestartResponse {
+  int64 started_at_unix_nano = 1;
+  uint32 bound_port = 2;
+  // next_port is http.listen's saved port while it waits for this restart,
+  // 0 otherwise.
+  uint32 next_port = 3;
+}
+
+message ReadLogsRequest {
+  uint64 after = 1;
+}
+
+message ReadLogsResponse {
+  LogReset reset = 1;
+  repeated LogRecord records = 2;
+}
+
+message LogReset {
+  // reason is a system.ResetReason's name: lapped or restarted.
+  string reason = 1;
+  int64 started_at_unix_nano = 2;
+  uint64 after = 3;
+}
+
+message LogRecord {
+  uint64 seq = 1;
+  int64 time_unix_nano = 2;
+  string level = 3;
+  string subsystem = 4;
+  string message = 5;
+  bytes attrs_json = 6;
+}
+
+message OpenLogArchiveRequest {}
+
+message OpenLogArchiveResponse {
+  string id = 1;
+  int64 size = 2;
+  // stamp is when the Node zipped it, YYYYMMDD-HHMMSS in its time zone.
+  string stamp = 3;
+}
+
+message ReadLogArchiveRequest {
+  string id = 1;
+  int64 offset = 2;
+}
+
+message ReadLogArchiveResponse {
+  bytes data = 1;
+}

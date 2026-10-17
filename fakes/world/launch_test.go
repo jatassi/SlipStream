@@ -43,7 +43,9 @@ type stub struct {
 	resolved node.Resolved
 	torrent  string
 	runExit  string
-	noTools  bool
+	// successor restarts the stub as Windows does.
+	successor bool
+	noTools   bool
 }
 
 func productionKeys() []node.Key {
@@ -67,6 +69,9 @@ func (s stub) build(t *testing.T) string {
 		t.Fatal(err)
 	}
 	flags := "-X=main.resolved=" + string(resolved) + " -X=main.torrent=" + s.torrent + " -X=main.runExit=" + s.runExit
+	if s.successor {
+		flags += " -X=main.successor=1"
+	}
 	bin := testbin.Build(t, t.TempDir(), "./fakes/world/testdata/stubnode", "-ldflags", flags)
 	if s.noTools {
 		return bin

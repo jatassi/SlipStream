@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -21,11 +22,14 @@ var (
 	resolved string
 	torrent  string
 	runExit  string
+	// successor restarts as Windows does, with a new process that holds
+	// this one's stderr, instead of in place.
+	successor string
 )
 
 func main() {
 	if len(os.Args) != 4 || os.Args[2] != "--data-dir" {
-		fmt.Fprintln(os.Stderr, "usage: stubnode run|stop|config --data-dir <dir>")
+		fmt.Fprintln(os.Stderr, "usage: stubnode run|stop|restart|config --data-dir <dir>")
 		os.Exit(node.ExitUsage)
 	}
 	dir := os.Args[3]
@@ -35,7 +39,9 @@ func main() {
 	case "run":
 		run(dir)
 	case "stop":
-		stop(dir)
+		send(dir, "")
+	case "restart":
+		send(dir, "restart")
 	}
 }
 
@@ -107,10 +113,35 @@ func run(dir string) {
 
 	conn, err := control.Accept()
 	fail(err)
+	op, err := io.ReadAll(conn)
+	fail(err)
+	if string(op) == "restart" {
+		fmt.Fprintln(os.Stderr, `{"msg":"stopped to restart"}`)
+		_ = conn.Close()
+		_ = control.Close()
+		for _, l := range bound {
+			_ = l.Close()
+		}
+		restart()
+	}
 	fmt.Fprintln(os.Stderr, `{"level":"ERROR","msg":"stub node told to stop","detail":"logged verbatim"}`)
 	fmt.Fprintln(os.Stderr, `{"msg":"stopped"}`)
 	_ = conn.Close()
 	_ = control.Close()
+}
+
+// restart runs this executable again on the same arguments: in place, or
+// as a successor that inherits stderr while this process exits 0.
+func restart() {
+	exe, err := os.Executable()
+	fail(err)
+	if successor == "" {
+		fail(syscall.Exec(exe, os.Args, os.Environ()))
+	}
+	cmd := exec.Command(exe, os.Args[1:]...) //nolint:gosec,noctx // the stub's own executable and arguments, outliving this process
+	cmd.Stderr = os.Stderr
+	fail(cmd.Start())
+	os.Exit(0)
 }
 
 // bind binds a listen address on port 0 and reports the port it took, as
@@ -129,14 +160,18 @@ func bind(listen string) netip.AddrPort {
 // bound keeps each listener open while the stub runs.
 var bound []net.Listener
 
-func stop(dir string) {
+// send asks the Node on dir to run op, empty for a stop, and returns once
+// it has closed the connection.
+func send(dir, op string) {
 	d, err := node.ParseDataDir(dir)
 	fail(err)
 	conn, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: d.ControlSocket(), Net: "unix"})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "slipstream stop: no Node answered on "+dir)
+		fmt.Fprintln(os.Stderr, "slipstream "+os.Args[1]+": no Node answered on "+dir)
 		os.Exit(node.ExitFailed)
 	}
+	_, err = io.WriteString(conn, op)
+	fail(err)
 	// macOS answers ENOTCONN once the Node has closed; that is the answer.
 	if err := conn.CloseWrite(); !errors.Is(err, syscall.ENOTCONN) {
 		fail(err)

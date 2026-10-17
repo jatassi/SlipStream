@@ -61,6 +61,9 @@ type Router struct {
 	mux      *http.ServeMux
 	owners   map[string]bool
 	ops      map[string]string
+	// streams ends at EndStreams, and every stream's context with it.
+	streams    context.Context //nolint:containedctx // the lifetime of every stream the Router serves
+	endStreams context.CancelFunc
 }
 
 func NewRouter(s Services) *Router {
@@ -84,7 +87,8 @@ func NewRouter(s Services) *Router {
 		DefaultFormat: "application/json",
 	}, humago.NewAdapter(mux, Prefix))
 	registry.Schema(reflect.TypeFor[Problem](), true, "Problem")
-	return &Router{services: s, huma: h, mux: mux, owners: map[string]bool{}, ops: map[string]string{}}
+	streams, endStreams := context.WithCancel(context.Background())
+	return &Router{services: s, huma: h, mux: mux, owners: map[string]bool{}, ops: map[string]string{}, streams: streams, endStreams: endStreams}
 }
 
 var tagShape = regexp.MustCompile(`^[a-z][a-z0-9]*$`)

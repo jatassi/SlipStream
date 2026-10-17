@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
 import type { LiveEffects } from "./types";
 
@@ -30,6 +31,11 @@ export const systemEffects = {
   "nodes.changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getListNodesQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetNodeQueryKey(data.nodeId) });
+    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+  },
+  "node.settings-changed": (data, { queryClient }) => {
+    void queryClient.invalidateQueries({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
+    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
   },
   "tasks.changed": (_data, { queryClient }) => {
     void refreshTasks(queryClient);
@@ -46,4 +52,7 @@ export const systemEffects = {
         },
     );
   },
-} satisfies Pick<LiveEffects, "nodes.changed" | "tasks.changed" | "tasks.progress">;
+} satisfies Pick<
+  LiveEffects,
+  "nodes.changed" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
+>;

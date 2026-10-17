@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/system"
@@ -38,6 +39,8 @@ func (worker) ClaimController(context.Context, func(*identity.Service) error) er
 }
 
 func (worker) Nodes() (*nodes.Service, bool) { return nil, false }
+
+func (worker) Systems() (*nodesystem.Nodes, bool) { return nil, false }
 
 func (worker) Works() (*works.Works, bool) { return nil, false }
 

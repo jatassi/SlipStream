@@ -127,7 +127,7 @@ func TestTheJoinCodeLifetimeIsASettingField(t *testing.T) {
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
 	field := func(value int64, isDefault bool) string {
-		return fmt.Sprintf(`{"joinCodeLifetime":{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":%t,"kind":"duration","value":%d,"default":3600,"min":600,"max":604800,"step":60}}`, isDefault, value)
+		return fmt.Sprintf(`{"joinCodeLifetime":{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"duration","value":%d,"running":%d,"default":3600,"min":600,"max":604800,"step":60}}`, isDefault, value, value)
 	}
 	const path = "/api/v1/nodes/settings"
 	s.Expect(t, http.MethodGet, path, "", http.StatusOK, field(3600, true))

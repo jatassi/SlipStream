@@ -32,15 +32,25 @@ func Routes(r *api.Router, hub *live.Hub, ids Identities, t live.Timings) {
 		Path:    "/events",
 		Summary: "Stream the events this session may see",
 		Status:  http.StatusOK,
-	}, hub.Events(), func(ctx context.Context, a identity.Account, in *streamInput, send api.Send) error {
-		sessions, _ := ids.Identity()
-		s := stream{sessions: sessions, timings: t, account: a, send: send, retry: t.Retry}
-		return s.run(ctx, hub.Subscribe(live.Viewer{
-			Account: a.Profile().ID.UUID,
-			Session: a.Session().UUID,
-			Admin:   a.Profile().Admin,
-		}, in.LastEventID))
+	}, streamEvents(hub.Events()), func(_ context.Context, a identity.Account, in *streamInput) (api.StreamFunc, error) {
+		return func(ctx context.Context, send api.Send) error {
+			sessions, _ := ids.Identity()
+			s := stream{sessions: sessions, timings: t, account: a, send: send, retry: t.Retry}
+			return s.run(ctx, hub.Subscribe(live.Viewer{
+				Account: a.Profile().ID.UUID,
+				Session: a.Session().UUID,
+				Admin:   a.Profile().Admin,
+			}, in.LastEventID))
+		}, nil
 	})
+}
+
+func streamEvents(events []live.Event) []api.StreamEvent {
+	out := make([]api.StreamEvent, len(events))
+	for i, e := range events {
+		out[i] = api.StreamEvent{Name: e.Name(), Payload: e.Payload()}
+	}
+	return out
 }
 
 type stream struct {

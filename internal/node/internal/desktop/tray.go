@@ -39,6 +39,7 @@ func Run(app App, opts Options) {
 	systray.Run(t.ready, func() {
 		app.Stop()
 		<-app.Done()
+		app.Leave()
 	})
 }
 

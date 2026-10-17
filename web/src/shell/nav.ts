@@ -19,14 +19,16 @@ import { getListContentTypesQueryKey, listContentTypes } from "../api/gen/query/
 import type { CountKey } from "./counts";
 import { contentTypeIcons } from "./icons";
 
-type RoutePath = RegisteredRouter["routeTree"]["types"]["fileRouteTypes"]["to"];
+export type RoutePath = RegisteredRouter["routeTree"]["types"]["fileRouteTypes"]["to"];
 
 export type AppPath = Exclude<RoutePath, `${string}$${string}`>;
+
+type ParamPath = Extract<RoutePath, `${string}$${string}`>;
 
 export type NavId =
   | "library"
   | "activity"
-  | "this-node"
+  | "nodes"
   | "accounts"
   | "settings"
   | "tasks"
@@ -45,6 +47,12 @@ export type NavRow = {
   tab?: { order: number };
   count?: CountKey;
   children?: "content-types";
+  /**
+   * The page `to` redirects to, such as the browser's own Node under Nodes.
+   * The row stays current on every page below `to`, and on phone the landing
+   * page is the row's top page, titled with the row's label.
+   */
+  lands?: ParamPath;
 };
 
 const contentTypeLibrary = "/library/$contentType";
@@ -84,10 +92,11 @@ export const adminNav: NavTable = [
     count: "activity",
   },
   {
-    id: "this-node",
-    label: "This Node",
+    id: "nodes",
+    label: "Nodes",
     icon: ServerStack01Icon,
-    to: "/system",
+    to: "/nodes",
+    lands: "/nodes/$nodeId",
     audience: "admin",
     place: "system",
   },
@@ -192,10 +201,16 @@ export const tabRows = (rows: readonly ShownRow[]): ShownRow[] =>
     .filter((row) => row.tab !== undefined)
     .toSorted((a, b) => (a.tab?.order ?? 0) - (b.tab?.order ?? 0));
 
+/** The route paths of each nav row's landing page, with the row's label. */
+export const landings: ReadonlyMap<string, string> = new Map(
+  adminNav.flatMap((row) => (row.lands === undefined ? [] : [[row.lands, row.label] as const])),
+);
+
 /** The paths a nav row or child leads to: the phone's top-level pages. */
 export const navPaths: ReadonlySet<string> = new Set([
   ...adminNav.map((row) => row.to),
   ...portalNav.map((row) => row.to),
+  ...landings.keys(),
   contentTypeLibrary,
   settingsSection,
 ]);

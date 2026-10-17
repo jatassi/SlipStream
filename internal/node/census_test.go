@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 )
@@ -56,7 +57,7 @@ func TestCensusListsEndpointsStillAtADefaultHost(t *testing.T) {
 }
 
 func TestCensusOfTheDefaultsListsTheCoreEndpoints(t *testing.T) {
-	if got, want := Census(Defaults(noTypes), noTypes), []string{"endpoints.tmdb.api"}; !slices.Equal(got, want) {
+	if got, want := Census(Defaults(noTypes, install.Dev), noTypes, install.Dev), []string{"endpoints.tmdb.api"}; !slices.Equal(got, want) {
 		t.Fatalf("census = %#v, want %#v", got, want)
 	}
 }

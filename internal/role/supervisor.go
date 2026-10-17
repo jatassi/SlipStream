@@ -76,7 +76,10 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 
 // nodeFacts is the node scope's facts. The caller holds h.mu.
 func (h *Holding) nodeFacts() *nodev1.NodeFacts {
-	f := &nodev1.NodeFacts{Assigned: nodeIntent(h.assigned).GetRoles(), AppliedVersion: h.cache[nodeScope].version}
+	f := &nodev1.NodeFacts{Assigned: nodeIntent(h.assigned).GetRoles(), AppliedVersion: h.cache[nodeScope].version, SettingsRevision: h.host.SettingsRevision}
+	if h.host.HTTPAddress.IsValid() {
+		f.HttpAddress = h.host.HTTPAddress.String()
+	}
 	for _, held := range h.cfg.Held {
 		switch r := h.runs[held.name]; {
 		case r == nil:

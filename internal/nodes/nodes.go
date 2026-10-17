@@ -52,6 +52,19 @@ type Publisher interface {
 	Publish(ctx context.Context, v Changed)
 }
 
+// SettingsChanged tells Admins that a Node's settings view changed: a
+// save, or a restart that adopted a pending value.
+type SettingsChanged struct {
+	NodeID string `json:"nodeId" format:"uuid"`
+}
+
+var SettingsChangedEvent = live.AdminEvent[SettingsChanged]("node.settings-changed")
+
+// SettingsPublisher is SettingsChangedEvent bound to the hub.
+type SettingsPublisher interface {
+	Publish(ctx context.Context, v SettingsChanged)
+}
+
 // Link is the Node link as the roster reads it.
 type Link interface {
 	State(key link.Key) link.State
@@ -69,6 +82,9 @@ type Config struct {
 	Node    link.NodeInfo
 	Link    Link
 	Changed Publisher
+	// SettingsChanged is published whenever a Node's facts carry a new
+	// settings revision.
+	SettingsChanged SettingsPublisher
 	// Served is every Role's control half.
 	Served []role.Served
 	// Always is Roles every Node holds beyond its nodes_role rows: only a
@@ -105,6 +121,9 @@ type Service struct {
 	byKey   map[link.Key]ID
 	since   map[link.Key]time.Time
 	wake    map[ID]chan struct{}
+	// revisions is each Node's last settings revision. It outlives a
+	// session, so a Node that reconnects unchanged publishes nothing.
+	revisions map[ID]string
 }
 
 type member struct {
@@ -122,6 +141,8 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		byKey:   map[link.Key]ID{},
 		since:   map[link.Key]time.Time{},
 		wake:    map[ID]chan struct{}{},
+
+		revisions: map[ID]string{},
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -549,16 +570,26 @@ func (s *Service) awaitChange(node ID) <-chan struct{} {
 	return ch
 }
 
-// changed wakes whoever waits on node and tells Admins. It never blocks.
+// changed wakes whoever waits on node and tells Admins, of its settings
+// too when its facts carry a new revision. It never blocks.
 func (s *Service) changed(node ID) {
+	facts, _ := s.controls.NodeFacts(node)
+	revision := facts.GetSettingsRevision()
 	s.mu.Lock()
 	ch := s.wake[node]
 	delete(s.wake, node)
+	settings := revision != "" && revision != s.revisions[node]
+	if settings {
+		s.revisions[node] = revision
+	}
 	s.mu.Unlock()
 	if ch != nil {
 		close(ch)
 	}
 	s.cfg.Changed.Publish(context.Background(), Changed{NodeID: node.String()})
+	if settings {
+		s.cfg.SettingsChanged.Publish(context.Background(), SettingsChanged{NodeID: node.String()})
+	}
 }
 
 // Run follows the link until ctx ends: when a Node's session starts or

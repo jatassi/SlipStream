@@ -3,6 +3,7 @@ package joincode_test
 import (
 	"crypto/ed25519"
 	"errors"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strings"
@@ -155,5 +156,23 @@ func TestNewRefusesAnAddressListOutsideTheRecord(t *testing.T) {
 		if err == nil || err.Error() != want {
 			t.Errorf("err = %v, want %s", err, want)
 		}
+	}
+}
+
+func TestALoggedCodeIsRedacted(t *testing.T) {
+	code, err := joincode.Parse(golden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	noTime := func(_ []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.TimeKey {
+			return slog.Attr{}
+		}
+		return a
+	}
+	slog.New(slog.NewJSONHandler(&b, &slog.HandlerOptions{ReplaceAttr: noTime})).Info("join", "code", code)
+	if want := `{"level":"INFO","msg":"join","code":"SLP1-[redacted]"}` + "\n"; b.String() != want {
+		t.Fatalf("record = %s, want %s", b.String(), want)
 	}
 }
