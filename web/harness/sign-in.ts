@@ -1,6 +1,5 @@
-import { isIP } from "node:net";
-
 import type { Page } from "playwright";
+import { z } from "zod";
 
 import type { Identity } from "./manifest.ts";
 
@@ -13,14 +12,21 @@ export async function signIn(page: Page, identity: Identity): Promise<void> {
   await page.getByRole("heading", { name: identity.admin ? "Library" : "Home" }).waitFor();
 }
 
-// A Node reached by name can hold a passkey. One reached by IP address,
-// as Firefox and WebKit reach it, can't, and never offers one.
-export const offersPasskeys = (page: Page): boolean => isIP(new URL(page.url()).hostname) === 0;
+const Status = z.object({ passkeys: z.object({ available: z.boolean() }) });
+
+// The Node answers for the address the request reached it at. The fetch
+// runs in the page because only the browser applies the host-resolver rules
+// that map the Node's name, and Firefox and WebKit reach it by IP address,
+// where it offers no passkey.
+export async function offersPasskeys(page: Page): Promise<boolean> {
+  const body = await page.evaluate(async () => (await fetch("/api/v1/status")).text());
+  return Status.parse(JSON.parse(body)).passkeys.available;
+}
 
 // A Node that can hold a passkey offers one after each PIN sign-in, and the
 // browsers driven here hold no authenticator.
 export async function declinePasskeyPrompt(page: Page): Promise<void> {
-  if (!offersPasskeys(page)) {
+  if (!(await offersPasskeys(page))) {
     return;
   }
   const prompt = page.getByRole("dialog", { name: "Sign in faster here with a passkey" });

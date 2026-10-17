@@ -87,7 +87,7 @@ async function join(page: Page, link: string, inviter: string, passkeyStep: "ski
   await page.getByLabel("Your name").fill("Lin Wei");
   await page.getByRole("button", { name: "Continue" }).click();
   await newPin(page, "PIN", "8642");
-  if (offersPasskeys(page)) {
+  if (await offersPasskeys(page)) {
     await page
       .getByRole("button", { name: passkeyStep === "add" ? "Add a passkey" : "Skip for now" })
       .click();
@@ -187,7 +187,7 @@ test("a Reset link signs the person out in their open tab and sets a new PIN", a
   await tab.goto(pathOf(link));
   await expect(tab.getByText(new RegExp(`for ${grace.email}`, "u"))).toBeVisible();
   await newPin(tab, "New PIN", "9753");
-  if (offersPasskeys(tab)) {
+  if (await offersPasskeys(tab)) {
     await tab.getByRole("button", { name: "Skip for now" }).click();
   }
   await expect(tab.getByText("Your new PIN is set, and you're signed in.")).toBeVisible();
