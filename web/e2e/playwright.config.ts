@@ -50,6 +50,9 @@ function project(name: ProjectName): Project {
   return {
     name,
     use: { browserName: engine, contextOptions: { viewport: { width, height }, ...device } },
+    // A test tagged @cdp drives Chromium's DevTools Protocol, as its virtual
+    // authenticator does, which no other engine has.
+    ...(engine === "chromium" ? {} : { grepInvert: /@cdp/u }),
   };
 }
 
