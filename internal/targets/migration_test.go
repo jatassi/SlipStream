@@ -8,26 +8,60 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type discard struct{}
 
+// described is works.Works' descriptions by Content Type, only their
+// names.
+type described map[works.TypeID]string
+
+func (d described) Describe(t works.TypeID) (works.Description, bool) {
+	name, ok := d[t]
+	return works.Description{Name: name}, ok
+}
+
+// facets is a facet answering nothing for each of types.
+func facets(types ...works.TypeID) map[works.TypeID]targets.Facet {
+	out := map[works.TypeID]targets.Facet{}
+	for _, t := range types {
+		out[t] = noFacet{}
+	}
+	return out
+}
+
+type noFacet struct{}
+
+func (noFacet) Timings(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+	return nil, nil
+}
+
+func (noFacet) Cuts() []release.Cut { return nil }
+
 func (discard) Publish(context.Context, targets.Changed) {}
 
-func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T) {
-	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	open := func(s storage.Schema[storage.Library]) *storage.DB[storage.Library] {
+// opener opens the library at path through a schema of targets, after
+// works.
+func opener(t *testing.T, path string) func(s storage.Schema[storage.Library]) *storage.DB[storage.Library] {
+	return func(s storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, []storage.Schema[storage.Library]{s},
+		lib, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{works.Schema(), s},
 			func(context.Context, *storage.Unmigrated, storage.Plan) error { return nil }, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 		if err != nil {
 			t.Fatal(err)
 		}
 		return lib
 	}
+}
+
+func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T) {
+	ctx := t.Context()
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	open := opener(t, path)
 	resolutions := map[string][]string{
 		"HD":    {"1080p"},
 		"All":   {"2160p", "1080p", "720p"},
@@ -53,7 +87,7 @@ func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T
 
 	lib := open(targets.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
-	list := must[[]targets.Target](t)(targets.New(targets.Config{Library: lib, Changed: discard{}}).ListTargets(ctx, identity.Admin{}))
+	list := must[[]targets.Target](t)(must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}})).ListTargets(ctx, identity.Admin{}))
 	got := map[string][][]string{}
 	for _, target := range list {
 		got[target.Name] = keys(target.Spec().Tiers)
@@ -91,7 +125,7 @@ func seedResolutionTarget(ctx context.Context, tx *storage.Tx[storage.Library], 
 		return nil
 	}
 	profile := storage.NewUUID()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_profile VALUES (?, 'Standard', 'movie', 1)`, profile); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_profile VALUES (?, 'Standard', 'cinema', 1)`, profile); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile_target VALUES (?, 1, ?)`, profile, id)
@@ -115,4 +149,52 @@ func checkMigrated(t *testing.T, target targets.Target, held bool) {
 	if (len(target.Profiles) == 1 && target.Profiles[0].Name == "Standard") != held {
 		t.Errorf("%s: Profiles %+v", target.Name, target.Profiles)
 	}
+}
+
+func TestEveryWorkMigratesToItsTypesDefaultProfileAndNoStarterIsMade(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
+	before := open(targets.Schema().Through(1))
+	var films, songs works.WorkID
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if err := seedResolutionTarget(ctx, tx, "HD", []string{"1080p"}, true); err != nil {
+			return err
+		}
+		var err error
+		if films, err = seedWork(ctx, tx, "cinema", "m1"); err != nil {
+			return err
+		}
+		songs, err = seedWork(ctx, tx, "records", "a1")
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(targets.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
+		Library: lib, Works: described{"cinema": "Cinema", "records": "Records"}, Types: facets("cinema", "records"), Changed: discard{},
+	}))
+	g := must[targets.Goals](t)(goals.Goals(ctx, identity.Admin{}, films))
+	if g.Profile.Name != "Standard" || len(g.Targets) != 1 || g.Targets[0].Name != "HD" || g.Profile.Entries[0].Sourcing != targets.Download {
+		t.Fatalf("the cinema Work wants %+v, want Standard's HD, downloaded", g)
+	}
+	if g := must[targets.Goals](t)(goals.Goals(ctx, identity.Admin{}, songs)); g.Profile.Name != "Records" || !g.Profile.Default || len(g.Targets) != 0 {
+		t.Fatalf("the records Work, whose type had no Profile, wants %+v, want Open's default Records with no Target", g)
+	}
+	list := must[[]targets.Target](t)(goals.ListTargets(ctx, identity.Admin{}))
+	if len(list) != 1 {
+		t.Fatalf("a library that held a Target has %d after Open, want no starter beside HD", len(list))
+	}
+}
+
+// seedWork adds a Work of type typ as works 00001 holds it.
+func seedWork(ctx context.Context, tx *storage.Tx[storage.Library], typ, key string) (works.WorkID, error) {
+	id := works.WorkID{UUID: storage.NewUUID()}
+	_, err := tx.ExecContext(ctx, `INSERT INTO works_work VALUES (?, ?, ?, ?, ?, 1, 1)`, id, typ, key, key, key)
+	return id, err
 }

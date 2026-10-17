@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
@@ -51,22 +52,33 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	types := []works.TypeID{contenttypetest.ID}
-	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
+		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
+	}))
 	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{
-		Name: "1080p", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
+		Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
 	}))
 	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}))
 	small := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "Small", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
-	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID, uhd.ID, small.ID}))
+	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{
+		{Target: hd.ID, Sourcing: targets.Download}, {Target: uhd.ID, Sourcing: targets.Download}, {Target: small.ID, Sourcing: targets.Download},
+	}}))
+	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, standard.ID))
 	root := must[roots.Root](t)(roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
 		Create(ctx, admin, contenttypetest.ID, t.TempDir()))
 	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
-		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
+		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}, {Key: "c2", Label: "Mittens"}}},
 	}}})
-	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", true)
+	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", works.Adding{
+		Monitor: true,
+		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+			return targets.Assign(ctx, tx, w, nil)
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	fx.SetTiming(tree.Items[1].ID, targets.Timing{})
 	var placed files.File
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
@@ -80,18 +92,35 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		filesapi.Routes(r, library{files.New(files.Config{Library: lib, Works: w, Grabs: files.NoGrabs{}})})
+		filesapi.Routes(r, library{files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})})
 	})
 
 	code, body := s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
 	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`
+	scarf, mittens := tree.Items[0].ID.String(), tree.Items[1].ID.String()
 	want := `{"cells":[` +
-		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"1080p","wanted":false,"state":"upgradable",` + file + `},` +
-		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
-		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `}]}` + "\n"
+		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"upgradable",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
+		`{"itemId":"` + scarf + `","edition":"standard","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `},` +
+		`{"itemId":"` + mittens + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +
+		`{"itemId":"` + mittens + `","edition":"standard","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
+		`{"itemId":"` + mittens + `","edition":"standard","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
+		`"items":[{"itemId":"` + scarf + `","status":"missing"},{"itemId":"` + mittens + `","status":"unreleased"}]}` + "\n"
 	if code != http.StatusOK || body != want {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
+	empty := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Empty", ContentType: contenttypetest.ID}))
+	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})
+	bare, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", works.Adding{
+		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+			return targets.Assign(ctx, tx, w, &empty.ID)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Expect(t, http.MethodGet, "/api/v1/works/"+bare.ID.String()+"/cells", "", http.StatusOK,
+		`{"cells":[],"items":[{"itemId":"id1","status":null}]}`)
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String()+"/cells", "", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 }

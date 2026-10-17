@@ -53,3 +53,20 @@ sql:
           - column: targets_profile_target.target_id
             go_type:
               type: TargetID
+          - column: targets_profile_target.sourcing
+            go_type:
+              type: Sourcing
+          - column: targets_starter.id
+            go_type:
+              type: Singleton
+          - column: targets_starter.target_id
+            go_type:
+              type: TargetID
+              pointer: true
+          - column: targets_wants.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: targets_wants.profile_id
+            go_type:
+              type: ProfileID

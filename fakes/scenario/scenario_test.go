@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -37,8 +38,6 @@ func quietOrchardReleases() []Release {
 func movieLibrary() *Library {
 	return &Library{
 		Roots:    []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Targets:  []LibraryTarget{{Name: "1080p", Tiers: [][]QualityKey{{"hdtv-1080p", "webrip-1080p", "webdl-1080p", "bluray-1080p", "remux-1080p"}}, Cutoff: "hdtv-1080p"}},
-		Profiles: []LibraryProfile{{Name: "Standard", ContentType: "movie", Targets: []string{"1080p"}}},
 		Indexers: []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
 	}
 }
@@ -336,20 +335,6 @@ library:
   roots:
     - content_type: movie
       folder: movies
-  targets:
-    - name: 1080p
-      tiers:
-        - - hdtv-1080p
-          - webrip-1080p
-          - webdl-1080p
-          - bluray-1080p
-          - remux-1080p
-      cutoff: hdtv-1080p
-  profiles:
-    - name: Standard
-      content_type: movie
-      targets:
-        - 1080p
   indexers:
     - name: Fixture Site
       site: fixture-site
@@ -418,7 +403,7 @@ func TestFaultsLiveOnlyInTheFaultsBlock(t *testing.T) {
 			if key == "faults" {
 				continue
 			}
-			if strings.Contains(name, "fault") {
+			if slices.ContainsFunc(strings.Split(name, "_"), func(w string) bool { return strings.HasPrefix(w, "fault") }) {
 				private = append(private, key)
 			}
 			walk(f.Type, key)

@@ -21,8 +21,9 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "sized", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Sizes: []LibrarySize{{Quality: "bluray-1080p", Min: 1}}},
 		},
 		Profiles: []LibraryProfile{
-			{Name: "Standard", ContentType: "music", Targets: []string{"1080p", "4k"}},
-			{Name: "Standard", ContentType: "music"},
+			{Name: "Standard", ContentType: "music", Targets: []string{"1080p", "4k"}, Default: true},
+			{Name: "Standard", ContentType: "music", Default: true},
+			{Name: "Starter", ContentType: "music", Targets: []string{"1080p"}},
 		},
 		Indexers: []LibraryIndexer{
 			{Name: "Site", Site: "fixture-site"},
@@ -39,9 +40,9 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		"scenario x: library target none: tiers are missing, empty or repeat a quality",
 		`scenario x: library target filtered: a filter is Any with values, Only or Not with none, or names a value twice: "sepia" is not an HDR format`,
 		"scenario x: library target sized: the Target doesn't accept that quality: a size for bluray-1080p",
-		"scenario x: library profile Standard names target 4k, which library.targets does not list",
+		"scenario x: library profile Standard names target 4k, which library.targets does not list and isn't the starter",
 		"scenario x: library has two profiles named Standard",
-		"scenario x: library profile Standard has no targets",
+		"scenario x: library has two default profiles for content type music",
 		"scenario x: library has two indexers named Site",
 		`scenario x: library indexer Site is on site "other-site", which no fake serves`,
 		"scenario x: library has indexers, and no node holds searching",

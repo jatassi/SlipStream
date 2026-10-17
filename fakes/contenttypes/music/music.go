@@ -223,9 +223,9 @@ func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (
 }
 
 // Timings answers each track's length and its album's release date.
-func (*Music) Timings(ctx context.Context, r storage.Reader[file], w works.WorkID) (map[works.ItemID]targets.Timing, error) {
+func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
 	q := db.New(r)
-	albums, err := q.ListAlbums(ctx, w)
+	albums, err := q.ListAlbumsOf(ctx, ws)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], w works.WorkI
 		}
 		released[a.LevelID] = release.Known(d)
 	}
-	tracks, err := q.ListTracks(ctx, w)
+	tracks, err := q.ListTracksOf(ctx, ws)
 	if err != nil {
 		return nil, err
 	}
@@ -250,13 +250,15 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], w works.WorkI
 			length[t.ItemID] = release.Known(time.Duration(*t.LengthMs) * time.Millisecond)
 		}
 	}
-	items, err := works.ItemsOf(ctx, r, w)
+	items, err := works.ItemsOf(ctx, r, ws)
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[works.ItemID]targets.Timing, len(items))
-	for _, it := range items {
-		out[it.ID] = targets.Timing{Released: released[it.LevelID], Runtime: length[it.ID]}
+	out := map[works.ItemID]targets.Timing{}
+	for _, of := range items {
+		for _, it := range of {
+			out[it.ID] = targets.Timing{Released: released[it.LevelID], Runtime: length[it.ID]}
+		}
 	}
 	return out, nil
 }

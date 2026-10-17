@@ -35,7 +35,7 @@ func shelf(t *testing.T, f *contenttypetest.Fixture) (tree works.Tree, timings f
 	f.Put("shelf", contenttypetest.Record{Tree: works.Fetched{Label: "Shelf", Children: []works.Entry{
 		{Key: "box", Label: "Box", Children: []works.Entry{{Key: "cup", Label: "Cup"}, {Key: "jar", Label: "Jar"}}},
 	}}})
-	tree, _, err = w.Add(t.Context(), identity.Admin{}, contenttypetest.ID, "shelf", true)
+	tree, _, err = w.Add(t.Context(), identity.Admin{}, contenttypetest.ID, "shelf", works.Adding{Monitor: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func shelf(t *testing.T, f *contenttypetest.Fixture) (tree works.Tree, timings f
 		t.Helper()
 		var got map[works.ItemID]targets.Timing
 		if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			got, err = f.Timings(ctx, r, tree.ID)
+			got, err = f.Timings(ctx, r, []works.WorkID{tree.ID})
 			return err
 		}); err != nil {
 			t.Fatal(err)

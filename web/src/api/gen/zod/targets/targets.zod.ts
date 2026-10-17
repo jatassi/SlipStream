@@ -4,23 +4,43 @@ import {
   TargetsNewProfile,
   TargetsNewTarget,
   TargetsProfile,
+  TargetsProfileDetail,
   TargetsProfileList,
   TargetsQualityList,
   TargetsTarget,
   TargetsTargetList,
+  TargetsWants,
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List the Profiles
+ * @summary List the Profiles, each with the count of Works wanting from it
  */
 export const ListProfilesResponse = TargetsProfileList;
 
 /**
- * @summary Create a Profile; a Content Type's first is its default
+ * @summary Create a Profile of Targets in Profile order; it is never the default
  */
 export const CreateProfileBody = TargetsNewProfile;
 
 export const CreateProfileResponse = TargetsProfile;
+
+/**
+ * @summary Get a Profile with the disk each of its Targets costs across its Works
+ */
+export const GetProfileParams = zod.object({
+  profileId: zod.uuid(),
+});
+
+export const GetProfileResponse = TargetsProfileDetail;
+
+/**
+ * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ */
+export const MakeDefaultProfileParams = zod.object({
+  profileId: zod.uuid(),
+});
+
+export const MakeDefaultProfileResponse = TargetsProfile;
 
 /**
  * @summary List the qualities a Target can accept, and the presets that order them
@@ -65,3 +85,12 @@ export const DuplicateTargetParams = zod.object({
 });
 
 export const DuplicateTargetResponse = TargetsTarget;
+
+/**
+ * @summary Get the Profile a Work wants from and its Edition list
+ */
+export const GetWorkWantsParams = zod.object({
+  workId: zod.uuid(),
+});
+
+export const GetWorkWantsResponse = TargetsWants;

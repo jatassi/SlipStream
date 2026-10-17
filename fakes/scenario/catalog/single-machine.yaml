@@ -37,6 +37,4 @@ tracker:
   interval: 5s
 library:
   roots: [{content_type: movie, folder: movies}]
-  targets: [{name: 1080p, tiers: [[hdtv-1080p, webrip-1080p, webdl-1080p, bluray-1080p, remux-1080p]], cutoff: hdtv-1080p}]
-  profiles: [{name: Standard, content_type: movie, targets: [1080p]}]
   indexers: [{name: Fixture Site, site: fixture-site}]

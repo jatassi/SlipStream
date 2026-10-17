@@ -10,6 +10,6 @@ export interface FilesMetCell {
   state: FilesMetCellState;
   targetId: string;
   targetName: string;
-  /** Missing or failed, and its Item monitored */
+  /** Missing or failed, and its Item monitored and released */
   wanted: boolean;
 }

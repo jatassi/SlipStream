@@ -254,18 +254,20 @@ func (f *Fixture) SetCuts(cuts []release.Cut) {
 	f.cuts = slices.Clone(cuts)
 }
 
-// Timings answers every stored Item of w: its SetTiming, else Released and
-// an unknown runtime.
-func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) (map[works.ItemID]targets.Timing, error) {
+// Timings answers every stored Item of ws: its SetTiming, else Released
+// and an unknown runtime.
+func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	out := make(map[works.ItemID]targets.Timing, len(f.stored[w].Items))
-	for id := range f.stored[w].Items {
-		t, ok := f.timings[id]
-		if !ok {
-			t = targets.Timing{Released: release.Known(Released)}
+	out := map[works.ItemID]targets.Timing{}
+	for _, w := range ws {
+		for id := range f.stored[w].Items {
+			t, ok := f.timings[id]
+			if !ok {
+				t = targets.Timing{Released: release.Known(Released)}
+			}
+			out[id] = t
 		}
-		out[id] = t
 	}
 	return out, nil
 }

@@ -54,8 +54,8 @@ INSERT INTO targets_profile (id, name, content_type, is_default)
 VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(content_type), sqlc.arg(is_default));
 
 -- name: InsertProfileTarget :exec
-INSERT INTO targets_profile_target (profile_id, position, target_id)
-VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(target_id));
+INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing)
+VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(target_id), sqlc.arg(sourcing));
 
 -- name: ListProfiles :many
 SELECT * FROM targets_profile ORDER BY content_type, name, id;
@@ -63,9 +63,35 @@ SELECT * FROM targets_profile ORDER BY content_type, name, id;
 -- name: ListProfileTargets :many
 SELECT * FROM targets_profile_target ORDER BY profile_id, position;
 
--- name: ListDefaultTargets :many
-SELECT t.* FROM targets_profile_target pt
-JOIN targets_profile p ON p.id = pt.profile_id
-JOIN targets_target t ON t.id = pt.target_id
-WHERE p.content_type = sqlc.arg(content_type) AND p.is_default = 1
-ORDER BY pt.position;
+-- name: GetProfile :one
+SELECT * FROM targets_profile WHERE id = sqlc.arg(id);
+
+-- name: DefaultProfile :one
+SELECT * FROM targets_profile WHERE content_type = sqlc.arg(content_type) AND is_default = 1;
+
+-- name: ClearDefault :exec
+UPDATE targets_profile SET is_default = 0 WHERE content_type = sqlc.arg(content_type) AND is_default = 1;
+
+-- name: SetDefault :exec
+UPDATE targets_profile SET is_default = 1 WHERE id = sqlc.arg(id);
+
+-- name: CountWants :many
+SELECT profile_id, count(*) AS works FROM targets_wants GROUP BY profile_id ORDER BY profile_id;
+
+-- name: GetStarter :one
+SELECT * FROM targets_starter WHERE id = 1;
+
+-- name: InsertStarter :exec
+INSERT INTO targets_starter (id, target_id) VALUES (1, sqlc.narg(target_id));
+
+-- name: InsertWants :exec
+INSERT INTO targets_wants (work_id, profile_id) VALUES (sqlc.arg(work_id), sqlc.arg(profile_id));
+
+-- name: GetWants :one
+SELECT * FROM targets_wants WHERE work_id = sqlc.arg(work_id);
+
+-- name: ListWants :many
+SELECT * FROM targets_wants ORDER BY work_id;
+
+-- name: ListWorksOfProfile :many
+SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) ORDER BY work_id;

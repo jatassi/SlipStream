@@ -43,7 +43,7 @@ func cell(t targets.Target, s files.State) files.Cell {
 var orchard = indexers.Terms{Mode: "search", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
 
 func listed(title string, seeders, size int64, ids map[string]string) candidate {
-	return candidateOf(indexers.Item{Title: title, Seeders: seeders, Size: size, IDs: ids}, item.ID)
+	return candidateOf(indexers.Item{Title: title, Seeders: seeders, Size: size, IDs: ids}, item.ID, release.Fact[time.Duration]{})
 }
 
 func notChecked(t targets.Target) Reason {

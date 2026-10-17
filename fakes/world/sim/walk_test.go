@@ -489,19 +489,20 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 	})
 }
 
-// TestAPayloadProbedAt720pFillsNothing probes the 1080p release's file at
-// 720p on seedbox: probing fails fills_nothing, no Transfer stream opens,
-// and seedbox keeps the torrent in its intent.
-func TestAPayloadProbedAt720pFillsNothing(t *testing.T) {
+// TestAPayloadProbedAt480pFillsNothing probes the 1080p release's file at
+// 480p on seedbox, which the starter Target doesn't accept: probing fails
+// fills_nothing, no Transfer stream opens, and seedbox keeps the torrent
+// in its intent.
+func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
-			e.Media = mediatest.Prober{Of: map[string]media.Probe{release + ".mkv": {Container: "matroska", Codec: "h264", Width: 1280, Height: 720}}}
+			e.Media = mediatest.Prober{Of: map[string]media.Probe{release + ".mkv": {Container: "matroska", Codec: "h264", Width: 640, Height: 480}}}
 			e.Test.Transfers.Wanted = func(bencode.InfoHash, int, []int) { asked.Store(true) }
 		}))
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
-		expectFailed(t, g, "probing", "fills_nothing", "a WEBDL-720p file fills no Target the Work still wants")
+		expectFailed(t, g, "probing", "fills_nothing", "a SDTV file fills no Target the Work still wants")
 		if got := g.stages(); !slices.Equal(got, []string{"fetching", "downloading", "probing", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading probing failed]", got)
 		}

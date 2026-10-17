@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -70,6 +71,58 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 		arg.Edition,
 	)
 	return err
+}
+
+const listFillsOfTargets = `-- name: ListFillsOfTargets :many
+SELECT files_fill.target_id, files_file.work_id, files_file.item_id, files_file.size FROM files_fill
+JOIN files_file ON files_file.id = files_fill.file_id
+WHERE files_fill.target_id IN (/*SLICE:target_ids*/?)
+ORDER BY files_fill.target_id, files_fill.file_id
+`
+
+type ListFillsOfTargetsRow struct {
+	TargetID targets.TargetID
+	WorkID   works.WorkID
+	ItemID   works.ItemID
+	Size     int64
+}
+
+func (q *Queries) ListFillsOfTargets(ctx context.Context, targetIds []targets.TargetID) ([]ListFillsOfTargetsRow, error) {
+	query := listFillsOfTargets
+	var queryParams []interface{}
+	if len(targetIds) > 0 {
+		for _, v := range targetIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:target_ids*/?", strings.Repeat(",?", len(targetIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:target_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFillsOfTargetsRow
+	for rows.Next() {
+		var i ListFillsOfTargetsRow
+		if err := rows.Scan(
+			&i.TargetID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Size,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listFillsOfWork = `-- name: ListFillsOfWork :many

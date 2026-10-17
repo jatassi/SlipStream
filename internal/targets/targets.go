@@ -31,16 +31,6 @@ type (
 	ProfileID = db.ProfileID
 )
 
-// Profile is the Targets a Content Type's Works want, in rank order. The
-// first Profile made for a Content Type is its default.
-type Profile struct {
-	ID          ProfileID
-	Name        string
-	ContentType works.TypeID
-	Default     bool
-	Targets     []TargetID
-}
-
 type Changed struct{}
 
 var ChangedEvent = live.AdminEvent[Changed]("targets.changed")
@@ -54,6 +44,9 @@ var (
 	ErrProfileNameTaken = errors.New("a Profile already has that name")
 	ErrNoType           = errors.New("no Content Type has that id")
 	ErrNoTarget         = errors.New("no Target has that id")
+	ErrNoProfile        = errors.New("no Profile has that id")
+	ErrProfileWrongType = errors.New("the Profile is for another Content Type")
+	ErrTargetTwice      = errors.New("a Profile holds a Target twice")
 )
 
 // InUseError is a Target that Profiles hold, By their names.
@@ -68,14 +61,20 @@ func (e *InUseError) Error() string {
 
 type Config struct {
 	Library *storage.DB[file]
-	// Types is every Content Type this binary registers.
-	Types   []works.TypeID
+	// Works describes each Content Type, whose name its default Profile
+	// takes.
+	Works Describer
+	// Types is every Content Type this binary registers, by its facet.
+	Types   map[works.TypeID]Facet
 	Changed Publisher
 }
 
-type Targets struct{ cfg Config }
+// Describer is works.Works as Open reads it.
+type Describer interface {
+	Describe(t works.TypeID) (works.Description, bool)
+}
 
-func New(cfg Config) *Targets { return &Targets{cfg: cfg} }
+type Targets struct{ cfg Config }
 
 // CreateTarget checks s and creates its Target.
 func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, s Spec) (Target, error) {
@@ -225,95 +224,6 @@ func (t *Targets) DeleteTarget(ctx context.Context, _ identity.Admin, id TargetI
 	}
 	t.cfg.Changed.Publish(ctx, Changed{})
 	return nil
-}
-
-func (t *Targets) CreateProfile(ctx context.Context, _ identity.Admin, name string, contentType works.TypeID, targets []TargetID) (Profile, error) {
-	if !slices.Contains(t.cfg.Types, contentType) {
-		return Profile{}, ErrNoType
-	}
-	p := Profile{ID: ProfileID{UUID: storage.NewUUID()}, Name: name, ContentType: contentType, Targets: targets}
-	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		taken, err := q.ProfileNameTaken(ctx, name)
-		switch {
-		case err != nil:
-			return err
-		case taken:
-			return ErrProfileNameTaken
-		}
-		for _, id := range targets {
-			switch has, err := q.HasTarget(ctx, id); {
-			case err != nil:
-				return err
-			case !has:
-				return ErrNoTarget
-			}
-		}
-		hasDefault, err := q.HasDefaultProfile(ctx, contentType)
-		if err != nil {
-			return err
-		}
-		p.Default = !hasDefault
-		if err := q.InsertProfile(ctx, db.InsertProfileParams{ID: p.ID, Name: name, ContentType: contentType, IsDefault: p.Default}); err != nil {
-			return err
-		}
-		for i, id := range targets {
-			if err := q.InsertProfileTarget(ctx, db.InsertProfileTargetParams{ProfileID: p.ID, Position: int64(i + 1), TargetID: id}); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return Profile{}, err
-	}
-	t.cfg.Changed.Publish(ctx, Changed{})
-	return p, nil
-}
-
-// ListProfiles lists every Profile by Content Type, then name.
-func (t *Targets) ListProfiles(ctx context.Context, _ identity.Admin) ([]Profile, error) {
-	var out []Profile
-	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		q := db.New(r)
-		rows, err := q.ListProfiles(ctx)
-		if err != nil {
-			return err
-		}
-		members, err := q.ListProfileTargets(ctx)
-		if err != nil {
-			return err
-		}
-		held := map[ProfileID][]TargetID{}
-		for _, m := range members {
-			held[m.ProfileID] = append(held[m.ProfileID], m.TargetID)
-		}
-		out = make([]Profile, len(rows))
-		for i, row := range rows {
-			out[i] = Profile{ID: row.ID, Name: row.Name, ContentType: row.ContentType, Default: row.IsDefault, Targets: held[row.ID]}
-		}
-		return nil
-	})
-	return out, err
-}
-
-// Wanted lists the Targets of t's default Profile in rank order, none when
-// t has no Profile.
-func Wanted(ctx context.Context, r storage.Reader[file], t works.TypeID) ([]Target, error) {
-	q := db.New(r)
-	rows, err := q.ListDefaultTargets(ctx, t)
-	if err != nil {
-		return nil, err
-	}
-	all, err := listTargets(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Target, len(rows))
-	for i, row := range rows {
-		out[i] = all[slices.IndexFunc(all, func(t Target) bool { return t.ID == row.ID })]
-	}
-	return out, nil
 }
 
 // listTargets reads every Target with its rules, holders and containment,

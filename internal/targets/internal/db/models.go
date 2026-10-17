@@ -34,6 +34,7 @@ type TargetsProfileTarget struct {
 	ProfileID ProfileID
 	Position  int64
 	TargetID  TargetID
+	Sourcing  Sourcing
 }
 
 type TargetsQuality struct {
@@ -45,9 +46,19 @@ type TargetsQuality struct {
 	MaxMibPerMinute *float64
 }
 
+type TargetsStarter struct {
+	ID       Singleton
+	TargetID *TargetID
+}
+
 type TargetsTarget struct {
 	ID         TargetID
 	Name       string
 	CreatedAt  storage.Time
 	CutoffTier int64
+}
+
+type TargetsWant struct {
+	WorkID    works.WorkID
+	ProfileID ProfileID
 }

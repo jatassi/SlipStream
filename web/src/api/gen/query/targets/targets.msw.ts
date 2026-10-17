@@ -5,10 +5,12 @@ import type { RequestHandlerOptions } from "msw";
 
 import type {
   TargetsProfile,
+  TargetsProfileDetail,
   TargetsProfileList,
   TargetsQualityList,
   TargetsTarget,
   TargetsTargetList,
+  TargetsWants,
 } from "../../model";
 
 export const getListProfilesResponseMock = (
@@ -18,11 +20,16 @@ export const getListProfilesResponseMock = (
     () => ({
       contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
       default: faker.datatype.boolean(),
+      editions: { kind: faker.helpers.arrayElement(["any"] as const) },
       id: faker.string.uuid(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-        () => faker.string.uuid(),
+      targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          sourcing: faker.helpers.arrayElement(["download"] as const),
+          targetId: faker.string.uuid(),
+        }),
       ),
+      works: faker.number.int({ min: 0 }),
     }),
   ),
   ...overrideResponse,
@@ -33,11 +40,62 @@ export const getCreateProfileResponseMock = (
 ): TargetsProfile => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
   default: faker.datatype.boolean(),
+  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
   id: faker.string.uuid(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-    () => faker.string.uuid(),
+  targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      sourcing: faker.helpers.arrayElement(["download"] as const),
+      targetId: faker.string.uuid(),
+    }),
   ),
+  works: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getGetProfileResponseMock = (
+  overrideResponse: Partial<Extract<TargetsProfileDetail, object>> = {},
+): TargetsProfileDetail => ({
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  default: faker.datatype.boolean(),
+  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  estimates: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      bytes: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+      mibPerMinute: faker.helpers.arrayElement([
+        faker.number.float({ min: 0, fractionDigits: 2 }),
+        null,
+      ]),
+      targetId: faker.string.uuid(),
+    }),
+  ),
+  id: faker.string.uuid(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      sourcing: faker.helpers.arrayElement(["download"] as const),
+      targetId: faker.string.uuid(),
+    }),
+  ),
+  works: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getMakeDefaultProfileResponseMock = (
+  overrideResponse: Partial<Extract<TargetsProfile, object>> = {},
+): TargetsProfile => ({
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  default: faker.datatype.boolean(),
+  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  id: faker.string.uuid(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      sourcing: faker.helpers.arrayElement(["download"] as const),
+      targetId: faker.string.uuid(),
+    }),
+  ),
+  works: faker.number.int({ min: 0 }),
   ...overrideResponse,
 });
 
@@ -358,6 +416,16 @@ export const getDuplicateTargetResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkWantsResponseMock = (
+  overrideResponse: Partial<Extract<TargetsWants, object>> = {},
+): TargetsWants => ({
+  editions: { kind: faker.helpers.arrayElement(["any"] as const) },
+  from: faker.helpers.arrayElement(["profile", "work"] as const),
+  profileId: faker.string.uuid(),
+  profileName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
 export const getListProfilesMockHandler = (
   overrideResponse?:
     | TargetsProfileList
@@ -400,6 +468,54 @@ export const getCreateProfileMockHandler = (
             : overrideResponse
           : getCreateProfileResponseMock(),
         { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetProfileMockHandler = (
+  overrideResponse?:
+    | TargetsProfileDetail
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<TargetsProfileDetail> | TargetsProfileDetail),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/profiles/:profileId",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetProfileResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getMakeDefaultProfileMockHandler = (
+  overrideResponse?:
+    | TargetsProfile
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<TargetsProfile> | TargetsProfile),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/profiles/:profileId/default",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getMakeDefaultProfileResponseMock(),
+        { status: 200 },
       );
     },
     options,
@@ -544,13 +660,40 @@ export const getDuplicateTargetMockHandler = (
     options,
   );
 };
+
+export const getGetWorkWantsMockHandler = (
+  overrideResponse?:
+    | TargetsWants
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<TargetsWants> | TargetsWants),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/works/:workId/wants",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetWorkWantsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getTargetsMock = () => [
   getListProfilesMockHandler(),
   getCreateProfileMockHandler(),
+  getGetProfileMockHandler(),
+  getMakeDefaultProfileMockHandler(),
   getListQualitiesMockHandler(),
   getListTargetsMockHandler(),
   getCreateTargetMockHandler(),
   getDeleteTargetMockHandler(),
   getGetTargetMockHandler(),
   getDuplicateTargetMockHandler(),
+  getGetWorkWantsMockHandler(),
 ];

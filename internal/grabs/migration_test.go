@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -20,6 +21,12 @@ import (
 type discard struct{}
 
 func (discard) Publish(context.Context, targets.Changed) {}
+
+type fixtureNamed struct{}
+
+func (fixtureNamed) Describe(works.TypeID) (works.Description, bool) {
+	return works.Description{Name: "Fixtures"}, true
+}
 
 func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 	ctx := t.Context()
@@ -80,7 +87,13 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 	if got := held(); len(got) != 1 || got[0].UUID != target {
 		t.Fatalf("after the migration the Grab is for %v, want the Target %s", got, target)
 	}
-	if err := targets.New(targets.Config{Library: lib, Changed: discard{}}).DeleteTarget(ctx, identity.Admin{}, targets.TargetID{UUID: target}); err != nil {
+	goals, err := targets.Open(ctx, targets.Config{
+		Library: lib, Works: fixtureNamed{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: contenttypetest.New()}, Changed: discard{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := goals.DeleteTarget(ctx, identity.Admin{}, targets.TargetID{UUID: target}); err != nil {
 		t.Fatalf("delete a Target only a Grab's history names: %v", err)
 	}
 	if got := held(); len(got) != 0 {

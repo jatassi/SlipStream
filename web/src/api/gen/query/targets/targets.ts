@@ -39,12 +39,24 @@ import type {
   DuplicateTarget409,
   DuplicateTarget422,
   DuplicateTarget500,
+  GetProfile401,
+  GetProfile403,
+  GetProfile404,
+  GetProfile409,
+  GetProfile422,
+  GetProfile500,
   GetTarget401,
   GetTarget403,
   GetTarget404,
   GetTarget409,
   GetTarget422,
   GetTarget500,
+  GetWorkWants401,
+  GetWorkWants403,
+  GetWorkWants404,
+  GetWorkWants409,
+  GetWorkWants422,
+  GetWorkWants500,
   ListProfiles401,
   ListProfiles403,
   ListProfiles409,
@@ -57,13 +69,21 @@ import type {
   ListTargets403,
   ListTargets409,
   ListTargets500,
+  MakeDefaultProfile401,
+  MakeDefaultProfile403,
+  MakeDefaultProfile404,
+  MakeDefaultProfile409,
+  MakeDefaultProfile422,
+  MakeDefaultProfile500,
   TargetsNewProfile,
   TargetsNewTarget,
   TargetsProfile,
+  TargetsProfileDetail,
   TargetsProfileList,
   TargetsQualityList,
   TargetsTarget,
   TargetsTargetList,
+  TargetsWants,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -91,7 +111,7 @@ export const getListProfilesUrl = () => {
 };
 
 /**
- * @summary List the Profiles
+ * @summary List the Profiles, each with the count of Works wanting from it
  */
 export const listProfiles = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -173,7 +193,7 @@ export function useListProfilesSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the Profiles
+ * @summary List the Profiles, each with the count of Works wanting from it
  */
 
 export function useListProfilesSuspense<
@@ -203,7 +223,7 @@ export const getCreateProfileUrl = () => {
 };
 
 /**
- * @summary Create a Profile; a Content Type's first is its default
+ * @summary Create a Profile of Targets in Profile order; it is never the default
  */
 export const createProfile = async (
   targetsNewProfile: TargetsNewProfile,
@@ -294,7 +314,7 @@ export type CreateProfileMutationError = ErrorType<
 export type CreateProfileMutationVariables = { data: TargetsNewProfile };
 
 /**
- * @summary Create a Profile; a Content Type's first is its default
+ * @summary Create a Profile of Targets in Profile order; it is never the default
  */
 export const useCreateProfile = <
   TError = ErrorType<
@@ -324,6 +344,236 @@ export const useCreateProfile = <
   TContext
 > => {
   return useMutation(getCreateProfileMutationOptions(options), queryClient);
+};
+export const getGetProfileUrl = (profileId: string) => {
+  return `/api/v1/profiles/${profileId}`;
+};
+
+/**
+ * @summary Get a Profile with the disk each of its Targets costs across its Works
+ */
+export const getProfile = async (
+  profileId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsProfileDetail> => {
+  return apiFetch<TargetsProfileDetail>(getGetProfileUrl(profileId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetProfileQueryKey = (profileId: string) => {
+  return [`/api/v1/profiles/${profileId}`] as const;
+};
+
+export const getGetProfileSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProfile>>,
+  TError = ErrorType<
+    GetProfile401 | GetProfile403 | GetProfile404 | GetProfile409 | GetProfile422 | GetProfile500
+  >,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetProfileQueryKey(profileId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getProfile>>> = ({ signal }) =>
+    getProfile(profileId, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetProfileSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getProfile>>>;
+export type GetProfileSuspenseQueryError = ErrorType<
+  GetProfile401 | GetProfile403 | GetProfile404 | GetProfile409 | GetProfile422 | GetProfile500
+>;
+
+export function useGetProfileSuspense<
+  TData = Awaited<ReturnType<typeof getProfile>>,
+  TError = ErrorType<
+    GetProfile401 | GetProfile403 | GetProfile404 | GetProfile409 | GetProfile422 | GetProfile500
+  >,
+>(
+  profileId: string,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetProfileSuspense<
+  TData = Awaited<ReturnType<typeof getProfile>>,
+  TError = ErrorType<
+    GetProfile401 | GetProfile403 | GetProfile404 | GetProfile409 | GetProfile422 | GetProfile500
+  >,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetProfileSuspense<
+  TData = Awaited<ReturnType<typeof getProfile>>,
+  TError = ErrorType<
+    GetProfile401 | GetProfile403 | GetProfile404 | GetProfile409 | GetProfile422 | GetProfile500
+  >,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get a Profile with the disk each of its Targets costs across its Works
+ */
+
+export function useGetProfileSuspense<
+  TData = Awaited<ReturnType<typeof getProfile>>,
+  TError = ErrorType<
+    GetProfile401 | GetProfile403 | GetProfile404 | GetProfile409 | GetProfile422 | GetProfile500
+  >,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetProfileSuspenseQueryOptions(profileId, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getMakeDefaultProfileUrl = (profileId: string) => {
+  return `/api/v1/profiles/${profileId}/default`;
+};
+
+/**
+ * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ */
+export const makeDefaultProfile = async (
+  profileId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsProfile> => {
+  return apiFetch<TargetsProfile>(getMakeDefaultProfileUrl(profileId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMakeDefaultProfileMutationKey = () => ["makeDefaultProfile"] as const;
+
+export const getMakeDefaultProfileMutationOptions = <
+  TError = ErrorType<
+    | MakeDefaultProfile401
+    | MakeDefaultProfile403
+    | MakeDefaultProfile404
+    | MakeDefaultProfile409
+    | MakeDefaultProfile422
+    | MakeDefaultProfile500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof makeDefaultProfile>>,
+    TError,
+    MakeDefaultProfileMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof makeDefaultProfile>>,
+  TError,
+  MakeDefaultProfileMutationVariables,
+  TContext
+> => {
+  const mutationKey = getMakeDefaultProfileMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof makeDefaultProfile>>,
+    MakeDefaultProfileMutationVariables
+  > = (props) => {
+    const { profileId } = props ?? {};
+
+    return makeDefaultProfile(profileId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MakeDefaultProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof makeDefaultProfile>>
+>;
+
+export type MakeDefaultProfileMutationError = ErrorType<
+  | MakeDefaultProfile401
+  | MakeDefaultProfile403
+  | MakeDefaultProfile404
+  | MakeDefaultProfile409
+  | MakeDefaultProfile422
+  | MakeDefaultProfile500
+>;
+export type MakeDefaultProfileMutationVariables = { profileId: string };
+
+/**
+ * @summary Make a Profile its Content Type's default; existing Works keep theirs
+ */
+export const useMakeDefaultProfile = <
+  TError = ErrorType<
+    | MakeDefaultProfile401
+    | MakeDefaultProfile403
+    | MakeDefaultProfile404
+    | MakeDefaultProfile409
+    | MakeDefaultProfile422
+    | MakeDefaultProfile500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof makeDefaultProfile>>,
+      TError,
+      MakeDefaultProfileMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof makeDefaultProfile>>,
+  TError,
+  MakeDefaultProfileMutationVariables,
+  TContext
+> => {
+  return useMutation(getMakeDefaultProfileMutationOptions(options), queryClient);
 };
 export const getListQualitiesUrl = () => {
   return `/api/v1/qualities`;
@@ -999,3 +1249,164 @@ export const useDuplicateTarget = <
 > => {
   return useMutation(getDuplicateTargetMutationOptions(options), queryClient);
 };
+export const getGetWorkWantsUrl = (workId: string) => {
+  return `/api/v1/works/${workId}/wants`;
+};
+
+/**
+ * @summary Get the Profile a Work wants from and its Edition list
+ */
+export const getWorkWants = async (
+  workId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsWants> => {
+  return apiFetch<TargetsWants>(getGetWorkWantsUrl(workId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWorkWantsQueryKey = (workId: string) => {
+  return [`/api/v1/works/${workId}/wants`] as const;
+};
+
+export const getGetWorkWantsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkWants>>,
+  TError = ErrorType<
+    | GetWorkWants401
+    | GetWorkWants403
+    | GetWorkWants404
+    | GetWorkWants409
+    | GetWorkWants422
+    | GetWorkWants500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkWants>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWorkWantsQueryKey(workId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkWants>>> = ({ signal }) =>
+    getWorkWants(workId, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkWants>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetWorkWantsSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getWorkWants>>>;
+export type GetWorkWantsSuspenseQueryError = ErrorType<
+  | GetWorkWants401
+  | GetWorkWants403
+  | GetWorkWants404
+  | GetWorkWants409
+  | GetWorkWants422
+  | GetWorkWants500
+>;
+
+export function useGetWorkWantsSuspense<
+  TData = Awaited<ReturnType<typeof getWorkWants>>,
+  TError = ErrorType<
+    | GetWorkWants401
+    | GetWorkWants403
+    | GetWorkWants404
+    | GetWorkWants409
+    | GetWorkWants422
+    | GetWorkWants500
+  >,
+>(
+  workId: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkWants>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetWorkWantsSuspense<
+  TData = Awaited<ReturnType<typeof getWorkWants>>,
+  TError = ErrorType<
+    | GetWorkWants401
+    | GetWorkWants403
+    | GetWorkWants404
+    | GetWorkWants409
+    | GetWorkWants422
+    | GetWorkWants500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkWants>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetWorkWantsSuspense<
+  TData = Awaited<ReturnType<typeof getWorkWants>>,
+  TError = ErrorType<
+    | GetWorkWants401
+    | GetWorkWants403
+    | GetWorkWants404
+    | GetWorkWants409
+    | GetWorkWants422
+    | GetWorkWants500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkWants>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the Profile a Work wants from and its Edition list
+ */
+
+export function useGetWorkWantsSuspense<
+  TData = Awaited<ReturnType<typeof getWorkWants>>,
+  TError = ErrorType<
+    | GetWorkWants401
+    | GetWorkWants403
+    | GetWorkWants404
+    | GetWorkWants409
+    | GetWorkWants422
+    | GetWorkWants500
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkWants>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetWorkWantsSuspenseQueryOptions(workId, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

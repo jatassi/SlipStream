@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -72,12 +73,98 @@ func (q *Queries) ListAlbums(ctx context.Context, workID works.WorkID) ([]MusicA
 	return items, nil
 }
 
+const listAlbumsOf = `-- name: ListAlbumsOf :many
+SELECT level_id, work_id, released, primary_type, release_id FROM music_album WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY level_id
+`
+
+func (q *Queries) ListAlbumsOf(ctx context.Context, workIds []works.WorkID) ([]MusicAlbum, error) {
+	query := listAlbumsOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicAlbum
+	for rows.Next() {
+		var i MusicAlbum
+		if err := rows.Scan(
+			&i.LevelID,
+			&i.WorkID,
+			&i.Released,
+			&i.PrimaryType,
+			&i.ReleaseID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTracks = `-- name: ListTracks :many
 SELECT item_id, work_id, disc, number, length_ms FROM music_track WHERE work_id = ?1 ORDER BY item_id
 `
 
 func (q *Queries) ListTracks(ctx context.Context, workID works.WorkID) ([]MusicTrack, error) {
 	rows, err := q.db.QueryContext(ctx, listTracks, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicTrack
+	for rows.Next() {
+		var i MusicTrack
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.WorkID,
+			&i.Disc,
+			&i.Number,
+			&i.LengthMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTracksOf = `-- name: ListTracksOf :many
+SELECT item_id, work_id, disc, number, length_ms FROM music_track WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY item_id
+`
+
+func (q *Queries) ListTracksOf(ctx context.Context, workIds []works.WorkID) ([]MusicTrack, error) {
+	query := listTracksOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

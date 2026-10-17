@@ -79,9 +79,10 @@ func walk(t *testing.T, name string) walked {
 	return w
 }
 
-// tookTheAdvertised checks the search took the 1080p release at the size the site
-// advertised, noting its size went unchecked, and refused the 720p one
-// the 1080p Target doesn't accept.
+// tookTheAdvertised checks the search took the 1080p release at the size
+// the site advertised. The starter Target accepts the 720p one too and
+// ranks it lower, and the movie's known runtime lets it check sizes, so
+// nothing is refused and nothing noted.
 func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 	t.Helper()
 	if want := int64(w.s.Releases[0].AdvertisedSize); w.grab.ReleaseSize != want {
@@ -94,20 +95,16 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 			IndexerID  string `json:"indexerId"`
 			StartedAt  string `json:"startedAt"`
 			FinishedAt string `json:"finishedAt"`
-			Notes      []struct {
-				TargetID string `json:"targetId"`
-			} `json:"notes"`
 		} `json:"searches"`
 	}
 	decode(t, "listSearches", reply, &list)
-	if len(list.Searches) != 1 || len(list.Searches[0].Notes) != 1 {
-		t.Fatalf("listSearches = %s, want one search with one note", reply.Body)
+	if len(list.Searches) != 1 {
+		t.Fatalf("listSearches = %s, want one search", reply.Body)
 	}
-	r, target := list.Searches[0], list.Searches[0].Notes[0].TargetID
+	r := list.Searches[0]
 	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemId":"` + r.ItemID +
 		`","indexerId":"` + r.IndexerID + `","startedAt":"` + r.StartedAt + `","finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
-		`"refused":[{"title":"The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW","reasons":[{"code":"quality_not_in_target","targetId":"` + target + `","value":"webdl-720p"}]}],` +
-		`"grabId":"` + w.grab.ID + `","notes":[{"code":"size_not_checked","targetId":"` + target + `"}]}]}` + "\n"})
+		`"refused":[],"grabId":"` + w.grab.ID + `","notes":[]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the
@@ -135,7 +132,7 @@ func begin(t *testing.T, name string) walked {
 	worldtest.Expect(t, "getWorkCells before the search", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
 		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"standard","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
-			`"state":"missing"}]}` + "\n",
+			`"state":"missing"}],"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing"}]}` + "\n",
 	})
 	return w
 }
@@ -212,7 +209,7 @@ func TestSkeletonHome(t *testing.T) {
 		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
 	}
 	checkAnnounces(t, w, seedbox)
-	checkMet(t, w)
+	checkUpgradable(t, w)
 }
 
 func TestSkeletonSingleMachine(t *testing.T) {
@@ -229,7 +226,7 @@ func TestSkeletonSingleMachine(t *testing.T) {
 		t.Fatalf("the root has a staging folder (%v), want none: no Transfer ran", err)
 	}
 	checkAnnounces(t, w, w.m.Nodes[0])
-	checkMet(t, w)
+	checkUpgradable(t, w)
 }
 
 // checkPlaced checks the media dir holds only the imported file, the
@@ -248,17 +245,19 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	}
 }
 
-func checkMet(t *testing.T, w walked) {
+// checkUpgradable checks the WEB-DL file fills the starter Target below
+// its Bluray-1080p cutoff tier.
+func checkUpgradable(t *testing.T, w walked) {
 	t.Helper()
 	c := cells(t, w.a, w.work).Cells[0]
 	if c.File == nil {
-		t.Fatalf("getWorkCells = %+v, want a met cell", c)
+		t.Fatalf("getWorkCells = %+v, want a filled cell", c)
 	}
 	worldtest.Expect(t, "getWorkCells after the import", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
-		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"standard","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":false,"state":"met",` +
+		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"standard","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":false,"state":"upgradable",` +
 			`"file":{"id":"` + c.File.ID + `","path":"The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv","size":` + strconv.FormatInt(c.File.Size, 10) +
-			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}]}` + "\n",
+			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}],"items":[{"itemId":"` + c.ItemID + `","status":"upgradable"}]}` + "\n",
 	})
 }
 

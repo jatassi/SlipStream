@@ -13,6 +13,63 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const clearDefault = `-- name: ClearDefault :exec
+UPDATE targets_profile SET is_default = 0 WHERE content_type = ?1 AND is_default = 1
+`
+
+func (q *Queries) ClearDefault(ctx context.Context, contentType works.TypeID) error {
+	_, err := q.db.ExecContext(ctx, clearDefault, contentType)
+	return err
+}
+
+const countWants = `-- name: CountWants :many
+SELECT profile_id, count(*) AS works FROM targets_wants GROUP BY profile_id ORDER BY profile_id
+`
+
+type CountWantsRow struct {
+	ProfileID ProfileID
+	Works     int64
+}
+
+func (q *Queries) CountWants(ctx context.Context) ([]CountWantsRow, error) {
+	rows, err := q.db.QueryContext(ctx, countWants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountWantsRow
+	for rows.Next() {
+		var i CountWantsRow
+		if err := rows.Scan(&i.ProfileID, &i.Works); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const defaultProfile = `-- name: DefaultProfile :one
+SELECT id, name, content_type, is_default FROM targets_profile WHERE content_type = ?1 AND is_default = 1
+`
+
+func (q *Queries) DefaultProfile(ctx context.Context, contentType works.TypeID) (TargetsProfile, error) {
+	row := q.db.QueryRowContext(ctx, defaultProfile, contentType)
+	var i TargetsProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ContentType,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
 const deleteTarget = `-- name: DeleteTarget :execrows
 DELETE FROM targets_target WHERE id = ?1
 `
@@ -23,6 +80,33 @@ func (q *Queries) DeleteTarget(ctx context.Context, id TargetID) (int64, error) 
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const getProfile = `-- name: GetProfile :one
+SELECT id, name, content_type, is_default FROM targets_profile WHERE id = ?1
+`
+
+func (q *Queries) GetProfile(ctx context.Context, id ProfileID) (TargetsProfile, error) {
+	row := q.db.QueryRowContext(ctx, getProfile, id)
+	var i TargetsProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ContentType,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
+const getStarter = `-- name: GetStarter :one
+SELECT id, target_id FROM targets_starter WHERE id = 1
+`
+
+func (q *Queries) GetStarter(ctx context.Context) (TargetsStarter, error) {
+	row := q.db.QueryRowContext(ctx, getStarter)
+	var i TargetsStarter
+	err := row.Scan(&i.ID, &i.TargetID)
+	return i, err
 }
 
 const getTarget = `-- name: GetTarget :one
@@ -38,6 +122,17 @@ func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, er
 		&i.CreatedAt,
 		&i.CutoffTier,
 	)
+	return i, err
+}
+
+const getWants = `-- name: GetWants :one
+SELECT work_id, profile_id FROM targets_wants WHERE work_id = ?1
+`
+
+func (q *Queries) GetWants(ctx context.Context, workID works.WorkID) (TargetsWant, error) {
+	row := q.db.QueryRowContext(ctx, getWants, workID)
+	var i TargetsWant
+	err := row.Scan(&i.WorkID, &i.ProfileID)
 	return i, err
 }
 
@@ -123,18 +218,24 @@ func (q *Queries) InsertProfile(ctx context.Context, arg InsertProfileParams) er
 }
 
 const insertProfileTarget = `-- name: InsertProfileTarget :exec
-INSERT INTO targets_profile_target (profile_id, position, target_id)
-VALUES (?1, ?2, ?3)
+INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing)
+VALUES (?1, ?2, ?3, ?4)
 `
 
 type InsertProfileTargetParams struct {
 	ProfileID ProfileID
 	Position  int64
 	TargetID  TargetID
+	Sourcing  Sourcing
 }
 
 func (q *Queries) InsertProfileTarget(ctx context.Context, arg InsertProfileTargetParams) error {
-	_, err := q.db.ExecContext(ctx, insertProfileTarget, arg.ProfileID, arg.Position, arg.TargetID)
+	_, err := q.db.ExecContext(ctx, insertProfileTarget,
+		arg.ProfileID,
+		arg.Position,
+		arg.TargetID,
+		arg.Sourcing,
+	)
 	return err
 }
 
@@ -165,6 +266,15 @@ func (q *Queries) InsertQuality(ctx context.Context, arg InsertQualityParams) er
 	return err
 }
 
+const insertStarter = `-- name: InsertStarter :exec
+INSERT INTO targets_starter (id, target_id) VALUES (1, ?1)
+`
+
+func (q *Queries) InsertStarter(ctx context.Context, targetID *TargetID) error {
+	_, err := q.db.ExecContext(ctx, insertStarter, targetID)
+	return err
+}
+
 const insertTarget = `-- name: InsertTarget :exec
 INSERT INTO targets_target (id, name, created_at, cutoff_tier)
 VALUES (?1, ?2, ?3, ?4)
@@ -187,40 +297,18 @@ func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) erro
 	return err
 }
 
-const listDefaultTargets = `-- name: ListDefaultTargets :many
-SELECT t.id, t.name, t.created_at, t.cutoff_tier FROM targets_profile_target pt
-JOIN targets_profile p ON p.id = pt.profile_id
-JOIN targets_target t ON t.id = pt.target_id
-WHERE p.content_type = ?1 AND p.is_default = 1
-ORDER BY pt.position
+const insertWants = `-- name: InsertWants :exec
+INSERT INTO targets_wants (work_id, profile_id) VALUES (?1, ?2)
 `
 
-func (q *Queries) ListDefaultTargets(ctx context.Context, contentType works.TypeID) ([]TargetsTarget, error) {
-	rows, err := q.db.QueryContext(ctx, listDefaultTargets, contentType)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TargetsTarget
-	for rows.Next() {
-		var i TargetsTarget
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.CreatedAt,
-			&i.CutoffTier,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type InsertWantsParams struct {
+	WorkID    works.WorkID
+	ProfileID ProfileID
+}
+
+func (q *Queries) InsertWants(ctx context.Context, arg InsertWantsParams) error {
+	_, err := q.db.ExecContext(ctx, insertWants, arg.WorkID, arg.ProfileID)
+	return err
 }
 
 const listFilterValues = `-- name: ListFilterValues :many
@@ -318,7 +406,7 @@ func (q *Queries) ListHolders(ctx context.Context) ([]ListHoldersRow, error) {
 }
 
 const listProfileTargets = `-- name: ListProfileTargets :many
-SELECT profile_id, position, target_id FROM targets_profile_target ORDER BY profile_id, position
+SELECT profile_id, position, target_id, sourcing FROM targets_profile_target ORDER BY profile_id, position
 `
 
 func (q *Queries) ListProfileTargets(ctx context.Context) ([]TargetsProfileTarget, error) {
@@ -330,7 +418,12 @@ func (q *Queries) ListProfileTargets(ctx context.Context) ([]TargetsProfileTarge
 	var items []TargetsProfileTarget
 	for rows.Next() {
 		var i TargetsProfileTarget
-		if err := rows.Scan(&i.ProfileID, &i.Position, &i.TargetID); err != nil {
+		if err := rows.Scan(
+			&i.ProfileID,
+			&i.Position,
+			&i.TargetID,
+			&i.Sourcing,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -442,6 +535,60 @@ func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
 	return items, nil
 }
 
+const listWants = `-- name: ListWants :many
+SELECT work_id, profile_id FROM targets_wants ORDER BY work_id
+`
+
+func (q *Queries) ListWants(ctx context.Context) ([]TargetsWant, error) {
+	rows, err := q.db.QueryContext(ctx, listWants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsWant
+	for rows.Next() {
+		var i TargetsWant
+		if err := rows.Scan(&i.WorkID, &i.ProfileID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorksOfProfile = `-- name: ListWorksOfProfile :many
+SELECT work_id FROM targets_wants WHERE profile_id = ?1 ORDER BY work_id
+`
+
+func (q *Queries) ListWorksOfProfile(ctx context.Context, profileID ProfileID) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksOfProfile, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const profileNameTaken = `-- name: ProfileNameTaken :one
 SELECT EXISTS (SELECT 1 FROM targets_profile WHERE name = ?1)
 `
@@ -451,6 +598,15 @@ func (q *Queries) ProfileNameTaken(ctx context.Context, name string) (bool, erro
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const setDefault = `-- name: SetDefault :exec
+UPDATE targets_profile SET is_default = 1 WHERE id = ?1
+`
+
+func (q *Queries) SetDefault(ctx context.Context, id ProfileID) error {
+	_, err := q.db.ExecContext(ctx, setDefault, id)
+	return err
 }
 
 const targetNameTaken = `-- name: TargetNameTaken :one

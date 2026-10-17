@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -238,9 +239,13 @@ func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, ter
 			item = append(item, c)
 		}
 	}
+	var runtime release.Fact[time.Duration]
+	if len(item) > 0 {
+		runtime = item[0].Timing.Runtime
+	}
 	candidates := make([]candidate, len(items))
 	for i, it := range items {
-		candidates[i] = candidateOf(it, run.ItemID)
+		candidates[i] = candidateOf(it, run.ItemID, runtime)
 	}
 	pick, refused := decide(item, terms, candidates)
 	q := db.New(tx)

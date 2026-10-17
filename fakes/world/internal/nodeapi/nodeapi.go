@@ -170,9 +170,38 @@ func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t
 	return target.ID, err
 }
 
-// CreateProfile creates a Profile of the Targets with ids targetIDs and
-// returns its id.
+// ListTargets lists the Targets' ids by name.
+func ListTargets(ctx context.Context, c *http.Client, baseURL, apiKey string) (map[string]string, error) {
+	var list struct {
+		Targets []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"targets"`
+	}
+	_, err := call(ctx, c, request{
+		what: "list Targets", method: http.MethodGet, url: baseURL + "/api/v1/targets", header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, &list)
+	out := map[string]string{}
+	for _, t := range list.Targets {
+		out[t.Name] = t.ID
+	}
+	return out, err
+}
+
+// CreateProfile creates a Profile of the Targets with ids targetIDs, in
+// Profile order, downloaded, of any cut, and returns its id.
 func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, targetIDs []string) (string, error) {
+	type entry struct {
+		TargetID string `json:"targetId"`
+		Sourcing string `json:"sourcing"`
+	}
+	type editions struct {
+		Kind string `json:"kind"`
+	}
+	entries := []entry{}
+	for _, id := range targetIDs {
+		entries = append(entries, entry{id, "download"})
+	}
 	var profile struct {
 		ID string `json:"id"`
 	}
@@ -181,10 +210,20 @@ func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, c
 		header: apiKeyHeader(apiKey), body: struct {
 			Name        string   `json:"name"`
 			ContentType string   `json:"contentType"`
-			TargetIDs   []string `json:"targetIds"`
-		}{name, contentType, targetIDs}, want: http.StatusCreated,
+			Targets     []entry  `json:"targets"`
+			Editions    editions `json:"editions"`
+		}{name, contentType, entries, editions{"any"}}, want: http.StatusCreated,
 	}, &profile)
 	return profile.ID, err
+}
+
+// MakeDefaultProfile makes Profile id its Content Type's default.
+func MakeDefaultProfile(ctx context.Context, c *http.Client, baseURL, apiKey, id string) error {
+	_, err := call(ctx, c, request{
+		what: "make Profile " + id + " the default", method: http.MethodPost, url: baseURL + "/api/v1/profiles/" + id + "/default",
+		header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, nil)
+	return err
 }
 
 // SetAddress sets the address the Controller builds its links on.

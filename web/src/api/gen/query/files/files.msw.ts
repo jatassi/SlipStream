@@ -9,8 +9,23 @@ import type {
   FilesFailedCell,
   FilesMetCell,
   FilesMissingCell,
+  FilesUnreleasedCell,
   FilesUpgradableCell,
 } from "../../model";
+
+export const getGetWorkCellsResponseFilesUnreleasedCellMock = (
+  overrideResponse: Partial<FilesUnreleasedCell> = {},
+): FilesUnreleasedCell => ({
+  ...{
+    edition: faker.helpers.arrayElement(["standard"] as const),
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["unreleased"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
 
 export const getGetWorkCellsResponseFilesMissingCellMock = (
   overrideResponse: Partial<FilesMissingCell> = {},
@@ -139,6 +154,7 @@ export const getGetWorkCellsResponseMock = (
 ): FilesCellList => ({
   cells: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
+      { ...getGetWorkCellsResponseFilesUnreleasedCellMock() },
       { ...getGetWorkCellsResponseFilesMissingCellMock() },
       { ...getGetWorkCellsResponseFilesDownloadingCellMock() },
       { ...getGetWorkCellsResponseFilesFailedCellMock() },
@@ -146,6 +162,20 @@ export const getGetWorkCellsResponseMock = (
       { ...getGetWorkCellsResponseFilesMetCellMock() },
     ]),
   ),
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    itemId: faker.string.uuid(),
+    status: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "unreleased",
+        "missing",
+        "downloading",
+        "failed",
+        "upgradable",
+        "met",
+      ] as const),
+      null,
+    ]),
+  })),
   ...overrideResponse,
 });
 

@@ -28,6 +28,9 @@ function CellState({ cell }: { cell: FilesCell | undefined }) {
   if (cell.state === "failed") {
     return <SignalChip kind="fail">Failed</SignalChip>;
   }
+  if (cell.state === "unreleased") {
+    return <Chip>Unreleased</Chip>;
+  }
   return <Chip>Missing</Chip>;
 }
 

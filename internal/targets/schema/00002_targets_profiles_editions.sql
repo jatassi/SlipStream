@@ -73,3 +73,31 @@ FROM targets_resolution r JOIN (
 ORDER BY r.target_id, r.position, m.ord;
 
 DROP TABLE targets_resolution;
+
+-- Each Profile entry says how its Target is sourced. Conversion adds
+-- derive and download-then-derive.
+ALTER TABLE targets_profile_target ADD COLUMN sourcing TEXT NOT NULL DEFAULT 'download' CHECK (sourcing IN ('download'));
+
+-- The starter Target, made once per library: targets.Open makes it on a
+-- library with no row here. A library that already held Targets records
+-- that it needs none, so deleting every Target never brings it back.
+CREATE TABLE targets_starter (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    target_id BLOB REFERENCES targets_target (id) ON DELETE SET NULL
+) STRICT;
+
+INSERT INTO targets_starter (id) SELECT 1 WHERE EXISTS (SELECT 1 FROM targets_target);
+
+-- One row per Work: the Profile it wants from.
+CREATE TABLE targets_wants (
+    work_id BLOB PRIMARY KEY NOT NULL REFERENCES works_work (id) ON DELETE CASCADE,
+    profile_id BLOB NOT NULL REFERENCES targets_profile (id)
+) STRICT;
+
+CREATE INDEX targets_wants_profile_id ON targets_wants (profile_id);
+
+-- Every existing Work takes its type's default Profile. targets.Open gives
+-- a row to each Work whose type had none yet.
+INSERT INTO targets_wants (work_id, profile_id)
+SELECT w.id, p.id FROM works_work w
+JOIN targets_profile p ON p.content_type = w.content_type AND p.is_default = 1;

@@ -105,7 +105,7 @@ func added(t *testing.T, key works.Key) (contenttype.Type, *storage.DB[storage.L
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, movie.Def.ID(), key, true)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, movie.Def.ID(), key, works.Adding{Monitor: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func timings(t *testing.T, key works.Key) (tree works.Tree, got map[works.ItemID
 	m, lib, tree := added(t, key)
 	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = m.Timings(ctx, r, tree.ID)
+		got, err = m.Timings(ctx, r, []works.WorkID{tree.ID})
 		return err
 	}); err != nil {
 		t.Fatal(err)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
@@ -103,19 +104,27 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	types := []works.TypeID{contenttypetest.ID}
-	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "1080p", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
-	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID}))
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
+		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
+	}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{
+		Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}},
+	}))
+	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, standard.ID))
+	assign := func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+		return targets.Assign(ctx, tx, w, nil)
+	}
 	attic := works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
 	}}
 	fx.Put("w1", contenttypetest.Record{Tree: attic})
 	fx.Put("w2", contenttypetest.Record{Tree: attic})
-	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", true)
+	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", works.Adding{Monitor: true, Also: assign})
 	if err != nil {
 		t.Fatal(err)
 	}
-	unmonitored, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", false)
+	unmonitored, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", works.Adding{Also: assign})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +132,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
 	sealer := secrettest.Sealer(t)
 	g := grabs.New(grabs.Config{
-		Library: lib, Works: w, Files: files.New(files.Config{Library: lib, Works: w, Grabs: grabs.GrabCells{}}),
+		Library: lib, Works: w, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
 			Changed: discard[indexers.Changed]{},

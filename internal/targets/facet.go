@@ -18,10 +18,11 @@ type Timing struct {
 }
 
 // Facet is what targets asks of a Content Type. contenttype.Type embeds
-// it. Timings answers every Item of work in one call. Cuts is the type's
-// own cuts, beside the built-in ones; a type with none answers nil.
+// it. Timings answers every Item of each of the type's works in one call,
+// so a Profile's disk estimate reads one batch per type. Cuts is the
+// type's own cuts, beside the built-in ones; a type with none answers nil.
 type Facet interface {
-	Timings(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) (map[works.ItemID]Timing, error)
+	Timings(ctx context.Context, r storage.Reader[storage.Library], works []works.WorkID) (map[works.ItemID]Timing, error)
 	Cuts() []release.Cut
 }
 

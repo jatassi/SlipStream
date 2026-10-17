@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -34,9 +35,17 @@ type shelf struct{ w *works.Works }
 
 func (s shelf) Works() (*works.Works, bool) { return s.w, true }
 
+// named describes every Content Type by its id.
+type named struct{}
+
+func (named) Describe(t works.TypeID) (works.Description, bool) {
+	return works.Description{Name: string(t)}, true
+}
+
 type server struct {
 	handler http.Handler
 	fx      *contenttypetest.Fixture
+	goals   *targets.Targets
 	apiKey  string
 	session string
 	log     *bytes.Buffer
@@ -51,7 +60,7 @@ func serve(t *testing.T) *server {
 		}
 		return a
 	}}))
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), targets.Schema())
 	keys, err := secret.Open(t.Context(), lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -87,9 +96,15 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goals, err := targets.Open(t.Context(), targets.Config{
+		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: discard[targets.Changed]{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	worksapi.Routes(r, shelf{w})
-	return &server{handler: r.Handler(), fx: fx, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
+	return &server{handler: r.Handler(), fx: fx, goals: goals, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {
@@ -220,5 +235,52 @@ func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 500, `{"status":500,"code":"internal","title":"Something went wrong"}`)
 	if want := `level=ERROR msg="operation failed" method=POST path=/api/v1/works operation=addWork error="content type fixture: fetch w1: disk on fire"`; !strings.Contains(s.log.String(), want) {
 		t.Fatalf("log = %s, want %s", s.log, want)
+	}
+}
+
+func TestAddWorkWantsFromTheProfileItNamesOrTheTypesDefault(t *testing.T) {
+	ctx := t.Context()
+	s := serve(t)
+	admin := identity.Admin{}
+	profiles, err := s.goals.ListProfiles(ctx, admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, other := profiles[0], profiles[1]
+	small, err := s.goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Small", ContentType: contenttypetest.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.fx.Put("w1", record())
+	s.fx.Put("w2", record())
+	add := func(key, profile string) string {
+		return `{"contentType":"fixture","key":"` + key + `","profileId":"` + profile + `"}`
+	}
+
+	expect(t, s, http.MethodPost, "/api/v1/works", add("w1", other.ID.String()), 422,
+		`{"status":422,"code":"profile_wrong_type","title":"The Profile is for another Content Type"}`)
+	expect(t, s, http.MethodPost, "/api/v1/works", add("w1", storage.NewUUID().String()), 422,
+		`{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`)
+	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+
+	wants := func(body string) targets.Goals {
+		t.Helper()
+		id, err := storage.ParseUUID(uuids.FindString(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		g, err := s.goals.Goals(ctx, admin, works.WorkID{UUID: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	code, body := s.call(t, http.MethodPost, "/api/v1/works", add("w1", small.ID.String()))
+	if g := wants(body); code != 200 || g.Profile.ID != small.ID {
+		t.Fatalf("addWork with Small = %d, wants from %s; want Small", code, g.Profile.Name)
+	}
+	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`)
+	if g := wants(body); code != 200 || g.Profile.ID != fixture.ID {
+		t.Fatalf("addWork with no Profile = %d, wants from %s; want the default %s", code, g.Profile.Name, fixture.Name)
 	}
 }

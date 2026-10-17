@@ -22,19 +22,33 @@ func ItemOf(ctx context.Context, r storage.Reader[file], id ItemID) (Summary, It
 	return Summary(w), bare(it), nil
 }
 
-// ItemsOf reads work's Items, without their fields, inside a caller's
-// read: live ones first, each by position. A Content Type reads it to
-// answer for every Item of a Work in one call.
-func ItemsOf(ctx context.Context, r storage.Reader[file], work WorkID) ([]Item, error) {
-	rows, err := db.New(r).ListItems(ctx, work)
+// ItemsOf reads each of works' Items, without their fields, inside a
+// caller's read: per Work, live ones first, each by position. A Content
+// Type reads it to answer for every Item of many Works in one call.
+func ItemsOf(ctx context.Context, r storage.Reader[file], works []WorkID) (map[WorkID][]Item, error) {
+	rows, err := db.New(r).ListItemsOfWorks(ctx, works)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]Item, len(rows))
-	for i, it := range rows {
-		items[i] = bare(it)
+	out := make(map[WorkID][]Item, len(works))
+	for _, it := range rows {
+		out[it.WorkID] = append(out[it.WorkID], bare(it))
 	}
-	return items, nil
+	return out, nil
+}
+
+// Summaries reads every Work's summary inside a caller's read, by sort
+// label.
+func Summaries(ctx context.Context, r storage.Reader[file]) ([]Summary, error) {
+	rows, err := db.New(r).ListWorks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Summary, len(rows))
+	for i, row := range rows {
+		out[i] = Summary(row)
+	}
+	return out, nil
 }
 
 func bare(it db.WorksItem) Item {

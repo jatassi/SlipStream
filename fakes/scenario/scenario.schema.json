@@ -717,8 +717,10 @@
                   "type": "string"
                 },
                 "type": "array",
-                "minItems": 1,
                 "uniqueItems": true
+              },
+              "default": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false,

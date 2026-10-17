@@ -184,30 +184,33 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	return t, nil
 }
 
-// Timings answers the movie's released date and runtime for its one Item.
-func (*Movie) Timings(ctx context.Context, r storage.Reader[file], w works.WorkID) (map[works.ItemID]targets.Timing, error) {
-	mv, err := db.New(r).GetMovie(ctx, w)
+// Timings answers each movie's released date and runtime for its one
+// Item.
+func (*Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+	movies, err := db.New(r).ListMovies(ctx, ws)
 	if err != nil {
 		return nil, err
 	}
-	var t targets.Timing
-	if mv.Released != nil {
-		released, err := works.ParseDate(*mv.Released)
-		if err != nil {
-			return nil, fmt.Errorf("movie %d: %w", mv.TmdbID, err)
+	items, err := works.ItemsOf(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	out := map[works.ItemID]targets.Timing{}
+	for _, mv := range movies {
+		var t targets.Timing
+		if mv.Released != nil {
+			released, err := works.ParseDate(*mv.Released)
+			if err != nil {
+				return nil, fmt.Errorf("movie %d: %w", mv.TmdbID, err)
+			}
+			t.Released = release.Known(released)
 		}
-		t.Released = release.Known(released)
-	}
-	if mv.RuntimeMinutes != nil {
-		t.Runtime = release.Known(time.Duration(*mv.RuntimeMinutes) * time.Minute)
-	}
-	items, err := works.ItemsOf(ctx, r, w)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[works.ItemID]targets.Timing, len(items))
-	for _, it := range items {
-		out[it.ID] = t
+		if mv.RuntimeMinutes != nil {
+			t.Runtime = release.Known(time.Duration(*mv.RuntimeMinutes) * time.Minute)
+		}
+		for _, it := range items[mv.WorkID] {
+			out[it.ID] = t
+		}
 	}
 	return out, nil
 }

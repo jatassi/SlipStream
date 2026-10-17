@@ -35,13 +35,25 @@ export const FieldError = zod.object({
 export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
+export const FilesUnreleasedCell = zod.object({
+  edition: zod.enum(["standard"]),
+  itemId: zod.uuid(),
+  state: zod.enum(["unreleased"]).describe("Its Item has no release date, or a later one"),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+});
+
+export type FilesUnreleasedCell = zod.input<typeof FilesUnreleasedCell>;
+export type FilesUnreleasedCellOutput = zod.output<typeof FilesUnreleasedCell>;
+
 export const FilesMissingCell = zod.object({
   edition: zod.enum(["standard"]),
   itemId: zod.uuid(),
   state: zod.enum(["missing"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
@@ -53,7 +65,7 @@ export const FilesDownloadingCell = zod.object({
   state: zod.enum(["downloading"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
@@ -65,7 +77,7 @@ export const FilesFailedCell = zod.object({
   state: zod.enum(["failed"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
@@ -122,7 +134,7 @@ export const FilesUpgradableCell = zod.object({
   state: zod.enum(["upgradable"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
@@ -135,13 +147,14 @@ export const FilesMetCell = zod.object({
   state: zod.enum(["met"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesMetCell = zod.input<typeof FilesMetCell>;
 export type FilesMetCellOutput = zod.output<typeof FilesMetCell>;
 
 export const FilesCell = zod.discriminatedUnion("state", [
+  FilesUnreleasedCell,
   FilesMissingCell,
   FilesDownloadingCell,
   FilesFailedCell,
@@ -152,8 +165,30 @@ export const FilesCell = zod.discriminatedUnion("state", [
 export type FilesCell = zod.input<typeof FilesCell>;
 export type FilesCellOutput = zod.output<typeof FilesCell>;
 
+export const FilesItemStatus = zod.object({
+  itemId: zod.uuid(),
+  status: zod
+    .union([
+      zod.literal("unreleased"),
+      zod.literal("missing"),
+      zod.literal("downloading"),
+      zod.literal("failed"),
+      zod.literal("upgradable"),
+      zod.literal("met"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe(
+      "The first state its cells hold, in the glossary's order; null for an Item with no cell",
+    ),
+});
+
+export type FilesItemStatus = zod.input<typeof FilesItemStatus>;
+export type FilesItemStatusOutput = zod.output<typeof FilesItemStatus>;
+
 export const FilesCellList = zod.object({
   cells: zod.array(FilesCell).describe("By Item in tree order, then Target in Profile order"),
+  items: zod.array(FilesItemStatus).describe("Every Item in tree order"),
 });
 
 export type FilesCellList = zod.input<typeof FilesCellList>;
@@ -1519,6 +1554,42 @@ export const TargetsChanged = zod.object({});
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
 
+export const TargetsEditions = zod.object({
+  kind: zod.enum(["any"]).describe("Any cut: one file per Target, of whatever cut"),
+});
+
+export type TargetsEditions = zod.input<typeof TargetsEditions>;
+export type TargetsEditionsOutput = zod.output<typeof TargetsEditions>;
+
+export const TargetsEntry = zod.object({
+  sourcing: zod.enum(["download"]).describe("How the Target gets its file"),
+  targetId: zod.uuid(),
+});
+
+export type TargetsEntry = zod.input<typeof TargetsEntry>;
+export type TargetsEntryOutput = zod.output<typeof TargetsEntry>;
+
+export const targetsEstimateBytesMin = 0;
+
+export const targetsEstimateMibPerMinuteMin = 0;
+
+export const TargetsEstimate = zod.object({
+  bytes: zod
+    .int()
+    .min(targetsEstimateBytesMin)
+    .nullable()
+    .describe("That rate over the runtime of the Profile's Works, null with no estimate yet"),
+  mibPerMinute: zod
+    .number()
+    .min(targetsEstimateMibPerMinuteMin)
+    .nullable()
+    .describe("What the files filling the Target average, null with no estimate yet"),
+  targetId: zod.uuid(),
+});
+
+export type TargetsEstimate = zod.input<typeof TargetsEstimate>;
+export type TargetsEstimateOutput = zod.output<typeof TargetsEstimate>;
+
 export const TargetsFilter = zod.object({
   attribute: zod.enum(["hdr", "video_codec", "audio_codec", "channels", "language"]),
   mode: zod
@@ -1540,8 +1611,11 @@ export const targetsNewProfileNameMax = 100;
 
 export const TargetsNewProfile = zod.object({
   contentType: zod.string().regex(targetsNewProfileContentTypeRegExp),
+  editions: TargetsEditions,
   name: zod.string().min(1).max(targetsNewProfileNameMax),
-  targetIds: zod.array(zod.uuid()).min(1).describe("Highest ranked first"),
+  targets: zod
+    .array(TargetsEntry)
+    .describe("In Profile order; none is a Profile whose Works want nothing"),
 });
 
 export type TargetsNewProfile = zod.input<typeof TargetsNewProfile>;
@@ -1636,17 +1710,45 @@ export type TargetsPreset = zod.input<typeof TargetsPreset>;
 export type TargetsPresetOutput = zod.output<typeof TargetsPreset>;
 
 export const targetsProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const targetsProfileWorksMin = 0;
 
 export const TargetsProfile = zod.object({
   contentType: zod.string().regex(targetsProfileContentTypeRegExp),
-  default: zod.boolean().describe("Whether the Content Type's Works use it"),
+  default: zod.boolean().describe("Whether a Work added with no Profile takes it"),
+  editions: TargetsEditions,
   id: zod.uuid(),
   name: zod.string(),
-  targetIds: zod.array(zod.uuid()).describe("Highest ranked first"),
+  targets: zod
+    .array(TargetsEntry)
+    .describe("In Profile order: a file is named after the first it fills"),
+  works: zod.int().min(targetsProfileWorksMin).describe("The Works wanting from it"),
 });
 
 export type TargetsProfile = zod.input<typeof TargetsProfile>;
 export type TargetsProfileOutput = zod.output<typeof TargetsProfile>;
+
+export const targetsProfileDetailContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const targetsProfileDetailWorksMin = 0;
+
+export const TargetsProfileDetail = zod.object({
+  contentType: zod.string().regex(targetsProfileDetailContentTypeRegExp),
+  default: zod.boolean().describe("Whether a Work added with no Profile takes it"),
+  editions: TargetsEditions,
+  estimates: zod
+    .array(TargetsEstimate)
+    .describe(
+      "One per Target, in Profile order. A Target no file of known runtime fills yet has no estimate",
+    ),
+  id: zod.uuid(),
+  name: zod.string(),
+  targets: zod
+    .array(TargetsEntry)
+    .describe("In Profile order: a file is named after the first it fills"),
+  works: zod.int().min(targetsProfileDetailWorksMin).describe("The Works wanting from it"),
+});
+
+export type TargetsProfileDetail = zod.input<typeof TargetsProfileDetail>;
+export type TargetsProfileDetailOutput = zod.output<typeof TargetsProfileDetail>;
 
 export const TargetsProfileList = zod.object({
   profiles: zod.array(TargetsProfile).describe("By Content Type, then name"),
@@ -1743,6 +1845,18 @@ export const TargetsTargetList = zod.object({
 
 export type TargetsTargetList = zod.input<typeof TargetsTargetList>;
 export type TargetsTargetListOutput = zod.output<typeof TargetsTargetList>;
+
+export const TargetsWants = zod.object({
+  editions: TargetsEditions.describe("The effective Edition list"),
+  from: zod
+    .enum(["profile", "work"])
+    .describe("Whether the Edition list is the Profile's or the Work's own"),
+  profileId: zod.uuid(),
+  profileName: zod.string(),
+});
+
+export type TargetsWants = zod.input<typeof TargetsWants>;
+export type TargetsWantsOutput = zod.output<typeof TargetsWants>;
 
 export const TasksCadence = zod.object({
   field: SettingDurationField,
@@ -2276,6 +2390,12 @@ export const WorksNewWork = zod.object({
     .boolean()
     .exactOptional()
     .describe("Monitor a new Work's Items; adding a Work already in the library changes nothing"),
+  profileId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The Profile of the Content Type a new Work wants from; left out, the type's default",
+    ),
 });
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;

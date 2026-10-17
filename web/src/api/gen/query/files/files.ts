@@ -43,7 +43,7 @@ export const getGetWorkCellsUrl = (workId: string) => {
 };
 
 /**
- * @summary Get each of a Work's cells with its state and the file filling it
+ * @summary Get each of a Work's cells with its state and the file filling it, and each Item's status
  */
 export const getWorkCells = async (
   workId: string,
@@ -167,7 +167,7 @@ export function useGetWorkCellsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get each of a Work's cells with its state and the file filling it
+ * @summary Get each of a Work's cells with its state and the file filling it, and each Item's status
  */
 
 export function useGetWorkCellsSuspense<

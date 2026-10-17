@@ -272,7 +272,7 @@ func TestStoreThenFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, works.Adding{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ func TestNamingTokensNameATrack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, works.Adding{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,13 +375,13 @@ func timings(t *testing.T, s scenario.Scenario, artist works.Key) map[works.Key]
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), artist, false)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), artist, works.Adding{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var byID map[works.ItemID]targets.Timing
 	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		byID, err = m.Timings(ctx, r, tree.ID)
+		byID, err = m.Timings(ctx, r, []works.WorkID{tree.ID})
 		return err
 	}); err != nil {
 		t.Fatal(err)

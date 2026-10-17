@@ -12,3 +12,9 @@ SELECT files_fill.target_id, sqlc.embed(files_file) FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
 WHERE files_file.work_id = sqlc.arg(work_id)
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id;
+
+-- name: ListFillsOfTargets :many
+SELECT files_fill.target_id, files_file.work_id, files_file.item_id, files_file.size FROM files_fill
+JOIN files_file ON files_file.id = files_fill.file_id
+WHERE files_fill.target_id IN (sqlc.slice(target_ids))
+ORDER BY files_fill.target_id, files_fill.file_id;

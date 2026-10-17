@@ -3,8 +3,11 @@
 package files
 
 import (
+	"cmp"
 	"context"
 	"embed"
+	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -84,14 +87,15 @@ type State uint8
 
 // State is a cell's state, in the glossary's order.
 const (
-	Missing State = iota + 1
+	Unreleased State = iota + 1
+	Missing
 	Downloading
 	Failed
 	Upgradable
 	Met
 )
 
-var stateNames = [...]string{Missing: "missing", Downloading: "downloading", Failed: "failed", Upgradable: "upgradable", Met: "met"}
+var stateNames = [...]string{Unreleased: "unreleased", Missing: "missing", Downloading: "downloading", Failed: "failed", Upgradable: "upgradable", Met: "met"}
 
 func (s State) String() string { return stateNames[s] }
 
@@ -104,19 +108,32 @@ type CellKey struct {
 
 // Cell is one Edition at one Target of one Item, in the State computed on
 // read. File is set when a file fills the cell: Met once the file's
-// quality is at or past the Target's cutoff, Upgradable below it.
+// quality is at or past the Target's cutoff, Upgradable below it. Timing
+// is the Item's, and Released whether it is out today.
 type Cell struct {
-	Item    works.Item
-	Edition Edition
-	Target  targets.Target
-	State   State
-	File    *File
+	Item     works.Item
+	Edition  Edition
+	Target   targets.Target
+	State    State
+	File     *File
+	Timing   targets.Timing
+	Released bool
 }
 
-// Wanted is whether a search should try to fill the cell. An upgradable
-// cell isn't, until an import can replace the file it holds.
+// Wanted is whether a search should try to fill the cell: a missing or
+// failed cell of a monitored, released Item. An upgradable cell isn't,
+// until an import can replace the file it holds.
 func (c Cell) Wanted() bool {
-	return c.Item.Monitored && (c.State == Missing || c.State == Failed)
+	return c.Item.Monitored && c.Released && (c.State == Missing || c.State == Failed)
+}
+
+// Status rolls one Item's cells up to the first State any holds, in the
+// glossary's order, false for an Item with no cell.
+func Status(cells []Cell) (State, bool) {
+	if len(cells) == 0 {
+		return 0, false
+	}
+	return slices.MinFunc(cells, func(a, b Cell) int { return cmp.Compare(a.State, b.State) }).State, true
 }
 
 // GrabState is what the latest Grab for a cell makes of it.
@@ -143,22 +160,32 @@ func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], works
 type Config struct {
 	Library *storage.DB[file]
 	Works   *works.Works
+	Targets *targets.Targets
 	Grabs   GrabCells
+	// Today is the time now in the Controller's zone, whose calendar date
+	// decides which Items are out.
+	Today func() time.Time
 }
 
 type Files struct{ cfg Config }
 
 func New(cfg Config) *Files { return &Files{cfg: cfg} }
 
-// WorkCells reads a Work's cells, works.ErrNoWork when it has none.
-func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.WorkID) ([]Cell, error) {
+// WorkCells reads a Work's Items and its cells, works.ErrNoWork when it
+// has none.
+func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.WorkID) ([]works.Item, []Cell, error) {
+	var items []works.Item
 	var cells []Cell
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		var err error
-		cells, err = f.Cells(ctx, r, work)
+		tree, err := f.cfg.Works.TreeIn(ctx, r, work)
+		if err != nil {
+			return err
+		}
+		items = tree.Items
+		cells, err = f.cells(ctx, r, tree)
 		return err
 	})
-	return cells, err
+	return items, cells, err
 }
 
 // final reports whether f is at or past t's cutoff. A file whose quality t
@@ -169,17 +196,25 @@ func final(t targets.Target, f File) bool {
 }
 
 // Cells computes a Work's cells in r: each Item in tree order, at each
-// Target of its Content Type's default Profile in rank order.
+// Target of the Work's Profile in Profile order.
 func (f *Files) Cells(ctx context.Context, r storage.Reader[file], work works.WorkID) ([]Cell, error) {
 	tree, err := f.cfg.Works.TreeIn(ctx, r, work)
 	if err != nil {
 		return nil, err
 	}
-	wanted, err := targets.Wanted(ctx, r, tree.ContentType)
+	return f.cells(ctx, r, tree)
+}
+
+func (f *Files) cells(ctx context.Context, r storage.Reader[file], tree works.Tree) ([]Cell, error) {
+	goals, err := targets.GoalsIn(ctx, r, tree.ID)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := db.New(r).ListFillsOfWork(ctx, work)
+	timings, err := f.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, []works.WorkID{tree.ID})
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.New(r).ListFillsOfWork(ctx, tree.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -188,15 +223,18 @@ func (f *Files) Cells(ctx context.Context, r storage.Reader[file], work works.Wo
 		ff := File(row.FilesFile)
 		filled[CellKey{Item: ff.ItemID, Edition: ff.Edition, Target: row.TargetID}] = &ff
 	}
-	grabbed, err := f.cfg.Grabs.GrabCells(ctx, r, work)
+	grabbed, err := f.cfg.Grabs.GrabCells(ctx, r, tree.ID)
 	if err != nil {
 		return nil, err
 	}
+	today := f.cfg.Today()
 	var cells []Cell
 	for _, it := range tree.Items {
-		for _, t := range wanted {
+		timing := timings[it.ID]
+		released := timing.ReleasedBy(today)
+		for _, t := range goals.Targets {
 			key := CellKey{Item: it.ID, Edition: Standard, Target: t.ID}
-			c := Cell{Item: it, Edition: Standard, Target: t, State: Missing, File: filled[key]}
+			c := Cell{Item: it, Edition: Standard, Target: t, State: Missing, File: filled[key], Timing: timing, Released: released}
 			switch {
 			case c.File != nil && final(t, *c.File):
 				c.State = Met
@@ -206,6 +244,8 @@ func (f *Files) Cells(ctx context.Context, r storage.Reader[file], work works.Wo
 				c.State = Downloading
 			case grabbed[key] == GrabFailed:
 				c.State = Failed
+			case !released:
+				c.State = Unreleased
 			}
 			cells = append(cells, c)
 		}

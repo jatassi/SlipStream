@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -22,14 +23,14 @@ type candidate struct {
 	Facts release.Facts
 }
 
-// candidateOf reads a listed release's Facts. Its runtime stays unknown until a Content
-// Type facet gives Items theirs, so no size is checked yet.
-func candidateOf(it indexers.Item, item works.ItemID) candidate {
+// candidateOf reads a listed release's Facts: it covers item, whose
+// runtime its Content Type answers, unknown when it can't.
+func candidateOf(it indexers.Item, item works.ItemID, runtime release.Fact[time.Duration]) candidate {
 	f := release.Title(it.Title, release.BuiltIn())
 	if it.Size > 0 {
 		f.Size = release.Known(it.Size)
 	}
-	f.Coverage = release.Coverage{Items: []works.ItemID{item}}
+	f.Coverage = release.Coverage{Items: []works.ItemID{item}, Runtime: runtime}
 	return candidate{Item: it, Facts: f}
 }
 

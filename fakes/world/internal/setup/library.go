@@ -16,8 +16,11 @@ import (
 
 // Library creates the Scenario's library on its controller Node, over c
 // with the Controller's API key: each root's folder under mediaDir and the
-// root, then the Targets, then the Profiles, then the Indexers on the
-// site fakes at sites, as an Admin would.
+// root, then the Targets, then the Profiles, each made default when it
+// says so, then the Indexers on the site fakes at sites, as an Admin
+// would. A Target named like one the Controller already has, such as the
+// starter, is left as the Controller has it, since Targets can't be
+// edited yet.
 func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, apiKey, mediaDir string, sites map[string]fake.Address) error {
 	var controller string
 	for i, n := range s.Nodes {
@@ -34,26 +37,47 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 			return err
 		}
 	}
-	targets := map[string]string{}
-	for _, t := range s.Library.Targets {
+	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
+		return err
+	}
+	for _, ix := range s.Library.Indexers {
+		if _, err := nodeapi.CreateIndexer(ctx, c, controller, apiKey, ix.Name, site.URL(sites[ix.Site]), site.APIKey(s)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// goals creates lib's Targets and Profiles, making each Profile that says
+// so its Content Type's default.
+func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controller, apiKey string) error {
+	targets, err := nodeapi.ListTargets(ctx, c, controller, apiKey)
+	if err != nil {
+		return err
+	}
+	for _, t := range lib.Targets {
+		if _, made := targets[t.Name]; made {
+			continue
+		}
 		id, err := nodeapi.CreateTarget(ctx, c, controller, apiKey, t)
 		if err != nil {
 			return err
 		}
 		targets[t.Name] = id
 	}
-	for _, p := range s.Library.Profiles {
+	for _, p := range lib.Profiles {
 		ids := make([]string, len(p.Targets))
 		for i, name := range p.Targets {
 			ids[i] = targets[name]
 		}
-		if _, err := nodeapi.CreateProfile(ctx, c, controller, apiKey, p.Name, p.ContentType, ids); err != nil {
+		id, err := nodeapi.CreateProfile(ctx, c, controller, apiKey, p.Name, p.ContentType, ids)
+		if err != nil {
 			return err
 		}
-	}
-	for _, ix := range s.Library.Indexers {
-		if _, err := nodeapi.CreateIndexer(ctx, c, controller, apiKey, ix.Name, site.URL(sites[ix.Site]), site.APIKey(s)); err != nil {
-			return err
+		if p.Default {
+			if err := nodeapi.MakeDefaultProfile(ctx, c, controller, apiKey, id); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

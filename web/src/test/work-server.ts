@@ -35,6 +35,7 @@ const missing: FilesCellList = {
       state: "missing",
     },
   ],
+  items: [{ itemId: orchardItemId, status: "missing" }],
 };
 
 export const filled: FilesCellList = {
@@ -61,6 +62,7 @@ export const filled: FilesCellList = {
       state: "downloading",
     },
   ],
+  items: [{ itemId: orchardItemId, status: "downloading" }],
 };
 
 export const upgradable: FilesCellList = {
@@ -87,6 +89,7 @@ export const upgradable: FilesCellList = {
       state: "missing",
     },
   ],
+  items: [{ itemId: orchardItemId, status: "missing" }],
 };
 
 const otherWork: GrabsGrab = {

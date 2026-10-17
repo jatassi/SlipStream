@@ -93,10 +93,14 @@ func (t LibraryTarget) Spec() (targets.Spec, error) {
 	return s, nil
 }
 
+// LibraryProfile is a Profile of Targets in Profile order, each a
+// library target or the starter, made its Content Type's default when
+// Default is set.
 type LibraryProfile struct {
 	Name        string   `jsonschema:"required"                                 yaml:"name"`
 	ContentType string   `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$" yaml:"content_type"`
-	Targets     []string `jsonschema:"required,minItems=1,uniqueItems=true"     yaml:"targets"`
+	Targets     []string `jsonschema:"required,uniqueItems=true"                yaml:"targets"`
+	Default     bool     `yaml:"default,omitempty"`
 }
 
 // LibraryIndexer is a Torznab Indexer on the named site fake, with the
@@ -149,18 +153,21 @@ func (l Library) checkTargets(add func(format string, args ...any)) {
 }
 
 func (l Library) checkProfiles(add func(format string, args ...any)) {
-	var names []string
+	var names, defaults []string
 	for _, p := range l.Profiles {
 		if slices.Contains(names, p.Name) {
 			add("library has two profiles named %s", p.Name)
 		}
 		names = append(names, p.Name)
-		if len(p.Targets) == 0 {
-			add("library profile %s has no targets", p.Name)
+		if p.Default && slices.Contains(defaults, p.ContentType) {
+			add("library has two default profiles for content type %s", p.ContentType)
+		}
+		if p.Default {
+			defaults = append(defaults, p.ContentType)
 		}
 		for _, t := range p.Targets {
-			if !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
-				add("library profile %s names target %s, which library.targets does not list", p.Name, t)
+			if t != targets.StarterName && !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
+				add("library profile %s names target %s, which library.targets does not list and isn't the starter", p.Name, t)
 			}
 		}
 	}
