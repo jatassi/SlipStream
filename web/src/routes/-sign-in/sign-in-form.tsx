@@ -36,7 +36,6 @@ function useSignInForm(signedIn: SignedIn) {
   });
 }
 
-/** Email and PIN, or a passkey from the email field's autofill or the button. */
 export function SignInForm({ signedIn }: { signedIn: SignedIn }) {
   const form = useSignInForm(signedIn);
   const passkey = usePasskeySignIn({

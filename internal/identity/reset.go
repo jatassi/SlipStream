@@ -84,8 +84,6 @@ func (s *Service) RedeemReset(ctx context.Context, a Anyone, t LinkToken, pin PI
 	})
 }
 
-// endAllSessions deletes every session account holds and ends their
-// streams, revoked, once the Write commits.
 func endAllSessions(ctx context.Context, q *db.Queries, fx *effects, account AccountID) error {
 	ids, err := q.ListSessionIDs(ctx, account)
 	if err != nil {

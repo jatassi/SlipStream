@@ -14,8 +14,6 @@ type limiter struct {
 	keys map[netip.Prefix][]time.Time
 }
 
-// limiterCap bounds the clients remembered. Past it, the one whose newest
-// failure is oldest is forgotten.
 const limiterCap = 65536
 
 func newLimiter() *limiter { return &limiter{keys: map[netip.Prefix][]time.Time{}} }
@@ -29,7 +27,7 @@ func keyOf(a netip.Addr) netip.Prefix {
 	return p
 }
 
-// recent is key's failures inside window, oldest first. It runs under mu.
+// recent runs under mu.
 func (l *limiter) recent(key netip.Prefix, window time.Duration, now time.Time) []time.Time {
 	times := l.keys[key]
 	for len(times) > 0 && !times[0].After(now.Add(-window)) {
@@ -38,8 +36,6 @@ func (l *limiter) recent(key netip.Prefix, window time.Duration, now time.Time) 
 	return times
 }
 
-// blocked reports when a stops being refused, once it has limit failures
-// inside window.
 func (l *limiter) blocked(a netip.Addr, limit int, window time.Duration, now time.Time) (time.Time, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

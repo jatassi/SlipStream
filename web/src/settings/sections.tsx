@@ -21,7 +21,6 @@ export type SettingsSection = {
   readonly component: ComponentType;
 };
 
-/** Controller-wide settings, one row per section. A later spec adds its section as a row. */
 export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] = [
   {
     id: "address",

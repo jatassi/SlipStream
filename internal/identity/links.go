@@ -83,8 +83,6 @@ var (
 	ErrNoLink        = errors.New("identity: no pending Signup link has that id")
 )
 
-// deadOf is why row doesn't work, derived from its one row: its end, or
-// expired once expires_at has passed. A live row answers nil.
 func deadOf(row db.IdentityLink, issuer string, now time.Time) *DeadError {
 	dead := &DeadError{AdminName: issuer, IssuedAt: row.IssuedAt.Time(), ExpiresAt: row.ExpiresAt.Time()}
 	switch {
@@ -144,16 +142,13 @@ func lookup(ctx context.Context, q *db.Queries, k *linkKind, t LinkToken, now ti
 	return row, nil
 }
 
-// linkTarget is who a link is for: an email for a Signup link, an Account
-// for the others, whose email is where the link goes.
 type linkTarget struct {
 	email          string
 	account        AccountID
 	removePasskeys bool
 }
 
-// issued is a link just inserted: its URL, shown once, and when it was sent
-// and ends. replaces is when the live link it withdrew was sent.
+// issued.replaces is when the live link it withdrew was sent.
 type issued struct {
 	id       LinkID
 	url      string
@@ -243,8 +238,6 @@ func deliver[D any](ctx context.Context, s *Service, t mail.Template[D], to mail
 	return s.mail.Send(ctx, m)
 }
 
-// issuer is who an Admin principal names on a link: its Account, or none
-// for the API key.
 func issuer(a Admin) (id AccountID, name string) {
 	if acc, ok := a.Account(); ok {
 		return acc.s.profile.ID, acc.s.profile.DisplayName

@@ -153,9 +153,6 @@ func (s *Service) SetSignInSettings(ctx context.Context, _ Admin, c SignInChange
 	return o, err
 }
 
-// pinLimitsHold refuses o when the PIN would turn off no later than the
-// wait, blaming PINOffAfter when the change set it and PINWaitAfter
-// otherwise.
 func pinLimitsHold(o SignInOverrides, offChanged bool) error {
 	wait, off := PINLimits(o)
 	waitAfter, offAfter := PINWaitAfter.Value(o.PINWaitAfter), PINOffAfter.Value(o.PINOffAfter)
@@ -230,8 +227,6 @@ func (a Address) Host() string {
 	return u.Hostname()
 }
 
-// suggestAddress is what Settings > Address offers: the address c reached
-// SlipStream at, or this machine's name with that port when c used an IP.
 func suggestAddress(c client) string {
 	scheme := "http"
 	if c.https {

@@ -26,7 +26,6 @@ export function KeyPromptSwitch() {
   );
 }
 
-/** Sets the Account's prompt to never, from the prompt itself. */
 export function useNeverAsk(close: () => void) {
   const queryClient = useQueryClient();
   const update = useUpdateOwnAccount();

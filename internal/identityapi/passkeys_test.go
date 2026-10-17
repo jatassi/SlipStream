@@ -41,7 +41,6 @@ func onePassword(t *testing.T) *passkeytest.Authenticator {
 	return &passkeytest.Authenticator{AAGUID: aaguid(t, "bada5566-a7aa-401f-bd96-45619a55120d"), Synced: true}
 }
 
-// signInAt signs the Admin in at origin with the PIN.
 func (n *node) signInAt(origin string) *httptest.ResponseRecorder {
 	n.t.Helper()
 	return n.do(call{method: http.MethodPost, target: origin + "/api/v1/session", body: `{"email":"admin@example.com","pin":"1234"}`})
@@ -64,8 +63,6 @@ type passkeyList struct {
 	Passkeys []passkeyRow `json:"passkeys"`
 }
 
-// addPasskey runs a registration at origin for session, answered by key,
-// and returns the finish's answer.
 func (n *node) addPasskey(origin, session string, key *passkeytest.Authenticator, headers map[string]string) *httptest.ResponseRecorder {
 	n.t.Helper()
 	s := decode[started](n.t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/passkeys/registration", session: session, headers: headers}), http.StatusOK)
@@ -237,8 +234,6 @@ func TestTheSignupAndResetFlowsAddPasskeysOnTheirNewSession(t *testing.T) {
 
 var passkeyFailed = problem(401, "passkey_failed", "The passkey did not check out")
 
-// passkeySignIn runs a passkey sign-in at origin from the peer from,
-// answered by key.
 func (n *node) passkeySignIn(origin, from string, key *passkeytest.Authenticator) *httptest.ResponseRecorder {
 	n.t.Helper()
 	s := decode[started](n.t, n.do(call{method: http.MethodPost, target: origin + "/api/v1/passkeys/assertion", from: from}), http.StatusOK)
@@ -259,8 +254,6 @@ func (n *node) passkeyReconfirm(origin, session string, key *passkeytest.Authent
 	return n.do(call{method: http.MethodPost, target: origin + "/api/v1/session/reconfirm/passkey/" + s.Ceremony, session: session, body: string(response)})
 }
 
-// graceWithPasskeys joins Grace and adds key's passkey for her at each
-// origin.
 func (n *node) graceWithPasskeys(admin string, key *passkeytest.Authenticator, origins ...string) (id, session string) {
 	n.t.Helper()
 	id, session = n.grace(admin)
@@ -372,8 +365,6 @@ func TestATurnedOffAccountCantSignInByPasskey(t *testing.T) {
 	expect(t, n.passkeySignIn(named, "192.0.2.1:1", key), 200, graceSignedIn(grace, false))
 }
 
-// TestFailedPasskeysCountWithWrongPINsPerAddress fails fifteen PINs and
-// fifteen passkeys from one address, which then waits out the window.
 func TestFailedPasskeysCountWithWrongPINsPerAddress(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := newNode(t)

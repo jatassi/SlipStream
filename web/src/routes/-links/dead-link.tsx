@@ -59,7 +59,6 @@ function cardOf(dead: Dead, noun: string): Card {
   }
 }
 
-/** One sentence on why a link doesn't work and who to ask, with the one thing to do next. */
 export function DeadLink({
   dead,
   noun,

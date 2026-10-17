@@ -425,8 +425,6 @@ func (d *doctor) fakesAnswer(c *CheckResult) {
 	}
 }
 
-// answers checks the fake at rawURL answers its protocol: a GET over
-// HTTP, the greeting over SMTP.
 func (d *doctor) answers(rawURL string) error {
 	addr, ok := strings.CutPrefix(rawURL, "smtp://")
 	if !ok {

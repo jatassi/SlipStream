@@ -20,8 +20,6 @@ const pathOf = (link: string) => {
   return `${pathname}${hash}`;
 };
 
-// At the Touch density a PIN is tapped on the keypad, as a person on a phone
-// does; elsewhere it is typed into the field.
 async function enterPin(page: Page, label: string, pin: string) {
   const field = page.getByRole("textbox", { name: label, exact: true });
   await field.waitFor();

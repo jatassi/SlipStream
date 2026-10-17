@@ -12,7 +12,6 @@ import type { SubmitErrors } from "../../ui/form-context";
 export const signInErrors = (error: unknown): SubmitErrors =>
   error instanceof PasskeyRefused ? { form: error.message, fields: {} } : pinErrors(error);
 
-/** Where a sign-in answer goes: Set a new PIN when the PIN is off, else where the person was headed. */
 export function signedInTo(
   queryClient: QueryClient,
   session: IdentitySignedIn,

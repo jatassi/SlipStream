@@ -11,7 +11,6 @@ func ProviderName(aaguid [16]byte) (string, bool) {
 	return name, ok
 }
 
-// providers are the widely used passkey providers' published AAGUIDs.
 var providers = map[string]string{
 	"bada5566-a7aa-401f-bd96-45619a55120d": "1Password",
 	"fbfc3007-154e-4ecc-8c0b-6e020557d7bd": "Apple Passwords",

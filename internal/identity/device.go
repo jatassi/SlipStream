@@ -45,8 +45,6 @@ func firstIn(table []uaMark, ua string) string {
 	return ""
 }
 
-// deviceLabel names the device a session signed in from, such as "Safari
-// on iPhone", from its User-Agent at sign-in.
 func deviceLabel(userAgent string) string {
 	browser, system := firstIn(browsers, userAgent), firstIn(systems, userAgent)
 	switch {

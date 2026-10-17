@@ -131,8 +131,6 @@ func (s SMTP) options() []gomail.Option {
 	return opts
 }
 
-// reply is the server's reply within err, or err itself when no server
-// replied.
 func reply(err error) string {
 	if r, ok := errors.AsType[*textproto.Error](err); ok {
 		return fmt.Sprintf("%d %s", r.Code, r.Msg)

@@ -97,15 +97,11 @@ func head(t *testing.T, hub *live.Hub) string {
 	return strconv.FormatInt(msg.ID, 10)
 }
 
-// published is how many times identity.sessions-changed reached account's
-// streams since the node started.
 func (n *node) published(account string) int {
 	n.t.Helper()
 	return n.heard(account, identity.SessionsChangedEvent.Name())
 }
 
-// heard is how many times the event named name reached account's streams
-// since the node started.
 func (n *node) heard(account, name string) int {
 	n.t.Helper()
 	id, err := storage.ParseUUID(account)

@@ -55,7 +55,6 @@ type explained struct {
 
 func (e *explained) Error() string { return e.code.name + ": " + e.detail }
 
-// answer is code's problem as e explains it; e is nil for a bare code.
 func (e *explained) answer(code *Code) error {
 	p := code.problem()
 	if e == nil {

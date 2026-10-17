@@ -34,8 +34,6 @@ type sessionList struct {
 	} `json:"sessions"`
 }
 
-// currentSession is the id of the session token signs in, read from its
-// own session list.
 func (n *node) currentSession(token string) string {
 	n.t.Helper()
 	for _, s := range decode[sessionList](n.t, n.as(token, http.MethodGet, "/api/v1/sessions", ""), http.StatusOK).Sessions {
@@ -47,8 +45,6 @@ func (n *node) currentSession(token string) string {
 	return ""
 }
 
-// stream is an open event stream for account's session token, as the
-// events endpoint subscribes it.
 func (n *node) stream(account, token string) *live.Subscription {
 	n.t.Helper()
 	viewer := live.Viewer{Account: uuid(n.t, account), Session: uuid(n.t, n.currentSession(token))}
@@ -66,7 +62,6 @@ func uuid(t *testing.T, s string) storage.UUID {
 	return u
 }
 
-// ending is the control event that ended sub, or "" while it still reads.
 func ending(t *testing.T, sub *live.Subscription) string {
 	t.Helper()
 	done, cancel := context.WithCancel(t.Context())

@@ -155,9 +155,6 @@ func (s *server) holding() time.Duration {
 	return s.delay
 }
 
-// Serve hands each connection to the implicit-TLS server when its first
-// byte opens a TLS handshake, and to the plaintext server, which offers
-// STARTTLS, when it stays silent.
 func (s *server) Serve(ctx context.Context, l net.Listener) error {
 	plain, implicit := newHandoff(l.Addr()), newHandoff(l.Addr())
 	servers := []*gosmtp.Server{s.smtp(ctx, false), s.smtp(ctx, true)}
@@ -218,8 +215,6 @@ func (s *server) route(ctx context.Context, c net.Conn, plain, implicit *handoff
 	}
 }
 
-// sniff is c with its first byte still to read, and whether that byte
-// opens a TLS handshake.
 func sniff(c net.Conn) (net.Conn, bool) {
 	r := bufio.NewReader(c)
 	_ = c.SetReadDeadline(time.Now().Add(sniffWindow))
@@ -240,7 +235,6 @@ func (p *peeked) Read(b []byte) (int, error) { return p.r.Read(b) } //nolint:wra
 
 func (p *peeked) NetConn() net.Conn { return p.Conn }
 
-// handoff is a listener whose connections route pushes.
 type handoff struct {
 	addr  net.Addr
 	conns chan net.Conn
@@ -351,7 +345,6 @@ func (s *session) Reset() { s.from, s.to = "", nil }
 
 func (s *session) Logout() error { return nil }
 
-// entered is the SMTP server an Admin saved, which the Controller dials.
 func entered(get func(path string) ([]byte, error)) ([]fake.Entered, error) {
 	body, err := get("/api/v1/mail/settings")
 	if err != nil {

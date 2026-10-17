@@ -613,8 +613,6 @@ func (r *Run) setUp(ctx context.Context, _ *unwind) error {
 	return nil
 }
 
-// seedAccounts makes the Scenario's Members and email setting on the
-// Controller, whose email goes to its smtp front.
 func (r *Run) seedAccounts(ctx context.Context, _ *unwind) error {
 	if len(r.scenario.Members) == 0 && !r.scenario.Mail {
 		return nil

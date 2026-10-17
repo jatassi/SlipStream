@@ -61,8 +61,6 @@ func (s *Service) checkPIN(ctx context.Context, c client, sub subject, pin PIN, 
 	return pinPass{}, ErrPINWrong
 }
 
-// admit refuses c's address once it failed the limit's number of times
-// inside the window: a wrong PIN or a passkey that didn't check out.
 func (s *Service) admit(c client, set Settings) error {
 	if until, blocked := s.limiter.blocked(c.address, set.AddressFailures, set.AddressWindow, time.Now()); blocked {
 		return &WaitError{Kind: TooManyAttempts, Until: until}

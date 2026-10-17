@@ -27,8 +27,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// library is library.db and what opens with it: the sealer for its
-// credentials, the SMTP setting, the Outbox and the identity service.
 type library struct {
 	db     *storage.DB[storage.Library]
 	sealer *secret.Sealer
@@ -37,14 +35,10 @@ type library struct {
 	ids    *identity.Service
 }
 
-// close stops the Outbox, waiting for the mail in flight, then closes
-// library.db.
 func (l *library) close(ctx context.Context) error {
 	return errors.Join(l.outbox.Close(ctx), l.db.Close())
 }
 
-// libraryFiles is what opening library.db reads: the data dir's files,
-// every schema, the timings, the hub identity publishes on and the log.
 type libraryFiles struct {
 	dir     DataDir
 	schemas []storage.Schema[storage.Library]
@@ -53,10 +47,8 @@ type libraryFiles struct {
 	log     *slog.Logger
 }
 
-// openLibraryFiles opens library.db, migrating it with the pre-migration
-// hook as on any start, then library.key, mail and identity, creating the
-// files. A running Node and `slipstream admin reset` offline both open it
-// here.
+// openLibraryFiles is where a running Node and `slipstream admin reset`
+// offline both open library.db.
 func openLibraryFiles(ctx context.Context, f libraryFiles) (*library, error) {
 	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, preMigrationHook, f.timings.Storage, f.log.With("subsystem", "storage"))
 	if err != nil {

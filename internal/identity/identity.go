@@ -241,8 +241,6 @@ func (s *Service) SignIn(ctx context.Context, a Anyone, email string, pin PIN) (
 	return out, nil
 }
 
-// signInBy runs fn, which names the Account a link signs in, and starts
-// its session in the same Write.
 func (s *Service) signInBy(ctx context.Context, c client, fn func(ctx context.Context, q *db.Queries, fx *effects) (AccountID, error)) (SignedIn, error) {
 	token := newToken()
 	var out SignedIn
@@ -467,9 +465,7 @@ func clearCookie(secure bool) *http.Cookie {
 	}
 }
 
-// startSession is the one session insert: stamped confirmed and as the
-// Account's last sign-in, labeled with the device, and marked prompted
-// when it shows the passkey prompt.
+// startSession is the one session insert.
 func startSession(ctx context.Context, q *db.Queries, fx *effects, c client, account db.IdentityAccount, token string, pinRequired bool) (SignedIn, error) {
 	prompt := false
 	if rp, v := c.relyingParty(); v.Available && account.KeyPrompt == KeyPromptAsk {

@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import type { Identity } from "./manifest.ts";
 
-// An Admin lands on the Library and a Member on the portal's Home.
 export async function signIn(page: Page, identity: Identity): Promise<void> {
   await page.goto("/sign-in");
   await declinePasskeyPrompt(page, await submitPin(page, identity.email, identity.pin));

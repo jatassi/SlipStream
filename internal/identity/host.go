@@ -81,8 +81,6 @@ func hostAddressError(err error) string {
 	return "expected http:// or https:// then a host name and an optional port"
 }
 
-// hostAddress saves address when none is set, and refuses a missing one or
-// one that differs from the address an Admin chose.
 func hostAddress(ctx context.Context, q *db.Queries, address Address) error {
 	set, err := readSettings(ctx, q)
 	if err != nil {

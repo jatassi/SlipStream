@@ -18,8 +18,6 @@ type parts struct {
 	html    string
 }
 
-// parse reads a message's subject and its text and HTML parts, at any
-// depth of multipart nesting.
 func parse(raw []byte) (parts, error) {
 	m, err := netmail.ReadMessage(bytes.NewReader(raw))
 	if err != nil {

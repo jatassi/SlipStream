@@ -13,14 +13,11 @@ import (
 
 var resetLink = regexp.MustCompile(`^http://home\.localhost:8484/reset#token=([A-Za-z0-9_-]{43})\n$`)
 
-// reset runs `slipstream admin reset` on dir and returns its result.
 func reset(t *testing.T, dir string, args ...string) result {
 	t.Helper()
 	return slipstream(t, childEnv(), append([]string{"admin", "reset", "--data-dir", dir}, args...)...)
 }
 
-// printedToken is the token of the one Reset link res printed, failing t
-// unless the command succeeded and printed only that.
 func printedToken(t *testing.T, res result) string {
 	t.Helper()
 	m := resetLink.FindStringSubmatch(res.stdout)

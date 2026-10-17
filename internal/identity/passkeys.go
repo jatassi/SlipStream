@@ -47,8 +47,6 @@ var (
 	ErrNoPasskey          = errors.New("identity: the Account has no passkey with that id")
 )
 
-// ceremonyRP is the relying party c's ceremonies run as, refused where c's
-// address can't hold a passkey.
 func ceremonyRP(c client) (passkey.RP, error) {
 	rp, v := c.relyingParty()
 	if !v.Available {
@@ -64,7 +62,6 @@ func failed(err error) error {
 	return err
 }
 
-// userAt is p as a ceremony at rp sees it: its passkeys there only.
 func userAt(ctx context.Context, q *db.Queries, p Profile, rp passkey.RP) (passkey.User, error) {
 	rows, err := q.ListCredentialsAt(ctx, db.ListCredentialsAtParams{AccountID: p.ID, RelyingParty: rp.ID()})
 	if err != nil {
@@ -200,8 +197,8 @@ func (s *Service) DeletePasskey(ctx context.Context, a Account, id PasskeyID) er
 	})
 }
 
-// assertionFailed is err as the caller sees it. A passkey that didn't
-// check out counts against c's address, as a wrong PIN does.
+// assertionFailed counts a passkey that didn't check out against c's
+// address, as a wrong PIN does.
 func (s *Service) assertionFailed(c client, set Settings, err error) error {
 	err = failed(err)
 	if errors.Is(err, ErrPasskeyFailed) {
@@ -210,8 +207,6 @@ func (s *Service) assertionFailed(c client, set Settings, err error) error {
 	return err
 }
 
-// recordUse saves what an assertion of account's passkey advanced: its
-// sign count, its backup state and its last use.
 func recordUse(ctx context.Context, q *db.Queries, fx *effects, account AccountID, c passkey.Credential) error {
 	fx.passkeyUsed(account)
 	return q.RecordPasskeyUse(ctx, db.RecordPasskeyUseParams{
@@ -223,8 +218,6 @@ func recordUse(ctx context.Context, q *db.Queries, fx *effects, account AccountI
 	})
 }
 
-// assertionStart is what an assertion's begin and finish check first: the
-// address can hold a passkey and isn't over its failure limit.
 func (s *Service) assertionStart(ctx context.Context, c client) (passkey.RP, Settings, error) {
 	rp, err := ceremonyRP(c)
 	if err != nil {

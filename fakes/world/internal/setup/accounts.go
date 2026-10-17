@@ -19,12 +19,9 @@ type Account struct {
 }
 
 // Accounts makes the Scenario's Members and email setting on its
-// controller Node, over c with the Controller's API key, as an Admin and
-// each person would. It sets the address links use to the Controller's
-// browser URL, then for each Member issues a Signup link, redeems it as
-// the link's page does and signs that session out, and makes the Member
-// an Admin when the Scenario says so. Only then, with mail, does it save
-// smtp as the email setting, so the launch sends no email to the capture.
+// controller Node, as an Admin and each person would. It saves smtp as
+// the email setting only after the Members exist, so the launch sends no
+// email to the capture.
 func Accounts(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, apiKey string, smtp netip.AddrPort) ([]Account, error) {
 	var base, host, address string
 	for i, n := range s.Nodes {
@@ -75,7 +72,6 @@ func redeem(ctx context.Context, c *http.Client, base, apiKey string, m scenario
 	return id, nodeapi.SignOut(ctx, c, base, cookie)
 }
 
-// linkToken is the token in a link's fragment, where the page reads it.
 func linkToken(link string) (string, error) {
 	_, token, ok := strings.Cut(link, "#token=")
 	if !ok || token == "" {

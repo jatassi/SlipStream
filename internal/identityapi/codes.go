@@ -28,7 +28,6 @@ var (
 	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey did not check out")
 )
 
-// pinChecked are the codes any operation that checks a PIN may answer.
 var pinChecked = []*api.Code{pinWrong, pinWait, pinOff, tooManyAttempts}
 
 var errorCodes = []struct {

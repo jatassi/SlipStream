@@ -66,8 +66,6 @@ func decode[T any](t *testing.T, w *httptest.ResponseRecorder, status int) T {
 	return v
 }
 
-// tokenOf is the token in a link's URL, failing t unless the URL is one on
-// the configured address.
 func tokenOf(t *testing.T, url string) string {
 	t.Helper()
 	m := tokenURL.FindStringSubmatch(url)
@@ -87,8 +85,6 @@ func (n *node) join(token string) *httptest.ResponseRecorder {
 	return n.do(call{method: http.MethodPost, target: "/api/v1/signup-links/by-token/" + token + "/account", body: `{"displayName":"Grace Hopper","pin":"1357"}`})
 }
 
-// grace joins Grace, grace@example.com with PIN 1357, through a real
-// Signup link the Admin issues, and returns her id and session.
 func (n *node) grace(admin string) (id, session string) {
 	n.t.Helper()
 	w := n.join(tokenOf(n.t, n.issueSignup(admin, "grace@example.com").URL))

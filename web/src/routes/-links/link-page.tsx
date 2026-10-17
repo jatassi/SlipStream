@@ -16,10 +16,7 @@ export type LiveProps = {
   readonly linkDied: () => void;
 };
 
-/**
- * A link page: the card for a dead link, or the flow for a live one. `forSomeoneNew`
- * links sign in as their Account, so someone already signed in signs out first.
- */
+/** `forSomeoneNew` links sign in as their Account, so someone already signed in signs out first. */
 export function LinkPage({
   kind,
   title,

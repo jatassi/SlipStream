@@ -287,7 +287,6 @@ func (s *Service) EndSession(ctx context.Context, a Account, session SessionID) 
 	})
 }
 
-// EndOtherSessions ends every session of a's Account but a's own.
 func (s *Service) EndOtherSessions(ctx context.Context, a Account) error {
 	me := a.s.profile.ID
 	return s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
@@ -341,8 +340,6 @@ func getAccount(ctx context.Context, q *db.Queries, id AccountID) (db.IdentityAc
 	return row, err
 }
 
-// emailFree refuses ErrEmailTaken when an Account other than self has
-// email.
 func emailFree(ctx context.Context, q *db.Queries, email string, self AccountID) error {
 	row, err := q.GetAccountByEmail(ctx, email)
 	switch {

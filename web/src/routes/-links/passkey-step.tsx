@@ -2,7 +2,6 @@ import { passkeyPitch, useAddPasskey } from "../../account/add-passkey";
 import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 
-/** Offers a passkey for this address on the session the flow just signed in. */
 export function PasskeyStep({ onDone }: { onDone: () => void }) {
   const { busy, failure, add } = useAddPasskey(onDone);
   return (

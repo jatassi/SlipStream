@@ -27,8 +27,6 @@ func (c client) Passkeys() passkey.Verdict {
 	return v
 }
 
-// relyingParty is the relying party c's passkey ceremonies run as: its
-// host, after http.trusted_proxies for the scheme.
 func (c client) relyingParty() (passkey.RP, passkey.Verdict) { return passkey.Decide(c.host, c.https) }
 
 // Anyone is whoever called a public operation.
@@ -87,7 +85,6 @@ func (a Admin) Account() (Account, bool) {
 	return *a.account, true
 }
 
-// session is the Admin's own session, zero for the API key.
 func (a Admin) session() SessionID {
 	if a.account == nil {
 		return SessionID{}

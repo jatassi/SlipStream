@@ -53,8 +53,6 @@ func (s *Service) ConfirmEmail(ctx context.Context, _ Anyone, t LinkToken) error
 	})
 }
 
-// changeEmail sets row's email to email and records the notice to the old
-// address.
 func changeEmail(ctx context.Context, q *db.Queries, fx *effects, row db.IdentityAccount, email string) error {
 	if email == row.Email {
 		return nil

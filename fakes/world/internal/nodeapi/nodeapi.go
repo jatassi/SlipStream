@@ -178,7 +178,6 @@ func SetAddress(ctx context.Context, c *http.Client, baseURL, apiKey, address st
 	return err
 }
 
-// CreateSignupLink issues a Signup link for email and returns its URL.
 func CreateSignupLink(ctx context.Context, c *http.Client, baseURL, apiKey, email string) (string, error) {
 	var issued struct {
 		URL string `json:"url"`
@@ -220,7 +219,6 @@ func RedeemSignupLink(ctx context.Context, c *http.Client, baseURL, token, displ
 	return "", nil, fmt.Errorf("redeem the Signup link for %s: no session cookie", displayName)
 }
 
-// SignOut ends the session cookie holds.
 func SignOut(ctx context.Context, c *http.Client, baseURL string, cookie *http.Cookie) error {
 	_, err := call(ctx, c, request{
 		what: "sign out", method: http.MethodDelete, url: baseURL + "/api/v1/session",
@@ -229,7 +227,6 @@ func SignOut(ctx context.Context, c *http.Client, baseURL string, cookie *http.C
 	return err
 }
 
-// MakeAdmin gives Account id the admin flag.
 func MakeAdmin(ctx context.Context, c *http.Client, baseURL, apiKey, id string) error {
 	var account struct{}
 	_, err := call(ctx, c, request{
@@ -267,8 +264,7 @@ type request struct {
 	header            http.Header
 	body              any
 	want              int
-	// cookies, when set, takes the cookies the answer sets.
-	cookies *[]*http.Cookie
+	cookies           *[]*http.Cookie
 }
 
 // call sends r once and decodes a reply with the status r wants into out.

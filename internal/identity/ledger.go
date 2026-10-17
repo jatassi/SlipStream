@@ -50,10 +50,6 @@ func (e *WaitError) Error() string { return "identity: try again at " + e.Until.
 
 var ErrPINOff = errors.New("identity: the PIN is turned off")
 
-// reserve is a PIN check's first step. Off refuses, and a wait refuses
-// until it passes, counting nothing. Otherwise the attempt counts: reaching
-// waitAfter, or any count past it, starts the wait again from now, and
-// reaching offAfter turns the PIN off.
 func reserve(l ledger, lim limits, now time.Time) (ledger, reservation, error) {
 	switch {
 	case !l.offAt.IsZero():

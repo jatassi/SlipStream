@@ -247,8 +247,6 @@ func viewLink(lib Library, k identity.LinkKind) func(context.Context, identity.A
 	}
 }
 
-// opened is the identity service for a public link operation, which on an
-// Unclaimed Node finds no link.
 func opened(lib Library) (*identity.Service, error) {
 	s, ok := lib.Identity()
 	if !ok {

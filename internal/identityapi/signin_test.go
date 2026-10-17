@@ -45,8 +45,6 @@ func pinWaitAnswer(until time.Time, seconds int) answer {
 	return waitProblem("pin_wait", "Too many wrong PINs. Wait before trying again.", until, seconds)
 }
 
-// tooManyAnswer is the refusal of an address whose window of failures ends
-// at until, fifteen minutes away.
 func tooManyAnswer(until time.Time) answer {
 	return waitProblem("too_many_attempts", "Too many failed attempts from this address. Wait before trying again.", until, 900)
 }
@@ -148,9 +146,8 @@ func TestParallelWrongPINsAreCountedBeforeTheyAreHashed(t *testing.T) {
 	}
 }
 
-// TestEachAddressCountsItsFailures fails thirty times from one address,
-// each time for another email so no Account waits. Successes never count,
-// an IPv6 address counts with its /64, and the window lets go.
+// TestEachAddressCountsItsFailures fails for another email each time, so
+// no Account waits.
 func TestEachAddressCountsItsFailures(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n := newNode(t)
@@ -187,8 +184,6 @@ func TestEachAddressCountsItsFailures(t *testing.T) {
 	})
 }
 
-// TestOnlyATrustedProxyNamesTheClient puts SlipStream behind a proxy at
-// 10.0.0.0/8 that forwards the client's address and scheme.
 func TestOnlyATrustedProxyNamesTheClient(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var proxy api.Proxy

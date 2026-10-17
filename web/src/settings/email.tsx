@@ -46,7 +46,6 @@ const formOf = (settings: MailSettings): MailForm => ({
   fromName: settings.fromName,
 });
 
-// An empty password field leaves the saved one alone.
 function patchOf(value: MailForm): MailSettingsPatch {
   const { port, password, ...rest } = mailForm.parse(value);
   return { ...rest, port: Number(port), ...(password === "" ? {} : { password }) };

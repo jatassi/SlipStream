@@ -38,7 +38,6 @@ export const passkeysHere: SystemPasskeys = { available: true };
 export const passkeysAt = (passkeys: SystemPasskeys) =>
   getGetStatusMockHandler({ claim: "controller", passkeys });
 
-/** Your Account's lists, as the Node answers them. */
 export function accountLists({
   passkeys = [iPhonePasskey],
   sessions = [thisLaptop, livingRoomTv],
