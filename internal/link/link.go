@@ -59,6 +59,7 @@ type Config struct {
 // Link holds this Node's sessions, at most one live per peer key.
 type Link struct {
 	cfg       Config
+	self      Key
 	cert      tls.Certificate
 	mux       mux.Config
 	advertise Addresses
@@ -99,6 +100,7 @@ func New(cfg Config) (*Link, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	l := &Link{
 		cfg:       cfg,
+		self:      cfg.Key.Public(),
 		cert:      cert,
 		mux:       mc,
 		advertise: advertise,
@@ -177,16 +179,17 @@ func (l *Link) Serve(ctx context.Context, ln net.Listener) error {
 
 // accept runs TLS and the mux on c, then gives the peer handshake to say
 // Hello before closing the session.
-func (l *Link) accept(c net.Conn) {
+func (l *Link) accept(raw net.Conn) {
 	ctx, cancel := context.WithTimeout(l.ctx, l.cfg.Timings.Handshake)
 	defer cancel()
+	c := &counted{Conn: raw}
 	tc := tls.Server(c, wire.ServerConfig(l.cert, l.admit))
 	if err := tc.HandshakeContext(ctx); err != nil {
 		l.cfg.Log.Debug("link handshake failed", "remote", c.RemoteAddr().String(), "err", err)
 		_ = c.Close()
 		return
 	}
-	s, err := l.start(tc, mux.Server)
+	s, err := l.start(c, tc, false)
 	if err != nil {
 		return
 	}
@@ -214,7 +217,7 @@ func (l *Link) State(key Key) State {
 	if s := l.live[key]; s != nil {
 		return s.state()
 	}
-	return Down{}
+	return l.down(key)
 }
 
 // Subscribe yields every Change in order until ctx ends or Close. The link

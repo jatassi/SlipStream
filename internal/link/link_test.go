@@ -77,9 +77,13 @@ func TestLockstepCallsRunBothWays(t *testing.T) {
 			Matched: true,
 			Local:   netip.MustParseAddrPort("127.0.0.3:49152"),
 			Remote:  netip.MustParseAddrPort("127.0.0.2:8485"),
+			Dialed:  true,
 		}
 		if got := p.Worker.State(p.Controller.Key); got != want {
 			t.Fatalf("the Worker's state of the Controller is %+v, want %+v", got, want)
+		}
+		if got, ok := p.Controller.State(p.Worker.Key).(link.Live); !ok || got.Dialed {
+			t.Fatalf("the Controller's state of the Worker is %+v, want live and not dialed by the Controller", got)
 		}
 
 		if seq, err := syncOnce(t.Context(), p.Worker.Link, p.Controller.Key); seq != 1 || err != nil {

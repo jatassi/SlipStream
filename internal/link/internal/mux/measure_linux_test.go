@@ -49,6 +49,8 @@ const (
 	clientDev   = "smv-cli"
 	serverAddr  = "10.77.0.1"
 	clientAddr  = "10.77.0.2"
+	serverMAC   = "02:00:0a:4d:00:01"
+	clientMAC   = "02:00:0a:4d:00:02"
 	measurePort = "8485"
 	bufSize     = 1 << 20
 	shipped     = "go-yamux"
@@ -67,12 +69,12 @@ var (
 )
 
 // arm moves bytes over one RPC-kind stream of one mux library. serve runs
-// the server's end of a TLS connection and run the client's, adding every
-// byte it moves to moved until c closes.
+// the server's end of a TLS connection and run the client's until c
+// closes.
 type arm struct {
 	name  string
 	serve func(c net.Conn) error
-	run   func(ctx context.Context, c net.Conn, moved *atomic.Int64) error
+	run   func(ctx context.Context, c net.Conn) error
 }
 
 var arms = []arm{
@@ -128,12 +130,17 @@ func measureAll(t *testing.T) {
 	report(results)
 	for _, r := range results {
 		if r.Arm == controlArm {
-			// hashicorp/yamux grants more window only once half of its 256 KiB
-			// is consumed (stream.go sendWindowUpdate), so one stream keeps
-			// about 128 KiB in flight per round trip.
-			predicted := float64(128<<10) * 8 / r.RTT.Seconds() / 1e6
-			if r.Mbits < predicted*0.75 || r.Mbits > predicted*1.25 {
-				t.Errorf("%s at %v carried %.1f Mbit/s, predicted %.1f: harness did not measure the yamux window", r.Arm, r.RTT, r.Mbits, predicted)
+			// hashicorp/yamux keeps the whole 256 KiB window outstanding, but
+			// the receiver credits it back only in steps of at least half
+			// (stream.go sendWindowUpdate), and what it consumed past the last
+			// step waits for the next frame. Between half and all of the
+			// window comes back each round trip, depending on where frames
+			// fall against that step, and a run settles at half or above it.
+			// The margins cover per-trip processing; a delay that netem did
+			// not apply misses by far more.
+			low, high := windowMbits(128<<10, r.RTT)*0.9, windowMbits(256<<10, r.RTT)*1.1
+			if r.Mbits < low || r.Mbits > high {
+				t.Errorf("%s at %v carried %.1f Mbit/s, outside the window's %.1f to %.1f: harness did not measure the yamux window", r.Arm, r.RTT, r.Mbits, low, high)
 			}
 		}
 		if r.Arm == shipped && r.RTT == 100*time.Millisecond && r.Mbits < uhdPeak {
@@ -142,7 +149,13 @@ func measureAll(t *testing.T) {
 	}
 }
 
+func windowMbits(bytes float64, rtt time.Duration) float64 {
+	return bytes * 8 / rtt.Seconds() / 1e6
+}
+
 // topology makes the two namespaces for rtt, removing them at cleanup.
+// Each end knows the other's MAC, so the first connection does not wait a
+// round trip for ARP through the delay.
 func topology(t *testing.T, rtt time.Duration) {
 	cleanup := func() {
 		_ = exec.CommandContext(context.Background(), "ip", "netns", "del", serverNS).Run()
@@ -153,10 +166,11 @@ func topology(t *testing.T, rtt time.Duration) {
 	half := fmt.Sprintf("%dus", rtt.Microseconds()/2)
 	ip(t, "netns", "add", serverNS)
 	ip(t, "netns", "add", clientNS)
-	ip(t, "link", "add", serverDev, "netns", serverNS, "type", "veth", "peer", "name", clientDev, "netns", clientNS)
-	for _, end := range [][3]string{{serverNS, serverDev, serverAddr}, {clientNS, clientDev, clientAddr}} {
-		ns, dev, addr := end[0], end[1], end[2]
+	ip(t, "link", "add", serverDev, "netns", serverNS, "address", serverMAC, "type", "veth", "peer", "name", clientDev, "netns", clientNS, "address", clientMAC)
+	for _, end := range [][5]string{{serverNS, serverDev, serverAddr, clientAddr, clientMAC}, {clientNS, clientDev, clientAddr, serverAddr, serverMAC}} {
+		ns, dev, addr, peer, peerMAC := end[0], end[1], end[2], end[3], end[4]
 		ip(t, "-n", ns, "addr", "add", addr+"/24", "dev", dev)
+		ip(t, "-n", ns, "neigh", "add", peer, "lladdr", peerMAC, "dev", dev, "nud", "permanent")
 		ip(t, "-n", ns, "link", "set", dev, "up")
 		ip(t, "-n", ns, "link", "set", "lo", "up")
 		ip(t, "netns", "exec", ns, "tc", "qdisc", "add", "dev", dev, "root", "netem", "delay", half, "limit", "100000")
@@ -307,13 +321,13 @@ func measureClient(t *testing.T, a arm) {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	var moved atomic.Int64
+	moved := &counted{Conn: tc}
 	done := make(chan error, 1)
-	go func() { done <- a.run(ctx, tc, &moved) }()
+	go func() { done <- a.run(ctx, moved) }()
 	time.Sleep(warmUp)
-	from := moved.Load()
+	from := moved.n.Load()
 	time.Sleep(measureFor)
-	mbits := float64(moved.Load()-from) * 8 / measureFor.Seconds() / 1e6
+	mbits := float64(moved.n.Load()-from) * 8 / measureFor.Seconds() / 1e6
 	cancel()
 	_ = tc.Close()
 	<-done
@@ -326,20 +340,38 @@ func measureClient(t *testing.T, a arm) {
 	}
 }
 
+// counted counts the bytes crossing the client's end of the TLS connection
+// either way, as the mux frames them. A mux Write returns only once its
+// whole buffer is sent, so counting there would move in 1 MiB steps.
+type counted struct {
+	net.Conn
+	n atomic.Int64
+}
+
+func (c *counted) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	c.n.Add(int64(n))
+	return n, err //nolint:wrapcheck // the connection's own error, as net.Conn returns it
+}
+
+func (c *counted) Write(b []byte) (int, error) {
+	n, err := c.Conn.Write(b)
+	c.n.Add(int64(n))
+	return n, err //nolint:wrapcheck // the connection's own error, as net.Conn returns it
+}
+
 // incompressible is a 1 MiB random buffer, so a negotiated gzip on the rpc
-// arm cannot inflate its count.
+// arm cannot shrink what the connection carries.
 func incompressible() []byte {
 	b := make([]byte, bufSize)
 	_, _ = rand.Read(b)
 	return b
 }
 
-func write(st net.Conn, moved *atomic.Int64) error {
+func write(st net.Conn) error {
 	buf := incompressible()
 	for {
-		n, err := st.Write(buf)
-		moved.Add(int64(n))
-		if err != nil {
+		if _, err := st.Write(buf); err != nil {
 			return fmt.Errorf("write: %w", err)
 		}
 	}
@@ -378,8 +410,8 @@ func hashicorpServe(window uint32) func(net.Conn) error {
 	}
 }
 
-func hashicorpRun(window uint32) func(context.Context, net.Conn, *atomic.Int64) error {
-	return func(_ context.Context, c net.Conn, moved *atomic.Int64) error {
+func hashicorpRun(window uint32) func(context.Context, net.Conn) error {
+	return func(_ context.Context, c net.Conn) error {
 		s, err := hashicorp.Client(c, hashicorpConfig(window))
 		if err != nil {
 			return fmt.Errorf("hashicorp client: %w", err)
@@ -392,7 +424,7 @@ func hashicorpRun(window uint32) func(context.Context, net.Conn, *atomic.Int64) 
 		if _, err := st.Write([]byte{byte(wire.RPC)}); err != nil {
 			return fmt.Errorf("write stream kind: %w", err)
 		}
-		return write(st, moved)
+		return write(st)
 	}
 }
 
@@ -413,7 +445,7 @@ func shippedServe(c net.Conn) error {
 	return discard(st)
 }
 
-func shippedRun(ctx context.Context, c net.Conn, moved *atomic.Int64) error {
+func shippedRun(ctx context.Context, c net.Conn) error {
 	s, err := mux.Client(c, shippedConfig())
 	if err != nil {
 		return err
@@ -423,7 +455,7 @@ func shippedRun(ctx context.Context, c net.Conn, moved *atomic.Int64) error {
 	if err != nil {
 		return err
 	}
-	return write(st, moved)
+	return write(st)
 }
 
 // artifacts streams 1 MiB FetchArtifact messages until the call ends, the
@@ -467,7 +499,7 @@ func rpcServe(c net.Conn) error {
 	}
 }
 
-func rpcRun(ctx context.Context, c net.Conn, moved *atomic.Int64) error {
+func rpcRun(ctx context.Context, c net.Conn) error {
 	s, err := mux.Client(c, shippedConfig())
 	if err != nil {
 		return err
@@ -482,10 +514,8 @@ func rpcRun(ctx context.Context, c net.Conn, moved *atomic.Int64) error {
 	}
 	defer func() { _ = stream.Close() }()
 	for {
-		res, err := stream.Receive()
-		if err != nil {
+		if _, err := stream.Receive(); err != nil {
 			return err
 		}
-		moved.Add(int64(len(res.GetData())))
 	}
 }
