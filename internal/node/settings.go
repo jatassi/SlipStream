@@ -396,3 +396,26 @@ func refusal(err error) error {
 	}
 	return &nodesystem.Refusal{Key: p.Key, Reason: nodesystem.Invalid, Sentence: p.String()}
 }
+
+// setNodePort writes link.listen with port in config.yaml, keeping its
+// address. link.listen is no Node settings key, since a Node binds it once
+// at start.
+func (f configFile) setNodePort(port uint16) (netip.AddrPort, error) {
+	saved, keys, err := f.load()
+	if err != nil {
+		return netip.AddrPort{}, err
+	}
+	if k := keysByName(keys)["link.listen"]; k.Source == config.SourceDotEnv || k.Source == config.SourceEnv {
+		return netip.AddrPort{}, &nodesystem.Refusal{Key: k.Key, Reason: nodesystem.SetByEnvironment, Sentence: "Set by " + k.Env + ".", Variable: k.Env}
+	}
+	listen := netip.AddrPortFrom(saved.Link.Listen.Addr(), port)
+	text := listen.String()
+	err = config.Edit(f.dir.Path(), []config.Change{{Key: "link.listen", Text: &text}}, func(fsys fs.FS) error {
+		_, _, err := loadConfig(fsys, f.environ, f.types, f.kind)
+		return err
+	})
+	if err != nil {
+		return netip.AddrPort{}, refusal(err)
+	}
+	return listen, nil
+}

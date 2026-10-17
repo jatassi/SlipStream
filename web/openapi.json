@@ -2997,20 +2997,66 @@
         ],
         "type": "object"
       },
-      "PairingWorker": {
+      "PairingProblem": {
         "additionalProperties": false,
         "properties": {
-          "controller": {
-            "$ref": "#/components/schemas/PairingController"
+          "code": {
+            "enum": [
+              "controller_unreachable",
+              "join_code_unknown",
+              "join_code_expired",
+              "join_code_used",
+              "controller_key_mismatch",
+              "internal"
+            ],
+            "type": "string"
           },
-          "nodeId": {
-            "format": "uuid",
+          "detail": {
             "type": "string"
           }
         },
         "required": [
-          "nodeId",
-          "controller"
+          "code",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "PairingWorkerClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "$ref": "#/components/schemas/PairingController",
+            "description": "Set once joined"
+          },
+          "nodeAddress": {
+            "description": "The SLN1 text to paste into the Controller's Add a Node dialog; absent once joined without a wait",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "This Node's id; set once joined",
+            "format": "uuid",
+            "type": "string"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/PairingProblem",
+            "description": "Why a failed Join failed"
+          },
+          "state": {
+            "enum": [
+              "awaiting-dial",
+              "joined",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "until": {
+            "description": "When this Node stops waiting for the dial",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
         ],
         "type": "object"
       },
@@ -19099,6 +19145,7 @@
                         "code": {
                           "enum": [
                             "already_claimed",
+                            "join_pending",
                             "setup_busy"
                           ],
                           "type": "string"
@@ -19176,6 +19223,157 @@
       }
     },
     "/setup/worker": {
+      "get": {
+        "operationId": "getWorkerClaim",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingWorkerClaim"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "setup_code_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_join_pending"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "already_claimed",
+                            "setup_busy"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "setupCode": []
+          }
+        ],
+        "summary": "Get the Join that awaited its Controller's dial: still awaiting, joined or failed",
+        "tags": [
+          "pairing"
+        ],
+        "x-slipstream-access": "setup"
+      },
       "post": {
         "operationId": "claimWorker",
         "requestBody": {
@@ -19193,11 +19391,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PairingWorker"
+                  "$ref": "#/components/schemas/PairingWorkerClaim"
                 }
               }
             },
             "description": "Created"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingWorkerClaim"
+                }
+              }
+            },
+            "description": "Accepted"
           },
           "401": {
             "content": {
@@ -19265,6 +19473,9 @@
                         "code": {
                           "enum": [
                             "already_claimed",
+                            "join_pending",
+                            "node_unaddressed",
+                            "restart_required",
                             "setup_busy"
                           ],
                           "type": "string"
@@ -19341,8 +19552,7 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "controller_key_mismatch",
-                            "controller_unreachable"
+                            "controller_key_mismatch"
                           ],
                           "type": "string"
                         }
@@ -19361,7 +19571,7 @@
             "setupCode": []
           }
         ],
-        "summary": "Join this Node to a Controller as a Worker with a Join Code",
+        "summary": "Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial",
         "tags": [
           "pairing"
         ],

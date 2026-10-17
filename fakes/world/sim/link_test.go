@@ -189,7 +189,7 @@ func TestRepairSupersedes(t *testing.T) {
 		officeKey := office(t, w)
 		worker := w.Node("seedbox")
 		worker.Stop()
-		joined, err := worker.Join(t.Context(), mint(t, w, "office", officeKey))
+		joined, err := worker.Join(t.Context(), mint(t, w, "office", officeKey), 0, func(pairing.Pending) {})
 		if err != nil {
 			t.Fatalf("join seedbox to office: %v", err)
 		}

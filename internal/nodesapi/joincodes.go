@@ -97,61 +97,6 @@ func dialOf(d nodes.Dial) dialView {
 	return out
 }
 
-func joinCodeRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "createJoinCode",
-		Method:  http.MethodPost,
-		Path:    "/join-codes",
-		Summary: "Mint a Join Code that pairs one Node with this Controller",
-		Status:  http.StatusCreated,
-		Errors:  []*api.Code{noLinkAddress},
-	}, h.createJoinCode)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "listJoinCodes",
-		Method:  http.MethodGet,
-		Path:    "/join-codes",
-		Summary: "List the Join Codes that may still pair a Node",
-		Status:  http.StatusOK,
-	}, h.listJoinCodes)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "getJoinCode",
-		Method:  http.MethodGet,
-		Path:    "/join-codes/{id}",
-		Summary: "Get whether a Join Code is open, used or expired, and its dial",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{joinCodeNotFound},
-	}, h.getJoinCode)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "revokeJoinCode",
-		Method:  http.MethodDelete,
-		Path:    "/join-codes/{id}",
-		Summary: "Revoke a Join Code, so no Node pairs with it",
-		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{joinCodeNotFound},
-	}, h.revokeJoinCode)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "dialForCode",
-		Method:  http.MethodPost,
-		Path:    "/join-codes/{id}/dial",
-		Summary: "Dial the Node waiting at a Node address, which pairs with the code over that session",
-		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{joinCodeNotFound, joinCodeClosed, nodeAddressDamaged},
-	}, h.dialForCode)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "setNodeDial",
-		Method:  http.MethodPut,
-		Path:    "/nodes/{id}/dial",
-		Summary: "Set the Node address the Controller dials a Node at, or stop dialing it",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotFound, nodeAddressDamaged, nodeKeyMismatch},
-	}, h.setNodeDial)
-}
-
 func joinCodeID(s string) (nodes.JoinCodeID, error) {
 	u, err := storage.ParseUUID(s)
 	if err != nil {

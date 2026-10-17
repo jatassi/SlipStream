@@ -252,9 +252,11 @@ func (n *Node) Start(edit ...func(*node.Env)) {
 }
 
 // Join runs slipstream join on the stopped Node's data dir, as an
-// operator pairs a Node with no service running.
-func (n *Node) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
-	return node.Join(ctx, n.env(), code)
+// operator pairs a Node with no service running, with --node-port
+// nodePort unless it is 0. awaiting is called once if the Join awaits its
+// Controller's dial.
+func (n *Node) Join(ctx context.Context, code joincode.Code, nodePort uint16, awaiting func(pairing.Pending)) (pairing.Joined, error) {
+	return node.Join(ctx, n.env(), code, nodePort, awaiting)
 }
 
 // JoinOp sends the join op to the running Node over its control socket,

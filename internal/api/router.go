@@ -123,6 +123,9 @@ type Op struct {
 	Path    string
 	Summary string
 	Status  int
+	// Also are statuses beside Status that the handler selects through
+	// its output's Status field. Each answers Status's body.
+	Also []int
 	// Errors are the owner's codes the handler may return, beyond its
 	// level's codes, invalid and internal.
 	Errors []*Code
@@ -143,6 +146,7 @@ func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context
 	r := o.router
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
 	mustDocumentEmbedded(reflect.TypeFor[O](), map[reflect.Type]bool{})
+	documentAlso(r.huma.OpenAPI().Components.Schemas, &hop, op, reflect.TypeFor[O]())
 	huma.Register(r.huma, hop, func(ctx context.Context, in *I) (out *O, err error) {
 		p := principal[P](ctx, op)
 		defer func() {
@@ -186,6 +190,25 @@ func humaOperation[P any](o *Owner, level Level[P], op Op, input reflect.Type) (
 		MaxBodyBytes: limit + 1,
 		Middlewares:  huma.Middlewares{admitMiddleware(o.router, level)},
 	}, declared
+}
+
+// documentAlso adds each of op.Also to hop's responses with the body of
+// output, which must carry the Status field that selects it.
+func documentAlso(registry huma.Registry, hop *huma.Operation, op Op, output reflect.Type) {
+	if len(op.Also) == 0 {
+		return
+	}
+	body, hasBody := output.FieldByName("Body")
+	if _, hasStatus := output.FieldByName("Status"); !hasStatus || !hasBody {
+		panic(op.ID + ": an operation answering more than one status has an output with Status and Body")
+	}
+	schema := huma.SchemaFromField(registry, body, op.ID+"Response")
+	for _, status := range op.Also {
+		hop.Responses[strconv.Itoa(status)] = &huma.Response{
+			Description: http.StatusText(status),
+			Content:     map[string]*huma.MediaType{"application/json": {Schema: schema}},
+		}
+	}
 }
 
 func principal[P any](ctx context.Context, op Op) P {

@@ -31,6 +31,7 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 		return fmt.Errorf("listen for the link on %s: %w", cfg.Link.Listen, err)
 	}
 	l.Link = boundTCP(ln)
+	n.linkBound = l.Link
 	peers := claimPeers{n}
 	n.lockstep = http.NewServeMux()
 	n.info = nodeInfo(n.env.Version, n.env.Install)
@@ -54,7 +55,7 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 	n.served = serving.NewListener()
 	n.link.HandleStream(link.KindServe, claimStreams{n}.serve)
 	n.stack.OnStop("link", func(context.Context) error { return n.link.Close() })
-	n.stack.Go("link-serve", func(ctx context.Context) error { return n.link.Serve(ctx, ln) })
+	n.stack.Go("link-serve", n.link.Serve(ln))
 	return nil
 }
 

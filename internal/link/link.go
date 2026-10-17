@@ -153,11 +153,16 @@ func (l *Link) spawn(fn func()) bool {
 	return true
 }
 
-// Serve accepts sessions on ln until ctx ends or Close.
-func (l *Link) Serve(ctx context.Context, ln net.Listener) error {
+// Serve has the link advertise ln's address from now on, and returns the
+// loop that accepts sessions on ln until ctx ends or Close.
+func (l *Link) Serve(ln net.Listener) func(context.Context) error {
 	l.mu.Lock()
 	l.bound = addrPort(ln.Addr())
 	l.mu.Unlock()
+	return func(ctx context.Context) error { return l.accepting(ctx, ln) }
+}
+
+func (l *Link) accepting(ctx context.Context, ln net.Listener) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stopLink := context.AfterFunc(l.ctx, cancel)
@@ -306,11 +311,7 @@ func (l *Link) Advertised() (Addresses, bool) {
 	if !l.advertise.IsZero() {
 		return l.advertise, true
 	}
-	var host []netip.Addr
-	if bound.Addr().IsUnspecified() {
-		host = hostAddrs()
-	}
-	return advertise(bound, host)
+	return advertiseBound(bound)
 }
 
 func (l *Link) info() NodeInfo {

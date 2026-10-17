@@ -57,6 +57,28 @@ func Call[Req, Resp any](ctx context.Context, network link.Network, dir DataDir,
 	return resp, nil
 }
 
+// Stream sends o to the Node on dir and hands each reply to each until it
+// answers true, the op's last reply.
+func Stream[Req, Resp any](ctx context.Context, network link.Network, dir DataDir, o op.Op[Req, Resp], req Req, each func(Resp) (last bool)) error {
+	c, err := dial(ctx, network, dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = c.Close() }()
+	if err := c.Send(o.Name, req); err != nil {
+		return err
+	}
+	for {
+		var resp Resp
+		if err := c.Recv(&resp); err != nil {
+			return fmt.Errorf("%s: %w", o.Name, err)
+		}
+		if each(resp) {
+			return nil
+		}
+	}
+}
+
 func dial(ctx context.Context, network link.Network, dir DataDir) (*control.Conn, error) {
 	c, err := control.Dial(ctx, network.DialContext, dir.ControlSocket())
 	if err != nil {

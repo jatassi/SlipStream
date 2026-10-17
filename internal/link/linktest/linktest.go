@@ -125,8 +125,9 @@ func Start(t testing.TB, net *fault.Network, name string, addrs []netip.Addr, si
 			t.Fatal(err)
 		}
 		listening = append(listening, ap)
+		serve := l.Serve(ln)
 		served.Go(func() {
-			if err := l.Serve(ctx, ln); err != nil {
+			if err := serve(ctx); err != nil {
 				t.Errorf("serve: %v", err)
 			}
 		})

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -186,13 +187,14 @@ type Node struct {
 
 	// Set during start, before the Node is ready. cfgMu guards the Node
 	// settings table's keys in cfg, which setConfig changes later.
-	cfgMu sync.Mutex
-	cfg   Config
-	key   link.PrivateKey
-	info  link.NodeInfo
-	hub   *live.Hub
-	gate  *identity.Gate
-	link  *link.Link
+	cfgMu     sync.Mutex
+	cfg       Config
+	key       link.PrivateKey
+	info      link.NodeInfo
+	hub       *live.Hub
+	gate      *identity.Gate
+	link      *link.Link
+	linkBound netip.AddrPort
 	// served is the Controller's end of the Serve streams Serving Workers
 	// open.
 	served    *serving.Listener
@@ -416,11 +418,13 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		return 0, "", err
 	}
 	n.pairing, err = pairing.Open(pairing.Config{
-		DataDir: n.env.DataDir.Path(),
-		Link:    n.link,
-		Name:    cfg.Name,
-		Claims:  surfaceNode{n},
-		Log:     n.rootLog.With("subsystem", "pairing"),
+		DataDir:   n.env.DataDir.Path(),
+		Key:       n.key.Public(),
+		Link:      n.link,
+		Name:      cfg.Name,
+		Claims:    surfaceNode{n},
+		AwaitDial: cfg.Timings.Link.AwaitDial,
+		Log:       n.rootLog.With("subsystem", "pairing"),
 	})
 	if _, malformed := errors.AsType[*pairing.RecordError](err); malformed {
 		err = &RecordError{Err: err}

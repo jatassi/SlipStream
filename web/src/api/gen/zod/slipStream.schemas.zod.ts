@@ -1501,13 +1501,40 @@ export const PairingJoinBody = zod.object({
 export type PairingJoinBody = zod.input<typeof PairingJoinBody>;
 export type PairingJoinBodyOutput = zod.output<typeof PairingJoinBody>;
 
-export const PairingWorker = zod.object({
-  controller: PairingController,
-  nodeId: zod.uuid(),
+export const PairingProblem = zod.object({
+  code: zod.enum([
+    "controller_unreachable",
+    "join_code_unknown",
+    "join_code_expired",
+    "join_code_used",
+    "controller_key_mismatch",
+    "internal",
+  ]),
+  detail: zod.string(),
 });
 
-export type PairingWorker = zod.input<typeof PairingWorker>;
-export type PairingWorkerOutput = zod.output<typeof PairingWorker>;
+export type PairingProblem = zod.input<typeof PairingProblem>;
+export type PairingProblemOutput = zod.output<typeof PairingProblem>;
+
+export const PairingWorkerClaim = zod.object({
+  controller: PairingController.exactOptional().describe("Set once joined"),
+  nodeAddress: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The SLN1 text to paste into the Controller's Add a Node dialog; absent once joined without a wait",
+    ),
+  nodeId: zod.uuid().exactOptional().describe("This Node's id; set once joined"),
+  problem: PairingProblem.exactOptional().describe("Why a failed Join failed"),
+  state: zod.enum(["awaiting-dial", "joined", "failed"]),
+  until: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When this Node stops waiting for the dial"),
+});
+
+export type PairingWorkerClaim = zod.input<typeof PairingWorkerClaim>;
+export type PairingWorkerClaimOutput = zod.output<typeof PairingWorkerClaim>;
 
 export const passkeyRenameInputBodyNameMax = 100;
 
