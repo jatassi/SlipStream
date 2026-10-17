@@ -61,4 +61,5 @@ type TargetsTarget struct {
 type TargetsWant struct {
 	WorkID    works.WorkID
 	ProfileID ProfileID
+	Editions  *List
 }

@@ -70,3 +70,7 @@ sql:
           - column: targets_wants.profile_id
             go_type:
               type: ProfileID
+          - column: targets_wants.editions
+            go_type:
+              type: List
+              pointer: true

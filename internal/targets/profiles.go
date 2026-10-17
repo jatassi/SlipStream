@@ -32,6 +32,7 @@ type Profile struct {
 	ContentType works.TypeID
 	Default     bool
 	Entries     []Entry
+	Editions    Editions
 	// Works counts the Works wanting from it. Read only.
 	Works int
 }
@@ -42,6 +43,7 @@ type ProfileSpec struct {
 	Name        string
 	ContentType works.TypeID
 	Entries     []Entry
+	Editions    Editions
 }
 
 // CreateProfile checks s and creates its Profile, which is never the
@@ -68,8 +70,19 @@ func insertProfile(ctx context.Context, q *db.Queries, p Profile) error {
 	case taken:
 		return ErrProfileNameTaken
 	}
-	for i, e := range p.Entries {
-		if slices.ContainsFunc(p.Entries[:i], func(o Entry) bool { return o.Target == e.Target }) {
+	if err := checkEntries(ctx, q, p.Entries); err != nil {
+		return err
+	}
+	if err := q.InsertProfile(ctx, db.InsertProfileParams{ID: p.ID, Name: p.Name, ContentType: p.ContentType, IsDefault: p.Default}); err != nil {
+		return err
+	}
+	return insertEntries(ctx, q, p.ID, p.Entries)
+}
+
+// checkEntries refuses a Target named twice or that doesn't exist.
+func checkEntries(ctx context.Context, q *db.Queries, entries []Entry) error {
+	for i, e := range entries {
+		if slices.ContainsFunc(entries[:i], func(o Entry) bool { return o.Target == e.Target }) {
 			return ErrTargetTwice
 		}
 		switch has, err := q.HasTarget(ctx, e.Target); {
@@ -79,11 +92,12 @@ func insertProfile(ctx context.Context, q *db.Queries, p Profile) error {
 			return ErrNoTarget
 		}
 	}
-	if err := q.InsertProfile(ctx, db.InsertProfileParams{ID: p.ID, Name: p.Name, ContentType: p.ContentType, IsDefault: p.Default}); err != nil {
-		return err
-	}
-	for i, e := range p.Entries {
-		err := q.InsertProfileTarget(ctx, db.InsertProfileTargetParams{ProfileID: p.ID, Position: int64(i + 1), TargetID: e.Target, Sourcing: e.Sourcing})
+	return nil
+}
+
+func insertEntries(ctx context.Context, q *db.Queries, id ProfileID, entries []Entry) error {
+	for i, e := range entries {
+		err := q.InsertProfileTarget(ctx, db.InsertProfileTargetParams{ProfileID: id, Position: int64(i + 1), TargetID: e.Target, Sourcing: e.Sourcing})
 		if err != nil {
 			return err
 		}

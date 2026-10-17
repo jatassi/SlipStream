@@ -11,11 +11,14 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Goals is what one Work wants: its Profile and that Profile's Targets in
-// Profile order.
+// Goals is what one Work wants: its Profile, that Profile's Targets in
+// Profile order, and its effective Edition list, which is its own when
+// Own.
 type Goals struct {
-	Profile Profile
-	Targets []Target
+	Profile  Profile
+	Targets  []Target
+	Editions Editions
+	Own      bool
 }
 
 // Assign gives w its wants row in tx: Profile profile, or its Content
@@ -61,6 +64,10 @@ func GoalsIn(ctx context.Context, r storage.Reader[file], work works.WorkID) (Go
 		return Goals{}, err
 	}
 	g := Goals{Profile: profiles[slices.IndexFunc(profiles, func(p Profile) bool { return p.ID == row.ProfileID })]}
+	g.Editions, g.Own = g.Profile.Editions, row.Editions != nil
+	if g.Own {
+		g.Editions = editionsOf(*row.Editions)
+	}
 	for _, e := range g.Profile.Entries {
 		g.Targets = append(g.Targets, all[slices.IndexFunc(all, func(t Target) bool { return t.ID == e.Target })])
 	}

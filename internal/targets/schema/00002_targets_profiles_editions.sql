@@ -101,3 +101,7 @@ CREATE INDEX targets_wants_profile_id ON targets_wants (profile_id);
 INSERT INTO targets_wants (work_id, profile_id)
 SELECT w.id, p.id FROM works_work w
 JOIN targets_profile p ON p.content_type = w.content_type AND p.is_default = 1;
+
+-- A Work's own Edition list, which replaces its Profile's. NULL is the
+-- Profile's. Any cut is the only list until cuts can be chosen.
+ALTER TABLE targets_wants ADD COLUMN editions TEXT CHECK (editions IN ('any'));

@@ -95,3 +95,42 @@ SELECT * FROM targets_wants ORDER BY work_id;
 
 -- name: ListWorksOfProfile :many
 SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) ORDER BY work_id;
+
+-- name: TargetNameTakenByOther :one
+SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = sqlc.arg(name) AND id <> sqlc.arg(id));
+
+-- name: UpdateTarget :exec
+UPDATE targets_target SET name = sqlc.arg(name), cutoff_tier = sqlc.arg(cutoff_tier) WHERE id = sqlc.arg(id);
+
+-- name: DeleteQualities :exec
+DELETE FROM targets_quality WHERE target_id = sqlc.arg(target_id);
+
+-- name: DeleteFilters :exec
+DELETE FROM targets_filter WHERE target_id = sqlc.arg(target_id);
+
+-- name: ListWorksOfTarget :many
+SELECT DISTINCT w.work_id FROM targets_wants w
+JOIN targets_profile_target pt ON pt.profile_id = w.profile_id
+WHERE pt.target_id = sqlc.arg(target_id)
+ORDER BY w.work_id;
+
+-- name: ProfileNameTakenByOther :one
+SELECT EXISTS (SELECT 1 FROM targets_profile WHERE name = sqlc.arg(name) AND id <> sqlc.arg(id));
+
+-- name: RenameProfile :exec
+UPDATE targets_profile SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+
+-- name: DeleteProfileTargets :exec
+DELETE FROM targets_profile_target WHERE profile_id = sqlc.arg(profile_id);
+
+-- name: DeleteProfile :exec
+DELETE FROM targets_profile WHERE id = sqlc.arg(id);
+
+-- name: CountOwnLists :one
+SELECT count(*) FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) AND editions IS NOT NULL;
+
+-- name: MoveWants :exec
+UPDATE targets_wants SET profile_id = sqlc.arg(to_profile) WHERE profile_id = sqlc.arg(from_profile);
+
+-- name: SetWants :exec
+UPDATE targets_wants SET profile_id = sqlc.arg(profile_id), editions = sqlc.narg(editions) WHERE work_id = sqlc.arg(work_id);

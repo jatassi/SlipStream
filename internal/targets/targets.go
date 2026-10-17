@@ -47,6 +47,9 @@ var (
 	ErrNoProfile        = errors.New("no Profile has that id")
 	ErrProfileWrongType = errors.New("the Profile is for another Content Type")
 	ErrTargetTwice      = errors.New("a Profile holds a Target twice")
+	ErrProfileIsDefault = errors.New("the default Profile can't be deleted")
+	ErrMovesToItself    = errors.New("a Profile's Works can't move to the Profile being deleted")
+	ErrNoReplacement    = errors.New("no Profile has the id a deleted Profile's Works would move to")
 )
 
 // InUseError is a Target that Profiles hold, By their names.
@@ -76,6 +79,9 @@ type Describer interface {
 
 type Targets struct{ cfg Config }
 
+// Publish sends targets.changed, for a Change files applied and committed.
+func (t *Targets) Publish(ctx context.Context) { t.cfg.Changed.Publish(ctx, Changed{}) }
+
 // CreateTarget checks s and creates its Target.
 func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, s Spec) (Target, error) {
 	target, err := NewTarget(s)
@@ -103,6 +109,11 @@ func insertTarget(ctx context.Context, q *db.Queries, t Target) error {
 	if err := q.InsertTarget(ctx, db.InsertTargetParams{ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt, CutoffTier: int64(t.Cutoff)}); err != nil {
 		return err
 	}
+	return insertRules(ctx, q, t)
+}
+
+// insertRules writes t's qualities, sizes and filters.
+func insertRules(ctx context.Context, q *db.Queries, t Target) error {
 	position := int64(0)
 	for i, tier := range t.Tiers {
 		for _, a := range tier {

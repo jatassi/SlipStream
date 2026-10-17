@@ -33,3 +33,8 @@ const Download Sourcing = "download"
 
 // Singleton is the id of a one-row table, fixed at 1 by a CHECK.
 type Singleton int64
+
+// List is the kind of a Work's own Edition list. NULL is its Profile's.
+type List string
+
+const AnyList List = "any"
