@@ -112,7 +112,7 @@ func TestWipedWorkerPairsAgain(t *testing.T) {
 	})
 	rows := a.Nodes("home")
 	again, was := row(t, rows, id), row(t, rows, box.NodeID)
-	if len(rows) != 3 || id == box.NodeID || again.Name != "seedbox-2" || again.Link.State != "up" || len(again.Roles) != 0 || was.Link.State != "down" {
+	if len(rows) != 3 || id == box.NodeID || again.Name != "seedbox-2" || again.Link.State != "up" || len(again.Assigned()) != 0 || was.Link.State != "down" {
 		t.Fatalf("listNodes on home after seedbox joined again as %s = %+v; want its wiped row down and a new row seedbox-2, up and holding no Roles", id, rows)
 	}
 }

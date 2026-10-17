@@ -27,12 +27,14 @@ func (unheard) Publish(context.Context, Changed) {}
 // counted is an owner that holds n units of noun on on and nothing
 // elsewhere.
 func counted(r role.Name, on ID, n int64, noun Noun) Owner {
-	return Owner{Role: r, Held: func(_ context.Context, _ storage.Reader[storage.Library], node ID) (Held, error) {
+	o := Unowned(r)
+	o.Held = func(_ context.Context, _ storage.Reader[storage.Library], node ID) (Held, error) {
 		if node != on {
 			return Held{}, nil
 		}
 		return Held{Units: n, Noun: noun}, nil
-	}}
+	}
+	return o
 }
 
 // Plan's Seats come from the rows, the board and the owners: seedbox, out
@@ -65,7 +67,7 @@ func TestSeatsCarryTiedWorkAsHeldAndPortableWorkAsMoves(t *testing.T) {
 	if err := s.reload(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	sit, err := s.situation(t.Context(), lib)
+	sit, err := s.situation(t.Context(), lib, s.Board())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,5 +96,51 @@ func TestSeatsCarryTiedWorkAsHeldAndPortableWorkAsMoves(t *testing.T) {
 	}
 	if !reflect.DeepEqual(out.Effects, want) {
 		t.Errorf("unticking seedbox's Roles plans %v, want %v", out.Effects, want)
+	}
+}
+
+// Unticking Searching on seedbox, which has Indexers homed on it, moves
+// them in the same Write to home, the Controller that keeps Searching.
+func TestApplyMovesPortableWorkToTheHeir(t *testing.T) {
+	seedbox := ID{UUID: storage.NewUUID()}
+	searching := counted(role.Searching, seedbox, 2, Noun{"Indexer", "Indexers"})
+	var moved [][2]ID
+	searching.Unassigned = func(_ context.Context, _ *storage.Tx[storage.Library], node, heir ID) error {
+		moved = append(moved, [2]ID{node, heir})
+		return nil
+	}
+	owners := []Owner{searching}
+	for _, r := range role.Names() {
+		if r != role.Searching {
+			owners = append(owners, Unowned(r))
+		}
+	}
+	lib := storagetest.Library(t, Schema(), role.LibrarySchema())
+	s, err := Open(t.Context(), Config{Library: lib, Name: "home", Link: noLink{}, Changed: unheard{}, Owners: owners, Log: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)", seedbox); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, "INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, 'searching', 0)", seedbox)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.reload(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	board, err := s.RoleBoard(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(t.Context(), SetRoles{Basis: board.Basis(), Want: Roles{seedbox: 0}}); err != nil {
+		t.Fatal(err)
+	}
+	if want := [][2]ID{{seedbox, s.Self()}}; !reflect.DeepEqual(moved, want) {
+		t.Fatalf("the Searching owner moved %v, want seedbox's Indexers to home", moved)
 	}
 }

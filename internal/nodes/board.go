@@ -58,6 +58,10 @@ const (
 	Covering
 )
 
+func (s RoleState) String() string {
+	return [...]string{"", "holding", "away", "lapsed", "draining", "writing-off", "covering"}[s]
+}
+
 // Standing is how a Node stands with the Controller at one instant.
 type Standing uint8
 
@@ -121,6 +125,26 @@ func (b *Board) covering() role.Set {
 			if st == Covering {
 				out = out.With(r)
 			}
+		}
+	}
+	return out
+}
+
+// RoleView is one Role a Node stands in and the tied work it holds for it.
+type RoleView struct {
+	Role  role.Name
+	State RoleState
+	// Held is zero when the Node holds no tied work for Role.
+	Held Held
+}
+
+// Roles is every Role id stands in on b, in table order, each with its
+// tied work from held.
+func (b *Board) Roles(id ID, held map[role.Name]Held) []RoleView {
+	var out []RoleView
+	for _, r := range role.Names() {
+		if st := b.Who(r).State(id); st != NoState {
+			out = append(out, RoleView{Role: r, State: st, Held: held[r]})
 		}
 	}
 	return out

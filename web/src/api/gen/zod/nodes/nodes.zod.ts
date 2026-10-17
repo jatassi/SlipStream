@@ -4,7 +4,9 @@ import {
   NodesJoinCode,
   NodesNode,
   NodesNodeList,
-  NodesRoles,
+  NodesOutcome,
+  NodesRoleBoard,
+  NodesRolesChange,
   NodesSettings,
   NodesSettingsPatch,
 } from "../slipStream.schemas.zod.ts";
@@ -18,6 +20,25 @@ export const ListNodesResponse = NodesNodeList;
  * @summary Mint a Join Code that pairs one Node with this Controller
  */
 export const CreateJoinCodeResponse = NodesJoinCode;
+
+/**
+ * @summary Get every Node's Roles and the plan's verdict on every drag
+ */
+export const GetRoleBoardResponse = NodesRoleBoard;
+
+/**
+ * @summary Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers
+ */
+export const SetRolesBody = NodesRolesChange;
+
+export const SetRolesResponse = NodesOutcome;
+
+/**
+ * @summary Plan a change of Roles without applying it
+ */
+export const PlanRolesBody = NodesRolesChange;
+
+export const PlanRolesResponse = NodesOutcome;
 
 /**
  * @summary Get the nodes settings
@@ -39,14 +60,3 @@ export const GetNodeParams = zod.object({
 });
 
 export const GetNodeResponse = NodesNode;
-
-/**
- * @summary Set the Roles a Node holds; a connected Node in step has them when this answers
- */
-export const SetNodeRolesParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const SetNodeRolesBody = NodesRoles;
-
-export const SetNodeRolesResponse = NodesNode;

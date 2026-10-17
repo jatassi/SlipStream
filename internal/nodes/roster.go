@@ -123,8 +123,11 @@ func differing(a, b *Board) []ID {
 }
 
 // reload reads the roster again, keeping what it remembers of each Node's
-// sessions.
+// sessions. Reloads run one at a time, so the last to run read the last
+// commit.
 func (s *Service) reload(ctx context.Context) error {
+	s.reloading.Lock()
+	defer s.reloading.Unlock()
 	rows, grace, err := s.read(ctx)
 	if err != nil {
 		return err
@@ -238,41 +241,49 @@ func (s *Service) scope(ctx context.Context, r storage.Reader[file], node ID) (r
 }
 
 // situation is what Plan reads now: each live Node as a Seat, away unless
-// the board has it in step, with the tied work each owner counts on it as
-// Held and the portable work as Moves.
-func (s *Service) situation(ctx context.Context, r storage.Reader[file]) (Situation, error) {
+// board has it in step, with the work each owner counts on it.
+func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *Board) (Situation, error) {
 	rows, err := loadRows(ctx, r)
 	if err != nil {
 		return Situation{}, err
 	}
-	board := s.Board()
 	seats := make([]Seat, len(rows))
 	for i, n := range rows {
 		v, ok := board.Node(n.id)
-		seat := Seat{
+		held, moves, err := s.work(ctx, r, n.id)
+		if err != nil {
+			return Situation{}, err
+		}
+		seats[i] = Seat{
 			Named:    Named{ID: n.id, Name: n.name},
 			Assigned: n.assigned,
 			Forfeit:  n.forfeit,
 			Away:     !ok || v.Standing != InStep,
-			Held:     map[role.Name]Held{},
-			Moves:    map[role.Name]Held{},
+			Held:     held,
+			Moves:    moves,
 		}
-		for _, name := range role.Names() {
-			held, err := s.owners[name].Held(ctx, r, n.id)
-			if err != nil {
-				return Situation{}, fmt.Errorf("count %s work on node %s: %w", name, n.id, err)
-			}
-			switch {
-			case held.Units == 0:
-			case name.Rule().Work == role.Tied:
-				seat.Held[name] = held
-			case name.Rule().Work == role.Portable:
-				seat.Moves[name] = held
-			}
-		}
-		seats[i] = seat
 	}
 	return Situation{Controller: s.self, Seats: seats}, nil
+}
+
+// work is what each Role's owner counts on node: tied work as held, and
+// portable work as moves.
+func (s *Service) work(ctx context.Context, r storage.Reader[file], node ID) (held, moves map[role.Name]Held, err error) {
+	held, moves = map[role.Name]Held{}, map[role.Name]Held{}
+	for _, name := range role.Names() {
+		h, err := s.owners[name].Held(ctx, r, node)
+		if err != nil {
+			return nil, nil, fmt.Errorf("count %s work on node %s: %w", name, node, err)
+		}
+		switch {
+		case h.Units == 0:
+		case name.Rule().Work == role.Tied:
+			held[name] = h
+		case name.Rule().Work == role.Portable:
+			moves[name] = h
+		}
+	}
+	return held, moves, nil
 }
 
 // Run follows the link and the board's clock until ctx ends: it notes

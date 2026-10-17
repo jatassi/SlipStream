@@ -1,6 +1,6 @@
 import type { NodesFacts } from "./nodesFacts.ts";
 import type { NodesLink } from "./nodesLink.ts";
-import type { NodesNodeRolesItem } from "./nodesNodeRolesItem.ts";
+import type { NodesRoleView } from "./nodesRoleView.ts";
 
 export interface NodesNode {
   addresses: string[];
@@ -14,6 +14,7 @@ export interface NodesNode {
   link: NodesLink;
   name: string;
   pairedAt: string;
-  roles: NodesNodeRolesItem[];
+  /** Every Role the Node stands in, in table order */
+  roles: NodesRoleView[];
   self: boolean;
 }

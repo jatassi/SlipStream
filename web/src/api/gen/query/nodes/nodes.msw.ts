@@ -3,7 +3,20 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
-import type { NodesJoinCode, NodesNode, NodesNodeList, NodesSettings } from "../../model";
+import type {
+  NodesDrains,
+  NodesGains,
+  NodesHandedBack,
+  NodesJoinCode,
+  NodesLetsGo,
+  NodesMoves,
+  NodesNode,
+  NodesNodeList,
+  NodesOutcome,
+  NodesPinned,
+  NodesRoleBoard,
+  NodesSettings,
+} from "../../model";
 
 export const getListNodesResponseMock = (
   overrideResponse: Partial<Extract<NodesNodeList, object>> = {},
@@ -51,6 +64,357 @@ export const getListNodesResponseMock = (
     },
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        ...(faker.datatype.boolean()
+          ? {
+              held: {
+                bytes: faker.number.int(),
+                noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                units: faker.number.int(),
+              },
+            }
+          : {}),
+        role: faker.helpers.arrayElement([
+          "searching",
+          "downloading",
+          "storage",
+          "converting",
+          "subtitles",
+          "metadata",
+          "media-server-link",
+          "notifying",
+          "relaying",
+          "serving",
+        ] as const),
+        state: faker.helpers.arrayElement([
+          "holding",
+          "away",
+          "lapsed",
+          "draining",
+          "writing-off",
+          "covering",
+        ] as const),
+      }),
+    ),
+    self: faker.datatype.boolean(),
+  })),
+  ...overrideResponse,
+});
+
+export const getCreateJoinCodeResponseMock = (
+  overrideResponse: Partial<Extract<NodesJoinCode, object>> = {},
+): NodesJoinCode => ({
+  code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...overrideResponse,
+});
+
+export const getGetRoleBoardResponseMock = (
+  overrideResponse: Partial<Extract<NodesRoleBoard, object>> = {},
+): NodesRoleBoard => ({
+  basis: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  gestures: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      ...(faker.datatype.boolean() ? { from: faker.string.uuid() } : {}),
+      ...(faker.datatype.boolean()
+        ? { note: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      role: faker.helpers.arrayElement([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ] as const),
+      to: faker.string.uuid(),
+      verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
+      word: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    assigned: faker.helpers.arrayElements([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    away: faker.datatype.boolean(),
+    controller: faker.datatype.boolean(),
+    id: faker.string.uuid(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        ...(faker.datatype.boolean()
+          ? {
+              held: {
+                bytes: faker.number.int(),
+                noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                units: faker.number.int(),
+              },
+            }
+          : {}),
+        role: faker.helpers.arrayElement([
+          "searching",
+          "downloading",
+          "storage",
+          "converting",
+          "subtitles",
+          "metadata",
+          "media-server-link",
+          "notifying",
+          "relaying",
+          "serving",
+        ] as const),
+        state: faker.helpers.arrayElement([
+          "holding",
+          "away",
+          "lapsed",
+          "draining",
+          "writing-off",
+          "covering",
+        ] as const),
+      }),
+    ),
+  })),
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseNodesGainsMock = (
+  overrideResponse: Partial<NodesGains> = {},
+): NodesGains => ({
+  ...{
+    kind: faker.helpers.arrayElement(["gains"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseNodesLetsGoMock = (
+  overrideResponse: Partial<NodesLetsGo> = {},
+): NodesLetsGo => ({
+  ...{
+    kind: faker.helpers.arrayElement(["lets-go"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseNodesDrainsMock = (
+  overrideResponse: Partial<NodesDrains> = {},
+): NodesDrains => ({
+  ...{
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["drains"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseNodesHandedBackMock = (
+  overrideResponse: Partial<NodesHandedBack> = {},
+): NodesHandedBack => ({
+  ...{
+    from: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    kind: faker.helpers.arrayElement(["handed-back"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    to: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseNodesPinnedMock = (
+  overrideResponse: Partial<NodesPinned> = {},
+): NodesPinned => ({
+  ...{
+    kind: faker.helpers.arrayElement(["pinned"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseNodesMovesMock = (
+  overrideResponse: Partial<NodesMoves> = {},
+): NodesMoves => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["moves"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    to: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetRolesResponseMock = (
+  overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
+): NodesOutcome => ({
+  basis: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  checks: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      reason: faker.helpers.arrayElement([
+        "role_taken",
+        "probe_fails",
+        "probe_weak",
+        "offline_unchecked",
+        "reach_failed",
+        "reached",
+        "nothing_to_test",
+        "node_is_controller",
+        "node_holds_work",
+        "nothing_held",
+        "keeps_role",
+      ] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            role: faker.helpers.arrayElement([
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving",
+            ] as const),
+          }
+        : {}),
+      verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  effects: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getSetRolesResponseNodesGainsMock() },
+      { ...getSetRolesResponseNodesLetsGoMock() },
+      { ...getSetRolesResponseNodesDrainsMock() },
+      { ...getSetRolesResponseNodesHandedBackMock() },
+      { ...getSetRolesResponseNodesPinnedMock() },
+      { ...getSetRolesResponseNodesMovesMock() },
+    ]),
+  ),
+  forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      nodeId: faker.string.uuid(),
+      roles: faker.helpers.arrayElements([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ] as const),
+    }),
+  ),
+  next: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    nodeId: faker.string.uuid(),
     roles: faker.helpers.arrayElements([
       "searching",
       "downloading",
@@ -63,16 +427,247 @@ export const getListNodesResponseMock = (
       "relaying",
       "serving",
     ] as const),
-    self: faker.datatype.boolean(),
   })),
   ...overrideResponse,
 });
 
-export const getCreateJoinCodeResponseMock = (
-  overrideResponse: Partial<Extract<NodesJoinCode, object>> = {},
-): NodesJoinCode => ({
-  code: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+export const getPlanRolesResponseNodesGainsMock = (
+  overrideResponse: Partial<NodesGains> = {},
+): NodesGains => ({
+  ...{
+    kind: faker.helpers.arrayElement(["gains"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPlanRolesResponseNodesLetsGoMock = (
+  overrideResponse: Partial<NodesLetsGo> = {},
+): NodesLetsGo => ({
+  ...{
+    kind: faker.helpers.arrayElement(["lets-go"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPlanRolesResponseNodesDrainsMock = (
+  overrideResponse: Partial<NodesDrains> = {},
+): NodesDrains => ({
+  ...{
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["drains"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPlanRolesResponseNodesHandedBackMock = (
+  overrideResponse: Partial<NodesHandedBack> = {},
+): NodesHandedBack => ({
+  ...{
+    from: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        id: faker.string.uuid(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    kind: faker.helpers.arrayElement(["handed-back"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    to: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPlanRolesResponseNodesPinnedMock = (
+  overrideResponse: Partial<NodesPinned> = {},
+): NodesPinned => ({
+  ...{
+    kind: faker.helpers.arrayElement(["pinned"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPlanRolesResponseNodesMovesMock = (
+  overrideResponse: Partial<NodesMoves> = {},
+): NodesMoves => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["moves"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    to: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getPlanRolesResponseMock = (
+  overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
+): NodesOutcome => ({
+  basis: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  checks: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      reason: faker.helpers.arrayElement([
+        "role_taken",
+        "probe_fails",
+        "probe_weak",
+        "offline_unchecked",
+        "reach_failed",
+        "reached",
+        "nothing_to_test",
+        "node_is_controller",
+        "node_holds_work",
+        "nothing_held",
+        "keeps_role",
+      ] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            role: faker.helpers.arrayElement([
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving",
+            ] as const),
+          }
+        : {}),
+      verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  effects: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getPlanRolesResponseNodesGainsMock() },
+      { ...getPlanRolesResponseNodesLetsGoMock() },
+      { ...getPlanRolesResponseNodesDrainsMock() },
+      { ...getPlanRolesResponseNodesHandedBackMock() },
+      { ...getPlanRolesResponseNodesPinnedMock() },
+      { ...getPlanRolesResponseNodesMovesMock() },
+    ]),
+  ),
+  forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      nodeId: faker.string.uuid(),
+      roles: faker.helpers.arrayElements([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ] as const),
+    }),
+  ),
+  next: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    nodeId: faker.string.uuid(),
+    roles: faker.helpers.arrayElements([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+  })),
   ...overrideResponse,
 });
 
@@ -193,79 +788,37 @@ export const getGetNodeResponseMock = (
   },
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-  roles: faker.helpers.arrayElements([
-    "searching",
-    "downloading",
-    "storage",
-    "converting",
-    "subtitles",
-    "metadata",
-    "media-server-link",
-    "notifying",
-    "relaying",
-    "serving",
-  ] as const),
-  self: faker.datatype.boolean(),
-  ...overrideResponse,
-});
-
-export const getSetNodeRolesResponseMock = (
-  overrideResponse: Partial<Extract<NodesNode, object>> = {},
-): NodesNode => ({
-  addresses: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
-  ),
-  ...(faker.datatype.boolean()
-    ? {
-        facts: {
-          appliedVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          assigned: Array.from(
-            { length: faker.number.int({ min: 1, max: 10 }) },
-            (_, i) => i + 1,
-          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-          httpAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          restarting: Array.from(
-            { length: faker.number.int({ min: 1, max: 10 }) },
-            (_, i) => i + 1,
-          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-          running: Array.from(
-            { length: faker.number.int({ min: 1, max: 10 }) },
-            (_, i) => i + 1,
-          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-        },
-      }
-    : {}),
-  id: faker.string.uuid(),
-  intentVersion: faker.helpers.fromRegExp("^[0-9a-f]{32}$"),
-  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  link: {
+  roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     ...(faker.datatype.boolean()
       ? {
-          build: {
-            arch: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            installKind: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            os: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          held: {
+            bytes: faker.number.int(),
+            noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            units: faker.number.int(),
           },
         }
       : {}),
-    since: faker.date.past().toISOString().slice(0, 19) + "Z",
-    state: faker.helpers.arrayElement(["local", "up", "down", "mismatched"] as const),
-  },
-  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-  roles: faker.helpers.arrayElements([
-    "searching",
-    "downloading",
-    "storage",
-    "converting",
-    "subtitles",
-    "metadata",
-    "media-server-link",
-    "notifying",
-    "relaying",
-    "serving",
-  ] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    state: faker.helpers.arrayElement([
+      "holding",
+      "away",
+      "lapsed",
+      "draining",
+      "writing-off",
+      "covering",
+    ] as const),
+  })),
   self: faker.datatype.boolean(),
   ...overrideResponse,
 });
@@ -312,6 +865,78 @@ export const getCreateJoinCodeMockHandler = (
             : overrideResponse
           : getCreateJoinCodeResponseMock(),
         { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetRoleBoardMockHandler = (
+  overrideResponse?:
+    | NodesRoleBoard
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NodesRoleBoard> | NodesRoleBoard),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/nodes/roles",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetRoleBoardResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSetRolesMockHandler = (
+  overrideResponse?:
+    | NodesOutcome
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<NodesOutcome> | NodesOutcome),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/nodes/roles",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSetRolesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getPlanRolesMockHandler = (
+  overrideResponse?:
+    | NodesOutcome
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<NodesOutcome> | NodesOutcome),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/nodes/roles/plan",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getPlanRolesResponseMock(),
+        { status: 200 },
       );
     },
     options,
@@ -387,33 +1012,13 @@ export const getGetNodeMockHandler = (
     options,
   );
 };
-
-export const getSetNodeRolesMockHandler = (
-  overrideResponse?:
-    | NodesNode
-    | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<NodesNode> | NodesNode),
-  options?: RequestHandlerOptions,
-) => {
-  return http.put(
-    "*/api/v1/nodes/:id/roles",
-    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getSetNodeRolesResponseMock(),
-        { status: 200 },
-      );
-    },
-    options,
-  );
-};
 export const getNodesMock = () => [
   getListNodesMockHandler(),
   getCreateJoinCodeMockHandler(),
+  getGetRoleBoardMockHandler(),
+  getSetRolesMockHandler(),
+  getPlanRolesMockHandler(),
   getGetNodeSettingsMockHandler(),
   getUpdateNodeSettingsMockHandler(),
   getGetNodeMockHandler(),
-  getSetNodeRolesMockHandler(),
 ];
