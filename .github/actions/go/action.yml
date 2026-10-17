@@ -1,12 +1,10 @@
 name: go
-description: Install go.mod's Go and restore the Go caches saved by pushes
+description: Install go.mod's Go and restore the Go caches saved by pushes to main
 inputs:
   cache:
     description: Cache key prefix; the key adds the commit
     required: true
 outputs:
-  cache-hit:
-    value: ${{ steps.restore.outputs.cache-hit }}
   cache-key:
     value: ${{ steps.restore.outputs.cache-primary-key }}
 runs:
@@ -27,9 +25,8 @@ runs:
         echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
         echo "SLIPSTREAM_NATIVE_CACHE=$RUNNER_TEMP/slipstream-native" >> "$GITHUB_ENV"
         echo "GOLANGCI_LINT_CACHE=$RUNNER_TEMP/golangci-lint" >> "$GITHUB_ENV"
-    # Only pushes save (see ci.yml), so a pull request restores the newest
-    # cache of its base branch or main. Go's caches are content-addressed, so
-    # an older cache is never wrong, only less complete.
+    # Go's caches are content-addressed, so an older cache is never wrong,
+    # only less complete.
     - id: restore
       uses: actions/cache/restore@v4
       with:
