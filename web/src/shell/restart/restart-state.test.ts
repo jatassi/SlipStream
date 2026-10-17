@@ -11,8 +11,14 @@ import {
   restartReducer,
 } from "./restart-state";
 
-const home: RestartTarget = { nodeId: "home-id", name: "home", self: true };
-const seedbox: RestartTarget = { nodeId: "seedbox-id", name: "seedbox", self: false };
+const seen = "2026-10-16T08:00:00Z";
+const home: RestartTarget = { nodeId: "home-id", name: "home", self: true, linkSince: seen };
+const seedbox: RestartTarget = {
+  nodeId: "seedbox-id",
+  name: "seedbox",
+  self: false,
+  linkSince: seen,
+};
 const before = "2026-10-16T09:00:00.123456789Z";
 const after = "2026-10-16T09:00:07.5Z";
 
@@ -84,25 +90,43 @@ test("a restart that moves the port keeps the move", () => {
   });
 });
 
-test("a Worker restarts until its link is up again after the request", () => {
-  const asked = Date.parse("2026-10-16T09:00:00Z");
+test("a Worker restarts until its link is up with a since other than the one seen when asked", () => {
   const state = run(
     { type: "ask", target: seedbox },
-    { type: "accepted", target: seedbox, startedAt: before, at: asked, logsDir: "/srv/logs" },
+    { type: "accepted", target: seedbox, startedAt: before, at: 5_000, logsDir: "/srv/logs" },
   );
   expect(state.self).toBeNull();
   expect(state.asking).toBeNull();
   const seedboxAt = (linkState: string, since: string) =>
     isWorkerRestarting(state, { id: seedbox.nodeId, link: { state: linkState, since } });
-  expect(seedboxAt("up", "2026-10-16T08:00:00Z")).toBe(true);
+  expect(seedboxAt("up", seen)).toBe(true);
   expect(seedboxAt("down", "2026-10-16T09:00:02Z")).toBe(true);
-  expect(seedboxAt("up", "2026-10-16T09:00:05Z")).toBe(false);
+  expect(seedboxAt("up", "2026-10-16T07:59:00Z")).toBe(false);
   expect(
     isWorkerRestarting(state, {
       id: "other",
       link: { state: "down", since: "2026-10-16T09:00:02Z" },
     }),
   ).toBe(false);
+});
+
+test("a Worker's restart ends when its 90 seconds run out, but not an older restart's", () => {
+  const accepted = (at: number): RestartEvent => ({
+    type: "accepted",
+    target: seedbox,
+    startedAt: before,
+    at,
+    logsDir: "/srv/logs",
+  });
+  const down = { id: seedbox.nodeId, link: { state: "down", since: "2026-10-16T09:00:02Z" } };
+  const again = run(accepted(1_000), accepted(50_000), {
+    type: "expire",
+    nodeId: seedbox.nodeId,
+    at: 1_000,
+  });
+  expect(isWorkerRestarting(again, down)).toBe(true);
+  const expired = restartReducer(again, { type: "expire", nodeId: seedbox.nodeId, at: 50_000 });
+  expect(isWorkerRestarting(expired, down)).toBe(false);
 });
 
 test("a port move links to the new port only when the browser reached the Node on its bound port", () => {

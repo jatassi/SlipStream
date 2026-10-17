@@ -6,13 +6,13 @@ import {
   useGetNodeSystemSuspense,
 } from "../../../../api/gen/query/system/system";
 import { ensureQuery } from "../../../../api/query-client";
+import { sectionOf } from "../../../../shell/node-sections";
 import { ReadOnlyField } from "../../../../ui/read-only-field";
 import { SettingGroup } from "../../../../ui/setting-field";
 import { Skeleton } from "../../../../ui/skeleton";
 import { NodeSettings } from "../-config";
 import { DownloadLogs } from "../-download";
 import { NodeProblem } from "../-node-problem";
-import { sectionOf } from "../-sections";
 
 const section = sectionOf("log-settings");
 

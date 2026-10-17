@@ -209,7 +209,12 @@ const detailUnits: TasksDetail["units"] = [
   },
 ];
 
-type TaskState = { tasks: TasksTask[]; open: TasksOpenRuns; runs: TasksRun[] };
+type TaskState = {
+  tasks: TasksTask[];
+  open: TasksOpenRuns;
+  runs: TasksRun[];
+  settings: TasksSchedule;
+};
 
 const detailOf = (state: TaskState, id: string): TasksDetail | undefined => {
   const task = state.tasks.find((candidate) => candidate.id === id);
@@ -227,7 +232,7 @@ export function taskServer({
   sentence?: TasksOverview["sentence"];
   open?: TasksOpenRuns;
 }) {
-  const state: TaskState = { tasks, open, runs: [succeededRun] };
+  const state: TaskState = { tasks, open, runs: [succeededRun], settings: schedule };
   const writes: { method: string; path: string; body: unknown }[] = [];
   const record = async (request: Request, path: string) => {
     const text = await request.text();
@@ -238,7 +243,11 @@ export function taskServer({
       HttpResponse.json(overviewOf(state.tasks, { multinode, ...(sentence && { sentence }) })),
     ),
     http.get("*/api/v1/tasks/runs/open", () => HttpResponse.json(state.open)),
-    http.get("*/api/v1/tasks/settings", () => HttpResponse.json(schedule)),
+    http.get("*/api/v1/tasks/settings", () => HttpResponse.json(state.settings)),
+    http.patch("*/api/v1/tasks/settings", async ({ request }) => {
+      await record(request, "settings");
+      return HttpResponse.json(state.settings);
+    }),
     http.delete("*/api/v1/tasks/runs/:runId", async ({ request, params }) => {
       await record(request, `runs/${String(params["runId"])}`);
       return new HttpResponse(null, { status: 204 });

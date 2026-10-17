@@ -54,12 +54,22 @@ test("a reset leaves a divider between the lines before and after it", () => {
   const view = run(
     10,
     records(1, 2),
-    { type: "reset", reason: "restarted", at: "t" },
+    { type: "reset", reason: "restarted", at: "t", after: 0 },
     records(3, 3),
   );
   expect(seqs(view.lines)).toEqual([1, 2, "|", 3]);
-  expect(view.lines[2]).toEqual({ kind: "divider", reason: "restarted", at: "t" });
-  expect(view.lines.map(rowKey)).toEqual(["line-1", "line-2", "restarted-t", "line-3"]);
+  expect(view.lines[2]).toEqual({ kind: "divider", reason: "restarted", at: "t", after: 0 });
+  expect(view.lines.map(rowKey)).toEqual(["line-1", "line-2", "restarted-t-0", "line-3"]);
+});
+
+test("two laps by one process key their dividers apart", () => {
+  const view = run(10, { type: "reset", reason: "lapped", at: "t", after: 40 }, records(41, 41), {
+    type: "reset",
+    reason: "lapped",
+    at: "t",
+    after: 90,
+  });
+  expect(view.lines.map(rowKey)).toEqual(["lapped-t-40", "line-41", "lapped-t-90"]);
 });
 
 test("pause holds the shown lines and counts what arrives, and resume appends it", () => {

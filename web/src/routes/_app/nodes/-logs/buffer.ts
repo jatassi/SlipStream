@@ -13,9 +13,12 @@ export type LogRecord = {
 
 export type ResetReason = "restarted" | "lapped";
 
+/** A reset from the process started `at`, whose records follow seq `after`. */
+type Reset = { readonly reason: ResetReason; readonly at: string; readonly after: number };
+
 export type LogRow =
   | ({ readonly kind: "line"; readonly haystack: string } & LogRecord)
-  | { readonly kind: "divider"; readonly reason: ResetReason; readonly at: string };
+  | ({ readonly kind: "divider" } & Reset);
 
 /**
  * What the Logs section shows. While paused, `lines` holds still and arrivals
@@ -31,7 +34,7 @@ export type LogView = {
 
 export type LogEvent =
   | { readonly type: "records"; readonly records: readonly LogRecord[] }
-  | { readonly type: "reset"; readonly reason: ResetReason; readonly at: string }
+  | ({ readonly type: "reset" } & Reset)
   | { readonly type: "pause" }
   | { readonly type: "resume" }
   | { readonly type: "clear" }
@@ -50,7 +53,7 @@ export function lineOf(record: LogRecord): LogRow {
 }
 
 export const rowKey = (row: LogRow): string =>
-  row.kind === "line" ? `line-${row.seq}` : `${row.reason}-${row.at}`;
+  row.kind === "line" ? `line-${row.seq}` : `${row.reason}-${row.at}-${row.after}`;
 
 export const emptyView = (cap: number): LogView => ({
   cap,
@@ -86,7 +89,8 @@ export function logReducer(view: LogView, event: LogEvent): LogView {
     );
   }
   if (event.type === "reset") {
-    return arrive(view, [{ kind: "divider", reason: event.reason, at: event.at }]);
+    const { reason, at, after } = event;
+    return arrive(view, [{ kind: "divider", reason, at, after }]);
   }
   if (event.type === "pause") {
     return view.paused ? view : { ...view, paused: true };

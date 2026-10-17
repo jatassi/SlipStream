@@ -2,7 +2,8 @@ import { LogEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { nodeLogsStreamUrl } from "../api/urls";
 import { type Source, openSource } from "./source";
 
-export type LogStreamEvent = ReturnType<typeof LogEvent.parse>;
+/** An event with its SSE id: a record's seq, or the seq a reset's records follow. */
+export type LogStreamEvent = ReturnType<typeof LogEvent.parse> & { readonly id: string };
 
 const eventNames = LogEvent.options.flatMap((branch) => branch.shape.event.options);
 const hiddenRelease = 10_000;
@@ -67,7 +68,7 @@ class LogStream {
 
   private readonly receive = (message: MessageEvent<string>) => {
     const data: unknown = JSON.parse(message.data);
-    const event = LogEvent.parse({ event: message.type, data });
+    const event = { ...LogEvent.parse({ event: message.type, data }), id: message.lastEventId };
     if (event.event === "log.record") {
       this.after = event.data.seq;
     }

@@ -5,7 +5,13 @@ import { getNodeSystem, restartNode } from "../../api/gen/query/system/system";
 import { Button } from "../../ui/button";
 import { Dialog } from "../../ui/dialog";
 import { Refusal } from "../../ui/setting-parts";
-import { type RestartTarget, moveFor, restartStore, useRestartState } from "./restart-state";
+import {
+  type RestartTarget,
+  failAfter,
+  moveFor,
+  restartStore,
+  useRestartState,
+} from "./restart-state";
 
 const titleOf = (target: RestartTarget) =>
   target.self ? "Restart SlipStream?" : `Restart ${target.name}?`;
@@ -16,14 +22,20 @@ async function restart(target: RestartTarget) {
   const { logsDir } = await getNodeSystem(target.nodeId);
   const restarting = await restartNode(target.nodeId);
   const move = moveFor(restarting.nextPort, restarting.boundPort, new URL(location.href));
+  const at = Date.now();
   restartStore.dispatch({
     type: "accepted",
     target,
     startedAt: restarting.startedAt,
-    at: Date.now(),
+    at,
     logsDir,
     ...(move && { move }),
   });
+  if (!target.self) {
+    setTimeout(() => {
+      restartStore.dispatch({ type: "expire", nodeId: target.nodeId, at });
+    }, failAfter);
+  }
 }
 
 function Confirm({ target }: { target: RestartTarget }) {

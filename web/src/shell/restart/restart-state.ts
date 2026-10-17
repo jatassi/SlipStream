@@ -6,10 +6,12 @@ import { createStore } from "../store";
 export const pollInterval = 1000;
 export const failAfter = 90_000;
 
+/** `linkSince` is the Controller's `link.since` for the Node when the restart was asked for. */
 export type RestartTarget = {
   readonly nodeId: string;
   readonly name: string;
   readonly self: boolean;
+  readonly linkSince: string;
 };
 
 /** A restart that moves the port. `href` is set only when the browser reached the Node directly. */
@@ -31,11 +33,16 @@ export type SelfRestart =
   | ({ readonly phase: "failed" } & Waiting)
   | { readonly phase: "back" };
 
+/**
+ * A Worker's restart. `at` is the browser's clock and `linkSince` the
+ * Controller's, so the two are never compared.
+ */
+type WorkerRestart = { readonly at: number; readonly linkSince: string };
+
 export type RestartState = {
   readonly asking: RestartTarget | null;
   readonly self: SelfRestart | null;
-  /** When each Worker's restart was accepted, in ms. */
-  readonly workers: ReadonlyMap<string, number>;
+  readonly workers: ReadonlyMap<string, WorkerRestart>;
 };
 
 export type RestartEvent =
@@ -49,6 +56,7 @@ export type RestartEvent =
       readonly logsDir: string;
       readonly move?: Move;
     }
+  | { readonly type: "expire"; readonly nodeId: string; readonly at: number }
   | { readonly type: "answered"; readonly startedAt: string }
   | { readonly type: "tick"; readonly at: number }
   | { readonly type: "retry"; readonly at: number };
@@ -60,7 +68,8 @@ const later = (next: string, before: string) => Date.parse(next) > Date.parse(be
 function accept(state: RestartState, event: Extract<RestartEvent, { type: "accepted" }>) {
   const { target, startedAt, at, logsDir, move } = event;
   if (!target.self) {
-    return { ...state, asking: null, workers: new Map(state.workers).set(target.nodeId, at) };
+    const workers = new Map(state.workers).set(target.nodeId, { at, linkSince: target.linkSince });
+    return { ...state, asking: null, workers };
   }
   const waiting: SelfRestart = {
     phase: "waiting",
@@ -99,17 +108,28 @@ export function restartReducer(state: RestartState, event: RestartEvent): Restar
   if (event.type === "accepted") {
     return accept(state, event);
   }
+  if (event.type === "expire") {
+    if (state.workers.get(event.nodeId)?.at !== event.at) {
+      return state;
+    }
+    const workers = new Map(state.workers);
+    workers.delete(event.nodeId);
+    return { ...state, workers };
+  }
   const self = onSelf(state.self, event);
   return self === state.self ? state : { ...state, self };
 }
 
-/** A Worker restarts from the accepted request until its link is up again after it. */
+/**
+ * A Worker restarts from the accepted request until its link is up with a
+ * new since, or until its `expire` after `failAfter`.
+ */
 export function isWorkerRestarting(
   state: RestartState,
   node: { readonly id: string; readonly link: { readonly state: string; readonly since: string } },
 ): boolean {
   const asked = state.workers.get(node.id);
-  return asked !== undefined && !(node.link.state === "up" && Date.parse(node.link.since) > asked);
+  return asked !== undefined && !(node.link.state === "up" && node.link.since !== asked.linkSince);
 }
 
 const defaultPorts: Readonly<Record<string, string>> = { "http:": "80", "https:": "443" };
@@ -144,10 +164,11 @@ export function askRestart(node: {
   readonly id: string;
   readonly name: string;
   readonly self: boolean;
+  readonly link: { readonly since: string };
 }) {
   restartStore.dispatch({
     type: "ask",
-    target: { nodeId: node.id, name: node.name, self: node.self },
+    target: { nodeId: node.id, name: node.name, self: node.self, linkSince: node.link.since },
   });
 }
 

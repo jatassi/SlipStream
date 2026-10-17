@@ -23,7 +23,7 @@ const optionWords = (field: SettingChoiceField, value: string) =>
 
 const segmentsAtMost = 3;
 
-function ChoiceControl({ field, disabled, submit }: ControlProps<"choice">) {
+function ChoiceControl({ field, busy, disabled, submit }: ControlProps<"choice">) {
   const choose = (value: string) => {
     if (value !== field.value) {
       submit({ value });
@@ -34,7 +34,7 @@ function ChoiceControl({ field, disabled, submit }: ControlProps<"choice">) {
       label={field.label}
       options={field.options}
       value={field.value}
-      disabled={disabled}
+      disabled={disabled || busy}
       onValueChange={choose}
     />
   ) : (
@@ -46,7 +46,7 @@ function ChoiceControl({ field, disabled, submit }: ControlProps<"choice">) {
         label={field.label}
         options={field.options}
         value={field.value}
-        disabled={disabled}
+        disabled={disabled || busy}
         onValueChange={choose}
       />
     </div>
@@ -152,12 +152,12 @@ export const windowKind: Kind<"window"> = {
 
 const onOff = (on: boolean) => (on ? "On" : "Off");
 
-function SwitchSetting({ field, disabled, submit }: ControlProps<"switch">) {
+function SwitchSetting({ field, busy, disabled, submit }: ControlProps<"switch">) {
   return (
     <Switch
       label={field.label}
       checked={field.value}
-      disabled={disabled}
+      disabled={disabled || busy}
       onCheckedChange={(on) => {
         submit({ value: on });
       }}

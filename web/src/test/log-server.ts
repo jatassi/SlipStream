@@ -50,8 +50,8 @@ export function logServer(ring: readonly SystemLogRecord[] = []) {
         reader().send({ event: "log.record", data: record, id: String(record.seq) });
       }
     },
-    reset(reset: SystemLogReset) {
-      reader().send({ event: "log.reset", data: reset });
+    reset(reset: SystemLogReset, after: number) {
+      reader().send({ event: "log.reset", data: reset, id: String(after) });
     },
   };
 }

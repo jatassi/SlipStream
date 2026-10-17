@@ -21,7 +21,12 @@ function bufferEvents(events: readonly LogStreamEvent[]): LogEvent[] {
       records.push({ ...event.data, attrs: attrsOf.parse(event.data.attrs) });
     } else {
       flushRecords();
-      out.push({ type: "reset", reason: event.data.reason, at: event.data.startedAt });
+      out.push({
+        type: "reset",
+        reason: event.data.reason,
+        at: event.data.startedAt,
+        after: Number(event.id),
+      });
     }
   }
   flushRecords();

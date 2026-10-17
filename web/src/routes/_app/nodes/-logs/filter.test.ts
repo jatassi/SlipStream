@@ -17,7 +17,7 @@ const line = (seq: number, over: Partial<LogRecord>): LogRow =>
 const rows: readonly LogRow[] = [
   line(1, { level: "debug", subsystem: "search", msg: "Querying indexers" }),
   line(2, { level: "info", subsystem: "http", msg: "Listening", attrs: { port: 8484 } }),
-  { kind: "divider", reason: "restarted", at: "2026-10-16T09:01:00Z" },
+  { kind: "divider", reason: "restarted", after: 0, at: "2026-10-16T09:01:00Z" },
   line(3, {
     level: "warn",
     subsystem: "Import",

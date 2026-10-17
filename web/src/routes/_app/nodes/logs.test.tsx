@@ -1,11 +1,13 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { liveServer } from "../../../test/live-server";
 import { logRecord, logServer } from "../../../test/log-server";
-import { nodeSystems, withViewerLines } from "../../../test/node-system";
-import { homeId } from "../../../test/nodes";
+import { homeConfig, nodeSystems, restarts, withViewerLines } from "../../../test/node-system";
+import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
 import { asPhone } from "../../../test/viewport";
+import { worker } from "../../../test/worker";
 import { clockOf } from "./-logs/log-row";
 
 const logsPage = `/nodes/${homeId}/logs`;
@@ -87,18 +89,66 @@ test("log.reset draws a divider for a restart and for skipped lines", async () =
   const log = openLogs();
   await expect.element(line("Line 10")).toBeVisible();
   const startedAt = "2026-10-12T14:02:11Z";
-  log.reset({ reason: "restarted", startedAt });
+  log.reset({ reason: "restarted", startedAt }, 0);
   log.send(logRecord(1));
-  log.reset({ reason: "lapped", startedAt });
+  log.reset({ reason: "lapped", startedAt }, 40);
+  log.send(logRecord(41));
+  log.reset({ reason: "lapped", startedAt }, 90);
   await expect
     .element(page.getByText(`SlipStream restarted at ${clockOf(startedAt).slice(0, 8)}`))
     .toBeVisible();
-  await expect.element(page.getByText("Some lines were skipped")).toBeVisible();
+  await expect.element(page.getByText("Some lines were skipped").nth(1)).toBeVisible();
+  expect(page.getByText("Some lines were skipped").all()).toHaveLength(2);
+});
+
+const seedboxUp = (since: string) => ({ ...seedbox, link: { state: "up", since } }) as const;
+
+test("a Worker restarted while its Logs are open keeps the lines before, a divider and the lines after", async () => {
+  const server = liveServer();
+  const log = logServer(ten);
+  const app = renderApp({
+    path: `/nodes/${seedboxId}/logs`,
+    handlers: [
+      ...server.handlers,
+      log.handler,
+      nodesAre(home, seedboxUp("2026-10-12T10:00:00Z")),
+      ...nodeSystems({
+        systems: { [homeId]: homeSystem, [seedboxId]: homeSystem },
+        configs: { [homeId]: homeConfig, [seedboxId]: homeConfig },
+      }).handlers,
+      restarts().handler,
+    ],
+  });
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect.element(line("Line 10")).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Restart", exact: true }));
+  await userEvent.click(
+    page.getByRole("dialog", { name: "Restart seedbox?" }).getByRole("button", { name: "Restart" }),
+  );
+  await expect.element(page.getByText("seedbox is restarting…")).toBeVisible();
+
+  const startedAt = "2026-10-12T10:05:00Z";
+  log.reset({ reason: "restarted", startedAt }, 0);
+  log.send(logRecord(1, { msg: "Started again" }));
+  worker.use(nodesAre(home, seedboxUp(startedAt)));
+  server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedboxId } });
+  await expect.element(page.getByText("seedbox is restarting…")).not.toBeInTheDocument();
+  await expect.element(line("Started again")).toBeVisible();
+  await expect
+    .element(page.getByText(`SlipStream restarted at ${clockOf(startedAt).slice(0, 8)}`))
+    .toBeVisible();
+  expect(rows().all()).toHaveLength(12);
+  expect(log.resumes).toEqual([0]);
 });
 
 test("a row expands to every attribute, with Copy as JSON", async () => {
   const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-  openLogs([logRecord(1, { msg: "Grabbed", attrs: { work: "Dune", size: 4096, tags: ["a"] } })]);
+  openLogs([
+    logRecord(1, {
+      msg: "Grabbed",
+      attrs: { work: "Dune", size: 4096, tags: ["a"], msg: "an attribute" },
+    }),
+  ]);
   await userEvent.click(line("Grabbed"));
   await expect.element(line("Grabbed")).toHaveAttribute("aria-expanded", "true");
   const attributes = page.getByRole("definition");
@@ -106,13 +156,14 @@ test("a row expands to every attribute, with Copy as JSON", async () => {
     "Dune",
     "4096",
     '["a"]',
+    "an attribute",
   ]);
   expect(
     page
       .getByRole("term")
       .all()
       .map((term) => term.element().textContent),
-  ).toEqual(["work", "size", "tags"]);
+  ).toEqual(["work", "size", "tags", "msg"]);
   await userEvent.click(page.getByRole("button", { name: "Copy as JSON" }));
   await expect.element(page.getByText("Line copied as JSON")).toBeVisible();
   expect(JSON.parse(String(writeText.mock.calls[0]?.[0]))).toMatchObject({

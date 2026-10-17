@@ -2,12 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { getGetNodeConfigSuspenseQueryOptions } from "../../../../api/gen/query/system/system";
 import { ensureQuery } from "../../../../api/query-client";
+import { sectionOf } from "../../../../shell/node-sections";
 import { Skeleton } from "../../../../ui/skeleton";
 import { NodeSettings } from "../-config";
 import { useNode } from "../-node";
 import { NodeProblem } from "../-node-problem";
 import { PendingPort } from "../-pending-port";
-import { sectionOf } from "../-sections";
 
 const section = sectionOf("web");
 

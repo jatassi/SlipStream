@@ -4,7 +4,15 @@ import { page, userEvent } from "vitest/browser";
 import type { TasksTask } from "../api/gen/model";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
-import { housekeeping, local, steps, succeededRun, taskServer, tasksNow } from "../test/tasks";
+import {
+  housekeeping,
+  local,
+  schedule,
+  steps,
+  succeededRun,
+  taskServer,
+  tasksNow,
+} from "../test/tasks";
 import { asPhone } from "../test/viewport";
 
 afterEach(() => {
@@ -135,6 +143,24 @@ test("Run now posts the task's run and Cancel deletes the open run", async () =>
       { method: "DELETE", path: "runs/7", body: undefined },
     ]);
   await expect.element(row("Backlog search")).toMatchTextContent("Running since 14:02");
+});
+
+test("a saved schedule setting shows from the save's answer, without waiting for the live event", async () => {
+  const tasks = taskServer({ tasks: [housekeeping] });
+  renderApp({ path: "/tasks", handlers: tasks.handlers });
+  const runsKept = page.getByRole("textbox", { name: "Runs kept per task" });
+  await expect.element(runsKept).toHaveValue("50");
+  tasks.state.settings = {
+    ...schedule,
+    runsKept: { ...schedule.runsKept, value: 80, running: 80, isDefault: false },
+  };
+  await userEvent.fill(runsKept, "80");
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect
+    .poll(() => tasks.writes)
+    .toEqual([{ method: "PATCH", path: "settings", body: { runsKept: 80 } }]);
+  await expect.element(page.getByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  await expect.element(runsKept).toHaveValue("80");
 });
 
 test("a tasks.progress frame moves a running row's bar", async () => {

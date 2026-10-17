@@ -54,6 +54,17 @@ test("saving a port toasts, and once saved it asks for a restart to use it", asy
   await expect.element(field("Port")).toHaveValue("9000");
 });
 
+test("a saved port shows from the save's answer, without waiting for the live event", async () => {
+  const systems = nodeSystems();
+  renderApp({ path: `/nodes/${homeId}/web`, handlers: systems.handlers });
+  await expect.element(field("Port")).toHaveValue("8484");
+  systems.state.configs[homeId] = withPort({ value: 9000, isDefault: false, pendingRestart: true });
+  await userEvent.fill(field("Port"), "9000");
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect.element(page.getByText("Restart to use port 9000")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Save" })).not.toBeInTheDocument();
+});
+
 test("on Docker the pending port says the container's mapping must change too", async () => {
   const docker = {
     ...home,

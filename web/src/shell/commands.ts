@@ -2,11 +2,11 @@ import { Add01Icon, Logout01Icon, SidebarLeftIcon } from "@hugeicons/core-free-i
 import type { IconSvgElement } from "@hugeicons/react";
 import { type UseNavigateResult, useNavigate } from "@tanstack/react-router";
 
-import { useNodeSectionCommands } from "../routes/_app/nodes/-commands";
 import { type ShellKind, useShell } from "../ui/shell-context";
 import { addLabel } from "../works/fields";
 import { useSignOut } from "./account";
 import { type NavRow, useAdminNav, useContentTypes } from "./nav";
+import { useNodeSectionCommands } from "./node-sections";
 import { restartSelf, useRestartSelf } from "./restart/use-restart-self";
 import { toggleSidebar } from "./sidebar-state";
 

@@ -212,6 +212,22 @@ test("a choice names where its default comes from and saves the option chosen", 
   expect(onSave).toHaveBeenCalledExactlyOnceWith("wait");
 });
 
+test("a choice holds still while its save is in flight", async () => {
+  let finish: ((value: unknown) => void) | undefined;
+  const onSave = vi.fn<(value: unknown) => Promise<unknown>>(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  renderKit(<SettingField field={overdue} onSave={onSave} />);
+  await userEvent.click(page.getByRole("radio", { name: "Wait" }));
+  await expect.element(page.getByRole("radio", { name: "Catch up" })).toBeDisabled();
+  finish?.(undefined);
+  await expect.element(page.getByRole("radio", { name: "Catch up" })).toBeEnabled();
+  expect(onSave).toHaveBeenCalledExactlyOnceWith("wait");
+});
+
 test("a window shows its zone and saves both times", async () => {
   const onSave = saving();
   renderKit(<SettingField field={maintenance} onSave={onSave} />);

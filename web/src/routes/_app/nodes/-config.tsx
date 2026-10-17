@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+
 import type {
   SettingField as Field,
   SystemConfigSectionId,
@@ -7,6 +9,7 @@ import {
   useGetNodeConfigSuspense,
   useUpdateNodeConfig,
 } from "../../../api/gen/query/system/system";
+import { adoptNodeConfig } from "../../../live/adopt";
 import { SettingField, SettingGroup } from "../../../ui/setting-field";
 import { toast } from "../../../ui/toast";
 
@@ -47,6 +50,7 @@ export function NodeSettings({
   section: SystemConfigSectionId;
 }) {
   const config = useGetNodeConfigSuspense(nodeId).data;
+  const queryClient = useQueryClient();
   const update = useUpdateNodeConfig();
   return (
     <SettingGroup>
@@ -55,7 +59,8 @@ export function NodeSettings({
           key={field.key}
           field={field}
           onSave={async (value) => {
-            await update.mutateAsync({ id: nodeId, data: { [field.key]: value } });
+            const saved = await update.mutateAsync({ id: nodeId, data: { [field.key]: value } });
+            adoptNodeConfig(queryClient, nodeId, saved);
             toast(savedToast[section]);
           }}
         />

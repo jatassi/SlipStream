@@ -33,9 +33,11 @@ const valueText = (value: unknown): string =>
 
 async function copyLine(line: Line) {
   const { time, level, subsystem, msg, attrs } = line;
+  // Spread twice, the record's fields lead and win over attributes of the same name.
+  const record = { time, level, subsystem, msg };
   try {
     await navigator.clipboard.writeText(
-      JSON.stringify({ time, level, subsystem, msg, ...attrs }, null, 2),
+      JSON.stringify({ ...record, ...attrs, ...record }, null, 2),
     );
   } catch {
     toast("Couldn't copy the line", { kind: "fail" });
