@@ -103,35 +103,30 @@ test("tasks.changed invalidates every tasks query and nothing else", async () =>
     .toEqual({ list: true, task: true, settings: true, open: true, works: false });
 });
 
-test("a burst of tasks.changed refetches once more after the fetch in flight, never aborting it", async () => {
+test("a burst of tasks.changed starts one refetch and one more after it, not one per event", async () => {
   const server = liveServer();
-  let answered = 0;
-  let aborted = 0;
-  const open = http.get("*/api/v1/tasks/runs/open", async ({ request }) => {
-    request.signal.addEventListener("abort", () => {
-      aborted += 1;
-    });
+  let asked = 0;
+  const open = http.get("*/api/v1/tasks/runs/open", async () => {
+    asked += 1;
+    const answer = asked;
     await delay(200);
-    answered += 1;
-    return HttpResponse.json({ headerDelaySeconds: answered, runs: [] });
+    return HttpResponse.json({ headerDelaySeconds: answer, runs: [] });
   });
   const app = renderApp({ path: "/system", handlers: [...server.handlers, open] });
+  const fetchStatus = () =>
+    app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.fetchStatus;
   await expect.poll(() => app.live.getState()).toBe("open");
-  await expect.poll(() => answered).toBe(1);
+  await expect.poll(() => asked > 0 && fetchStatus() === "idle").toBe(true);
+  const before = asked;
 
   for (let i = 0; i < 5; i += 1) {
     server.clients[0]?.send({ event: "tasks.changed", data: { taskId: "housekeeping" } });
   }
-  await expect
-    .poll(() => app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.fetchStatus)
-    .toBe("fetching");
-  await expect
-    .poll(() => app.queryClient.getQueryState(getListOpenTaskRunsQueryKey())?.fetchStatus)
-    .toBe("idle");
-  expect(aborted).toBe(0);
-  expect(answered).toBeLessThan(6);
+  await expect.poll(fetchStatus).toBe("fetching");
+  await expect.poll(fetchStatus).toBe("idle");
+  expect(asked - before).toBe(2);
   expect(app.queryClient.getQueryData(getListOpenTaskRunsQueryKey())).toEqual({
-    headerDelaySeconds: answered,
+    headerDelaySeconds: asked,
     runs: [],
   });
 });
