@@ -88,10 +88,12 @@ type settingRow interface {
 }
 
 // view is what a row's field is drawn from: the saved and running Configs,
-// the defaults and each key's source.
+// the defaults, each key's source and the port the web listener bound, 0
+// before it binds.
 type view struct {
 	saved, running, defaults *Config
 	keys                     map[string]Key
+	boundHTTP                uint16
 }
 
 func keysByName(keys []Key) map[string]Key {
@@ -165,6 +167,10 @@ func (r portRow) field(v view) setting.Field {
 	f := d.Field(&saved)
 	f.Running = int64(r.at(v.running).Port())
 	f.About = r.about(v, f.About)
+	if v.boundHTTP != 0 {
+		f.Running = int64(v.boundHTTP)
+		f.PendingRestart = f.PendingRestart && saved != v.boundHTTP
+	}
 	return f
 }
 
