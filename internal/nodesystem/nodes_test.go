@@ -325,6 +325,43 @@ func TestAnArchiveCrossesTheLinkInChunks(t *testing.T) {
 	})
 }
 
+func TestASlowArchiveReadOutlastsTheTTLWhileEachChunkComesInTime(t *testing.T) {
+	content := bytes.Repeat([]byte("0123456789abcdef"), 80_000)
+	h := &host{archive: content, archiveDir: t.TempDir()}
+	synctest.Test(t, func(t *testing.T) {
+		p := newPair(t, h, "")
+		p.Connect(t)
+		a, err := p.nodes.Archive(t.Context(), p.worker)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []byte
+		chunk := make([]byte, 512<<10)
+		for {
+			n, err := io.ReadFull(a.Body, chunk)
+			got = append(got, chunk[:n]...)
+			if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				t.Fatalf("read after %d bytes: %v", len(got), err)
+			}
+			time.Sleep(6 * time.Minute)
+		}
+		if !bytes.Equal(got, content) {
+			t.Fatalf("read %d bytes over 12 minutes, want all %d", len(got), len(content))
+		}
+
+		if _, err := p.nodes.Archive(t.Context(), p.worker); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(10*time.Minute + time.Second)
+		if left := archives(t, h.archiveDir); left != 0 {
+			t.Fatalf("%d archives left after the TTL idle, want 0", left)
+		}
+	})
+}
+
 func archives(t *testing.T, dir string) int {
 	t.Helper()
 	matches, err := filepath.Glob(filepath.Join(dir, "logs-*.zip"))

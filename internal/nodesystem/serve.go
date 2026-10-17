@@ -24,7 +24,7 @@ type ServeTimings struct {
 }
 
 // Serve is NodeSystemService over h. It keeps each archive it opened until
-// its last chunk is read or its TTL passes, then deletes it.
+// its last chunk is read or it goes unread for its TTL, then deletes it.
 func Serve(h Host, t ServeTimings) systemv1connect.NodeSystemServiceHandler {
 	return &server{host: h, timings: t, archives: map[string]*openArchive{}}
 }
@@ -131,11 +131,12 @@ func (s *server) ReadLogArchive(_ context.Context, req *systemv1.ReadLogArchiveR
 	}
 	if offset+int64(len(data)) == a.Size {
 		s.drop(req.GetId())
+	} else {
+		a.expire.Reset(s.timings.LogArchiveTTL)
 	}
 	return &systemv1.ReadLogArchiveResponse{Data: data}, nil
 }
 
-// drop deletes archive id, once.
 func (s *server) drop(id string) {
 	s.mu.Lock()
 	a, ok := s.archives[id]
