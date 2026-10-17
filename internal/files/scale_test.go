@@ -106,8 +106,8 @@ const manyWorks = 500
 func BenchmarkPreviewingAChangeToAProfileOfManyWorks(b *testing.B) {
 	l := open(b)
 	tiers := [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}
-	hd, any := l.target(b, "HD", tiers...), l.target(b, "Any", tiers...)
-	profile := l.profile(b, "Many", hd, any)
+	hd, wide := l.target(b, "HD", tiers...), l.target(b, "Any", tiers...)
+	profile := l.profile(b, "Many", hd, wide)
 	for w := range manyWorks {
 		key := works.Key(fmt.Sprintf("w%d", w))
 		l.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: fmt.Sprintf("Shelf %d", w), Children: []works.Entry{
@@ -123,12 +123,12 @@ func BenchmarkPreviewingAChangeToAProfileOfManyWorks(b *testing.B) {
 			b.Fatal(err)
 		}
 		for i, it := range tree.Items {
-			l.place(b, it.ID, tree.ID, fmt.Sprintf("Shelf %d/%d.mkv", w, i), release.WEBDL1080p, hd.ID, any.ID)
+			l.place(b, it.ID, tree.ID, fmt.Sprintf("Shelf %d/%d.mkv", w, i), release.WEBDL1080p, hd.ID, wide.ID)
 		}
 	}
 	svc := l.files(files.NoGrabs{})
 	reordered := targets.UpdateProfile{ID: profile, Spec: targets.ProfileSpec{Name: "Many", ContentType: contenttypetest.ID, Entries: []targets.Entry{
-		{Target: any.ID, Sourcing: targets.Download}, {Target: hd.ID, Sourcing: targets.Download},
+		{Target: wide.ID, Sourcing: targets.Download}, {Target: hd.ID, Sourcing: targets.Download},
 	}}}
 	for b.Loop() {
 		i, err := svc.Change(b.Context(), admin, reordered, files.Mode{Unwanted: files.Delete, Preview: true})
