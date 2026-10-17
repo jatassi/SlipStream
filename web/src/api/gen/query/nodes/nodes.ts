@@ -20,6 +20,19 @@ import type {
   CreateJoinCode403,
   CreateJoinCode409,
   CreateJoinCode500,
+  DialForCode401,
+  DialForCode403,
+  DialForCode404,
+  DialForCode409,
+  DialForCode422,
+  DialForCode500,
+  DialInputBody,
+  GetJoinCode401,
+  GetJoinCode403,
+  GetJoinCode404,
+  GetJoinCode409,
+  GetJoinCode422,
+  GetJoinCode500,
   GetNode401,
   GetNode403,
   GetNode404,
@@ -34,13 +47,20 @@ import type {
   GetRoleBoard403,
   GetRoleBoard409,
   GetRoleBoard500,
+  ListJoinCodes401,
+  ListJoinCodes403,
+  ListJoinCodes409,
+  ListJoinCodes500,
   ListNodes401,
   ListNodes403,
   ListNodes409,
   ListNodes500,
+  NodesCodeState,
   NodesJoinCode,
   NodesNode,
+  NodesNodeDial,
   NodesNodeList,
+  NodesOpenCodes,
   NodesOutcome,
   NodesRoleBoard,
   NodesRolesChange,
@@ -53,6 +73,18 @@ import type {
   PlanRoles409,
   PlanRoles422,
   PlanRoles500,
+  RevokeJoinCode401,
+  RevokeJoinCode403,
+  RevokeJoinCode404,
+  RevokeJoinCode409,
+  RevokeJoinCode422,
+  RevokeJoinCode500,
+  SetNodeDial401,
+  SetNodeDial403,
+  SetNodeDial404,
+  SetNodeDial409,
+  SetNodeDial422,
+  SetNodeDial500,
   SetRoles401,
   SetRoles403,
   SetRoles404,
@@ -92,6 +124,581 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getListJoinCodesUrl = () => {
+  return `/api/v1/join-codes`;
+};
+
+/**
+ * @summary List the Join Codes that may still pair a Node
+ */
+export const listJoinCodes = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesOpenCodes> => {
+  return apiFetch<NodesOpenCodes>(getListJoinCodesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListJoinCodesQueryKey = () => {
+  return [`/api/v1/join-codes`] as const;
+};
+
+export const getListJoinCodesSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listJoinCodes>>,
+  TError = ErrorType<ListJoinCodes401 | ListJoinCodes403 | ListJoinCodes409 | ListJoinCodes500>,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof listJoinCodes>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListJoinCodesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listJoinCodes>>> = ({ signal }) =>
+    listJoinCodes({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listJoinCodes>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListJoinCodesSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listJoinCodes>>
+>;
+export type ListJoinCodesSuspenseQueryError = ErrorType<
+  ListJoinCodes401 | ListJoinCodes403 | ListJoinCodes409 | ListJoinCodes500
+>;
+
+export function useListJoinCodesSuspense<
+  TData = Awaited<ReturnType<typeof listJoinCodes>>,
+  TError = ErrorType<ListJoinCodes401 | ListJoinCodes403 | ListJoinCodes409 | ListJoinCodes500>,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listJoinCodes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListJoinCodesSuspense<
+  TData = Awaited<ReturnType<typeof listJoinCodes>>,
+  TError = ErrorType<ListJoinCodes401 | ListJoinCodes403 | ListJoinCodes409 | ListJoinCodes500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listJoinCodes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListJoinCodesSuspense<
+  TData = Awaited<ReturnType<typeof listJoinCodes>>,
+  TError = ErrorType<ListJoinCodes401 | ListJoinCodes403 | ListJoinCodes409 | ListJoinCodes500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listJoinCodes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Join Codes that may still pair a Node
+ */
+
+export function useListJoinCodesSuspense<
+  TData = Awaited<ReturnType<typeof listJoinCodes>>,
+  TError = ErrorType<ListJoinCodes401 | ListJoinCodes403 | ListJoinCodes409 | ListJoinCodes500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listJoinCodes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListJoinCodesSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getCreateJoinCodeUrl = () => {
+  return `/api/v1/join-codes`;
+};
+
+/**
+ * @summary Mint a Join Code that pairs one Node with this Controller
+ */
+export const createJoinCode = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesJoinCode> => {
+  return apiFetch<NodesJoinCode>(getCreateJoinCodeUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateJoinCodeMutationKey = () => ["createJoinCode"] as const;
+
+export const getCreateJoinCodeMutationOptions = <
+  TError = ErrorType<CreateJoinCode401 | CreateJoinCode403 | CreateJoinCode409 | CreateJoinCode500>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext>;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext> => {
+  const mutationKey = getCreateJoinCodeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createJoinCode>>, void> = () => {
+    return createJoinCode(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateJoinCodeMutationResult = NonNullable<Awaited<ReturnType<typeof createJoinCode>>>;
+
+export type CreateJoinCodeMutationError = ErrorType<
+  CreateJoinCode401 | CreateJoinCode403 | CreateJoinCode409 | CreateJoinCode500
+>;
+
+/**
+ * @summary Mint a Join Code that pairs one Node with this Controller
+ */
+export const useCreateJoinCode = <
+  TError = ErrorType<CreateJoinCode401 | CreateJoinCode403 | CreateJoinCode409 | CreateJoinCode500>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createJoinCode>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext> => {
+  return useMutation(getCreateJoinCodeMutationOptions(options), queryClient);
+};
+export const getRevokeJoinCodeUrl = (id: string) => {
+  return `/api/v1/join-codes/${id}`;
+};
+
+/**
+ * @summary Revoke a Join Code, so no Node pairs with it
+ */
+export const revokeJoinCode = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getRevokeJoinCodeUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRevokeJoinCodeMutationKey = () => ["revokeJoinCode"] as const;
+
+export const getRevokeJoinCodeMutationOptions = <
+  TError = ErrorType<
+    | RevokeJoinCode401
+    | RevokeJoinCode403
+    | RevokeJoinCode404
+    | RevokeJoinCode409
+    | RevokeJoinCode422
+    | RevokeJoinCode500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeJoinCode>>,
+    TError,
+    RevokeJoinCodeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeJoinCode>>,
+  TError,
+  RevokeJoinCodeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRevokeJoinCodeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeJoinCode>>,
+    RevokeJoinCodeMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return revokeJoinCode(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeJoinCodeMutationResult = NonNullable<Awaited<ReturnType<typeof revokeJoinCode>>>;
+
+export type RevokeJoinCodeMutationError = ErrorType<
+  | RevokeJoinCode401
+  | RevokeJoinCode403
+  | RevokeJoinCode404
+  | RevokeJoinCode409
+  | RevokeJoinCode422
+  | RevokeJoinCode500
+>;
+export type RevokeJoinCodeMutationVariables = { id: string };
+
+/**
+ * @summary Revoke a Join Code, so no Node pairs with it
+ */
+export const useRevokeJoinCode = <
+  TError = ErrorType<
+    | RevokeJoinCode401
+    | RevokeJoinCode403
+    | RevokeJoinCode404
+    | RevokeJoinCode409
+    | RevokeJoinCode422
+    | RevokeJoinCode500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof revokeJoinCode>>,
+      TError,
+      RevokeJoinCodeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof revokeJoinCode>>,
+  TError,
+  RevokeJoinCodeMutationVariables,
+  TContext
+> => {
+  return useMutation(getRevokeJoinCodeMutationOptions(options), queryClient);
+};
+export const getGetJoinCodeUrl = (id: string) => {
+  return `/api/v1/join-codes/${id}`;
+};
+
+/**
+ * @summary Get whether a Join Code is open, used or expired, and its dial
+ */
+export const getJoinCode = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesCodeState> => {
+  return apiFetch<NodesCodeState>(getGetJoinCodeUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetJoinCodeQueryKey = (id: string) => {
+  return [`/api/v1/join-codes/${id}`] as const;
+};
+
+export const getGetJoinCodeSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getJoinCode>>,
+  TError = ErrorType<
+    | GetJoinCode401
+    | GetJoinCode403
+    | GetJoinCode404
+    | GetJoinCode409
+    | GetJoinCode422
+    | GetJoinCode500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getJoinCode>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetJoinCodeQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getJoinCode>>> = ({ signal }) =>
+    getJoinCode(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getJoinCode>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetJoinCodeSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getJoinCode>>>;
+export type GetJoinCodeSuspenseQueryError = ErrorType<
+  | GetJoinCode401
+  | GetJoinCode403
+  | GetJoinCode404
+  | GetJoinCode409
+  | GetJoinCode422
+  | GetJoinCode500
+>;
+
+export function useGetJoinCodeSuspense<
+  TData = Awaited<ReturnType<typeof getJoinCode>>,
+  TError = ErrorType<
+    | GetJoinCode401
+    | GetJoinCode403
+    | GetJoinCode404
+    | GetJoinCode409
+    | GetJoinCode422
+    | GetJoinCode500
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getJoinCode>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetJoinCodeSuspense<
+  TData = Awaited<ReturnType<typeof getJoinCode>>,
+  TError = ErrorType<
+    | GetJoinCode401
+    | GetJoinCode403
+    | GetJoinCode404
+    | GetJoinCode409
+    | GetJoinCode422
+    | GetJoinCode500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getJoinCode>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetJoinCodeSuspense<
+  TData = Awaited<ReturnType<typeof getJoinCode>>,
+  TError = ErrorType<
+    | GetJoinCode401
+    | GetJoinCode403
+    | GetJoinCode404
+    | GetJoinCode409
+    | GetJoinCode422
+    | GetJoinCode500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getJoinCode>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get whether a Join Code is open, used or expired, and its dial
+ */
+
+export function useGetJoinCodeSuspense<
+  TData = Awaited<ReturnType<typeof getJoinCode>>,
+  TError = ErrorType<
+    | GetJoinCode401
+    | GetJoinCode403
+    | GetJoinCode404
+    | GetJoinCode409
+    | GetJoinCode422
+    | GetJoinCode500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getJoinCode>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetJoinCodeSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getDialForCodeUrl = (id: string) => {
+  return `/api/v1/join-codes/${id}/dial`;
+};
+
+/**
+ * @summary Dial the Node waiting at a Node address, which pairs with the code over that session
+ */
+export const dialForCode = async (
+  id: string,
+  dialInputBody: DialInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<void>(getDialForCodeUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(dialInputBody),
+  });
+};
+
+export const getDialForCodeMutationKey = () => ["dialForCode"] as const;
+
+export const getDialForCodeMutationOptions = <
+  TError = ErrorType<
+    | DialForCode401
+    | DialForCode403
+    | DialForCode404
+    | DialForCode409
+    | DialForCode422
+    | DialForCode500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dialForCode>>,
+    TError,
+    DialForCodeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dialForCode>>,
+  TError,
+  DialForCodeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDialForCodeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dialForCode>>,
+    DialForCodeMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return dialForCode(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DialForCodeMutationResult = NonNullable<Awaited<ReturnType<typeof dialForCode>>>;
+export type DialForCodeMutationBody = DialInputBody;
+export type DialForCodeMutationError = ErrorType<
+  | DialForCode401
+  | DialForCode403
+  | DialForCode404
+  | DialForCode409
+  | DialForCode422
+  | DialForCode500
+>;
+export type DialForCodeMutationVariables = { id: string; data: DialInputBody };
+
+/**
+ * @summary Dial the Node waiting at a Node address, which pairs with the code over that session
+ */
+export const useDialForCode = <
+  TError = ErrorType<
+    | DialForCode401
+    | DialForCode403
+    | DialForCode404
+    | DialForCode409
+    | DialForCode422
+    | DialForCode500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof dialForCode>>,
+      TError,
+      DialForCodeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof dialForCode>>,
+  TError,
+  DialForCodeMutationVariables,
+  TContext
+> => {
+  return useMutation(getDialForCodeMutationOptions(options), queryClient);
+};
 export const getListNodesUrl = () => {
   return `/api/v1/nodes`;
 };
@@ -196,71 +803,6 @@ export function useListNodesSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getCreateJoinCodeUrl = () => {
-  return `/api/v1/nodes/join-codes`;
-};
-
-/**
- * @summary Mint a Join Code that pairs one Node with this Controller
- */
-export const createJoinCode = async (
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<NodesJoinCode> => {
-  return apiFetch<NodesJoinCode>(getCreateJoinCodeUrl(), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getCreateJoinCodeMutationKey = () => ["createJoinCode"] as const;
-
-export const getCreateJoinCodeMutationOptions = <
-  TError = ErrorType<CreateJoinCode401 | CreateJoinCode403 | CreateJoinCode409 | CreateJoinCode500>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext>;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext> => {
-  const mutationKey = getCreateJoinCodeMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createJoinCode>>, void> = () => {
-    return createJoinCode(requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreateJoinCodeMutationResult = NonNullable<Awaited<ReturnType<typeof createJoinCode>>>;
-
-export type CreateJoinCodeMutationError = ErrorType<
-  CreateJoinCode401 | CreateJoinCode403 | CreateJoinCode409 | CreateJoinCode500
->;
-
-/**
- * @summary Mint a Join Code that pairs one Node with this Controller
- */
-export const useCreateJoinCode = <
-  TError = ErrorType<CreateJoinCode401 | CreateJoinCode403 | CreateJoinCode409 | CreateJoinCode500>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createJoinCode>>,
-      TError,
-      void,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<Awaited<ReturnType<typeof createJoinCode>>, TError, void, TContext> => {
-  return useMutation(getCreateJoinCodeMutationOptions(options), queryClient);
-};
 export const getGetRoleBoardUrl = () => {
   return `/api/v1/nodes/roles`;
 };
@@ -961,6 +1503,134 @@ export function useGetNodeSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getSetNodeDialUrl = (id: string) => {
+  return `/api/v1/nodes/${id}/dial`;
+};
+
+/**
+ * @summary Set the Node address the Controller dials a Node at, or stop dialing it
+ */
+export const setNodeDial = async (
+  id: string,
+  nodesNodeDial: NodesNodeDial,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesNode> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NodesNode>(getSetNodeDialUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(nodesNodeDial),
+  });
+};
+
+export const getSetNodeDialMutationKey = () => ["setNodeDial"] as const;
+
+export const getSetNodeDialMutationOptions = <
+  TError = ErrorType<
+    | SetNodeDial401
+    | SetNodeDial403
+    | SetNodeDial404
+    | SetNodeDial409
+    | SetNodeDial422
+    | SetNodeDial500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setNodeDial>>,
+    TError,
+    SetNodeDialMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setNodeDial>>,
+  TError,
+  SetNodeDialMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetNodeDialMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setNodeDial>>,
+    SetNodeDialMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setNodeDial(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetNodeDialMutationResult = NonNullable<Awaited<ReturnType<typeof setNodeDial>>>;
+export type SetNodeDialMutationBody = NodesNodeDial;
+export type SetNodeDialMutationError = ErrorType<
+  | SetNodeDial401
+  | SetNodeDial403
+  | SetNodeDial404
+  | SetNodeDial409
+  | SetNodeDial422
+  | SetNodeDial500
+>;
+export type SetNodeDialMutationVariables = { id: string; data: NodesNodeDial };
+
+/**
+ * @summary Set the Node address the Controller dials a Node at, or stop dialing it
+ */
+export const useSetNodeDial = <
+  TError = ErrorType<
+    | SetNodeDial401
+    | SetNodeDial403
+    | SetNodeDial404
+    | SetNodeDial409
+    | SetNodeDial422
+    | SetNodeDial500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setNodeDial>>,
+      TError,
+      SetNodeDialMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setNodeDial>>,
+  TError,
+  SetNodeDialMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetNodeDialMutationOptions(options), queryClient);
+};
 export const getWriteOffUrl = (id: string) => {
   return `/api/v1/nodes/${id}/write-offs`;
 };

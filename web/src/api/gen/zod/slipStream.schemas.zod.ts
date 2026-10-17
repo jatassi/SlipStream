@@ -18,6 +18,13 @@ export const AccountPatchInputBody = zod.object({
 export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
 export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
 
+export const DialInputBody = zod.object({
+  nodeAddress: zod.string().describe("The SLN1 text the waiting Node printed"),
+});
+
+export type DialInputBody = zod.input<typeof DialInputBody>;
+export type DialInputBodyOutput = zod.output<typeof DialInputBody>;
+
 export const emailChangeInputBodyEmailMax = 254;
 
 export const EmailChangeInputBody = zod.object({
@@ -1065,6 +1072,46 @@ export const NodesCheck = zod.object({
 export type NodesCheck = zod.input<typeof NodesCheck>;
 export type NodesCheckOutput = zod.output<typeof NodesCheck>;
 
+export const NodesDialing = zod.object({
+  address: zod.string(),
+  since: zod.iso.datetime({ offset: true }),
+  unreachable: zod
+    .boolean()
+    .describe("The Node hasn't paired within timings.nodes.dial_report of the paste"),
+});
+
+export type NodesDialing = zod.input<typeof NodesDialing>;
+export type NodesDialingOutput = zod.output<typeof NodesDialing>;
+
+export const NodesCodeState = zod.object({
+  dialing: NodesDialing.exactOptional().describe(
+    "The Node address the Controller dials for an open code; absent without one",
+  ),
+  nodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Node that paired with the code; absent unless used"),
+  state: zod.enum(["open", "used", "expired"]),
+});
+
+export type NodesCodeState = zod.input<typeof NodesCodeState>;
+export type NodesCodeStateOutput = zod.output<typeof NodesCodeState>;
+
+export const NodesDialView = zod.object({
+  by: zod
+    .enum(["node", "controller"])
+    .exactOptional()
+    .describe("The side that dialed the live session; absent with none"),
+  controllerDials: zod
+    .array(zod.string())
+    .describe(
+      "The addresses the Controller dials the Node at; empty when the Node dials the Controller",
+    ),
+});
+
+export type NodesDialView = zod.input<typeof NodesDialView>;
+export type NodesDialViewOutput = zod.output<typeof NodesDialView>;
+
 export const NodesDrains = zod.object({
   held: NodesHeld,
   kind: zod.enum(["drains"]),
@@ -1269,6 +1316,7 @@ export type NodesGestureOutput = zod.output<typeof NodesGesture>;
 export const NodesJoinCode = zod.object({
   code: zod.string(),
   expiresAt: zod.iso.datetime({ offset: true }),
+  id: zod.uuid(),
 });
 
 export type NodesJoinCode = zod.input<typeof NodesJoinCode>;
@@ -1287,6 +1335,7 @@ export const nodesNodeIntentVersionRegExp = new RegExp("^[0-9a-f]{32}$");
 
 export const NodesNode = zod.object({
   addresses: zod.array(zod.string()),
+  dial: NodesDialView,
   facts: NodesFacts.exactOptional().describe("Absent while the Node has no session"),
   id: zod.uuid(),
   intentVersion: zod.string().regex(nodesNodeIntentVersionRegExp),
@@ -1301,12 +1350,47 @@ export const NodesNode = zod.object({
 export type NodesNode = zod.input<typeof NodesNode>;
 export type NodesNodeOutput = zod.output<typeof NodesNode>;
 
+export const nodesNodeDialAddressesMax = 0;
+
+export const NodesNodeDial = zod.object({
+  addresses: zod
+    .array(zod.string())
+    .max(nodesNodeDialAddressesMax)
+    .exactOptional()
+    .describe("Send [] to stop dialing the Node, which then dials the Controller"),
+  nodeAddress: zod
+    .string()
+    .exactOptional()
+    .describe("Dial the Node at this Node address from now on"),
+});
+
+export type NodesNodeDial = zod.input<typeof NodesNodeDial>;
+export type NodesNodeDialOutput = zod.output<typeof NodesNodeDial>;
+
 export const NodesNodeList = zod.object({
   nodes: zod.array(NodesNode),
 });
 
 export type NodesNodeList = zod.input<typeof NodesNodeList>;
 export type NodesNodeListOutput = zod.output<typeof NodesNodeList>;
+
+export const NodesOpenCode = zod.object({
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  id: zod.uuid(),
+});
+
+export type NodesOpenCode = zod.input<typeof NodesOpenCode>;
+export type NodesOpenCodeOutput = zod.output<typeof NodesOpenCode>;
+
+export const NodesOpenCodes = zod.object({
+  codes: zod
+    .array(NodesOpenCode)
+    .describe("Every Join Code that may still pair a Node, oldest first"),
+});
+
+export type NodesOpenCodes = zod.input<typeof NodesOpenCodes>;
+export type NodesOpenCodesOutput = zod.output<typeof NodesOpenCodes>;
 
 export const NodesOutcome = zod.object({
   basis: zod.string().describe("The basis of the rows it was planned on"),

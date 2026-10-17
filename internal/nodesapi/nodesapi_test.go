@@ -1,12 +1,14 @@
 package nodesapi_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -17,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
@@ -83,6 +86,12 @@ func (unadvertised) Subscribe(context.Context) <-chan link.Change { return nil }
 
 func (unadvertised) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
 
+func (unadvertised) Keep(link.Target) {}
+
+func (unadvertised) Drop(link.Key) {}
+
+func (unadvertised) Invite(context.Context, link.Target) error { return nil }
+
 type changes struct{}
 
 func (changes) Publish(context.Context, nodes.Changed) {}
@@ -130,7 +139,7 @@ func TestAJoinCodeNeedsALinkAddress(t *testing.T) {
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Node{Service: svc}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	nodesapi.Routes(r, roster{ns})
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/nodes/join-codes", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/join-codes", nil)
 	req.Header.Set("X-Api-Key", apiKey)
 	w := httptest.NewRecorder()
 	r.Handler().ServeHTTP(w, req)
@@ -355,5 +364,111 @@ func pairDownloading(t *testing.T, lib *storage.DB[storage.Library], named map[s
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// advertised is a link that advertises home's address and whose invites
+// wait for their end.
+type advertised struct{ unadvertised }
+
+func (advertised) Advertised() (link.Addresses, bool) {
+	a, err := link.ParseAddresses([]netip.AddrPort{netip.MustParseAddrPort("127.0.0.2:8485")})
+	return a, err == nil
+}
+
+func (advertised) Invite(ctx context.Context, _ link.Target) error {
+	<-ctx.Done()
+	return fmt.Errorf("invite: %w", ctx.Err())
+}
+
+func TestTheJoinCodeOperations(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema())
+	ns, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: advertised{}, Changed: changes{}, Owners: nodestest.Unowned(), Timings: nodes.DefaultTimings(), Log: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
+	const codes = "/api/v1/join-codes"
+	var minted struct {
+		ID   string `json:"id"`
+		Code string `json:"code"`
+	}
+	call(t, s, http.MethodPost, codes, "", http.StatusCreated, &minted)
+	var list struct {
+		Codes []struct {
+			ID string `json:"id"`
+		} `json:"codes"`
+	}
+	call(t, s, http.MethodGet, codes, "", http.StatusOK, &list)
+	if len(list.Codes) != 1 || list.Codes[0].ID != minted.ID {
+		t.Fatalf("listJoinCodes = %+v, want the minted code %s", list, minted.ID)
+	}
+	code := codes + "/" + minted.ID
+	var st struct {
+		State   string `json:"state"`
+		Dialing *struct {
+			Address     string `json:"address"`
+			Unreachable bool   `json:"unreachable"`
+		} `json:"dialing"`
+	}
+	call(t, s, http.MethodGet, code, "", http.StatusOK, &st)
+	if st.State != "open" || st.Dialing != nil {
+		t.Fatalf("getJoinCode = %+v, want open with no dial", st)
+	}
+
+	box, err := joincode.NewNodeAddress(bytes.Repeat([]byte{7}, 32), []netip.AddrPort{netip.MustParseAddrPort("127.0.0.3:8485")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var damaged problem
+	call(t, s, http.MethodPost, code+"/dial", `{"nodeAddress":"SLN1-40GJ4"}`, http.StatusUnprocessableEntity, &damaged)
+	if damaged.Code != "node_address_damaged" {
+		t.Fatalf("a dial for damaged text answered %+v, want node_address_damaged", damaged)
+	}
+	dial := fmt.Sprintf(`{"nodeAddress":%q}`, box)
+	if status, reply := s.Call(t, http.MethodPost, code+"/dial", dial); status != http.StatusAccepted {
+		t.Fatalf("dialForCode answered %d %s, want 202", status, reply)
+	}
+	call(t, s, http.MethodGet, code, "", http.StatusOK, &st)
+	if st.Dialing == nil || st.Dialing.Address != box.String() || st.Dialing.Unreachable {
+		t.Fatalf("getJoinCode after the dial = %+v, want dialing %s", st, box)
+	}
+
+	if status, reply := s.Call(t, http.MethodDelete, code, ""); status != http.StatusNoContent {
+		t.Fatalf("revokeJoinCode answered %d %s, want 204", status, reply)
+	}
+	for _, c := range []struct{ method, path, body string }{
+		{http.MethodGet, code, ""},
+		{http.MethodDelete, code, ""},
+		{http.MethodPost, code + "/dial", dial},
+	} {
+		var gone problem
+		call(t, s, c.method, c.path, c.body, http.StatusNotFound, &gone)
+		if gone.Code != "join_code_not_found" {
+			t.Fatalf("%s %s on a revoked code answered %+v, want join_code_not_found", c.method, c.path, gone)
+		}
+	}
+
+	nodeDial := "/api/v1/nodes/" + ns.Self().String() + "/dial"
+	var mismatch problem
+	call(t, s, http.MethodPut, nodeDial, dial, http.StatusConflict, &mismatch)
+	if mismatch.Code != "node_key_mismatch" {
+		t.Fatalf("setNodeDial with another Node's address answered %+v, want node_key_mismatch", mismatch)
+	}
+	var neither problem
+	call(t, s, http.MethodPut, nodeDial, `{}`, http.StatusUnprocessableEntity, &neither)
+	if neither.Code != "invalid" {
+		t.Fatalf("setNodeDial with neither member answered %+v, want invalid", neither)
+	}
+	var row struct {
+		Dial struct {
+			By              string   `json:"by"`
+			ControllerDials []string `json:"controllerDials"`
+		} `json:"dial"`
+	}
+	call(t, s, http.MethodPut, nodeDial, `{"addresses":[]}`, http.StatusOK, &row)
+	if row.Dial.By != "" || row.Dial.ControllerDials == nil || len(row.Dial.ControllerDials) != 0 {
+		t.Fatalf("setNodeDial to stop dialing answered %+v, want no session and no dials", row.Dial)
 	}
 }

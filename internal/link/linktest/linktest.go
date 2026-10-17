@@ -30,6 +30,8 @@ var Timings = link.Timings{
 	RedialMin:     time.Second,
 	RedialMax:     time.Minute,
 	FallbackDelay: 300 * time.Millisecond,
+	JoinDial:      20 * time.Second,
+	AwaitDial:     10 * time.Minute,
 }
 
 const StreamWindow = 16 << 20

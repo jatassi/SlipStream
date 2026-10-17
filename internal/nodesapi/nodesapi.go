@@ -56,15 +56,6 @@ var blockedAs = map[nodes.Reason]api.Carrying[outcome]{
 	nodes.KeepsRole:   keepsRole,
 }
 
-type joinCode struct {
-	Code      string    `json:"code"`
-	ExpiresAt time.Time `json:"expiresAt"`
-}
-
-type joinCodeOutput struct {
-	Body joinCode
-}
-
 type node struct {
 	ID        string     `json:"id" format:"uuid"`
 	Name      string     `json:"name"`
@@ -74,9 +65,10 @@ type node struct {
 	Addresses []string   `json:"addresses" nullable:"false"`
 	Roles     []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
 	// IntentVersion is the node-scope version the library derives now.
-	IntentVersion string `json:"intentVersion" pattern:"^[0-9a-f]{32}$"`
-	Link          link   `json:"link"`
-	Facts         *facts `json:"facts,omitempty" doc:"Absent while the Node has no session"`
+	IntentVersion string   `json:"intentVersion" pattern:"^[0-9a-f]{32}$"`
+	Link          link     `json:"link"`
+	Dial          dialView `json:"dial"`
+	Facts         *facts   `json:"facts,omitempty" doc:"Absent while the Node has no session"`
 }
 
 type roleView struct {
@@ -143,6 +135,7 @@ func nodeOf(n nodes.Node) node {
 		Roles:         rolesOf(n.Roles),
 		IntentVersion: hex.EncodeToString(n.Version),
 		Link:          link{State: n.Link.String(), Since: n.Since},
+		Dial:          dialOf(n.Dial),
 	}
 	for _, a := range n.Addresses.All() {
 		out.Addresses = append(out.Addresses, a.String())
@@ -486,14 +479,7 @@ func Routes(r *api.Router, roster Roster) {
 	o := r.Owner("nodes", api.Admin)
 	h := handlers{roster}
 
-	api.Register(o, api.Admin, api.Op{
-		ID:      "createJoinCode",
-		Method:  http.MethodPost,
-		Path:    "/nodes/join-codes",
-		Summary: "Mint a Join Code that pairs one Node with this Controller",
-		Status:  http.StatusCreated,
-		Errors:  []*api.Code{noLinkAddress},
-	}, h.createJoinCode)
+	joinCodeRoutes(o, h)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listNodes",
@@ -568,17 +554,6 @@ func Routes(r *api.Router, roster Roster) {
 }
 
 type handlers struct{ roster Roster }
-
-func (h handlers) createJoinCode(ctx context.Context, _ identity.Admin, _ *struct{}) (*joinCodeOutput, error) {
-	code, err := open(h.roster).MintJoinCode(ctx)
-	if errors.Is(err, nodes.ErrNoLinkAddress) {
-		return nil, noLinkAddress
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &joinCodeOutput{Body: joinCode{Code: code.Code.String(), ExpiresAt: code.ExpiresAt}}, nil
-}
 
 func (h handlers) listNodes(ctx context.Context, _ identity.Admin, _ *struct{}) (*listOutput, error) {
 	list, err := open(h.roster).List(ctx)

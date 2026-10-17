@@ -6,14 +6,14 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 
 - `pairing-roster` the Controller lists every paired Node with its link state and Roles over `GET /api/v1/nodes`: a Worker reads `up` while its Sync session is attached, and once it stops, `down` since its last Sync frame.
 - `pairing-wipe` a stopped, wiped seedbox starts Unclaimed on its first address: `{"claim":"unclaimed"}`.
-- `pairing-join-code` the Controller issues a single-use Join Code, `SLP1-…`, over `POST /api/v1/nodes/join-codes`.
+- `pairing-join-code` the Controller issues a single-use Join Code, `SLP1-…`, over `POST /api/v1/join-codes`.
 - `pairing-join` `slipstream join` pairs the stopped Node and prints `joined home as seedbox-2 (node <id>); link up to <address>`.
 - `pairing-worker-page` the Worker's own URL lands on `/worker`, headed `This Node is a Worker. Manage it from its Controller.` over its `Name`, its `Controller` and its `Key`, the fingerprint of its Node key.
 
 ## How to get to it (user POV)
 
 - Host CLI on the joining machine: `slipstream join --data-dir <dir> <code>` while that Node is stopped.
-- API on the Controller: `POST /api/v1/nodes/join-codes`, `GET /api/v1/nodes`. The skeleton has no Nodes screen.
+- API on the Controller: `POST /api/v1/join-codes`, `GET /api/v1/nodes`. The skeleton has no Nodes screen.
 - API on an Unclaimed Node: `POST /api/v1/setup/worker` with the Join Code and the Node's Setup code.
 - Desktop and phone: the Worker's own URL, which shows only the Worker page.
 
@@ -47,7 +47,7 @@ Steps:
 - **Issue a Join Code.** The Controller answers 201 with `{"code":"SLP1-…"}`.
 
   ```sh
-  CODE=$($FW exec $RUN --proof pairing/pairing-join-code -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/join-codes' | jq -r .code)
+  CODE=$($FW exec $RUN --proof pairing/pairing-join-code -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/join-codes' | jq -r .code)
   ```
 
 - **Join from the host CLI.** The command exits 0 and prints `joined home as seedbox-2 (node <id>); link up to 127.0.0.1:<port>`, the link front.

@@ -1,9 +1,11 @@
+import type { NodesDialView } from "./nodesDialView.ts";
 import type { NodesFacts } from "./nodesFacts.ts";
 import type { NodesLink } from "./nodesLink.ts";
 import type { NodesRoleView } from "./nodesRoleView.ts";
 
 export interface NodesNode {
   addresses: string[];
+  dial: NodesDialView;
   /** Absent while the Node has no session */
   facts?: NodesFacts;
   id: string;

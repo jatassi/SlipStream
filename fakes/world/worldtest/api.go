@@ -292,7 +292,7 @@ func (a *API) Join(controller, name, setupCode string) string {
 	var minted struct {
 		Code string `json:"code"`
 	}
-	a.decode(a.Admin(controller, http.MethodPost, "/api/v1/nodes/join-codes", ""), http.StatusCreated, &minted)
+	a.decode(a.Admin(controller, http.MethodPost, "/api/v1/join-codes", ""), http.StatusCreated, &minted)
 	body := `{"code":"` + minted.Code + `"}`
 	reply, _ := a.do(request{
 		node: name, method: http.MethodPost, path: "/api/v1/setup/worker", body: body, bodyArg: world.Literal(body),

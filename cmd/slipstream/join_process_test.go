@@ -70,7 +70,7 @@ func (h home) mint(t *testing.T) string {
 	var res struct {
 		Code string `json:"code"`
 	}
-	h.admin(t, http.MethodPost, "/api/v1/nodes/join-codes", &res)
+	h.admin(t, http.MethodPost, "/api/v1/join-codes", &res)
 	return res.Code
 }
 
@@ -132,7 +132,7 @@ func TestJoinByEnvironment(t *testing.T) {
 	var minted struct {
 		Code string `json:"code"`
 	}
-	if r := a.Admin("home", http.MethodPost, "/api/v1/nodes/join-codes", ""); r.Status != http.StatusCreated || json.Unmarshal([]byte(r.Body), &minted) != nil {
+	if r := a.Admin("home", http.MethodPost, "/api/v1/join-codes", ""); r.Status != http.StatusCreated || json.Unmarshal([]byte(r.Body), &minted) != nil {
 		t.Fatalf("createJoinCode = %d %s", r.Status, r.Body)
 	}
 	env := slices.Concat(boxEnv, []string{"SLIPSTREAM_JOIN_CODE=" + minted.Code})

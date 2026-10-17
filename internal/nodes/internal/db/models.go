@@ -15,6 +15,12 @@ type NodesAddress struct {
 	Address  string
 }
 
+type NodesDial struct {
+	NodeID   role.NodeID
+	Position int64
+	Address  string
+}
+
 type NodesForfeit struct {
 	NodeID     role.NodeID
 	Role       role.Name
@@ -22,11 +28,14 @@ type NodesForfeit struct {
 }
 
 type NodesJoinCode struct {
-	SecretHash []byte
-	CreatedAt  storage.Time
-	ExpiresAt  storage.Time
-	UsedBy     role.NodeID
-	UsedAt     storage.Time
+	ID          storage.UUID
+	SecretHash  []byte
+	CreatedAt   storage.Time
+	ExpiresAt   storage.Time
+	UsedBy      role.NodeID
+	UsedAt      storage.Time
+	DialAddress *string
+	DialAt      storage.Time
 }
 
 type NodesNode struct {
