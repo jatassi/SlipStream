@@ -53,7 +53,7 @@ test("nodes.changed invalidates the Node list and that Node", async () => {
 
 test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/library", handlers: server.handlers });
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     grabs: getListGrabsQueryKey(),
@@ -71,7 +71,7 @@ test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells"
 
 test("grabs.search-changed invalidates only that Work's searches", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/library", handlers: server.handlers });
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     orchard: getListSearchesQueryKey(orchard),
@@ -87,7 +87,7 @@ test("grabs.search-changed invalidates only that Work's searches", async () => {
 
 test("tasks.changed invalidates every tasks query and nothing else", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/library", handlers: server.handlers });
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
   const invalidated = seeded(app, {
     list: getListTasksQueryKey(),
@@ -147,7 +147,7 @@ test("tasks.progress moves that open run in place", async () => {
   const server = liveServer();
   const open = { headerDelaySeconds: 5, runs: [openRun(1, "housekeeping"), openRun(2, "tidy")] };
   const app = renderApp({
-    path: "/library",
+    path: "/nodes",
     handlers: [...server.handlers, getListOpenTaskRunsMockHandler(open)],
   });
   await expect.poll(() => app.live.getState()).toBe("open");
