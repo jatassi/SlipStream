@@ -83,4 +83,13 @@ test("a Worker restarted from Nodes shows Restarting until its link is up again"
   server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedboxId } });
   await expect.element(page.getByText("127.0.0.2:8080")).toBeVisible();
   await expect.element(page.getByText("seedbox is restarting…")).not.toBeInTheDocument();
+
+  worker.use(
+    nodesAre(home, { ...seedbox, link: { state: "down", since: "2026-10-12T11:00:00Z" } }),
+  );
+  server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedboxId } });
+  await expect
+    .element(page.getByRole("combobox", { name: "Node" }))
+    .toHaveTextContent("offlineseedbox");
+  await expect.element(page.getByText("seedbox is restarting…")).not.toBeInTheDocument();
 });

@@ -129,6 +129,20 @@ test("a Worker's restart ends when its 90 seconds run out, but not an older rest
   expect(isWorkerRestarting(expired, down)).toBe(false);
 });
 
+test("a Worker back from its restart leaves no entry, so a later outage is no restart", () => {
+  const back = run(
+    { type: "accepted", target: seedbox, startedAt: before, at: 5_000, logsDir: "/srv/logs" },
+    { type: "back", nodeId: seedbox.nodeId },
+  );
+  expect(back.workers).toEqual(new Map());
+  expect(
+    isWorkerRestarting(back, {
+      id: seedbox.nodeId,
+      link: { state: "down", since: "2026-10-16T09:30:00Z" },
+    }),
+  ).toBe(false);
+});
+
 test("a port move links to the new port only when the browser reached the Node on its bound port", () => {
   expect(moveFor(9000, 8484, new URL("http://media.local:8484/nodes/abc/web"))).toEqual({
     port: 9000,

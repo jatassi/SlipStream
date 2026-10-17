@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { notFound } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import type { NodesLinkState, NodesNode } from "../../../api/gen/model";
 import {
@@ -7,7 +8,11 @@ import {
   useListNodesSuspense,
 } from "../../../api/gen/query/nodes/nodes";
 import { ensureQuery } from "../../../api/query-client";
-import { isWorkerRestarting, useRestartState } from "../../../shell/restart/restart-state";
+import {
+  isWorkerRestarting,
+  restartStore,
+  useRestartState,
+} from "../../../shell/restart/restart-state";
 import type { Titled } from "../../../shell/titles";
 
 export function nodeOf(nodes: readonly NodesNode[], nodeId: string): NodesNode {
@@ -36,9 +41,21 @@ export const stateOfLink: { readonly [S in NodesLinkState]: Exclude<NodeState, "
   mismatched: "mismatched",
 };
 
-/** A Worker restarts from the accepted request until its link is up again. */
-export const useNodeState = (node: NodesNode): NodeState =>
-  isWorkerRestarting(useRestartState(), node) ? "restarting" : stateOfLink[node.link.state];
+/**
+ * A Worker restarts from the accepted request until its link is up again.
+ * Once it is, the restart is cleared, so a later outage reads as offline.
+ */
+export function useNodeState(node: NodesNode): NodeState {
+  const restarts = useRestartState();
+  const asked = restarts.workers.has(node.id);
+  const restarting = isWorkerRestarting(restarts, node);
+  useEffect(() => {
+    if (asked && !restarting) {
+      restartStore.dispatch({ type: "back", nodeId: node.id });
+    }
+  }, [asked, restarting, node.id]);
+  return restarting ? "restarting" : stateOfLink[node.link.state];
+}
 
 /** The port of a listen address such as `[::]:8484` or `127.0.0.2:8080`. */
 export const portOf = (address: string): number =>

@@ -57,6 +57,7 @@ export type RestartEvent =
       readonly move?: Move;
     }
   | { readonly type: "expire"; readonly nodeId: string; readonly at: number }
+  | { readonly type: "back"; readonly nodeId: string }
   | { readonly type: "answered"; readonly startedAt: string }
   | { readonly type: "tick"; readonly at: number }
   | { readonly type: "retry"; readonly at: number };
@@ -108,8 +109,9 @@ export function restartReducer(state: RestartState, event: RestartEvent): Restar
   if (event.type === "accepted") {
     return accept(state, event);
   }
-  if (event.type === "expire") {
-    if (state.workers.get(event.nodeId)?.at !== event.at) {
+  if (event.type === "expire" || event.type === "back") {
+    const asked = state.workers.get(event.nodeId);
+    if (asked === undefined || (event.type === "expire" && asked.at !== event.at)) {
       return state;
     }
     const workers = new Map(state.workers);
@@ -122,7 +124,8 @@ export function restartReducer(state: RestartState, event: RestartEvent): Restar
 
 /**
  * A Worker restarts from the accepted request until its link is up with a
- * new since, or until its `expire` after `failAfter`.
+ * new since, which a `back` then clears, or until its `expire` after
+ * `failAfter`.
  */
 export function isWorkerRestarting(
   state: RestartState,
