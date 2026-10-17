@@ -105,7 +105,11 @@ func (n *Node) configView() (nodesystem.Config, error) {
 	running := n.cfg
 	n.cfgMu.Unlock()
 	defaults := Defaults(n.env.Types, n.env.Install)
-	return viewConfig(view{saved: &saved, running: &running, defaults: &defaults, keys: keysByName(keys)})
+	v := view{saved: &saved, running: &running, defaults: &defaults, keys: keysByName(keys)}
+	if f := n.host.facts.Load(); f != nil {
+		v.boundHTTP = f.Listeners.HTTP.Port()
+	}
+	return viewConfig(v)
 }
 
 func viewConfig(v view) (nodesystem.Config, error) {

@@ -123,6 +123,34 @@ func TestATakenWebPortFallsBackPastTheNodesOwnPorts(t *testing.T) {
 	})
 }
 
+func TestThePortANodeListensOnWaitsForNoRestart(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		env, host := inMemory(fallbackEnv(t, "3"))
+		held, err := host.Listen("tcp", "127.0.0.1:8484")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = held.Close() }()
+		n, c := startOn(t, env, host)
+		key := claimKey(t, n, c)
+		path := "/api/v1/nodes/" + selfID(t, c, key) + "/config"
+
+		for _, step := range []struct{ body, want string }{
+			{"", "8484 8486 false restart"},
+			{`{"http.listen":8486}`, "8486 8486 false restart"},
+			{`{"http.listen":9000}`, "9000 8486 true restart"},
+		} {
+			r := c.admin(key, http.MethodGet, path, "")
+			if step.body != "" {
+				r = c.admin(key, http.MethodPatch, path, step.body)
+			}
+			if got := fieldLine(fieldOf(t, r, "http.listen")); got != step.want {
+				t.Fatalf("http.listen after %q = %s, want %s", step.body, got, step.want)
+			}
+		}
+	})
+}
+
 func TestOnePortToTryFailsTheStart(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		env, host := inMemory(fallbackEnv(t, "1"))
