@@ -161,7 +161,7 @@ test("a saved Profile shows each Target's disk estimate, flags a contained Targe
     "Rank 31080p smallNo estimate yetEvery file 1080p small takes also meets 1080p.",
   ]);
   await expect
-    .element(page.getByRole("button", { name: /^(Create|Save)/u }))
+    .element(page.getByRole("button", { name: "Create Profile" }))
     .not.toBeInTheDocument();
 });
 
@@ -185,6 +185,6 @@ test("creating with chosen cuts is held back with the reason, and sends nothing"
   await userEvent.click(page.getByRole("button", { name: "Create Profile" }));
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("Chosen cuts can't be saved yet. Choose Any cut to create the Profile.");
+    .toHaveTextContent("Chosen cuts can't be saved yet. Choose Any cut to save the Profile.");
   expect(sent).toEqual([]);
 });

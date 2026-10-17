@@ -10,8 +10,7 @@ import { getListContentTypesSuspenseQueryOptions } from "../../../api/gen/query/
 import { ensureQuery } from "../../../api/query-client";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { profileDraftOf } from "../../../targets/profile-draft";
-import { ProfileEditor } from "../../../targets/profile-editor";
+import { SavedProfileEditor } from "../../../targets/profile-editor";
 import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/profiles/$profileId")({
@@ -35,14 +34,12 @@ export const Route = createFileRoute("/_app/settings/profiles/$profileId")({
   component: ProfilePage,
 });
 
-// Saving an existing Profile goes through the Impact preview, which a later
-// unit wires in as the editor's save.
 function ProfilePage() {
   const { profileId } = Route.useParams();
   const profile = useGetProfileSuspense(profileId).data;
   return (
     <Page>
-      <ProfileEditor key={profile.id} initial={profileDraftOf(profile)} />
+      <SavedProfileEditor key={profile.id} profile={profile} />
     </Page>
   );
 }

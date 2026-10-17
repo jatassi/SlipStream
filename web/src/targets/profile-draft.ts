@@ -1,4 +1,4 @@
-import type { TargetsProfile } from "../api/gen/model";
+import type { TargetsNewProfile, TargetsProfile } from "../api/gen/model";
 import { type EditionsDraft, editionsDraftOf } from "./editions-draft";
 
 /**
@@ -32,3 +32,16 @@ export const profileDraftOf = (profile: TargetsProfile): ProfileDraft => ({
 
 export const profileProblemsOf = (draft: ProfileDraft): string[] =>
   draft.name.trim() === "" ? ["Name the Profile."] : [];
+
+// Only Any cut is sent: a chosen cut list is saved once the API stores one.
+export function profileBodyOf(draft: ProfileDraft): TargetsNewProfile {
+  if (draft.editions.kind === "cuts") {
+    throw new Error("Chosen cuts can't be saved yet. Choose Any cut to save the Profile.");
+  }
+  return {
+    name: draft.name.trim(),
+    contentType: draft.contentType,
+    targets: draft.targets.map((targetId) => ({ targetId, sourcing: "download" })),
+    editions: { kind: draft.editions.kind },
+  };
+}

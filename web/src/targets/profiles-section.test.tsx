@@ -4,6 +4,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { TargetsProfile, WorksContentType } from "../api/gen/model";
 import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw";
+import { changeOp } from "../test/impact";
 import { cinema } from "../test/library";
 import { films, profileHandlers, ultra } from "../test/profiles";
 import { renderApp } from "../test/render-app";
@@ -88,4 +89,67 @@ test("New Profile opens an empty editor on the first enabled Content Type", asyn
   await expect
     .element(page.getByText("This Profile wants nothing.", { exact: false }))
     .toBeVisible();
+});
+
+async function pickReplacement(name: string) {
+  await userEvent.click(page.getByRole("button", { name: "Actions for Ultra" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Delete" }));
+  const picking = page.getByRole("dialog", { name: "Delete Ultra?" });
+  await expect
+    .element(picking.getByText("Its 1 Work moves to the Profile you pick."))
+    .toBeVisible();
+  const picker = picking.getByRole("combobox", { name: "Move its Works to" });
+  await expect.element(picker).toHaveTextContent("Films");
+  await userEvent.click(picker);
+  expect(
+    page
+      .getByRole("option")
+      .all()
+      .map((option) => option.element().textContent),
+  ).toEqual(["Films", "Other"]);
+  await userEvent.click(page.getByRole("option", { name }));
+  await userEvent.click(picking.getByRole("button", { name: "Delete Ultra" }));
+}
+
+test("Delete moves a Profile's Works to the one picked, through the Impact", async () => {
+  const other: TargetsProfile = {
+    ...ultra,
+    id: "0199e1f2-7a3b-7c4d-8e5f-000000000004",
+    name: "Other",
+  };
+  const op = changeOp(
+    "delete",
+    `*/api/v1/profiles/${ultra.id}`,
+    () => ({
+      works: 1,
+      ownList: 0,
+      unwanted: { files: 2, bytes: 2 * 1024 ** 3 },
+      renamed: 0,
+      newlyWanted: 1,
+      downloading: 0,
+    }),
+    { profile: other },
+  );
+  renderApp({
+    path: "/settings/profiles",
+    handlers: [
+      op.handler,
+      ...targetHandlers(),
+      ...profileHandlers([films, ultra, other, zineProfile]),
+      getListContentTypesMockHandler({ contentTypes: [cinema, zines] }),
+    ],
+  });
+  await pickReplacement("Other");
+
+  const impact = page.getByRole("dialog", { name: "Delete Ultra", exact: true });
+  await expect
+    .element(impact.getByRole("list", { name: "What changes" }))
+    .toHaveTextContent("1 Work changes.2 files would fill nothing (2.0 GB).1 cell becomes wanted.");
+  await userEvent.click(impact.getByRole("button", { name: "Delete Ultra and delete 2 files" }));
+
+  await expect.element(page.getByText("Deleted Ultra. Its Works now take Other.")).toBeVisible();
+  expect(op.sent.map((call) => call.query)).toEqual([
+    { moveTo: other.id, preview: "true" },
+    { moveTo: other.id, unwanted: "delete", confirm: "2" },
+  ]);
 });
