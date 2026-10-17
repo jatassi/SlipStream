@@ -69,7 +69,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', 'k', ?, '{}', 0)`, indexer, home); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, home); err != nil {
 			return err
 		}
 		for _, stage := range []string{"fetching", "fetching", "downloading", "probing", "transferring", "importing", "imported", "imported", "failed"} {

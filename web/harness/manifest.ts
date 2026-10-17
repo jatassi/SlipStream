@@ -10,6 +10,23 @@ export type ManifestNode = Manifest["nodes"][number];
 
 export const manifestNode = manifestSchema.shape.nodes.element;
 
+export type Identity = { email: string; displayName: string; pin: string; admin: boolean };
+
+// identity is the person a name picks: "admin" the Scenario's Admin,
+// "member" its first Member who is no Admin, or any Member by email.
+export function identity(m: Manifest, name: string): Identity {
+  const picked =
+    name === "admin"
+      ? m.admin && { ...m.admin, admin: true }
+      : m.members.find((x) => (name === "member" ? !x.admin : x.email === name));
+  if (picked === undefined) {
+    const names = ["admin", "member", ...m.members.map((x) => x.email)];
+    throw new Error(`the manifest names no identity ${name}; try ${names.join(", ")}`);
+  }
+  const { email, displayName, pin, admin } = picked;
+  return { email, displayName, pin, admin };
+}
+
 export async function read(runDir: string): Promise<Manifest> {
   const path = join(runDir, "manifest.json");
   return manifestSchema.parse(JSON.parse(await readFile(path, "utf8")));

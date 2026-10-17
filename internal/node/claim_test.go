@@ -73,7 +73,7 @@ func TestAClaimedSingleMachineNodeReachesLive(t *testing.T) {
 		if !caughtUp(t, n) {
 			t.Fatal("the claimed Node's holder half has not caught up with its control half")
 		}
-		expect(t, c.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"controller"}`+"\n")
+		expect(t, c.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"controller","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 		for _, want := range []string{"library.db", "library.key", "local.db"} {
 			if !slices.Contains(dataDirHolds(t, env.DataDir), want) {
 				t.Errorf("the claimed data dir holds %v, want %s among them", dataDirHolds(t, env.DataDir), want)

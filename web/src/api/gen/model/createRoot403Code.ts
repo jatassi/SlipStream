@@ -1,1 +1,1 @@
-export type CreateRoot403Code = "needs_admin";
+export type CreateRoot403Code = "needs_admin" | "pin_required";

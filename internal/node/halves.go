@@ -132,6 +132,7 @@ func (n *Node) startController(ctx context.Context) error {
 	types := n.env.Types.IDs()
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
+		Sealer:  lib.sealer,
 		Roster:  side,
 		Searching: func(node role.NodeID) searchv1connect.SearchingServiceHandler {
 			return searchv1connect.SearchingService.On(cluster, node)

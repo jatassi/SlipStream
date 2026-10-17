@@ -24,11 +24,19 @@ import type {
   CreateIndexer502,
   IndexersIndexer,
   IndexersIndexerList,
+  IndexersNewAPIKey,
   IndexersNewIndexer,
   ListIndexers401,
   ListIndexers403,
   ListIndexers409,
   ListIndexers500,
+  SetIndexerAPIKey401,
+  SetIndexerAPIKey403,
+  SetIndexerAPIKey404,
+  SetIndexerAPIKey409,
+  SetIndexerAPIKey422,
+  SetIndexerAPIKey500,
+  SetIndexerAPIKey502,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -289,4 +297,137 @@ export const useCreateIndexer = <
   TContext
 > => {
   return useMutation(getCreateIndexerMutationOptions(options), queryClient);
+};
+export const getSetIndexerAPIKeyUrl = (id: string) => {
+  return `/api/v1/indexers/${id}/api-key`;
+};
+
+/**
+ * @summary Enter an Indexer's API key again, once its home Node has read its caps with it
+ */
+export const setIndexerAPIKey = async (
+  id: string,
+  indexersNewAPIKey: IndexersNewAPIKey,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IndexersIndexer> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<IndexersIndexer>(getSetIndexerAPIKeyUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(indexersNewAPIKey),
+  });
+};
+
+export const getSetIndexerAPIKeyMutationKey = () => ["setIndexerAPIKey"] as const;
+
+export const getSetIndexerAPIKeyMutationOptions = <
+  TError = ErrorType<
+    | SetIndexerAPIKey401
+    | SetIndexerAPIKey403
+    | SetIndexerAPIKey404
+    | SetIndexerAPIKey409
+    | SetIndexerAPIKey422
+    | SetIndexerAPIKey500
+    | SetIndexerAPIKey502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setIndexerAPIKey>>,
+    TError,
+    SetIndexerAPIKeyMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setIndexerAPIKey>>,
+  TError,
+  SetIndexerAPIKeyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetIndexerAPIKeyMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setIndexerAPIKey>>,
+    SetIndexerAPIKeyMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setIndexerAPIKey(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetIndexerAPIKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setIndexerAPIKey>>
+>;
+export type SetIndexerAPIKeyMutationBody = IndexersNewAPIKey;
+export type SetIndexerAPIKeyMutationError = ErrorType<
+  | SetIndexerAPIKey401
+  | SetIndexerAPIKey403
+  | SetIndexerAPIKey404
+  | SetIndexerAPIKey409
+  | SetIndexerAPIKey422
+  | SetIndexerAPIKey500
+  | SetIndexerAPIKey502
+>;
+export type SetIndexerAPIKeyMutationVariables = { id: string; data: IndexersNewAPIKey };
+
+/**
+ * @summary Enter an Indexer's API key again, once its home Node has read its caps with it
+ */
+export const useSetIndexerAPIKey = <
+  TError = ErrorType<
+    | SetIndexerAPIKey401
+    | SetIndexerAPIKey403
+    | SetIndexerAPIKey404
+    | SetIndexerAPIKey409
+    | SetIndexerAPIKey422
+    | SetIndexerAPIKey500
+    | SetIndexerAPIKey502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setIndexerAPIKey>>,
+      TError,
+      SetIndexerAPIKeyMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setIndexerAPIKey>>,
+  TError,
+  SetIndexerAPIKeyMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetIndexerAPIKeyMutationOptions(options), queryClient);
 };

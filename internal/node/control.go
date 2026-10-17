@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/op"
@@ -112,6 +113,8 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 		return n.serveConfig, nil
 	case RestartOp.Name:
 		return n.serveRestart, nil
+	case identity.ResetOp.Name:
+		return n.serveAdminReset, nil
 	}
 	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q; node version %s", name, n.env.Version)}
 }

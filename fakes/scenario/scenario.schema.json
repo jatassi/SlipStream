@@ -28,6 +28,36 @@
         "pin"
       ]
     },
+    "members": {
+      "items": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "pin": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "display_name",
+          "pin"
+        ]
+      },
+      "type": "array"
+    },
+    "mail": {
+      "type": "boolean"
+    },
     "nodes": {
       "items": {
         "properties": {
@@ -240,6 +270,16 @@
         "media": {
           "properties": {
             "probe": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "mail": {
+          "properties": {
+            "send": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }

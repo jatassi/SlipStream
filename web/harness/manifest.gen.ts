@@ -113,5 +113,14 @@ export const manifestSchema = z.strictObject({
       pin: z.string(),
     }),
   ),
+  members: z.array(
+    z.strictObject({
+      id: z.string(),
+      email: z.string(),
+      displayName: z.string(),
+      pin: z.string(),
+      admin: z.boolean(),
+    }),
+  ),
   apiKey: z.optional(z.string()),
 });

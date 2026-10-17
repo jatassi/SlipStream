@@ -99,7 +99,7 @@ func TestRestartingAWorkerFromItsHost(t *testing.T) {
 	restarted := act(t, run, "seedbox", world.RestartNode)
 	checkRestarted(t, run, box, restarted)
 	a = api(t, run)
-	worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker"}` + "\n"})
+	worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	linkUp(t, a, box.NodeID, linked)
 	again := act(t, run, "seedbox", world.RestartNode)
 	checkRestarted(t, run, restarted, again)
@@ -171,7 +171,7 @@ func TestRestartingAWorkerFromTheControllersAPI(t *testing.T) {
 
 	box, restarted, before := restartFromHome(t, run, a, "seedbox")
 	a = api(t, run)
-	worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker"}` + "\n"})
+	worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	linkUp(t, a, box.NodeID, linked)
 	checkLater(t, "seedbox", nodeSystem(t, a, box.NodeID), before, restarted.PID)
 	doctor(t, run)

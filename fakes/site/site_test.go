@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
@@ -45,7 +46,7 @@ var listing = []site.Release{
 func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", Seed: "site-test"} }
 
 func spec(rels []site.Release) fake.Spec {
-	return fake.Spec{Name: site.Fake.Name, TLS: true, Online: site.Fake.Online, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		return fake.HTTP(env, site.Routes(site.APIKey(s), rels, func(string) (string, error) { return announce, nil })), nil
 	}}
 }
@@ -155,6 +156,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 	home := indexers.NewHome(f.Client, indexers.Timings{Request: 5 * time.Second})
 	x := indexers.New(indexers.Config{
 		Library:   storagetest.Library(t, indexers.Schema()),
+		Sealer:    secrettest.Sealer(t),
 		Roster:    alone{role.NodeID{UUID: storage.NewUUID()}},
 		Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return home },
 		Changed:   discard{},
@@ -197,8 +199,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("a missing torrent = %v", err)
 	}
 
-	idx.APIKey = "wrong"
-	_, err = x.Search(t.Context(), idx, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001"}})
+	_, err = x.SetAPIKey(t.Context(), identity.Admin{}, idx.ID, "wrong")
 	var refused *indexers.RefusedError
 	if !errors.As(err, &refused) || err.Error() != "the Indexer refused: error 100: Invalid API Key" {
 		t.Fatalf("a wrong key = %v, want refused 100", err)

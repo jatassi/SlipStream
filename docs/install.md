@@ -78,7 +78,10 @@ Run host commands as the service user, so the files they write stay readable by 
 ```sh
 sudo -u slipstream slipstream join <code>
 sudo -u slipstream slipstream status
+sudo -u slipstream slipstream admin reset <email>
 ```
+
+`admin reset` prints a Reset link for the Account with that email, for when no Admin can sign in. It works whether SlipStream is running or stopped.
 
 SlipStream refuses a host command run as another user and prints this hint.
 
@@ -133,6 +136,7 @@ Run host commands as your `PUID`, so `/config` keeps its owner:
 
 ```sh
 docker exec -u 1000 slipstream slipstream join <code>
+docker exec -u 1000 slipstream slipstream admin reset <email>
 ```
 
 SlipStream refuses a `docker exec` run as root and prints this form.

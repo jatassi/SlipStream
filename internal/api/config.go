@@ -23,6 +23,9 @@ type Settings struct {
 	// PortsToTry is how many ports from Listen's the Node tries, in order,
 	// keeping the first that binds. The install kind sets the default.
 	PortsToTry int `yaml:"ports_to_try"`
+	// TrustedProxies are the reverse proxies whose forwarded client address
+	// and scheme are believed. Nothing else reads forwarded headers.
+	TrustedProxies []Proxy `yaml:"trusted_proxies"`
 }
 
 func DefaultSettings() Settings {

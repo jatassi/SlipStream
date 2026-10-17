@@ -84,6 +84,8 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
       "Go to FilmsLibrary",
       "Go to Activity",
       "Go to Nodes",
+      "Go to Accounts",
+      "Go to Settings",
       "Go to Tasks",
       "Go to Overviewhome",
       "Go to Web and APIhome",
@@ -91,6 +93,9 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
       "Go to Log settingshome",
       "Add a Film",
       "Toggle sidebar",
+      "New Signup link",
+      "Your Account",
+      "Add a passkey",
       "Restart SlipStream…",
       "Sign out",
     ]);

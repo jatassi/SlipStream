@@ -253,7 +253,7 @@ func claimThroughTheGate(t *testing.T, c client, code string) claimedNode {
 		c:        c,
 		account:  res.Account.ID,
 		apiKey:   res.APIKey,
-		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true}}` + "\n",
+		signedIn: `{"account":{"id":"` + res.Account.ID + `","email":"admin@example.com","displayName":"Admin","admin":true},"pinRequired":false,"keyPrompt":"ask","passkeyPrompt":false}` + "\n",
 	}
 }
 
@@ -422,10 +422,14 @@ func TestTheAccessWalkPassesOnAStartedNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	member := identitytest.Member(t, lib, "member@example.com")
+	adminID := identity.AccountID{UUID: admin}
 	breaches := apitest.CheckAccess(proxy, surface.Document(), apitest.Credentials{
-		Member: func() string { return identitytest.Session(t, lib, member) },
-		Admin:  func() string { return identitytest.Session(t, lib, identity.AccountID{UUID: admin}) },
-		APIKey: res.APIKey,
+		Member:       func() string { return identitytest.Session(t, lib, member) },
+		Admin:        func() string { return identitytest.Session(t, lib, adminID) },
+		LapsedMember: func() string { return identitytest.LapsedSession(t, lib, member) },
+		LapsedAdmin:  func() string { return identitytest.LapsedSession(t, lib, adminID) },
+		PINRequired:  func() string { return identitytest.PINRequiredSession(t, lib, adminID) },
+		APIKey:       func() string { return identitytest.APIKey(t, lib) },
 	})
 	if len(breaches) != 0 {
 		t.Fatalf("breaches:\n%s", strings.Join(breaches, "\n"))

@@ -34,8 +34,16 @@ export async function navigate(page: Page, to: Destination): Promise<void> {
     .click();
 }
 
+// The phone portal has no More sheet: Sign out sits on its Account tab.
 export async function signOut(page: Page): Promise<void> {
-  if (isPhone(page)) {
+  const portal = new URL(page.url()).pathname.startsWith("/portal");
+  if (isPhone(page) && portal) {
+    await page
+      .getByRole("navigation", { name: "Tabs" })
+      .getByRole("link", { name: "Account" })
+      .click();
+    await page.getByRole("button", { name: "Sign out of this device" }).click();
+  } else if (isPhone(page)) {
     await page
       .getByRole("navigation", { name: "Tabs" })
       .getByRole("button", { name: "More" })
@@ -44,10 +52,14 @@ export async function signOut(page: Page): Promise<void> {
       .getByRole("dialog", { name: "More" })
       .getByRole("button", { name: "Sign out" })
       .click();
-    return;
+  } else {
+    await page.getByRole("button", { name: "Account" }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
   }
-  await page.getByRole("button", { name: "Account" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await page
+    .getByRole("dialog", { name: "Sign out of this device?" })
+    .getByRole("button", { name: "Sign out" })
+    .click();
 }
 
 export const pageAction = (page: Page, name: string) =>

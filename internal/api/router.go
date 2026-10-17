@@ -42,6 +42,7 @@ type Services struct {
 	Gate           *identity.Gate
 	Web            fs.FS
 	TrustedOrigins []Origin
+	TrustedProxies []Proxy
 	Log            *slog.Logger
 }
 
@@ -287,18 +288,13 @@ func (r *Router) refusedByClaim(ctx context.Context, a *access) error {
 func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error) error {
 	attrs := []any{"method", op.Method, "path", Prefix + op.Path}
 	code, isCode := err.(*Code) //nolint:errorlint // a handler returns its code itself, never wrapped
-	var e explained
-	if ex, ok := err.(*explained); ok { //nolint:errorlint // as for a bare code
-		code, isCode, e = ex.code, true, *ex
+	var e *explained
+	if x, ok := err.(*explained); ok { //nolint:errorlint // as for a bare code
+		code, isCode, e = x.code, true, x
 	}
 	switch {
 	case isCode && slices.Contains(declared, code):
-		p := code.problem()
-		p.Detail = e.detail
-		if e.field != "" {
-			p.Errors = []FieldError{{Location: "body." + e.field, Message: e.detail}}
-		}
-		return p
+		return e.answer(code)
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
 	default:

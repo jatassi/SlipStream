@@ -1,0 +1,17 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
+          - column: mail_settings.id
+            go_type:
+              type: Singleton

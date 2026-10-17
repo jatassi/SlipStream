@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -418,10 +419,35 @@ func (d *doctor) fakesAnswer(c *CheckResult) {
 		if held[f.Name+"@"+events.World] {
 			continue
 		}
-		if _, _, err := d.get(f.URL+"/", ""); err != nil {
+		if err := d.answers(f.URL); err != nil {
 			fail(c, "%s: %v", f.Name, err)
 		}
 	}
+}
+
+func (d *doctor) answers(rawURL string) error {
+	addr, ok := strings.CutPrefix(rawURL, "smtp://")
+	if !ok {
+		_, _, err := d.get(rawURL+"/", "")
+		return err
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
+	defer cancel()
+	conn, err := new(net.Dialer).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	deadline, _ := ctx.Deadline()
+	_ = conn.SetReadDeadline(deadline)
+	greeting, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("read the greeting of %s: %w", addr, err)
+	}
+	if !strings.HasPrefix(greeting, "220 ") {
+		return fmt.Errorf("%s greets %q, not 220", addr, strings.TrimSpace(greeting))
+	}
+	return nil
 }
 
 // handshake dials the front f, and completes a TLS handshake with the run

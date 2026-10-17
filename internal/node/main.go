@@ -33,6 +33,10 @@ const usageText = `usage: slipstream <command>
                              Node applies a live key at once
   join   [--data-dir <dir>] <code>
                              join this Node to the Controller a Join Code names
+  admin reset [--data-dir <dir>] [--address <origin>] <email>
+                             print a Reset link for the Account with <email>,
+                             ending its sessions; --address sets the address
+                             links use when none is set
   service install|uninstall --user [--data-dir <dir>]
                              run the Node as a systemd user service, or remove it
                              (tarball and AppImage installs)
@@ -90,6 +94,8 @@ func run(args []string, types contenttype.Set) int {
 		return restart(rest, types)
 	case "join":
 		return join(rest, types)
+	case "admin":
+		return admin(rest, types)
 	case "service":
 		return service(rest)
 	default:

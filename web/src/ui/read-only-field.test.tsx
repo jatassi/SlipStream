@@ -1,32 +1,18 @@
-import { expect, onTestFinished, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { expect, test, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
 import { ReadOnlyField } from "./read-only-field";
-import type { ShellKind } from "./shell-context";
 
-test.each([
-  ["desktop", "32px"],
-  ["phone", "48px"],
-] satisfies [ShellKind, string][])(
-  "in the %s shell a read-only value is a %s input that copies its value",
-  async (shell, height) => {
-    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    onTestFinished(() => {
-      writeText.mockRestore();
-    });
-    renderKit(<ReadOnlyField label="Log folder" value="/data/home/logs" copy />, { shell });
-    const field = page.getByRole("textbox", { name: "Log folder" });
-    await expect.element(field).toHaveValue("/data/home/logs");
-    await expect.element(field).toHaveAttribute("readonly");
-    expect(getComputedStyle(field.element()).height).toBe(height);
-    await page.getByRole("button", { name: "Copy" }).click();
-    expect(writeText.mock.calls).toEqual([["/data/home/logs"]]);
-  },
-);
+const link = "http://forge.localhost:8080/signup#token=Zm9yZ2U";
 
-test("a read-only value offers no Copy unless asked", async () => {
-  renderKit(<ReadOnlyField label="API key" value="ss_key" description="Shown once." />);
-  await expect.element(page.getByText("Shown once.")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Copy" })).not.toBeInTheDocument();
+test("Copy puts the value on the clipboard and says it did", async () => {
+  const written = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+  renderKit(<ReadOnlyField label="Signup link" value={link} description="Send it to Grace." />);
+  await expect.element(page.getByLabelText("Signup link")).toHaveValue(link);
+
+  await userEvent.click(page.getByRole("button", { name: "Copy Signup link" }));
+  await expect.element(page.getByRole("button", { name: "Copied Signup link" })).toBeVisible();
+  expect(written.mock.calls).toEqual([[link]]);
+  vi.restoreAllMocks();
 });

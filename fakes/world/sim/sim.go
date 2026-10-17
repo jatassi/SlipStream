@@ -191,6 +191,7 @@ func (w *World) Manifest() world.Manifest {
 		Binary:   world.Binary{Version: w.opts.version},
 		Nodes:    []world.Node{},
 		Fakes:    []world.Fake{},
+		Members:  []world.Member{},
 		APIKey:   w.claims.APIKey,
 	}
 	if w.walk != nil {

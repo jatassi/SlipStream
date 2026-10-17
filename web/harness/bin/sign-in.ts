@@ -4,7 +4,7 @@ import { argv, stdout } from "node:process";
 
 import { chromium } from "playwright";
 
-import { read } from "../manifest.ts";
+import { identity as pick, read } from "../manifest.ts";
 import { signIn } from "../sign-in.ts";
 import { startupPlayedScript } from "../startup.ts";
 
@@ -21,9 +21,7 @@ if (preset === undefined) {
   throw new Error(`shell ${shell} is not one of ${Object.keys(presets).join(", ")}`);
 }
 const { width, height, ...device } = preset;
-if (identity !== "admin" || manifest.admin === undefined) {
-  throw new Error(`the manifest of ${run} names no identity ${identity}`);
-}
+const person = pick(manifest, identity);
 const controller = manifest.nodes.find((n) => n.claim === "controller");
 if (controller === undefined) {
   throw new Error(`the manifest of ${run} has no Controller`);
@@ -39,7 +37,7 @@ try {
     baseURL: controller.browserUrl,
   });
   await context.addInitScript({ path: startupPlayedScript });
-  await signIn(await context.newPage(), manifest.admin);
+  await signIn(await context.newPage(), person);
   const out = join(run, "auth", `${identity}-${shell}.json`);
   await mkdir(dirname(out), { recursive: true });
   await context.storageState({ path: out });

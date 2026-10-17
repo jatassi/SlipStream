@@ -1,0 +1,27 @@
+import { AxeBuilder } from "@axe-core/playwright";
+import { type Page, expect } from "@playwright/test";
+
+const wcag = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
+
+export async function expectAccessible(page: Page): Promise<void> {
+  // A dialog still fading out measures its buttons against the page.
+  await page.evaluate(() =>
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
+        .map((animation) => animation.finished),
+    ),
+  );
+  // Base UI gives its focus guards role="button" in WebKit, so VoiceOver can
+  // land on them; they are focus traps, not commands, and have no name.
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(wcag)
+    .exclude("[data-base-ui-focus-guard]")
+    .analyze();
+  const found = violations.map(
+    (violation) =>
+      `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
+  );
+  expect(found, `axe on ${page.url()}`).toEqual([]);
+}

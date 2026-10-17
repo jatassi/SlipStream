@@ -1,0 +1,4 @@
+{{define "body"}}<p style="margin:0 0 16px;">This is a test email from SlipStream{{if .ServerName}} at {{.ServerName}}{{end}}.</p>
+<p style="margin:0 0 16px;">Email is set up. Signup links, Reset links and notices will arrive the same way.</p>
+{{if .URL}}{{button "Open SlipStream" .URL}}{{end}}{{end}}
+{{define "footer"}}You got this email because you chose Send test email in Settings.{{end}}

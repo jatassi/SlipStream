@@ -8,10 +8,20 @@
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
   --animate-spinner: spinner 0.8s linear infinite;
   --animate-sheen: sheen var(--duration-sheen) linear infinite;
+  --animate-shake: shake 420ms ease-in-out;
 
   @keyframes spinner {
     to {
       rotate: 360deg;
+    }
+  }
+
+  @keyframes shake {
+    25% {
+      translate: -9px;
+    }
+    75% {
+      translate: 9px;
     }
   }
 

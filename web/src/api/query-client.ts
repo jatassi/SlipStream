@@ -39,13 +39,22 @@ type GeneratedQuery<T, E> = UseSuspenseQueryOptions<T, E> & {
 
 // Orval types its suspense options with TanStack's `queryFn?: … | undefined`,
 // which queryClient.query refuses under exactOptionalPropertyTypes.
-export function ensureQuery<T, E>(
+function readQuery<T, E>(
   queryClient: QueryClient,
   { queryKey, queryFn }: GeneratedQuery<T, E>,
+  staleTime: 0 | "static",
 ): Promise<T> {
   return queryClient.query({
     queryKey,
     ...(queryFn === undefined ? {} : { queryFn }),
-    staleTime: "static",
+    staleTime,
   });
 }
+
+export const ensureQuery = <T, E>(queryClient: QueryClient, options: GeneratedQuery<T, E>) =>
+  readQuery(queryClient, options, "static");
+
+// Settings change with no live event, so a page that edits them reads them
+// again each time it loads.
+export const freshQuery = <T, E>(queryClient: QueryClient, options: GeneratedQuery<T, E>) =>
+  readQuery(queryClient, options, 0);

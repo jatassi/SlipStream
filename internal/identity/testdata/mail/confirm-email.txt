@@ -1,0 +1,11 @@
+Subject: Confirm your new email for slipstream.example.com
+
+Confirm that grace@example.com is the new email for your SlipStream Account at slipstream.example.com. Your email changes when you open this link.
+
+Confirm this email: https://slipstream.example.com/confirm-email#token=Zm9vYmFy
+
+The link works once, until Friday, October 23, 2026 at 3:04 PM UTC.
+
+If the button doesn't work, open this address: https://slipstream.example.com/confirm-email#token=Zm9vYmFy
+
+If you did not expect this email, you can ignore it. Nothing changes until the link is used.

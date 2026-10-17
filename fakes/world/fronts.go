@@ -52,7 +52,7 @@ func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) 
 	var planned []fault.Front
 	for _, spec := range specs {
 		layers := fault.Conn | fault.HTTP
-		if spec.TLS {
+		if spec.TLS == fake.FrontTLS {
 			layers |= fault.TLS
 		}
 		for _, origin := range append(slices.Clone(nodes), events.World) {
@@ -96,7 +96,7 @@ func (r *Run) nodeNames() []string {
 // inbox, behind TLS from the run CA when f's Spec asks for it.
 func (r *Run) serveFronts(f *fakeRun) error {
 	var leaves func(fault.Front) *tls.Config
-	if f.spec.TLS {
+	if f.spec.TLS == fake.FrontTLS {
 		var err error
 		if leaves, err = r.leaves(f.spec.Name); err != nil {
 			return fmt.Errorf("fake %s: %w", f.spec.Name, err)
@@ -118,8 +118,8 @@ func (r *Run) serveFronts(f *fakeRun) error {
 // leaves are the certificates a fake's fronts present: a leaf from the run
 // CA, and the bad leaf each TLS failure plays.
 func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
-	names := []string{"127.0.0.1", name + ".fake.localhost"}
-	good, err := r.ca.Leaf(names...)
+	names := leafNames(name)
+	good, err := r.leaf(name)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +142,10 @@ func (r *Run) leaves(name string) (func(fault.Front) *tls.Config, error) {
 	bad := map[fault.TLSFailure]tls.Certificate{fault.Untrusted: untrusted, fault.Expired: expired, fault.WrongName: wrongName}
 	return func(f fault.Front) *tls.Config { return front.TLS(r.faults, f, good, bad) }, nil
 }
+
+func leafNames(name string) []string { return []string{"127.0.0.1", name + ".fake.localhost"} }
+
+func (r *Run) leaf(name string) (tls.Certificate, error) { return r.ca.Leaf(leafNames(name)...) }
 
 // LinkTarget is the fault target of the link front of the Node named
 // name: one front every peer dials, since each dials the one address the

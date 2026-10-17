@@ -22,6 +22,7 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 | `tmdb` | metadata lookups (routes `search`, `movie`) |
 | `fixture-site` | the Torznab Indexer (routes `torznab`, `download`) |
 | `tracker` | announces (route `announce`) |
+| `smtp` | the SMTP server an Admin saves, plaintext with STARTTLS or implicit TLS on one front |
 | `seeders` or `seeders/<release>` | every swarm byte from the fake seeders, TCP only |
 | `link/<node>` | the Node link to the Node that listens, for example `link/home` |
 
@@ -54,7 +55,7 @@ status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | tru
 
 ## Cues
 
-`fakeworld cue <run> <name> [<json args>]` plays a cue a fake declares. No product fake on `home` declares one yet; the manifest's `fakes[].cues` lists them. A cue changes only the world outside every Node.
+`fakeworld cue <run> <name> [<json args>]` plays a cue a fake declares; the manifest's `fakes[].cues` lists them. A cue changes only the world outside every Node. The `smtp` fake's cues each turn a play on, and `{"off": true}` turns it off: `smtp-auth-failure` (535), `smtp-defer` (451 to RCPT), `smtp-reject` (550 to RCPT), `smtp-tls-required` (530 to MAIL without TLS), `smtp-refused` (closed on accept) and `smtp-slow` (silent for `{"delay": "30s"}` before the greeting).
 
 ## Captures and the event log
 
@@ -67,6 +68,7 @@ $FW announces open $RUN <seq> --proof <f>/<s>
 ```
 
 - `announces` is the tracker's capture: one `tracker.announce` record per announce, attributed to the Node by the front it came through. `data.event` is `started`, `completed` or empty for a regular announce, which libtorrent spaces five minutes apart; wait on `started` and `completed` only.
+- `mail` is the `smtp` fake's capture: one `smtp.message` record per accepted message with its envelope (`from`, `to`), `username`, `security` (`none`, `starttls` or `tls`), `subject`, `text` and `html`, attributed to the sending Node. `open` copies `message.eml`, `message.html` and `message.txt`.
 - `wait` takes the first match after `--after`, by default after the previous step's start. When the awaited record can arrive during an earlier step, pass `--after` the seq of a record printed before that step, such as a `fault.set` or `fault.fired`.
 - `open` copies a record's files into the proof dir.
 

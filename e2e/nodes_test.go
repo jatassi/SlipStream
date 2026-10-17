@@ -46,7 +46,7 @@ func TestARestartedNodeKeepsItsPort(t *testing.T) {
 			restarted.State, restarted.PID, restarted.Listeners["link"], restarted.Listeners["http"], box.Listeners["link"], box.Listeners["http"])
 	}
 	a := api(t, run)
-	worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker"}` + "\n"})
+	worldtest.Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	worldtest.Until(t, "home lists seedbox's link up", func() (bool, error) {
 		return row(t, a.Nodes("home"), box.NodeID).Link.State == "up", nil
 	})
@@ -103,10 +103,10 @@ func TestWipedWorkerPairsAgain(t *testing.T) {
 		t.Fatalf("seedbox is %s after its wipe and start, want running", wiped.State)
 	}
 	a := api(t, run)
-	worldtest.Expect(t, "seedbox GET /api/v1/status after the wipe", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"unclaimed"}` + "\n"})
+	worldtest.Expect(t, "seedbox GET /api/v1/status after the wipe", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 
 	id := a.Join("home", "seedbox", worldtest.SetupCode(t, run, "seedbox"))
-	worldtest.Expect(t, "seedbox GET /api/v1/status after it joined", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker"}` + "\n"})
+	worldtest.Expect(t, "seedbox GET /api/v1/status after it joined", a.Get("seedbox", "/api/v1/status"), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	rows := a.Nodes("home")
 	again, was := row(t, rows, id), row(t, rows, box.NodeID)
 	if len(rows) != 3 || id == box.NodeID || again.Name != "seedbox-2" || again.Link.State != "up" || len(again.Roles) != 0 || was.Link.State != "down" {

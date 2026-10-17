@@ -226,13 +226,13 @@ func TestJoinRunning(t *testing.T) {
 	dir := dataDir(t)
 	box := startNode(t, dir, boxEnv...)
 	ready := box.ready()
-	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed"}`+"\n")
+	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 	res := slipstream(t, childEnv(), "join", h.mint(t), "--data-dir", dir)
 	id := h.boxID(t)
 	if want := fmt.Sprintf("joined home as box (node %s); link up to %s\n", id, h.ready.Listeners.Link); res.code != node.ExitOK || res.stdout != want {
 		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 0, stdout %q", res.code, res.stdout, res.stderr, want)
 	}
-	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker"}`+"\n")
+	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 	if claimed := box.await("claimed"); claimed["claim"] != "worker" {
 		t.Fatalf("claimed record %v, want claim worker", claimed)
 	}

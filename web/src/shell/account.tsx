@@ -1,28 +1,28 @@
-import { LibraryIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { useRouteContext } from "@tanstack/react-router";
+import { LibraryIcon, Logout01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
 
-import { useDeleteSession } from "../api/gen/query/identity/identity";
 import { usePref, writePref } from "./prefs";
-
-export function useSignOut(): () => void {
-  const endSession = useRouteContext({ from: "__root__", select: (context) => context.endSession });
-  const signOut = useDeleteSession({
-    mutation: {
-      onSuccess: () => {
-        endSession("signed-out");
-      },
-    },
-  });
-  return () => {
-    signOut.mutate();
-  };
-}
+import { restartSelf, useRestartSelf } from "./restart/use-restart-self";
+import { askSignOut } from "./sign-out";
 
 export const startupLabel = "Startup sequence";
 
 /** An Admin's way into the portal, to see what Members see, and back. */
 export const toPortal = { label: "Open the portal", icon: UserGroupIcon, to: "/portal" } as const;
 export const fromPortal = { label: "Back to Library", icon: LibraryIcon, to: "/library" } as const;
+
+/** The account menu's closing items, the same on desktop and phone. */
+export function useLeaveActions(): readonly {
+  label: string;
+  icon: IconSvgElement;
+  onSelect: () => void;
+}[] {
+  const restart = useRestartSelf();
+  return [
+    { label: restartSelf.label, icon: restartSelf.icon, onSelect: restart },
+    { label: "Sign out", icon: Logout01Icon, onSelect: askSignOut },
+  ];
+}
 
 export function useStartupOn(): [on: boolean, set: (on: boolean) => void] {
   return [

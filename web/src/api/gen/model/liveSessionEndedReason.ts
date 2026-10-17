@@ -1,1 +1,1 @@
-export type LiveSessionEndedReason = "signed-out" | "expired";
+export type LiveSessionEndedReason = "signed-out" | "expired" | "revoked";

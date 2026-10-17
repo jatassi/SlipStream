@@ -1,7 +1,7 @@
 import { HttpResponse, type RequestHandler, http, sse } from "msw";
 import { onTestFinished } from "vitest";
 
-import type { IdentityAccount } from "../api/gen/model";
+import type { IdentityAccount, SystemPasskeys } from "../api/gen/model";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
@@ -41,7 +41,11 @@ export const grace: IdentityAccount = {
   admin: false,
 };
 
-export const signedInAsGrace = getGetSessionMockHandler({ account: grace });
+export const signedInAsGrace = getGetSessionMockHandler({
+  account: grace,
+  pinRequired: false,
+  keyPrompt: "ask",
+});
 
 export function problem(status: number, code: string, title: string) {
   return HttpResponse.json(
@@ -52,9 +56,15 @@ export function problem(status: number, code: string, title: string) {
 
 export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 
-const controller = getGetStatusMockHandler({ claim: "controller" });
+export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_http" };
+
+const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
 const nothingMoving = getGetCountsMockHandler({ activity: 0 });
-const signedInAsAda = getGetSessionMockHandler({ account: ada });
+const signedInAsAda = getGetSessionMockHandler({
+  account: ada,
+  pinRequired: false,
+  keyPrompt: "ask",
+});
 const noTaskRunning = getListOpenTaskRunsMockHandler({ headerDelaySeconds: 5, runs: [] });
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });

@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
@@ -130,6 +131,7 @@ type TimingsBlock struct {
 	Grabs       grabs.Timings       `yaml:"grabs"`
 	Downloading downloading.Timings `yaml:"downloading"`
 	Media       media.Timings       `yaml:"media"`
+	Mail        mail.Timings        `yaml:"mail"`
 }
 
 type Timings struct {
@@ -185,6 +187,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Grabs:       grabs.DefaultTimings(),
 			Downloading: downloading.DefaultTimings(),
 			Media:       media.DefaultTimings(),
+			Mail:        mail.DefaultTimings(),
 		},
 	}
 }

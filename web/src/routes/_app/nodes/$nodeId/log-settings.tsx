@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/log-settings")({
         <SettingGroup>
           <div className="flex flex-col items-start gap-3">
             <div className="self-stretch">
-              <ReadOnlyField label="Log folder" value={logsDir} copy />
+              <ReadOnlyField label="Log folder" value={logsDir} />
             </div>
             <DownloadLogs nodeId={nodeId} />
           </div>
