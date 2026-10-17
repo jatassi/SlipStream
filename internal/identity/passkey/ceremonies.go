@@ -218,15 +218,14 @@ func (c *Ceremonies) start(k kind, rp RP, handle []byte, session webauthn.Sessio
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.m) >= capacity {
-		c.dropOldest(now)
+		c.evict(now)
 	}
 	c.m[id] = pending{kind: k, rp: rp, handle: handle, session: session, expires: now.Add(Lifetime)}
 	return id, raw, nil
 }
 
-// dropOldest forgets every expired ceremony, or the oldest live one when
-// none has expired. It runs under mu.
-func (c *Ceremonies) dropOldest(now time.Time) {
+// evict runs under mu.
+func (c *Ceremonies) evict(now time.Time) {
 	var oldest CeremonyID
 	var at time.Time
 	for id, p := range c.m {
