@@ -11,7 +11,13 @@ import (
 // Kind names what a stream carries. The link serves kind 1, its RPC, itself.
 type Kind byte
 
-const KindTransfer Kind = 2
+const (
+	KindTransfer Kind = 2
+	// KindServe is one HTTP/1.1 connection from a Serving Worker to the
+	// Controller. It is frozen, and admitted on a mismatched session, so a
+	// Serving Worker keeps serving through an update (ADR 0003).
+	KindServe Kind = 3
+)
 
 // Stream is one stream of a session. Reset abandons it in both directions.
 type Stream = mux.Stream

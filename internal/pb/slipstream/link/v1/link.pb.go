@@ -104,6 +104,9 @@ const (
 	RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED RefusedReason = 3
 	RefusedReason_REFUSED_REASON_JOIN_CODE_USED    RefusedReason = 4
 	RefusedReason_REFUSED_REASON_NOT_A_CONTROLLER  RefusedReason = 5
+	// The Controller removed this key. It refuses the key's Hello and still
+	// answers its Pair, so the Node can join again with a new Join Code.
+	RefusedReason_REFUSED_REASON_REMOVED RefusedReason = 6
 )
 
 // Enum value maps for RefusedReason.
@@ -115,6 +118,7 @@ var (
 		3: "REFUSED_REASON_JOIN_CODE_EXPIRED",
 		4: "REFUSED_REASON_JOIN_CODE_USED",
 		5: "REFUSED_REASON_NOT_A_CONTROLLER",
+		6: "REFUSED_REASON_REMOVED",
 	}
 	RefusedReason_value = map[string]int32{
 		"REFUSED_REASON_UNSPECIFIED":       0,
@@ -123,6 +127,7 @@ var (
 		"REFUSED_REASON_JOIN_CODE_EXPIRED": 3,
 		"REFUSED_REASON_JOIN_CODE_USED":    4,
 		"REFUSED_REASON_NOT_A_CONTROLLER":  5,
+		"REFUSED_REASON_REMOVED":           6,
 	}
 )
 
@@ -464,7 +469,8 @@ type Paired struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	NodeId []byte                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	// name is the Worker's name as the Controller recorded it.
-	Name           string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// controller_name is the Controller's own Node name.
 	ControllerName string `protobuf:"bytes,3,opt,name=controller_name,json=controllerName,proto3" json:"controller_name,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -1217,14 +1223,15 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\x18INSTALL_KIND_WINDOWS_ZIP\x10\x06\x12\x1a\n" +
 	"\x16INSTALL_KIND_MACOS_APP\x10\a\x12\x17\n" +
 	"\x13INSTALL_KIND_DOCKER\x10\b\x12\x19\n" +
-	"\x15INSTALL_KIND_APPIMAGE\x10\t*\xe3\x01\n" +
+	"\x15INSTALL_KIND_APPIMAGE\x10\t*\xff\x01\n" +
 	"\rRefusedReason\x12\x1e\n" +
 	"\x1aREFUSED_REASON_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREFUSED_REASON_UNKNOWN_KEY\x10\x01\x12$\n" +
 	" REFUSED_REASON_JOIN_CODE_UNKNOWN\x10\x02\x12$\n" +
 	" REFUSED_REASON_JOIN_CODE_EXPIRED\x10\x03\x12!\n" +
 	"\x1dREFUSED_REASON_JOIN_CODE_USED\x10\x04\x12#\n" +
-	"\x1fREFUSED_REASON_NOT_A_CONTROLLER\x10\x052\xa6\x01\n" +
+	"\x1fREFUSED_REASON_NOT_A_CONTROLLER\x10\x05\x12\x1a\n" +
+	"\x16REFUSED_REASON_REMOVED\x10\x062\xa6\x01\n" +
 	"\vLinkService\x12I\n" +
 	"\x04Pair\x12\x1f.slipstream.link.v1.PairRequest\x1a .slipstream.link.v1.PairResponse\x12L\n" +
 	"\x05Hello\x12 .slipstream.link.v1.HelloRequest\x1a!.slipstream.link.v1.HelloResponse2\xd7\x01\n" +
