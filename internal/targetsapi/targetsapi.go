@@ -165,6 +165,13 @@ func Routes(r *api.Router, goals Goals) {
 		Errors:  []*api.Code{noSuchProfile},
 	}, h.makeDefaultProfile)
 	api.Register(o, api.Admin, api.Op{
+		ID:      "listCuts",
+		Method:  http.MethodGet,
+		Path:    "/cuts",
+		Summary: "List the cuts an Edition list can name, built in or added by a Content Type",
+		Status:  http.StatusOK,
+	}, h.listCuts)
+	api.Register(o, api.Admin, api.Op{
 		ID:      "getWorkWants",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}/wants",

@@ -1554,6 +1554,38 @@ export const TargetsChanged = zod.object({});
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
 
+export const targetsCutContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const TargetsCut = zod.object({
+  aliases: zod
+    .array(zod.string())
+    .describe(
+      "The phrases that name it in a title or file name; Standard is read where none is named",
+    ),
+  contentType: zod
+    .string()
+    .regex(targetsCutContentTypeRegExp)
+    .exactOptional()
+    .describe("The Content Type that adds it, for origin type"),
+  key: zod.string(),
+  name: zod.string(),
+  origin: zod
+    .enum(["builtin", "type"])
+    .describe("Built into SlipStream, or added by a Content Type"),
+});
+
+export type TargetsCut = zod.input<typeof TargetsCut>;
+export type TargetsCutOutput = zod.output<typeof TargetsCut>;
+
+export const TargetsCutList = zod.object({
+  cuts: zod
+    .array(TargetsCut)
+    .describe("The built-in cuts, Standard first, then each Content Type's by type"),
+});
+
+export type TargetsCutList = zod.input<typeof TargetsCutList>;
+export type TargetsCutListOutput = zod.output<typeof TargetsCutList>;
+
 export const TargetsEditions = zod.object({
   kind: zod.enum(["any"]).describe("Any cut: one file per Target, of whatever cut"),
 });

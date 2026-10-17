@@ -369,3 +369,21 @@ func TestProfilesAreListedWithTheirWorksMadeDefaultAndEstimated(t *testing.T) {
 		`,"estimates":[{"targetId":"@starter","mibPerMinute":20,"bytes":2097152000}]}`, ids)
 	get(t, s, "/api/v1/works/"+ids["work"]+"/wants", `{"profileId":"@fixture","profileName":"Fixture","editions":{"kind":"any"},"from":"profile"}`, ids)
 }
+
+func TestListCutsAnswersTheBuiltInCutsThenEachContentTypes(t *testing.T) {
+	s := serve(t)
+	s.fx.SetCuts([]release.Cut{{Key: "superfan", Name: "Superfan", Aliases: []string{"Superfan", "Superfan Edition"}}})
+	builtIn := `{"key":"standard","name":"Standard","aliases":[],"origin":"builtin"},` +
+		`{"key":"theatrical","name":"Theatrical","aliases":["Theatrical","Theatrical Cut","Theatrical Edition","Theatrical Version"],"origin":"builtin"},` +
+		`{"key":"extended","name":"Extended","aliases":["Extended","Extended Cut","Extended Edition","Extended Version"],"origin":"builtin"},` +
+		`{"key":"directors-cut","name":"Director's Cut","aliases":["Director's Cut","Director.s.Cut","Director Cut","Director's Edition","Directors Edition"],"origin":"builtin"},` +
+		`{"key":"unrated","name":"Unrated","aliases":["Unrated"],"origin":"builtin"},` +
+		`{"key":"uncut","name":"Uncut","aliases":["Uncut"],"origin":"builtin"},` +
+		`{"key":"imax","name":"IMAX","aliases":["IMAX","IMAX Edition"],"origin":"builtin"},` +
+		`{"key":"remastered","name":"Remastered","aliases":["Remastered"],"origin":"builtin"},` +
+		`{"key":"special-edition","name":"Special Edition","aliases":["Special Edition"],"origin":"builtin"},` +
+		`{"key":"final-cut","name":"Final Cut","aliases":["Final Cut"],"origin":"builtin"},` +
+		`{"key":"ultimate","name":"Ultimate","aliases":["Ultimate","Ultimate Cut","Ultimate Edition"],"origin":"builtin"}`
+	s.Expect(t, http.MethodGet, "/api/v1/cuts", "", http.StatusOK, `{"cuts":[`+builtIn+
+		`,{"key":"superfan","name":"Superfan","aliases":["Superfan","Superfan Edition"],"origin":"type","contentType":"fixture"}]}`)
+}

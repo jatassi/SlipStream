@@ -4,6 +4,7 @@ import { HttpResponse, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
 import type {
+  TargetsCutList,
   TargetsProfile,
   TargetsProfileDetail,
   TargetsProfileList,
@@ -12,6 +13,23 @@ import type {
   TargetsTargetList,
   TargetsWants,
 } from "../../model";
+
+export const getListCutsResponseMock = (
+  overrideResponse: Partial<Extract<TargetsCutList, object>> = {},
+): TargetsCutList => ({
+  cuts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    aliases: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$") }
+      : {}),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    origin: faker.helpers.arrayElement(["builtin", "type"] as const),
+  })),
+  ...overrideResponse,
+});
 
 export const getListProfilesResponseMock = (
   overrideResponse: Partial<Extract<TargetsProfileList, object>> = {},
@@ -426,6 +444,30 @@ export const getGetWorkWantsResponseMock = (
   ...overrideResponse,
 });
 
+export const getListCutsMockHandler = (
+  overrideResponse?:
+    | TargetsCutList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<TargetsCutList> | TargetsCutList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/cuts",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListCutsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListProfilesMockHandler = (
   overrideResponse?:
     | TargetsProfileList
@@ -685,6 +727,7 @@ export const getGetWorkWantsMockHandler = (
   );
 };
 export const getTargetsMock = () => [
+  getListCutsMockHandler(),
   getListProfilesMockHandler(),
   getCreateProfileMockHandler(),
   getGetProfileMockHandler(),

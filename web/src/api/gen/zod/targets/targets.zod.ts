@@ -1,6 +1,7 @@
 import * as zod from "zod";
 
 import {
+  TargetsCutList,
   TargetsNewProfile,
   TargetsNewTarget,
   TargetsProfile,
@@ -11,6 +12,11 @@ import {
   TargetsTargetList,
   TargetsWants,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary List the cuts an Edition list can name, built in or added by a Content Type
+ */
+export const ListCutsResponse = TargetsCutList;
 
 /**
  * @summary List the Profiles, each with the count of Works wanting from it

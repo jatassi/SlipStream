@@ -57,6 +57,10 @@ import type {
   GetWorkWants409,
   GetWorkWants422,
   GetWorkWants500,
+  ListCuts401,
+  ListCuts403,
+  ListCuts409,
+  ListCuts500,
   ListProfiles401,
   ListProfiles403,
   ListProfiles409,
@@ -75,6 +79,7 @@ import type {
   MakeDefaultProfile409,
   MakeDefaultProfile422,
   MakeDefaultProfile500,
+  TargetsCutList,
   TargetsNewProfile,
   TargetsNewTarget,
   TargetsProfile,
@@ -105,6 +110,110 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListCutsUrl = () => {
+  return `/api/v1/cuts`;
+};
+
+/**
+ * @summary List the cuts an Edition list can name, built in or added by a Content Type
+ */
+export const listCuts = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TargetsCutList> => {
+  return apiFetch<TargetsCutList>(getListCutsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCutsQueryKey = () => {
+  return [`/api/v1/cuts`] as const;
+};
+
+export const getListCutsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCuts>>,
+  TError = ErrorType<ListCuts401 | ListCuts403 | ListCuts409 | ListCuts500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listCuts>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCutsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCuts>>> = ({ signal }) =>
+    listCuts({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listCuts>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListCutsSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listCuts>>>;
+export type ListCutsSuspenseQueryError = ErrorType<
+  ListCuts401 | ListCuts403 | ListCuts409 | ListCuts500
+>;
+
+export function useListCutsSuspense<
+  TData = Awaited<ReturnType<typeof listCuts>>,
+  TError = ErrorType<ListCuts401 | ListCuts403 | ListCuts409 | ListCuts500>,
+>(
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listCuts>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListCutsSuspense<
+  TData = Awaited<ReturnType<typeof listCuts>>,
+  TError = ErrorType<ListCuts401 | ListCuts403 | ListCuts409 | ListCuts500>,
+>(
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listCuts>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListCutsSuspense<
+  TData = Awaited<ReturnType<typeof listCuts>>,
+  TError = ErrorType<ListCuts401 | ListCuts403 | ListCuts409 | ListCuts500>,
+>(
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listCuts>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the cuts an Edition list can name, built in or added by a Content Type
+ */
+
+export function useListCutsSuspense<
+  TData = Awaited<ReturnType<typeof listCuts>>,
+  TError = ErrorType<ListCuts401 | ListCuts403 | ListCuts409 | ListCuts500>,
+>(
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listCuts>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListCutsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getListProfilesUrl = () => {
   return `/api/v1/profiles`;
