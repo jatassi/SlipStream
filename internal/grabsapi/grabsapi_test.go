@@ -61,14 +61,15 @@ func (nobody) AwaitInStep(context.Context, role.NodeID) error { return nil }
 func (nobody) Touch(...role.NodeID)                           {}
 func (nobody) Facts(role.NodeID) (*dlv1.Facts, bool)          { return nil, false }
 
-// site answers every search with one 1080p release.
+// site answers every search with a 1080p and a 720p release.
 type site struct {
 	searchv1connect.UnimplementedSearchingServiceHandler
 }
 
 func (site) Search(context.Context, *searchv1.SearchRequest) (*searchv1.SearchResponse, error) {
 	body := `<rss><channel><item><title>The.Attic.1080p.WEB</title><size>4096</size><link>https://site.test/dl/1</link>` +
-		`<attr name="seeders" value="5"/></item></channel></rss>`
+		`<attr name="seeders" value="5"/></item><item><title>The.Attic.720p.WEB</title><size>2048</size><link>https://site.test/dl/2</link>` +
+		`<attr name="seeders" value="50"/></item></channel></rss>`
 	return &searchv1.SearchResponse{Body: []byte(body), Status: http.StatusOK}, nil
 }
 
@@ -103,7 +104,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}))
 	types := []works.TypeID{contenttypetest.ID}
 	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []release.Resolution{release.R1080p}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "1080p", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
 	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID}))
 	attic := works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
@@ -176,7 +177,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	item := tree.Items[0].ID.String()
 	run1 := `{"id":"` + run + `","itemId":"` + item + `","indexerId":"` + indexer.String() + `","startedAt":"T",`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"finishedAt":null,"outcome":null,"candidates":0,"grabId":null}]}`)
+		`{"searches":[`+run1+`"finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
 	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
@@ -196,7 +197,9 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("grabs.changed = %+v, want the Grab %s failing", failed, grab)
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"finishedAt":"T","outcome":"grabbed","candidates":1,"grabId":"`+grab+`"}]}`)
+		`{"searches":[`+run1+`"finishedAt":"T","outcome":"grabbed","candidates":2,`+
+			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
+			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"standard","targetIds":["` + hd.ID.String() + `"],` +
 		`"releaseTitle":"The.Attic.1080p.WEB","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"no_download_client","message":"the Indexer's home Node doesn't hold Downloading"},` +

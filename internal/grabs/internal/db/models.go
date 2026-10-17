@@ -48,6 +48,13 @@ type GrabsGrab struct {
 	UpdatedAt       storage.Time
 }
 
+type GrabsRefusal struct {
+	SearchID SearchID
+	Position int64
+	Title    string
+	Reasons  string
+}
+
 type GrabsSearch struct {
 	ID         SearchID
 	WorkID     works.WorkID
@@ -58,6 +65,7 @@ type GrabsSearch struct {
 	Outcome    *Outcome
 	Candidates int64
 	GrabID     GrabID
+	Notes      *string
 }
 
 type GrabsStage struct {

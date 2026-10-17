@@ -66,6 +66,30 @@ type searchStarted struct {
 
 type searchStartedOutput struct{ Body searchStarted }
 
+type reason struct {
+	Code      string `json:"code" enum:"wrong_work,quality_not_in_target,filter,size_below,size_above,size_not_checked,not_an_upgrade"`
+	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work"`
+	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, or the quality a Target doesn't accept"`
+}
+
+func reasonsOf(rs []grabs.Reason) []reason {
+	out := []reason{}
+	for _, r := range rs {
+		w := reason{Code: string(r.Code), Attribute: string(r.Attribute), Value: r.Value}
+		if !r.Target.IsZero() {
+			w.TargetID = r.Target.String()
+		}
+		out = append(out, w)
+	}
+	return out
+}
+
+type refusal struct {
+	Title   string   `json:"title"`
+	Reasons []reason `json:"reasons" nullable:"false" doc:"Each open cell's Target's failures and notes, in Profile order"`
+}
+
 type search struct {
 	ID         string     `json:"id" format:"uuid"`
 	ItemID     string     `json:"itemId" format:"uuid"`
@@ -74,7 +98,9 @@ type search struct {
 	FinishedAt *time.Time `json:"finishedAt" doc:"Null while the run searches"`
 	Outcome    *string    `json:"outcome" enum:"grabbed,nothing_acceptable,indexer_unavailable,indexer_refused" doc:"Null while the run searches"`
 	Candidates int        `json:"candidates" minimum:"0" doc:"The releases the Indexer answered"`
+	Refused    []refusal  `json:"refused" nullable:"false" doc:"The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused"`
 	GrabID     *string    `json:"grabId" format:"uuid" doc:"The Grab the run made, null when none"`
+	Notes      []reason   `json:"notes" nullable:"false" doc:"The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for"`
 }
 
 type searchList struct {
@@ -84,7 +110,13 @@ type searchList struct {
 type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
-	out := search{ID: s.ID.String(), ItemID: s.ItemID.String(), IndexerID: s.Indexer.String(), StartedAt: s.Started, Candidates: s.Candidates}
+	out := search{
+		ID: s.ID.String(), ItemID: s.ItemID.String(), IndexerID: s.Indexer.String(), StartedAt: s.Started, Candidates: s.Candidates,
+		Refused: []refusal{}, Notes: reasonsOf(s.Notes),
+	}
+	for _, r := range s.Refused {
+		out.Refused = append(out.Refused, refusal{Title: r.Title, Reasons: reasonsOf(r.Reasons)})
+	}
 	if !s.Finished.IsZero() {
 		finished, outcome := s.Finished, string(s.Outcome)
 		out.FinishedAt, out.Outcome = &finished, &outcome

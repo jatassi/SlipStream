@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -160,7 +161,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
-		p, planErr = plan(cells, g.ItemID, probe.Resolution(), root, facet.DefaultTemplates(), tokens, strings.TrimPrefix(path.Ext(video.Path), "."))
+		p, planErr = plan(cells, g.ItemID, g.facts(probe), root, facet.DefaultTemplates(), tokens, strings.TrimPrefix(path.Ext(video.Path), "."))
 		return nil
 	})
 	if err != nil {
@@ -235,10 +236,17 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return fail{ImportFailed, err.Error()}
 	}
+	quality, _ := g.facts(g.Plan.Probe).Quality.Get()
 	return advance{to: Imported, file: &files.File{
 		WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, RootID: g.Plan.Root.ID, Path: g.Plan.Path, Size: info.Size(),
-		Probe: files.Probe{Width: g.Plan.Probe.Width, Height: g.Plan.Probe.Height}, GrabID: g.ID.UUID,
+		Probe: files.Probe{Width: g.Plan.Probe.Width, Height: g.Plan.Probe.Height}, GrabID: g.ID.UUID, Quality: quality,
 	}}
+}
+
+// facts is what g's file is: its release's source and cut, and the
+// resolution its probe measured.
+func (g Grab) facts(p media.Probe) release.Facts {
+	return release.File(g.Release.Title, release.BuiltIn(), p.Resolution())
 }
 
 // commit applies o to g in one Write that compares on g's stage, so a
@@ -541,7 +549,11 @@ func (gr *Grabs) open(ctx context.Context) ([]Search, []Grab, error) {
 			return err
 		}
 		for _, run := range runs {
-			searches = append(searches, searchOf(run))
+			s, err := searchOf(run, nil)
+			if err != nil {
+				return err
+			}
+			searches = append(searches, s)
 		}
 		rows, err := q.ListOpenGrabs(ctx)
 		if err != nil {

@@ -21,6 +21,9 @@ sql:
           - column: grabs_search.id
             go_type:
               type: SearchID
+          - column: grabs_refusal.search_id
+            go_type:
+              type: SearchID
           - column: "*.work_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/works
@@ -87,4 +90,8 @@ sql:
           - column: grabs_grab.file_index
             go_type:
               type: int64
+              pointer: true
+          - column: grabs_search.notes
+            go_type:
+              type: string
               pointer: true

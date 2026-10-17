@@ -84,8 +84,8 @@ func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
 
 const finishSearch = `-- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = ?1, outcome = ?2, candidates = ?3,
-    grab_id = ?4
-WHERE id = ?5 AND finished_at IS NULL
+    grab_id = ?4, notes = ?5
+WHERE id = ?6 AND finished_at IS NULL
 `
 
 type FinishSearchParams struct {
@@ -93,6 +93,7 @@ type FinishSearchParams struct {
 	Outcome    *Outcome
 	Candidates int64
 	GrabID     GrabID
+	Notes      *string
 	ID         SearchID
 }
 
@@ -102,6 +103,7 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 		arg.Outcome,
 		arg.Candidates,
 		arg.GrabID,
+		arg.Notes,
 		arg.ID,
 	)
 	return err
@@ -194,6 +196,28 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 		arg.ReleaseLink,
 		arg.ReleaseInfoHash,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertRefusal = `-- name: InsertRefusal :exec
+INSERT INTO grabs_refusal (search_id, position, title, reasons)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertRefusalParams struct {
+	SearchID SearchID
+	Position int64
+	Title    string
+	Reasons  string
+}
+
+func (q *Queries) InsertRefusal(ctx context.Context, arg InsertRefusalParams) error {
+	_, err := q.db.ExecContext(ctx, insertRefusal,
+		arg.SearchID,
+		arg.Position,
+		arg.Title,
+		arg.Reasons,
 	)
 	return err
 }
@@ -386,7 +410,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listOpenSearches = `-- name: ListOpenSearches :many
-SELECT id, work_id, item_id, indexer_id, started_at, finished_at, outcome, candidates, grab_id FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id
+SELECT id, work_id, item_id, indexer_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id
 `
 
 func (q *Queries) ListOpenSearches(ctx context.Context) ([]GrabsSearch, error) {
@@ -408,6 +432,42 @@ func (q *Queries) ListOpenSearches(ctx context.Context) ([]GrabsSearch, error) {
 			&i.Outcome,
 			&i.Candidates,
 			&i.GrabID,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRefusalsOfWork = `-- name: ListRefusalsOfWork :many
+SELECT grabs_refusal.search_id, grabs_refusal.position, grabs_refusal.title, grabs_refusal.reasons FROM grabs_refusal
+JOIN grabs_search ON grabs_search.id = grabs_refusal.search_id
+WHERE grabs_search.work_id = ?1
+ORDER BY grabs_refusal.search_id, grabs_refusal.position
+`
+
+func (q *Queries) ListRefusalsOfWork(ctx context.Context, workID works.WorkID) ([]GrabsRefusal, error) {
+	rows, err := q.db.QueryContext(ctx, listRefusalsOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsRefusal
+	for rows.Next() {
+		var i GrabsRefusal
+		if err := rows.Scan(
+			&i.SearchID,
+			&i.Position,
+			&i.Title,
+			&i.Reasons,
 		); err != nil {
 			return nil, err
 		}
@@ -423,7 +483,7 @@ func (q *Queries) ListOpenSearches(ctx context.Context) ([]GrabsSearch, error) {
 }
 
 const listSearchesOfWork = `-- name: ListSearchesOfWork :many
-SELECT id, work_id, item_id, indexer_id, started_at, finished_at, outcome, candidates, grab_id FROM grabs_search WHERE work_id = ?1 ORDER BY started_at DESC, id DESC
+SELECT id, work_id, item_id, indexer_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE work_id = ?1 ORDER BY started_at DESC, id DESC
 `
 
 func (q *Queries) ListSearchesOfWork(ctx context.Context, workID works.WorkID) ([]GrabsSearch, error) {
@@ -445,6 +505,7 @@ func (q *Queries) ListSearchesOfWork(ctx context.Context, workID works.WorkID) (
 			&i.Outcome,
 			&i.Candidates,
 			&i.GrabID,
+			&i.Notes,
 		); err != nil {
 			return nil, err
 		}

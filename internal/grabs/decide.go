@@ -2,107 +2,164 @@ package grabs
 
 import (
 	"cmp"
-	"regexp"
+	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
-var resolutionToken = regexp.MustCompile(`(?i)\b(2160p|4k|uhd|1080p|720p|576p|480p)\b`)
-
-var resolutionOf = map[string]release.Resolution{
-	"2160p": release.R2160p, "4k": release.R2160p, "uhd": release.R2160p,
-	"1080p": release.R1080p, "720p": release.R720p, "576p": release.R576p, "480p": release.R480p,
+// candidate is one listed release and its Facts: the title's quality and
+// cut, the Indexer's advertised size, and the searched Item as Coverage.
+type candidate struct {
+	Item  indexers.Item
+	Facts release.Facts
 }
 
-// resolution reads a release title's resolution from its first token,
-// false when it holds none.
-func resolution(title string) (release.Resolution, bool) {
-	m := resolutionToken.FindString(title)
-	if m == "" {
-		return 0, false
+// candidateOf reads a listed release's Facts. Its runtime stays unknown until a Content
+// Type facet gives Items theirs, so no size is checked yet.
+func candidateOf(it indexers.Item, item works.ItemID) candidate {
+	f := release.Title(it.Title, release.BuiltIn())
+	if it.Size > 0 {
+		f.Size = release.Known(it.Size)
 	}
-	return resolutionOf[strings.ToLower(m)], true
+	f.Coverage = release.Coverage{Items: []works.ItemID{item}}
+	return candidate{Item: it, Facts: f}
 }
 
-// Pick is the candidate a search grabs and every open cell's Target it
-// meets, in Profile order.
+// Pick is the candidate a search grabs, every open cell's Target it is
+// grabbable for, in Profile order, and the notes its Verdicts carry there.
 type Pick struct {
 	Item    indexers.Item
 	Targets []targets.TargetID
+	Notes   []Reason
 }
 
-type Reason string
+// WrongWork is a release carrying an id that names another Work.
+const WrongWork targets.ReasonCode = "wrong_work"
 
-const (
-	ResolutionUnknown Reason = "resolution_unknown"
-	WrongWork         Reason = "wrong_work"
-	MeetsNothing      Reason = "meets_nothing"
-)
+// Reason is one reason or note about a candidate: its own, or one of a
+// Target's Verdict, which Target names.
+type Reason struct {
+	targets.Reason
+	Target targets.TargetID
+}
 
-type Rejection struct {
-	Title  string
-	Reason Reason
+// Refusal is a candidate a search didn't grab and why.
+type Refusal struct {
+	Title   string
+	Reasons []Reason
 }
 
 // decide picks the best candidate for open, one Item's cells a search may
-// fill, in rank order. A candidate is rejected when its title holds no
-// resolution, when an id it carries differs from the same id in terms, or
-// when it meets no open cell's Target. The rest rank by the first open
-// cell met, then the resolution's place in that Target, then seeders and
-// size descending, then title, so ties replay.
-func decide(open []files.Cell, terms indexers.Terms, candidates []indexers.Item) (*Pick, []Rejection) {
+// fill, in Profile order. Each candidate is judged against every open
+// cell's Target and the file filling the cell; one with an id that
+// differs from the same id in terms, or grabbable for none, is refused
+// with every reason. The rest rank by the first open cell they are
+// grabbable for, then their tier there, then seeders and size descending,
+// then title, so ties replay.
+func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) (*Pick, []Refusal) {
 	type ranked struct {
-		item             indexers.Item
-		cell, resolution int
-		targets          []targets.TargetID
+		pick       Pick
+		cell, rank int
 	}
 	var keep []ranked
-	var rejected []Rejection
-	for _, it := range candidates {
-		res, ok := resolution(it.Title)
-		if !ok {
-			rejected = append(rejected, Rejection{it.Title, ResolutionUnknown})
+	var refused []Refusal
+	for _, c := range candidates {
+		if wrongWork(c.Item, terms) {
+			refused = append(refused, Refusal{c.Item.Title, []Reason{{Reason: targets.Reason{Code: WrongWork}}}})
 			continue
 		}
-		if wrongWork(it, terms) {
-			rejected = append(rejected, Rejection{it.Title, WrongWork})
-			continue
-		}
-		r := ranked{item: it, cell: -1}
-		for i, c := range open {
-			at := slices.Index(c.Target.Resolutions, res)
-			if at < 0 {
+		r := ranked{pick: Pick{Item: c.Item}, cell: -1}
+		var reasons []Reason
+		for i, cell := range open {
+			var held *release.Facts
+			if cell.File != nil {
+				held = new(cell.File.Facts())
+			}
+			v := targets.Judge(cell.Target, c.Facts, held)
+			var said []Reason
+			for _, reason := range v.Reasons() {
+				said = append(said, Reason{Reason: reason, Target: cell.Target.ID})
+			}
+			reasons = append(reasons, said...)
+			if !v.Grabbable() {
 				continue
 			}
 			if r.cell < 0 {
-				r.cell, r.resolution = i, at
+				rank, _ := v.Rank()
+				r.cell, r.rank = i, int(rank)
 			}
-			r.targets = append(r.targets, c.Target.ID)
+			r.pick.Targets = append(r.pick.Targets, cell.Target.ID)
+			r.pick.Notes = append(r.pick.Notes, said...)
 		}
 		if r.cell < 0 {
-			rejected = append(rejected, Rejection{it.Title, MeetsNothing})
+			refused = append(refused, Refusal{c.Item.Title, reasons})
 			continue
 		}
 		keep = append(keep, r)
 	}
 	if len(keep) == 0 {
-		return nil, rejected
+		return nil, refused
 	}
 	best := slices.MinFunc(keep, func(a, b ranked) int {
 		return cmp.Or(
 			cmp.Compare(a.cell, b.cell),
-			cmp.Compare(a.resolution, b.resolution),
-			cmp.Compare(b.item.Seeders, a.item.Seeders),
-			cmp.Compare(b.item.Size, a.item.Size),
-			strings.Compare(a.item.Title, b.item.Title),
+			cmp.Compare(a.rank, b.rank),
+			cmp.Compare(b.pick.Item.Seeders, a.pick.Item.Seeders),
+			cmp.Compare(b.pick.Item.Size, a.pick.Item.Size),
+			strings.Compare(a.pick.Item.Title, b.pick.Item.Title),
 		)
 	})
-	return &Pick{Item: best.item, Targets: best.targets}, rejected
+	return &best.pick, refused
+}
+
+// storedReason is a Reason as grabs_refusal and grabs_search.notes keep it.
+type storedReason struct {
+	Code      targets.ReasonCode `json:"code"`
+	TargetID  string             `json:"targetId,omitempty"`
+	Attribute targets.Attribute  `json:"attribute,omitempty"`
+	Value     string             `json:"value,omitempty"`
+}
+
+func encodeReasons(rs []Reason) (string, error) {
+	stored := make([]storedReason, len(rs))
+	for i, r := range rs {
+		stored[i] = storedReason{Code: r.Code, Attribute: r.Attribute, Value: r.Value}
+		if !r.Target.IsZero() {
+			stored[i].TargetID = r.Target.String()
+		}
+	}
+	b, err := json.Marshal(stored)
+	if err != nil {
+		return "", fmt.Errorf("encode reasons: %w", err)
+	}
+	return string(b), nil
+}
+
+func decodeReasons(s string) ([]Reason, error) {
+	var stored []storedReason
+	if err := json.Unmarshal([]byte(s), &stored); err != nil {
+		return nil, fmt.Errorf("decode reasons: %w", err)
+	}
+	out := make([]Reason, len(stored))
+	for i, r := range stored {
+		out[i] = Reason{Reason: targets.Reason{Code: r.Code, Attribute: r.Attribute, Value: r.Value}}
+		if r.TargetID != "" {
+			u, err := storage.ParseUUID(r.TargetID)
+			if err != nil {
+				return nil, fmt.Errorf("decode reasons: %w", err)
+			}
+			out[i].Target = targets.TargetID{UUID: u}
+		}
+	}
+	return out, nil
 }
 
 func wrongWork(it indexers.Item, terms indexers.Terms) bool {

@@ -3,6 +3,7 @@ package grabs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -23,23 +24,33 @@ type Search struct {
 	ItemID  works.ItemID
 	Indexer indexers.ID
 	Started time.Time
-	// Finished, Outcome and Candidates are set once the run finished, and
-	// GrabID when it grabbed.
+	// Finished, Outcome, Candidates and Refused are set once the run
+	// finished, and GrabID and Notes, the grabbed release's, when it
+	// grabbed.
 	Finished   time.Time
 	Outcome    Outcome
 	Candidates int
+	Refused    []Refusal
 	GrabID     GrabID
+	Notes      []Reason
 }
 
-func searchOf(row db.GrabsSearch) Search {
+func searchOf(row db.GrabsSearch, refused []Refusal) (Search, error) {
 	s := Search{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Indexer: row.IndexerID, Started: row.StartedAt.Time(),
-		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), GrabID: row.GrabID,
+		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), Refused: refused, GrabID: row.GrabID,
 	}
 	if row.Outcome != nil {
 		s.Outcome = *row.Outcome
 	}
-	return s
+	if row.Notes != nil {
+		notes, err := decodeReasons(*row.Notes)
+		if err != nil {
+			return Search{}, fmt.Errorf("search %s: %w", row.ID, err)
+		}
+		s.Notes = notes
+	}
+	return s, nil
 }
 
 // SearchWork records a search run for each Item of work with a wanted cell
@@ -202,9 +213,19 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 				item = append(item, c)
 			}
 		}
-		pick, rejected := decide(item, terms, items)
-		for _, r := range rejected {
-			gr.cfg.Log.Debug("a release was rejected", "search", run.ID.String(), "title", r.Title, "reason", string(r.Reason))
+		candidates := make([]candidate, len(items))
+		for i, it := range items {
+			candidates[i] = candidateOf(it, run.ItemID)
+		}
+		pick, refused := decide(item, terms, candidates)
+		for i, r := range refused {
+			reasons, err := encodeReasons(r.Reasons)
+			if err != nil {
+				return nil, err
+			}
+			if err := q.InsertRefusal(ctx, db.InsertRefusalParams{SearchID: run.ID, Position: int64(i), Title: r.Title, Reasons: reasons}); err != nil {
+				return nil, err
+			}
 		}
 		if pick == nil {
 			outcome = NothingAcceptable
@@ -213,7 +234,11 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 			if err != nil {
 				return nil, err
 			}
-			grab, finish.GrabID = &g, g.ID
+			notes, err := encodeReasons(pick.Notes)
+			if err != nil {
+				return nil, err
+			}
+			grab, finish.GrabID, finish.Notes = &g, g.ID, &notes
 		}
 	}
 	finish.Outcome = &outcome
@@ -260,12 +285,29 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 		if _, err := gr.cfg.Works.TreeIn(ctx, r, work); err != nil {
 			return err
 		}
-		rows, err := db.New(r).ListSearchesOfWork(ctx, work)
+		q := db.New(r)
+		rows, err := q.ListSearchesOfWork(ctx, work)
 		if err != nil {
 			return err
 		}
+		refusals, err := q.ListRefusalsOfWork(ctx, work)
+		if err != nil {
+			return err
+		}
+		refused := map[SearchID][]Refusal{}
+		for _, row := range refusals {
+			reasons, err := decodeReasons(row.Reasons)
+			if err != nil {
+				return fmt.Errorf("search %s: %w", row.SearchID, err)
+			}
+			refused[row.SearchID] = append(refused[row.SearchID], Refusal{Title: row.Title, Reasons: reasons})
+		}
 		for _, row := range rows {
-			out = append(out, searchOf(row))
+			s, err := searchOf(row, refused[row.ID])
+			if err != nil {
+				return err
+			}
+			out = append(out, s)
 		}
 		return nil
 	})
