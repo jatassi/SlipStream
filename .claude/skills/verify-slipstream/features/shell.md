@@ -15,6 +15,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), `Nodes`, `Tasks`, the Admin's name, `Open the portal`, `Restart SlipStream…`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
 - `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing part of a Work's name lists it under Works, Enter opens it, and Esc returns focus where it was.
+- `shell-palette-reopen` in the desktop shell, the shortcut pressed again straight after Esc, while the palette is still closing, reopens it with focus in the search field, and every key typed straight after lands in the query.
 - `shell-palette-commands` with no query the palette lists Go to each nav row and Content Type, Go to each section of the browser's own Node, `Add a Movie`, `Toggle sidebar` (desktop shell only), `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` in both shells.
 - `shell-palette-empty` an unmatched query reads `Nothing matches "volcano". Try a Work's name, or a command such as Add a Movie.`
 - `shell-palette-phone` the `Search` tab opens the palette full screen with `Cancel`.
@@ -87,6 +88,14 @@ Steps:
   $FW exec $RUN --proof shell/shell-palette-empty -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("dialog")' --filename={runDir}/proof/shell/shell-palette-empty/palette.aria.yml
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   $FW exec $RUN --proof shell/shell-palette -- $PW cli -s={runId}-admin-desktop eval 'document.activeElement.getAttribute("aria-label")'
+  ```
+
+- **Reopen the palette while it closes.** Open the palette, press Escape and at once Ctrl+K again, then type `go to act`: the field holds the whole query and Enter opens Activity. One `run-code` presses the keys back to back, since separate `press` commands can land after the 220ms close ends.
+
+  ```sh
+  $FW exec $RUN --proof shell/shell-palette-reopen -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.keyboard.press("Control+k"); await page.getByRole("dialog").getByRole("combobox").waitFor(); await page.keyboard.press("Escape"); await page.keyboard.press("Control+k"); await page.keyboard.type("go to act"); return page.getByRole("dialog").getByRole("combobox").inputValue(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Enter
+  $FW exec $RUN --proof shell/shell-palette-reopen -- $PW cli -s={runId}-admin-desktop eval 'location.pathname'
   ```
 
 - **Add a Work from the palette.** Choose the capsule, type `add a` and press Enter. `Add a Movie` opens at `/add?contentType=movie`; search and add The Quiet Orchard as in [add-a-movie.md](add-a-movie.md). The toast `Added The Quiet Orchard` shows top right, and the Work page is titled `The Quiet Orchard · SlipStream`.

@@ -23,8 +23,9 @@ import { type FoundWork, libraryProvider } from "./provider";
 
 const label = "Search Works or run a command";
 
+// A closing dialog, the palette's own included, stays mounted through its exit animation.
 const anotherModalOpen = (): boolean =>
-  document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
+  document.querySelector('[role="dialog"][aria-modal="true"]:not([data-closed])') !== null;
 
 export function Palette() {
   const open = usePaletteOpen();
