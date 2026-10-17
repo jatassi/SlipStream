@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { z } from "zod";
 
+import { expectColumns, orchardCells } from "./cells.ts";
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
 
@@ -128,10 +129,8 @@ test("an Admin adds a movie on a Profile other than the default and sees its Tar
   await sheet.getByRole("button", { name: "Add Movie" }).click();
 
   await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
-  await expect(page.getByRole("columnheader")).toHaveText(["Movie", "2160p"]);
-  await expect(page.getByRole("row", { name: /^The Quiet Orchard /u })).toHaveText(
-    "The Quiet OrchardMissing",
-  );
+  await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
+  await expectColumns(page, ["Movie", "Status", "2160p"]);
   const workId = /\/works\/([^/]+)$/u.exec(page.url())?.[1];
   const wants = await world.api("GET", `/api/v1/works/${String(workId)}/wants`);
   expect(wants.body).toMatchObject({

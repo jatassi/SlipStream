@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.ts";
+import { expectColumns, orchardCells } from "./cells.ts";
 import { navigate } from "./shell.ts";
 
 test("an Admin adds a movie from the catalog and sees its missing cell", async ({
@@ -22,10 +23,8 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
     "Added The Quiet Orchard",
   );
   await expect(page.getByRole("definition")).toHaveText(["2021", "2021-04-16", "1h 44m"]);
-  await expect(page.getByRole("columnheader")).toHaveText(["Movie", "1080p"]);
-  await expect(page.getByRole("row", { name: /^The Quiet Orchard /u })).toHaveText(
-    "The Quiet OrchardMissing",
-  );
+  await expect(orchardCells(page)).toHaveText("The Quiet OrchardMissingMissing");
+  await expectColumns(page, ["Movie", "Status", "1080p"]);
 
   await navigate(page, "Library");
   await expect(page.getByRole("list", { name: "Works" }).getByRole("listitem")).toHaveText(

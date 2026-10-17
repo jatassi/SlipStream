@@ -10,11 +10,17 @@ import {
   getListContentTypesSuspenseQueryOptions,
   useGetWorkSuspense,
 } from "../../../api/gen/query/works/works";
+import {
+  getGetWorkWantsSuspenseQueryOptions,
+  getListCutsSuspenseQueryOptions,
+  getListProfilesSuspenseQueryOptions,
+} from "../../../api/gen/query/targets/targets";
 import { ensureQuery } from "../../../api/query-client";
 import { useAmbient } from "../../../shell/ambient/use-ambient";
 import { loaderTitle } from "../../../shell/titles";
 import { Skeleton } from "../../../ui/skeleton";
 import { libraryTrail } from "../../../works/fields";
+// oxlint-disable-next-line import/max-dependencies -- the page loads every section's queries, the Profile and Editions sheet's included
 import { WorkBody } from "./-work-body";
 
 export const Route = createFileRoute("/_app/works/$workId")({
@@ -26,6 +32,9 @@ export const Route = createFileRoute("/_app/works/$workId")({
       ensureQuery(context.queryClient, getGetWorkCellsSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getListSearchesSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getListGrabsSuspenseQueryOptions()),
+      ensureQuery(context.queryClient, getGetWorkWantsSuspenseQueryOptions(workId)),
+      ensureQuery(context.queryClient, getListProfilesSuspenseQueryOptions()),
+      ensureQuery(context.queryClient, getListCutsSuspenseQueryOptions()),
     ]);
     return {
       title: work.label,

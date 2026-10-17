@@ -1,11 +1,12 @@
 import { HttpResponse, http, sse } from "msw";
 
-import type { FilesCellList, GrabsGrab, GrabsSearchList } from "../api/gen/model";
+import type { FilesCellList, GrabsGrab, GrabsSearchList, TargetsWants } from "../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../api/gen/query/files/files.msw";
 import {
   getListGrabsMockHandler,
   getListSearchesMockHandler,
 } from "../api/gen/query/grabs/grabs.msw";
+import { getGetWorkWantsMockHandler } from "../api/gen/query/targets/targets.msw";
 import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
@@ -13,6 +14,7 @@ import {
 import { downloading, grabId, imported } from "./grabs";
 import type { LiveMap } from "./handlers";
 import { cinema, orchard, orchardId, orchardItemId } from "./library";
+import { films, profileHandlers } from "./profiles";
 
 const hd = "1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d";
 const uhd = "7b9d1f3a-5c7e-4a9b-8d1f-3a5c7e9b1d2f";
@@ -133,6 +135,14 @@ export const grabbed: GrabsSearchList = {
   ],
 };
 
+/** The Quiet Orchard wants what Films wants, Edition list included. */
+export const fromFilms: TargetsWants = {
+  profileId: films.id,
+  profileName: films.name,
+  editions: films.editions,
+  from: "profile",
+};
+
 export function workServer() {
   let cells = missing;
   let searches: GrabsSearchList = { searches: [] };
@@ -146,6 +156,8 @@ export function workServer() {
     getListContentTypesMockHandler({ contentTypes: [cinema] }),
     getGetWorkMockHandler(orchard),
     getGetWorkCellsMockHandler(() => cells),
+    getGetWorkWantsMockHandler(fromFilms),
+    ...profileHandlers(),
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
     http.post("*/api/v1/works/:workId/search", ({ params }) => {

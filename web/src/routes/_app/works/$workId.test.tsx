@@ -33,8 +33,8 @@ test("the Work page shows its fields and one cell per Target", async () => {
       .getByRole("columnheader")
       .all()
       .map((header) => header.element().textContent),
-  ).toEqual(["Film", "1080p", "2160p"]);
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  ).toEqual(["Film", "Status", "1080p", "2160p"]);
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
   await expect
     .element(page.getByText("No files yet. A Grab that imports puts its file here."))
     .toBeVisible();
@@ -49,13 +49,15 @@ test("the Work page shows its fields and one cell per Target", async () => {
 test("files.changed shows the new file without a reload", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
 
   server.fileArrives(filled);
 
   await expect
     .element(row())
-    .toHaveTextContent("The Quiet OrchardMetThe Quiet Orchard (2021) - 1080p.mkvDownloading");
+    .toHaveTextContent(
+      "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
+    );
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(
@@ -66,13 +68,15 @@ test("files.changed shows the new file without a reload", async () => {
 test("a cell below its Target's cutoff shows upgradable with its file", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
 
   server.fileArrives(upgradable);
 
   await expect
     .element(row())
-    .toHaveTextContent("The Quiet OrchardUpgradableThe Quiet Orchard (2021) - 1080p.mkvMissing");
+    .toHaveTextContent(
+      "The Quiet OrchardMissingUpgradableThe Quiet Orchard (2021) - 1080p.mkvMissing",
+    );
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(
@@ -124,7 +128,9 @@ test("Search starts a search and says so, and the run and its Grab show without 
   await expect.element(grabs).toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLImported");
   await expect
     .element(row())
-    .toHaveTextContent("The Quiet OrchardMetThe Quiet Orchard (2021) - 1080p.mkvDownloading");
+    .toHaveTextContent(
+      "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
+    );
 });
 
 test("Search shows it is busy while its request is pending", async () => {
@@ -180,7 +186,7 @@ const failedImport: GrabsGrab = {
 test("a failed Grab shows under Needs you with its stage, cause and a way to search again", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
 
   server.grabMoves(failedImport);
 

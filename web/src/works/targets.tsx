@@ -1,47 +1,36 @@
-import type { FilesCell, WorksContentType, WorksItem, WorksTree } from "../api/gen/model";
-import { Chip } from "../ui/chip";
-import { Data } from "../ui/data";
-import { LiveChip } from "../ui/live-chip";
-import { MetPill } from "../ui/met-pill";
+import type {
+  FilesCell,
+  FilesCellList,
+  FilesItemStatusStatus,
+  WorksContentType,
+  WorksItem,
+  WorksTree,
+} from "../api/gen/model";
+import { useListCutsSuspense } from "../api/gen/query/targets/targets";
 import { Section } from "../ui/section";
-import { SignalChip } from "../ui/signal-chip";
 import { type Column, Table } from "../ui/table";
-import { nameOf } from "./paths";
+import { CellState, ItemStatus } from "./cell-state";
+import { WantsSheet } from "./wants-sheet";
 
-function CellState({ cell }: { cell: FilesCell | undefined }) {
-  if (cell === undefined) {
-    return null;
+/** The cells by Edition key, in the order the cells list them. */
+function editionsOf(cells: readonly FilesCell[]): [string, FilesCell[]][] {
+  const editions = new Map<string, FilesCell[]>();
+  for (const cell of cells) {
+    editions.set(cell.edition, [...(editions.get(cell.edition) ?? []), cell]);
   }
-  if (cell.state === "met" || cell.state === "upgradable") {
-    return (
-      <span className="flex min-w-0 flex-col items-start gap-1">
-        {cell.state === "met" ? <MetPill>Met</MetPill> : <Chip>Upgradable</Chip>}
-        <span className="max-w-full truncate text-meta text-ink-3">
-          <Data>{nameOf(cell.file.path)}</Data>
-        </span>
-      </span>
-    );
-  }
-  if (cell.state === "downloading") {
-    return <LiveChip>Downloading</LiveChip>;
-  }
-  if (cell.state === "failed") {
-    return <SignalChip kind="fail">Failed</SignalChip>;
-  }
-  if (cell.state === "unreleased") {
-    return <Chip>Unreleased</Chip>;
-  }
-  return <Chip>Missing</Chip>;
+  return [...editions];
 }
 
 function columnsOf(
   type: WorksContentType,
   cells: readonly FilesCell[],
+  statusOf: (itemId: string) => FilesItemStatusStatus,
 ): [Column<WorksItem>, ...Column<WorksItem>[]] {
   const targets = [...new Map(cells.map((cell) => [cell.targetId, cell.targetName]))];
   const cellAt = new Map(cells.map((cell) => [`${cell.itemId} ${cell.targetId}`, cell]));
   return [
     { id: "item", header: type.item.one, cell: (item) => item.label },
+    { id: "status", header: "Status", cell: (item) => <ItemStatus status={statusOf(item.id)} /> },
     ...targets.map(([id, name]): Column<WorksItem> => ({
       id,
       header: name,
@@ -50,24 +39,45 @@ function columnsOf(
   ];
 }
 
+/** The Work's Profile and Editions, and its cells by Edition, an Item per row and a Target per column. */
 export function Targets({
   type,
   work,
-  cells,
+  cells: { cells, items },
 }: {
   type: WorksContentType;
   work: WorksTree;
-  cells: readonly FilesCell[];
+  cells: FilesCellList;
 }) {
+  const { cuts } = useListCutsSuspense().data;
+  const cutName = (key: string) =>
+    key === "any" ? "Any cut" : (cuts.find((cut) => cut.key === key)?.name ?? key);
+  const status = new Map(items.map((item) => [item.itemId, item.status]));
+  const statusOf = (itemId: string) => status.get(itemId) ?? null;
   return (
     <Section title="Targets">
-      <Table
-        label="Targets"
-        columns={columnsOf(type, cells)}
-        rows={work.items}
-        rowKey={(item) => item.id}
-        lines={cells.some((cell) => "file" in cell) ? 2 : 1}
-      />
+      <WantsSheet type={type} work={work} />
+      {cells.length === 0 ? (
+        <p className="text-ink-3">
+          Its Profile has no Targets, so this {type.work.one} wants nothing.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {editionsOf(cells).map(([key, held]) => (
+            <div key={key} className="flex flex-col gap-2">
+              <h3 className="text-label text-ink-3">{cutName(key)}</h3>
+              <Table
+                label={`${cutName(key)} cells`}
+                columns={columnsOf(type, held, statusOf)}
+                rows={work.items}
+                rowKey={(item) => item.id}
+                lines={held.some((cell) => "file" in cell) ? 2 : 1}
+                stackBelow={560}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </Section>
   );
 }

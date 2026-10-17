@@ -1,16 +1,13 @@
 import { useState } from "react";
 
 import { DialogActions } from "../account/dialog-actions";
-import type { TargetsProfile, WorksCandidate, WorksContentType } from "../api/gen/model";
+import type { WorksCandidate, WorksContentType } from "../api/gen/model";
 import { useListProfilesSuspense } from "../api/gen/query/targets/targets";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose } from "../ui/dialog";
-import { Select } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { useAdding } from "./adding";
-
-const profileLabel = (profile: TargetsProfile) =>
-  profile.default ? `${profile.name} (default)` : profile.name;
+import { ProfilePicker } from "./profile-picker";
 
 function Monitor({
   type,
@@ -43,12 +40,7 @@ function AddForm({ type, candidate }: { type: WorksContentType; candidate: Works
   return (
     <div className="flex flex-col gap-4">
       {profileId !== undefined && (
-        <Select
-          label="Profile"
-          options={profiles.map((profile) => ({ value: profile.id, label: profileLabel(profile) }))}
-          value={profileId}
-          onValueChange={setProfileId}
-        />
+        <ProfilePicker profiles={profiles} value={profileId} onValueChange={setProfileId} />
       )}
       <Monitor type={type} checked={monitor} onCheckedChange={setMonitor} />
       <DialogActions>
