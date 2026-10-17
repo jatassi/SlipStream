@@ -314,6 +314,14 @@ func TestMailConfined(t *testing.T) {
 	})
 }
 
+func TestTargetsApplyConfined(t *testing.T) {
+	const outside = " targets.Apply outside internal/files; save a Change with files.Change, which refills the Works it touches"
+	assertFindings(t, check(t, "targets-apply-confined", fixtureRepo(t, "targets-apply-confined")), []string{
+		"internal/files/filestest/filestest.go:5: [targets-apply-confined]" + outside,
+		"internal/targetsapi/profiles.go:12: [targets-apply-confined]" + outside,
+	})
+}
+
 func TestWebauthnConfined(t *testing.T) {
 	const outside = " go-webauthn imported outside internal/identity/passkey; run ceremonies through passkey.Ceremonies"
 	assertFindings(t, check(t, "webauthn-confined", fixtureRepo(t, "webauthn-confined")), []string{
