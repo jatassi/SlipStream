@@ -38,6 +38,26 @@ var OfflineGrace = setting.Duration{
 	Step:    time.Minute,
 }
 
+func (s *Service) OfflineGraceField(ctx context.Context) (setting.DurationField, error) {
+	grace, err := db.New(s.cfg.Library).GetOfflineGrace(ctx)
+	if err != nil {
+		return setting.DurationField{}, fmt.Errorf("read the offline grace: %w", err)
+	}
+	return OfflineGrace.Field(grace), nil
+}
+
+// SetOfflineGrace stores the offline grace and reads the roster again, so
+// a Node away longer than the new grace lapses at once.
+func (s *Service) SetOfflineGrace(ctx context.Context, v setting.Stored[int64]) error {
+	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return db.New(tx).SetOfflineGrace(ctx, v.Override())
+	})
+	if err != nil {
+		return fmt.Errorf("set the offline grace: %w", err)
+	}
+	return s.reload(ctx)
+}
+
 // Board is the roster now.
 func (s *Service) Board() *Board { return s.board.Load() }
 

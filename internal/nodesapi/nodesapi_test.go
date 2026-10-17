@@ -141,7 +141,7 @@ func TestAJoinCodeNeedsALinkAddress(t *testing.T) {
 	}
 }
 
-func TestTheJoinCodeLifetimeIsASettingField(t *testing.T) {
+func TestTheNodesSettingsAreSettingFields(t *testing.T) {
 	log := slog.New(slog.DiscardHandler)
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema())
 	ns, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unadvertised{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: log})
@@ -149,16 +149,21 @@ func TestTheJoinCodeLifetimeIsASettingField(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
-	field := func(value int64, isDefault bool) string {
-		return fmt.Sprintf(`{"joinCodeLifetime":{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"duration","value":%d,"running":%d,"default":3600,"min":600,"max":604800,"step":60}}`, isDefault, value, value)
+	fields := func(lifetime, grace int64) string {
+		return fmt.Sprintf(`{"joinCodeLifetime":{"key":"nodes.joinCodeLifetime","label":"Join Code lifetime","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"duration","value":%d,"running":%d,"default":3600,"min":600,"max":604800,"step":60},`+
+			`"offlineGrace":{"key":"nodes.offlineGrace","label":"Offline grace","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"duration","value":%d,"running":%d,"default":900,"min":60,"max":86400,"step":60}}`,
+			lifetime == 3600, lifetime, lifetime, grace == 900, grace, grace)
 	}
 	const path = "/api/v1/nodes/settings"
-	s.Expect(t, http.MethodGet, path, "", http.StatusOK, field(3600, true))
+	s.Expect(t, http.MethodGet, path, "", http.StatusOK, fields(3600, 900))
 	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":540}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 10 min and 7 days."}`)
-	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":7200}`, http.StatusOK, field(7200, false))
-	s.Expect(t, http.MethodPatch, path, `{}`, http.StatusOK, field(7200, false))
-	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":null}`, http.StatusOK, field(3600, true))
+	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":7200}`, http.StatusOK, fields(7200, 900))
+	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":3600,"offlineGrace":30}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 min and 1 day."}`)
+	s.Expect(t, http.MethodPatch, path, `{"offlineGrace":60}`, http.StatusOK, fields(7200, 60))
+	s.Expect(t, http.MethodPatch, path, `{}`, http.StatusOK, fields(7200, 60))
+	s.Expect(t, http.MethodPatch, path, `{"joinCodeLifetime":null,"offlineGrace":null}`, http.StatusOK, fields(3600, 900))
 }
 
 type effect struct {
