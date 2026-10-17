@@ -152,7 +152,7 @@ func TestEndReadsEndsEveryRead(t *testing.T) {
 func TestArchiveZipsEveryFileOfTheFolder(t *testing.T) {
 	dir := t.TempDir()
 	s := DefaultSettings()
-	s.MaxSizeMB, s.Compress = 1, false
+	s.MaxSizeMB, s.MaxAgeDays, s.Compress = 1, 0, false
 	l, err := Open(dir, io.Discard, s)
 	if err != nil {
 		t.Fatal(err)
