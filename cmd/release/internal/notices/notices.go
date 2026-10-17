@@ -25,11 +25,12 @@ const (
 type Source string
 
 const (
-	SourceGo      Source = "Go module"
-	SourceNPM     Source = "npm package"
-	SourceNative  Source = "native library"
-	SourceRuntime Source = "toolchain runtime"
-	SourceProgram Source = "separate program"
+	SourceGo       Source = "Go module"
+	SourceNPM      Source = "npm package"
+	SourceNative   Source = "native library"
+	SourceRuntime  Source = "toolchain runtime"
+	SourceProgram  Source = "separate program"
+	SourceVendored Source = "vendored source"
 )
 
 // Dependency is one third-party component the release binary carries on
@@ -73,7 +74,11 @@ func Generate(ctx context.Context, root string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	deps := slices.Concat(goDeps, npmDeps, nativeDeps)
+	vendoredDeps, err := vendoredSources(root, policy.Vendored, targetNames(in.Targets))
+	if err != nil {
+		return nil, err
+	}
+	deps := slices.Concat(goDeps, npmDeps, nativeDeps, vendoredDeps)
 	if err := policy.enforce(deps); err != nil {
 		return nil, err
 	}

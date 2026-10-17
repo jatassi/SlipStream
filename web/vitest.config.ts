@@ -18,7 +18,7 @@ export default defineConfig((env) =>
     // mid-run and reloading the browser, which fails the files it was running.
     // A kept cache skips the scan, so an import added since the cache was built
     // (a rebase, a new kit component) is still found mid-run: force the scan.
-    optimizeDeps: { entries: ["src/**/*.{ts,tsx}"], force: true },
+    optimizeDeps: { entries: ["src/**/*.{ts,tsx}", "!src/**/*.d.ts"], force: true },
     test: {
       include: ["src/**/*.test.{ts,tsx}"],
       setupFiles: ["src/test/setup.ts"],

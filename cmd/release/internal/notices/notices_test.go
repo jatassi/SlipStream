@@ -77,6 +77,7 @@ func TestGenerateListsEveryShippedDependency(t *testing.T) {
 		"go 1.27 (toolchain runtime) | License: BSD-3-Clause | Targets: linux-amd64, windows-amd64",
 		"leftpad 1.0.0 (npm package) | License: ISC | Targets: linux-amd64, windows-amd64",
 		"musl 1.2.5 (toolchain runtime) | License: MIT | Targets: linux-amd64",
+		"sketch kit 0123456789abcdef0123456789abcdef01234567 (vendored source) | License: MIT | Targets: linux-amd64, windows-amd64",
 		"tick 1.0.0 (npm package) | License: 0BSD | Targets: linux-amd64, windows-amd64",
 		"tick 2.0.0 (npm package) | License: MIT | Targets: linux-amd64, windows-amd64",
 		"zlib 1.3.1 (native library) | License: Zlib | Targets: linux-amd64, windows-amd64",
@@ -88,6 +89,12 @@ func TestGenerateListsEveryShippedDependency(t *testing.T) {
 	if !strings.Contains(string(got), program) {
 		t.Errorf("notices lack the program's source link and license:\n%s", got)
 	}
+}
+
+func TestVendoredSourceNeedsItsCommit(t *testing.T) {
+	root := fixtureRepo(t)
+	edit(t, root, "web/vendor/sketch/VENDORED.md", "Commit: ", "Revision: ")
+	assertError(t, notices.Check(t.Context(), root), `web/vendor/sketch/VENDORED.md: no "Commit: " line`)
 }
 
 func TestCheckFailsOnDrift(t *testing.T) {

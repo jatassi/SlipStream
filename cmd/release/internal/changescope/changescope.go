@@ -45,16 +45,19 @@ func Of(changes []nativetouch.Change) Scope {
 }
 
 // inertRoots name paths no CI check reads, and a path belongs here only while
-// that holds. readByChecks are the exceptions: the parity-owners lint reads
-// docs/parity-matrix.md, and the tokens generated and contrast checks read
-// DESIGN.md.
+// that holds. readByChecks are the exceptions, a path or a folder ending in /:
+// the parity-owners lint reads docs/parity-matrix.md, the tokens generated and
+// contrast checks read DESIGN.md, and the vendor-synced lint reads the
+// vendored anatomy skill.
 var (
 	inertRoots   = []string{"docs/", ".agents/", ".claude/", ".grok/"}
-	readByChecks = []string{"docs/parity-matrix.md", "DESIGN.md"}
+	readByChecks = []string{"docs/parity-matrix.md", "DESIGN.md", ".claude/skills/anatomy/"}
 )
 
 func inert(p string) bool {
-	if slices.Contains(readByChecks, p) {
+	if slices.ContainsFunc(readByChecks, func(read string) bool {
+		return p == read || strings.HasSuffix(read, "/") && strings.HasPrefix(p, read)
+	}) {
 		return false
 	}
 	if !strings.Contains(p, "/") && strings.HasSuffix(p, ".md") {

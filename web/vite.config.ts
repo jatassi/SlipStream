@@ -1,4 +1,5 @@
 import { env } from "node:process";
+import { fileURLToPath } from "node:url";
 
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
@@ -24,9 +25,16 @@ export default defineConfig(({ command, mode }) => ({
     // import after the Node returns.
     tanstackRouter({ target: "react", autoCodeSplitting: false }),
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    // Vendored code runs as upstream wrote and tested it, not recompiled.
+    babel({
+      presets: [reactCompilerPreset()],
+      exclude: [/[/\\]node_modules[/\\]/u, /[/\\]vendor[/\\]/u],
+    }),
     tailwindcss(),
   ],
+  // TypeScript reads src/diagram/kit/'s declarations for @anatomy; the bundle
+  // takes the vendored sources they describe.
+  resolve: { alias: { "@anatomy": fileURLToPath(new URL("vendor/anatomy/kit", import.meta.url)) } },
   // src/zod-jitless.ts must run before any module in another chunk builds a
   // Zod schema.
   build: {

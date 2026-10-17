@@ -555,3 +555,12 @@ func TestMainsMatchWithoutE2EMain(t *testing.T) {
 		"cmd/slipstream-e2e/main.go:1: [mains-match] does not exist",
 	})
 }
+
+func TestVendorSynced(t *testing.T) {
+	const resync = "; never edit a vendored copy, re-run scripts/vendor-anatomy"
+	assertFindings(t, check(t, "vendor-synced", fixtureRepo(t, "vendor-synced")), []string{
+		"web/vendor/kit/VENDORED.md:1: [vendor-synced] differs from .claude/skills/kit/VENDORED.md" + resync,
+		"web/vendor/kit/kit/edited.mjs:1: [vendor-synced] differs from .claude/skills/kit/kit/edited.mjs" + resync,
+		"web/vendor/kit/kit/extra.mjs:1: [vendor-synced] has no counterpart at .claude/skills/kit/kit/extra.mjs" + resync,
+	})
+}

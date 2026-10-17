@@ -24,7 +24,8 @@
     "skipLibCheck": true,
     "types": ["vite/client"],
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": { "@anatomy/*": ["./src/diagram/kit/*"] }
   },
   "include": ["src", "orval", "orval.config.ts", "vite.config.ts", "vitest.config.ts"]
 }
