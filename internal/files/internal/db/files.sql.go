@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -15,9 +16,9 @@ import (
 )
 
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id)
+INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9)
+    ?7, ?8, ?9, ?10)
 `
 
 type InsertFileParams struct {
@@ -30,6 +31,7 @@ type InsertFileParams struct {
 	Size    int64
 	Probe   Probe
 	GrabID  storage.UUID
+	Quality release.Quality
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -43,6 +45,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.Size,
 		arg.Probe,
 		arg.GrabID,
+		arg.Quality,
 	)
 	return err
 }
@@ -70,7 +73,7 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 }
 
 const listFillsOfWork = `-- name: ListFillsOfWork :many
-SELECT files_fill.target_id, files_file.id, files_file.work_id, files_file.item_id, files_file.edition, files_file.root_id, files_file.path, files_file.size, files_file.probe, files_file.grab_id FROM files_fill
+SELECT files_fill.target_id, files_file.id, files_file.work_id, files_file.item_id, files_file.edition, files_file.root_id, files_file.path, files_file.size, files_file.probe, files_file.grab_id, files_file.quality FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
 WHERE files_file.work_id = ?1
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id
@@ -101,6 +104,7 @@ func (q *Queries) ListFillsOfWork(ctx context.Context, workID works.WorkID) ([]L
 			&i.FilesFile.Size,
 			&i.FilesFile.Probe,
 			&i.FilesFile.GrabID,
+			&i.FilesFile.Quality,
 		); err != nil {
 			return nil, err
 		}

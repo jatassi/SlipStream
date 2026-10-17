@@ -30,6 +30,10 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
               type: ID
+          - column: files_file.quality
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: Quality
           - column: files_file.probe
             go_type:
               type: Probe

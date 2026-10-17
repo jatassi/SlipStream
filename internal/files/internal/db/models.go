@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -21,6 +22,7 @@ type FilesFile struct {
 	Size    int64
 	Probe   Probe
 	GrabID  storage.UUID
+	Quality release.Quality
 }
 
 type FilesFill struct {

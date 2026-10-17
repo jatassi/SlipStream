@@ -34,16 +34,21 @@ type probe struct {
 }
 
 type libraryFile struct {
-	ID    string `json:"id" format:"uuid"`
-	Path  string `json:"path" doc:"Relative to its root, / separated"`
-	Size  int64  `json:"size" minimum:"0"`
-	Probe probe  `json:"probe"`
+	ID      string `json:"id" format:"uuid"`
+	Path    string `json:"path" doc:"Relative to its root, / separated"`
+	Size    int64  `json:"size" minimum:"0"`
+	Quality string `json:"quality" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam"`
+	Probe   probe  `json:"probe"`
+}
+
+func fileOf(f files.File) libraryFile {
+	return libraryFile{ID: f.ID.String(), Path: f.Path, Size: f.Size, Quality: f.Quality.String(), Probe: probe(f.Probe)}
 }
 
 type cell struct{}
 
 func (cell) Variants() (discriminator string, variants []any) {
-	return "state", []any{missingCell{}, downloadingCell{}, failedCell{}, metCell{}}
+	return "state", []any{missingCell{}, downloadingCell{}, failedCell{}, upgradableCell{}, metCell{}}
 }
 
 // CellBase is exported so the document carries the fields each cell embeds.
@@ -70,6 +75,12 @@ type failedCell struct {
 	State string `json:"state" enum:"failed"`
 }
 
+type upgradableCell struct {
+	CellBase
+	State string      `json:"state" enum:"upgradable"`
+	File  libraryFile `json:"file" doc:"The file filling it, below its Target's cutoff"`
+}
+
 type metCell struct {
 	CellBase
 	State string      `json:"state" enum:"met"`
@@ -86,8 +97,10 @@ func variantOf(c files.Cell) api.OneOf[cell] {
 		return api.NewOneOf[cell](downloadingCell{base, state})
 	case files.Failed:
 		return api.NewOneOf[cell](failedCell{base, state})
+	case files.Upgradable:
+		return api.NewOneOf[cell](upgradableCell{base, state, fileOf(*c.File)})
 	case files.Met:
-		return api.NewOneOf[cell](metCell{base, state, libraryFile{ID: c.File.ID.String(), Path: c.File.Path, Size: c.File.Size, Probe: probe(c.File.Probe)}})
+		return api.NewOneOf[cell](metCell{base, state, fileOf(*c.File)})
 	}
 	panic(fmt.Sprintf("filesapi: a cell in state %d", c.State))
 }

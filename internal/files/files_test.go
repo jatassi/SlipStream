@@ -74,20 +74,21 @@ func (l *library) work(t *testing.T, key works.Key, monitor bool) works.Tree {
 	return tree
 }
 
-func (l *library) target(t *testing.T, name string, rs ...release.Resolution) targets.Target {
+// target creates a Target whose cutoff is its top tier.
+func (l *library) target(t *testing.T, name string, tiers ...[]release.Quality) targets.Target {
 	t.Helper()
-	target, err := l.targets.CreateTarget(t.Context(), admin, name, rs)
+	target, err := l.targets.CreateTarget(t.Context(), admin, targets.Spec{Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return target
 }
 
-func (l *library) place(t *testing.T, item works.ItemID, work works.WorkID, path string, fills ...targets.TargetID) {
+func (l *library) place(t *testing.T, item works.ItemID, work works.WorkID, path string, q release.Quality, fills ...targets.TargetID) {
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work, ItemID: item, Edition: files.Standard, RootID: l.root.ID, Path: path, Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080},
+			WorkID: work, ItemID: item, Edition: files.Standard, RootID: l.root.ID, Path: path, Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
 		}, fills)
 		return err
 	})
@@ -101,7 +102,7 @@ func lines(cells []files.Cell) string {
 	for _, c := range cells {
 		fmt.Fprintf(&b, "%s %s %s %s wanted=%t", c.Item.Label, c.Edition, c.Target.Name, c.State, c.Wanted())
 		if c.File != nil {
-			fmt.Fprintf(&b, " %s %dx%d", c.File.Path, c.File.Probe.Width, c.File.Probe.Height)
+			fmt.Fprintf(&b, " %s %s %dx%d", c.File.Path, c.File.Quality, c.File.Probe.Width, c.File.Probe.Height)
 		}
 		b.WriteString("\n")
 	}
@@ -110,8 +111,8 @@ func lines(cells []files.Cell) string {
 
 func TestCellsAreComputedFromFillsGrabsAndTheDefaultProfile(t *testing.T) {
 	l := open(t)
-	hd := l.target(t, "1080p", release.R1080p)
-	uhd := l.target(t, "2160p", release.R2160p)
+	hd := l.target(t, "1080p", []release.Quality{release.WEBDL1080p, release.WEBRip1080p})
+	uhd := l.target(t, "2160p", []release.Quality{release.Remux2160p}, []release.Quality{release.WEBDL2160p})
 	if _, err := l.targets.CreateProfile(t.Context(), admin, "Standard", contenttypetest.ID, []targets.TargetID{uhd.ID, hd.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,8 @@ func TestCellsAreComputedFromFillsGrabsAndTheDefaultProfile(t *testing.T) {
 	}
 	watched := l.work(t, "w1", true)
 	scarf, mittens := watched.Items[0].ID, watched.Items[1].ID
-	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - 1080p.mkv", hd.ID)
+	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - 1080p.mkv", release.WEBRip1080p, hd.ID)
+	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - 2160p.mkv", release.WEBDL2160p, uhd.ID)
 	svc := files.New(files.Config{Library: l.lib, Works: l.works, Grabs: grabbing{
 		{Item: mittens, Edition: files.Standard, Target: uhd.ID}: files.GrabDownloading,
 		{Item: mittens, Edition: files.Standard, Target: hd.ID}:  files.GrabFailed,
@@ -130,8 +132,8 @@ func TestCellsAreComputedFromFillsGrabsAndTheDefaultProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Scarf standard 2160p missing wanted=true\n" +
-		"Scarf standard 1080p met wanted=false Shelf w1/Scarf - 1080p.mkv 1920x1080\n" +
+	want := "Scarf standard 2160p upgradable wanted=false Shelf w1/Scarf - 2160p.mkv webdl-2160p 1920x1080\n" +
+		"Scarf standard 1080p met wanted=false Shelf w1/Scarf - 1080p.mkv webrip-1080p 1920x1080\n" +
 		"Mittens standard 2160p downloading wanted=false\n" +
 		"Mittens standard 1080p failed wanted=true\n"
 	if got := lines(cells); got != want {
@@ -167,11 +169,11 @@ func TestAWorkWhoseTypeHasNoProfileHasNoCells(t *testing.T) {
 
 func TestACellIsFilledOnce(t *testing.T) {
 	l := open(t)
-	hd := l.target(t, "1080p", release.R1080p)
+	hd := l.target(t, "1080p", []release.Quality{release.WEBDL1080p})
 	tree := l.work(t, "w1", true)
-	l.place(t, tree.Items[0].ID, tree.ID, "a.mkv", hd.ID)
+	l.place(t, tree.Items[0].ID, tree.ID, "a.mkv", release.WEBDL1080p, hd.ID)
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Path: "b.mkv"}, []targets.TargetID{hd.ID})
+		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
 		return err
 	})
 	if err == nil || !strings.Contains(err.Error(), "UNIQUE constraint failed: files_fill.item_id, files_fill.edition, files_fill.target_id") {

@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -43,6 +44,14 @@ type File struct {
 	Probe   Probe
 	// GrabID is the Grab that brought it, zero for none.
 	GrabID storage.UUID
+	// Quality is release.File's over its Grab's release title, or its own
+	// name, and its probe.
+	Quality release.Quality
+}
+
+// Facts is what f's row knows about it, for Judge.
+func (f File) Facts() release.Facts {
+	return release.Facts{Quality: release.Known(f.Quality), Cut: release.Standard, Size: release.Known(f.Size)}
 }
 
 type Changed struct {
@@ -57,7 +66,8 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 	f.ID = ID{UUID: storage.NewUUID()}
 	q := db.New(tx)
 	err := q.InsertFile(ctx, db.InsertFileParams{
-		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Edition: f.Edition, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Probe, GrabID: f.GrabID,
+		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Edition: f.Edition, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Probe,
+		GrabID: f.GrabID, Quality: f.Quality,
 	})
 	if err != nil {
 		return File{}, err
@@ -72,14 +82,16 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 
 type State uint8
 
+// State is a cell's state, in the glossary's order.
 const (
 	Missing State = iota + 1
 	Downloading
 	Failed
+	Upgradable
 	Met
 )
 
-var stateNames = [...]string{Missing: "missing", Downloading: "downloading", Failed: "failed", Met: "met"}
+var stateNames = [...]string{Missing: "missing", Downloading: "downloading", Failed: "failed", Upgradable: "upgradable", Met: "met"}
 
 func (s State) String() string { return stateNames[s] }
 
@@ -91,7 +103,8 @@ type CellKey struct {
 }
 
 // Cell is one Edition at one Target of one Item, in the State computed on
-// read. File is set only when the cell is Met.
+// read. File is set when a file fills the cell: Met once the file's
+// quality is at or past the Target's cutoff, Upgradable below it.
 type Cell struct {
 	Item    works.Item
 	Edition Edition
@@ -100,7 +113,8 @@ type Cell struct {
 	File    *File
 }
 
-// Wanted is whether a search should try to fill the cell.
+// Wanted is whether a search should try to fill the cell. An upgradable
+// cell isn't, until an import can replace the file it holds.
 func (c Cell) Wanted() bool {
 	return c.Item.Monitored && (c.State == Missing || c.State == Failed)
 }
@@ -147,6 +161,13 @@ func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.Work
 	return cells, err
 }
 
+// final reports whether f is at or past t's cutoff. A file whose quality t
+// doesn't rank is not.
+func final(t targets.Target, f File) bool {
+	r, ok := t.RankOf(f.Quality)
+	return ok && t.Final(r)
+}
+
 // Cells computes a Work's cells in r: each Item in tree order, at each
 // Target of its Content Type's default Profile in rank order.
 func (f *Files) Cells(ctx context.Context, r storage.Reader[file], work works.WorkID) ([]Cell, error) {
@@ -177,8 +198,10 @@ func (f *Files) Cells(ctx context.Context, r storage.Reader[file], work works.Wo
 			key := CellKey{Item: it.ID, Edition: Standard, Target: t.ID}
 			c := Cell{Item: it, Edition: Standard, Target: t, State: Missing, File: filled[key]}
 			switch {
-			case c.File != nil:
+			case c.File != nil && final(t, *c.File):
 				c.State = Met
+			case c.File != nil:
+				c.State = Upgradable
 			case grabbed[key] == GrabDownloading:
 				c.State = Downloading
 			case grabbed[key] == GrabFailed:

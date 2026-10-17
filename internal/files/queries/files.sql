@@ -1,7 +1,7 @@
 -- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id)
+INSERT INTO files_file (id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(root_id), sqlc.arg(path),
-    sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id));
+    sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality));
 
 -- name: InsertFill :exec
 INSERT INTO files_fill (file_id, target_id, item_id, edition)

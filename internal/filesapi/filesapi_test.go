@@ -52,9 +52,12 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	}))
 	types := []works.TypeID{contenttypetest.ID}
 	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []release.Resolution{release.R1080p}))
-	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "2160p", []release.Resolution{release.R2160p}))
-	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID, uhd.ID}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{
+		Name: "1080p", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
+	}))
+	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}))
+	small := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "Small", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID, uhd.ID, small.ID}))
 	root := must[roots.Root](t)(roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
 		Create(ctx, admin, contenttypetest.ID, t.TempDir()))
 	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
@@ -69,8 +72,8 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		var err error
 		placed, err = files.Add(ctx, tx, files.File{
 			WorkID: tree.ID, ItemID: tree.Items[0].ID, Edition: files.Standard, RootID: root.ID,
-			Path: "The Attic/The Attic - 1080p.mkv", Size: 4096, Probe: files.Probe{Width: 1920, Height: 1080},
-		}, []targets.TargetID{hd.ID})
+			Path: "The Attic/The Attic - 1080p.mkv", Size: 4096, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
+		}, []targets.TargetID{hd.ID, small.ID})
 		return err
 	})
 	if err != nil {
@@ -81,10 +84,11 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	})
 
 	code, body := s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
+	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`
 	want := `{"cells":[` +
-		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"1080p","wanted":false,"state":"met",` +
-		`"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"probe":{"width":1920,"height":1080}}},` +
-		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"}]}` + "\n"
+		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + hd.ID.String() + `","targetName":"1080p","wanted":false,"state":"upgradable",` + file + `},` +
+		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
+		`{"itemId":"` + tree.Items[0].ID.String() + `","edition":"standard","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `}]}` + "\n"
 	if code != http.StatusOK || body != want {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
