@@ -251,12 +251,22 @@ func (q *Queries) ListFileIDs(ctx context.Context) ([]FileID, error) {
 	return items, nil
 }
 
-const listFilesOfWork = `-- name: ListFilesOfWork :many
-SELECT id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file WHERE work_id = ?1 ORDER BY id
+const listFilesOfWorks = `-- name: ListFilesOfWorks :many
+SELECT id, work_id, item_id, edition, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
-func (q *Queries) ListFilesOfWork(ctx context.Context, workID works.WorkID) ([]FilesFile, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesOfWork, workID)
+func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFile, error) {
+	query := listFilesOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -343,15 +353,25 @@ func (q *Queries) ListFillsOfTargets(ctx context.Context, targetIds []targets.Ta
 	return items, nil
 }
 
-const listFillsOfWork = `-- name: ListFillsOfWork :many
+const listFillsOfWorks = `-- name: ListFillsOfWorks :many
 SELECT files_fill.file_id, files_fill.target_id, files_fill.item_id, files_fill.edition FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
-WHERE files_file.work_id = ?1
+WHERE files_file.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id
 `
 
-func (q *Queries) ListFillsOfWork(ctx context.Context, workID works.WorkID) ([]FilesFill, error) {
-	rows, err := q.db.QueryContext(ctx, listFillsOfWork, workID)
+func (q *Queries) ListFillsOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFill, error) {
+	query := listFillsOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

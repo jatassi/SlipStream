@@ -377,7 +377,7 @@ func TestTheQueueSweepsHoldingFilesNoFileOrGrabNames(t *testing.T) {
 
 type unfinished []storage.UUID
 
-func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], works.WorkID) (map[files.CellKey]files.GrabState, error) {
+func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabState, error) {
 	return nil, nil
 }
 

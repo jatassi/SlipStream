@@ -172,9 +172,9 @@ const (
 
 // Inflight is files' view of the Grabs, which grabs implements.
 type Inflight interface {
-	// GrabCells reads the latest Grab state of each of a Work's cells that
-	// a Grab is in flight for or failed.
-	GrabCells(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) (map[CellKey]GrabState, error)
+	// GrabCells reads the latest Grab state of each cell of ws that a Grab
+	// is in flight for or failed.
+	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[CellKey]GrabState, error)
 	// Unfinished lists the ids of every Grab not yet imported or failed,
 	// whose download may sit in a root's holding folder.
 	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
@@ -187,7 +187,7 @@ type Inflight interface {
 // NoGrabs is Inflight while nothing grabs.
 type NoGrabs struct{}
 
-func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], works.WorkID) (map[CellKey]GrabState, error) {
+func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[CellKey]GrabState, error) {
 	return nil, nil
 }
 

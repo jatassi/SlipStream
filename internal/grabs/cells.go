@@ -13,8 +13,8 @@ import (
 // Grab's state, downloading once past fetching and failed once failed.
 type GrabCells struct{}
 
-func (GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) (map[files.CellKey]files.GrabState, error) {
-	rows, err := db.New(r).ListTargetsOfWork(ctx, work)
+func (GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[files.CellKey]files.GrabState, error) {
+	rows, err := db.New(r).ListTargetsOfWorks(ctx, ws)
 	if err != nil {
 		return nil, err
 	}

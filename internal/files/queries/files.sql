@@ -9,8 +9,8 @@ UPDATE files_file SET path = sqlc.arg(path), label = sqlc.arg(label), extra = sq
 -- name: DeleteFile :exec
 DELETE FROM files_file WHERE id = sqlc.arg(id);
 
--- name: ListFilesOfWork :many
-SELECT * FROM files_file WHERE work_id = sqlc.arg(work_id) ORDER BY id;
+-- name: ListFilesOfWorks :many
+SELECT * FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY id;
 
 -- name: ListFileIDs :many
 SELECT id FROM files_file ORDER BY id;
@@ -22,10 +22,10 @@ VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edit
 -- name: DeleteFill :exec
 DELETE FROM files_fill WHERE item_id = sqlc.arg(item_id) AND edition = sqlc.arg(edition) AND target_id = sqlc.arg(target_id);
 
--- name: ListFillsOfWork :many
+-- name: ListFillsOfWorks :many
 SELECT files_fill.* FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
-WHERE files_file.work_id = sqlc.arg(work_id)
+WHERE files_file.work_id IN (sqlc.slice(work_ids))
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id;
 
 -- name: ListFillsOfTargets :many

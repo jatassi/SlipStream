@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Impact is what saving a Change does, as an Admin confirms it.
@@ -93,22 +94,27 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err != nil {
 		return Impact{}, err
 	}
-	before := make([]world, len(touched.Works))
+	trees := make([]works.Tree, len(touched.Works))
 	for i, w := range touched.Works {
-		if before[i], err = f.load(ctx, tx, w); err != nil {
+		if trees[i], err = f.cfg.Works.TreeIn(ctx, tx, w); err != nil {
 			return Impact{}, err
 		}
+	}
+	before, err := f.worlds(ctx, tx, trees)
+	if err != nil {
+		return Impact{}, err
 	}
 	if err := targets.Apply(ctx, tx, c); err != nil {
 		return Impact{}, err
 	}
+	afters, err := f.worlds(ctx, tx, trees)
+	if err != nil {
+		return Impact{}, err
+	}
 	impact := Impact{OwnList: touched.OwnList}
 	q := db.New(tx)
-	for _, was := range before {
-		after, err := f.load(ctx, tx, was.tree.ID)
-		if err != nil {
-			return Impact{}, err
-		}
+	for i, was := range before {
+		after := afters[i]
 		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
 		if err != nil {
 			return Impact{}, err

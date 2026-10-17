@@ -42,7 +42,7 @@ func must[T any](t *testing.T) func(T, error) T {
 
 type grabbing map[files.CellKey]files.GrabState
 
-func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.WorkID) (map[files.CellKey]files.GrabState, error) {
+func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], []works.WorkID) (map[files.CellKey]files.GrabState, error) {
 	return g, nil
 }
 

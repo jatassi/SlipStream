@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -612,6 +613,60 @@ func (q *Queries) ListTargetsOfWork(ctx context.Context, workID works.WorkID) ([
 	var items []ListTargetsOfWorkRow
 	for rows.Next() {
 		var i ListTargetsOfWorkRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemID,
+			&i.Edition,
+			&i.Stage,
+			&i.TargetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTargetsOfWorks = `-- name: ListTargetsOfWorks :many
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+WHERE grabs_grab.work_id IN (/*SLICE:work_ids*/?)
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
+`
+
+type ListTargetsOfWorksRow struct {
+	ID       GrabID
+	ItemID   works.ItemID
+	Edition  files.Edition
+	Stage    Stage
+	TargetID targets.TargetID
+}
+
+func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListTargetsOfWorksRow, error) {
+	query := listTargetsOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTargetsOfWorksRow
+	for rows.Next() {
+		var i ListTargetsOfWorksRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemID,

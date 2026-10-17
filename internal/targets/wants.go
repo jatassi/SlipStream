@@ -3,7 +3,6 @@ package targets
 import (
 	"context"
 	"errors"
-	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -47,31 +46,51 @@ func Assign(ctx context.Context, tx *storage.Tx[file], w works.Summary, profile 
 // GoalsIn reads work's Goals in r, works.ErrNoWork when no Work has id
 // work.
 func GoalsIn(ctx context.Context, r storage.Reader[file], work works.WorkID) (Goals, error) {
+	gs, err := GoalsOf(ctx, r, []works.WorkID{work})
+	return gs[work], err
+}
+
+// GoalsOf reads the Goals of each of ws in r, reading every Target and
+// Profile once for all of them: works.ErrNoWork when one of ws has no
+// wants row.
+func GoalsOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.WorkID]Goals, error) {
 	q := db.New(r)
-	row, err := q.GetWants(ctx, work)
-	if errors.Is(err, storage.ErrNoRows) {
-		return Goals{}, works.ErrNoWork
-	}
+	rows, err := q.ListWantsOf(ctx, ws)
 	if err != nil {
-		return Goals{}, err
+		return nil, err
+	}
+	if len(rows) < len(ws) {
+		return nil, works.ErrNoWork
 	}
 	profiles, err := listProfiles(ctx, q)
 	if err != nil {
-		return Goals{}, err
+		return nil, err
 	}
 	all, err := listTargets(ctx, q)
 	if err != nil {
-		return Goals{}, err
+		return nil, err
 	}
-	g := Goals{Profile: profiles[slices.IndexFunc(profiles, func(p Profile) bool { return p.ID == row.ProfileID })]}
-	g.Editions, g.Own = g.Profile.Editions, row.Editions != nil
-	if g.Own {
-		g.Editions = editionsOf(*row.Editions)
+	profileOf := make(map[ProfileID]Profile, len(profiles))
+	for _, p := range profiles {
+		profileOf[p.ID] = p
 	}
-	for _, e := range g.Profile.Entries {
-		g.Targets = append(g.Targets, all[slices.IndexFunc(all, func(t Target) bool { return t.ID == e.Target })])
+	targetOf := make(map[TargetID]Target, len(all))
+	for _, t := range all {
+		targetOf[t.ID] = t
 	}
-	return g, nil
+	out := make(map[works.WorkID]Goals, len(rows))
+	for _, row := range rows {
+		g := Goals{Profile: profileOf[row.ProfileID]}
+		g.Editions, g.Own = g.Profile.Editions, row.Editions != nil
+		if g.Own {
+			g.Editions = editionsOf(*row.Editions)
+		}
+		for _, e := range g.Profile.Entries {
+			g.Targets = append(g.Targets, targetOf[e.Target])
+		}
+		out[row.WorkID] = g
+	}
+	return out, nil
 }
 
 // Goals reads work's Goals, works.ErrNoWork when no Work has id work.

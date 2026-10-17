@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -588,6 +589,43 @@ SELECT work_id, profile_id, editions FROM targets_wants ORDER BY work_id
 
 func (q *Queries) ListWants(ctx context.Context) ([]TargetsWant, error) {
 	rows, err := q.db.QueryContext(ctx, listWants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsWant
+	for rows.Next() {
+		var i TargetsWant
+		if err := rows.Scan(&i.WorkID, &i.ProfileID, &i.Editions); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWantsOf = `-- name: ListWantsOf :many
+SELECT work_id, profile_id, editions FROM targets_wants WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+func (q *Queries) ListWantsOf(ctx context.Context, workIds []works.WorkID) ([]TargetsWant, error) {
+	query := listWantsOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

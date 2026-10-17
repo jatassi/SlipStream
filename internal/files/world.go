@@ -2,6 +2,8 @@ package files
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
@@ -36,30 +38,63 @@ func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.Wor
 	if err != nil {
 		return world{}, err
 	}
-	w := world{tree: tree, fills: map[CellKey]ID{}, today: f.cfg.Today()}
-	if w.goals, err = targets.GoalsIn(ctx, r, work); err != nil {
+	ws, err := f.worlds(ctx, r, []works.Tree{tree})
+	if err != nil {
 		return world{}, err
 	}
-	if w.timing, err = f.cfg.Targets.TimingsIn(ctx, r, tree.ContentType, []works.WorkID{work}); err != nil {
-		return world{}, err
+	return ws[0], nil
+}
+
+// worlds loads the world of each Work of trees in r, in trees' order,
+// reading each kind of row once for them all.
+func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []works.Tree) ([]world, error) {
+	ids := make([]works.WorkID, len(trees))
+	byType := map[works.TypeID][]works.WorkID{}
+	for i, t := range trees {
+		ids[i] = t.ID
+		byType[t.ContentType] = append(byType[t.ContentType], t.ID)
+	}
+	goals, err := targets.GoalsOf(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	timing := map[works.ItemID]targets.Timing{}
+	for _, typ := range slices.Sorted(maps.Keys(byType)) {
+		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, byType[typ])
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(timing, of)
+	}
+	grabs, err := f.cfg.Grabs.GrabCells(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]world, len(trees))
+	at := make(map[works.WorkID]*world, len(trees))
+	for i, t := range trees {
+		out[i] = world{tree: t, goals: goals[t.ID], fills: map[CellKey]ID{}, grabs: grabs, timing: timing, today: f.cfg.Today()}
+		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
-	rows, err := q.ListFilesOfWork(ctx, work)
+	rows, err := q.ListFilesOfWorks(ctx, ids)
 	if err != nil {
-		return world{}, err
+		return nil, err
 	}
+	of := make(map[ID]*world, len(rows))
 	for _, row := range rows {
+		w := at[row.WorkID]
 		w.files = append(w.files, File(row))
+		of[row.ID] = w
 	}
-	fills, err := q.ListFillsOfWork(ctx, work)
+	fills, err := q.ListFillsOfWorks(ctx, ids)
 	if err != nil {
-		return world{}, err
+		return nil, err
 	}
 	for _, fill := range fills {
-		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
+		of[fill.FileID].fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
 	}
-	w.grabs, err = f.cfg.Grabs.GrabCells(ctx, r, work)
-	return w, err
+	return out, nil
 }
 
 // named adds what names reads to w under fills: the Content Type's
