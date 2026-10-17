@@ -77,8 +77,8 @@ function ChosenCuts({
 
 /**
  * An Edition list: Any cut, or an ordered list of chosen cuts, with a
- * sentence that says what it wants. The cuts offered are the built-in ones
- * and `contentType`'s own.
+ * sentence that says what it wants. The cuts offered are the built-in and
+ * custom ones and `contentType`'s own.
  */
 export function EditionsControl({
   value,
@@ -93,8 +93,7 @@ export function EditionsControl({
   const nameOf = (key: string) => cuts.find((cut) => cut.key === key)?.name ?? key;
   const offered = cuts.filter(
     (cut) =>
-      (cut.origin === "builtin" || cut.contentType === contentType) &&
-      !value.cuts.includes(cut.key),
+      (cut.origin !== "type" || cut.contentType === contentType) && !value.cuts.includes(cut.key),
   );
   return (
     <div className="flex flex-col gap-4">

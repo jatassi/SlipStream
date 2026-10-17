@@ -1,4 +1,9 @@
-import type { TargetsCutList, TargetsProfile, TargetsProfileDetail } from "../api/gen/model";
+import type {
+  TargetsCut,
+  TargetsCutList,
+  TargetsProfile,
+  TargetsProfileDetail,
+} from "../api/gen/model";
 import {
   getGetProfileMockHandler,
   getListCutsMockHandler,
@@ -13,7 +18,18 @@ const cut = (key: string, name: string, aliases: string[]) => ({
   origin: "builtin" as const,
 });
 
-/** GET /cuts: the built-in cuts, then one the cinema test type adds and one a zine type adds. */
+/** An Admin's own cut, read by its name and by B&C. */
+export const blackAndChrome: TargetsCut = {
+  key: "black-and-chrome",
+  name: "Black and Chrome",
+  aliases: ["Black and Chrome", "B&C"],
+  origin: "custom",
+};
+
+/**
+ * GET /cuts: the built-in cuts, then one the cinema test type adds and one a
+ * zine type adds, then one custom cut.
+ */
 export const cutList: TargetsCutList = {
   cuts: [
     cut("standard", "Standard", []),
@@ -29,6 +45,7 @@ export const cutList: TargetsCutList = {
       contentType: "cinema",
     },
     { key: "deluxe", name: "Deluxe", aliases: ["Deluxe"], origin: "type", contentType: "zine" },
+    blackAndChrome,
   ],
 };
 

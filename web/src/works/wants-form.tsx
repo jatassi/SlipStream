@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { TargetsProfile, TargetsWants, WorksTree } from "../api/gen/model";
 import { setWorkWants } from "../api/gen/query/targets/targets";
 import { AttemptActions, useAttempt } from "../targets/attempt";
+import { savingCuts } from "../targets/editions-draft";
 import type { ImpactChange } from "../targets/use-impact-save";
 import { toast } from "../ui/toast";
 import { ProfilePicker } from "./profile-picker";
@@ -30,7 +31,7 @@ export function WantsForm({
     await save({
       title: `Save ${work.label}`,
       action: "Save",
-      run: (changing) => setWorkWants(work.id, body, changing),
+      run: (changing) => savingCuts(() => setWorkWants(work.id, body, changing)),
       done: () => {
         toast(`Saved what ${work.label} wants.`);
         onDone();

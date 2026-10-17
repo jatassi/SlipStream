@@ -109,7 +109,14 @@ test("Choose cuts lists cuts from Standard, says what they want, and warns once 
     .getByRole("menuitem")
     .all()
     .map((item) => item.element().textContent);
-  expect(offered).toEqual(["Theatrical", "Extended", "Director's Cut", "IMAX", "Superfan"]);
+  expect(offered).toEqual([
+    "Theatrical",
+    "Extended",
+    "Director's Cut",
+    "IMAX",
+    "Superfan",
+    "Black and Chrome",
+  ]);
   await userEvent.click(page.getByRole("menuitem", { name: "Extended" }));
   await expect
     .element(sentence())
@@ -177,14 +184,59 @@ test("removing every Target leaves a Profile that wants nothing", async () => {
     .toBeVisible();
 });
 
-test("creating with chosen cuts is held back with the reason, and sends nothing", async () => {
+test("a new Profile with chosen cuts creates with them in list order", async () => {
   const { sent, handler } = creating();
-  renderApp({ path: "/settings/profiles/new", handlers: [...handlers(), handler] });
+  const { router } = renderApp({
+    path: "/settings/profiles/new",
+    handlers: [...handlers(), handler],
+  });
+  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "Cuts");
+  await chooseCuts();
+  await userEvent.click(page.getByRole("button", { name: "Add cut" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Black and Chrome" }));
+  await userEvent.click(page.getByRole("button", { name: "Create Profile" }));
+  await expect.poll(() => router.state.location.pathname).toBe("/settings/profiles");
+  expect(sent).toEqual([
+    {
+      name: "Cuts",
+      contentType: "cinema",
+      targets: [],
+      editions: { kind: "cuts", cuts: ["standard", "black-and-chrome"] },
+    },
+  ]);
+});
+
+test("a saved Profile opens on its chosen cuts", async () => {
+  const cuts: TargetsProfile = {
+    ...ultra,
+    editions: { kind: "cuts", cuts: ["extended", "standard"] },
+  };
+  renderApp({
+    path: `/settings/profiles/${ultra.id}`,
+    handlers: handlers(undefined, [films, cuts]),
+  });
+  await expect.element(page.getByRole("radio", { name: "Choose cuts" })).toBeChecked();
+  expect(rowsOf("Cuts")).toEqual(["Rank 1Extended", "Rank 2Standard"]);
+});
+
+test("a cut deleted while the Profile was open is said plainly, and nothing is saved", async () => {
+  const refusing = http.post("*/api/v1/profiles", () =>
+    HttpResponse.json(
+      { status: 422, code: "cut_not_found", title: "No cut has that key" },
+      { status: 422, headers: { "Content-Type": "application/problem+json" } },
+    ),
+  );
+  const { router } = renderApp({
+    path: "/settings/profiles/new",
+    handlers: [...handlers(), refusing],
+  });
   await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "Cuts");
   await chooseCuts();
   await userEvent.click(page.getByRole("button", { name: "Create Profile" }));
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("Chosen cuts can't be saved yet. Choose Any cut to save the Profile.");
-  expect(sent).toEqual([]);
+    .toHaveTextContent(
+      "A cut on this list was deleted, so nothing was saved. Take it off the list and save again.",
+    );
+  expect(router.state.location.pathname).toBe("/settings/profiles/new");
 });
