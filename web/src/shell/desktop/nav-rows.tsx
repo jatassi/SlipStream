@@ -15,7 +15,7 @@ export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collap
         <li key={row.id}>
           <Row
             link={{ to: row.to }}
-            within={row.lands !== undefined}
+            within={row.within}
             label={row.label}
             icon={row.icon}
             alert={alertOf(counts, row.alert)}
@@ -70,7 +70,7 @@ function Row({
   nested = false,
 }: {
   link: LinkProps;
-  within?: boolean;
+  within?: boolean | undefined;
   label: string;
   icon: IconSvgElement;
   alert?: AlertTone | undefined;

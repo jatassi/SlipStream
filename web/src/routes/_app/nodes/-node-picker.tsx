@@ -8,26 +8,7 @@ import { Icon } from "../../../ui/icon";
 import { List, ListRow } from "../../../ui/list";
 import { Select } from "../../../ui/select";
 import { Sheet, SheetCancel, SheetGroup, SheetItem } from "../../../ui/sheet";
-import { type NodeState, useNodeState } from "./-node";
-
-const dots: { readonly [S in NodeState]: { word: string; color: string } } = {
-  online: { word: "online", color: "bg-ok" },
-  reconnecting: { word: "reconnecting", color: "bg-ink-4" },
-  offline: { word: "offline", color: "bg-warn" },
-  lapsed: { word: "offline past the grace", color: "bg-fail" },
-  mismatched: { word: "on another version", color: "bg-warn" },
-  restarting: { word: "restarting", color: "bg-ink-1 shadow-live-glow" },
-};
-
-function StateDot({ node }: { node: NodesNode }) {
-  const dot = dots[useNodeState(node)];
-  return (
-    <span className="flex shrink-0 items-center">
-      <span aria-hidden="true" className={`size-1.5 rounded-capsule ${dot.color}`} />
-      <span className="sr-only">{dot.word}</span>
-    </span>
-  );
-}
+import { NodeDot } from "./-state-dot";
 
 // Switching Node keeps the section, so a reader on Logs stays on Logs.
 function useSwitchNode(): (nodeId: string) => void {
@@ -46,7 +27,7 @@ export function NodePicker({ nodes, current }: { nodes: readonly NodesNode[]; cu
         options={nodes.map((node) => ({
           value: node.id,
           label: node.name,
-          leading: <StateDot node={node} />,
+          leading: <NodeDot node={node} />,
         }))}
         value={current}
         onValueChange={switchTo}
@@ -69,7 +50,7 @@ export function PhoneNodePicker({
         <ListRow
           title={current.name}
           meta="Node"
-          leading={<StateDot node={current} />}
+          leading={<NodeDot node={current} />}
           trailing={<Chevron />}
           render={
             // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- ListRow fills the button with the Node's name
@@ -103,7 +84,7 @@ function NodeChoices({ nodes, current }: { nodes: readonly NodesNode[]; current:
           }}
         >
           <span className="flex items-center gap-3">
-            <StateDot node={node} />
+            <NodeDot node={node} />
             {node.name}
           </span>
         </SheetItem>

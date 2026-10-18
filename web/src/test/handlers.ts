@@ -7,7 +7,8 @@ import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
-import { home, nodesAre } from "./nodes";
+import { home, nodesAre, topologyIs, topologyOf } from "./nodes";
+import { board, boardIs, homeSeat } from "./roles";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
   "../api/gen/query/**/*.msw.ts",
@@ -76,6 +77,8 @@ export const baseHandlers: RequestHandler[] = [
   resyncStream,
   nothingMoving,
   nodesAre(home),
+  topologyIs(topologyOf([home], { sentence: "home is online." })),
+  boardIs(board(homeSeat)),
   noTaskRunning,
   ...tagMocks,
 ];

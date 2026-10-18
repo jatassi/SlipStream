@@ -1,14 +1,14 @@
 import { useNavigate } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import type { SystemReport } from "../../../api/gen/model";
-import { useGetNodeSystemSuspense } from "../../../api/gen/query/system/system";
 import { clock } from "../../../format";
 import { Data } from "../../../ui/data";
 import { Section } from "../../../ui/section";
 import { WarningLine } from "../../../ui/warning-line";
 import { portOf } from "./-node";
 
-type Row = readonly [term: string, value: string];
+type Row = readonly [term: string, value: ReactNode];
 
 export function KeyValues({ rows }: { rows: readonly Row[] }) {
   return (
@@ -20,7 +20,7 @@ export function KeyValues({ rows }: { rows: readonly Row[] }) {
         >
           <dt className="text-ink-3">{term}</dt>
           <dd className="wrap-anywhere text-ink-1">
-            <Data>{value}</Data>
+            {typeof value === "string" ? <Data>{value}</Data> : value}
           </dd>
         </div>
       ))}
@@ -52,11 +52,11 @@ function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) 
   );
 }
 
-export function Facts({ nodeId }: { nodeId: string }) {
-  const { data } = useGetNodeSystemSuspense(nodeId);
+/** What the Node reports about its own process: its build, its folders and what it listens on. */
+export function Facts({ nodeId, data }: { nodeId: string; data: SystemReport }) {
   return (
     <>
-      <Section title="Overview">
+      <Section title="System">
         <KeyValues
           rows={[
             ["Version", data.build.version ?? "unstamped"],
