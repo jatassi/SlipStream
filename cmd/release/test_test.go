@@ -1,38 +1,58 @@
 package main
 
 import (
+	"flag"
 	"slices"
 	"testing"
 )
 
-func TestSplitTierFlag(t *testing.T) {
+func TestSplitOwnFlags(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.String("tier", "", "")
+	fs.String("shard", "", "")
 	for _, c := range []struct {
-		args, tier, rest []string
+		args, own, rest []string
 	}{
 		{nil, []string{}, []string{}},
 		{[]string{"-tier", "go", "-run", "Foo", "./e2e"}, []string{"-tier", "go"}, []string{"-run", "Foo", "./e2e"}},
-		{[]string{"--tier=browser"}, []string{"--tier=browser"}, []string{}},
+		{[]string{"--tier=browser", "-shard", "2/4"}, []string{"--tier=browser", "-shard", "2/4"}, []string{}},
 		{[]string{"-run", "Foo", "-tier", "go"}, []string{}, []string{"-run", "Foo", "-tier", "go"}},
 		{[]string{"-tier"}, []string{"-tier"}, []string{}},
 	} {
-		tier, rest := splitTierFlag(c.args)
-		if !slices.Equal(tier, c.tier) || !slices.Equal(rest, c.rest) {
-			t.Errorf("splitTierFlag(%q) = %q, %q, want %q, %q", c.args, tier, rest, c.tier, c.rest)
+		own, rest := splitOwnFlags(fs, c.args)
+		if !slices.Equal(own, c.own) || !slices.Equal(rest, c.rest) {
+			t.Errorf("splitOwnFlags(%q) = %q, %q, want %q, %q", c.args, own, rest, c.own, c.rest)
 		}
 	}
 }
 
-func TestTestRefusesGoArgumentsOutsideTheGoTier(t *testing.T) {
+func TestTestRefusesFlagsTheTierDoesNotTake(t *testing.T) {
 	for _, c := range []struct {
 		args []string
 		want string
 	}{
-		{[]string{"-run", "Foo"}, `go test arguments ["-run" "Foo"] need -tier go or -tier online`},
-		{[]string{"-tier", "component", "./..."}, `go test arguments ["./..."] need -tier go or -tier online`},
-		{[]string{"-tier", "e2e"}, `-tier "e2e" is not one of go, component, browser, online, all`},
+		{[]string{"-run", "Foo"}, `go test arguments ["-run" "Foo"] need -tier go, e2e or online`},
+		{[]string{"-tier", "component", "./..."}, `go test arguments ["./..."] need -tier go, e2e or online`},
+		{[]string{"-tier", "lint"}, `-tier "lint" is not one of go, e2e, component, browser, online, all`},
+		{[]string{"-shard", "1/2"}, "-shard, -filter and -repeat need -tier go, e2e or browser"},
+		{[]string{"-tier", "component", "-filter", "Foo"}, "-shard, -filter and -repeat need -tier go, e2e or browser"},
+		{[]string{"-tier", "browser", "-timings", "t"}, "-timings and -record need -tier go or e2e"},
+		{[]string{"-tier", "go", "-shard", "1/2", "./internal/..."}, `go test arguments ["./internal/..."] pick the tests themselves, so they take none of -shard, -filter, -repeat, -timings or -record`},
+		{[]string{"-tier", "go", "-repeat", "0"}, "-repeat 0 is not a positive count"},
+		{[]string{"-tier", "go", "-shard", "3/2"}, `parse flags: invalid value "3/2" for flag -shard: shard "3/2" is not i/n with 1 <= i <= n`},
 	} {
 		if err := runTest(t.Context(), c.args); err == nil || err.Error() != c.want {
 			t.Errorf("runTest(%q) = %v, want %s", c.args, err, c.want)
 		}
+	}
+}
+
+func TestPlaywrightArgs(t *testing.T) {
+	got := playwrightArgs(testOptions{shard: shard{2, 3}, filter: "@phone", repeat: 5})
+	if want := []string{"--shard=2/3", "--grep=@phone", "--repeat-each=5"}; !slices.Equal(got, want) {
+		t.Errorf("playwrightArgs = %q, want %q", got, want)
+	}
+	if got := playwrightArgs(testOptions{repeat: 1}); got != nil {
+		t.Errorf("playwrightArgs of the whole tier = %q, want none", got)
 	}
 }
