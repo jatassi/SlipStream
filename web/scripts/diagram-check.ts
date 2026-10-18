@@ -142,7 +142,10 @@ async function closeUps(page: Page) {
 }
 
 try {
-  await Promise.all(FIXTURE_SIZES.map((size) => lines(size)));
+  await FIXTURE_SIZES.reduce(async (prior, size) => {
+    await prior;
+    await lines(size);
+  }, Promise.resolve());
   await audit();
   const browser = await chromium.launch();
   await frameBudget(await browser.newPage({ viewport: { width: 1400, height: 1000 } }));
