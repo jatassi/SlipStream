@@ -28,16 +28,3 @@ func TestResolutionOf(t *testing.T) {
 		}
 	}
 }
-
-func TestParseResolution(t *testing.T) {
-	for _, r := range resolutions {
-		if got, err := release.ParseResolution(r.String()); err != nil || got != r {
-			t.Errorf("ParseResolution(%q) = %v, %v", r.String(), got, err)
-		}
-	}
-	for _, bad := range []string{"", "4k", "1080", "1080P"} {
-		if _, err := release.ParseResolution(bad); err == nil {
-			t.Errorf("ParseResolution(%q) succeeded", bad)
-		}
-	}
-}

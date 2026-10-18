@@ -244,7 +244,7 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 			return fmt.Errorf("remove %s: %w", p, err)
 		}
 	}
-	if d.Sits != nil && gone == len(places) && !q.waiting(d) {
+	if d.Sits != nil && gone == len(places) && !q.holds(d.RootID, d.Path) {
 		if err := f.cfg.Disk.Remove(q.local(d.RootID, d.Path)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("remove %s: %w", d.Path, err)
 		}
@@ -252,16 +252,6 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 	return f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		return db.New(tx).DeleteDoomed(ctx, d.FileID)
 	})
-}
-
-// waiting reports whether a live file's bytes are recorded at d's path.
-func (q queue) waiting(d db.FilesDoomed) bool {
-	for _, m := range q.moves {
-		if m.RootID == d.RootID && m.Sits == d.Path {
-			return true
-		}
-	}
-	return false
 }
 
 // sweep removes each file in a root's holding folder whose name is no
@@ -343,6 +333,7 @@ func (f *Files) claimed(ctx context.Context) (map[storage.UUID]bool, error) {
 	return live, err
 }
 
+// holds reports whether a live file's bytes are recorded at p in root.
 func (q queue) holds(root roots.ID, p string) bool {
 	for _, m := range q.moves {
 		if m.RootID == root && m.Sits == p {

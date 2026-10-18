@@ -242,17 +242,6 @@ func (q *Queries) GetWants(ctx context.Context, workID works.WorkID) (TargetsWan
 	return i, err
 }
 
-const hasDefaultProfile = `-- name: HasDefaultProfile :one
-SELECT EXISTS (SELECT 1 FROM targets_profile WHERE content_type = ?1 AND is_default = 1)
-`
-
-func (q *Queries) HasDefaultProfile(ctx context.Context, contentType works.TypeID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, hasDefaultProfile, contentType)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const hasTarget = `-- name: HasTarget :one
 SELECT EXISTS (SELECT 1 FROM targets_target WHERE id = ?1)
 `

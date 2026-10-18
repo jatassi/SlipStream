@@ -46,9 +46,6 @@ ORDER BY p.name, p.id;
 -- name: ProfileNameTaken :one
 SELECT EXISTS (SELECT 1 FROM targets_profile WHERE name = sqlc.arg(name));
 
--- name: HasDefaultProfile :one
-SELECT EXISTS (SELECT 1 FROM targets_profile WHERE content_type = sqlc.arg(content_type) AND is_default = 1);
-
 -- name: InsertProfile :exec
 INSERT INTO targets_profile (id, name, content_type, is_default, editions)
 VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(content_type), sqlc.arg(is_default), sqlc.arg(editions));
