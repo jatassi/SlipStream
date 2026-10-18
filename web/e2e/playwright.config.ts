@@ -21,7 +21,7 @@ type ProjectName = keyof typeof projects;
 export const targets = {
   "linux-amd64": ["chromium-desktop", "chromium-phone", "firefox-desktop", "webkit-phone"],
   "linux-arm64": ["chromium-desktop"],
-  "darwin-arm64": ["chromium-desktop", "webkit-desktop", "webkit-phone"],
+  "darwin-arm64": ["webkit-desktop", "webkit-phone"],
   "windows-amd64": ["chromium-desktop", "firefox-desktop"],
 } as const satisfies Record<string, readonly ProjectName[]>;
 
