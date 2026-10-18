@@ -11,7 +11,7 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 - `pairing-join-codes` `GET /api/v1/join-codes` lists each open code's `id`, `createdAt` and `expiresAt`, never its text; `GET /api/v1/join-codes/{id}` reads it `open`, `used` with `nodeId`, or `expired`, with `dialing{address, addresses, since, unreachable}` once a Node address is pasted; `DELETE` answers 204, and the code then reads 404 `join_code_not_found`.
 - `pairing-reverse-dial` on `cgnat-home`, `slipstream join` prints `Can't reach the Controller at <address>.`, `Paste this Node address into the Add a Node dialog on the Controller:`, the indented `SLN1-…` and `Waiting for the Controller to dial until <HH:MM>. Ctrl-C stops.`; `POST /api/v1/join-codes/{id}/dial` with that `nodeAddress` answers 202, the command exits 0 with the joined line, and the roster lists `seedbox` `up` with `dial` `{"by":"controller","controllerDials":["<seedbox's link front>"]}`, also after both Nodes restart.
 - `pairing-setup-pending` on `cgnat-home`, `POST /api/v1/setup/worker` answers 202 with `state` `awaiting-dial`, `nodeAddress` and `until`; `POST /api/v1/setup/controller` then answers 409 `join_pending`; once the Controller dials, `GET /api/v1/setup/worker` reads `state` `joined` with `nodeId`.
-- `pairing-add-dialog` **Add a Node** on a Node's page opens the `Add a Node` dialog at `?add=<code id>`, with the `Join Code` `SLP1-…`, `Expires in 59:42. It pairs one Node.` ticking, Copy, the three ways (`First-run page.`, `slipstream join <code>`, `SLIPSTREAM_JOIN_CODE=<code>`), `Waiting for the new Node to pair…` and the `Open Join Codes` list; after a reload it reads `A Join Code shows only when it is made. This one still works for <left>.`
+- `pairing-add-dialog` **Add a Node** on the Nodes landing opens the `Add a Node` dialog at `?add=<code id>`, with the `Join Code` `SLP1-…`, `Expires in 59:42. It pairs one Node.` ticking, Copy, the three ways (`First-run page.`, `slipstream join <code>`, `SLIPSTREAM_JOIN_CODE=<code>`), `Waiting for the new Node to pair…` and the `Open Join Codes` list; after a reload it reads `A Join Code shows only when it is made. This one still works for <left>.`
 - `pairing-add-dialog-paired` once a Node joins with the dialog's code, the dialog reads `seedbox paired.` with its `Key` (the Worker's fingerprint) and `Reached by` `seedbox dials home`; **Choose its Roles** shows the Role Groups with Searching and Downloading ticked, and **Review** then **Apply** lands on seedbox's Roles section with both held.
 - `pairing-add-dialog-reverse-dial` on `cgnat-home`, **The new Node can't reach home?** opens a `Node address` field; **home dials it** with the `nodeAddress` from `POST /api/v1/setup/worker` reads `home is dialing the new Node at <address>…` until it pairs, then `Reached by` `home dials seedbox`. An address nothing answers at reads `home can't reach the new Node at <address>. Check that the port is open.` after `timings.nodes.dial_report`.
 - `pairing-add-dialog-revoke` each open code's row has **Revoke**: another code's row (`Made <time>`) leaves the list and can no longer pair (`POST /api/v1/setup/worker` answers 403 `join_code_unknown`), and revoking `This code` reads `This Join Code was revoked, so no Node can use it.` with **New Join Code**.
@@ -25,11 +25,11 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 ## How to get to it (user POV)
 
 - Host CLI on the joining machine: `slipstream join --data-dir <dir> [--node-port <port>] <code>`, stopped or running; `slipstream node-address --data-dir <dir>`.
-- API on the Controller: `POST` and `GET /api/v1/join-codes`, `GET` and `DELETE /api/v1/join-codes/{id}`, `POST /api/v1/join-codes/{id}/dial`, `PUT /api/v1/nodes/{id}/dial` (`{"nodeAddress":"SLN1-…"}`, or `{"addresses":[]}` to stop dialing), `GET /api/v1/nodes`, `PATCH /api/v1/nodes/{id}` (`{"name":…}`) and `DELETE /api/v1/nodes/{id}[?writeOff=true]`. The skeleton has no Nodes screen, so no rename or remove action yet.
+- API on the Controller: `POST` and `GET /api/v1/join-codes`, `GET` and `DELETE /api/v1/join-codes/{id}`, `POST /api/v1/join-codes/{id}/dial`, `PUT /api/v1/nodes/{id}/dial` (`{"nodeAddress":"SLN1-…"}`, or `{"addresses":[]}` to stop dialing), `GET /api/v1/nodes`, `PATCH /api/v1/nodes/{id}` (`{"name":…}`) and `DELETE /api/v1/nodes/{id}[?writeOff=true]`. The Nodes Roster and a Node's Overview rename and remove a Node too; see nodes.md.
 - API on a removed Node: `GET /api/v1/status` carries `removed`, for the first-run page to say who removed it.
 - API on an Unclaimed Node: `POST /api/v1/setup/worker` with the Join Code and the Node's Setup code, then `GET /api/v1/setup/worker` while it awaits the dial.
 - Desktop and phone: the Worker's own URL, which shows only the Worker page.
-- Desktop and phone on the Controller: **Add a Node** in the header of any Node's page (on phone, the Node's top page), or `/nodes?add=<code id>`, which keeps a code's dialog open across a reload.
+- Desktop and phone on the Controller: **Add a Node**, the Nodes landing's action, or the `Add a Node` row under a lone Node on the Roster, or `/nodes?add=<code id>`, which keeps a code's dialog open across a reload.
 
 ## Driving it with fakeworld and the host CLI
 
@@ -202,13 +202,13 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/nodes'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add a Node" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add a Node", exact: true })'
   $FW exec $RUN --proof pairing/pairing-add-dialog -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("dialog")' --filename={runDir}/proof/pairing/pairing-add-dialog/open.aria.yml
   $FW exec $RUN --proof pairing/pairing-add-dialog -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/pairing/pairing-add-dialog/open.png
   CODE=$(grep -o 'SLP1-[0-9A-Z-]*' $RUN/proof/pairing/pairing-add-dialog/open.aria.yml | head -1)
   ```
 
-  On phone, the same from the Node's top page; the dialog is a sheet.
+  On phone, the same from the Nodes landing; the dialog is a sheet.
 
 - **Reverse dial through the dialog.** Claim seedbox with the code: 202 with `nodeAddress`. Open **The new Node can't reach home?**, paste it and press **home dials it**. The dialog reads `seedbox paired.` and `home dials seedbox`.
 
@@ -236,7 +236,7 @@ Steps:
 
   ```sh
   $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/join-codes'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add a Node" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add a Node", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
   $FW exec $RUN --proof pairing/pairing-add-dialog-revoke -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("dialog")' --filename={runDir}/proof/pairing/pairing-add-dialog-revoke/two-open.aria.yml
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: /^Revoke the code made / })'

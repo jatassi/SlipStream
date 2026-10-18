@@ -19,8 +19,8 @@ test("sign-in returns to the page asked for and sign-out ends the session", asyn
 
   await page.getByLabel("Email").clear();
   await declinePasskeyPrompt(page, await submitPin(page, `  ${email.toUpperCase()}  `, pin));
-  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  expect(new URL(page.url()).pathname).toMatch(/^\/nodes\/[0-9a-f-]{36}$/u);
+  await expect(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/nodes");
   await expectAccessible(page);
 
   await page.goto("/");

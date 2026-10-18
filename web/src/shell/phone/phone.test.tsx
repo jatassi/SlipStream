@@ -128,7 +128,7 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
   await userEvent.click(sheet.getByRole("button", { name: "Nodes" }));
   await expect.element(sheet).not.toBeInTheDocument();
   await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toMatch(/^\/nodes\/[0-9a-f-]{36}$/u);
+  expect(router.state.location.pathname).toBe("/nodes");
   await expect
     .element(tabs().getByRole("button", { name: "More" }))
     .not.toHaveAttribute("aria-current");

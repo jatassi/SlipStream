@@ -16,7 +16,7 @@ const dialog = (page: Page) => page.getByRole("dialog", { name: "Add a Node" });
 
 async function homePage(page: Page) {
   await page.goto("/nodes");
-  await expect(page.getByRole("button", { name: "Add a Node" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add a Node", exact: true })).toBeVisible();
 }
 
 // claimWorker is what the first-run page's Join form sends; S25 (First-run
@@ -32,7 +32,7 @@ async function claimSeedbox(world: World, code: string) {
 }
 
 async function mint(page: Page): Promise<string> {
-  await page.getByRole("button", { name: "Add a Node" }).click();
+  await page.getByRole("button", { name: "Add a Node", exact: true }).click();
   const code = dialog(page).getByRole("textbox", { name: "Join Code" });
   await expect(code).toHaveValue(/^SLP1-/u);
   return code.inputValue();

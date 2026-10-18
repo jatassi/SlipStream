@@ -1,0 +1,134 @@
+import type {
+  NodesRoleBoard,
+  NodesRoleView,
+  NodesTopology,
+  NodesTopologyNode,
+} from "../../../../api/gen/model";
+import { type Clock, sinceWords } from "../../../../format";
+import { dialOf, reachedBy } from "../../../../nodes/dial";
+import {
+  type Cluster,
+  type RoleName,
+  type Standing,
+  labelOf,
+  roleLine,
+} from "../../../../nodes/roles";
+import { type Finding, findingsOf } from "../-findings";
+import { type NodeState, stateWords } from "../-node";
+
+export type RoleChip = { readonly role: RoleName; readonly words: string };
+
+/** One Node as the Roster lists it and the Diagram draws it. */
+export type NodeRow = {
+  readonly id: string;
+  readonly name: string;
+  readonly controller: boolean;
+  readonly state: NodeState;
+  /** Its state in words, when it was last seen while away, and how it is reached. */
+  readonly facts: readonly string[];
+  readonly roles: readonly RoleChip[];
+  readonly findings: readonly Finding[];
+  /** It holds work for a Role, which can be written off. */
+  readonly holds: boolean;
+};
+
+export type Landing = {
+  readonly sentence: string;
+  readonly controller: string;
+  /** The Controller, then the Workers in pairing order. */
+  readonly nodes: readonly NodeRow[];
+};
+
+const capital = (words: string): string => words.charAt(0).toUpperCase() + words.slice(1);
+
+const standingOf = (node: NodesTopologyNode): Standing => ({
+  standing: node.state === "online" ? "in-step" : node.state,
+  since: node.since,
+});
+
+// The Node's own state says it is away, so a Role's chip only adds what the
+// Role itself is doing.
+const quiet = (view: NodesRoleView): boolean =>
+  view.state === "away" ||
+  view.state === "lapsed" ||
+  (view.state === "holding" && view.held === undefined);
+
+/** A Node's Roles as chips: each label, and what the Role is doing when that says more than the Node's own state. */
+export const roleChips = (
+  cluster: Cluster,
+  board: NodesRoleBoard,
+  roles: readonly NodesRoleView[],
+  standing: Standing,
+  clock: Clock,
+): RoleChip[] =>
+  roles.map((view) => {
+    const label = labelOf(board, view.role);
+    return {
+      role: view.role,
+      words: quiet(view) ? label : `${label} · ${roleLine(cluster, view, standing, clock)}`,
+    };
+  });
+
+// A Worker whose link is down says only that it is away.
+function reachOf(topology: NodesTopology, controller: string, node: NodesTopologyNode): string[] {
+  if (node.controller) {
+    return ["Controller"];
+  }
+  const by = dialOf(topology, node.id);
+  if (by === undefined) {
+    return [];
+  }
+  const rtt = topology.links.find(({ b }) => b === node.id)?.rttMs;
+  const reached = reachedBy(controller, { name: node.name, dial: { by } });
+  return [rtt === undefined ? reached : `${reached} · ${rtt} ms round trip`];
+}
+
+function rowOf(
+  topology: NodesTopology,
+  board: NodesRoleBoard,
+  controller: string,
+  state: NodeState,
+  node: NodesTopologyNode,
+  clock: Clock,
+): NodeRow {
+  const seen =
+    node.lastSeenAt === undefined ? [] : [`Last seen ${sinceWords(node.lastSeenAt, clock)}`];
+  return {
+    id: node.id,
+    name: node.name,
+    controller: node.controller,
+    state,
+    facts: [capital(stateWords[state]), ...seen, ...reachOf(topology, controller, node)],
+    roles: roleChips(topology, board, node.roles, standingOf(node), clock),
+    findings: findingsOf(node.probes),
+    holds: node.roles.some(({ held }) => held !== undefined),
+  };
+}
+
+/** The one reading of Topology that the Roster lists and the Diagram draws. */
+export function landingOf(
+  topology: NodesTopology,
+  board: NodesRoleBoard,
+  restarting: ReadonlySet<string>,
+  clock: Clock,
+): Landing {
+  const controller = topology.nodes.find((node) => node.controller);
+  if (controller === undefined) {
+    throw new Error("Topology has no Controller");
+  }
+  const ordered = [controller, ...topology.nodes.filter((node) => !node.controller)];
+  return {
+    sentence: topology.sentence,
+    controller: controller.name,
+    nodes: ordered.map((node) =>
+      rowOf(
+        topology,
+        board,
+        controller.name,
+        restarting.has(node.id) ? "restarting" : node.state,
+        node,
+        clock,
+      ),
+    ),
+  };
+}

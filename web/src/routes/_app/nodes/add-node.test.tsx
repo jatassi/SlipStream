@@ -6,7 +6,7 @@ import type { NodesBoardNode, NodesNode } from "../../../api/gen/model";
 import { problem } from "../../../test/handlers";
 import { codeText, joinCodeServer, nodesFrom } from "../../../test/join-codes";
 import { liveServer, synced } from "../../../test/live-server";
-import { home, homeId } from "../../../test/nodes";
+import { home } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
 import { board, boardIs, homeSeat, outcome, rolesServer } from "../../../test/roles";
 
@@ -42,7 +42,7 @@ const dialog = () => page.getByRole("dialog", { name: "Add a Node" });
 const button = (name: string) => dialog().getByRole("button", { name, exact: true });
 
 function addNode({
-  path = `/nodes/${homeId}`,
+  path = "/nodes",
   codes = joinCodeServer(),
   handlers = [],
 }: { path?: string; codes?: ReturnType<typeof joinCodeServer>; handlers?: RequestHandler[] } = {}) {
@@ -100,7 +100,7 @@ test("a reload keeps the dialog on its code and says the code's text shows only 
 test("a pasted Node address has home dial the new Node, then says when it can't reach it", async () => {
   const codes = joinCodeServer();
   const { id } = codes.mint();
-  addNode({ path: `/nodes/${homeId}?add=${id}`, codes });
+  addNode({ path: `/nodes?add=${id}`, codes });
   await userEvent.click(button("The new Node can't reach home?"));
   const address = dialog().getByRole("textbox", { name: "Node address" });
   await userEvent.fill(address, "not an address");
@@ -129,7 +129,7 @@ test("once the code is used the dialog shows the new Node's key and who dials, t
   const { id } = codes.mint();
   const roles = rolesServer({ plans: [outcome({})], sets: [outcome({})] });
   const { app, pair } = addNode({
-    path: `/nodes/${homeId}?add=${id}`,
+    path: `/nodes?add=${id}`,
     codes,
     handlers: [boardIs(board(homeSeat, vpsSeat)), ...roles.handlers],
   });
@@ -175,7 +175,7 @@ test("the open Join Codes revoke one handed out by mistake, and revoking this on
   const codes = joinCodeServer();
   codes.mint();
   const { id } = codes.mint();
-  addNode({ path: `/nodes/${homeId}?add=${id}`, codes });
+  addNode({ path: `/nodes?add=${id}`, codes });
   const open = dialog().getByRole("list", { name: "Open Join Codes" });
   await expect.element(open.getByRole("listitem")).toHaveLength(2);
   await userEvent.click(open.getByRole("button", { name: /^Revoke the code made /u }));

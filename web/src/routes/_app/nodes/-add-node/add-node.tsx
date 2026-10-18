@@ -1,6 +1,6 @@
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { isProblem, sentenceOf } from "../../../../api/errors";
 import type { NodesJoinCode } from "../../../../api/gen/model";
@@ -42,33 +42,45 @@ function useMint(controller: string) {
   return { minted, minting, failure, mint, close };
 }
 
+export type Adding = {
+  readonly start: () => void;
+  readonly minting: boolean;
+  readonly dialog: ReactNode;
+};
+
 /**
- * The Add a Node button and its dialog. The dialog follows the Join Code in
- * the address, so a reload keeps it open; the code's text lives only here.
+ * Starts adding a Node, and the dialog that follows it. The dialog follows
+ * the Join Code in the address, so a reload keeps it open; the code's text
+ * lives only here.
  */
-export function AddNode() {
+export function useAddNode(): Adding {
   const { add } = useSearch({ from: "/_app/nodes" });
   const navigate = useNavigate();
   const controller =
     useListNodesSuspense().data.nodes.find(({ self }) => self)?.name ?? "The Controller";
   const { minted, minting, failure, mint, close } = useMint(controller);
+  return {
+    start: () => void mint(false),
+    minting: minting && add === undefined,
+    dialog: (add !== undefined || failure !== undefined) && (
+      <AddNodeDialog
+        id={add}
+        minted={minted}
+        mint={{ minting, onMint: () => void mint(true) }}
+        failure={failure}
+        onClose={close}
+        onAdded={(node) => {
+          void navigate({ to: "/nodes/$nodeId/roles", params: { nodeId: node.id }, search: {} });
+        }}
+      />
+    ),
+  };
+}
+
+export function AddNodeButton({ adding }: { adding: Adding }) {
   return (
-    <>
-      <Button icon={Add01Icon} busy={minting && add === undefined} onClick={() => void mint(false)}>
-        Add a Node
-      </Button>
-      {(add !== undefined || failure !== undefined) && (
-        <AddNodeDialog
-          id={add}
-          minted={minted}
-          mint={{ minting, onMint: () => void mint(true) }}
-          failure={failure}
-          onClose={close}
-          onAdded={(node) => {
-            void navigate({ to: "/nodes/$nodeId/roles", params: { nodeId: node.id }, search: {} });
-          }}
-        />
-      )}
-    </>
+    <Button icon={Add01Icon} busy={adding.minting} onClick={adding.start}>
+      Add a Node
+    </Button>
   );
 }

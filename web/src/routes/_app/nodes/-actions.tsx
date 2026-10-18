@@ -4,9 +4,8 @@ import type { NodesNode } from "../../../api/gen/model";
 import { askRestart } from "../../../shell/restart/restart-state";
 import { Button } from "../../../ui/button";
 import { Spinner } from "../../../ui/spinner";
-import { AddNode } from "./-add-node/add-node";
 
-function RestartButton({ node, restarting }: { node: NodesNode; restarting: boolean }) {
+export function NodeActions({ node, restarting }: { node: NodesNode; restarting: boolean }) {
   return (
     <Button
       icon={RefreshIcon}
@@ -26,14 +25,5 @@ export function NodeRestarting({ name }: { name: string }) {
       <Spinner />
       <output>{name} is restarting…</output>
     </p>
-  );
-}
-
-export function NodeActions({ node, restarting }: { node: NodesNode; restarting: boolean }) {
-  return (
-    <div className="flex gap-2">
-      <AddNode />
-      <RestartButton node={node} restarting={restarting} />
-    </div>
   );
 }

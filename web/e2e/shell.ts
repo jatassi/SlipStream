@@ -34,6 +34,19 @@ export async function navigate(page: Page, to: Destination): Promise<void> {
     .click();
 }
 
+export async function openNode(page: Page, name: string): Promise<void> {
+  await navigate(page, "Nodes");
+  await page
+    .getByRole("navigation", { name: "View" })
+    .getByRole("link", { name: "Roster" })
+    .click();
+  await page
+    .getByRole("list", { name: "Roster" })
+    .getByRole("link", { name: named(name) })
+    .click();
+  await page.getByRole("heading", { name, level: 1 }).waitFor();
+}
+
 // The phone portal has no More sheet: Sign out sits on its Account tab.
 export async function signOut(page: Page): Promise<void> {
   const portal = new URL(page.url()).pathname.startsWith("/portal");

@@ -199,7 +199,7 @@ test("making an Admin a Member moves their open tab to the portal", async ({
   const tab = await (await newContext()).newPage();
   await signIn(tab, { ...grace, admin: true });
   await tab.goto("/system");
-  await expect(tab.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(tab.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
 
   await openAccount(adminPage, grace.displayName);
   await adminPage.getByRole("button", { name: "Make Member" }).click();

@@ -4,14 +4,14 @@ import { connect } from "node:net";
 import type { Page } from "@playwright/test";
 
 import { type World, expect, test } from "./fixtures.ts";
-import { navigate } from "./shell.ts";
+import { openNode } from "./shell.ts";
 
 test.describe.configure({ timeout: 120_000 });
 
 type Section = "Logs" | "Log settings";
 
-async function openSection(page: Page, section: Section): Promise<void> {
-  await navigate(page, "Nodes");
+async function openSection(page: Page, world: World, section: Section): Promise<void> {
+  await openNode(page, world.node.name);
   await page.getByRole("link", { name: new RegExp(`^${section}`, "u") }).click();
   await expect(page).toHaveURL(section === "Logs" ? /\/logs$/u : /\/log-settings$/u);
 }
@@ -56,12 +56,12 @@ test("a Debug level set in Log settings shows Debug lines live, through pause an
   adminPage: page,
   world,
 }) => {
-  await openSection(page, "Log settings");
+  await openSection(page, world, "Log settings");
   await page.getByRole("combobox", { name: "Level" }).click();
   await page.getByRole("option", { name: "Debug" }).click();
   await expect(page.getByText("Log settings saved")).toBeVisible();
 
-  await openSection(page, "Logs");
+  await openSection(page, world, "Logs");
   await expect(page.getByRole("status").filter({ hasText: /lines?$/u })).toBeVisible();
   await failLinkHandshake(world);
   await expect(handshakeRows(page)).toHaveCount(1, { timeout: 15_000 });

@@ -86,7 +86,7 @@ const listed = (names: readonly string[]): string =>
 
 const sentence = (words: string): string => words.charAt(0).toUpperCase() + words.slice(1);
 
-type Standing = Pick<NodesNode, "standing"> & { readonly since: string };
+export type Standing = Pick<NodesNode, "standing"> & { readonly since: string };
 
 const awayWords = ({ standing, since }: Standing, clock: Clock): string =>
   standing === "in-step" ? "Reconnecting" : sentence(awayLine(standing, since, clock));
@@ -110,19 +110,24 @@ const lines: {
     covered.length === 0 ? "Covering" : `Covering for ${listed(covered)}`,
 };
 
+/** Every Node with the Roles it stands in, as the role board and Topology both carry them. */
+export type Cluster = {
+  readonly nodes: readonly { readonly name: string; readonly roles: readonly NodesRoleView[] }[];
+};
+
 /** The Nodes whose Role has lapsed, which the Controller covers for. */
-export const coveredFor = (board: NodesRoleBoard, role: RoleName): string[] =>
-  board.nodes
+export const coveredFor = (cluster: Cluster, role: RoleName): string[] =>
+  cluster.nodes
     .filter(({ roles }) => roles.some((view) => view.role === role && view.state === "lapsed"))
     .map(({ name }) => name);
 
 /** What a Role is doing on its Node: "Draining · 3 torrents left", "Offline since 21:31". */
 export const roleLine = (
-  board: NodesRoleBoard,
+  cluster: Cluster,
   view: NodesRoleView,
   standing: Standing,
   clock: Clock,
-): string => lines[view.state](view, standing, coveredFor(board, view.role), clock);
+): string => lines[view.state](view, standing, coveredFor(cluster, view.role), clock);
 
 export type Hint = { readonly tone: "warn" | "block"; readonly text: string };
 
