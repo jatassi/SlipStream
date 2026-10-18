@@ -1259,6 +1259,7 @@ export type NodesCheckOutput = zod.output<typeof NodesCheck>;
 
 export const NodesDialing = zod.object({
   address: zod.string(),
+  addresses: zod.array(zod.string()).describe("Where the Controller dials the Node, in order"),
   since: zod.iso.datetime({ offset: true }),
   unreachable: zod
     .boolean()

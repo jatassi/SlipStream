@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -52,6 +53,7 @@ type codeState struct {
 
 type dialing struct {
 	Address     string    `json:"address"`
+	Addresses   []string  `json:"addresses" nullable:"false" doc:"Where the Controller dials the Node, in order"`
 	Since       time.Time `json:"since"`
 	Unreachable bool      `json:"unreachable" doc:"The Node hasn't paired within timings.nodes.dial_report of the paste"`
 }
@@ -87,12 +89,17 @@ type dialView struct {
 }
 
 func dialOf(d nodes.Dial) dialView {
-	out := dialView{ControllerDials: []string{}}
+	out := dialView{ControllerDials: addressesOf(d.ControllerDials)}
 	if d.By != nodes.NoSession {
 		out.By = d.By.String()
 	}
-	for _, a := range d.ControllerDials {
-		out.ControllerDials = append(out.ControllerDials, a.String())
+	return out
+}
+
+func addressesOf(as []netip.AddrPort) []string {
+	out := make([]string, 0, len(as))
+	for _, a := range as {
+		out = append(out, a.String())
 	}
 	return out
 }
@@ -167,7 +174,7 @@ func (h handlers) getJoinCode(ctx context.Context, _ identity.Admin, in *codeInp
 		out.NodeID = st.Node.String()
 	}
 	if d := st.Dialing; d != nil {
-		out.Dialing = &dialing{Address: d.Address.String(), Since: d.Since, Unreachable: d.Unreachable}
+		out.Dialing = &dialing{Address: d.Address.String(), Addresses: addressesOf(d.Address.Addresses()), Since: d.Since, Unreachable: d.Unreachable}
 	}
 	return &codeStateOutput{Body: out}, nil
 }

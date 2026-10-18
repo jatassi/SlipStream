@@ -435,8 +435,9 @@ func TestTheJoinCodeOperations(t *testing.T) {
 	var st struct {
 		State   string `json:"state"`
 		Dialing *struct {
-			Address     string `json:"address"`
-			Unreachable bool   `json:"unreachable"`
+			Address     string   `json:"address"`
+			Addresses   []string `json:"addresses"`
+			Unreachable bool     `json:"unreachable"`
 		} `json:"dialing"`
 	}
 	call(t, s, http.MethodGet, code, "", http.StatusOK, &st)
@@ -458,7 +459,7 @@ func TestTheJoinCodeOperations(t *testing.T) {
 		t.Fatalf("dialForCode answered %d %s, want 202", status, reply)
 	}
 	call(t, s, http.MethodGet, code, "", http.StatusOK, &st)
-	if st.Dialing == nil || st.Dialing.Address != box.String() || st.Dialing.Unreachable {
+	if st.Dialing == nil || st.Dialing.Address != box.String() || !slices.Equal(st.Dialing.Addresses, []string{"127.0.0.3:8485"}) || st.Dialing.Unreachable {
 		t.Fatalf("getJoinCode after the dial = %+v, want dialing %s", st, box)
 	}
 

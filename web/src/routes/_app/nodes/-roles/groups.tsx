@@ -69,6 +69,22 @@ function RoleRow({ row, onTick }: { row: Row; onTick: (on: boolean) => void }) {
 const noteworthy = (rows: readonly Row[]): boolean =>
   rows.some((row) => row.ticked || row.hint !== undefined || row.line !== undefined);
 
+// A group opens once it has something to show, unless the person closed it.
+function useOpen(rows: readonly Row[]): [boolean, (next: boolean) => void] {
+  const [open, setOpen] = useState(() => noteworthy(rows));
+  const [closedByHand, setClosedByHand] = useState(false);
+  if (!open && !closedByHand && noteworthy(rows)) {
+    setOpen(true);
+  }
+  return [
+    open,
+    (next) => {
+      setOpen(next);
+      setClosedByHand(!next);
+    },
+  ];
+}
+
 function GroupCard({
   group,
   rows,
@@ -80,7 +96,7 @@ function GroupCard({
   onGroup: (on: boolean) => void;
   onRole: (row: Row, on: boolean) => void;
 }) {
-  const [open, setOpen] = useState(() => noteworthy(rows));
+  const [open, setOpen] = useOpen(rows);
   const ticked = rows.filter((row) => row.ticked).length;
   return (
     <DisclosureCard

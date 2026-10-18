@@ -7,7 +7,7 @@ import { PageTabs, pageTab } from "../../../ui/page-tabs";
 import { useShell } from "../../../ui/shell-context";
 import { nodeOf, useNodeState } from "./-node";
 import { NodePicker, PhoneNodePicker } from "./-node-picker";
-import { NodeRestarting, RestartButton } from "./-restart";
+import { NodeActions, NodeRestarting } from "./-actions";
 import { SectionList } from "./-section-list";
 
 // On phone each section is its own page: the Node's top page carries the
@@ -26,11 +26,11 @@ export function NodeLayout({ nodeId }: { nodeId: string }) {
       </div>
     </>
   );
-  const restart = <RestartButton node={node} restarting={restarting} />;
+  const actions = <NodeActions node={node} restarting={restarting} />;
   const top = useMatch({ from: "/_app/nodes/$nodeId/", shouldThrow: false }) !== undefined;
   if (useShell() === "phone") {
     return (
-      <Page {...(top && { action: restart })}>
+      <Page {...(top && { action: actions })}>
         {top && nodes.length > 1 && <PhoneNodePicker nodes={nodes} current={node} />}
         {body}
         {top && <SectionList node={node} />}
@@ -38,7 +38,7 @@ export function NodeLayout({ nodeId }: { nodeId: string }) {
     );
   }
   return (
-    <Page title={node.name} action={restart}>
+    <Page title={node.name} action={actions}>
       {nodes.length > 1 && <NodePicker nodes={nodes} current={node.id} />}
       <PageTabs label={node.name}>
         {nodeSections.map((section) => (
