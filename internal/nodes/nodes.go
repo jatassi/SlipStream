@@ -73,6 +73,7 @@ type Link interface {
 	Keep(t link.Target)
 	Drop(key link.Key)
 	Invite(ctx context.Context, t link.Target) error
+	Stats(key link.Key) (link.Stats, bool)
 }
 
 type Config struct {
@@ -85,6 +86,8 @@ type Config struct {
 	Node    link.NodeInfo
 	Link    Link
 	Changed Publisher
+	// Traffic carries the sampled rates to Admins.
+	Traffic TrafficPublisher
 	// SettingsChanged is published whenever a Node's facts carry a new
 	// settings revision.
 	SettingsChanged SettingsPublisher
@@ -92,6 +95,10 @@ type Config struct {
 	Served []role.Served
 	// Owners keeps each Role's work: exactly one per Role of the table.
 	Owners []Owner
+	// Downloads is Downloading's control half in Served, and Kept the
+	// Grabs whose torrents a Node's client keeps.
+	Downloads Downloads
+	Kept      func(ctx context.Context, r storage.Reader[file], node ID) ([]Grabbed, error)
 	// Always is Roles every Node holds beyond its nodes_role rows: only a
 	// test's, as the simulation tier runs roletest's Probe.
 	Always  []role.Name
@@ -150,6 +157,8 @@ type Service struct {
 	// dmu guards kept: the Nodes the link keeps for nodes_dial.
 	dmu  sync.Mutex
 	kept map[link.Key]link.Target
+
+	meter *meter
 }
 
 // Open creates this Node's own row when it has none, holding every Role
@@ -170,6 +179,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		recount:   make(chan struct{}, 1),
 		invites:   map[JoinCodeID]*inviting{},
 		kept:      map[link.Key]link.Target{},
+		meter:     newMeter(2 * cfg.Timings.Traffic),
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -223,6 +233,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		Nodes:   s,
 		Scope:   s.scope,
 		Changed: s.changed,
+		Facts:   s.factsIn,
 		Touched: s.touched,
 		InStep:  s.inStep,
 		Seen:    s.seen,

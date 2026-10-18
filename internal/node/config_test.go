@@ -36,7 +36,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
 		"timings.link.join_dial", "timings.link.await_dial",
-		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
+		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
 		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.downloading.facts", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 	}
 	if !slices.Equal(paths, want) {

@@ -1,6 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import {
+  getGetNodeQueryKey,
+  getGetTopologyQueryKey,
+  getListNodesQueryKey,
+} from "../api/gen/query/nodes/nodes";
 import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
 import type { LiveEffects } from "./types";
@@ -32,7 +36,10 @@ export const systemEffects = {
     void queryClient.invalidateQueries({ queryKey: getListNodesQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetNodeQueryKey(data.nodeId) });
     void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+    void queryClient.invalidateQueries({ queryKey: getGetTopologyQueryKey() });
   },
+  // Samples feed the Diagram alone, so no query caches them.
+  "nodes.traffic": () => {},
   "node.settings-changed": (data, { queryClient }) => {
     void queryClient.invalidateQueries({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
     void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
@@ -54,5 +61,5 @@ export const systemEffects = {
   },
 } satisfies Pick<
   LiveEffects,
-  "nodes.changed" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
+  "nodes.changed" | "nodes.traffic" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
 >;

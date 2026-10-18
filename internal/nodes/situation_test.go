@@ -27,6 +27,7 @@ func (noLink) Keep(link.Target) {}
 func (noLink) Drop(link.Key) {}
 
 func (noLink) Invite(context.Context, link.Target) error { return nil }
+func (noLink) Stats(link.Key) (link.Stats, bool)         { return link.Stats{}, false }
 
 type unheard struct{}
 

@@ -18,6 +18,8 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - `nodes-serving` on a Worker holding Serving, its own address serves the Controller's app: the Admin signs in there with the Controller's PIN and lands on the Library, `GET /api/v1/system` there reports the Controller's data dir, the live stream carries the Controller's events, and a passkey added there signs in there.
 - `nodes-serving-unreachable` with the Controller stopped, every page at the Serving Worker's address lands on `/serving`, headed `home can't be reached from seedbox since <time>.` over `seedbox keeps seeding and finishes what it started.` and `Holding Searching and Downloading · seeding 0 torrents.`; its API answers 503 `controller_unreachable`, and `GET /api/v1/serving` answers the card's facts and no request. Once the Controller answers again the card goes back to the app.
 - `nodes-dial` `GET /api/v1/nodes` holds each Node's `dial`: `by` names the side that dialed its live session, `node` or `controller`, and `controllerDials` lists the addresses the Controller dials it at, empty when the Node dials the Controller. `PUT /api/v1/nodes/{id}/dial` with `{"addresses":[]}` empties it, and a `nodeAddress` with another Node's key answers 409 `node_key_mismatch`. The pasted dial itself is in pairing.md.
+- `nodes-topology` `GET /api/v1/nodes/topology` answers every Node with its `state` (`online`, `reconnecting`, `offline`, `lapsed` or `mismatched`), `since`, `lastSeenAt` while away, its Roles and, for a Node in step that stands in Downloading, `resources.downloading.torrents` with each Grab's id, title, `done`, `wanted` and `peers`; `links` holds the Controller's link to each Worker with its `dialer`, `state` and `rttMs`; and `sentence` says what stands out, `Both Nodes are online.` on the baseline and `seedbox is reconnecting.` just after seedbox stops.
+- `nodes-traffic` while bytes move on a link or through a torrent client, an Admin's live stream carries `nodes.traffic` at most once a second: each live link's `abBps`, `baBps` and `rttMs`, and each reporting Node's `downBps`, `upBps` and `torrents` with each Grab's `done` and `peers`; once nothing moves, one more sample reads every rate 0 and the samples stop.
 - `nodes-cli` `slipstream config set --data-dir <dir> <key> <value>` prints `<key>: <value>`, ending `, applies after restart` for a restart key, the Node's page shows the change, `config unset` prints the default, and `slipstream restart --data-dir <dir>` prints the Node's web address once its successor answers.
 
 ## How to get to it (user POV)
@@ -25,7 +27,7 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 - Desktop shell: the sidebar's `Nodes`, below the separator and above `Tasks`, which opens `/nodes` and lands on `/nodes/<id>`; the page tabs `Overview`, `Web and API`, `Logs` and `Log settings` sit under the Node's name, and `Restart` is the page's action in the top bar. The `Nodes` row stays current on every Node page. The account menu holds `Restart SlipStream…` between the Startup sequence switch and `Sign out`.
 - Phone shell: the `More` tab, then the `Nodes` button in the sheet `More`, listed above `Tasks`, then a section's row in the list named for the Node; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
 - Both shells: the palette's `Go to Nodes`, `Go to Overview`, `Go to Web and API`, `Go to Logs` and `Go to Log settings` for the browser's own Node, and `Restart SlipStream…`.
-- API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids and their `dial`, `PUT /api/v1/nodes/{id}/dial`, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live event `node.settings-changed`.
+- API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids and their `dial`, `PUT /api/v1/nodes/{id}/dial`, `GET /api/v1/nodes/topology`, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live events `node.settings-changed` and `nodes.traffic`.
 - Serving: a Worker that holds Serving, at its own address (`{nodes.seedbox.browserUrl}` on `serving`); `/serving` is its status card, and `GET /api/v1/serving` (no sign-in) answers any Worker's facts.
 - Host CLI: `slipstream version` prints the same build stamp; `slipstream config set --data-dir <dir> <key> <value>`, `config unset` and `restart --data-dir <dir>`.
 
@@ -142,6 +144,17 @@ Steps:
   HOME_ADDR=$($FW exec $RUN -- {runDir}/bin/slipstream node-address --data-dir {nodes.home.dataDir})
   $FW exec $RUN --proof nodes/nodes-dial -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"nodeAddress\":\"$HOME_ADDR\"}" "{nodes.home.url}/api/v1/nodes/$BOX/dial"
   $FW exec $RUN --proof nodes/nodes-dial -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"addresses":[]}' "{nodes.home.url}/api/v1/nodes/$BOX/dial"
+  ```
+
+- **Read the topology and its traffic, then stop seedbox.** The topology reads both Nodes `online`, `Both Nodes are online.`, and the link up, dialed by seedbox, with an `rttMs`. seedbox's Beat moves bytes every 15 seconds, so within a minute the admin stream holds `nodes.traffic` samples with the link's rates, each run of moving samples ending in one at rest. Stop seedbox: the topology reads it `reconnecting` with `lastSeenAt`, the sentence `seedbox is reconnecting.`, and the link `down` with no `dialer`. Start it again after.
+
+  ```sh
+  $FW exec $RUN --proof nodes/nodes-topology -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/topology'
+  $FW exec $RUN -- sleep 60
+  $FW exec $RUN --proof nodes/nodes-traffic -- $RUN/bin/fakeworld sse list $RUN --as admin --event nodes.traffic
+  $FW node stop $RUN seedbox
+  $FW exec $RUN --proof nodes/nodes-topology -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/topology'
+  $FW node start $RUN seedbox
   ```
 
 - **Choose a Worker in the picker.** On `Logs`, choose `Node`, then `seedbox`: the URL keeps `/logs`, the heading reads `seedbox` and its lines stream through the Controller. Its Overview equals the per-Node API's facts.

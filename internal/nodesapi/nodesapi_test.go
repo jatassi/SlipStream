@@ -93,6 +93,7 @@ func (unadvertised) Keep(link.Target) {}
 func (unadvertised) Drop(link.Key) {}
 
 func (unadvertised) Invite(context.Context, link.Target) error { return nil }
+func (unadvertised) Stats(link.Key) (link.Stats, bool)         { return link.Stats{}, false }
 
 type changes struct{}
 

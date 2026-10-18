@@ -44,6 +44,7 @@ var Events = []live.Event{
 	identity.PasskeysChangedEvent,
 	nodes.ChangedEvent,
 	nodes.SettingsChangedEvent,
+	nodes.TrafficEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
 	targets.ChangedEvent,

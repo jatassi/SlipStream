@@ -560,6 +560,14 @@ func Routes(r *api.Router, roster Roster) {
 	}, h.getRoleBoard)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "getTopology",
+		Method:  http.MethodGet,
+		Path:    "/nodes/topology",
+		Summary: "Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates",
+		Status:  http.StatusOK,
+	}, h.getTopology)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "planRoles",
 		Method:  http.MethodPost,
 		Path:    "/nodes/roles/plan",

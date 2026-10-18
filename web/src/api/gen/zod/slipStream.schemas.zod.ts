@@ -1137,6 +1137,24 @@ export const NodesDialView = zod.object({
 export type NodesDialView = zod.input<typeof NodesDialView>;
 export type NodesDialViewOutput = zod.output<typeof NodesDialView>;
 
+export const NodesTorrentView = zod.object({
+  done: zod.int().describe("Bytes downloaded"),
+  grabId: zod.uuid(),
+  peers: zod.int(),
+  title: zod.string(),
+  wanted: zod.int().describe("Bytes the torrent's selected files hold"),
+});
+
+export type NodesTorrentView = zod.input<typeof NodesTorrentView>;
+export type NodesTorrentViewOutput = zod.output<typeof NodesTorrentView>;
+
+export const NodesDownloadingResource = zod.object({
+  torrents: zod.array(NodesTorrentView).describe("Each Grab whose torrent the client keeps"),
+});
+
+export type NodesDownloadingResource = zod.input<typeof NodesDownloadingResource>;
+export type NodesDownloadingResourceOutput = zod.output<typeof NodesDownloadingResource>;
+
 export const NodesDrains = zod.object({
   held: NodesHeld,
   kind: zod.enum(["drains"]),
@@ -1356,6 +1374,17 @@ export const NodesLink = zod.object({
 export type NodesLink = zod.input<typeof NodesLink>;
 export type NodesLinkOutput = zod.output<typeof NodesLink>;
 
+export const NodesLinkTraffic = zod.object({
+  a: zod.uuid().describe("The Controller"),
+  abBps: zod.int().describe("Bytes a second from a to b, TLS records included"),
+  b: zod.uuid().describe("The Worker"),
+  baBps: zod.int().describe("Bytes a second from b to a, TLS records included"),
+  rttMs: zod.int().describe("The link's round trip; 0 until its first ping is answered"),
+});
+
+export type NodesLinkTraffic = zod.input<typeof NodesLinkTraffic>;
+export type NodesLinkTrafficOutput = zod.output<typeof NodesLinkTraffic>;
+
 export const nodesNodeIntentVersionRegExp = new RegExp("^[0-9a-f]{32}$");
 
 export const NodesNode = zod.object({
@@ -1399,6 +1428,25 @@ export const NodesNodeList = zod.object({
 export type NodesNodeList = zod.input<typeof NodesNodeList>;
 export type NodesNodeListOutput = zod.output<typeof NodesNodeList>;
 
+export const NodesTorrentTraffic = zod.object({
+  done: zod.int(),
+  grabId: zod.uuid(),
+  peers: zod.int(),
+});
+
+export type NodesTorrentTraffic = zod.input<typeof NodesTorrentTraffic>;
+export type NodesTorrentTrafficOutput = zod.output<typeof NodesTorrentTraffic>;
+
+export const NodesNodeTraffic = zod.object({
+  downBps: zod.int().describe("Payload bytes a second its torrents download"),
+  id: zod.uuid(),
+  torrents: zod.array(NodesTorrentTraffic).describe("Each Grab whose torrent its client keeps"),
+  upBps: zod.int().describe("Payload bytes a second its torrents upload"),
+});
+
+export type NodesNodeTraffic = zod.input<typeof NodesNodeTraffic>;
+export type NodesNodeTrafficOutput = zod.output<typeof NodesNodeTraffic>;
+
 export const NodesOpenCode = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
   expiresAt: zod.iso.datetime({ offset: true }),
@@ -1427,6 +1475,15 @@ export const NodesOutcome = zod.object({
 
 export type NodesOutcome = zod.input<typeof NodesOutcome>;
 export type NodesOutcomeOutput = zod.output<typeof NodesOutcome>;
+
+export const NodesResources = zod.object({
+  downloading: NodesDownloadingResource.exactOptional().describe(
+    "Its torrent client; absent unless the Node stands in Downloading and is in step",
+  ),
+});
+
+export type NodesResources = zod.input<typeof NodesResources>;
+export type NodesResourcesOutput = zod.output<typeof NodesResources>;
 
 export const NodesRoleBoard = zod.object({
   basis: zod.string(),
@@ -1471,6 +1528,68 @@ export const NodesSettingsPatch = zod.object({
 
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
 export type NodesSettingsPatchOutput = zod.output<typeof NodesSettingsPatch>;
+
+export const NodesTopologyLink = zod.object({
+  a: zod.uuid().describe("The Controller"),
+  b: zod.uuid().describe("The Worker"),
+  dialer: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Node that dialed the live session; absent while the link is down"),
+  rttMs: zod
+    .int()
+    .exactOptional()
+    .describe("The live session's round trip; absent until its first ping is answered"),
+  state: zod.enum(["up", "down", "mismatched"]),
+});
+
+export type NodesTopologyLink = zod.input<typeof NodesTopologyLink>;
+export type NodesTopologyLinkOutput = zod.output<typeof NodesTopologyLink>;
+
+export const NodesTopologyNode = zod.object({
+  controller: zod.boolean(),
+  id: zod.uuid(),
+  lastSeenAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("Its last Sync frame; absent while it is online"),
+  name: zod.string(),
+  resources: NodesResources,
+  roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
+  self: zod.boolean().describe("The Node answering, which is the Controller"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("When it came in step; while away, its last Sync frame"),
+  state: zod.enum(["online", "reconnecting", "offline", "lapsed", "mismatched"]),
+});
+
+export type NodesTopologyNode = zod.input<typeof NodesTopologyNode>;
+export type NodesTopologyNodeOutput = zod.output<typeof NodesTopologyNode>;
+
+export const NodesTopology = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  links: zod
+    .array(NodesTopologyLink)
+    .describe("The link between the Controller and each Worker, in the Workers' id order"),
+  nodes: zod.array(NodesTopologyNode).describe("Every Node, in id order"),
+  sentence: zod.string().describe("What stands out across the Nodes, in plain words"),
+});
+
+export type NodesTopology = zod.input<typeof NodesTopology>;
+export type NodesTopologyOutput = zod.output<typeof NodesTopology>;
+
+export const NodesTraffic = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  links: zod
+    .array(NodesLinkTraffic)
+    .describe("Every live link, between the Controller and a Worker"),
+  nodes: zod
+    .array(NodesNodeTraffic)
+    .describe("Every Node whose torrent client reports, in id order"),
+});
+
+export type NodesTraffic = zod.input<typeof NodesTraffic>;
+export type NodesTrafficOutput = zod.output<typeof NodesTraffic>;
 
 export const NodesWriteOffBody = zod.object({
   roles: zod
@@ -2672,6 +2791,14 @@ export const LiveEventNodesChanged = zod.object({
 export type LiveEventNodesChanged = zod.input<typeof LiveEventNodesChanged>;
 export type LiveEventNodesChangedOutput = zod.output<typeof LiveEventNodesChanged>;
 
+export const LiveEventNodesTraffic = zod.object({
+  event: zod.enum(["nodes.traffic"]),
+  data: NodesTraffic,
+});
+
+export type LiveEventNodesTraffic = zod.input<typeof LiveEventNodesTraffic>;
+export type LiveEventNodesTrafficOutput = zod.output<typeof LiveEventNodesTraffic>;
+
 export const LiveEventRootsChanged = zod.object({
   event: zod.enum(["roots.changed"]),
   data: RootsChanged,
@@ -2736,6 +2863,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveSessionEnded,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
+  LiveEventNodesTraffic,
   LiveEventRootsChanged,
   LiveEventTargetsChanged,
   LiveEventTasksChanged,

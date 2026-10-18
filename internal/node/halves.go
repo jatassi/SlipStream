@@ -96,10 +96,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Node:    n.info,
 		Link:    n.link,
 		Changed: nodes.ChangedEvent.Bind(n.hub),
+		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads}, n.env.Test.Served...),
 		Owners:          owners(),
+		Downloads:       downloads,
+		Kept:            grabs.Kept,
 		Always:          n.env.Test.Always,
 		Timings:         n.cfg.Timings.Nodes,
 		Stall:           n.cfg.Timings.Role.Stall,
