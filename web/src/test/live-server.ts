@@ -1,6 +1,8 @@
 import { HttpResponse, http, sse } from "msw";
+import { expect } from "vitest";
 
 import type { IdentityAccount } from "../api/gen/model";
+import { getGetSessionQueryKey } from "../api/gen/query/identity/identity";
 
 import { type LiveMap, ada, problem } from "./handlers";
 import type { renderApp } from "./render-app";
@@ -48,6 +50,16 @@ export function liveServer() {
       account = next;
     },
   };
+}
+
+// The stream reports open before it reads the server's opening live.resync,
+// which would invalidate anything seeded in between. That resync refetches the
+// session the shell loaded on entry, so its second answer marks it handled.
+export async function synced({ live, queryClient }: ReturnType<typeof renderApp>) {
+  await expect.poll(() => live.getState()).toBe("open");
+  await expect
+    .poll(() => queryClient.getQueryState(getGetSessionQueryKey())?.dataUpdateCount)
+    .toBe(2);
 }
 
 // seeded caches an empty answer under each key and reads which were since
