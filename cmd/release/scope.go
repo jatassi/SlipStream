@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	register("scope", "print how much CI runs for the changes from base to head: docs, pr or native; also sets the online output when the change touches what the online job checks, and the package output when it touches what the packages are built from", runScope)
+	register("scope", "print how much CI runs for the changes from base to head: docs, pr or native; also sets the online output when the change touches what the online job checks, the link output when it touches what link-measure measures, and the package output when it touches what the packages are built from", runScope)
 }
 
 func runScope(ctx context.Context, args []string) error {
@@ -34,18 +34,22 @@ func runScope(ctx context.Context, args []string) error {
 	}
 	scope := changescope.Of(changes)
 	online := changescope.Online(changes)
+	link := changescope.Link(changes)
 	packaging := changescope.Packaging(changes)
 	if *explain {
 		if err := explainScope(os.Stdout, changes, scope); err != nil {
 			return err
 		}
-		fmt.Printf("online: %t\npackage: %t\n", online, packaging)
+		fmt.Printf("online: %t\nlink: %t\npackage: %t\n", online, link, packaging)
 	}
 	fmt.Println(scope)
 	if err := githubOutput("scope", scope.String()); err != nil {
 		return err
 	}
 	if err := githubOutput("online", strconv.FormatBool(online)); err != nil {
+		return err
+	}
+	if err := githubOutput("link", strconv.FormatBool(link)); err != nil {
 		return err
 	}
 	return githubOutput("package", strconv.FormatBool(packaging))
