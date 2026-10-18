@@ -40,6 +40,20 @@ func suggested(t *testing.T, a *worldtest.API, name string) []string {
 	return nil
 }
 
+// topologyProbes is the probes home's topology draws for the Node named
+// name.
+func topologyProbes(t *testing.T, a *worldtest.API, name string) []worldtest.Probe {
+	t.Helper()
+	topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+	for _, n := range topo.Nodes {
+		if n.Name == name {
+			return n.Probes
+		}
+	}
+	t.Fatalf("the topology has no node %s", name)
+	return nil
+}
+
 // TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere lists every
 // probe fitting on both Nodes, and the board suggests Searching and
 // Downloading for seedbox. Restarted with its downloads folder on a file,
@@ -77,11 +91,8 @@ func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 		if got := seedbox(t, a).Probes; !slices.Equal(got, want) {
 			t.Fatalf("listNodes has seedbox's probes %+v, want %+v", got, want)
 		}
-		topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
-		for _, n := range topo.Nodes {
-			if n.Name == "seedbox" && !slices.Equal(n.Probes, want) {
-				t.Fatalf("the topology has seedbox's probes %+v, want %+v", n.Probes, want)
-			}
+		if got := topologyProbes(t, a, "seedbox"); !slices.Equal(got, want) {
+			t.Fatalf("the topology has seedbox's probes %+v, want %+v", got, want)
 		}
 		if got := suggested(t, a, "seedbox"); !slices.Equal(got, []string{"searching"}) {
 			t.Fatalf("the board suggests %v for seedbox, want Searching alone", got)
