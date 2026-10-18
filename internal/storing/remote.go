@@ -61,7 +61,6 @@ func (r Remote) Suggest(ctx context.Context, node role.NodeID, text string) ([]s
 	return res.GetPaths(), nil
 }
 
-// MakeFolder makes name in the existing folder parent, answering its path.
 func (r Remote) MakeFolder(ctx context.Context, node role.NodeID, parent, name string) (string, error) {
 	res, err := r(node).MakeFolder(ctx, &storagev1.MakeFolderRequest{Parent: parent, Name: name})
 	if err != nil {
@@ -70,7 +69,6 @@ func (r Remote) MakeFolder(ctx context.Context, node role.NodeID, parent, name s
 	return res.GetPath(), nil
 }
 
-// Check judges path as a root's folder on node, apart from others.
 func (r Remote) Check(ctx context.Context, node role.NodeID, path string, others []Other) (CheckResult, error) {
 	req := &storagev1.CheckRequest{Path: path}
 	for _, o := range others {
@@ -166,7 +164,6 @@ func (r Remote) Remove(ctx context.Context, at At, rel Rel) error {
 	return err
 }
 
-// List names what the root's held folder holds.
 func (r Remote) List(ctx context.Context, at At, folder HeldFolder) ([]string, error) {
 	res, err := r(at.Node).List(ctx, &storagev1.ListRequest{RootId: at.Root.Bytes(), Folder: folder.Wire()})
 	if err != nil {

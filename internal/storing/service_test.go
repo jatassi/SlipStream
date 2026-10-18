@@ -51,8 +51,8 @@ func TestBrowseTypesEveryError(t *testing.T) {
 		remote := remoteOf(newStore(d))
 		base := t.TempDir()
 		denied, hung, broken := dir(t, base, "denied"), dir(t, base, "hung"), dir(t, base, "broken")
-		d.set(d.denied, denied, true)
-		d.set(d.broken, broken, true)
+		d.flag(d.denied, denied)
+		d.flag(d.broken, broken)
 		release := d.hang(hung)
 		defer release()
 		for _, c := range []struct {
@@ -84,7 +84,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 		dir(t, base, name)
 	}
 	write(t, filepath.Join(base, "notes.txt"), "x")
-	d.set(d.unreadable, filepath.Join(base, "Locked"), true)
+	d.flag(d.unreadable, filepath.Join(base, "Locked"))
 	want := []Folder{
 		{"Locked", filepath.Join(base, "Locked"), false},
 		{"season 1", filepath.Join(base, "season 1"), true},
@@ -159,9 +159,9 @@ type listing struct {
 
 type folderInfo struct{}
 
-func (folderInfo) Dir() bool        { return true }
-func (folderInfo) Size() int64      { return 0 }
-func (folderInfo) Same(o Info) bool { return false }
+func (folderInfo) Dir() bool      { return true }
+func (folderInfo) Size() int64    { return 0 }
+func (folderInfo) Same(Info) bool { return false }
 
 func (l listing) Host() Host { return Host{Style: l.style} }
 
@@ -186,8 +186,8 @@ func TestSuggestKeepsTheTypedSeparators(t *testing.T) {
 		many = append(many, fmt.Sprintf("Show %d", i))
 	}
 	windows := remoteOf(NewStore(Config{Disk: listing{style: Windows, folders: map[string][]string{
-		`D:\`:       {"Media", "meetings", "Music", "$RECYCLE.BIN"},
-		`D:\Media`:  {"Movies", "Music Videos", "TV"},
+		`D:\`:       {"Media", "meetings", "Maps", "$RECYCLE.BIN"},
+		`D:\Media`:  {"Movies", "Mixes", "TV"},
 		`D:\Shows`:  many,
 		`\\nas\tv\`: {"Anime", "Archive"},
 	}}, Timings: Timings{Stat: time.Second}}))
@@ -201,7 +201,7 @@ func TestSuggestKeepsTheTypedSeparators(t *testing.T) {
 	}{
 		{windows, `D:/Me`, []string{"D:/Media", "D:/meetings"}},
 		{windows, `d:\me`, []string{`d:\Media`, `d:\meetings`}},
-		{windows, `D:\Media/m`, []string{`D:\Media/Movies`, `D:\Media/Music Videos`}},
+		{windows, `D:\Media/m`, []string{`D:\Media/Mixes`, `D:\Media/Movies`}},
 		{windows, `\\nas\tv\A`, []string{`\\nas\tv\Anime`, `\\nas\tv\Archive`}},
 		{windows, `D:\Gone\x`, nil},
 		{windows, `D:`, nil},
@@ -268,7 +268,7 @@ func TestCheckReasons(t *testing.T) {
 	movies, tv := storage.NewUUID(), storage.NewUUID()
 	moviesAt := dir(t, base, "movies")
 	readOnly := dir(t, base, "read-only")
-	d.set(d.readOnly, readOnly, true)
+	d.flag(d.readOnly, readOnly)
 	others := []Other{{movies, moviesAt}}
 	remote := remoteOf(newStore(d))
 	for _, c := range []struct {

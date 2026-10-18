@@ -19,14 +19,9 @@ import (
 )
 
 const (
-	// suggestions is the most folders Suggest answers.
 	suggestions = 25
-	// verifyBatch is the most files one Verify call checks.
 	verifyBatch = 500
 )
-
-// The StorageService handlers parse the wire into the domain calls below
-// and back; nothing else sees the wire.
 
 func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*storagev1.BrowseResponse, error) {
 	l, err := s.browse(ctx, req.GetPath(), req.GetShowHidden())
@@ -359,7 +354,6 @@ func (s *Store) suggest(ctx context.Context, typed string) ([]string, error) {
 	return paths, nil
 }
 
-// makeFolder makes name in the existing folder parent.
 func (s *Store) makeFolder(ctx context.Context, parent, name string) (string, error) {
 	dir, err := s.clean(parent)
 	if err != nil {
@@ -401,8 +395,11 @@ var reasonOf = map[FolderErrorKind]Reason{
 // a temp file.
 func (s *Store) check(ctx context.Context, path string, others []Other) (CheckResult, error) {
 	dir, err := s.host.Style.Clean(path)
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrNotAbsolute):
 		return CheckResult{Path: path, Refusal: &Refusal{Reason: ReasonNotAbsolute}}, nil
+	case err != nil:
+		return CheckResult{}, err
 	}
 	c := CheckResult{Path: dir}
 	m, err := s.read(ctx, dir)
@@ -453,7 +450,6 @@ func (s *Store) identity(ctx context.Context) func(a, b string) bool {
 	}
 }
 
-// tryWrite writes and removes a temp file in dir.
 func (s *Store) tryWrite(ctx context.Context, dir string) error {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
@@ -543,10 +539,7 @@ func (s *Store) list(ctx context.Context, root storage.UUID, folder HeldFolder) 
 		return nil, err
 	}
 	es, err := s.entries(ctx, s.host.Style.Join(dir, folder.String()))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, s.folderError(err)
 	}
 	names := make([]string, 0, len(es))

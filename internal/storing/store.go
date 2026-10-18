@@ -55,7 +55,6 @@ type Store struct {
 	resampled map[string]time.Time
 }
 
-// intentRoot is one root of the intent, parsed.
 type intentRoot struct {
 	id    storage.UUID
 	path  string
@@ -414,7 +413,7 @@ func (s *Store) resolve(ctx context.Context, root storage.UUID, place bool) (str
 	return "", &NotReady{State: state}
 }
 
-// root is the intent's root id. The caller holds s.mu.
+// The caller holds s.mu.
 func (s *Store) root(id storage.UUID) (intentRoot, bool) {
 	for _, r := range s.roots {
 		if r.id == id {
@@ -498,7 +497,8 @@ func timed[T any](ctx context.Context, s *Store, key string, fn func(context.Con
 		<-done
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if s.stuck[key]--; s.stuck[key] == 0 {
+		s.stuck[key]--
+		if s.stuck[key] == 0 {
 			delete(s.stuck, key)
 		}
 	}()

@@ -169,7 +169,7 @@ func TestAFolderWithoutItsMarkerReadsUnmounted(t *testing.T) {
 		d := newTestDisk(t)
 		empty, gone, ready, foreign, readOnly, file := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 		readOnlyAt := marked(t, readOnly)
-		d.set(d.readOnly, readOnlyAt, true)
+		d.flag(d.readOnly, readOnlyAt)
 		h := running(t, newStore(d), intentOf(
 			rootAt(empty, t.TempDir(), false),
 			rootAt(gone, filepath.Join(t.TempDir(), "unplugged"), false),

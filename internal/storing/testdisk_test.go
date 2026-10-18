@@ -66,10 +66,11 @@ func (d *testDisk) hang(path string) (release func()) {
 	}
 }
 
-func (d *testDisk) set(m map[string]bool, path string, on bool) {
+// flag sets one of the disk's faults on path.
+func (d *testDisk) flag(m map[string]bool, path string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	m[path] = on
+	m[path] = true
 }
 
 func (d *testDisk) count(op, path string) int {
@@ -101,9 +102,12 @@ func (d *testDisk) fault(ctx context.Context, op, path string) error {
 
 type osInfo struct{ fi fs.FileInfo }
 
-func (i osInfo) Dir() bool        { return i.fi.IsDir() }
-func (i osInfo) Size() int64      { return i.fi.Size() }
-func (i osInfo) Same(o Info) bool { return os.SameFile(i.fi, o.(osInfo).fi) }
+func (i osInfo) Dir() bool   { return i.fi.IsDir() }
+func (i osInfo) Size() int64 { return i.fi.Size() }
+func (i osInfo) Same(o Info) bool {
+	other, ok := o.(osInfo)
+	return ok && os.SameFile(i.fi, other.fi)
+}
 
 func (d *testDisk) Stat(ctx context.Context, path string) (Info, error) {
 	if err := d.fault(ctx, "stat", path); err != nil {
@@ -111,7 +115,7 @@ func (d *testDisk) Stat(ctx context.Context, path string) (Info, error) {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		return nil, err
+		return nil, err //nolint:wrapcheck // the OS's own error, as a Disk answers it
 	}
 	return osInfo{fi}, nil
 }
@@ -122,7 +126,7 @@ func (d *testDisk) ReadDir(ctx context.Context, dir string) ([]Entry, error) {
 	}
 	des, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return nil, err //nolint:wrapcheck // the OS's own error, as a Disk answers it
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -139,14 +143,14 @@ func (d *testDisk) Mkdir(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "mkdir", path); err != nil {
 		return err
 	}
-	return os.Mkdir(path, 0o750)
+	return os.Mkdir(path, 0o750) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Open(ctx context.Context, path string) (io.ReadCloser, error) {
 	if err := d.fault(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	return os.Open(path) //nolint:gosec // a test's temp file
+	return os.Open(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
@@ -159,21 +163,21 @@ func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
 	if ro {
 		return nil, &fs.PathError{Op: "open", Path: path, Err: errors.New("read-only file system")}
 	}
-	return os.Create(path) //nolint:gosec // a test's temp file
+	return os.Create(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Remove(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "remove", path); err != nil {
 		return err
 	}
-	return os.Remove(path)
+	return os.Remove(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Rename(ctx context.Context, from, to string) error {
 	if err := d.fault(ctx, "rename", to); err != nil {
 		return err
 	}
-	return os.Rename(from, to)
+	return os.Rename(from, to) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Link(ctx context.Context, from, to string) error {
@@ -186,7 +190,7 @@ func (d *testDisk) Link(ctx context.Context, from, to string) error {
 	if refuse {
 		return &os.LinkError{Op: "link", Old: from, New: to, Err: errors.New("operation not permitted")}
 	}
-	return os.Link(from, to)
+	return os.Link(from, to) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Writable(ctx context.Context, dir string) (bool, error) {
@@ -194,7 +198,7 @@ func (d *testDisk) Writable(ctx context.Context, dir string) (bool, error) {
 		return false, err
 	}
 	if _, err := os.Stat(dir); err != nil {
-		return false, err
+		return false, err //nolint:wrapcheck // the OS's own error, as a Disk answers it
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
