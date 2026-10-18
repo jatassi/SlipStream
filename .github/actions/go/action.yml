@@ -15,7 +15,7 @@ runs:
     # faster than setup-go installs go.mod's version. The temp drive is the
     # fast one on Windows.
     - name: Install a Go to bootstrap go.mod's toolchain
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ">=1.21"
         cache: false

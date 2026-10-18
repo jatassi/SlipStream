@@ -552,7 +552,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/query-core 5.104.2 (npm package)
+@tanstack/query-core 5.104.4 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -606,7 +606,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/react-query 5.104.2 (npm package)
+@tanstack/react-query 5.104.4 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -633,7 +633,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/react-router 1.170.42 (npm package)
+@tanstack/react-router 1.170.45 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -687,7 +687,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/react-virtual 3.14.15 (npm package)
+@tanstack/react-virtual 3.14.21 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -714,7 +714,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/router-core 1.171.35 (npm package)
+@tanstack/router-core 1.171.38 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -768,7 +768,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/virtual-core 3.19.0 (npm package)
+@tanstack/virtual-core 3.19.6 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -1135,7 +1135,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE
 SOFTWARE.
 
 ================================================================================
-connectrpc.com/connect/v2 v2.0.0 (Go module)
+connectrpc.com/connect/v2 v2.0.1 (Go module)
 License: Apache-2.0
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -1404,7 +1404,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-framer-motion 14.1.0 (npm package)
+framer-motion 14.3.0 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -1678,7 +1678,7 @@ SOFTWARE.
 <http://www.opensource.org/licenses/mit-license.php>
 
 ================================================================================
-github.com/fxamacker/cbor/v2 v2.9.4 (Go module)
+github.com/fxamacker/cbor/v2 v2.9.6 (Go module)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -1791,7 +1791,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWIS
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-github.com/godbus/dbus/v5 v5.1.0 (Go module)
+github.com/godbus/dbus/v5 v5.2.4 (Go module)
 License: BSD-2-Clause
 Targets: windows-amd64, darwin-arm64
 
@@ -2110,7 +2110,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-github.com/klauspost/cpuid/v2 v2.4.0 (Go module)
+github.com/klauspost/cpuid/v2 v2.4.1 (Go module)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -2137,7 +2137,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-github.com/libp2p/go-buffer-pool v0.0.2 (Go module)
+github.com/libp2p/go-buffer-pool v0.1.0 (Go module)
 License: BSD-3-Clause AND MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -2662,7 +2662,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-github.com/philhofer/fwd v1.2.0 (Go module)
+github.com/philhofer/fwd v1.2.1 (Go module)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -2943,7 +2943,7 @@ Apache License
    limitations under the License.
 
 ================================================================================
-github.com/tinylib/msgp v1.6.4 (Go module)
+github.com/tinylib/msgp v1.6.5 (Go module)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -6977,7 +6977,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Lesser General Public License for more details.
 
 ================================================================================
-modernc.org/libc v1.78.0 (Go module)
+modernc.org/libc v1.79.0 (Go module)
 License: BSD-3-Clause
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -9132,7 +9132,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-motion 14.1.0 (npm package)
+motion 14.3.0 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -9159,7 +9159,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-motion-dom 14.1.0 (npm package)
+motion-dom 14.3.0 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -9186,7 +9186,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-motion-utils 14.1.0 (npm package)
+motion-utils 14.1.1 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -9594,7 +9594,7 @@ Apache License
    END OF TERMS AND CONDITIONS
 
 ================================================================================
-react 19.3.0 (npm package)
+react 19.3.1 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 
@@ -9621,7 +9621,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-react-dom 19.3.0 (npm package)
+react-dom 19.3.1 (npm package)
 License: MIT
 Targets: linux-amd64, linux-arm64, windows-amd64, darwin-arm64
 

@@ -16,7 +16,7 @@ const confirm = (name: string) => page.getByRole("dialog", { name });
 test("the account menu asks before restarting SlipStream, and Cancel restarts nothing", async () => {
   const restart = restarts();
   renderApp({ path: "/library", handlers: [...nodeSystems().handlers, restart.handler] });
-  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await expect
     .element(page.getByRole("menu"))
     .toMatchTextContent(/Startup sequence.*Restart SlipStream….*Sign out$/u);
