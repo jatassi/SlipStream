@@ -13,6 +13,11 @@ export async function expectAccessible(page: Page): Promise<void> {
         .map((animation) => animation.finished),
     ),
   );
+  // A row scrolled under the sticky top bar fails target-size, wherever the
+  // last click left the page.
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
   // Base UI gives its focus guards role="button" in WebKit, so VoiceOver can
   // land on them; they are focus traps, not commands, and have no name.
   const { violations } = await new AxeBuilder({ page })
