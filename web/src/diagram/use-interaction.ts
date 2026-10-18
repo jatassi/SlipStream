@@ -172,7 +172,8 @@ function onKey(
 
 /**
  * The Diagram's pointer and keys. Hover and the idle tour preview a part;
- * a click or the arrow keys select one, and Escape clears. Where it takes
+ * a click selects the part it pressed, the arrow keys step through them,
+ * and Escape clears. Where it takes
  * drags, a Role chip dragged onto another tile shows the plan's verdict and
  * a drop asks for the change.
  */
@@ -181,6 +182,7 @@ export function useInteraction(options: Options): Interaction {
   const parts = useMemo(() => partsOf(landing), [landing]);
   const [preview, setPreview] = useState<Part>();
   const drag = useDrag(svg, options.onDrop);
+  const pressed = useRef<Part>(undefined);
   const hold = useTour(options.still || drag.dragging !== undefined, parts, setPreview);
 
   useEffect(() => {
@@ -191,9 +193,12 @@ export function useInteraction(options: Options): Interaction {
 
   useListened(figure, (event) => {
     const handlers: Handlers = { ...options, parts, preview, setPreview, hold, drag };
+    if (event.type === "pointerdown") {
+      pressed.current = partAt(event.target);
+    }
     if (event.type === "click") {
-      if (!drag.endsDrag() && event instanceof MouseEvent) {
-        options.onSelect(partAt(document.elementFromPoint(event.clientX, event.clientY)));
+      if (!drag.endsDrag()) {
+        options.onSelect(pressed.current);
       }
     } else if (event instanceof PointerEvent) {
       onPointer(event, handlers);

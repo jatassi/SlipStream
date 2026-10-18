@@ -156,3 +156,14 @@ test("a click on a Role chip, which a press would start dragging, opens the Insp
   await userEvent.keyboard("{Escape}");
   await expect.element(inspector).not.toBeInTheDocument();
 });
+
+test("a click on a link selects the link it pressed, though the click's point misses the thin conduit", async () => {
+  renderApp({ path: "/nodes", handlers: dragServer().handlers });
+  await expect.element(diagram()).toBeVisible();
+  const conduit = document.querySelector(`[data-link="${ids.vps}"] path`);
+  const away = { bubbles: true, clientX: 0, clientY: 0, pointerId: 1, button: 0 };
+  for (const type of ["pointerdown", "pointerup", "click"]) {
+    conduit?.dispatchEvent(new PointerEvent(type, away));
+  }
+  await expect.element(page.getByRole("complementary", { name: "home and vps" })).toBeVisible();
+});
