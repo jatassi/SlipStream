@@ -15,9 +15,11 @@ import { useId } from "react";
 
 import { box, dots, group, halo, item, line, mark, screws, type Drawn, type Item } from "./part";
 import { faceY, roundRect } from "./face";
+import { wiring } from "./lead";
 
 // Storage's machine: a steel cabinet of four drawers. It stands still until
-// S16 (Library roots) gives it live figures.
+// S16 (Library roots) gives it live figures. Its cable leaves under the
+// bottom drawer's lip, so the cabinet draws it between its body and drawers.
 
 const CAB: Plan = { x: 40, y: -114, w: 84, d: 50, r: 3 };
 const FRONT = CAB.y + CAB.d;
@@ -124,6 +126,11 @@ function drawer(P: Projection, index: number): Drawn {
 }
 
 export function cabinet(P: Projection): Item {
+  const lead = wiring(P, "storage.lead", {
+    from: [CAB.x + 12, FRONT, 5],
+    toward: [0, 1],
+    reach: 10,
+  });
   const vents: string[] = [];
   for (let index = 0; index < 7; index++) {
     const y0 = CAB.y + 8 + index * 4.6;
@@ -159,7 +166,9 @@ export function cabinet(P: Projection): Item {
           />
         </g>,
       ),
+      ...lead.parts,
       ...Array.from({ length: DRAWERS }, (_, index) => drawer(P, index)),
     ],
+    [lead.pipe],
   );
 }

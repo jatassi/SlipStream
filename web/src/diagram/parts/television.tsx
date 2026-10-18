@@ -1,6 +1,5 @@
 import {
   type Plan,
-  type Point3,
   type Projection,
   corners,
   insetPlan,
@@ -9,7 +8,7 @@ import {
   roundedPlan,
   sideSeam,
 } from "@anatomy/iso-kit";
-import { fillet, frameAlong } from "@anatomy/lathe";
+import { frameAlong } from "@anatomy/lathe";
 
 import {
   type Drawn,
@@ -25,11 +24,10 @@ import {
   post,
 } from "./part";
 import { faceY, roundRect } from "./face";
-import { tube } from "./tube";
 
-// Media Server link's machine: a small television on a stand, its cable run
-// down into the tile. Its screen stays dark until the Media Server link
-// reports whether the Media Server answers.
+// Media Server link's machine: a small television on a stand. Its screen
+// stays dark until the Media Server link reports whether the Media Server
+// answers.
 
 const FOOT: Plan = { x: -10, y: -7, w: 20, d: 14, r: 2 };
 const NECK_TOP = 9;
@@ -39,7 +37,6 @@ const CASE_TOP = CASE_Z + 21;
 const BACK: Plan = { x: -10, y: -14, w: 20, d: 6.4, r: 2.4 };
 const FRONT = CASE.y + CASE.d;
 const SCREEN = { u0: -12, u1: 5, z0: CASE_Z + 3, z1: CASE_TOP - 3 } as const;
-const GROMMET: [number, number] = [0, -20];
 
 function face(P: Projection): Drawn {
   const grille: string[] = [];
@@ -85,17 +82,6 @@ function ears(P: Projection): Drawn[] {
   });
 }
 
-function cable(P: Projection): ReturnType<typeof tube> {
-  const route: Point3[] = [
-    [4, BACK.y, CASE_Z + 6],
-    [4, GROMMET[1] + 2, CASE_Z + 6],
-    [4, GROMMET[1] + 2, 3],
-    [GROMMET[0], GROMMET[1], 3],
-    [GROMMET[0], GROMMET[1], 1.6],
-  ];
-  return tube(P, "media-server-link.cable", fillet(route, 2.4, 6), 0.8, { tone: "lo" });
-}
-
 /** Slots on a side face at x, from u0 along -y, each `w` wide and `h` tall from z. */
 function slots(
   P: Projection,
@@ -124,20 +110,17 @@ function stand(P: Projection): Drawn[] {
   return [
     halo(P, FOOT, 0, 2, 5),
     box(P, "media-server-link.foot", FOOT, 0, 2, { tone: "lo", bevel: 0.4 }),
-    post(P, "media-server-link.grommet", GROMMET, 2.4, 0, 1.6, { tone: "lo", steps: 20 }),
     post(P, "media-server-link.neck", [0, 0], 2.2, 2, NECK_TOP - 2, { steps: 20 }),
     post(P, "media-server-link.swivel", [0, 0], 4, NECK_TOP, 1.2, { tone: "lo", steps: 24 }),
   ];
 }
 
 export function television(P: Projection): Item {
-  const lead = cable(P);
   return item(
     "media-server-link",
     [0, 0, 0],
     [
       ...stand(P),
-      lead,
       box(P, "media-server-link.back", BACK, CASE_Z + 2, CASE_TOP - CASE_Z - 4, {
         bevel: 0.6,
         inner: line(sideSeam(BACK, CASE_Z + 10, P, 3), "faint").el,
@@ -173,6 +156,5 @@ export function television(P: Projection): Item {
       post(P, "media-server-link.mount", [0, -2], 2.4, CASE_TOP, 2.2, { steps: 20, bevel: 0.3 }),
       ...ears(P),
     ],
-    [lead.pipe],
   );
 }
