@@ -28,6 +28,8 @@ type Topology struct {
 type TopologyNode struct {
 	NodeView
 	Roles []RoleView
+	// Probes is the Node's last probe verdicts, kept while it is away.
+	Probes []role.ProbeResult
 	// Downloading is its client's torrents, nil unless it is in step and
 	// stands in Downloading.
 	Downloading *Downloading
@@ -66,7 +68,7 @@ func (s *Service) Topology(ctx context.Context) (Topology, error) {
 			if err != nil {
 				return err
 			}
-			n := TopologyNode{NodeView: v, Roles: board.Roles(v.ID, held)}
+			n := TopologyNode{NodeView: v, Roles: board.Roles(v.ID, held), Probes: s.probesOf(v.ID)}
 			if v.Standing == InStep && board.Who(role.Downloading).Serves(v.ID) {
 				kept, err := s.cfg.Kept(ctx, r, v.ID)
 				if err != nil {

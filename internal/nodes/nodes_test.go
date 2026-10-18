@@ -101,6 +101,8 @@ type controller struct {
 	pub     *published
 	traffic *heard
 	stop    func()
+	// edit changes the roster's Config at each open.
+	edit []func(*nodes.Config)
 }
 
 // lockstep serves the Controls' Sync streams once the Service is open.
@@ -109,13 +111,13 @@ func (s *side) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ServeHTTP(w, r)
 }
 
-func startController(t *testing.T) *controller {
+func startController(t *testing.T, edit ...func(*nodes.Config)) *controller {
 	t.Helper()
 	net := fault.NewNetwork()
 	s := &side{}
 	node := linktest.Start(t, net, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Lockstep: s})
 	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
-	c := &controller{net: net, node: node, lib: lib}
+	c := &controller{net: net, node: node, lib: lib, edit: edit}
 	c.open(t, s)
 	return c
 }
@@ -124,7 +126,7 @@ func startController(t *testing.T) *controller {
 func (c *controller) open(t *testing.T, s *side) {
 	t.Helper()
 	pub, traffic := &published{}, &heard{}
-	svc, err := nodes.Open(t.Context(), nodes.Config{
+	cfg := nodes.Config{
 		Library:   c.lib,
 		Key:       c.node.Key,
 		Name:      "home",
@@ -137,7 +139,11 @@ func (c *controller) open(t *testing.T, s *side) {
 		Timings:   nodes.DefaultTimings(),
 		Stall:     45 * time.Second,
 		Log:       discard,
-	})
+	}
+	for _, e := range c.edit {
+		e(&cfg)
+	}
+	svc, err := nodes.Open(t.Context(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -726,7 +732,7 @@ func TestPruneJoinCodesKeepsAnExpiredCodeOneLifetime(t *testing.T) {
 	})
 }
 
-func TestReachIsEachNodesSyncSessionAndWhenItWasLastSeen(t *testing.T) {
+func TestANodesLinkIsItsSyncSessionSinceItWasLastSeen(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startController(t)
 		opened := time.Now()
@@ -734,14 +740,14 @@ func TestReachIsEachNodesSyncSessionAndWhenItWasLastSeen(t *testing.T) {
 		_, id := c.pair(t, w, c.mint(t), "box")
 		reach := func(node role.NodeID, link nodes.LinkState, since time.Time) {
 			t.Helper()
-			if got, at := c.svc.Reach(node); got != link || !at.Equal(since) {
-				t.Errorf("Reach(%s) = %s since %s, want %s since %s", node, got, at, link, since)
+			n, err := c.svc.Get(t.Context(), node)
+			if err != nil || n.Link != link || !n.Since.Equal(since) {
+				t.Errorf("node %s's link is %s since %s (%v), want %s since %s", node, n.Link, n.Since, err, link, since)
 			}
 		}
 		synctest.Wait()
 		reach(c.svc.Self(), nodes.Local, opened)
 		reach(id, nodes.Down, opened)
-		reach(role.NodeID{UUID: storage.NewUUID()}, nodes.Down, opened)
 		time.Sleep(time.Minute)
 		stop := c.hold(t, w)
 		synctest.Wait()

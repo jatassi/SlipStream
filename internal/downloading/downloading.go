@@ -160,6 +160,9 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 	return filepath.Join(c.savePath(h), filepath.FromSlash(files[i].Path)), nil
 }
 
+// Dir is the folder each torrent's save path is in.
+func (c *Client) Dir() string { return c.cfg.Dir }
+
 func (c *Client) savePath(h bencode.InfoHash) string { return filepath.Join(c.cfg.Dir, h.String()) }
 
 // Run is the Role's run function, reporting through local. It adds each

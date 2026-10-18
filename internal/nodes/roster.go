@@ -32,6 +32,8 @@ type Timings struct {
 	// Traffic is how often the link's and torrents' rates are sampled and
 	// sent to Admins while bytes move.
 	Traffic time.Duration `yaml:"traffic"`
+	// Reach bounds each reach test from a Node.
+	Reach time.Duration `yaml:"reach"`
 }
 
 func DefaultTimings() Timings {
@@ -42,6 +44,7 @@ func DefaultTimings() Timings {
 		DialInvite:  10 * time.Minute,
 		DialReport:  30 * time.Second,
 		Traffic:     time.Second,
+		Reach:       10 * time.Second,
 	}
 }
 
@@ -363,7 +366,8 @@ func (s *Service) settle(ctx context.Context) error {
 }
 
 // situation is what Plan reads now: each live Node as a Seat, away unless
-// board has it in step, with the work each owner counts on it.
+// board has it in step, with its last probes and the work each owner
+// counts on it, and the Reach Roles whose owner has a target.
 func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *Board) (Situation, error) {
 	rows, err := loadRows(ctx, r)
 	if err != nil {
@@ -381,11 +385,28 @@ func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *
 			Assigned: n.assigned,
 			Forfeit:  n.forfeit,
 			Away:     !ok || v.Standing != InStep,
+			Probes:   map[role.Probe]role.ProbeResult{},
 			Held:     held,
 			Moves:    moves,
 		}
+		for _, p := range s.probesOf(n.id) {
+			seats[i].Probes[p.Probe] = p
+		}
 	}
-	return Situation{Controller: s.self, Seats: seats}, nil
+	sit := Situation{Controller: s.self, Seats: seats}
+	for _, name := range role.Names() {
+		if !name.Rule().Reach {
+			continue
+		}
+		_, ok, err := s.owners[name].Reach(ctx, r)
+		if err != nil {
+			return Situation{}, fmt.Errorf("read the %s target: %w", name, err)
+		}
+		if ok {
+			sit.Targets = sit.Targets.With(name)
+		}
+	}
+	return sit, nil
 }
 
 // work is what each Role's owner counts on node: tied work as held, and

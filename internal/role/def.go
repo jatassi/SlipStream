@@ -31,6 +31,8 @@ type Timings struct {
 	RestartMax time.Duration `yaml:"restart_max"`
 	Beat       time.Duration `yaml:"beat"`
 	Stall      time.Duration `yaml:"stall"`
+	// Probe is how often a Node runs its probes again after its start.
+	Probe time.Duration `yaml:"probe"`
 }
 
 // Def binds a Role's name to its intent, facts and result messages.

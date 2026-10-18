@@ -63,6 +63,7 @@ type Holding struct {
 type Host struct {
 	HTTPAddress      netip.AddrPort
 	SettingsRevision string
+	Probes           []ProbeResult
 }
 
 // SetHost records v for the node scope's facts, which supervise sends

@@ -186,7 +186,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 				JoinDial:      20 * time.Second,
 				AwaitDial:     10 * time.Minute,
 			},
-			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second, Stall: 45 * time.Second},
+			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second, Stall: 45 * time.Second, Probe: 10 * time.Minute},
 			Nodes:       nodes.DefaultTimings(),
 			Works:       works.DefaultTimings(),
 			Indexers:    indexers.DefaultTimings(),

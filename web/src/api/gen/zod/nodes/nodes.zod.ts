@@ -9,6 +9,7 @@ import {
   NodesNodeList,
   NodesOpenCodes,
   NodesOutcome,
+  NodesPlanChange,
   NodesRenameBody,
   NodesRoleBoard,
   NodesRolesChange,
@@ -77,7 +78,7 @@ export const SetRolesResponse = NodesOutcome;
 /**
  * @summary Plan a change of Roles without applying it
  */
-export const PlanRolesBody = NodesRolesChange;
+export const PlanRolesBody = NodesPlanChange;
 
 export const PlanRolesResponse = NodesOutcome;
 

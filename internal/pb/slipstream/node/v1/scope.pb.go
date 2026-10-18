@@ -85,8 +85,9 @@ func (x *NodeIntent) GetName() string {
 
 // NodeFacts is the node scope's facts: the Roles the holder half has
 // assigned, running and waiting to restart, the node-scope version it
-// applied, the address its web server bound, and a digest of its Node
-// settings view, which changes whenever the view does.
+// applied, the address its web server bound, a digest of its Node
+// settings view, which changes whenever the view does, and the verdict of
+// each probe it ran.
 type NodeFacts struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Assigned         []string               `protobuf:"bytes,1,rep,name=assigned,proto3" json:"assigned,omitempty"`
@@ -95,6 +96,7 @@ type NodeFacts struct {
 	AppliedVersion   []byte                 `protobuf:"bytes,4,opt,name=applied_version,json=appliedVersion,proto3" json:"applied_version,omitempty"`
 	HttpAddress      string                 `protobuf:"bytes,5,opt,name=http_address,json=httpAddress,proto3" json:"http_address,omitempty"`
 	SettingsRevision string                 `protobuf:"bytes,6,opt,name=settings_revision,json=settingsRevision,proto3" json:"settings_revision,omitempty"`
+	Probes           []*ProbeFact           `protobuf:"bytes,7,rep,name=probes,proto3" json:"probes,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -171,6 +173,83 @@ func (x *NodeFacts) GetSettingsRevision() string {
 	return ""
 }
 
+func (x *NodeFacts) GetProbes() []*ProbeFact {
+	if x != nil {
+		return x.Probes
+	}
+	return nil
+}
+
+// ProbeFact is one probe's verdict: fit is a role.Fit, and reason is why
+// it is weak or fails, empty when it fits.
+type ProbeFact struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Probe         string                 `protobuf:"bytes,1,opt,name=probe,proto3" json:"probe,omitempty"`
+	Fit           int32                  `protobuf:"varint,2,opt,name=fit,proto3" json:"fit,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	AtUnixMs      int64                  `protobuf:"varint,4,opt,name=at_unix_ms,json=atUnixMs,proto3" json:"at_unix_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeFact) Reset() {
+	*x = ProbeFact{}
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeFact) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeFact) ProtoMessage() {}
+
+func (x *ProbeFact) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeFact.ProtoReflect.Descriptor instead.
+func (*ProbeFact) Descriptor() ([]byte, []int) {
+	return file_slipstream_node_v1_scope_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ProbeFact) GetProbe() string {
+	if x != nil {
+		return x.Probe
+	}
+	return ""
+}
+
+func (x *ProbeFact) GetFit() int32 {
+	if x != nil {
+		return x.Fit
+	}
+	return 0
+}
+
+func (x *ProbeFact) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *ProbeFact) GetAtUnixMs() int64 {
+	if x != nil {
+		return x.AtUnixMs
+	}
+	return 0
+}
+
 var File_slipstream_node_v1_scope_proto protoreflect.FileDescriptor
 
 const file_slipstream_node_v1_scope_proto_rawDesc = "" +
@@ -180,7 +259,7 @@ const file_slipstream_node_v1_scope_proto_rawDesc = "" +
 	"NodeIntent\x12\x14\n" +
 	"\x05roles\x18\x01 \x03(\tR\x05roles\x12\x1a\n" +
 	"\bdraining\x18\x02 \x03(\tR\bdraining\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\"\xda\x01\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"\x91\x02\n" +
 	"\tNodeFacts\x12\x1a\n" +
 	"\bassigned\x18\x01 \x03(\tR\bassigned\x12\x18\n" +
 	"\arunning\x18\x02 \x03(\tR\arunning\x12\x1e\n" +
@@ -189,7 +268,14 @@ const file_slipstream_node_v1_scope_proto_rawDesc = "" +
 	"restarting\x12'\n" +
 	"\x0fapplied_version\x18\x04 \x01(\fR\x0eappliedVersion\x12!\n" +
 	"\fhttp_address\x18\x05 \x01(\tR\vhttpAddress\x12+\n" +
-	"\x11settings_revision\x18\x06 \x01(\tR\x10settingsRevisionB\xd3\x01\n" +
+	"\x11settings_revision\x18\x06 \x01(\tR\x10settingsRevision\x125\n" +
+	"\x06probes\x18\a \x03(\v2\x1d.slipstream.node.v1.ProbeFactR\x06probes\"i\n" +
+	"\tProbeFact\x12\x14\n" +
+	"\x05probe\x18\x01 \x01(\tR\x05probe\x12\x10\n" +
+	"\x03fit\x18\x02 \x01(\x05R\x03fit\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x12\x1c\n" +
+	"\n" +
+	"at_unix_ms\x18\x04 \x01(\x03R\batUnixMsB\xd3\x01\n" +
 	"\x16com.slipstream.node.v1B\n" +
 	"ScopeProtoP\x01ZCgithub.com/jatassi/slipstream/internal/pb/slipstream/node/v1;nodev1\xa2\x02\x03SNX\xaa\x02\x12Slipstream.Node.V1\xca\x02\x12Slipstream\\Node\\V1\xe2\x02\x1eSlipstream\\Node\\V1\\GPBMetadata\xea\x02\x14Slipstream::Node::V1b\x06proto3"
 
@@ -205,17 +291,19 @@ func file_slipstream_node_v1_scope_proto_rawDescGZIP() []byte {
 	return file_slipstream_node_v1_scope_proto_rawDescData
 }
 
-var file_slipstream_node_v1_scope_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_slipstream_node_v1_scope_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_slipstream_node_v1_scope_proto_goTypes = []any{
 	(*NodeIntent)(nil), // 0: slipstream.node.v1.NodeIntent
 	(*NodeFacts)(nil),  // 1: slipstream.node.v1.NodeFacts
+	(*ProbeFact)(nil),  // 2: slipstream.node.v1.ProbeFact
 }
 var file_slipstream_node_v1_scope_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2, // 0: slipstream.node.v1.NodeFacts.probes:type_name -> slipstream.node.v1.ProbeFact
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_node_v1_scope_proto_init() }
@@ -229,7 +317,7 @@ func file_slipstream_node_v1_scope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_node_v1_scope_proto_rawDesc), len(file_slipstream_node_v1_scope_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

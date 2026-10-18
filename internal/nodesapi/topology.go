@@ -28,6 +28,7 @@ type topologyNode struct {
 	Since      time.Time  `json:"since" doc:"When it came in step; while away, its last Sync frame"`
 	LastSeenAt *time.Time `json:"lastSeenAt,omitempty" doc:"Its last Sync frame; absent while it is online"`
 	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
+	Probes     []probe    `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran, kept while it is away"`
 	Resources  resources  `json:"resources"`
 }
 
@@ -69,7 +70,7 @@ func topologyOf(t nodes.Topology) topology {
 	for _, n := range t.Nodes {
 		v := topologyNode{
 			ID: n.ID.String(), Name: n.Name, Self: n.Controller, Controller: n.Controller,
-			State: nodeStates[n.Standing], Since: n.Since, Roles: rolesOf(n.Roles),
+			State: nodeStates[n.Standing], Since: n.Since, Roles: rolesOf(n.Roles), Probes: probesOf(n.Probes),
 		}
 		if n.Controller {
 			controller = v.ID

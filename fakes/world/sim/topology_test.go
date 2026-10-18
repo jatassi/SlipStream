@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
@@ -57,9 +58,10 @@ func (u *uploading) Status(h engine.Handle) (engine.Status, error) {
 type topologyView struct {
 	Sentence string `json:"sentence"`
 	Nodes    []struct {
-		ID        string `json:"id"`
-		Name      string `json:"name"`
-		State     string `json:"state"`
+		ID        string            `json:"id"`
+		Name      string            `json:"name"`
+		State     string            `json:"state"`
+		Probes    []worldtest.Probe `json:"probes"`
 		Resources struct {
 			Downloading *struct {
 				Torrents []struct {
