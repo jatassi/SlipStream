@@ -5,7 +5,6 @@ import type { Unwanted } from "./use-impact-save";
 const counted = (count: number, one: string, many: string) =>
   `${String(count)} ${count === 1 ? one : many}`;
 
-/** What a change does, one plain sentence per count it has. */
 export function impactLines(impact: TargetsImpact): string[] {
   const { works, ownList, unwanted, renamed, newlyWanted, downloading } = impact;
   return [
@@ -23,7 +22,6 @@ export function impactLines(impact: TargetsImpact): string[] {
   ].filter((line) => line !== false);
 }
 
-/** The save button's words: the action, and what becomes of the files that fill nothing. */
 export function saveLabel(action: string, impact: TargetsImpact, unwanted: Unwanted): string {
   const count = impact.unwanted.files;
   return count === 0 ? action : `${action} and ${unwanted} ${counted(count, "file", "files")}`;

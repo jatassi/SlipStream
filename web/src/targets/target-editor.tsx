@@ -8,14 +8,7 @@ import { targetSections } from "./editor";
 import { useImpactSheet } from "./impact-sheet";
 import { type Save, SectionEditor } from "./section-editor";
 
-/** The Target editor, from targetSections. Without `save` it edits but offers no Save. */
-export function TargetEditor({
-  initial,
-  save,
-}: {
-  initial: TargetDraft;
-  save?: Save<TargetDraft>;
-}) {
+export function TargetEditor({ initial, save }: { initial: TargetDraft; save: Save<TargetDraft> }) {
   return (
     <SectionEditor
       sections={targetSections}
@@ -26,7 +19,6 @@ export function TargetEditor({
   );
 }
 
-/** A saved Target's editor, whose Save goes through the Impact. */
 export function SavedTargetEditor({
   target,
   qualities,

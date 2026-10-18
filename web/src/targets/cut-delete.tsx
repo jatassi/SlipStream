@@ -5,7 +5,6 @@ import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
 import type { Opening } from "./cut-dialogs";
 
-/** Deletes the cut, naming what holds it when the Node refuses. */
 async function deleting(cut: TargetsCut) {
   try {
     await deleteCut(cut.key);

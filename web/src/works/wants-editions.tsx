@@ -3,7 +3,6 @@ import { EditionsControl } from "../targets/editions-control";
 import { Button } from "../ui/button";
 import { type WantsDraft, editionsOf } from "./wants-draft";
 
-/** The Work's Edition list: its Profile's, or its own once edited, with Reset to Profile. */
 export function WantsEditions({
   draft,
   profile,

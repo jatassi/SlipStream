@@ -1,7 +1,6 @@
 import type { TargetsProfile } from "../api/gen/model";
 import { Select } from "../ui/select";
 
-/** Picks one of a Content Type's Profiles, its default marked. */
 export function ProfilePicker({
   profiles,
   value,

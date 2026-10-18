@@ -15,14 +15,7 @@ import {
 } from "./profile-draft";
 import { type Save, SectionEditor } from "./section-editor";
 
-/** The Profile editor, from profileSections. Without `save` it edits but offers no Save. */
-export function ProfileEditor({
-  initial,
-  save,
-}: {
-  initial: ProfileDraft;
-  save?: Save<ProfileDraft>;
-}) {
+function ProfileEditor({ initial, save }: { initial: ProfileDraft; save: Save<ProfileDraft> }) {
   return (
     <SectionEditor
       sections={profileSections}
@@ -33,7 +26,6 @@ export function ProfileEditor({
   );
 }
 
-/** A new Profile's editor, for Content Type `contentType` until the Admin picks another. */
 export function NewProfileEditor({ contentType }: { contentType: string }) {
   const navigate = useNavigate();
   return (
@@ -51,7 +43,6 @@ export function NewProfileEditor({ contentType }: { contentType: string }) {
   );
 }
 
-/** A saved Profile's editor, whose Save goes through the Impact. */
 export function SavedProfileEditor({ profile }: { profile: TargetsProfile }) {
   const navigate = useNavigate();
   const impact = useImpactSheet();

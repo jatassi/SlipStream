@@ -6,7 +6,6 @@ import { Icon } from "../ui/icon";
 import type { TargetDraft } from "./draft";
 import type { SectionProps } from "./editor";
 
-/** CAM, kept apart from the ranked list and off unless an Admin adds it on purpose. */
 export function CinemaSources({
   draft,
   onChange,

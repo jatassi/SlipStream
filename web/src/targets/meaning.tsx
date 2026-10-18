@@ -35,7 +35,6 @@ function SampleRow({ sample, name }: { sample: Sample; name: (key: string) => st
   );
 }
 
-/** What the order means in words, and up to six sample moves. */
 export function Meaning({ draft }: { draft: TargetDraft }) {
   const { qualities } = useListQualitiesSuspense().data;
   const name = useQualityNames();

@@ -75,7 +75,6 @@ export function stepRow<T>(rows: Rows<T>, id: string, step: Step): RankedRow<T>[
   return rowsOf(units);
 }
 
-/** Ties an item with the row above, or unties it. A tie needs an item above. */
 export function tieRow<T>(rows: Rows<T>, id: string, tied: boolean): RankedRow<T>[] {
   return settle(
     rows.map((row) => (row.kind === "item" && row.id === id ? { ...row, tiedAbove: tied } : row)),

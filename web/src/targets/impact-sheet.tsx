@@ -81,8 +81,7 @@ function ImpactBody({
   );
 }
 
-/** Shows a change's Impact before it saves: a Dialog, a bottom sheet on phone. */
-export function ImpactSheet({ state: { showing, onSave, onClose } }: { state: ImpactSheetState }) {
+function ImpactSheet({ state: { showing, onSave, onClose } }: { state: ImpactSheetState }) {
   return (
     <Dialog
       title={showing?.change.title ?? "Save"}
@@ -93,12 +92,17 @@ export function ImpactSheet({ state: { showing, onSave, onClose } }: { state: Im
         }
       }}
     >
-      {showing !== undefined && <ImpactBody showing={showing} onSave={onSave} onClose={onClose} />}
+      {showing !== undefined && (
+        <ImpactBody
+          showing={showing}
+          onSave={(unwanted) => onSave(showing, unwanted)}
+          onClose={onClose}
+        />
+      )}
     </Dialog>
   );
 }
 
-/** useImpactSave with its sheet, for a caller to render where it saves. */
 export function useImpactSheet(): {
   readonly save: (change: ImpactChange) => Promise<void>;
   readonly sheet: ReactElement;

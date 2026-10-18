@@ -10,7 +10,6 @@ import { useImpactSheet } from "./impact-sheet";
 
 type Acting = "edit" | "delete" | undefined;
 
-/** Edit and Delete, for a custom cut. The Impact of an edit opens beside its dialog. */
 export function CutMenu({ cut }: { cut: TargetsCut }) {
   const [acting, setActing] = useState<Acting>();
   const impact = useImpactSheet();

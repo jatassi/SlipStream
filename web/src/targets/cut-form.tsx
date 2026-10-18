@@ -33,7 +33,6 @@ function useCutForm(initial: CutDraft, onSubmit: (body: TargetsNewCut) => Promis
   });
 }
 
-/** A custom cut's name and the other phrases titles name it by. */
 export function CutForm({
   initial,
   submitLabel,

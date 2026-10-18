@@ -1,4 +1,4 @@
-import type { Layout, QualityKey } from "./order";
+import { type Layout, type QualityKey, cam } from "./order";
 import { listed } from "./words";
 
 /**
@@ -11,7 +11,7 @@ export type Why = "vacant" | "outside" | "upgrade" | "not_in_target" | "final" |
 
 export type Move = { readonly from: QualityKey | null; readonly to: QualityKey };
 
-export type Judged = { readonly allowed: boolean; readonly why: Why };
+type Judged = { readonly allowed: boolean; readonly why: Why };
 
 const rankIn = (tiers: Layout["tiers"], key: QualityKey): number | undefined => {
   const at = tiers.findIndex((tier) => tier.includes(key));
@@ -67,7 +67,7 @@ function sampleMoves(layout: Layout, table: readonly QualityKey[]): [QualityKey,
   const ties = [...tiers.keys()].filter((at) => (tiers[at]?.length ?? 0) > 1);
   const tied = ties.find((at) => at > cutoff) ?? ties[0];
   const accepted = new Set(tiers.flat());
-  const left = table.toReversed().find((key) => key !== "cam" && !accepted.has(key));
+  const left = table.toReversed().find((key) => key !== cam && !accepted.has(key));
   const pairs = [
     [first(bottom), first(bottom - 1)],
     [first(bottom), first(0)],

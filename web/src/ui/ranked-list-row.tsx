@@ -15,7 +15,6 @@ import { useDensity } from "./shell-context";
 
 export type Control = "handle" | "up" | "down" | "actions";
 
-/** What every row of one Ranked list reads and calls. */
 export type ListState<T> = {
   readonly rows: Rows<T>;
   readonly ranks: ReadonlyMap<string, number>;

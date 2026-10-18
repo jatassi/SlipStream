@@ -12,7 +12,6 @@ import { type Column, Table } from "../ui/table";
 import { CellState, ItemStatus } from "./cell-state";
 import { WantsSheet } from "./wants-sheet";
 
-/** The cells by Edition key, in the order the cells list them. */
 function editionsOf(cells: readonly FilesCell[]): [string, FilesCell[]][] {
   const editions = new Map<string, FilesCell[]>();
   for (const cell of cells) {
@@ -39,7 +38,6 @@ function columnsOf(
   ];
 }
 
-/** The Work's Profile and Editions, and its cells by Edition, an Item per row and a Target per column. */
 export function Targets({
   type,
   work,

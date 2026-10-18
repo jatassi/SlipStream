@@ -18,7 +18,7 @@ const keysOf = (target: TargetsTarget): string[][] => target.tiers.map((tier) =>
  * From the lowest quality the Target accepts to the highest, such as
  * "HDTV-720p to Remux-1080p". Within a tier, `table` (low to high) picks.
  */
-export function spanOf(target: TargetsTarget, name: Name, table: readonly string[]): string {
+function spanOf(target: TargetsTarget, name: Name, table: readonly string[]): string {
   const tiers = keysOf(target);
   const byTable = (tier: readonly string[]) =>
     tier.toSorted((a, b) => table.indexOf(a) - table.indexOf(b));
@@ -30,7 +30,7 @@ export function spanOf(target: TargetsTarget, name: Name, table: readonly string
   return best === worst ? name(best) : `${name(worst)} to ${name(best)}`;
 }
 
-export function cutoffOf(target: TargetsTarget, name: Name): string {
+function cutoffOf(target: TargetsTarget, name: Name): string {
   const tiers = keysOf(target);
   const bottom = tiers.at(-1) ?? [];
   return tiers.length > 1 && bottom.includes(target.cutoff) ? "No upgrades" : name(target.cutoff);

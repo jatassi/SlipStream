@@ -17,7 +17,6 @@ const chips: { readonly [S in NonNullable<FilesItemStatusStatus>]: ReactNode } =
   met: <MetPill>Met</MetPill>,
 };
 
-/** An Item's status: the first state its cells hold. An Item with no cell has none. */
 export const ItemStatus = ({ status }: { status: FilesItemStatusStatus }) =>
   status === null ? null : chips[status];
 

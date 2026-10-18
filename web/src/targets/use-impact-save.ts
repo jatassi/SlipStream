@@ -5,16 +5,13 @@ import type { TargetsImpact } from "../api/gen/model";
 
 export type Unwanted = "delete" | "keep";
 
-/** The query every change that can leave files unwanted takes. */
-export type Changing = {
+type Changing = {
   readonly preview?: boolean;
   readonly unwanted?: Unwanted;
   readonly confirm?: number;
 };
 
-/** One such change: a preview, then a save, through the same call. */
 export type ImpactChange = {
-  /** The Impact sheet's title, such as "Save 1080p". */
   readonly title: string;
   /** What the save button says before its count, such as "Save" or "Delete Ultra". */
   readonly action: string;
@@ -22,7 +19,7 @@ export type ImpactChange = {
   readonly done: () => Promise<unknown> | void;
 };
 
-export const isNothing = (impact: TargetsImpact): boolean =>
+const isNothing = (impact: TargetsImpact): boolean =>
   impact.works === 0 &&
   impact.ownList === 0 &&
   impact.unwanted.files === 0 &&
@@ -39,7 +36,7 @@ export type Showing = {
 
 export type ImpactSheetState = {
   readonly showing: Showing | undefined;
-  readonly onSave: (unwanted: Unwanted) => Promise<void>;
+  readonly onSave: (showing: Showing, unwanted: Unwanted) => Promise<void>;
   readonly onClose: () => void;
 };
 
@@ -82,10 +79,7 @@ export function useImpactSave(): {
     save,
     sheet: {
       showing,
-      onSave: (unwanted) =>
-        showing === undefined
-          ? Promise.resolve()
-          : commit(showing.change, unwanted, showing.impact),
+      onSave: (shown, unwanted) => commit(shown.change, unwanted, shown.impact),
       onClose: () => {
         setShowing(undefined);
       },

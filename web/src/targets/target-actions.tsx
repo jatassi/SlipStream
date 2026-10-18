@@ -51,7 +51,6 @@ export function TargetMenu({
   );
 }
 
-/** Deletes the Target, naming the Profiles that hold it when the Node refuses. */
 export async function deleting(target: TargetsTarget) {
   try {
     await deleteTarget(target.id);

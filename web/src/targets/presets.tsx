@@ -7,7 +7,6 @@ import type { TargetDraft } from "./draft";
 import type { SectionProps } from "./editor";
 import { placeCutoff, presetOrder, rankedOf } from "./order";
 
-/** Refills the order from a preset, keeping what is accepted; No upgrades moves the cutoff to the bottom. */
 export function PresetMenu({ draft, onChange }: SectionProps<TargetDraft>) {
   const { presets } = useListQualitiesSuspense().data;
   return (

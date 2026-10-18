@@ -7,10 +7,6 @@ import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { WantsForm } from "./wants-form";
 
-/**
- * The Work's Profile and where its Edition list comes from, and the
- * "Profile and Editions" sheet that changes them.
- */
 export function WantsSheet({ type, work }: { type: WorksContentType; work: WorksTree }) {
   const wants = useGetWorkWantsSuspense(work.id).data;
   const profiles = useListProfilesSuspense().data.profiles.filter(

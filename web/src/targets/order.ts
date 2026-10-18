@@ -3,19 +3,18 @@ import { type RankedRow, settle } from "../ui/ranked-list";
 
 export type QualityKey = TargetsQualityKey;
 
-export type QualityRow = RankedRow<QualityKey>;
+type QualityRow = RankedRow<QualityKey>;
 
 /** The ranked list's rows: the accepted qualities but CAM, in tiers best first, and the cutoff marker. */
 export type Order = readonly QualityRow[];
 
-export type Tiers = readonly (readonly QualityKey[])[];
+type Tiers = readonly (readonly QualityKey[])[];
 
-/** A preset's tiers as the API lists them. */
 export type PresetTiers = readonly (readonly string[] | null)[];
 
 export const cam: QualityKey = "cam";
 
-export const cutoffMarker: QualityRow = { kind: "marker", id: "cutoff", label: "Cutoff" };
+const cutoffMarker: QualityRow = { kind: "marker", id: "cutoff", label: "Cutoff" };
 
 /** A Target's accepted qualities as the API writes them: tiers best first and the cutoff tier. */
 export type Layout = {
@@ -51,7 +50,6 @@ function tierEnd(rows: Order, at: number): number {
   return end;
 }
 
-/** The ranked qualities, without the cutoff. */
 export const rankedOf = (rows: Order): QualityKey[] =>
   rows.flatMap((row) => (row.kind === "item" ? [row.value] : []));
 
@@ -66,7 +64,6 @@ export function placeCutoff(rows: Order, at: "top" | "bottom"): QualityRow[] {
 export const keepCutoff = (rows: Order): QualityRow[] =>
   rows[0]?.kind === "marker" ? placeCutoff(rows, "top") : [...rows];
 
-/** A preset's tiers kept to the given qualities, CAM left out, with the cutoff below the top tier. */
 export const presetOrder = (tiers: PresetTiers, kept: readonly QualityKey[]): QualityRow[] =>
   placeCutoff(
     rowsOfTiers(
@@ -101,7 +98,6 @@ export function accept(rows: Order, key: QualityKey, preset: PresetTiers): Quali
 export const drop = (rows: Order, key: QualityKey): QualityRow[] =>
   keepCutoff(settle(rows.filter((row) => row.id !== key)));
 
-/** A saved Target's rows: its tiers, CAM left out, with the cutoff below its cutoff tier. */
 export function orderOf(layout: Layout): QualityRow[] {
   const tiers = layout.tiers.map((tier) => tier.filter((key) => key !== cam));
   const above = tiers.slice(0, layout.cutoff + 1).filter((tier) => tier.length > 0);
@@ -109,10 +105,6 @@ export function orderOf(layout: Layout): QualityRow[] {
   return [...rowsOfTiers(above), cutoffMarker, ...rowsOfTiers(below)];
 }
 
-/**
- * The ranked qualities in tiers, best first, with CAM alone at the bottom
- * when accepted, and the index of the tier just above the cutoff.
- */
 export function layoutOf(rows: Order, cinema: boolean): Layout {
   const tiers: QualityKey[][] = [];
   let cutoff = 0;

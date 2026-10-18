@@ -18,10 +18,6 @@ async function makingDefault(profile: TargetsProfile, works: string) {
   }
 }
 
-/**
- * Make default and Delete, for a Profile that isn't its Content Type's
- * default. `works` names the type's Works.
- */
 export function ProfileMenu({ profile, works }: { profile: TargetsProfile; works: string }) {
   const [deleting, setDeleting] = useState(false);
   if (profile.default) {

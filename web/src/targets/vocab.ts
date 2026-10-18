@@ -44,7 +44,6 @@ const languageCodes = [
   "zh",
 ] as const;
 
-/** Every attribute a filter rules on, in the API's order, with the values its picker offers. */
 export const attributes: readonly {
   readonly key: Attribute;
   readonly label: string;
@@ -71,7 +70,3 @@ export const attributes: readonly {
     ],
   },
 ];
-
-export const valueName = (attribute: Attribute, key: string): string =>
-  attributes.find((row) => row.key === attribute)?.values.find((value) => value.key === key)
-    ?.name ?? (attribute === "language" ? (languageNames.of(key) ?? key) : key);

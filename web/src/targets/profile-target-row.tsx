@@ -5,8 +5,7 @@ import { bytes } from "../format";
 import { Icon } from "../ui/icon";
 import { listed } from "./words";
 
-/** The disk a Target costs across the Profile's Works, from the files already filling it. */
-export function estimateText(estimate: TargetsEstimate | undefined): string {
+function estimateText(estimate: TargetsEstimate | undefined): string {
   const total = estimate?.bytes ?? null;
   const rate = estimate?.mibPerMinute ?? null;
   if (total === null || rate === null) {
@@ -15,10 +14,7 @@ export function estimateText(estimate: TargetsEstimate | undefined): string {
   return `About ${bytes(total)} across its Works, at ${String(Number(rate.toFixed(1)))} MiB per minute`;
 }
 
-/**
- * The Targets of the Profile that every file of `id` also meets, as the
- * Targets list's `contains` says: `id` will rarely get a file of its own.
- */
+// Every file of `id` also meets its containers, so `id` will rarely get a file of its own.
 export const containersOf = (
   id: string,
   ids: readonly string[],
@@ -29,7 +25,6 @@ export const containersOf = (
     return other !== id && target?.contains.includes(id) === true ? [target] : [];
   });
 
-/** A Profile's Target: its name, its disk estimate and the Targets that contain it. */
 export function TargetRow({
   name,
   estimate,

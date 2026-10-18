@@ -4,10 +4,7 @@ import { type Cut, type EditionList, standard } from "./editions-sentence";
 
 type Keys = readonly [string, ...string[]];
 
-/**
- * An Edition list being edited. `cuts` is the Choose cuts list, kept while
- * Any cut is chosen so switching back restores it.
- */
+// `cuts` is kept while Any cut is chosen, so switching back restores it.
 export type EditionsDraft = { readonly kind: EditionList["kind"]; readonly cuts: Keys };
 
 export const editionsDraftOf = (editions: TargetsEditions): EditionsDraft => ({
@@ -18,10 +15,6 @@ export const editionsDraftOf = (editions: TargetsEditions): EditionsDraft => ({
 export const editionsBodyOf = (draft: EditionsDraft): TargetsEditions =>
   draft.kind === "any" ? { kind: "any" } : { kind: "cuts", cuts: [...draft.cuts] };
 
-/**
- * Runs a save of an Edition list, saying plainly when a cut on it was
- * deleted since the list was read.
- */
 export async function savingCuts<T>(save: () => Promise<T>): Promise<T> {
   try {
     return await save();

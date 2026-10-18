@@ -62,7 +62,6 @@ function Unaccepted({
   );
 }
 
-/** The accepted qualities ranked, and below them the rest, each moving across as it is ticked. */
 export function QualityLists({ draft, onChange }: SectionProps<TargetDraft>) {
   const { qualities, presets } = useListQualitiesSuspense().data;
   const name = useQualityNames();

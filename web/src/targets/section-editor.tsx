@@ -50,10 +50,6 @@ function SaveBar<Draft>({
   );
 }
 
-/**
- * An editor built from a section table: one section per row over one draft.
- * Without `save` it edits but offers no Save.
- */
 export function SectionEditor<Draft>({
   sections,
   initial,
@@ -63,7 +59,7 @@ export function SectionEditor<Draft>({
   sections: readonly EditorSection<Draft>[];
   initial: Draft;
   problemsOf: (draft: Draft) => string[];
-  save?: Save<Draft> | undefined;
+  save: Save<Draft>;
 }) {
   const [draft, setDraft] = useState(initial);
   return (
@@ -73,7 +69,7 @@ export function SectionEditor<Draft>({
           <section.component draft={draft} onChange={setDraft} />
         </Section>
       ))}
-      {save !== undefined && <SaveBar draft={draft} save={save} problemsOf={problemsOf} />}
+      <SaveBar draft={draft} save={save} problemsOf={problemsOf} />
     </div>
   );
 }

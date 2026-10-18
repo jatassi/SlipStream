@@ -30,7 +30,7 @@ export const blackAndChrome: TargetsCut = {
  * GET /cuts: the built-in cuts, then one the cinema test type adds and one a
  * zine type adds, then one custom cut.
  */
-export const cutList: TargetsCutList = {
+const cutList: TargetsCutList = {
   cuts: [
     cut("standard", "Standard", []),
     cut("theatrical", "Theatrical", ["Theatrical"]),
@@ -75,7 +75,7 @@ export const ultra: TargetsProfile = {
 };
 
 /** Ultra's detail: the starter is estimated from its files, 2160p HDR has none yet. */
-export const ultraDetail: TargetsProfileDetail = {
+const ultraDetail: TargetsProfileDetail = {
   ...ultra,
   estimates: [
     { targetId: keeper.id, mibPerMinute: null, bytes: null },

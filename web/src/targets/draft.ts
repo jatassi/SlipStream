@@ -53,7 +53,6 @@ const floors = (qualities: readonly TargetsQuality[]): Partial<Record<QualityKey
     qualities.map((quality) => [quality.key, { min: String(quality.floor), max: "" }]),
   );
 
-/** A quality's typed size. Every quality the API lists has one. */
 export function sizeOf(draft: TargetDraft, key: QualityKey): SizeDraft {
   const size = draft.sizes[key];
   if (size === undefined) {
@@ -76,7 +75,6 @@ export function newDraft({ qualities, presets }: TargetsQualityList): TargetDraf
   };
 }
 
-/** A saved Target as a draft. */
 export function draftOf(target: TargetsTarget, { qualities }: TargetsQualityList): TargetDraft {
   const keys = qualities.map((quality) => quality.key);
   const known = (key: string) => keys.find((candidate) => candidate === key);
@@ -99,10 +97,6 @@ export function draftOf(target: TargetsTarget, { qualities }: TargetsQualityList
   };
 }
 
-/**
- * The draft with a quality other than CAM accepted, ranked where `preset` puts
- * it, or no longer accepted and out of the order.
- */
 export const accepting = (
   draft: TargetDraft,
   key: QualityKey,
@@ -121,15 +115,13 @@ export const unacceptedOf = (draft: TargetDraft, keys: readonly QualityKey[]): Q
 
 export const layoutOfDraft = (draft: TargetDraft): Layout => layoutOf(draft.order, draft.cinema);
 
-/** The accepted qualities, best first, as the Sizes section lists them. */
 export const acceptedInOrder = (draft: TargetDraft): QualityKey[] =>
   layoutOfDraft(draft).tiers.flat();
 
 const number = /^\d+(\.\d+)?$/u;
 
-export type SizeProblem = { readonly min?: string; readonly max?: string };
+type SizeProblem = { readonly min?: string; readonly max?: string };
 
-/** What is wrong with one quality's typed size, if anything. */
 export function sizeProblem({ min, max }: SizeDraft): SizeProblem | undefined {
   const minOk = number.test(min.trim());
   const maxOk = max.trim() === "" || number.test(max.trim());
@@ -148,7 +140,6 @@ export function sizeProblem({ min, max }: SizeDraft): SizeProblem | undefined {
 export const ruleProblem = (rule: Rule): string | undefined =>
   rule.mode !== "any" && rule.values.length === 0 ? "Pick at least one, or choose Any." : undefined;
 
-/** Every reason the draft can't be saved, as sentences. */
 export function problemsOf(draft: TargetDraft): string[] {
   const problems: string[] = [];
   if (draft.name.trim() === "") {

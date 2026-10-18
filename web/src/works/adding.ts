@@ -7,7 +7,6 @@ import { ensureQuery } from "../api/query-client";
 import type { WorksContentType } from "../api/gen/model";
 import { toast } from "../ui/toast";
 
-/** Adds a Work, says so and opens its page; a refusal shows in a toast. */
 export function useAdding() {
   const navigate = useNavigate();
   return useAddWork({

@@ -9,7 +9,6 @@ const labelLook =
 const inputLook =
   "h-(--input-height) w-full min-w-0 rounded-item bg-well px-3 text-body text-ink-1 ring-1 ring-hairline ring-inset placeholder:text-ink-3 aria-invalid:ring-fail-line in-data-[density=touch]:text-input-touch";
 
-/** A labelled text input over a draft's value, styled as the kit's text field. */
 export function DraftField({
   label,
   value,

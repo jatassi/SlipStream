@@ -10,7 +10,6 @@ import { ProfilePicker } from "./profile-picker";
 import { wantsBodyOf, wantsDraftOf } from "./wants-draft";
 import { WantsEditions } from "./wants-editions";
 
-/** The Work's Profile and Edition list, saved through the Impact. */
 export function WantsForm({
   work,
   profiles,

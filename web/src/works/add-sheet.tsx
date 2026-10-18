@@ -68,7 +68,6 @@ function AddForm({ type, candidate }: { type: WorksContentType; candidate: Works
   );
 }
 
-/** Add opens a sheet to pick the new Work's Profile, its type's default first, and whether to monitor it. */
 export function AddSheet({
   type,
   candidate,

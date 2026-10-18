@@ -2,14 +2,12 @@ import { bytes } from "../format";
 import { type SizeDraft, type TargetDraft, acceptedInOrder, sizeOf, sizeProblem } from "./draft";
 import type { SectionProps } from "./editor";
 import { DraftField } from "./field";
-import type { QualityKey } from "./order";
 import { useQualityNames } from "./quality-names";
 
 const twoHours = 120;
 const mib = 1 << 20;
 
-/** What a typed size means for a two-hour film, once both ends read as numbers. */
-export function filmSize({ min, max }: SizeDraft): string | undefined {
+function filmSize({ min, max }: SizeDraft): string | undefined {
   if (sizeProblem({ min, max }) !== undefined) {
     return undefined;
   }
@@ -66,7 +64,7 @@ function SizeRow({
 
 export function SizesSection({ draft, onChange }: SectionProps<TargetDraft>) {
   const name = useQualityNames();
-  const accepted: QualityKey[] = acceptedInOrder(draft);
+  const accepted = acceptedInOrder(draft);
   return (
     <div className="flex flex-col gap-3">
       <p className="text-ink-2">

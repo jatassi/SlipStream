@@ -15,19 +15,15 @@ import {
 export type { RankedRow } from "./ranked-rows";
 export { settle, tiersOf } from "./ranked-rows";
 
-export type RankedListProps<T> = {
-  /** Names the list, such as "Qualities". */
+type RankedListProps<T> = {
   readonly label: string;
-  /** The line above the list that says what the order does. */
   readonly caption: ReactNode;
   readonly rows: Rows<T>;
   /** The whole new order, after a drag, a Move button, an arrow key or a tie. */
   readonly onChange: (rows: RankedRow<T>[]) => void;
   /** An item's name, for its buttons and what a move announces. */
   readonly name: (value: T) => string;
-  /** The row's body: its name and a one-sentence state. */
   readonly renderRow: (value: T, rank: number) => ReactNode;
-  /** A control after the body, such as a checkbox. */
   readonly renderTrailing?: (value: T) => ReactNode;
   /** Offers "Tie with the one above" on each item that has an item above it. */
   readonly ties?: boolean;

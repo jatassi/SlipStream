@@ -56,10 +56,6 @@ function DeleteForm({
   );
 }
 
-/**
- * Deletes a Profile that isn't its type's default, moving its Works to
- * another Profile of the same Content Type through the Impact.
- */
 export function DeleteProfileDialog({
   profile,
   open,

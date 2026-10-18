@@ -12,7 +12,6 @@ import { ProfileMenu } from "./profile-actions";
 
 type Group = { readonly id: string; readonly label: string; readonly profiles: TargetsProfile[] };
 
-/** The Profiles by Content Type, in the order the types are listed; a type with none is left out. */
 export function groupsOf(
   profiles: readonly TargetsProfile[],
   types: readonly WorksContentType[],

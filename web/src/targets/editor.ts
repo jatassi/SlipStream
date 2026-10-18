@@ -15,11 +15,8 @@ export type SectionProps<Draft> = {
   readonly onChange: (next: Draft) => void;
 };
 
-/**
- * One editor section: a heading and the control that edits its slice of the
- * draft. A later spec adds a row (Scores, Hold, Conversion settings,
- * download steps, Wanted Languages) and its draft field, and touches no editor.
- */
+// A later spec adds a section as a row here and a field on its draft, and
+// touches no editor.
 export type EditorSection<Draft> = {
   readonly id: string;
   readonly label: string;

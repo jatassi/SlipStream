@@ -4,7 +4,6 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu } from "../ui/menu";
 
-/** An "Add …" button whose menu offers what isn't on a list yet; disabled when nothing is left. */
 export function PickMenu({
   label,
   options,
@@ -36,7 +35,6 @@ export function PickMenu({
   );
 }
 
-/** Takes one row off a list. */
 export function RemoveButton({
   name,
   disabled = false,

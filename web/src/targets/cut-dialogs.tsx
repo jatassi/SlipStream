@@ -12,7 +12,6 @@ import type { ImpactChange } from "./use-impact-save";
 
 export type Opening = { readonly open: boolean; readonly onOpenChange: (open: boolean) => void };
 
-/** Add cut and its dialog: a new custom cut, recognised in titles from now on. */
 export function AddCut() {
   const [open, setOpen] = useState(false);
   return (
@@ -35,10 +34,7 @@ export function AddCut() {
   );
 }
 
-/**
- * Renames a custom cut or replaces its phrases. A rename renames the cut's
- * files, so it saves through `save`, the Impact.
- */
+// A rename renames the cut's files, so the edit saves through the Impact.
 export function EditCutDialog({
   cut,
   open,

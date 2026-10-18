@@ -9,7 +9,6 @@ import { Button, type ButtonLook } from "../ui/button";
 export const refusalOf = (error: unknown): string =>
   error instanceof Error && !isApiError(error) ? error.message : sentenceOf(error);
 
-/** Runs an action a button starts, busy while it runs, with its refusal as an alert line. */
 export type Attempt = {
   readonly busy: boolean;
   readonly failure: ReactNode;
@@ -37,7 +36,6 @@ export function useAttempt(action: () => Promise<unknown>): Attempt {
   };
 }
 
-/** A dialog's Cancel and the button that starts `attempt`, under its refusal. */
 export function AttemptActions({
   attempt,
   look = "primary",
