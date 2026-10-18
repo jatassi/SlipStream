@@ -120,6 +120,22 @@
   vector-effect: non-scaling-stroke;
 }
 
+.diagram .screen {
+  fill: hsl(var(--h) 12% 3%);
+  stroke: var(--anatomy-lo);
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram .open-glow {
+  fill: hsl(var(--h) 12% 4%);
+  transition: fill 0.4s;
+}
+
+.diagram [data-state="online"] [data-open-sign="lit"] .open-glow {
+  fill: color-mix(in oklab, var(--diagram-glow) 38%, hsl(var(--h) 12% 4%));
+}
+
 .diagram .lamp-dot {
   fill: var(--anatomy-lo);
 }

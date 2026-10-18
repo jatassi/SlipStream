@@ -1,11 +1,12 @@
 import { useInView, useLoop } from "@anatomy/react/live";
 import { type RefObject, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 
+import { type Work, lastWork } from "../live/activity";
 import { subscribeTraffic, trafficPair } from "../live/traffic";
 import type { Landing } from "../routes/_app/nodes/-landing/view";
 import type { Drawing } from "./drawing";
 import { type Engine, engineOf } from "./live";
-import { targetsOf } from "./model";
+import { type Ages, QUIET, targetsOf } from "./model";
 
 const KEPT_FRAMES = 600;
 
@@ -17,6 +18,16 @@ function keepFrameTime(ms: number) {
     ticks.shift();
   }
 }
+
+const ageOf = (work: Work, now: number): number => {
+  const at = lastWork(work);
+  return at === undefined ? Number.POSITIVE_INFINITY : (now - at) / 1000;
+};
+
+const agesAt = (now: number): Ages => ({
+  search: ageOf("search", now),
+  fetch: ageOf("fetch", now),
+});
 
 /** When the latest traffic sample arrived, by the page's clock. */
 function useArrival(): RefObject<number> {
@@ -65,13 +76,16 @@ export function useMotion({
   useEffect(() => {
     const drawn = engine.current;
     if (still && drawn?.drawing === drawing) {
-      drawn.still(targetsOf(landing, samples, Number.POSITIVE_INFINITY));
+      drawn.still(targetsOf(landing, samples, Number.POSITIVE_INFINITY, QUIET));
     }
   }, [still, landing, samples, drawing]);
 
   useLoop((dt) => {
     const started = performance.now();
-    engine.current?.frame(targetsOf(landing, trafficPair(), started - arrived.current), dt);
+    engine.current?.frame(
+      targetsOf(landing, trafficPair(), started - arrived.current, agesAt(started)),
+      dt,
+    );
     if (import.meta.env.DEV) {
       keepFrameTime(performance.now() - started);
     }

@@ -1,11 +1,16 @@
+import type { Plan, Plane } from "@anatomy/iso-kit";
 import { describe, expect, test } from "vitest";
 
 import { type TrafficPair, takeTraffic, trafficPair } from "../live/traffic";
 import { landingOf } from "../routes/_app/nodes/-landing/view";
 import { drawingOf } from "./drawing";
+import type { TileItem } from "./geometry";
 import { fixtureClock, fixtureOf } from "./fixtures";
 import { MOST_NODES, layoutOf, planOf } from "./layout";
 import {
+  DRAWER_HOLD,
+  QUIET,
+  SWEEP_HOLD,
   TRICKLE,
   capsuleRate,
   litCells,
@@ -15,6 +20,7 @@ import {
   targetsOf,
   trackOf,
 } from "./model";
+import { chipPlan } from "./parts/tile";
 
 const landingFrom = (count: number) => {
   const { topology, board } = fixtureOf(count);
@@ -61,17 +67,77 @@ describe("layout", () => {
   });
 });
 
+const machinesOn = (items: readonly TileItem[]): TileItem[] =>
+  items.filter(({ role, name }) => role !== undefined && !name.startsWith("chip."));
+
+/** The floor a machine's solids cover, as the box around them. */
+function footprintOf(item: TileItem): Plan {
+  const points = item.shapes.flatMap((shape): Plane[] => {
+    if (shape.kind === "slab") {
+      const { x, y, w, d } = shape.plan;
+      return [
+        [x, y],
+        [x + w, y + d],
+      ];
+    }
+    if (shape.kind === "extruded") {
+      return [...shape.ring];
+    }
+    const { o, a, u, v } = shape.frame;
+    const along = (s: number, p: number, q: number): Plane => [
+      o[0] + a[0] * s + u[0] * p + v[0] * q,
+      o[1] + a[1] * s + u[1] * p + v[1] * q,
+    ];
+    const polygon: readonly Plane[] =
+      shape.kind === "prism"
+        ? shape.polygon
+        : [
+            [-shape.r, -shape.r],
+            [shape.r, shape.r],
+            [-shape.r, shape.r],
+            [shape.r, -shape.r],
+          ];
+    return [shape.s0, shape.s1].flatMap((s) => polygon.map(([p, q]) => along(s, p, q)));
+  });
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, d: Math.max(...ys) - y, r: 0 };
+}
+
 describe("machines", () => {
-  test("a tile draws a machine only for the Roles its Node holds, and a chip for every Role", () => {
+  test("a tile draws a machine for each Role its Node holds and none other, and a chip for every Role", () => {
     for (const { node, items } of drawingOf(landingFrom(12)).tiles) {
-      const held = new Set(node.roles.map(({ role }) => role));
-      const drawn = new Set(items.flatMap(({ role }) => (role === undefined ? [] : [role])));
-      expect([...drawn].filter((role) => !held.has(role))).toEqual([]);
+      const held = node.roles.map(({ role }) => role).toSorted((a, b) => a.localeCompare(b));
+      const drawn = new Set(machinesOn(items).map(({ role }) => role));
+      expect([...drawn].toSorted((a, b) => (a ?? "").localeCompare(b ?? ""))).toEqual(held);
       expect(items.filter(({ name }) => name.startsWith("chip."))).toHaveLength(node.roles.length);
-      expect(items.some(({ name }) => name.startsWith("downloading."))).toBe(
-        held.has("downloading"),
-      );
-      expect(items.some(({ name }) => name === "storage")).toBe(held.has("storage"));
+    }
+  });
+
+  test("a lone Controller holds all ten Roles, and their machines stand apart and behind the chips", () => {
+    const [tile] = drawingOf(landingFrom(1)).tiles;
+    const machines = machinesOn(tile?.items ?? []);
+    expect(new Set(machines.map(({ role }) => role)).size).toBe(10);
+    const plans = machines.map((machine) => ({ name: machine.name, plan: footprintOf(machine) }));
+    const chips = Math.min(...[0, 5].map((slot) => chipPlan(slot).y));
+    for (const [index, { name, plan }] of plans.entries()) {
+      expect(
+        plans.slice(index + 1).filter((other) => overlaps(plan, other.plan)),
+        name,
+      ).toEqual([]);
+      expect(plan.y + plan.d, name).toBeLessThan(chips);
+    }
+  });
+
+  test("a machine stands in the same place on every tile that holds its Role", () => {
+    const tiles = drawingOf(landingFrom(12)).tiles;
+    const places = new Map<string, string>();
+    for (const machine of tiles.flatMap(({ items }) => machinesOn(items))) {
+      const place = JSON.stringify(machine.at);
+      expect(places.get(machine.name) ?? place, machine.name).toBe(place);
+      places.set(machine.name, place);
     }
   });
 
@@ -111,7 +177,7 @@ describe("motion", () => {
   test("an online link carries capsules, a down one none, and a Node away winds its machines down", () => {
     const { topology, board, traffic } = fixtureOf(5);
     const landing = landingOf(topology, board, new Set(), fixtureClock);
-    const targets = targetsOf(landing, traffic, Number.POSITIVE_INFINITY);
+    const targets = targetsOf(landing, traffic, Number.POSITIVE_INFINITY, QUIET);
     const attic = landing.nodes.find(({ name }) => name === "attic")?.id ?? "";
     for (const flow of targets.flows) {
       expect(flow.rate > 0).toBe(flow.worker !== attic);
@@ -120,6 +186,50 @@ describe("motion", () => {
     const home = targets.boards.find(({ node }) => node === landing.nodes[0]?.id);
     expect(home?.panels.length).toBeGreaterThan(0);
     expect(home?.pieces).toBeGreaterThan(0);
+  });
+});
+
+function busyOn(count: number, search: number, fetch: number) {
+  const { topology, board, traffic } = fixtureOf(count);
+  const landing = landingOf(topology, board, new Set(), fixtureClock);
+  const { busy } = targetsOf(landing, traffic, 0, { search, fetch });
+  return landing.nodes.flatMap(({ id, name, roles }) => {
+    const held = new Set(roles.map(({ role }) => role));
+    const seen = busy.find(({ node }) => node === id);
+    return seen === undefined ? [] : [{ name, held, ...seen }];
+  });
+}
+
+describe("work", () => {
+  test("while a search reports, every Node holding Searching sweeps its dish, and no other", () => {
+    const busy = busyOn(12, 1, Number.POSITIVE_INFINITY);
+    expect(busy.length).toBeGreaterThan(1);
+    for (const { name, held, sweep, drawer } of busy) {
+      expect(sweep, name).toBe(held.has("searching") ? 1 : 0);
+      expect(drawer, name).toBe(0);
+    }
+  });
+
+  test("a dish stops sweeping once no search has reported for a while", () => {
+    expect(busyOn(1, SWEEP_HOLD - 0.1, Number.POSITIVE_INFINITY)[0]?.sweep).toBe(1);
+    expect(busyOn(1, SWEEP_HOLD, Number.POSITIVE_INFINITY)[0]?.sweep).toBe(0);
+  });
+
+  test("a fetch slides out the drawer of every Node holding Metadata, which goes home after", () => {
+    for (const { name, held, drawer } of busyOn(12, Number.POSITIVE_INFINITY, 0.2)) {
+      expect(drawer, name).toBe(held.has("metadata") ? 1 : 0);
+    }
+    expect(busyOn(1, Number.POSITIVE_INFINITY, DRAWER_HOLD)[0]?.drawer).toBe(0);
+  });
+
+  test("with no work reported, every machine is at rest", () => {
+    for (const { sweep, drawer } of busyOn(
+      12,
+      Number.POSITIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
+    )) {
+      expect([sweep, drawer]).toEqual([0, 0]);
+    }
   });
 });
 
@@ -137,8 +247,8 @@ describe("still frame", () => {
         },
       ];
     };
-    expect(targetsOf(landing, downloading(1000), 0).boards[0]?.pieces).toBe(TRICKLE);
-    expect(targetsOf(landing, downloading(0), 0).boards[0]?.pieces).toBe(0);
+    expect(targetsOf(landing, downloading(1000), 0, QUIET).boards[0]?.pieces).toBe(TRICKLE);
+    expect(targetsOf(landing, downloading(0), 0, QUIET).boards[0]?.pieces).toBe(0);
   });
 
   test("the still frame spaces capsules a capsule's travel apart inside the ends, and lights whole and part cells", () => {

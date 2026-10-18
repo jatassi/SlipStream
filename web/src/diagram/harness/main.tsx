@@ -4,6 +4,7 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { NodesTraffic } from "../../api/gen/model";
+import { noteWork } from "../../live/activity";
 import { takeTraffic } from "../../live/traffic";
 import { landingOf } from "../../routes/_app/nodes/-landing/view";
 import type { Drop } from "../drag";
@@ -11,9 +12,11 @@ import { DiagramFigure } from "../figure";
 import { fixtureClock, fixtureOf } from "../fixtures";
 import type { Part } from "../parts-order";
 
-// The Diagram alone, drawn from a fixture (?fixture=1, 2, 5, 8 or 12), for
-// the anatomy line check, the frame budget and close-ups. Development only:
-// the app's build never includes it.
+// The Diagram alone, drawn from a fixture (?fixture=1, 2, 5, 8 or 12; 1 is
+// a lone Controller holding all ten Roles), for the anatomy line check, the
+// frame budget and close-ups. A search reports every 5 s and a fetch every
+// 3 s, unless ?work=quiet. Development only: the app's build never includes
+// it.
 
 const params = new URLSearchParams(location.search);
 const fixture = fixtureOf(Number(params.get("fixture") ?? "2"));
@@ -35,6 +38,17 @@ setInterval(() => {
   tick += 1;
   takeTraffic(grown(second, tick));
 }, 1000);
+
+if (params.get("work") !== "quiet") {
+  noteWork("search");
+  noteWork("fetch");
+  setInterval(() => {
+    noteWork("search");
+  }, 5000);
+  setInterval(() => {
+    noteWork("fetch");
+  }, 3000);
+}
 
 function Harness() {
   const [selected, setSelected] = useState<Part>();
