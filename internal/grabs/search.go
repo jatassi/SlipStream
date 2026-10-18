@@ -118,7 +118,7 @@ func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree wo
 	if len(all) == 0 {
 		return indexers.ID{}, ErrNoIndexer
 	}
-	if _, err := roots.Of(ctx, r, tree.ContentType); err != nil {
+	if _, err := roots.OfWork(ctx, r, tree.ID); err != nil {
 		return indexers.ID{}, err
 	}
 	return all[0].ID, nil

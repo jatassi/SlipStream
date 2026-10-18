@@ -110,4 +110,8 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "What the Node downloading it held was written off. Its files are kept.",
     recovery: searchAgain,
   },
+  root_changed: {
+    cause: "The Work moved to another library root after this download was planned.",
+    recovery: searchAgain,
+  },
 };

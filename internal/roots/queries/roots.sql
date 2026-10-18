@@ -1,15 +1,34 @@
--- name: HasRoot :one
-SELECT EXISTS (SELECT 1 FROM roots_root WHERE content_type = sqlc.arg(content_type));
+-- name: CountRootsOf :one
+SELECT count(*) FROM roots_root WHERE content_type = sqlc.arg(content_type);
 
 -- name: InsertRoot :exec
-INSERT INTO roots_root (id, content_type, node_id, path)
-VALUES (sqlc.arg(id), sqlc.arg(content_type), sqlc.arg(node_id), sqlc.arg(path));
+INSERT INTO roots_root (id, content_type, node_id, path, is_default)
+VALUES (sqlc.arg(id), sqlc.arg(content_type), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(is_default));
 
 -- name: ListRoots :many
-SELECT * FROM roots_root ORDER BY content_type;
-
--- name: GetRootOf :one
-SELECT * FROM roots_root WHERE content_type = sqlc.arg(content_type);
+SELECT * FROM roots_root ORDER BY content_type, id;
 
 -- name: GetRoot :one
 SELECT * FROM roots_root WHERE id = sqlc.arg(id);
+
+-- name: GetDefaultRoot :one
+SELECT * FROM roots_root WHERE content_type = sqlc.arg(content_type) AND is_default = 1;
+
+-- name: ClearDefaultRoot :exec
+UPDATE roots_root SET is_default = 0 WHERE content_type = sqlc.arg(content_type) AND is_default = 1;
+
+-- name: SetDefaultRoot :exec
+UPDATE roots_root SET is_default = 1 WHERE id = sqlc.arg(id);
+
+-- name: GetRootOfWork :one
+SELECT r.* FROM roots_work w JOIN roots_root r ON r.id = w.root_id WHERE w.work_id = sqlc.arg(work_id);
+
+-- name: ListHomedWorks :many
+SELECT work_id FROM roots_work ORDER BY work_id;
+
+-- name: HomeWork :exec
+INSERT INTO roots_work (work_id, root_id) VALUES (sqlc.arg(work_id), sqlc.arg(root_id))
+ON CONFLICT (work_id) DO UPDATE SET root_id = excluded.root_id;
+
+-- name: CountWorksByRoot :many
+SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id ORDER BY root_id;

@@ -1,10 +1,5 @@
+import { appleViewer } from "../ui/platform";
 import { createFlag } from "./flag";
-
-declare global {
-  interface Navigator {
-    readonly userAgentData?: { readonly platform: string };
-  }
-}
 
 const palette = createFlag();
 
@@ -22,11 +17,7 @@ export const togglePalette = () => {
 
 export const usePaletteOpen = palette.useValue;
 
-const apple = /mac|iphone|ipad|ipod/iu.test(
-  navigator.userAgentData?.platform ?? navigator.platform,
-);
-
-export const paletteShortcut = apple
+export const paletteShortcut = appleViewer
   ? { label: "⌘K", keys: "Meta+K" }
   : { label: "Ctrl K", keys: "Control+K" };
 
@@ -34,4 +25,4 @@ export const isPaletteShortcut = (event: KeyboardEvent): boolean =>
   event.key.toLowerCase() === "k" &&
   !event.altKey &&
   !event.shiftKey &&
-  (apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey);
+  (appleViewer ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey);

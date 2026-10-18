@@ -20,8 +20,8 @@ type Library struct {
 	Indexers []LibraryIndexer `yaml:"indexers,omitempty"`
 }
 
-// LibraryRoot is a Content Type's root, the folder named Folder under the
-// run's media dir.
+// LibraryRoot is a root of a Content Type, the folder named Folder under
+// the run's media dir. A type's first root is its default.
 type LibraryRoot struct {
 	ContentType string `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$"  yaml:"content_type"`
 	Folder      string `jsonschema:"required,pattern=^[a-z0-9][a-z0-9._-]*$" yaml:"folder"`
@@ -121,18 +121,15 @@ func (l Library) check(add func(format string, args ...any)) {
 }
 
 func (l Library) checkRoots(add func(format string, args ...any)) {
-	var types, folders []string
+	var folders []string
 	for _, r := range l.Roots {
-		if slices.Contains(types, r.ContentType) {
-			add("library has two roots for content type %s", r.ContentType)
-		}
 		switch {
 		case !folderName.MatchString(r.Folder):
 			add("library root folder %q does not match %s", r.Folder, folderName)
 		case slices.Contains(folders, r.Folder):
 			add("library has two roots in folder %s", r.Folder)
 		}
-		types, folders = append(types, r.ContentType), append(folders, r.Folder)
+		folders = append(folders, r.Folder)
 	}
 }
 

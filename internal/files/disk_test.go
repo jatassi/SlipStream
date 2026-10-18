@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -209,6 +211,27 @@ func TestAnUpgradeTakesThePathOfTheFileItLeavesFillingNothing(t *testing.T) {
 	if err != nil || cells[0].File == nil || cells[0].File.ID != bluray.ID || cells[0].State != files.Met || fileCount(t, l) != 1 {
 		t.Fatalf("after the upgrade cells = %s, %v; want the Bluray meeting Best and one file", lines(cells), err)
 	}
+}
+
+func TestAFilePlannedIntoARootItsWorkLeftIsRefused(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	other := rootstest.Root(t, l.lib, l.root.Node, contenttypetest.ID, t.TempDir())
+	svc := l.files(files.NoGrabs{})
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, _, err := svc.Import(ctx, tx, files.Incoming{
+			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: other.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
+			Size: 5, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
+		})
+		return err
+	})
+	if !errors.Is(err, files.ErrRootChanged) {
+		t.Fatalf("Import into a root the Work isn't in = %v, want ErrRootChanged", err)
+	}
+	if n := l.queued(t); n != 0 {
+		t.Fatalf("the refused import queued %d moves, want none", n)
+	}
+	l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
 }
 
 func TestAFileThatFillsNothingLandsKept(t *testing.T) {
