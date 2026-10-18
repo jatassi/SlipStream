@@ -9,7 +9,13 @@ import {
   stillCapsulesOn,
 } from "./capsules";
 import type { Drawing } from "./drawing";
-import { type MachinesLive, machinesOf, moveMachines, stillMachines } from "./machines-live";
+import {
+  type MachinesLive,
+  disposeMachines,
+  machinesOf,
+  moveMachines,
+  stillMachines,
+} from "./machines-live";
 import type { Targets } from "./model";
 
 // The Diagram's motion, written straight to the SVG the art drew. It never
@@ -53,12 +59,15 @@ function stillAll({ links, boards, machines }: Pools, targets: Targets, P: Drawi
   }
 }
 
-function disposeAll({ links, boards }: Pools) {
+function disposeAll({ links, boards, machines }: Pools) {
   for (const link of links) {
     disposeCapsules(link);
   }
   for (const live of boards) {
     disposeBoard(live);
+  }
+  for (const live of machines) {
+    disposeMachines(live);
   }
 }
 

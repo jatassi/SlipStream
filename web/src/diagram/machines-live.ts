@@ -20,10 +20,26 @@ const POSE_STEP = 2;
 const poseOf = (heading: number): number =>
   (((Math.round(heading / POSE_STEP) * POSE_STEP) % 360) + 360) % 360;
 
+/** How many poses one background task draws ahead of the dish. */
+const POSES_PER_TASK = 4;
+
+type Poses = Map<number, readonly HeadPath[]>;
+
+// A pose is drawn about the machine's own origin, so every dish seen at one
+// scale and angle shares its poses, across tiles and redrawn Diagrams.
+const posesByView = new Map<string, Poses>();
+
+const posesOf = ({ scale, azimuth, elevation }: Projection): Poses => {
+  const view = `${String(scale)}/${String(azimuth)}/${String(elevation)}`;
+  const poses = posesByView.get(view) ?? new Map<number, readonly HeadPath[]>();
+  posesByView.set(view, poses);
+  return poses;
+};
+
 type Head = {
   readonly P: Projection;
   readonly paths: readonly SVGPathElement[];
-  readonly poses: Map<number, readonly HeadPath[]>;
+  readonly poses: Poses;
 };
 
 export type MachinesLive = {
@@ -33,6 +49,8 @@ export type MachinesLive = {
   readonly drawer: Element | null;
   readonly drawerP: Projection | undefined;
   readonly written: WeakMap<Element, Map<string, string>>;
+  /** The background task drawing the poses the dish hasn't turned to yet. */
+  ahead: ReturnType<typeof setTimeout> | undefined;
   heading: number;
   drawn: number;
   speed: number;
@@ -51,25 +69,60 @@ export function machinesOf(
     return undefined;
   }
   const P = tileP(stage, placement);
-  return {
+  const headP = machineP(P, "searching");
+  const live: MachinesLive = {
     node: node.id,
     head:
       dish === null
         ? undefined
         : {
-            P: machineP(P, "searching"),
+            P: headP,
             paths: [...dish.querySelectorAll("path")],
-            poses: new Map(),
+            poses: posesOf(headP),
           },
     led: tile.querySelector('[data-led="search"]'),
     drawer,
     drawerP: drawer === null ? undefined : machineP(P, "metadata"),
     written: new WeakMap(),
+    ahead: undefined,
     heading: REST_HEADING,
     drawn: poseOf(REST_HEADING),
     speed: 0,
     out: 0,
   };
+  drawAhead(live);
+  return live;
+}
+
+const poseAt = (head: Head, pose: number): readonly HeadPath[] => {
+  const paths = head.poses.get(pose) ?? headOf(head.P, pose);
+  head.poses.set(pose, paths);
+  return paths;
+};
+
+/**
+ * Draws every pose between frames, a few at a time, so a turning dish only
+ * rewrites its paths: drawing a pose inside a frame costs most of its budget.
+ */
+function drawAhead(live: MachinesLive) {
+  const { head } = live;
+  if (head === undefined) {
+    return;
+  }
+  const missing = Array.from({ length: 360 / POSE_STEP }, (_, index) => index * POSE_STEP).filter(
+    (pose) => !head.poses.has(pose),
+  );
+  const next = () => {
+    for (const pose of missing.splice(0, POSES_PER_TASK)) {
+      poseAt(head, pose);
+    }
+    live.ahead = missing.length === 0 ? undefined : setTimeout(next, 0);
+  };
+  live.ahead = missing.length === 0 ? undefined : setTimeout(next, 0);
+}
+
+export function disposeMachines(live: MachinesLive) {
+  clearTimeout(live.ahead);
 }
 
 function drawHead(live: MachinesLive, heading: number) {
@@ -78,9 +131,7 @@ function drawHead(live: MachinesLive, heading: number) {
     return;
   }
   const pose = poseOf(heading);
-  const paths = head.poses.get(pose) ?? headOf(head.P, pose);
-  head.poses.set(pose, paths);
-  paths.forEach(({ paint, d }, index) => {
+  poseAt(head, pose).forEach(({ paint, d }, index) => {
     const path = head.paths[index] ?? null;
     write(live.written, path, "d", d);
     for (const [name, value] of Object.entries(paintOf(paint))) {
