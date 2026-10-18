@@ -19,7 +19,6 @@ function shapeOf(shape: Shape): A.AuditShape {
   return A.disc(shape.frame, shape.s0, shape.s1, shape.r, meta);
 }
 
-/** Writes one line to standard output. */
 export const say = (line: string): void => {
   process.stdout.write(`${line}\n`);
 };

@@ -509,7 +509,7 @@ The frontmatter's `shadows` block holds each shadow's value.
 
 ## Shapes
 
-Controls are capsules and containers are softly squared. A control a finger or pointer presses (a button, segmented control, switch, search field, toast or pill) is a capsule at 999px. Containers step up in radius as they float higher: 6px chips, 8px menu items, inputs and small art, 14px cards, tables, menus and large posters, 20px Dialogs, and a 24px top edge on sheets. Marks smaller than 16px (state squares, stage segments, bars) round to a quarter of their height. Network zones on the Nodes canvas are the one dashed shape, a 20px rounded rectangle with a 1px dashed edge.
+Controls are capsules and containers are softly squared. A control a finger or pointer presses (a button, segmented control, switch, search field, toast or pill) is a capsule at 999px. Containers step up in radius as they float higher: 6px chips, 8px menu items, inputs and small art, 14px cards, tables, menus and large posters, 20px Dialogs, and a 24px top edge on sheets. Marks smaller than 16px (state squares, stage segments, bars) round to a quarter of their height.
 
 ## Components
 
@@ -682,7 +682,18 @@ Remote access draws each exposure as a lane of hops: Player, DNS, Relay, TLS, No
 
 ### Node canvas
 
-Desktop Nodes is a pan and zoom diagram (30% to 200%). Its ground is a 4.5% lightness field with a 22px dot grid. Network zones (Internet, Home LAN, a remote site) are dashed rounded rectangles with a label pill. Node boxes are near-opaque tinted cards with a drop shadow, and arrows point from the Node that dials. Role chips drag between Nodes, holding ⌥ to add instead of move. While a chip is dragged, each Node shows its guardrail verdict as a chip: green allows the drop, amber means a weak probe, red blocks it, and neutral means no change. The Traffic toggle draws each running job on the links its bytes cross. Canvas controls float on glass. Below 1000px and on phone, Nodes shows the Roster list instead.
+Desktop Nodes opens on the Diagram, an isometric drawing of the install seen from one fixed camera, with no pan or zoom. It fits the page's width and sits on the page with no ground of its own. Each Node is a tile: a slab on feet with a plaque on its front edge, a state lamp and a row of Role chips. The Controller's tile is at the centre at full size, and each Worker's tile is 72% of it on a ring around it, the first eight close and the next six further out. The Diagram draws up to 15 Nodes, and a caption under it says the Roster lists the rest.
+
+- **Tiles.** The plaque reads the Node's name and the state the Roster gives it: "Online", or "Last seen 21:31" while it is away. The lamp is green while the Node is online, amber while it reconnects or runs another version, red while it is away and the Work's glow while it restarts. An away Node's chips and machines, and a draining Role, are drawn at 55% and keep their place.
+- **Machines.** A Role with a machine stands it on the tile, and only a Role the Node holds does. Downloading is an antenna that takes pieces in, a glass chute that carries them to a loom, and a board of cells for each of up to two torrents that fills as the torrent does. Storage is a cabinet of drawers, Converting a roller press and Relaying a switchboard. These three stand still until their specs give them live figures. Every other Role is a chip only.
+- **Links.** Each Worker is joined to the Controller by a glass conduit on the floor, rising on a short riser under each slab. Capsules travel along it at a rate set by the link's throughput, capped by what its round trip can carry, and faster on a quicker link. The end that dialed glows. A down link is empty.
+- **Lettering.** Plaques and chips are engraved in Geist Mono, as labels on equipment are. It is the one place mono sets words, because the engraving spaces every letter on one advance and is part of the drawing, not data.
+- **Reading it.** Hovering a part, or the idle tour when no pointer moves, lights it and dims the rest. A click or the arrow keys select a Node, a Role or a link and open the Inspector, which says it in words with the machinery under Details. On phone the Inspector is a sheet. Escape clears.
+- **Dragging.** A Role chip drags to another tile to move the Role there, or adds it while ⌥ or Alt is held. A ghost follows the pointer with "Move Downloading" or "Add Downloading" and the plan's word for the drop. The tile under it tints by the plan's verdict: green allows, amber warns and red blocks. A drop opens the same Review as the Roles page. A drop on red does nothing.
+- **Narrow and phone.** Below 1000px and on phone, Nodes opens on the Roster, and the Diagram tab is there to look at, without drags.
+- **Motion.** Fills and capsules ease toward each traffic sample over the second until the next. Under reduced motion the Diagram is one still frame: capsules spaced along each link at its rate and every board at its fill.
+
+The Roster says everything the Diagram draws, in rows, and a screen reader reads the Roster.
 
 ### PIN keypad
 
@@ -701,7 +712,7 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 - **On light ground.** Emails and the light Windows taskbar take `brand/mark-light.svg`, with the S in `#1d1d1f`, the email button's ink, and the dots in `#1464cc`.
 - **Wordmark.** The mark sits left of "SlipStream" in Geist, "Slip" at 600 and "Stream" at 400, with -0.03em tracking. The mark's 64-unit box is twice the cap height, and the gap between them is a third of that box.
 - **Size and space.** The smallest size is 16px, where the stroke lands on 2px. Keep clear space of one dot's width on every side.
-- **Startup sequence.** The app opens on a 4.4s sequence built from the mark. The two dots come online over the Nodes canvas dot grid, and the Controller sends a Transfer that draws the S behind it. The Relay answers, the neutral ambient blooms, and the mark slides left as the wordmark wipes out from behind it. It uses the neutral blue, because no Work is in focus yet.
+- **Startup sequence.** The app opens on a 4.4s sequence built from the mark. The two dots come online over a faint dot grid, and the Controller sends a Transfer that draws the S behind it. The Relay answers, the neutral ambient blooms, and the mark slides left as the wordmark wipes out from behind it. It uses the neutral blue, because no Work is in focus yet.
   - **Master.** `brand/startup/sequence.js` is the master. It exports the duration, the phase table and `render(t, stage)`. The web app imports it, so the app and the master cannot drift, and it draws with the bundled Geist and `brand/startup/grain.png` from the Node. `brand/startup/startup.html` plays the same module on its own, and `brand/startup/render.mjs` renders `startup.mp4` from that page frame by frame.
   - **When it plays.** Once per new tab or app window, on whichever page opens first: sign-in, setup, the app or the portal. It is a full-screen layer over the page, which loads underneath it. Any key, click or tap skips to the finished lockup. It never plays while the Startup sequence switch is off, a per-browser choice in the account menu and in More.
   - **How it ends.** In the Admin app's desktop shell it stops as its exit begins (3.96s), and its mark settles into the sidebar's mark through a 360ms view transition. Everywhere else it plays its full 4.4s and fades over 360ms. Under reduced motion it shows the finished lockup for 0.6s, then fades.
