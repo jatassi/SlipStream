@@ -330,7 +330,9 @@ func measureClient(t *testing.T, a arm) {
 	mbits := float64(moved.n.Load()-from) * 8 / measureFor.Seconds() / 1e6
 	cancel()
 	_ = tc.Close()
-	<-done
+	if err := <-done; err != nil {
+		t.Logf("%s client: %v", a.name, err)
+	}
 	b, err := json.Marshal(result{Arm: a.name, Connect: dialTime, Mbits: mbits})
 	if err != nil {
 		t.Fatal(err)

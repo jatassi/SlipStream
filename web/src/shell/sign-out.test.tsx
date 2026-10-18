@@ -34,7 +34,7 @@ const confirm = () => page.getByRole("dialog", { name: "Sign out of this device?
 test("Sign out in the Account menu asks first, and Cancel keeps this device signed in", async () => {
   const server = sessionServer();
   const { router } = renderApp({ path: "/library", handlers: server.handlers });
-  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await userEvent.click(page.getByRole("menuitem", { name: "Sign out" }));
   await expect.element(confirm()).toBeVisible();
 
@@ -43,7 +43,7 @@ test("Sign out in the Account menu asks first, and Cancel keeps this device sign
   expect(server.deletes()).toBe(0);
   expect(router.state.location.href).toBe("/library");
 
-  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await userEvent.click(page.getByRole("menuitem", { name: "Sign out" }));
   await userEvent.click(confirm().getByRole("button", { name: "Sign out" }));
   await expect.element(page.getByText("You signed out.")).toBeVisible();
@@ -102,7 +102,7 @@ test("a Sign out the Node refuses says so in the dialog and keeps it open", asyn
       ...server.handlers,
     ],
   });
-  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await userEvent.click(page.getByRole("menuitem", { name: "Sign out" }));
   await userEvent.click(confirm().getByRole("button", { name: "Sign out" }));
   await expect.element(confirm().getByRole("alert")).toHaveTextContent("Something failed");

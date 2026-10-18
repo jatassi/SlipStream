@@ -174,7 +174,7 @@ test("Add sits under its Content Type's library", async () => {
 
 test("the account menu opens the portal", async () => {
   const { router } = renderApp({ path: "/library" });
-  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open the portal" }));
   await expect.poll(() => router.state.location.href).toBe("/portal");
   await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
