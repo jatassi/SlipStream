@@ -52,7 +52,11 @@ test("Nodes shows the Join Code lifetime and the offline grace, and saves the gr
       }),
     ],
   });
-  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Nodes" }),
+    )
+    .toHaveAttribute("aria-current", "page");
   expect(
     page
       .getByRole("heading", { level: 2 })

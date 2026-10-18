@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -34,6 +35,8 @@ var (
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't answer. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
+	profileNotFound     = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
+	profileWrongType    = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 )
 
 var codes = []struct {
@@ -48,6 +51,8 @@ var codes = []struct {
 	{works.ErrNotFound, metadataNotFound},
 	{works.ErrUnavailable, metadataUnavailable},
 	{works.ErrInvalid, metadataInvalid},
+	{targets.ErrNoProfile, profileNotFound},
+	{targets.ErrProfileWrongType, profileWrongType},
 }
 
 func answer(err error) error {
@@ -279,6 +284,7 @@ type newWork struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Key         string `json:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
 	Monitor     bool   `json:"monitor,omitempty" doc:"Monitor a new Work's Items; adding a Work already in the library changes nothing"`
+	ProfileID   string `json:"profileId,omitempty" format:"uuid" doc:"The Profile of the Content Type a new Work wants from; left out, the type's default"`
 }
 
 type added struct {
@@ -353,7 +359,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works",
 		Summary: "Add a Work by its key with its whole tree, or get the Work already added",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataNotFound, metadataUnavailable, metadataInvalid},
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, profileNotFound, profileWrongType, metadataNotFound, metadataUnavailable, metadataInvalid},
 	}, h.addWork)
 
 	api.Register(o, api.Admin, api.Op{
@@ -423,7 +429,20 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	if err != nil {
 		return nil, api.Invalid
 	}
-	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key, in.Body.Monitor)
+	var profile *targets.ProfileID
+	if in.Body.ProfileID != "" {
+		u, err := storage.ParseUUID(in.Body.ProfileID)
+		if err != nil {
+			return nil, profileNotFound
+		}
+		profile = &targets.ProfileID{UUID: u}
+	}
+	t, created, err := open(h.shelf).Add(ctx, by, works.TypeID(in.Body.ContentType), key, works.Adding{
+		Monitor: in.Body.Monitor,
+		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+			return targets.Assign(ctx, tx, w, profile)
+		},
+	})
 	if err != nil {
 		return nil, answer(err)
 	}

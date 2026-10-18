@@ -1,9 +1,13 @@
 package scenario
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
@@ -23,15 +27,81 @@ type LibraryRoot struct {
 	Folder      string `jsonschema:"required,pattern=^[a-z0-9][a-z0-9._-]*$" yaml:"folder"`
 }
 
+// LibraryTarget is a Target as an Admin creates it: tiers of quality keys,
+// best first, the quality whose tier is the cutoff, filters by attribute
+// and sizes in MiB per minute for some accepted qualities. One named after
+// the starter replaces the starter's rules.
 type LibraryTarget struct {
-	Name        string   `jsonschema:"required"                                                                          yaml:"name"`
-	Resolutions []string `jsonschema:"required,minItems=1,uniqueItems=true,enum=2160p,enum=1080p,enum=720p,enum=576p,enum=480p" yaml:"resolutions"`
+	Name    string          `jsonschema:"required"            yaml:"name"`
+	Tiers   [][]QualityKey  `jsonschema:"required,minItems=1" yaml:"tiers"`
+	Cutoff  QualityKey      `jsonschema:"required"            yaml:"cutoff"`
+	Filters []LibraryFilter `yaml:"filters,omitempty"`
+	Sizes   []LibrarySize   `yaml:"sizes,omitempty"`
 }
 
+// QualityKey is a release.Quality's key, such as webdl-1080p.
+type QualityKey string
+
+type LibraryFilter struct {
+	Attribute string   `jsonschema:"required,enum=hdr,enum=video_codec,enum=audio_codec,enum=channels,enum=language" yaml:"attribute"`
+	Mode      string   `jsonschema:"required,enum=only,enum=not"                                                       yaml:"mode"`
+	Values    []string `jsonschema:"required,minItems=1,uniqueItems=true"                                            yaml:"values"`
+}
+
+type LibrarySize struct {
+	Quality QualityKey `jsonschema:"required"  yaml:"quality"`
+	Min     float64    `jsonschema:"minimum=0" yaml:"min,omitempty"`
+	Max     *float64   `jsonschema:"minimum=0" yaml:"max,omitempty"`
+}
+
+// Spec is t as targets.NewTarget reads it, so a Scenario can't declare a
+// Target the API refuses.
+func (t LibraryTarget) Spec() (targets.Spec, error) {
+	var errs []error
+	quality := func(k QualityKey) release.Quality {
+		q, err := release.ParseQuality(string(k))
+		errs = append(errs, err)
+		return q
+	}
+	s := targets.Spec{Name: t.Name, Cutoff: quality(t.Cutoff), Sizes: map[release.Quality]targets.Size{}}
+	for _, tier := range t.Tiers {
+		var qs []release.Quality
+		for _, k := range tier {
+			qs = append(qs, quality(k))
+		}
+		s.Tiers = append(s.Tiers, qs)
+	}
+	for _, f := range t.Filters {
+		m, err := targets.ParseMode(f.Mode)
+		if err == nil && m == targets.Any {
+			err = fmt.Errorf("filter %s is any; leave it out", f.Attribute)
+		}
+		if err == nil {
+			err = s.Filters.Set(targets.Attribute(f.Attribute), m, f.Values)
+		}
+		errs = append(errs, err)
+	}
+	for _, z := range t.Sizes {
+		q := quality(z.Quality)
+		if _, ok := s.Sizes[q]; ok {
+			errs = append(errs, fmt.Errorf("a size for %s twice", z.Quality))
+		}
+		s.Sizes[q] = targets.Size{Min: z.Min, Max: z.Max}
+	}
+	if err := errors.Join(errs...); err != nil {
+		return targets.Spec{}, err
+	}
+	return s, nil
+}
+
+// LibraryProfile is a Profile of Targets in Profile order, each a
+// library target or the starter, made its Content Type's default when
+// Default is set.
 type LibraryProfile struct {
 	Name        string   `jsonschema:"required"                                 yaml:"name"`
 	ContentType string   `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$" yaml:"content_type"`
-	Targets     []string `jsonschema:"required,minItems=1,uniqueItems=true"     yaml:"targets"`
+	Targets     []string `jsonschema:"required,uniqueItems=true"                yaml:"targets"`
+	Default     bool     `yaml:"default,omitempty"`
 }
 
 // LibraryIndexer is a Torznab Indexer on the named site fake, with the
@@ -73,30 +143,32 @@ func (l Library) checkTargets(add func(format string, args ...any)) {
 			add("library has two targets named %s", t.Name)
 		}
 		names = append(names, t.Name)
-		if len(t.Resolutions) == 0 {
-			add("library target %s has no resolutions", t.Name)
+		s, err := t.Spec()
+		if err == nil {
+			_, err = targets.NewTarget(s)
 		}
-		for _, r := range t.Resolutions {
-			if _, err := targets.ParseResolution(r); err != nil {
-				add("library target %s: %v", t.Name, err)
-			}
+		if err != nil {
+			add("library target %s: %v", t.Name, strings.ReplaceAll(err.Error(), "\n", "; "))
 		}
 	}
 }
 
 func (l Library) checkProfiles(add func(format string, args ...any)) {
-	var names []string
+	var names, defaults []string
 	for _, p := range l.Profiles {
 		if slices.Contains(names, p.Name) {
 			add("library has two profiles named %s", p.Name)
 		}
 		names = append(names, p.Name)
-		if len(p.Targets) == 0 {
-			add("library profile %s has no targets", p.Name)
+		if p.Default && slices.Contains(defaults, p.ContentType) {
+			add("library has two default profiles for content type %s", p.ContentType)
+		}
+		if p.Default {
+			defaults = append(defaults, p.ContentType)
 		}
 		for _, t := range p.Targets {
-			if !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
-				add("library profile %s names target %s, which library.targets does not list", p.Name, t)
+			if t != targets.StarterName && !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
+				add("library profile %s names target %s, which library.targets does not list and isn't the starter", p.Name, t)
 			}
 		}
 	}

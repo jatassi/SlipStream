@@ -12,6 +12,10 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");
   await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Add The Quiet Orchard" }).click();
+  await page
+    .getByRole("dialog", { name: "Add The Quiet Orchard" })
+    .getByRole("button", { name: "Add Movie" })
+    .click();
   await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
 
   await pageAction(page, "Search").click();

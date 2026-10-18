@@ -5,31 +5,93 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+type TargetsCut struct {
+	Key       release.CutKey
+	Name      string
+	CreatedAt storage.Time
+}
+
+type TargetsCutAlias struct {
+	Cut      release.CutKey
+	Position int64
+	Alias    string
+}
+
+type TargetsFilter struct {
+	TargetID  TargetID
+	Attribute Attribute
+	Mode      Mode
+}
+
+type TargetsFilterValue struct {
+	TargetID  TargetID
+	Attribute Attribute
+	Position  int64
+	Value     string
+}
 
 type TargetsProfile struct {
 	ID          ProfileID
 	Name        string
 	ContentType works.TypeID
 	IsDefault   bool
+	Editions    List
+}
+
+type TargetsProfileCut struct {
+	ProfileID ProfileID
+	Position  int64
+	Cut       release.CutKey
 }
 
 type TargetsProfileTarget struct {
 	ProfileID ProfileID
 	Position  int64
 	TargetID  TargetID
+	Sourcing  Sourcing
 }
 
-type TargetsResolution struct {
-	TargetID   TargetID
-	Position   int64
-	Resolution Resolution
+type TargetsQuality struct {
+	TargetID        TargetID
+	Quality         release.Quality
+	Tier            int64
+	Position        int64
+	MinMibPerMinute float64
+	MaxMibPerMinute *float64
+}
+
+type TargetsSighting struct {
+	ItemID  works.ItemID
+	Cut     release.CutKey
+	Release string
+	SeenAt  storage.Time
+}
+
+type TargetsStarter struct {
+	ID       Singleton
+	TargetID *TargetID
 }
 
 type TargetsTarget struct {
-	ID        TargetID
-	Name      string
-	CreatedAt storage.Time
+	ID         TargetID
+	Name       string
+	CreatedAt  storage.Time
+	CutoffTier int64
+}
+
+type TargetsWant struct {
+	WorkID    works.WorkID
+	ProfileID ProfileID
+	Editions  *List
+}
+
+type TargetsWantsCut struct {
+	WorkID   works.WorkID
+	Position int64
+	Cut      release.CutKey
 }

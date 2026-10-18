@@ -96,8 +96,12 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, listed func
 		w.probes[r.Name+".mkv"] = media.Probe{
 			Duration: time.Duration(r.Video.Seconds) * time.Second, Container: "matroska", Codec: "h264", Width: r.Video.Width, Height: r.Video.Height,
 		}
+		size := int64(PayloadSize)
+		if r.AdvertisedSize > 0 {
+			size = int64(r.AdvertisedSize)
+		}
 		item := site.Release{
-			Name: r.Name, Size: PayloadSize, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: meta,
+			Name: r.Name, Size: size, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: meta,
 		}
 		if listed != nil {
 			listed(&item)

@@ -131,7 +131,12 @@ func cause(err error) string {
 
 // List lists every root by Content Type.
 func (r *Roots) List(ctx context.Context, _ identity.Admin) ([]Root, error) {
-	rows, err := db.New(r.cfg.Library).ListRoots(ctx)
+	return All(ctx, r.cfg.Library)
+}
+
+// All lists every root by Content Type in r.
+func All(ctx context.Context, r storage.Reader[file]) ([]Root, error) {
+	rows, err := db.New(r).ListRoots(ctx)
 	if err != nil {
 		return nil, err
 	}

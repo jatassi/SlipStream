@@ -11,6 +11,7 @@ import { worker } from "./worker";
 declare module "vitest/browser" {
   interface BrowserCommands {
     emulateReducedMotion: (reduce: boolean) => Promise<void>;
+    drag: (from: string, to: string) => Promise<void>;
   }
 }
 

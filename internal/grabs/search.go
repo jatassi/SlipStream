@@ -3,6 +3,7 @@ package grabs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -23,23 +25,33 @@ type Search struct {
 	ItemID  works.ItemID
 	Indexer indexers.ID
 	Started time.Time
-	// Finished, Outcome and Candidates are set once the run finished, and
-	// GrabID when it grabbed.
+	// Finished, Outcome, Candidates and Refused are set once the run
+	// finished, and GrabID and Notes, the grabbed release's, when it
+	// grabbed.
 	Finished   time.Time
 	Outcome    Outcome
 	Candidates int
+	Refused    []Refusal
 	GrabID     GrabID
+	Notes      []Reason
 }
 
-func searchOf(row db.GrabsSearch) Search {
+func searchOf(row db.GrabsSearch, refused []Refusal) (Search, error) {
 	s := Search{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Indexer: row.IndexerID, Started: row.StartedAt.Time(),
-		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), GrabID: row.GrabID,
+		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), Refused: refused, GrabID: row.GrabID,
 	}
 	if row.Outcome != nil {
 		s.Outcome = *row.Outcome
 	}
-	return s
+	if row.Notes != nil {
+		notes, err := decodeReasons(*row.Notes)
+		if err != nil {
+			return Search{}, fmt.Errorf("search %s: %w", row.ID, err)
+		}
+		s.Notes = notes
+	}
+	return s, nil
 }
 
 // SearchWork records a search run for each Item of work with a wanted cell
@@ -192,19 +204,9 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: storage.Now(), Candidates: int64(len(items))}
 	var grab *Grab
 	if outcome == Grabbed {
-		open, err := gr.openCells(ctx, tx, run.WorkID)
+		pick, err := gr.pick(ctx, tx, run, terms, items)
 		if err != nil {
 			return nil, err
-		}
-		var item []files.Cell
-		for _, c := range open {
-			if c.Item.ID == run.ItemID {
-				item = append(item, c)
-			}
-		}
-		pick, rejected := decide(item, terms, items)
-		for _, r := range rejected {
-			gr.cfg.Log.Debug("a release was rejected", "search", run.ID.String(), "title", r.Title, "reason", string(r.Reason))
 		}
 		if pick == nil {
 			outcome = NothingAcceptable
@@ -213,11 +215,74 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, i
 			if err != nil {
 				return nil, err
 			}
-			grab, finish.GrabID = &g, g.ID
+			notes, err := encodeReasons(pick.Notes)
+			if err != nil {
+				return nil, err
+			}
+			grab, finish.GrabID, finish.Notes = &g, g.ID, &notes
 		}
 	}
 	finish.Outcome = &outcome
 	return grab, q.FinishSearch(ctx, finish)
+}
+
+// pick decides among items for run's Item's open cells and stores the
+// releases it refused. Every listed release of this Work records a
+// sighting of its cut first, so a cut seen now is wanted now.
+func (gr *Grabs) pick(ctx context.Context, tx *storage.Tx[file], run Search, terms indexers.Terms, items []indexers.Item) (*Pick, error) {
+	tree, err := gr.cfg.Works.TreeIn(ctx, tx, run.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	known, err := gr.cfg.Targets.CutsIn(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, tx, tree.ContentType, []works.WorkID{run.WorkID})
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]candidate, len(items))
+	for i, it := range items {
+		candidates[i] = candidateOf(it, known.For(tree.ContentType), run.ItemID, timings[run.ItemID].Runtime)
+		if wrongWork(it, terms) {
+			continue
+		}
+		if err := targets.See(ctx, tx, run.ItemID, candidates[i].Facts.Cut, releaseKey(it)); err != nil {
+			return nil, err
+		}
+	}
+	open, err := gr.openCells(ctx, tx, run.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	var item []files.Cell
+	for _, c := range open {
+		if c.Item.ID == run.ItemID {
+			item = append(item, c)
+		}
+	}
+	pick, refused := decide(item, terms, candidates)
+	q := db.New(tx)
+	for i, r := range refused {
+		reasons, err := encodeReasons(r.Reasons)
+		if err != nil {
+			return nil, err
+		}
+		if err := q.InsertRefusal(ctx, db.InsertRefusalParams{SearchID: run.ID, Position: int64(i), Title: r.Title, Reasons: reasons}); err != nil {
+			return nil, err
+		}
+	}
+	return pick, nil
+}
+
+// releaseKey is what a sighting keys it by: its info hash in hex, else its
+// title.
+func releaseKey(it indexers.Item) string {
+	if h, err := bencode.ParseInfoHash(it.InfoHash); err == nil {
+		return h.String()
+	}
+	return it.Title
 }
 
 func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result {
@@ -230,7 +295,7 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 
 func insertGrab(ctx context.Context, q *db.Queries, run Search, idx indexers.Indexer, pick Pick, now storage.Time) (Grab, error) {
 	g := Grab{
-		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: files.Standard, Targets: pick.Targets,
+		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
 		Release: Release{Title: pick.Item.Title, Size: pick.Item.Size, Indexer: idx.ID, Link: pick.Item.Link},
 		Node:    idx.HomeNode, Stage: Fetching, Created: now.Time(),
 	}
@@ -260,12 +325,29 @@ func (gr *Grabs) Searches(ctx context.Context, _ identity.Admin, work works.Work
 		if _, err := gr.cfg.Works.TreeIn(ctx, r, work); err != nil {
 			return err
 		}
-		rows, err := db.New(r).ListSearchesOfWork(ctx, work)
+		q := db.New(r)
+		rows, err := q.ListSearchesOfWork(ctx, work)
 		if err != nil {
 			return err
 		}
+		refusals, err := q.ListRefusalsOfWork(ctx, work)
+		if err != nil {
+			return err
+		}
+		refused := map[SearchID][]Refusal{}
+		for _, row := range refusals {
+			reasons, err := decodeReasons(row.Reasons)
+			if err != nil {
+				return fmt.Errorf("search %s: %w", row.SearchID, err)
+			}
+			refused[row.SearchID] = append(refused[row.SearchID], Refusal{Title: row.Title, Reasons: reasons})
+		}
 		for _, row := range rows {
-			out = append(out, searchOf(row))
+			s, err := searchOf(row, refused[row.ID])
+			if err != nil {
+				return err
+			}
+			out = append(out, s)
 		}
 		return nil
 	})

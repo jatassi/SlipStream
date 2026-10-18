@@ -129,9 +129,12 @@ func (s *server) movie(w http.ResponseWriter, r *http.Request) {
 		case "external_ids":
 			out.ExternalIDs = &externalIDsJSON{IMDbID: m.IMDbID}
 		case "release_dates":
-			out.ReleaseDates = &releaseDatesJSON{Results: []countryJSON{{Country: "US", ReleaseDates: []releaseJSON{
-				{ReleaseDate: m.Released + "T00:00:00.000Z", Type: theatrical},
-			}}}}
+			out.ReleaseDates = &releaseDatesJSON{Results: []countryJSON{}}
+			if m.Released != "" {
+				out.ReleaseDates.Results = append(out.ReleaseDates.Results, countryJSON{Country: "US", ReleaseDates: []releaseJSON{
+					{ReleaseDate: m.Released + "T00:00:00.000Z", Type: theatrical},
+				}})
+			}
 		}
 	}
 	reply(w, http.StatusOK, out)

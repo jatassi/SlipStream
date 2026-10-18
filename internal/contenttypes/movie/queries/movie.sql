@@ -6,3 +6,6 @@ ON CONFLICT (work_id) DO UPDATE SET imdb_id = excluded.imdb_id, title = excluded
 
 -- name: GetMovie :one
 SELECT * FROM movie_movie WHERE work_id = sqlc.arg(work_id);
+
+-- name: ListMovies :many
+SELECT * FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;

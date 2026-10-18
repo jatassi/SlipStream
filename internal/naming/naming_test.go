@@ -16,7 +16,9 @@ func TestRender(t *testing.T) {
 	}{
 		{"{Movie Title} ({Year})", orchard, naming.Core{}, "The Quiet Orchard (2021)"},
 		{"{Movie Title} ({Year}) - {Edition Tag} {Target}", orchard, naming.Core{Target: "1080p"}, "The Quiet Orchard (2021) - 1080p"},
-		{"{Movie Title} ({Year}) - {Edition Tag} {Target}", orchard, naming.Core{Target: "2160p", EditionTag: "Director's Cut"}, "The Quiet Orchard (2021) - Director's Cut 2160p"},
+		{"{Movie Title} ({Year}) - {Edition Tag} {Target}", orchard, naming.Core{Target: "2160p", EditionTag: "{edition-Director's Cut}", Edition: "Director's Cut"}, "The Quiet Orchard (2021) - {edition-Director's Cut} 2160p"},
+		{"{Movie Title} ({Year}) - {Edition} {Target}", orchard, naming.Core{Target: "2160p", EditionTag: "{edition-Director's Cut}", Edition: "Director's Cut"}, "The Quiet Orchard (2021) - Director's Cut 2160p"},
+		{"{Movie Title} ({Year}) - {Edition} {Target}", orchard, naming.Core{Target: "1080p"}, "The Quiet Orchard (2021) - 1080p"},
 		{"{Movie Title} ({Year})", map[string]string{"Movie Title": "AC/DC: Live\\Loud", "Year": "1991"}, naming.Core{}, "AC DC Live Loud (1991)"},
 		{"  {Movie Title}  ", map[string]string{"Movie Title": "Wait..."}, naming.Core{}, "Wait"},
 		{"{Movie Title}", map[string]string{"Movie Title": "con"}, naming.Core{}, "_con"},

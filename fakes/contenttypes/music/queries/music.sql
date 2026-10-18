@@ -24,3 +24,9 @@ SELECT * FROM music_track WHERE work_id = sqlc.arg(work_id) ORDER BY item_id;
 
 -- name: GetTrack :one
 SELECT * FROM music_track WHERE item_id = sqlc.arg(item_id);
+
+-- name: ListAlbumsOf :many
+SELECT * FROM music_album WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY level_id;
+
+-- name: ListTracksOf :many
+SELECT * FROM music_track WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY item_id;

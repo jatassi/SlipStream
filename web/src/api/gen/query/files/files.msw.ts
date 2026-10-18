@@ -9,13 +9,29 @@ import type {
   FilesFailedCell,
   FilesMetCell,
   FilesMissingCell,
+  FilesUnreleasedCell,
+  FilesUpgradableCell,
 } from "../../model";
+
+export const getGetWorkCellsResponseFilesUnreleasedCellMock = (
+  overrideResponse: Partial<FilesUnreleasedCell> = {},
+): FilesUnreleasedCell => ({
+  ...{
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["unreleased"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
 
 export const getGetWorkCellsResponseFilesMissingCellMock = (
   overrideResponse: Partial<FilesMissingCell> = {},
 ): FilesMissingCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["missing"] as const),
     targetId: faker.string.uuid(),
@@ -29,7 +45,7 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
   overrideResponse: Partial<FilesDownloadingCell> = {},
 ): FilesDownloadingCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["downloading"] as const),
     targetId: faker.string.uuid(),
@@ -43,9 +59,49 @@ export const getGetWorkCellsResponseFilesFailedCellMock = (
   overrideResponse: Partial<FilesFailedCell> = {},
 ): FilesFailedCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["failed"] as const),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    wanted: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesUpgradableCellMock = (
+  overrideResponse: Partial<FilesUpgradableCell> = {},
+): FilesUpgradableCell => ({
+  ...{
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    file: {
+      id: faker.string.uuid(),
+      path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+      quality: faker.helpers.arrayElement([
+        "sdtv",
+        "dvd",
+        "webrip-480p",
+        "hdtv-720p",
+        "webrip-720p",
+        "webdl-720p",
+        "bluray-720p",
+        "hdtv-1080p",
+        "webrip-1080p",
+        "webdl-1080p",
+        "bluray-1080p",
+        "remux-1080p",
+        "hdtv-2160p",
+        "webrip-2160p",
+        "webdl-2160p",
+        "bluray-2160p",
+        "remux-2160p",
+        "cam",
+      ] as const),
+      size: faker.number.int({ min: 0 }),
+    },
+    itemId: faker.string.uuid(),
+    state: faker.helpers.arrayElement(["upgradable"] as const),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     wanted: faker.datatype.boolean(),
@@ -57,11 +113,31 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
   overrideResponse: Partial<FilesMetCell> = {},
 ): FilesMetCell => ({
   ...{
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: {
       id: faker.string.uuid(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),
       probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+      quality: faker.helpers.arrayElement([
+        "sdtv",
+        "dvd",
+        "webrip-480p",
+        "hdtv-720p",
+        "webrip-720p",
+        "webdl-720p",
+        "bluray-720p",
+        "hdtv-1080p",
+        "webrip-1080p",
+        "webdl-1080p",
+        "bluray-1080p",
+        "remux-1080p",
+        "hdtv-2160p",
+        "webrip-2160p",
+        "webdl-2160p",
+        "bluray-2160p",
+        "remux-2160p",
+        "cam",
+      ] as const),
       size: faker.number.int({ min: 0 }),
     },
     itemId: faker.string.uuid(),
@@ -78,12 +154,28 @@ export const getGetWorkCellsResponseMock = (
 ): FilesCellList => ({
   cells: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
+      { ...getGetWorkCellsResponseFilesUnreleasedCellMock() },
       { ...getGetWorkCellsResponseFilesMissingCellMock() },
       { ...getGetWorkCellsResponseFilesDownloadingCellMock() },
       { ...getGetWorkCellsResponseFilesFailedCellMock() },
+      { ...getGetWorkCellsResponseFilesUpgradableCellMock() },
       { ...getGetWorkCellsResponseFilesMetCellMock() },
     ]),
   ),
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    itemId: faker.string.uuid(),
+    status: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "unreleased",
+        "missing",
+        "downloading",
+        "failed",
+        "upgradable",
+        "met",
+      ] as const),
+      null,
+    ]),
+  })),
   ...overrideResponse,
 });
 

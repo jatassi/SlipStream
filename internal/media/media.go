@@ -19,9 +19,9 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
-	"github.com/jatassi/slipstream/internal/targets"
 )
 
 // Probe is what probing found: the container and the first video stream.
@@ -34,7 +34,7 @@ type Probe struct {
 }
 
 // Resolution is the probe's resolution class.
-func (p Probe) Resolution() targets.Resolution { return Class(p.Width, p.Height) }
+func (p Probe) Resolution() release.Resolution { return release.ResolutionOf(p.Width, p.Height) }
 
 type Prober interface {
 	Probe(ctx context.Context, path string) (Probe, error)
@@ -93,22 +93,6 @@ func ParseFFprobe(out []byte) (Probe, error) {
 		}
 	}
 	return Probe{}, errors.New("the file has no video stream")
-}
-
-// Class is the resolution class of a width by height video. The width
-// counts too, so a cropped video keeps its class.
-func Class(width, height int) targets.Resolution {
-	switch {
-	case width >= 3200 || height >= 2000:
-		return targets.R2160p
-	case width >= 1800 || height >= 1000:
-		return targets.R1080p
-	case width >= 1200 || height >= 700:
-		return targets.R720p
-	case width >= 1000 || height >= 560:
-		return targets.R576p
-	}
-	return targets.R480p
 }
 
 // Payloads is where this Node's downloaded torrent files lie.
