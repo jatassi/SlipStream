@@ -15,10 +15,6 @@ const ids = [
 export const codeText = (n: number) =>
   `SLP1-${String(n).repeat(5)}-ABCDE-FGHJK-MNPQR-STVWX-YZ012-34567-89ABC-DEFGH-JKMNP-QRSTV`;
 
-/**
- * The Join Code operations over codes held in memory, which a test then
- * uses, dials or expires. Codes last lifetimeMs from when they are made.
- */
 type Store = {
   readonly codes: Map<string, Code>;
   readonly dialed: string[];

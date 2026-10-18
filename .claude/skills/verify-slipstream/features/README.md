@@ -49,7 +49,7 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Accounts](./accounts.md) covers the Accounts list, making an Admin a Member and the re-gated tab, the last Admin, turning an Account off and the Member's portal.
 - [Settings](./settings.md) covers Settings > Address, Email with its test email, and Sign-in.
 - [API key](./api-key.md) covers Settings > API key, regenerating it and the old key refused.
-- [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
+- [Pairing](./pairing.md) covers a Join Code, the Add a Node dialog and its open codes, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
 - [Roles](./roles.md) covers the Role board, a Node's Roles section with its Review and write-off dialog, planning and applying a set of Roles, the handback to home, a stale or blocked set, probes, reach tests, Notifying, drain and write-off.
 - [Offline Nodes](./offline.md) covers the offline grace on the API and Settings > Nodes, the Nodes nav alert and its dot, each Node's standing, an Indexer waiting for its offline home, the Controller covering Searching past the grace, and a Grab that waits for a Node that downloads.
 - [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.

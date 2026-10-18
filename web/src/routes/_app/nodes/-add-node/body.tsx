@@ -21,7 +21,6 @@ export type BodyProps = {
   readonly mint: Mint;
 };
 
-/** The dialog's content for where the code stands. */
 export function Body({ id, state, controller, mint }: BodyProps) {
   switch (state.kind) {
     case "loading": {

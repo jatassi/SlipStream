@@ -29,7 +29,6 @@ export function NodeRestarting({ name }: { name: string }) {
   );
 }
 
-/** The Node page's header actions. */
 export function NodeActions({ node, restarting }: { node: NodesNode; restarting: boolean }) {
   return (
     <div className="flex gap-2">
