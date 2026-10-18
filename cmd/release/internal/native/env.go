@@ -74,6 +74,11 @@ type EnvVar struct {
 // SLIPSTREAM_NATIVE_BUNDLE, which the shim's header requires. The layer's
 // defines go to C++ only: only C++ includes libtorrent's headers, and C
 // packages such as runtime/cgo define some of them themselves.
+//
+// The go command records CGO_LDFLAGS in every cgo package it builds,
+// runtime/cgo included, and the Go linker hands each copy to the host linker,
+// so the libraries reach it more than once. ld64 drops the repeats; on darwin
+// the flags tell it to do so without a warning per library.
 func CgoEnv(layerDir string, md Metadata, cc Compilers, t Target) []EnvVar {
 	cflags := []string{"-O2", "-g", "-DSLIPSTREAM_NATIVE_BUNDLE"}
 	for _, dir := range md.IncludeDirs {
@@ -88,6 +93,9 @@ func CgoEnv(layerDir string, md Metadata, cc Compilers, t Target) []EnvVar {
 		ldflags = append(ldflags, abs(layerDir, lib))
 	}
 	ldflags = append(ldflags, md.SystemLibs...)
+	if t.GOOS == "darwin" {
+		ldflags = append(ldflags, "-Wl,-no_warn_duplicate_libraries")
+	}
 	env := []EnvVar{
 		{"CGO_ENABLED", "1"},
 		{"GOFLAGS", "-tags=" + strings.Join(t.GoTags, ",")},
