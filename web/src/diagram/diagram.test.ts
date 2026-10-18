@@ -6,6 +6,7 @@ import { drawingOf } from "./drawing";
 import { fixtureClock, fixtureOf } from "./fixtures";
 import { MOST_NODES, layoutOf, planOf } from "./layout";
 import {
+  TRICKLE,
   capsuleRate,
   litCells,
   pointOn,
@@ -92,7 +93,8 @@ describe("machines", () => {
 describe("motion", () => {
   test("a link's capsule rate follows its throughput, capped by what its round trip can carry", () => {
     expect(capsuleRate(0, 20)).toBe(0);
-    expect(capsuleRate(1_000_000, 0)).toBe(0);
+    expect(capsuleRate(68, 0)).toBe(TRICKLE);
+    expect(capsuleRate(1_000_000, 0)).toBeCloseTo(2);
     expect(capsuleRate(1_000_000, 20)).toBeCloseTo(2);
     expect(capsuleRate(1e9, 20)).toBeCloseTo(6.25);
     expect(capsuleRate(1e9, 200)).toBeLessThan(capsuleRate(1e9, 20));

@@ -62,13 +62,20 @@ export type Flow = {
   readonly towardWorker: number;
 };
 
-/** Capsules a second for a link carrying `bps` bytes a second with a round trip of `rttMs`. */
+/** The fewest capsules a second a link shows while any bytes cross it. */
+export const TRICKLE = 0.3;
+
+/**
+ * Capsules a second for a link carrying `bps` bytes a second with a round
+ * trip of `rttMs`: none on a quiet link, at least a trickle while bytes
+ * move, and a round trip under a millisecond counts as one.
+ */
 export function capsuleRate(bps: number, rttMs: number): number {
-  if (rttMs <= 0) {
+  if (bps <= 0) {
     return 0;
   }
   const mbps = (bps * 8) / 1e6;
-  return Math.min(mbps, 0.5 / (rttMs / 1000)) * 0.25;
+  return Math.max(TRICKLE, Math.min(mbps, 0.5 / (Math.max(rttMs, 1) / 1000)) * 0.25);
 }
 
 /** How fast a capsule travels for a round trip of `rttMs`: quicker links, quicker capsules. */
