@@ -13,9 +13,10 @@ import {
   pathOf,
   ring as ringAt,
   roundedPlan,
+  sideMatrix,
   slabOf,
 } from "@anatomy/iso-kit";
-import { type Frame, disc as discOf, prismOf } from "@anatomy/lathe";
+import { type Faded, type Frame, disc as discOf, prismOf } from "@anatomy/lathe";
 import { Dots, Line, Solid } from "@anatomy/react/draw";
 import { Fragment, type ReactNode } from "react";
 
@@ -204,3 +205,83 @@ export const roundRect = (u0: number, z0: number, u1: number, z1: number, r: num
     roundedPlan({ x: u0, y: z0, w: u1 - u0, d: z1 - z0, r }, steps).map(([u, z]): Flat => [u, -z]),
     true,
   );
+
+/** The projection that draws local coordinates at `by` in the world. */
+export const movedP = (P: Projection, by: Point3): Projection => ({ ...P, origin: iso(by, P) });
+
+const add = ([x, y, z]: Point3, [dx, dy, dz]: Point3): Point3 => [x + dx, y + dy, z + dz];
+
+/** A shape moved by `by` and scaled about the origin by `scale`, as the audit places it in the world. */
+export function placedShape(shape: Shape, by: Point3, scale = 1): Shape {
+  const [dx, dy, dz] = by;
+  const at = (point: Point3): Point3 => add([point[0] * scale, point[1] * scale, point[2] * scale], by);
+  const frame = (f: Frame): Frame => ({ ...f, o: at(f.o) });
+  switch (shape.kind) {
+    case "slab": {
+      const { plan } = shape;
+      return {
+        ...shape,
+        plan: { x: plan.x * scale + dx, y: plan.y * scale + dy, w: plan.w * scale, d: plan.d * scale, r: plan.r * scale },
+        z: shape.z * scale + dz,
+        h: shape.h * scale,
+      };
+    }
+    case "extruded": {
+      return {
+        ...shape,
+        ring: shape.ring.map(([x, y]): Plane => [x * scale + dx, y * scale + dy]),
+        z: shape.z * scale + dz,
+        h: shape.h * scale,
+      };
+    }
+    case "prism": {
+      return {
+        ...shape,
+        frame: frame(shape.frame),
+        polygon: shape.polygon.map(([u, v]): Plane => [u * scale, v * scale]),
+        s0: shape.s0 * scale,
+        s1: shape.s1 * scale,
+      };
+    }
+    case "disc": {
+      return { ...shape, frame: frame(shape.frame), s0: shape.s0 * scale, s1: shape.s1 * scale, r: shape.r * scale };
+    }
+  }
+}
+
+export const placedPipe = (pipe: Pipe, by: Point3, scale = 1): Pipe => ({
+  ...pipe,
+  points: pipe.points.map((point) => add([point[0] * scale, point[1] * scale, point[2] * scale], by)),
+  r: pipe.r * scale,
+});
+
+/** An item drawn in local coordinates, with its shapes and anchor moved by `by` into its parent's. */
+export const placed = (it: Item, by: Point3): Item => ({
+  ...it,
+  at: add(it.at, by),
+  shapes: it.shapes.map((shape) => placedShape(shape, by)),
+  pipes: it.pipes.map((pipe) => placedPipe(pipe, by)),
+});
+
+/** Strokes that fade by their alpha, grouped so each alpha is one path. */
+export function faded(list: readonly Faded[], tone: LineTone = "lo"): Drawn {
+  const groups = new Map<number, string>();
+  for (const { d, alpha } of list) {
+    const level = Math.min(1, Math.round(alpha * 20) / 20);
+    if (level > 0) {
+      groups.set(level, (groups.get(level) ?? "") + d);
+    }
+  }
+  return mark(
+    <>
+      {[...groups].map(([alpha, d]) => (
+        <path key={alpha} className="iso-line" data-tone={tone} d={d} opacity={alpha < 1 ? alpha : undefined} />
+      ))}
+    </>,
+  );
+}
+
+/** The transform onto the face at y, looking from +y: u runs along x, up is z. */
+export const faceY = (P: Projection, y: number): string => sideMatrix([0, y], 0, P, "left");
+/** The transform onto the face at x, looking from +x: u runs along -y, up is z. */
+export const faceX = (P: Projection, x: number): string => sideMatrix([x, 0], 0, P, "right");
