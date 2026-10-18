@@ -639,7 +639,7 @@ Hovering or focusing a square opens a Popover with its detail, and clicking pins
 
 ### Inspector
 
-A non-modal panel on the right, for the detail of a selected row, hop or Node. It is `min(480px, 40vw)` wide with radius 20, glass with float large, held in the shell's third column 12px from the window's edge. It pushes the content left rather than covering it. It enters over 280ms from 16px right. Its header is the title in Title with a close button. Arrow keys move the selection and the Inspector follows. Its sections are wells at `hsl(var(--h) 40% 92% / .045)` with radius 14, 16px padding and a Heading. On phone, the Inspector's content is a pushed page.
+A non-modal panel on the right, for the detail of a selected row, hop or Node. It is `min(480px, 40vw)` wide with radius 20, glass with float large, held in the shell's third column 12px from the window's edge. It pushes the content left rather than covering it. It enters over 280ms from 16px right. Its header is the title in Title with a close button. Arrow keys move the selection and the Inspector follows. Its sections are wells at `hsl(var(--h) 40% 92% / .045)` with radius 14, 16px padding and a Heading. On phone, the Inspector's content is a pushed page, except a selection on a drawing (a remote access hop or a part of the Node canvas), which opens a sheet.
 
 ### Dialog
 
@@ -689,7 +689,7 @@ Desktop Nodes opens on the Diagram, an isometric drawing of the install seen fro
 - **Links.** Each Worker is joined to the Controller by a glass conduit on the floor, rising on a short riser under each slab. Capsules travel along it at a rate set by the link's throughput, capped by what its round trip can carry, and faster on a quicker link. The end that dialed glows. A down link is empty.
 - **Lettering.** Plaques and chips are engraved in Geist Mono, as labels on equipment are. It is the one place mono sets words, because the engraving spaces every letter on one advance and is part of the drawing, not data.
 - **Reading it.** Hovering a part, or the idle tour when no pointer moves, lights it and dims the rest. A click or the arrow keys select a Node, a Role or a link and open the Inspector, which says it in words with the machinery under Details. On phone the Inspector is a sheet. Escape clears.
-- **Dragging.** A Role chip drags to another tile to move the Role there, or adds it while ⌥ or Alt is held. A ghost follows the pointer with "Move Downloading" or "Add Downloading" and the plan's word for the drop. The tile under it tints by the plan's verdict: green allows, amber warns and red blocks. A drop opens the same Review as the Roles page. A drop on red does nothing.
+- **Dragging.** A Role chip drags to another tile to move the Role there, or adds it while ⌥ or Alt is held. A ghost follows the pointer with the plan's word for the drop, such as "Moves Downloading". A refusal such as "seedbox already relays" doesn't name the Role, so "Add Relaying" comes before it. The tile under it tints by the plan's verdict: green allows, amber warns and red blocks. A drop opens the same Review as the Roles page. A drop on red does nothing.
 - **Narrow and phone.** Below 1000px and on phone, Nodes opens on the Roster, and the Diagram tab is there to look at, without drags.
 - **Motion.** Fills and capsules ease toward each traffic sample over the second until the next. Under reduced motion the Diagram is one still frame: capsules spaced along each link at its rate and every board at its fill.
 
