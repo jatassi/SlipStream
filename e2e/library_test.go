@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
@@ -45,7 +46,7 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 	}
 	reply := a.Admin("home", http.MethodGet, "/api/v1/roots", "")
 	decode(t, "listRoots", reply, &roots)
-	worldtest.Expect(t, "listRoots", reply, worldtest.Reply{Status: 200, Body: `{"roots":[{"id":"` + roots.Roots[0].ID + `","contentType":"music","nodeId":"` + m.Nodes[0].NodeID + `","path":` + strconv.Quote(folder) + `}]}` + "\n"})
+	worldtest.Expect(t, "listRoots", reply, worldtest.Reply{Status: 200, Body: `{"roots":[{"id":"` + roots.Roots[0].ID + `","contentType":"music","nodeId":"` + m.Nodes[0].NodeID + `","path":` + strconv.Quote(folder) + `,"default":true,"works":0,"fileBytes":0}]}` + "\n"})
 
 	var targets struct {
 		Targets []struct {
@@ -133,4 +134,74 @@ func TestAFreshControllerWantsTheStarterForItsContentType(t *testing.T) {
 	worldtest.Expect(t, "getWorkCells", a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID+"/cells", ""), worldtest.Reply{Status: 200,
 		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + starter.ID + `","targetName":"1080p","wanted":true,"state":"missing"}],` +
 			`"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing"}]}` + "\n"})
+}
+
+func TestSeveralRootsPerTypeWithOneDefault(t *testing.T) {
+	t.Parallel()
+	s, err := scenario.Load("single-machine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Name = "two-movie-roots"
+	s.Library.Roots = []scenario.LibraryRoot{{ContentType: "movie", Folder: "movies"}, {ContentType: "movie", Folder: "films"}}
+	s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: 9000002, IMDbID: "tt9000002", Title: "The Loud Meadow", Released: "2022-05-20", Runtime: 98 * time.Minute})
+	run := worldtest.LaunchE2EScenario(t, s)
+	a := api(t, run)
+
+	type listed struct {
+		ID      string `json:"id"`
+		Path    string `json:"path"`
+		Default bool   `json:"default"`
+		Works   int    `json:"works"`
+	}
+	list := func(what string) []listed {
+		var out struct {
+			Roots []listed `json:"roots"`
+		}
+		decode(t, what, a.Admin("home", http.MethodGet, "/api/v1/roots", ""), &out)
+		return out.Roots
+	}
+	expect := func(what string, want ...listed) {
+		t.Helper()
+		got := list(what)
+		if len(got) != len(want) {
+			t.Fatalf("%s = %+v, want %+v", what, got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s = %+v, want %+v", what, got, want)
+			}
+		}
+	}
+	roots := list("listRoots")
+	if len(roots) != 2 {
+		t.Fatalf("listRoots = %+v, want the two movie roots", roots)
+	}
+	movies, films := roots[0], roots[1]
+	if movies.Path != filepath.Join(run.Manifest().MediaDir, "movies") || !movies.Default || films.Default {
+		t.Fatalf("listRoots = %+v, want movies first and the default", roots)
+	}
+
+	orchard := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001"}`), &added{})
+	movies.Works = 1
+	expect("listRoots after adding a Work", movies, films)
+
+	if r := a.Admin("home", http.MethodPost, "/api/v1/roots/"+films.ID+"/default", ""); r.Status != http.StatusNoContent {
+		t.Fatalf("makeDefaultRoot = %d %s", r.Status, r.Body)
+	}
+	movies.Default, films.Default = false, true
+	expect("listRoots after Make default", movies, films)
+
+	decode(t, "addWork into movies", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000002","rootId":"`+movies.ID+`"}`), &added{})
+	movies.Works = 2
+	expect("listRoots after adding into movies", movies, films)
+
+	var tr tree
+	if err := json.Unmarshal(orchard.Work, &tr); err != nil {
+		t.Fatal(err)
+	}
+	worldtest.Expect(t, "setWorkRoot", a.Admin("home", http.MethodPatch, "/api/v1/works/"+tr.ID, `{"rootId":"`+films.ID+`"}`),
+		worldtest.Reply{Status: 200, Body: `{"workId":"` + tr.ID + `","rootId":"` + films.ID + `"}` + "\n"})
+	movies.Works, films.Works = 1, 1
+	expect("listRoots after setWorkRoot", movies, films)
 }

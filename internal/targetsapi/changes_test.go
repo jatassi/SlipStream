@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -33,14 +34,16 @@ func shelved(t *testing.T) (s *served, ids map[string]string) {
 	tree, _, err := s.works.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			return targets.Assign(ctx, tx, w, nil)
+			if err := targets.Assign(ctx, tx, w, nil); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := must[roots.Root](t)(roots.New(roots.Config{Library: s.lib, Types: []works.TypeID{contenttypetest.ID}, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
-		Create(ctx, identity.Admin{}, contenttypetest.ID, t.TempDir()))
+	root := rootstest.Root(t, s.lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
 			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",

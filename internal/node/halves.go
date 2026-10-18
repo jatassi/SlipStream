@@ -166,6 +166,12 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	library, err := roots.Open(ctx, roots.Config{
+		Library: lib.db, Types: types, Self: side.Self(), Contents: files.RootContents{}, Changed: roots.ChangedEvent.Bind(n.hub),
+	})
+	if err != nil {
+		return err
+	}
 	shelf := files.New(files.Config{
 		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
 		Naming:  contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
@@ -224,7 +230,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.setHalf(&half{
 		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   goals,
-		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
+		roots:     library,
 		files:     shelf,
 		grabs:     pipeline,
 		tasks:     scheduler,

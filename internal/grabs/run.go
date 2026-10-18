@@ -169,7 +169,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
-		root, err := roots.Of(ctx, r, tree.ContentType)
+		root, err := roots.OfWork(ctx, r, g.WorkID)
 		if err != nil {
 			return err
 		}
@@ -317,6 +317,9 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		won = true
 		return nil
 	})
+	if errors.Is(err, files.ErrRootChanged) {
+		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
+	}
 	if err != nil || !won {
 		return err
 	}

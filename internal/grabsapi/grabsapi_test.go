@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -113,7 +114,6 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
-	types := []works.TypeID{contenttypetest.ID}
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
@@ -123,7 +123,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}))
 	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, standard.ID))
 	assign := func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-		return targets.Assign(ctx, tx, w, nil)
+		if err := targets.Assign(ctx, tx, w, nil); err != nil {
+			return err
+		}
+		return roots.Assign(ctx, tx, w, nil)
 	}
 	attic := works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
@@ -184,8 +187,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_root","title":"The Work's Content Type has no library root"}`)
-	must[roots.Root](t)(roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: home}, Changed: discard[roots.Changed]{}}).
-		Create(ctx, admin, contenttypetest.ID, t.TempDir()))
+	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
 	expect(t, s, http.MethodPost, "/api/v1/works/"+unmonitored.ID.String()+"/search", http.StatusConflict,
 		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
 

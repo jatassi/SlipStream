@@ -247,6 +247,7 @@ export const GrabsFailure = zod.object({
     "transfer_failed",
     "import_failed",
     "node_written_off",
+    "root_changed",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
@@ -1965,6 +1966,12 @@ export const rootsNewRootPathMax = 4096;
 
 export const RootsNewRoot = zod.object({
   contentType: zod.string().regex(rootsNewRootContentTypeRegExp),
+  makeDefault: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Make it its Content Type's default; a Content Type's first root is its default whatever this says",
+    ),
   path: zod
     .string()
     .min(1)
@@ -1979,20 +1986,31 @@ export const rootsRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const RootsRoot = zod.object({
   contentType: zod.string().regex(rootsRootContentTypeRegExp),
+  default: zod.boolean().describe("Where its Content Type's new Works go"),
+  fileBytes: zod.int().describe("The bytes of its files"),
   id: zod.uuid(),
   nodeId: zod.uuid().describe("The Node whose disk holds it"),
   path: zod.string(),
+  works: zod.int().describe("The Works that live in it"),
 });
 
 export type RootsRoot = zod.input<typeof RootsRoot>;
 export type RootsRootOutput = zod.output<typeof RootsRoot>;
 
 export const RootsRootList = zod.object({
-  roots: zod.array(RootsRoot).describe("By Content Type"),
+  roots: zod.array(RootsRoot).describe("By Content Type, oldest first in each"),
 });
 
 export type RootsRootList = zod.input<typeof RootsRootList>;
 export type RootsRootListOutput = zod.output<typeof RootsRootList>;
+
+export const RootsWorkRoot = zod.object({
+  rootId: zod.uuid(),
+  workId: zod.uuid(),
+});
+
+export type RootsWorkRoot = zod.input<typeof RootsWorkRoot>;
+export type RootsWorkRootOutput = zod.output<typeof RootsWorkRoot>;
 
 export const ServingWorker = zod.object({
   controller: zod.string().describe("Its Controller's name"),
@@ -2010,6 +2028,13 @@ export const ServingWorker = zod.object({
 
 export type ServingWorker = zod.input<typeof ServingWorker>;
 export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
+
+export const SetWorkRootInputBody = zod.object({
+  rootId: zod.uuid(),
+});
+
+export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
+export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
@@ -3326,6 +3351,12 @@ export const WorksNewWork = zod.object({
     .exactOptional()
     .describe(
       "The Profile of the Content Type a new Work wants from; left out, the type's default",
+    ),
+  rootId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root",
     ),
 });
 
