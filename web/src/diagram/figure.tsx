@@ -6,12 +6,12 @@ import { type ReactNode, useMemo, useRef } from "react";
 
 import type { Landing } from "../routes/_app/nodes/-landing/view";
 import { Art } from "./art";
-import type { Drop, GestureOf } from "./drag";
 import { drawingOf } from "./drawing";
 import { Ghost } from "./ghost";
-import { type Part, sayPart } from "./parts-order";
-import { useInteraction } from "./use-interaction";
+import { sayPart } from "./parts-order";
+import { type Selecting, useInteraction } from "./use-interaction";
 import { useMotion } from "./use-motion";
+import { ZoomControls } from "./zoom-controls";
 
 // Only what the art draws: a change to anything else keeps the drawing.
 const sceneKeyOf = (landing: Landing): string =>
@@ -32,20 +32,13 @@ function useDrawing(landing: Landing) {
   return useMemo(() => drawingOf(landing), [sceneKey]);
 }
 
-/**
- * The live Diagram: the art, the motion the traffic ring drives, and the
- * pointer and keys. Under reduced motion it is one still frame.
- */
-type FigureProps = {
-  readonly landing: Landing;
-  readonly takesDrags: boolean;
-  readonly selected: Part | undefined;
-  readonly onSelect: (part: Part | undefined) => void;
-  readonly gestureOf: GestureOf;
-  readonly onDrop: (drop: Drop) => void;
-  readonly children?: ReactNode;
-};
+type FigureProps = Selecting & { readonly children?: ReactNode };
 
+/**
+ * The live Diagram: the art, the motion the traffic ring drives, the pointer
+ * and keys, and the zoom. Under reduced motion it is one still frame, and a
+ * zoom jumps rather than eases.
+ */
 export function DiagramFigure(props: FigureProps) {
   const { landing, takesDrags, selected, children } = props;
   const drawing = useDrawing(landing);
@@ -53,24 +46,35 @@ export function DiagramFigure(props: FigureProps) {
   const svg = useRef<SVGSVGElement>(null);
   const still = useStillness();
   useMotion({ figure, svg, drawing, landing, still });
-  const { preview, dragging } = useInteraction({ ...props, figure, svg, still });
+  const { preview, dragging, zoom } = useInteraction({
+    ...props,
+    figure,
+    svg,
+    stage: drawing.stage,
+    still,
+  });
   const shown = preview ?? selected;
   return (
-    <figure
-      ref={figure}
-      aria-label="Diagram"
-      data-takes-drags={takesDrags}
-      data-dragging={dragging?.moved === true ? "" : undefined}
-      // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the arrow keys walk its Nodes, Roles and links; the Roster says the same in rows
-      tabIndex={0}
-      className="diagram iso relative"
-    >
-      <Art drawing={drawing} ref={svg} />
-      <p aria-live="polite" className="sr-only">
-        {shown === undefined ? "" : sayPart(landing, shown)}
-      </p>
-      {dragging?.moved === true && <Ghost dragging={dragging} />}
-      {children}
-    </figure>
+    <div className="relative">
+      <figure
+        ref={figure}
+        aria-label="Diagram"
+        data-takes-drags={takesDrags}
+        data-dragging={dragging?.moved === true ? "" : undefined}
+        data-zoomed={zoom.fitted ? undefined : ""}
+        aria-keyshortcuts="+ - 0"
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the arrow keys walk its Nodes, Roles and links; the Roster says the same in rows
+        tabIndex={0}
+        className="diagram iso relative"
+      >
+        <Art drawing={drawing} view={zoom.view} ref={svg} />
+        <p aria-live="polite" className="sr-only">
+          {shown === undefined ? "" : sayPart(landing, shown)}
+        </p>
+        {dragging?.moved === true && <Ghost dragging={dragging} />}
+        {children}
+      </figure>
+      <ZoomControls zoom={zoom} />
+    </div>
   );
 }

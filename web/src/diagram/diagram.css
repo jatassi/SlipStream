@@ -33,6 +33,20 @@
   user-select: none;
 }
 
+.diagram .iso-svg {
+  overflow: hidden;
+}
+
+.diagram[data-zoomed] {
+  touch-action: none;
+  cursor: grab;
+}
+
+.diagram[data-panning],
+.diagram[data-panning] [data-part] {
+  cursor: grabbing;
+}
+
 .diagram:focus-visible {
   box-shadow: 0 0 0 1px var(--anatomy-muted);
 }

@@ -32,7 +32,8 @@ export type Dragging = {
   readonly gesture?: NodesGesture;
 };
 
-const DRAG_FROM = 4;
+/** The pixels a press moves before it drags rather than clicks. */
+export const DRAG_FROM = 4;
 
 type Pointer = Pick<PointerEvent, "clientX" | "clientY" | "altKey" | "target">;
 
