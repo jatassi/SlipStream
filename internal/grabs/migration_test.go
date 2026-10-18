@@ -36,7 +36,7 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 		}
 		return lib
 	}
-	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema(), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema(), grabs.Schema().Through(1), files.Schema().Through(1))
 	target, grab := storage.NewUUID(), storage.NewUUID()
 	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		node, indexer, work, item := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()

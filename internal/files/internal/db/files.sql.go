@@ -77,6 +77,49 @@ func (q *Queries) DeleteMove(ctx context.Context, arg DeleteMoveParams) (int64, 
 	return result.RowsAffected()
 }
 
+const doomedOfRoots = `-- name: DoomedOfRoots :many
+SELECT root_id, count(*) AS files FROM files_doomed
+WHERE root_id IN (/*SLICE:root_ids*/?) GROUP BY root_id ORDER BY root_id
+`
+
+type DoomedOfRootsRow struct {
+	RootID roots.ID
+	Files  int64
+}
+
+func (q *Queries) DoomedOfRoots(ctx context.Context, rootIds []roots.ID) ([]DoomedOfRootsRow, error) {
+	query := doomedOfRoots
+	var queryParams []interface{}
+	if len(rootIds) > 0 {
+		for _, v := range rootIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:root_ids*/?", strings.Repeat(",?", len(rootIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:root_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DoomedOfRootsRow
+	for rows.Next() {
+		var i DoomedOfRootsRow
+		if err := rows.Scan(&i.RootID, &i.Files); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishMove = `-- name: FinishMove :execrows
 DELETE FROM files_move WHERE file_id = ?1 AND sits = ?2
     AND EXISTS (SELECT 1 FROM files_file WHERE files_file.id = files_move.file_id AND files_file.path = ?3)
@@ -105,6 +148,17 @@ func (q *Queries) GetMove(ctx context.Context, fileID FileID) (string, error) {
 	var sits string
 	err := row.Scan(&sits)
 	return sits, err
+}
+
+const hasFiles = `-- name: HasFiles :one
+SELECT EXISTS (SELECT 1 FROM files_file WHERE work_id = ?1)
+`
+
+func (q *Queries) HasFiles(ctx context.Context, workID works.WorkID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasFiles, workID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const insertDoomed = `-- name: InsertDoomed :exec
@@ -524,4 +578,48 @@ func (q *Queries) RenameFile(ctx context.Context, arg RenameFileParams) error {
 		arg.ID,
 	)
 	return err
+}
+
+const useOfRoots = `-- name: UseOfRoots :many
+SELECT root_id, count(*) AS files, CAST(total(size) AS INTEGER) AS bytes FROM files_file
+WHERE root_id IN (/*SLICE:root_ids*/?) GROUP BY root_id ORDER BY root_id
+`
+
+type UseOfRootsRow struct {
+	RootID roots.ID
+	Files  int64
+	Bytes  int64
+}
+
+func (q *Queries) UseOfRoots(ctx context.Context, rootIds []roots.ID) ([]UseOfRootsRow, error) {
+	query := useOfRoots
+	var queryParams []interface{}
+	if len(rootIds) > 0 {
+		for _, v := range rootIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:root_ids*/?", strings.Repeat(",?", len(rootIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:root_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UseOfRootsRow
+	for rows.Next() {
+		var i UseOfRootsRow
+		if err := rows.Scan(&i.RootID, &i.Files, &i.Bytes); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

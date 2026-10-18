@@ -12,8 +12,78 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const clearDefaultRoot = `-- name: ClearDefaultRoot :exec
+UPDATE roots_root SET is_default = 0 WHERE content_type = ?1 AND is_default = 1
+`
+
+func (q *Queries) ClearDefaultRoot(ctx context.Context, contentType works.TypeID) error {
+	_, err := q.db.ExecContext(ctx, clearDefaultRoot, contentType)
+	return err
+}
+
+const countRootsOf = `-- name: CountRootsOf :one
+SELECT count(*) FROM roots_root WHERE content_type = ?1
+`
+
+func (q *Queries) CountRootsOf(ctx context.Context, contentType works.TypeID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRootsOf, contentType)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWorksByRoot = `-- name: CountWorksByRoot :many
+SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id ORDER BY root_id
+`
+
+type CountWorksByRootRow struct {
+	RootID RootID
+	Works  int64
+}
+
+func (q *Queries) CountWorksByRoot(ctx context.Context) ([]CountWorksByRootRow, error) {
+	rows, err := q.db.QueryContext(ctx, countWorksByRoot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountWorksByRootRow
+	for rows.Next() {
+		var i CountWorksByRootRow
+		if err := rows.Scan(&i.RootID, &i.Works); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDefaultRoot = `-- name: GetDefaultRoot :one
+SELECT id, content_type, node_id, path, is_default, place FROM roots_root WHERE content_type = ?1 AND is_default = 1
+`
+
+func (q *Queries) GetDefaultRoot(ctx context.Context, contentType works.TypeID) (RootsRoot, error) {
+	row := q.db.QueryRowContext(ctx, getDefaultRoot, contentType)
+	var i RootsRoot
+	err := row.Scan(
+		&i.ID,
+		&i.ContentType,
+		&i.NodeID,
+		&i.Path,
+		&i.IsDefault,
+		&i.Place,
+	)
+	return i, err
+}
+
 const getRoot = `-- name: GetRoot :one
-SELECT id, content_type, node_id, path FROM roots_root WHERE id = ?1
+SELECT id, content_type, node_id, path, is_default, place FROM roots_root WHERE id = ?1
 `
 
 func (q *Queries) GetRoot(ctx context.Context, id RootID) (RootsRoot, error) {
@@ -24,40 +94,48 @@ func (q *Queries) GetRoot(ctx context.Context, id RootID) (RootsRoot, error) {
 		&i.ContentType,
 		&i.NodeID,
 		&i.Path,
+		&i.IsDefault,
+		&i.Place,
 	)
 	return i, err
 }
 
-const getRootOf = `-- name: GetRootOf :one
-SELECT id, content_type, node_id, path FROM roots_root WHERE content_type = ?1
+const getRootOfWork = `-- name: GetRootOfWork :one
+SELECT r.id, r.content_type, r.node_id, r.path, r.is_default, r.place FROM roots_work w JOIN roots_root r ON r.id = w.root_id WHERE w.work_id = ?1
 `
 
-func (q *Queries) GetRootOf(ctx context.Context, contentType works.TypeID) (RootsRoot, error) {
-	row := q.db.QueryRowContext(ctx, getRootOf, contentType)
+func (q *Queries) GetRootOfWork(ctx context.Context, workID works.WorkID) (RootsRoot, error) {
+	row := q.db.QueryRowContext(ctx, getRootOfWork, workID)
 	var i RootsRoot
 	err := row.Scan(
 		&i.ID,
 		&i.ContentType,
 		&i.NodeID,
 		&i.Path,
+		&i.IsDefault,
+		&i.Place,
 	)
 	return i, err
 }
 
-const hasRoot = `-- name: HasRoot :one
-SELECT EXISTS (SELECT 1 FROM roots_root WHERE content_type = ?1)
+const homeWork = `-- name: HomeWork :exec
+INSERT INTO roots_work (work_id, root_id) VALUES (?1, ?2)
+ON CONFLICT (work_id) DO UPDATE SET root_id = excluded.root_id
 `
 
-func (q *Queries) HasRoot(ctx context.Context, contentType works.TypeID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, hasRoot, contentType)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+type HomeWorkParams struct {
+	WorkID works.WorkID
+	RootID RootID
+}
+
+func (q *Queries) HomeWork(ctx context.Context, arg HomeWorkParams) error {
+	_, err := q.db.ExecContext(ctx, homeWork, arg.WorkID, arg.RootID)
+	return err
 }
 
 const insertRoot = `-- name: InsertRoot :exec
-INSERT INTO roots_root (id, content_type, node_id, path)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO roots_root (id, content_type, node_id, path, is_default)
+VALUES (?1, ?2, ?3, ?4, ?5)
 `
 
 type InsertRootParams struct {
@@ -65,6 +143,7 @@ type InsertRootParams struct {
 	ContentType works.TypeID
 	NodeID      role.NodeID
 	Path        string
+	IsDefault   bool
 }
 
 func (q *Queries) InsertRoot(ctx context.Context, arg InsertRootParams) error {
@@ -73,12 +152,40 @@ func (q *Queries) InsertRoot(ctx context.Context, arg InsertRootParams) error {
 		arg.ContentType,
 		arg.NodeID,
 		arg.Path,
+		arg.IsDefault,
 	)
 	return err
 }
 
+const listHomedWorks = `-- name: ListHomedWorks :many
+SELECT work_id FROM roots_work ORDER BY work_id
+`
+
+func (q *Queries) ListHomedWorks(ctx context.Context) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listHomedWorks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoots = `-- name: ListRoots :many
-SELECT id, content_type, node_id, path FROM roots_root ORDER BY content_type
+SELECT id, content_type, node_id, path, is_default, place FROM roots_root ORDER BY content_type, id
 `
 
 func (q *Queries) ListRoots(ctx context.Context) ([]RootsRoot, error) {
@@ -95,6 +202,8 @@ func (q *Queries) ListRoots(ctx context.Context) ([]RootsRoot, error) {
 			&i.ContentType,
 			&i.NodeID,
 			&i.Path,
+			&i.IsDefault,
+			&i.Place,
 		); err != nil {
 			return nil, err
 		}
@@ -107,4 +216,13 @@ func (q *Queries) ListRoots(ctx context.Context) ([]RootsRoot, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDefaultRoot = `-- name: SetDefaultRoot :exec
+UPDATE roots_root SET is_default = 1 WHERE id = ?1
+`
+
+func (q *Queries) SetDefaultRoot(ctx context.Context, id RootID) error {
+	_, err := q.db.ExecContext(ctx, setDefaultRoot, id)
+	return err
 }
