@@ -4,8 +4,8 @@ const following = new WeakMap<Query, { again: boolean }>();
 
 /**
  * Invalidates every query filters match without aborting a fetch in flight.
- * A query already fetching refetches once more after that fetch lands, however
- * many events arrive meanwhile, since the fetch in flight may predate them.
+ * A query already fetching is invalidated after that fetch lands, since the
+ * fetch may predate the event, and once more if events arrive meanwhile.
  * Live events come in bursts, and macOS WebKit stops sending fetches to the
  * host after a burst of aborted ones.
  */
@@ -23,8 +23,11 @@ async function refreshQuery(queryClient: QueryClient, query: Query): Promise<voi
     inFlight.again = true;
     return;
   }
-  const slot = { again: query.state.fetchStatus === "fetching" };
+  const slot = { again: false };
   following.set(query, slot);
+  if (query.state.fetchStatus === "fetching") {
+    await Promise.allSettled([query.promise]);
+  }
   await queryClient.invalidateQueries(
     { predicate: (candidate) => candidate === query },
     { cancelRefetch: false },

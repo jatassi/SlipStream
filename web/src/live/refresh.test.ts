@@ -7,7 +7,7 @@ test("refresh waits out the fetch in flight of a query nobody watches, then inva
   const queryClient = new QueryClient();
   const invalidate = queryClient.invalidateQueries.bind(queryClient);
   let invalidations = 0;
-  vi.spyOn(queryClient, "invalidateQueries").mockImplementation(async (...args) => {
+  vi.spyOn(queryClient, "invalidateQueries").mockImplementation((...args) => {
     invalidations += 1;
     if (invalidations > 10) {
       throw new Error("refresh spun without waiting for the fetch");
@@ -15,7 +15,7 @@ test("refresh waits out the fetch in flight of a query nobody watches, then inva
     return invalidate(...args);
   });
   let fetched = 0;
-  const loading = queryClient.fetchQuery({
+  const loading = queryClient.query({
     queryKey: ["work"],
     queryFn: async () => {
       fetched += 1;
