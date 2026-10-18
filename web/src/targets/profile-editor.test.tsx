@@ -105,18 +105,14 @@ test("Choose cuts lists cuts from Standard, says what they want, and warns once 
   await expect.element(page.getByRole("button", { name: "Remove Standard" })).toBeDisabled();
 
   await userEvent.click(page.getByRole("button", { name: "Add cut" }));
-  const offered = page
-    .getByRole("menuitem")
-    .all()
-    .map((item) => item.element().textContent);
-  expect(offered).toEqual([
-    "Theatrical",
-    "Extended",
-    "Director's Cut",
-    "IMAX",
-    "Superfan",
-    "Black and Chrome",
-  ]);
+  await expect
+    .poll(() =>
+      page
+        .getByRole("menuitem")
+        .all()
+        .map((item) => item.element().textContent),
+    )
+    .toEqual(["Theatrical", "Extended", "Director's Cut", "IMAX", "Superfan", "Black and Chrome"]);
   await userEvent.click(page.getByRole("menuitem", { name: "Extended" }));
   await expect
     .element(sentence())
