@@ -138,6 +138,7 @@ function onPointer(
       : undefined;
   if (started !== undefined) {
     event.preventDefault();
+    figure.current?.focus({ preventScroll: true });
     figure.current?.setPointerCapture(event.pointerId);
     drag.drag(started);
   } else if (dragging === undefined) {

@@ -35,7 +35,7 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
           </ul>
         </InspectorSection>
       )}
-      <Details summary={`Its Roles are set on $Roles on {node.name} section.`}>
+      <Details summary={`${node.name}'s Roles are set in its Roles section.`}>
         <Link
           to="/nodes/$nodeId/roles"
           params={{ nodeId: node.id }}

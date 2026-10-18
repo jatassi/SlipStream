@@ -149,7 +149,10 @@ test("a click on a Role chip, which a press would start dragging, opens the Insp
   await userEvent.click(
     page.elementLocator(document.querySelector(chip(ids.home, "downloading")) ?? document.body),
   );
+  const inspector = page.getByRole("complementary", { name: "Downloading on home" });
   await expect
-    .element(page.getByRole("complementary", { name: "Downloading on home" }))
+    .element(inspector.getByText("home's Roles are set in its Roles section."))
     .toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(inspector).not.toBeInTheDocument();
 });
