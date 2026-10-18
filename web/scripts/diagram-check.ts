@@ -63,9 +63,18 @@ function runOf(
   });
 }
 
-async function lines(size: number) {
+const verdictOf = async (size: number) => {
   const run = await runOf("node", [LINES, pageOf(size), "--select", ".diagram"], false);
-  const verdict = /line ends: \d+[^\n]*/u.exec(run.out)?.[0] ?? "no verdict";
+  return { run, verdict: /line ends: \d+[^\n]*/u.exec(run.out)?.[0] };
+};
+
+async function lines(size: number) {
+  // On Windows the vendored driver's navigation is sometimes aborted
+  // (net::ERR_ABORTED) before it reads the page. A run with no verdict never
+  // measured the Diagram, so it runs once more.
+  const first = await verdictOf(size);
+  const { run, verdict = "no verdict" } =
+    first.verdict === undefined ? await verdictOf(size) : first;
   say(`fixture ${String(size)}: ${verdict}`);
   if (run.status !== 0 || !verdict.startsWith("line ends: 0 ")) {
     failures.push(`line ends on fixture ${String(size)}`);
