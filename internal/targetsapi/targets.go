@@ -45,16 +45,13 @@ type target struct {
 func targetOf(t targets.Target) target {
 	s := t.Spec()
 	out := target{
-		ID: t.ID.String(), Name: t.Name, Tiers: [][]string{}, Cutoff: s.Cutoff.String(), Filters: []filter{}, Sizes: []size{},
+		ID: t.ID.String(), Name: t.Name, Tiers: keysOf(s.Tiers), Cutoff: s.Cutoff.String(), Filters: []filter{}, Sizes: []size{},
 		Profiles: []profileRef{}, Contains: []string{}, CreatedAt: t.CreatedAt.Time(),
 	}
 	for _, tier := range s.Tiers {
-		keys := []string{}
 		for _, q := range tier {
-			keys = append(keys, q.String())
 			out.Sizes = append(out.Sizes, size{Quality: q.String(), Min: s.Sizes[q].Min, Max: s.Sizes[q].Max})
 		}
-		out.Tiers = append(out.Tiers, keys)
 	}
 	for _, a := range targets.Attributes() {
 		if mode, values := t.Filters.Of(a); mode != targets.Any {

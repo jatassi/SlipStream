@@ -111,9 +111,9 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	})
 }
 
+// State is a cell's state, in the glossary's order.
 type State uint8
 
-// State is a cell's state, in the glossary's order.
 const (
 	Unreleased State = iota + 1
 	Missing

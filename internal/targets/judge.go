@@ -45,7 +45,7 @@ func (v Verdict) Meets() bool {
 }
 
 // Grabbable reports no failure at all, only notes: what an automatic grab
-// needs. Manual search (S32) may grab past size.
+// needs.
 func (v Verdict) Grabbable() bool {
 	return !slices.ContainsFunc(v.reasons, func(r Reason) bool { return r.Code != SizeNotChecked })
 }
@@ -59,19 +59,21 @@ func (v Verdict) Rank() (Rank, bool) { return v.rank, v.ranked }
 func (v Verdict) Reasons() []Reason { return v.reasons }
 
 // Judge is the one judgment of facts against a Target, for search,
-// import, cells and every later spec. held is the Facts of the file
-// filling the cell, nil when none does: a release that doesn't rank above
-// it, or any release once it is final, is not_an_upgrade.
+// import and cells. held is the Facts of the file filling the cell, nil
+// when none does: a release that doesn't rank above it, or any release
+// once it is final, is not_an_upgrade.
 func Judge(t Target, f release.Facts, held *release.Facts) Verdict {
 	var v Verdict
-	accepted, ok := Accepted{}, false
-	if q, known := f.Quality.Get(); known {
+	var accepted Accepted
+	var ok bool
+	q, known := f.Quality.Get()
+	if known {
 		accepted, v.rank, ok = t.accepted(q)
 	}
 	v.ranked = ok
 	if !ok {
 		r := Reason{Code: QualityNotInTarget}
-		if q, known := f.Quality.Get(); known {
+		if known {
 			r.Value = q.String()
 		}
 		v.reasons = append(v.reasons, r)

@@ -146,8 +146,7 @@ func named[V ~string](f Filter[V]) (mode Mode, values []string) {
 	return f.Mode, out
 }
 
-// Target is a named encoding goal. Later specs add Custom Format scores,
-// Hold, Conversion settings and download steps to this record.
+// Target is a named encoding goal.
 type Target struct {
 	ID      TargetID
 	Name    string

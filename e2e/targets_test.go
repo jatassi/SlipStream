@@ -74,7 +74,6 @@ func (c filledCells) byEdition() []string {
 	return lines
 }
 
-// launchedTargets launches the targets Scenario.
 func launchedTargets(t *testing.T) walked {
 	t.Helper()
 	s, err := scenario.Load("targets")
