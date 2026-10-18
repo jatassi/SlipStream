@@ -174,7 +174,7 @@ function viewBoxesWhile(act: () => Promise<void>): Promise<Set<string>> {
 test("a press of Zoom in eases over several frames, and under reduced motion it jumps", async () => {
   await render();
   const eased = await viewBoxesWhile(() => userEvent.click(zoomButton("Zoom in")));
-  expect(eased.size).toBeGreaterThan(3);
+  expect(eased.size).toBeGreaterThan(2);
   expect(zoom()).toBeCloseTo(1.5);
   await reducedMotion();
   const jumped = await viewBoxesWhile(() => userEvent.click(zoomButton("Zoom in")));

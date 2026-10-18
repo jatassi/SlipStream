@@ -145,6 +145,8 @@ try {
     await prior;
     await lines(linesPage, size);
   }, Promise.resolve());
+  // An open page keeps animating and would share the frame budget's CPU.
+  await linesPage.close();
   await audit();
   await frameBudget(await browser.newPage({ viewport: { width: 1400, height: 1000 } }));
   await closeUps(

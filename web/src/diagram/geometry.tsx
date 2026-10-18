@@ -17,7 +17,7 @@ export function itemsOf(P: Projection, node: NodeRow): TileItem[] {
       Object.assign(chip(P, slot, role.label, role.note), { role: role.role }),
     );
   const machines = node.roles.flatMap(({ role }) =>
-    machineOf(P, role).map((part): TileItem => Object.assign(part, { role })),
+    machineOf(P, node, role).map((part): TileItem => Object.assign(part, { role })),
   );
   return [base(P), plaque(P, node.name, node.plaque), lamp(P), ...chips, ...machines];
 }

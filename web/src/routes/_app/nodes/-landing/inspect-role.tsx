@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
-import { hasMachine } from "../../../../diagram/machines";
+import { movesWithWork } from "../../../../diagram/machines";
 import { bytes } from "../../../../format";
 import { Details } from "../../../../ui/details";
 import { InspectorSection } from "../../../../ui/inspector";
@@ -8,7 +8,6 @@ import { type NodeRow, type RoleChip, shareDone } from "./view";
 
 /** A Role on a Node in the Inspector: what it is doing, and what its machine shows. */
 export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
-  const machine = hasMachine(chip.role);
   const live = chip.role === "downloading";
   return (
     <>
@@ -16,7 +15,7 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
         <p>
           {chip.note === "" ? `${node.name} holds ${chip.label}.` : `${chip.label}: ${chip.note}.`}
         </p>
-        {machine && !live && <p className="mt-2 text-ink-3">No live figures yet</p>}
+        {!movesWithWork(chip.role) && <p className="mt-2 text-ink-3">No live figures yet</p>}
         {live && node.torrents.length === 0 && (
           <p className="mt-2 text-ink-3">No torrents right now.</p>
         )}

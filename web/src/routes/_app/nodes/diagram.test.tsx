@@ -92,7 +92,9 @@ test("the Roster says everything the Diagram draws, from the same Nodes", async 
   const { topology, board: shown } = fixtureOf(8);
   renderApp({ path: "/nodes", handlers: [nodesAre(), topologyIs(topology), boardIs(shown)] });
   await expect.element(diagram()).toBeVisible();
-  const drawn = textsOf(".diagram svg text").map((text) => text.toLowerCase());
+  const drawn = textsOf(".diagram svg text:not([data-open-sign] text)").map((text) =>
+    text.toLowerCase(),
+  );
   expect(drawn.length).toBeGreaterThan(topology.nodes.length);
   await userEvent.click(
     page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Roster" }),

@@ -1,5 +1,10 @@
 import type { InvalidateQueryFilters, Query, QueryClient } from "@tanstack/react-query";
 
+export const everyPath = (pattern: RegExp) => ({
+  predicate: ({ queryKey: [path] }: { queryKey: readonly unknown[] }) =>
+    typeof path === "string" && pattern.test(path),
+});
+
 const following = new WeakMap<Query, { again: boolean }>();
 
 /**

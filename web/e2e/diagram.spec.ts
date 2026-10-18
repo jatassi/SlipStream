@@ -37,6 +37,25 @@ test("the Diagram draws each Node and its link under the Node's own CSP, and a c
   await expect(diagram.locator("[data-node]")).toHaveCount(2);
   await expect(diagram.locator(`[data-link="${seedbox}"]`)).toHaveCount(1);
   await expect(diagram.locator(`[data-node="${home}"]`)).toHaveAttribute("data-state", "online");
+  const rolesOf = (selector: string): Promise<string[]> =>
+    diagram
+      .locator(selector)
+      .evaluateAll((parts: SVGElement[]) =>
+        [...new Set(parts.map((part) => part.dataset["role"] ?? ""))].toSorted((a, b) =>
+          a.localeCompare(b),
+        ),
+      );
+  const held = await Promise.all(
+    [home, seedbox].map((node) =>
+      Promise.all([
+        rolesOf(`[data-node="${node}"] [data-role]:not([data-chip])`),
+        rolesOf(`[data-node="${node}"] [data-chip]`),
+      ]),
+    ),
+  );
+  for (const [machines, chips] of held) {
+    expect(machines).toEqual(chips);
+  }
 
   const from = await centreOf(page, `[data-node="${seedbox}"] [data-chip="downloading"]`);
   const to = await centreOf(page, `[data-node="${home}"] [data-item="tile.base"]`);

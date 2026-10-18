@@ -81,7 +81,7 @@ const SEATS: readonly Seat[] = [
       "serving",
     ],
   },
-  { name: "seedbox", roles: ["downloading"] },
+  { name: "seedbox", roles: ["downloading", "subtitles", "media-server-link", "relaying"] },
   { name: "vps", roles: ["relaying", "serving"] },
   { name: "attic", roles: ["storage", "subtitles"], away: true },
   { name: "garage", roles: ["downloading", "converting"], draining: "downloading" },
@@ -216,9 +216,12 @@ const boardOf = (nodes: readonly NodesTopologyNode[]): NodesRoleBoard => ({
   })),
 });
 
+const LONE: Seat = { name: "home", roles: tableOrder };
+
 /** An install of `count` Nodes: the Controller, then Workers in pairing order. */
 export function fixtureOf(count: number): Fixture {
-  const nodes = SEATS.slice(0, count).map((seat, index) => nodeOf(seat, index));
+  const seats = count === 1 ? [LONE] : SEATS.slice(0, count);
+  const nodes = seats.map((seat, index) => nodeOf(seat, index));
   const [controller, ...workers] = nodes;
   if (controller === undefined) {
     throw new Error("a fixture has at least its Controller");

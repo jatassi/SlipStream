@@ -1,7 +1,9 @@
 import type { Point3 } from "@anatomy/iso-kit";
 
 import type { NodesTraffic } from "../api/gen/model";
+import type { Work } from "../live/activity";
 import type { TrafficPair } from "../live/traffic";
+import type { RoleName } from "../nodes/roles";
 import type { Landing, NodeRow } from "../routes/_app/nodes/-landing/view";
 
 // The one pure model of the Diagram's motion: from the landing and the last
@@ -88,9 +90,26 @@ export type Board = {
   readonly pieces: number;
 };
 
+/**
+ * A Node's small machines that follow work: whether its radar dish sweeps,
+ * and whether its card catalog's drawer is out.
+ */
+export type Busy = { readonly node: string; readonly sweep: number; readonly drawer: number };
+
+/** Seconds since each kind of work last reported; infinite when it hasn't. */
+export type Ages = Readonly<Record<Work, number>>;
+
+export const QUIET: Ages = { search: Number.POSITIVE_INFINITY, fetch: Number.POSITIVE_INFINITY };
+
+/** How long a dish keeps sweeping after a search last reported: a search reports as it starts and as it finishes. */
+export const SWEEP_HOLD = 4;
+/** How long a drawer stays out after a fetch. */
+export const DRAWER_HOLD = 1.2;
+
 export type Targets = {
   readonly flows: readonly Flow[];
   readonly boards: readonly Board[];
+  readonly busy: readonly Busy[];
   /** Each Node's machines run at 1, and wind down to 0 while it is away. */
   readonly running: ReadonlyMap<string, number>;
 };
@@ -150,13 +169,36 @@ function boardOf(node: NodeRow, samples: TrafficPair, share: number): Board {
   return { node: node.id, panels, pieces: down > 0 ? clamp(down / 3e6, TRICKLE, 4) : 0 };
 }
 
+const holds = (node: NodeRow, role: RoleName): boolean =>
+  node.roles.some((chip) => chip.role === role);
+
+/**
+ * Searches and fetches name no Node, so every Node holding Searching sweeps
+ * while a search runs, and every Node holding Metadata opens its drawer on
+ * a fetch.
+ */
+const busyOf = (landing: Landing, ages: Ages): Busy[] =>
+  landing.nodes
+    .filter((node) => holds(node, "searching") || holds(node, "metadata"))
+    .map((node) => ({
+      node: node.id,
+      sweep: holds(node, "searching") && ages.search < SWEEP_HOLD ? 1 : 0,
+      drawer: holds(node, "metadata") && ages.fetch < DRAWER_HOLD ? 1 : 0,
+    }));
+
 /** Every rate, speed and fill the Diagram shows, `since` ms after the latest sample arrived. */
-export function targetsOf(landing: Landing, samples: TrafficPair, since: number): Targets {
+export function targetsOf(
+  landing: Landing,
+  samples: TrafficPair,
+  since: number,
+  ages: Ages,
+): Targets {
   const share = shareOf(samples, since);
   return {
+    busy: busyOf(landing, ages),
     flows: flowsOf(landing, samples, share),
     boards: landing.nodes
-      .filter((node) => node.roles.some(({ role }) => role === "downloading"))
+      .filter((node) => holds(node, "downloading"))
       .map((node) => boardOf(node, samples, share)),
     running: new Map(landing.nodes.map((node) => [node.id, node.state === "online" ? 1 : 0])),
   };
