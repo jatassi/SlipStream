@@ -99,3 +99,26 @@ func TestARemovedTorrentAnnouncesStopped(t *testing.T) {
 		})
 	}
 }
+
+// TestATorrentAddedAgainWhileItsRemovalWaitsStays removes a seeding
+// torrent while the tracker's answer to started is on its way, then adds
+// it again: the engine keeps it under the same handle, and the answer
+// removes nothing.
+func TestATorrentAddedAgainWhileItsRemovalWaitsStays(t *testing.T) {
+	e, add, h, tracker := seedTracked(t, "Again.mkv")
+	if err := e.Remove(h); err != nil {
+		t.Fatal(err)
+	}
+	again, err := e.Add(add)
+	if err != nil || again != h {
+		t.Fatalf("added again while its removal waits, the torrent is %d, %v; want %d", again, err, h)
+	}
+	close(tracker.answer)
+	waitFor(t, e.Events(), func(r engine.TrackerReplied) bool { return r.Torrent == h })
+	if _, err := e.Status(h); err != nil {
+		t.Fatalf("after the tracker answered, the torrent added again reads %v, want its status", err)
+	}
+	if got := tracker.next(2 * time.Second); got != "" {
+		t.Fatalf("after the tracker answered, the torrent added again announced %q, want nothing", got)
+	}
+}
