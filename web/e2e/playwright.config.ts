@@ -71,6 +71,8 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   fullyParallel: true,
+  // Playwright's default of half the cores leaves macOS runners on one worker.
+  workers: "100%",
   use: { trace: "retain-on-failure" },
   // Playwright empties its outputDir at start, and the Go tier leaves its
   // failed run dirs directly under TEST_FAKEWORLD_RUNS.
