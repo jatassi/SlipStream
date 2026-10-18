@@ -1585,7 +1585,14 @@
             "type": "string"
           },
           "waiting": {
-            "$ref": "#/components/schemas/IndexersWaiting",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersWaiting"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Why its calls wait for its home Node, null while they go through"
           }
         },
@@ -2638,6 +2645,17 @@
           },
           "self": {
             "type": "boolean"
+          },
+          "standing": {
+            "description": "How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version",
+            "enum": [
+              "in-step",
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -2650,6 +2668,7 @@
           "roles",
           "intentVersion",
           "link",
+          "standing",
           "dial"
         ],
         "type": "object"

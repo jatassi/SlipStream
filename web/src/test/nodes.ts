@@ -14,6 +14,7 @@ export const home: NodesNode = {
   intentVersion: "0123456789abcdef0123456789abcdef",
   key: "SHA256:home",
   link: { state: "local", since: "2026-10-12T09:00:00Z", build },
+  standing: "in-step",
   dial: { controllerDials: [] },
   pairedAt: "2026-10-12T09:00:00Z",
   roles: [
@@ -30,6 +31,7 @@ export const seedbox: NodesNode = {
   intentVersion: "fedcba9876543210fedcba9876543210",
   key: "SHA256:seedbox",
   link: { state: "down", since: "2026-10-12T10:00:00Z" },
+  standing: "offline",
   dial: { controllerDials: [] },
   pairedAt: "2026-10-12T09:30:00Z",
   roles: [{ role: "downloading", state: "away" }],

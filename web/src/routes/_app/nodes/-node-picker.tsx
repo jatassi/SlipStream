@@ -12,7 +12,9 @@ import { type NodeState, useNodeState } from "./-node";
 
 const dots: { readonly [S in NodeState]: { word: string; color: string } } = {
   online: { word: "online", color: "bg-ok" },
-  offline: { word: "offline", color: "bg-ink-4" },
+  reconnecting: { word: "reconnecting", color: "bg-ink-4" },
+  offline: { word: "offline", color: "bg-warn" },
+  lapsed: { word: "offline past the grace", color: "bg-fail" },
   mismatched: { word: "on another version", color: "bg-warn" },
   restarting: { word: "restarting", color: "bg-ink-1 shadow-live-glow" },
 };

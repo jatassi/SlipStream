@@ -10,7 +10,13 @@ import {
   getListPasskeysQueryKey,
   getListSessionsQueryKey,
 } from "../api/gen/query/identity/identity";
-import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
+import {
+  getGetNodeQueryKey,
+  getGetRoleBoardQueryKey,
+  getListNodesQueryKey,
+} from "../api/gen/query/nodes/nodes";
+import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 
@@ -19,31 +25,30 @@ const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 const grab = "7e9a1c3d-5f7b-4d9e-8a1c-5e7f9b1d3a4c";
 const otherGrab = "9a1c3e5f-7b9d-4f1a-8c3e-7a9b1d3f5c6e";
 
-test("nodes.changed invalidates the Node list and that Node", async () => {
+test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts and the Indexers", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/", handlers: server.handlers });
   await synced(app);
-  const { queryClient } = app;
   const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
   const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
-  const keys = {
+  const invalidated = seeded(app, {
     list: getListNodesQueryKey(),
     seedbox: getGetNodeQueryKey(seedbox),
     home: getGetNodeQueryKey(home),
-  };
-  for (const key of Object.values(keys)) {
-    queryClient.setQueryData(key, {});
-  }
-  const invalidated = () =>
-    Object.fromEntries(
-      Object.entries(keys).map(([name, key]) => [
-        name,
-        queryClient.getQueryState(key)?.isInvalidated,
-      ]),
-    );
+    board: getGetRoleBoardQueryKey(),
+    counts: getGetCountsQueryKey(),
+    indexers: getListIndexersQueryKey(),
+  });
 
   server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedbox } });
-  await expect.poll(invalidated).toEqual({ list: true, seedbox: true, home: false });
+  await expect.poll(invalidated).toEqual({
+    list: true,
+    seedbox: true,
+    home: false,
+    board: true,
+    counts: true,
+    indexers: true,
+  });
 });
 
 test("grabs.changed invalidates the Grabs, that Grab and only that Work's cells", async () => {

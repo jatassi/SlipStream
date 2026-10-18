@@ -2,12 +2,13 @@ import type { QueryClient } from "@tanstack/react-query";
 import { notFound } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import type { NodesLinkState, NodesNode } from "../../../api/gen/model";
+import type { NodesNode } from "../../../api/gen/model";
 import {
   getListNodesSuspenseQueryOptions,
   useListNodesSuspense,
 } from "../../../api/gen/query/nodes/nodes";
 import { ensureQuery } from "../../../api/query-client";
+import type { Away } from "../../../nodes/standing";
 import {
   isWorkerRestarting,
   restartStore,
@@ -32,14 +33,10 @@ export async function loadNode(queryClient: QueryClient, nodeId: string): Promis
   return { title: nodeOf(nodes, nodeId).name };
 }
 
-export type NodeState = "online" | "offline" | "mismatched" | "restarting";
+export type NodeState = "online" | Away | "restarting";
 
-export const stateOfLink: { readonly [S in NodesLinkState]: Exclude<NodeState, "restarting"> } = {
-  local: "online",
-  up: "online",
-  down: "offline",
-  mismatched: "mismatched",
-};
+export const stateOf = (node: NodesNode): Exclude<NodeState, "restarting"> =>
+  node.standing === "in-step" ? "online" : node.standing;
 
 /**
  * A Worker restarts from the accepted request until its link is up again.
@@ -54,7 +51,7 @@ export function useNodeState(node: NodesNode): NodeState {
       restartStore.dispatch({ type: "back", nodeId: node.id });
     }
   }, [asked, restarting, node.id]);
-  return restarting ? "restarting" : stateOfLink[node.link.state];
+  return restarting ? "restarting" : stateOf(node);
 }
 
 /** The port of a listen address such as `[::]:8484` or `127.0.0.2:8080`. */

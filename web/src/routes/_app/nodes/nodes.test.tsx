@@ -2,6 +2,7 @@ import { http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import type { NodesNode } from "../../../api/gen/model";
 import { problem } from "../../../test/handlers";
 import { nodeSystems } from "../../../test/node-system";
 import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
@@ -69,6 +70,44 @@ test("the Node picker lists each Node with its state and switches Node, keeping 
   await expect
     .element(tabsOf("seedbox").getByRole("link", { name: "Logs" }))
     .toHaveAttribute("aria-current", "page");
+});
+
+const away = (name: string, id: string, standing: NodesNode["standing"]): NodesNode => ({
+  ...seedbox,
+  id,
+  name,
+  standing,
+});
+
+test("the Node picker says how each Node stands: reconnecting, offline, past the grace or on another version", async () => {
+  renderApp({
+    path: `/nodes/${homeId}/logs`,
+    handlers: [
+      ...system,
+      nodesAre(
+        home,
+        away("seedbox", seedboxId, "reconnecting"),
+        away("vps", "2b4d6f8a-0c1e-4a3b-8d5f-7a9c1e3b5d70", "offline"),
+        away("nas", "3c5e7a9b-1d2f-4b4c-9e6a-8b0d2f4c6e81", "lapsed"),
+        away("laptop", "4d6f8b0c-2e3a-4c5d-8f7b-9c1e3a5d7f92", "mismatched"),
+      ),
+    ],
+  });
+  await page.getByRole("combobox", { name: "Node" }).click();
+  await expect
+    .poll(() =>
+      page
+        .getByRole("option")
+        .all()
+        .map((option) => option.element().textContent),
+    )
+    .toEqual([
+      "onlinehome",
+      "reconnectingseedbox",
+      "offlinevps",
+      "offline past the gracenas",
+      "on another versionlaptop",
+    ]);
 });
 
 test("an unknown Node is not found", async () => {

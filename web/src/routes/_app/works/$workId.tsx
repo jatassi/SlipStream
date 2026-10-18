@@ -2,15 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { getGetWorkCellsSuspenseQueryOptions } from "../../../api/gen/query/files/files";
 import {
-  getListGrabsSuspenseQueryOptions,
-  getListSearchesSuspenseQueryOptions,
-} from "../../../api/gen/query/grabs/grabs";
-import {
   getGetWorkSuspenseQueryOptions,
   getListContentTypesSuspenseQueryOptions,
   useGetWorkSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
+import { loadWorkGrabs } from "../../../grabs/waiting";
 import { useAmbient } from "../../../shell/ambient/use-ambient";
 import { loaderTitle } from "../../../shell/titles";
 import { Skeleton } from "../../../ui/skeleton";
@@ -24,8 +21,7 @@ export const Route = createFileRoute("/_app/works/$workId")({
       ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getGetWorkSuspenseQueryOptions(workId)),
       ensureQuery(context.queryClient, getGetWorkCellsSuspenseQueryOptions(workId)),
-      ensureQuery(context.queryClient, getListSearchesSuspenseQueryOptions(workId)),
-      ensureQuery(context.queryClient, getListGrabsSuspenseQueryOptions()),
+      loadWorkGrabs(context.queryClient, workId),
     ]);
     return {
       title: work.label,
