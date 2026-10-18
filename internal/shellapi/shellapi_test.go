@@ -76,7 +76,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
 	}}})
 	var admin identity.Admin
-	if _, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", true); err != nil {
+	if _, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", works.Adding{Monitor: true}); err != nil {
 		t.Fatal(err)
 	}
 	roster, err := nodes.Open(ctx, nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})

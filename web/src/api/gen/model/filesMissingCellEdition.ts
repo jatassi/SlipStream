@@ -1,1 +1,0 @@
-export type FilesMissingCellEdition = "standard";

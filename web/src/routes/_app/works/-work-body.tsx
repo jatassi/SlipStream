@@ -10,7 +10,7 @@ import { Files } from "../../../works/files";
 import { Targets } from "../../../works/targets";
 
 export function WorkBody({ workId, work }: { workId: string; work: WorksTree }) {
-  const { cells } = useGetWorkCellsSuspense(workId).data;
+  const cells = useGetWorkCellsSuspense(workId).data;
   const type = typeOf(useListContentTypesSuspense().data.contentTypes, work.contentType);
   return (
     <Page title={work.label} action={<SearchAction workId={workId} />}>
@@ -19,7 +19,7 @@ export function WorkBody({ workId, work }: { workId: string; work: WorksTree }) 
       <Targets type={type} work={work} cells={cells} />
       <Grabs workId={workId} work={work.label} />
       <Searches workId={workId} />
-      <Files cells={cells} />
+      <Files cells={cells.cells} />
     </Page>
   );
 }

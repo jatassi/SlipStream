@@ -10,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/backoff"
@@ -21,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // outcome is what a step decided. A step does its IO outside any Write;
@@ -42,7 +43,7 @@ type advance struct {
 	torrent *Torrent
 	fetched *fetched
 	plan    *Plan
-	file    *files.File
+	file    *files.Incoming
 }
 
 // fetched is the Searching Node that fetched a Grab's .torrent and the
@@ -160,14 +161,11 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return classify(ctx, err, ProbeFailed)
 	}
+	ext := path.Ext(video.Path)
 	var p Plan
-	var planErr error
+	var placeErr error
 	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		tree, err := gr.cfg.Works.TreeIn(ctx, r, g.WorkID)
-		if err != nil {
-			return err
-		}
-		cells, err := gr.cfg.Files.Cells(ctx, r, g.WorkID)
 		if err != nil {
 			return err
 		}
@@ -175,22 +173,31 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
-		facet := gr.cfg.Naming[tree.ContentType]
-		tokens, err := facet.NamingTokens(ctx, r, g.ItemID)
+		unwanted, err := db.New(r).GetUnwanted(ctx, g.ID)
 		if err != nil {
 			return err
 		}
-		p, planErr = plan(cells, g.ItemID, probe.Resolution(), root, facet.DefaultTemplates(), tokens, strings.TrimPrefix(path.Ext(video.Path), "."))
+		facts, err := gr.facts(ctx, r, g, tree.ContentType, probe)
+		if err != nil {
+			return err
+		}
+		quality, _ := facts.Quality.Get()
+		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
+			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
+			Size: video.Size, Probe: probed(probe), Quality: quality, GrabID: g.ID.UUID,
+			Meant: g.Targets, Unwanted: unwanted,
+		})
+		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
 		return nil
 	})
 	if err != nil {
 		return local(ctx, err)
 	}
-	if _, nothing := errors.AsType[errFillsNothing](planErr); nothing {
-		return fail{FillsNothing, planErr.Error()}
+	if _, nothing := errors.AsType[*files.FillsNothingError](placeErr); nothing {
+		return fail{FillsNothing, placeErr.Error()}
 	}
-	if planErr != nil {
-		return fail{ImportFailed, planErr.Error()}
+	if placeErr != nil {
+		return fail{ImportFailed, placeErr.Error()}
 	}
 	p.FileIndex, p.Probe = video.Index, probe
 	if p.moves(g.Node) {
@@ -233,14 +240,16 @@ func (g Grab) staging() string {
 
 func transferOf(id GrabID) transfers.ID { return transfers.ID{UUID: id.UUID} }
 
-// importFile places the file under the root: the staged Transfer renamed,
-// or the local download linked. The bytes go first, outside any Write;
-// the file and its fills commit with the stage.
+// importFile places the file in its root's holding folder: the staged
+// Transfer renamed, or the local download linked. The bytes go first,
+// outside any Write, under a name only this Grab uses; the commit imports
+// the file, and the disk queue gives it its name.
 func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
-	dst := filepath.Join(g.Plan.Root.Path, filepath.FromSlash(g.Plan.Path))
+	holding := files.HoldingOf(g.ID.UUID, path.Ext(g.Plan.Path))
+	dst := filepath.Join(g.Plan.Root.Path, filepath.FromSlash(holding))
 	if g.Plan.moves(g.Node) {
 		if err := files.Move(g.staging(), dst); err != nil {
-			return fail{ImportFailed, fmt.Sprintf("move %s: %v", g.Plan.Path, err)}
+			return fail{ImportFailed, fmt.Sprintf("move %s: %v", holding, err)}
 		}
 	} else {
 		src, err := gr.cfg.Payloads.Path(g.Torrent.InfoHash, g.Plan.FileIndex)
@@ -248,17 +257,33 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 			return classify(ctx, err, ImportFailed)
 		}
 		if err := files.Place(gr.cfg.Linker, src, dst); err != nil {
-			return fail{ImportFailed, fmt.Sprintf("place %s: %v", g.Plan.Path, err)}
+			return fail{ImportFailed, fmt.Sprintf("place %s: %v", holding, err)}
 		}
 	}
 	info, err := os.Stat(dst)
 	if err != nil {
 		return fail{ImportFailed, err.Error()}
 	}
-	return advance{to: Imported, file: &files.File{
-		WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, RootID: g.Plan.Root.ID, Path: g.Plan.Path, Size: info.Size(),
-		Probe: files.Probe{Width: g.Plan.Probe.Width, Height: g.Plan.Probe.Height}, GrabID: g.ID.UUID,
+	return advance{to: Imported, file: &files.Incoming{
+		WorkID: g.WorkID, ItemID: g.ItemID, RootID: g.Plan.Root.ID, Holding: holding, Size: info.Size(),
+		Probe: probed(g.Plan.Probe), GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
+}
+
+// probed is what a file keeps of its probe.
+func probed(p media.Probe) files.Probe {
+	return files.Probe{Width: p.Width, Height: p.Height, Codec: p.Codec}
+}
+
+// facts is what g's file is, read in r: its release's source and cut,
+// among the cuts a title of Content Type typ can name, and the resolution
+// its probe measured.
+func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, p media.Probe) (release.Facts, error) {
+	known, err := gr.cfg.Targets.CutsIn(ctx, r)
+	if err != nil {
+		return release.Facts{}, err
+	}
+	return release.File(g.Release.Title, known.For(typ), p.Resolution()), nil
 }
 
 // commit applies o to g in one Write that compares on g's stage, so a
@@ -285,7 +310,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 			}
 		}
 		if a.file != nil {
-			if _, err := files.Add(ctx, tx, *a.file, g.Plan.Fills); err != nil {
+			if err := gr.land(ctx, tx, g, *a.file); err != nil {
 				return err
 			}
 		}
@@ -302,6 +327,27 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	return nil
 }
 
+// land imports g's file in tx, with its facts, under the choice a change
+// that took its cells saved, if one did.
+func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in files.Incoming) error {
+	unwanted, err := db.New(tx).GetUnwanted(ctx, g.ID)
+	if err != nil {
+		return err
+	}
+	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
+	if err != nil {
+		return err
+	}
+	facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Probe)
+	if err != nil {
+		return err
+	}
+	in.Unwanted, in.Cut = unwanted, facts.Cut
+	in.Quality, _ = facts.Quality.Get()
+	_, _, err = gr.cfg.Files.Import(ctx, tx, in)
+	return err
+}
+
 // entered tells what g entering stage next changes beyond the library:
 // Admins, the downloading Node's intent, and its Transfer once done.
 func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
@@ -310,6 +356,7 @@ func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
 		gr.cfg.Downloads.Touch(g.Node)
 	}
 	if next == Imported {
+		gr.cfg.Files.Poke()
 		gr.cfg.FilesChanged.Publish(ctx, files.Changed{WorkID: g.WorkID.String()})
 	}
 	if next == Imported || next == Failed {
@@ -591,7 +638,11 @@ func (gr *Grabs) open(ctx context.Context) ([]Search, []Grab, error) {
 			return err
 		}
 		for _, run := range runs {
-			searches = append(searches, searchOf(run))
+			s, err := searchOf(run, nil)
+			if err != nil {
+				return err
+			}
+			searches = append(searches, s)
 		}
 		rows, err := q.ListOpenGrabs(ctx)
 		if err != nil {

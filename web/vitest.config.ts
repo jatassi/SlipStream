@@ -10,6 +10,26 @@ const emulateReducedMotion: BrowserCommand<[reduce: boolean]> = async ({ page },
   await page.emulateMedia({ reducedMotion: reduce ? "reduce" : "no-preference" });
 };
 
+// A pointer drag in steps, as a hand moves, from one element's centre to
+// another's. Playwright's own drag jumps there in one move.
+const drag: BrowserCommand<[from: string, to: string]> = async (context, from, to) => {
+  const frame = await context.frame();
+  const centre = async (selector: string) => {
+    const box = await frame.locator(selector).boundingBox();
+    if (box === null) {
+      throw new Error(`${selector} is not shown`);
+    }
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const start = await centre(from);
+  const end = await centre(to);
+  const { mouse } = context.page;
+  await mouse.move(start.x, start.y);
+  await mouse.down();
+  await mouse.move(end.x, end.y, { steps: 20 });
+  await mouse.up();
+};
+
 export default defineConfig((env) =>
   mergeConfig(viteConfig(env), {
     plugins: [msw({ mode: "worker-only" })],
@@ -30,7 +50,7 @@ export default defineConfig((env) =>
         // prefers-reduced-motion: reduce. Tests that want it emulate it.
         provider: playwright({ contextOptions: { reducedMotion: "no-preference" } }),
         instances: [{ browser: "chromium" }],
-        commands: { emulateReducedMotion },
+        commands: { emulateReducedMotion, drag },
         viewport: { width: presets.desktop.width, height: presets.desktop.height },
       },
     },

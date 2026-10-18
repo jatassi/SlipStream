@@ -16,7 +16,11 @@ import {
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
-import { getListProfilesQueryKey, getListTargetsQueryKey } from "../api/gen/query/targets/targets";
+import {
+  getListCutsQueryKey,
+  getListProfilesQueryKey,
+  getListTargetsQueryKey,
+} from "../api/gen/query/targets/targets";
 import {
   getGetWorkQueryKey,
   getListContentTypesQueryKey,
@@ -32,6 +36,9 @@ const everyPath = (pattern: RegExp) => ({
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
 const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
+const everyTarget = everyPath(/^\/api\/v1\/targets\/[^/]+$/u);
+const everyProfile = everyPath(/^\/api\/v1\/profiles\/[^/]+$/u);
+const everyWorksWants = everyPath(/^\/api\/v1\/works\/[^/]+\/wants$/u);
 const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$/u);
 
 export const effects = {
@@ -66,7 +73,11 @@ export const effects = {
   },
   "targets.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListTargetsQueryKey() });
+    refresh(everyTarget);
     refresh({ queryKey: getListProfilesQueryKey() });
+    refresh(everyProfile);
+    refresh({ queryKey: getListCutsQueryKey() });
+    refresh(everyWorksWants);
     refresh(everyWorksCells);
   },
   "roots.changed": (_data, { refresh }) => {

@@ -148,9 +148,11 @@ func fileRows(t *testing.T, w *sim.World) int64 {
 }
 
 // expectPlaced checks the media dir holds only the imported file, with the
-// release payload's bytes, and an empty staging folder.
+// release payload's bytes, and an empty staging folder, once the disk
+// queue has moved it to its name.
 func expectPlaced(t *testing.T, w *sim.World) {
 	t.Helper()
+	synctest.Wait()
 	dir := w.Manifest().MediaDir
 	var got []string
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
@@ -461,7 +463,7 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 		s := searches.Searches[0]
 		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","itemId":"` + itemOf(t, w, work) +
 			`","indexerId":"` + s.IndexerID + `","startedAt":"` + s.StartedAt + `","finishedAt":"` + *s.FinishedAt +
-			`","outcome":"indexer_unavailable","candidates":0,"grabId":null}]}` + "\n"})
+			`","outcome":"indexer_unavailable","candidates":0,"refused":[],"grabId":null,"notes":[]}]}` + "\n"})
 		if gs := grabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}
@@ -492,19 +494,20 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 	})
 }
 
-// TestAPayloadProbedAt720pFillsNothing probes the 1080p release's file at
-// 720p on seedbox: probing fails fills_nothing, no Transfer stream opens,
-// and seedbox keeps the torrent in its intent.
-func TestAPayloadProbedAt720pFillsNothing(t *testing.T) {
+// TestAPayloadProbedAt480pFillsNothing probes the 1080p release's file at
+// 480p on seedbox, which the starter Target doesn't accept: probing fails
+// fills_nothing, no Transfer stream opens, and seedbox keeps the torrent
+// in its intent.
+func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
-			e.Media = mediatest.Prober{Of: map[string]media.Probe{release + ".mkv": {Container: "matroska", Codec: "h264", Width: 1280, Height: 720}}}
+			e.Media = mediatest.Prober{Of: map[string]media.Probe{release + ".mkv": {Container: "matroska", Codec: "h264", Width: 640, Height: 480}}}
 			e.Test.Transfers.Wanted = func(bencode.InfoHash, int, []int) { asked.Store(true) }
 		}))
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
-		expectFailed(t, g, "probing", "fills_nothing", "a 720p file fills no Target the Work still wants")
+		expectFailed(t, g, "probing", "fills_nothing", "a SDTV file fills no Target the Work still wants")
 		if got := g.stages(); !slices.Equal(got, []string{"fetching", "downloading", "probing", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading probing failed]", got)
 		}

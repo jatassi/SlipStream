@@ -39,6 +39,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -48,6 +49,7 @@ type Type interface {
 	works.Catalog
 	naming.Facet
 	indexers.Facet
+	targets.Facet
 }
 
 type Deps struct {

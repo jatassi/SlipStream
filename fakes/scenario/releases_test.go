@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestValidateChecksTheReleases(t *testing.T) {
@@ -31,5 +33,25 @@ func TestValidateChecksTheReleases(t *testing.T) {
 	}
 	if got := strings.Split(err.Error(), "\n"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Validate =\n%s\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+}
+
+func TestBytesReadBackAsWritten(t *testing.T) {
+	for _, written := range []string{"0B", "512B", "1.5KiB", "700MiB", "8.2GiB", "4.4GiB", "2TiB"} {
+		var b Bytes
+		if err := yaml.Unmarshal([]byte(written), &b); err != nil {
+			t.Fatalf("%s: %v", written, err)
+		}
+		got, err := yaml.Marshal(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(string(got)) != written {
+			t.Errorf("%s read as %d bytes writes back as %s", written, b, got)
+		}
+	}
+	var b Bytes
+	if err := yaml.Unmarshal([]byte("8.2GiB"), &b); err != nil || b != 8804682957 {
+		t.Fatalf("8.2GiB = %d bytes, %v; want 8804682957", b, err)
 	}
 }
