@@ -442,6 +442,14 @@
             "$ref": "#/components/schemas/GrabsFailure",
             "description": "Why it failed, absent unless it did"
           },
+          "fetchNodeId": {
+            "description": "The Searching Node that fetched the .torrent, null until it did",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "history": {
             "description": "Each stage it entered, oldest first",
             "items": {
@@ -469,7 +477,7 @@
             "type": "string"
           },
           "nodeId": {
-            "description": "The Node that downloads it: the Indexer's home Node",
+            "description": "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
             "format": "uuid",
             "type": "string"
           },
@@ -519,6 +527,7 @@
           "releaseSize",
           "indexerId",
           "nodeId",
+          "fetchNodeId",
           "infoHash",
           "stage",
           "history",
@@ -1574,6 +1583,10 @@
           },
           "url": {
             "type": "string"
+          },
+          "waiting": {
+            "$ref": "#/components/schemas/IndexersWaiting",
+            "description": "Why its calls wait for its home Node, null while they go through"
           }
         },
         "required": [
@@ -1584,6 +1597,7 @@
           "homeNodeId",
           "apiKeySet",
           "searchModes",
+          "waiting",
           "createdAt"
         ],
         "type": "object"
@@ -1661,6 +1675,30 @@
         "required": [
           "mode",
           "params"
+        ],
+        "type": "object"
+      },
+      "IndexersWaiting": {
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "description": "The home Node's last Sync frame, or the Controller's start when it sent none since",
+            "format": "date-time",
+            "type": "string"
+          },
+          "standing": {
+            "description": "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
+            "enum": [
+              "reconnecting",
+              "offline",
+              "mismatched"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "standing",
+          "since"
         ],
         "type": "object"
       },
@@ -2837,10 +2875,14 @@
         "properties": {
           "joinCodeLifetime": {
             "$ref": "#/components/schemas/SettingDurationField"
+          },
+          "offlineGrace": {
+            "$ref": "#/components/schemas/SettingDurationField"
           }
         },
         "required": [
-          "joinCodeLifetime"
+          "joinCodeLifetime",
+          "offlineGrace"
         ],
         "type": "object"
       },
@@ -2861,6 +2903,14 @@
         "additionalProperties": false,
         "properties": {
           "joinCodeLifetime": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offlineGrace": {
             "description": "Seconds; null resets it to its default",
             "format": "int64",
             "type": [
@@ -3807,6 +3857,26 @@
         ],
         "type": "object"
       },
+      "ShellAlerts": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "description": "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "type": "object"
+      },
       "ShellCounts": {
         "additionalProperties": false,
         "properties": {
@@ -3815,10 +3885,14 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "alerts": {
+            "$ref": "#/components/schemas/ShellAlerts"
           }
         },
         "required": [
-          "activity"
+          "activity",
+          "alerts"
         ],
         "type": "object"
       },
@@ -4738,6 +4812,11 @@
             "description": "Empty when the Node is no longer paired",
             "type": "string"
           },
+          "nodeId": {
+            "description": "The Node it ran on",
+            "format": "uuid",
+            "type": "string"
+          },
           "outcome": {
             "enum": [
               "succeeded",
@@ -4752,6 +4831,7 @@
           "key",
           "label",
           "node",
+          "nodeId",
           "outcome",
           "cause"
         ],
@@ -5051,6 +5131,11 @@
             "description": "The Node it runs on",
             "type": "string"
           },
+          "nodeId": {
+            "description": "The Node it runs on now: where the roster routes portable work",
+            "format": "uuid",
+            "type": "string"
+          },
           "outcome": {
             "description": "Its last outcome, null before it has run",
             "enum": [
@@ -5069,6 +5154,7 @@
           "key",
           "label",
           "node",
+          "nodeId",
           "outcome",
           "cause",
           "endedAt",
@@ -5086,27 +5172,29 @@
             ],
             "type": "string"
           },
-          "link": {
-            "enum": [
-              "down",
-              "mismatched"
-            ],
-            "type": "string"
-          },
           "node": {
             "description": "The Node every unit waits for",
             "type": "string"
           },
           "since": {
-            "description": "When the Node's link entered that state",
+            "description": "The Node's last Sync frame, or the Controller's start when it sent none since",
             "format": "date-time",
+            "type": "string"
+          },
+          "standing": {
+            "enum": [
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
             "type": "string"
           }
         },
         "required": [
           "kind",
           "node",
-          "link",
+          "standing",
           "since"
         ],
         "type": "object"

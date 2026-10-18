@@ -10,6 +10,7 @@ import type {
   TasksSchedule,
   TasksTask,
 } from "../api/gen/model";
+import { homeId, seedboxId } from "./nodes";
 
 const londonSummerHoursAheadOfUTC = 1;
 
@@ -66,8 +67,22 @@ export const succeededRun: TasksRun = {
   cause: null,
   nodes: ["home", "seedbox"],
   units: [
-    { key: "runs", label: "Run history", node: "home", outcome: "succeeded", cause: null },
-    { key: "node:seedbox", label: "seedbox", node: "seedbox", outcome: "succeeded", cause: null },
+    {
+      key: "runs",
+      label: "Run history",
+      node: "home",
+      nodeId: homeId,
+      outcome: "succeeded",
+      cause: null,
+    },
+    {
+      key: "node:seedbox",
+      label: "seedbox",
+      node: "seedbox",
+      nodeId: seedboxId,
+      outcome: "succeeded",
+      cause: null,
+    },
   ],
 };
 
@@ -191,6 +206,7 @@ const detailUnits: TasksDetail["units"] = [
     key: "runs",
     label: "Run history",
     node: "home",
+    nodeId: homeId,
     outcome: "succeeded",
     cause: null,
     endedAt: local(16, 4),
@@ -201,6 +217,7 @@ const detailUnits: TasksDetail["units"] = [
     key: "node:seedbox",
     label: "seedbox",
     node: "seedbox",
+    nodeId: seedboxId,
     outcome: "skipped",
     cause: "seedbox is offline",
     endedAt: local(16, 4),

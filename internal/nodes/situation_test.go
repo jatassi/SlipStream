@@ -20,6 +20,8 @@ func (noLink) Subscribe(context.Context) <-chan link.Change { return nil }
 
 func (noLink) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
 
+func (noLink) Reset(link.Key) {}
+
 func (noLink) Keep(link.Target) {}
 
 func (noLink) Drop(link.Key) {}

@@ -35,12 +35,14 @@ type roster struct{}
 
 func (roster) Self() role.NodeID { return home }
 
-func (roster) Reach(node role.NodeID) (nodes.LinkState, time.Time) {
+func (roster) Standing(node role.NodeID) (nodes.Standing, time.Time) {
 	if node == home {
-		return nodes.Local, time.Time{}
+		return nodes.InStep, time.Time{}
 	}
-	return nodes.Down, offline
+	return nodes.Offline, offline
 }
+
+func (roster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
 
 func (r roster) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
 	list, err := r.List(ctx)
@@ -143,8 +145,8 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
 			tidyTask(8, `{"kind":"running","runId":1,"trigger":"run-now","since":"T","done":0,"total":2}`, "", `{"available":false,"reason":"running"}`)+
 			`,"units":[`+
-			`{"key":"a","label":"A","node":"home","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false},`+
-			`{"key":"b","label":"B","node":"home","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],`+
+			`{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false},`+
+			`{"key":"b","label":"B","node":"home","nodeId":"id1","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],`+
 			`"runs":[{"id":1,"trigger":"run-now","startedAt":"T","endedAt":null,"result":null,"summary":"","cause":null,"nodes":[],"units":[]}]}`)
 
 		if status, reply := o.Call(t, http.MethodDelete, "/api/v1/tasks/runs/1", ""); status != http.StatusNoContent || reply != "" {
@@ -153,13 +155,13 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 		synctest.Wait()
 		o.Expect(t, http.MethodDelete, "/api/v1/tasks/runs/1", "", http.StatusNotFound,
 			`{"status":404,"code":"run_not_open","title":"No open run has this id"}`)
-		lines := `"units":[{"key":"a","label":"A","node":"home","outcome":"canceled","cause":null},{"key":"b","label":"B","node":"home","outcome":"canceled","cause":null}]`
+		lines := `"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":"canceled","cause":null},{"key":"b","label":"B","node":"home","nodeId":"id1","outcome":"canceled","cause":null}]`
 		last := `{"id":1,"trigger":"run-now","startedAt":"T","endedAt":"T","result":"canceled","summary":"0 of 2 steps","cause":null,"nodes":["home"],` + lines + `}`
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
 			tidyTask(8, idle, `"lastRun":`+last+`,`, available)+
 			`,"units":[`+
-			`{"key":"a","label":"A","node":"home","outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false},`+
-			`{"key":"b","label":"B","node":"home","outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false}],`+
+			`{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false},`+
+			`{"key":"b","label":"B","node":"home","nodeId":"id1","outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false}],`+
 			`"runs":[`+last+`]}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/runs/open", "", http.StatusOK, `{"headerDelaySeconds":5,"runs":[]}`)
 	})
@@ -174,7 +176,7 @@ func TestACadenceOutsideItsRangeAnswersItsSentenceAndNullResets(t *testing.T) {
 			`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Choose Catch up or Wait."}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":7200}`, http.StatusOK, tidyTask(2, idle, "", available))
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+tidyTask(2, idle, "", available)+
-			`,"units":[{"key":"a","label":"A","node":"home","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[]}`)
+			`,"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[]}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":null}`, http.StatusOK, tidyTask(8, idle, "", available))
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/nothing", `{"cadence":null}`, http.StatusNotFound,
 			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
@@ -222,7 +224,7 @@ func TestTheTasksPageListsShownTasksAndWhatWaits(t *testing.T) {
 		farTask := `{"id":"far","name":"Far","about":"Tidies up.","group":"acquire","noun":{"one":"step","many":"steps"},` +
 			`"cadence":{"words":"Every 8 h","inWindow":false,"field":{"key":"tasks.tidy.cadence","label":"Runs every","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"duration","value":28800,"running":28800,"default":28800,"min":3600,"max":86400,"step":3600}},` +
 			`"overdue":{"key":"tasks.far.overdue","label":"When overdue","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"wait","running":"wait","default":"wait",` + overdueOptions + `},` +
-			`"state":{"kind":"waiting","node":"seedbox","link":"down","since":"T"},"nodes":["seedbox"],"runNow":{"available":false,"reason":"waiting"}}`
+			`"state":{"kind":"waiting","node":"seedbox","standing":"offline","since":"T"},"nodes":["seedbox"],"runNow":{"available":false,"reason":"waiting"}}`
 		want := `{"multinode":true,"sentence":[{"kind":"warning","text":"1 task is waiting for seedbox.","href":"/tasks/far"}],` +
 			`"groups":[{"group":"controller","tasks":[` + tidyTask(8, idle, "", available) + `]},{"group":"acquire","tasks":[` + farTask + `]}],` +
 			`"settings":` + schedule(`"isDefault":true,"pendingRestart":false,"kind":"window","value":{"start":"04:00","end":"06:00"},"running":{"start":"04:00","end":"06:00"}`, `"isDefault":true,"pendingRestart":false,"kind":"count","value":50,"running":50`, `"isDefault":true,"pendingRestart":false,"kind":"choice","value":"catch-up","running":"catch-up"`) + "}\n"

@@ -7,7 +7,16 @@ import type { ShellCounts } from "../../model";
 
 export const getGetCountsResponseMock = (
   overrideResponse: Partial<Extract<ShellCounts, object>> = {},
-): ShellCounts => ({ activity: faker.number.int({ min: 0 }), ...overrideResponse });
+): ShellCounts => ({
+  activity: faker.number.int({ min: 0 }),
+  alerts: {
+    nodes: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["warn", "fail"] as const),
+      null,
+    ]),
+  },
+  ...overrideResponse,
+});
 
 export const getGetCountsMockHandler = (
   overrideResponse?:

@@ -44,10 +44,12 @@ const (
 var walked = []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}
 
 type grabView struct {
-	ID       string `json:"id"`
-	InfoHash string `json:"infoHash"`
-	Stage    string `json:"stage"`
-	Failure  *struct {
+	ID          string `json:"id"`
+	NodeID      string `json:"nodeId"`
+	FetchNodeID string `json:"fetchNodeId"`
+	InfoHash    string `json:"infoHash"`
+	Stage       string `json:"stage"`
+	Failure     *struct {
 		Stage   string `json:"stage"`
 		Code    string `json:"code"`
 		Message string `json:"message"`

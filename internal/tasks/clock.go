@@ -239,8 +239,8 @@ func (s *Scheduler) knobs(row db.TasksSetting, started time.Time) knobs {
 }
 
 func (s *Scheduler) reaches(node role.NodeID) bool {
-	link, _ := s.cfg.Roster.Reach(node)
-	return link == nodes.Local || link == nodes.Up
+	standing, _ := s.cfg.Roster.Standing(node)
+	return node == s.self || standing == nodes.InStep
 }
 
 func (s *Scheduler) peerOf(ctx context.Context, node role.NodeID) peer {
@@ -332,7 +332,7 @@ func (s *Scheduler) returning(ctx context.Context, task TaskID, units []Unit) ([
 	}
 	var out []Unit
 	for _, u := range units {
-		node, _ := u.Place.Node()
+		node := s.nodeOf(u.Place)
 		for _, d := range due {
 			if d.TaskID == task && d.UnitKey == u.Key && s.reaches(node) {
 				out = append(out, u)
@@ -421,6 +421,6 @@ func (s *Scheduler) runnable(ctx context.Context, task TaskID, units []Unit) err
 		}
 	}
 	node := units[0].Place.node
-	link, since := s.cfg.Roster.Reach(node)
-	return &ErrWaiting{Node: s.peerOf(ctx, node).name, Link: link, Since: since}
+	standing, since := s.cfg.Roster.Standing(node)
+	return &ErrWaiting{Node: s.peerOf(ctx, node).name, Standing: standing, Since: since}
 }

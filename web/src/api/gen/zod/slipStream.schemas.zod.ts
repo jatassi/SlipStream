@@ -207,6 +207,10 @@ export const GrabsGrab = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
   edition: zod.enum(["standard"]),
   failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
+  fetchNodeId: zod
+    .uuid()
+    .nullable()
+    .describe("The Searching Node that fetched the .torrent, null until it did"),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
   indexerId: zod.uuid(),
@@ -215,7 +219,11 @@ export const GrabsGrab = zod.object({
     .nullable()
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
   itemId: zod.uuid(),
-  nodeId: zod.uuid().describe("The Node that downloads it: the Indexer's home Node"),
+  nodeId: zod
+    .uuid()
+    .describe(
+      "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
+    ),
   progress: GrabsProgress.exactOptional().describe(
     "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
   ),
@@ -791,6 +799,20 @@ export const IndexersSearchMode = zod.object({
 export type IndexersSearchMode = zod.input<typeof IndexersSearchMode>;
 export type IndexersSearchModeOutput = zod.output<typeof IndexersSearchMode>;
 
+export const IndexersWaiting = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("The home Node's last Sync frame, or the Controller's start when it sent none since"),
+  standing: zod
+    .enum(["reconnecting", "offline", "mismatched"])
+    .describe(
+      "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
+    ),
+});
+
+export type IndexersWaiting = zod.input<typeof IndexersWaiting>;
+export type IndexersWaitingOutput = zod.output<typeof IndexersWaiting>;
+
 export const IndexersIndexer = zod.object({
   apiKeySet: zod
     .boolean()
@@ -802,6 +824,9 @@ export const IndexersIndexer = zod.object({
   protocol: zod.enum(["torznab"]),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
   url: zod.string(),
+  waiting: IndexersWaiting.describe(
+    "Why its calls wait for its home Node, null while they go through",
+  ),
 });
 
 export type IndexersIndexer = zod.input<typeof IndexersIndexer>;
@@ -1426,6 +1451,7 @@ export type NodesRolesChangeOutput = zod.output<typeof NodesRolesChange>;
 
 export const NodesSettings = zod.object({
   joinCodeLifetime: SettingDurationField,
+  offlineGrace: SettingDurationField,
 });
 
 export type NodesSettings = zod.input<typeof NodesSettings>;
@@ -1440,6 +1466,7 @@ export type NodesSettingsChangedOutput = zod.output<typeof NodesSettingsChanged>
 
 export const NodesSettingsPatch = zod.object({
   joinCodeLifetime: zod.int().nullish().describe("Seconds; null resets it to its default"),
+  offlineGrace: zod.int().nullish().describe("Seconds; null resets it to its default"),
 });
 
 export type NodesSettingsPatch = zod.input<typeof NodesSettingsPatch>;
@@ -1764,10 +1791,23 @@ export const SettingField = zod.discriminatedUnion("kind", [
 export type SettingField = zod.input<typeof SettingField>;
 export type SettingFieldOutput = zod.output<typeof SettingField>;
 
+export const ShellAlerts = zod.object({
+  nodes: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+    ),
+});
+
+export type ShellAlerts = zod.input<typeof ShellAlerts>;
+export type ShellAlertsOutput = zod.output<typeof ShellAlerts>;
+
 export const shellCountsActivityMin = 0;
 
 export const ShellCounts = zod.object({
   activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
+  alerts: ShellAlerts,
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;
@@ -1990,6 +2030,7 @@ export const TasksRunUnit = zod.object({
   key: zod.string(),
   label: zod.string(),
   node: zod.string().describe("Empty when the Node is no longer paired"),
+  nodeId: zod.uuid().describe("The Node it ran on"),
   outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
 });
 
@@ -2064,9 +2105,11 @@ export type TasksRunningStateOutput = zod.output<typeof TasksRunningState>;
 
 export const TasksWaitingState = zod.object({
   kind: zod.enum(["waiting"]),
-  link: zod.enum(["down", "mismatched"]),
   node: zod.string().describe("The Node every unit waits for"),
-  since: zod.iso.datetime({ offset: true }).describe("When the Node's link entered that state"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("The Node's last Sync frame, or the Controller's start when it sent none since"),
+  standing: zod.enum(["reconnecting", "offline", "lapsed", "mismatched"]),
 });
 
 export type TasksWaitingState = zod.input<typeof TasksWaitingState>;
@@ -2112,6 +2155,7 @@ export const TasksUnit = zod.object({
     .nullable()
     .describe("Null before it has succeeded"),
   node: zod.string().describe("The Node it runs on"),
+  nodeId: zod.uuid().describe("The Node it runs on now: where the roster routes portable work"),
   outcome: zod
     .union([
       zod.literal("succeeded"),

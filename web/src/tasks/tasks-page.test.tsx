@@ -49,7 +49,7 @@ const scan: TasksTask = {
   name: "Library scan",
   group: "store",
   cadence: { ...housekeeping.cadence, words: "Every 2 days in the Maintenance window" },
-  state: { kind: "waiting", node: "seedbox", link: "down", since: local(16, 21, 31) },
+  state: { kind: "waiting", node: "seedbox", standing: "offline", since: local(16, 21, 31) },
   runNow: { available: false, reason: "waiting" },
 };
 

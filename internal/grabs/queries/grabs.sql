@@ -18,6 +18,8 @@ INSERT INTO grabs_stage (grab_id, stage, entered_at) VALUES (sqlc.arg(grab_id), 
 UPDATE grabs_grab SET
     stage = sqlc.arg(next),
     info_hash = coalesce(sqlc.narg(info_hash), info_hash),
+    fetch_node_id = coalesce(sqlc.narg(fetch_node_id), fetch_node_id),
+    node_id = coalesce(sqlc.narg(node_id), node_id),
     metainfo = coalesce(sqlc.narg(metainfo), metainfo),
     file_index = coalesce(sqlc.narg(file_index), file_index),
     probe = coalesce(sqlc.narg(probe), probe),

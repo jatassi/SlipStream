@@ -453,6 +453,7 @@ func refusal(err error) error {
 
 type settings struct {
 	JoinCodeLifetime setting.DurationField `json:"joinCodeLifetime"`
+	OfflineGrace     setting.DurationField `json:"offlineGrace"`
 }
 
 type settingsOutput struct {
@@ -465,6 +466,7 @@ type settingsInput struct {
 
 type settingsPatch struct {
 	JoinCodeLifetime api.Patch[int64] `json:"joinCodeLifetime,omitempty" doc:"Seconds; null resets it to its default"`
+	OfflineGrace     api.Patch[int64] `json:"offlineGrace,omitempty" doc:"Seconds; null resets it to its default"`
 }
 
 func nodeID(s string) (nodes.ID, error) {
@@ -679,16 +681,37 @@ func (h handlers) writeOff(ctx context.Context, _ identity.Admin, in *writeOffIn
 
 func (h handlers) updateNodeSettings(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
 	s := open(h.roster)
-	if p := in.Body.JoinCodeLifetime; p.Sent() {
-		v, err := nodes.JoinCodeLifetime.Parse(p.Value())
-		if err != nil {
-			return nil, settingapi.Refused(err)
+	lifetime, err := parsed(in.Body.JoinCodeLifetime, nodes.JoinCodeLifetime)
+	if err != nil {
+		return nil, err
+	}
+	grace, err := parsed(in.Body.OfflineGrace, nodes.OfflineGrace)
+	if err != nil {
+		return nil, err
+	}
+	if lifetime != nil {
+		if err := s.SetJoinCodeLifetime(ctx, *lifetime); err != nil {
+			return nil, err
 		}
-		if err := s.SetJoinCodeLifetime(ctx, v); err != nil {
+	}
+	if grace != nil {
+		if err := s.SetOfflineGrace(ctx, *grace); err != nil {
 			return nil, err
 		}
 	}
 	return currentSettings(ctx, s)
+}
+
+// parsed is the value p sends for d, nil when it sends none.
+func parsed(p api.Patch[int64], d setting.Duration) (*setting.Stored[int64], error) {
+	if !p.Sent() {
+		return nil, nil
+	}
+	v, err := d.Parse(p.Value())
+	if err != nil {
+		return nil, settingapi.Refused(err)
+	}
+	return &v, nil
 }
 
 func currentSettings(ctx context.Context, s *nodes.Service) (*settingsOutput, error) {
@@ -696,5 +719,9 @@ func currentSettings(ctx context.Context, s *nodes.Service) (*settingsOutput, er
 	if err != nil {
 		return nil, err
 	}
-	return &settingsOutput{Body: settings{JoinCodeLifetime: lifetime}}, nil
+	grace, err := s.OfflineGraceField(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &settingsOutput{Body: settings{JoinCodeLifetime: lifetime, OfflineGrace: grace}}, nil
 }

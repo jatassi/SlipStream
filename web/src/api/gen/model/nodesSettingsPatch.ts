@@ -4,4 +4,9 @@ export interface NodesSettingsPatch {
    * @nullable
    */
   joinCodeLifetime?: number | null;
+  /**
+   * Seconds; null resets it to its default
+   * @nullable
+   */
+  offlineGrace?: number | null;
 }

@@ -3,6 +3,7 @@ package sim_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
@@ -213,5 +215,67 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 			return seedbox(t, a).Link.State == "up" && box.torrents() == 0
 		})
 		expectDownloadKept(t, w)
+	})
+}
+
+// failsOnce fails the first probe it is asked for.
+type failsOnce struct {
+	media.Prober
+	failed atomic.Bool
+}
+
+func (p *failsOnce) Probe(ctx context.Context, path string) (media.Probe, error) {
+	if p.failed.CompareAndSwap(false, true) {
+		return media.Probe{}, errors.New("the probe failed once")
+	}
+	return p.Prober.Probe(ctx, path)
+}
+
+// TestANewGrabGoesHomeWhileSeedboxDrains fails seedbox's first Grab at
+// probing, so its torrent keeps seeding, then unticks Downloading on
+// seedbox: seedbox drains, and the next search's Grab is fetched through
+// seedbox, which still searches, and downloaded by home.
+func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		box := &engines{}
+		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+			e.Engine = box.wrap(e.Engine)
+			e.Media = &failsOnce{Prober: e.Media}
+		}))
+		work := addOrchard(t, w)
+		search(t, w, work)
+		if first := await(t, w); first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
+			t.Fatalf("seedbox's first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
+		}
+		a := w.API()
+		box1 := seedbox(t, a)
+		var home string
+		for _, r := range a.Nodes("home") {
+			if r.Name == "home" {
+				home = r.ID
+			}
+		}
+		a.SetRoles("home", box1.ID, "searching")
+		synctest.Wait()
+		if st := stateOf(seedbox(t, a), "downloading"); st != "draining" || box.torrents() != 1 {
+			t.Fatalf("unticked, seedbox stands %s in Downloading with %d torrents, want draining the 1 it seeds", st, box.torrents())
+		}
+
+		search(t, w, work)
+		var next grabView
+		eventually(t, "the second Grab imports", func() bool {
+			gs := grabsListed(t, w)
+			if len(gs) == 2 {
+				next = gs[0]
+			}
+			return next.Stage == "imported"
+		})
+		if next.NodeID != home || next.FetchNodeID != box1.ID {
+			t.Fatalf("the second Grab was fetched by %s and downloaded by %s, want fetched by seedbox %s and downloaded by home %s",
+				next.FetchNodeID, next.NodeID, box1.ID, home)
+		}
+		if st := stateOf(seedbox(t, a), "downloading"); st != "draining" || box.torrents() != 1 {
+			t.Fatalf("after home's Grab, seedbox stands %s in Downloading with %d torrents, want still draining the 1 it seeds", st, box.torrents())
+		}
 	})
 }

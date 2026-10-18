@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
@@ -135,22 +136,35 @@ func TestClassify(t *testing.T) {
 		err  error
 		want outcome
 	}{
-		{"link down", live, link.ErrDisconnected, wait{link.ErrDisconnected}},
-		{"versions differ", live, link.ErrMismatched, wait{link.ErrMismatched}},
-		{"call lost", live, rpc.Errorf(rpc.CodeUnavailable, "the link died"), wait{rpc.Errorf(rpc.CodeUnavailable, "the link died")}},
-		{"torrent not re-added", live, downloading.ErrNotPresent, wait{downloading.ErrNotPresent}},
+		{"link down", live, link.ErrDisconnected, wait{cause: link.ErrDisconnected}},
+		{"versions differ", live, link.ErrMismatched, wait{cause: link.ErrMismatched}},
+		{"call lost", live, rpc.Errorf(rpc.CodeUnavailable, "the link died"), wait{cause: rpc.Errorf(rpc.CodeUnavailable, "the link died")}},
+		{"torrent not re-added", live, downloading.ErrNotPresent, wait{cause: downloading.ErrNotPresent}},
 		{"refused by ffprobe", live, rpc.Errorf(rpc.CodeFailedPrecondition, "ffprobe: exit status 1"), fail{ProbeFailed, "failed_precondition: ffprobe: exit status 1"}},
 		{"stopping", canceled, link.ErrDisconnected, stopped{}},
 	} {
 		got := classify(c.ctx, c.err, ProbeFailed)
 		if w, ok := got.(wait); ok {
-			got = wait{errors.New(w.cause.Error())}
+			got = wait{cause: errors.New(w.cause.Error())}
 			if want, ok := c.want.(wait); ok {
-				c.want = wait{errors.New(want.cause.Error())}
+				c.want = wait{cause: errors.New(want.cause.Error())}
 			}
 		}
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: classify = %#v, want %#v", c.name, got, c.want)
 		}
+	}
+}
+
+func TestAJobWaitingOnTheRosterDoesNotWakeTheReconciler(t *testing.T) {
+	now := time.Now()
+	waiting, due := storage.NewUUID(), storage.NewUUID()
+	s := schedule{inflight: map[storage.UUID]bool{waiting: true}, retryAt: map[storage.UUID]time.Time{waiting: now.Add(-time.Second)}}
+	if got := s.next(now, nil, false, DefaultTimings()); got != time.Hour {
+		t.Fatalf("with only a running job's past retry, the reconciler sleeps %s, want an hour", got)
+	}
+	s.retryAt[due] = now.Add(time.Minute)
+	if got := s.next(now, nil, false, DefaultTimings()); got != time.Minute {
+		t.Fatalf("with a job not running due in a minute, the reconciler sleeps %s, want a minute", got)
 	}
 }
