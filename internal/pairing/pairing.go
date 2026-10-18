@@ -53,7 +53,10 @@ type Config struct {
 	Claims Claims
 	// AwaitDial bounds a claim's wait for its Controller to dial.
 	AwaitDial time.Duration
-	Log       *slog.Logger
+	// Removed is called once the Controller refused this Worker's Hello as
+	// removed, after the record says so and the link dropped it.
+	Removed func(ctx context.Context)
+	Log     *slog.Logger
 }
 
 // Pairing is one Node's pairing record and what follows from it.
@@ -80,25 +83,46 @@ func Open(cfg Config) (*Pairing, error) {
 	return p, nil
 }
 
-// Record is the pairing record, false on a Node that has none.
+// Record is the pairing record, false on a Node that has none or that its
+// Controller removed.
 func (p *Pairing) Record() (Record, bool) {
-	rec := p.rec.Load()
+	rec := p.paired()
 	if rec == nil {
 		return Record{}, false
 	}
 	return *rec, true
 }
 
+// Removal is when and by whom this Node was removed, false unless its
+// Controller removed it since it last paired.
+func (p *Pairing) Removal() (Removal, bool) {
+	rec := p.rec.Load()
+	if rec == nil || rec.Removed == nil {
+		return Removal{}, false
+	}
+	return *rec.Removed, true
+}
+
+// paired is the record that pairs this Node, nil when it has none or its
+// Controller removed it.
+func (p *Pairing) paired() *Record {
+	rec := p.rec.Load()
+	if rec == nil || rec.Removed != nil {
+		return nil
+	}
+	return rec
+}
+
 // Controller is the pinned Controller's key and recorded addresses. Only
 // a Worker, which holds a record, asks.
 func (p *Pairing) Controller() link.Target {
-	return p.rec.Load().Controller
+	return p.paired().Controller
 }
 
 // Admit pins the Controller, answers a superseded one with the key that
-// replaced it, and refuses the rest.
+// replaced it, and refuses the rest, every key once removed.
 func (p *Pairing) Admit(key link.Key) link.Admission {
-	rec := p.rec.Load()
+	rec := p.paired()
 	switch {
 	case rec == nil:
 		return link.Refused{}
@@ -148,7 +172,7 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code, awaiting func(P
 	if claim == system.Controller {
 		return Joined{}, &Error{Kind: IsController, Reason: "this Node is a Controller"}
 	}
-	prev := p.rec.Load()
+	prev := p.paired()
 	if err := ignored(prev, code); err != nil {
 		return Joined{}, err
 	}
@@ -162,7 +186,7 @@ func (p *Pairing) Claim(ctx context.Context, code joincode.Code, awaiting func(P
 		if pend, paired, err = p.await(ctx, code, refused, awaiting); err != nil {
 			return Joined{}, err
 		}
-		prev = p.rec.Load()
+		prev = p.paired()
 	}
 	joined, err := p.record(prev, code, paired)
 	if pend != nil {
@@ -231,30 +255,62 @@ func ignored(rec *Record, code joincode.Code) *Error {
 // Repairs is whether Claim would re-pair this Node with code: it holds a
 // record, and code names neither its pinned nor a superseded Controller.
 func (p *Pairing) Repairs(code joincode.Code) bool {
-	rec := p.rec.Load()
+	rec := p.paired()
 	return rec != nil && !code.IsZero() && ignored(rec, code) == nil
 }
 
 // Run follows the link until ctx ends, rewriting the Controller's
 // addresses when its Welcome advertises others, so re-dials find a moved
-// Controller.
+// Controller, and recording the removal when the Controller refuses a
+// Hello as removed.
 func (p *Pairing) Run(ctx context.Context) error {
 	for c := range p.cfg.Link.Subscribe(ctx) {
-		live, ok := c.State.(link.Live)
-		if !ok || live.Peer.Addresses.IsZero() {
-			continue
+		var err error
+		switch st := c.State.(type) {
+		case link.Live:
+			if !st.Peer.Addresses.IsZero() {
+				err = p.follow(c.Key, st.Peer.Addresses)
+			}
+		case link.Down:
+			if st.Refused == linkv1.RefusedReason_REFUSED_REASON_REMOVED {
+				err = p.removed(ctx, c.Key)
+			}
 		}
-		if err := p.follow(c.Key, live.Peer.Addresses); err != nil {
+		if err != nil {
 			p.cfg.Log.Error("rewrite the pairing record", "err", err.Error())
 		}
 	}
 	return nil
 }
 
+// removed records that the Controller holding key removed this Node,
+// stops dialing it and calls Config.Removed. A key that isn't the pinned
+// Controller's changes nothing.
+func (p *Pairing) removed(ctx context.Context, key link.Key) error {
+	p.mu.Lock()
+	rec := p.paired()
+	if rec == nil || rec.Controller.Key != key {
+		p.mu.Unlock()
+		return nil
+	}
+	next := *rec
+	next.Removed = &Removal{At: time.Now().UTC().Truncate(time.Microsecond), ControllerName: rec.ControllerName}
+	if err := writeRecord(p.path, next); err != nil {
+		p.mu.Unlock()
+		return err
+	}
+	p.rec.Store(&next)
+	p.mu.Unlock()
+	p.cfg.Log.Warn(next.Removed.Sentence())
+	p.cfg.Link.Drop(key)
+	p.cfg.Removed(ctx)
+	return nil
+}
+
 func (p *Pairing) follow(key link.Key, addrs link.Addresses) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	rec := p.rec.Load()
+	rec := p.paired()
 	if rec == nil || rec.Controller.Key != key || rec.Controller.Addresses == addrs {
 		return nil
 	}
@@ -325,5 +381,6 @@ func refusal(err error) *Error {
 	return &Error{Kind: Unreachable, Reason: "the Controller is unreachable: " + err.Error()}
 }
 
-// Paired is whether this Node holds a pairing record.
-func (p *Pairing) Paired() bool { return p.rec.Load() != nil }
+// Paired is whether this Node holds a pairing record its Controller
+// didn't remove.
+func (p *Pairing) Paired() bool { return p.paired() != nil }

@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mailapi"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
@@ -73,6 +74,7 @@ type Node interface {
 	grabsapi.Pipeline
 	shellapi.Pipeline
 	systemapi.Systems
+	Removal() (pairing.Removal, bool)
 	tasksapi.Clock
 	servingapi.Worker
 }

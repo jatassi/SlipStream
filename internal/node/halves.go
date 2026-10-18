@@ -275,6 +275,20 @@ func (n *Node) startWorker(ctx context.Context) error {
 	return nil
 }
 
+// removed answers the Controller's removal of this Worker: the holder
+// half forgets its cached intents, so its Roles stop and a later Join
+// can't resume them, and the Node restarts Unclaimed.
+func (n *Node) removed(ctx context.Context) {
+	if h := n.half.Load(); h != nil {
+		if err := h.holding.Reset(ctx); err != nil {
+			n.log.Error("forget the removed Worker's Roles", "err", err.Error())
+		}
+	}
+	if err := n.Restart(); err != nil {
+		n.log.Error("restart the removed Worker", "err", err.Error())
+	}
+}
+
 // startHolding opens local.db and runs the holder half toward upstream,
 // holding the half's own Roles beside every Node's.
 func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, own []role.Held) (*role.Holding, *storage.DB[storage.Local], error) {

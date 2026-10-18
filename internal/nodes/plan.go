@@ -118,7 +118,7 @@ func (o Outcome) Blocked() bool {
 
 // Same reports whether applying o would store nothing new over s.
 func (o Outcome) Same(s Situation) bool {
-	leaves := slices.ContainsFunc(o.Effects, func(e Effect) bool { _, ok := e.(Leaves); return ok })
+	_, leaves := o.leaves()
 	return !leaves && maps.Equal(o.Next, s.assigned()) && maps.Equal(o.Forfeit, s.forfeited())
 }
 

@@ -21,10 +21,11 @@ import (
 )
 
 // engines follows the torrents in a Node's engine, the last one it
-// opened.
+// opened, and how many its engines added.
 type engines struct {
-	mu   sync.Mutex
-	held map[engine.Handle]bool
+	mu    sync.Mutex
+	held  map[engine.Handle]bool
+	added int
 }
 
 func (e *engines) wrap(open func(engine.Config) (engine.Engine, error)) func(engine.Config) (engine.Engine, error) {
@@ -43,6 +44,12 @@ func (e *engines) torrents() int {
 	return len(e.held)
 }
 
+func (e *engines) adds() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.added
+}
+
 type followed struct {
 	engine.Engine
 	e *engines
@@ -53,6 +60,7 @@ func (f followed) Add(p engine.AddParams) (engine.Handle, error) {
 	if err == nil {
 		f.e.mu.Lock()
 		f.e.held[h] = true
+		f.e.added++
 		f.e.mu.Unlock()
 	}
 	return h, err

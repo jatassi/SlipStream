@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jatassi/slipstream/internal/exitcode"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -50,6 +51,15 @@ type RecordError struct{ Err error }
 func (e *RecordError) Error() string { return e.Err.Error() }
 
 func (e *RecordError) Unwrap() error { return e.Err }
+
+// refusedRecord is err as a RecordError when pairing.json is one this
+// binary can't use.
+func refusedRecord(err error) error {
+	if _, malformed := errors.AsType[*pairing.RecordError](err); malformed {
+		return &RecordError{Err: err}
+	}
+	return err
+}
 
 var ErrStopped = errors.New("node stopped before it was ready")
 

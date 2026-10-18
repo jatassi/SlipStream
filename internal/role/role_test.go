@@ -361,6 +361,40 @@ func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 	})
 }
 
+// TestAResetWorkerForgetsItsCachedIntent resets a Worker cut off from its
+// Controller: the probe stops and is released, and a restart on the same
+// local.db holds nothing until a Controller sends it an intent.
+func TestAResetWorkerForgetsItsCachedIntent(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setIntent(t, c.workerID, "cached")
+		c.assign(c.workerID, roletest.Name)
+		local := storagetest.Local(t, role.LocalSchema())
+		w := c.startWorker(t, local)
+		c.pair.Connect(t)
+		synctest.Wait()
+		if _, err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(partitioned)
+
+		if err := w.Reset(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if w.Holds(roletest.Name) || w.probe.Releases() != 1 {
+			t.Fatalf("after the reset the Worker holds the probe %v and released it %d times, want not held and released once", w.Holds(roletest.Name), w.probe.Releases())
+		}
+		w.stop()
+		again := c.startWorker(t, local)
+		synctest.Wait()
+		check(t, "restarted after the reset, the probe", snapshot(t, again.probe), "no snapshot")
+		if again.Holds(roletest.Name) || again.probe.Starts() != 0 {
+			t.Fatalf("restarted after the reset the probe is held %v and started %d times, want neither", again.Holds(roletest.Name), again.probe.Starts())
+		}
+	})
+}
+
 func TestAMismatchedWorkerKeepsItsLastIntent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		local := storagetest.Local(t, role.LocalSchema())
