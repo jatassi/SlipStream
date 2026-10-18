@@ -13,9 +13,23 @@ func singleFileTorrent(t *testing.T, name string, data []byte, pieceLen int) []b
 	return torrent(t, map[string]any{"length": len(data), "name": name}, data, pieceLen)
 }
 
+// trackedTorrent is singleFileTorrent announcing to the tracker at
+// announce.
+func trackedTorrent(t *testing.T, name string, data []byte, pieceLen int, announce string) []byte {
+	t.Helper()
+	return metainfo(t, map[string]any{"announce": announce}, map[string]any{"length": len(data), "name": name}, data, pieceLen)
+}
+
 // torrent builds v1 metainfo whose info dictionary holds layout and the
 // piece hashes of data.
 func torrent(t *testing.T, layout map[string]any, data []byte, pieceLen int) []byte {
+	t.Helper()
+	return metainfo(t, map[string]any{}, layout, data, pieceLen)
+}
+
+// metainfo builds v1 metainfo holding top's keys beside an info
+// dictionary of layout and the piece hashes of data.
+func metainfo(t *testing.T, top, layout map[string]any, data []byte, pieceLen int) []byte {
 	t.Helper()
 	var pieces []byte
 	for off := 0; off < len(data); off += pieceLen {
@@ -26,7 +40,8 @@ func torrent(t *testing.T, layout map[string]any, data []byte, pieceLen int) []b
 	for k, v := range layout {
 		info[k] = v
 	}
-	meta, err := bencode.Encode(map[string]any{"info": info})
+	top["info"] = info
+	meta, err := bencode.Encode(top)
 	if err != nil {
 		t.Fatal(err)
 	}
