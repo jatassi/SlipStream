@@ -182,7 +182,7 @@ func TestGoAndE2ETiersRunEveryPackageOnce(t *testing.T) {
 			goTier = append(goTier, p)
 		}
 	}
-	for _, want := range []string{"cmd/fakeworld", "cmd/slipstream", "e2e", "fakes/world"} {
+	for _, want := range []string{"cmd/fakeworld", "cmd/release", "cmd/slipstream", "e2e", "fakes/world"} {
 		if !slices.ContainsFunc(e2e, func(p goPackage) bool { return p.path == "github.com/jatassi/slipstream/"+want }) {
 			t.Errorf("the e2e tier leaves out %s, whose tests drive binaries through fakes/testbin", want)
 		}
