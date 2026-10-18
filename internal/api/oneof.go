@@ -15,14 +15,46 @@ type Variants interface {
 	Variants() (discriminator string, variants []any)
 }
 
-// OneOf holds one of V's variants, given to NewOneOf. The document names
-// its schema after V: a oneOf over V's variants, discriminated on V's
-// property. Its JSON is the variant it holds.
+// OneOf holds one of V's variants, given to NewOneOf or decoded from a
+// request. The document names its schema after V: a oneOf over V's
+// variants, discriminated on V's property. Its JSON is the variant it
+// holds.
 type OneOf[V Variants] struct {
 	value any
 }
 
 func NewOneOf[V Variants](variant any) OneOf[V] { return OneOf[V]{value: variant} }
+
+// Value is the variant o holds, a value of one of V's variant types.
+func (o OneOf[V]) Value() any { return o.value }
+
+// UnmarshalJSON decodes the variant b's discriminator names. Huma has
+// already checked b against the union's schema.
+func (o *OneOf[V]) UnmarshalJSON(b []byte) error {
+	var v V
+	property, variants := v.Variants()
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(b, &fields); err != nil {
+		return fmt.Errorf("api: decode a %s: %w", reflect.TypeFor[V](), err)
+	}
+	var kind string
+	if err := json.Unmarshal(fields[property], &kind); err != nil {
+		return fmt.Errorf("api: decode a %s's %s: %w", reflect.TypeFor[V](), property, err)
+	}
+	for _, variant := range variants {
+		t := reflect.TypeOf(variant)
+		if discriminatorValue(t, property) != kind {
+			continue
+		}
+		decoded := reflect.New(t)
+		if err := json.Unmarshal(b, decoded.Interface()); err != nil {
+			return fmt.Errorf("api: decode a %s: %w", t, err)
+		}
+		o.value = decoded.Elem().Interface()
+		return nil
+	}
+	return fmt.Errorf("api: no %s variant has %s %q", reflect.TypeFor[V](), property, kind)
+}
 
 func (o OneOf[V]) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(o.value)

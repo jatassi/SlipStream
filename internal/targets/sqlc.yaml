@@ -7,6 +7,7 @@ sql:
       go:
         package: db
         out: internal/db
+        emit_pointers_for_null_types: true
         overrides:
           - column: "*.*_at"
             go_type:
@@ -15,12 +16,28 @@ sql:
           - column: targets_target.id
             go_type:
               type: TargetID
-          - column: targets_resolution.target_id
+          - column: targets_quality.target_id
             go_type:
               type: TargetID
-          - column: targets_resolution.resolution
+          - column: targets_quality.quality
             go_type:
-              type: Resolution
+              import: github.com/jatassi/slipstream/internal/release
+              type: Quality
+          - column: targets_filter.target_id
+            go_type:
+              type: TargetID
+          - column: targets_filter.attribute
+            go_type:
+              type: Attribute
+          - column: targets_filter.mode
+            go_type:
+              type: Mode
+          - column: targets_filter_value.target_id
+            go_type:
+              type: TargetID
+          - column: targets_filter_value.attribute
+            go_type:
+              type: Attribute
           - column: targets_profile.id
             go_type:
               type: ProfileID
@@ -36,3 +53,58 @@ sql:
           - column: targets_profile_target.target_id
             go_type:
               type: TargetID
+          - column: targets_profile_target.sourcing
+            go_type:
+              type: Sourcing
+          - column: targets_starter.id
+            go_type:
+              type: Singleton
+          - column: targets_starter.target_id
+            go_type:
+              type: TargetID
+              pointer: true
+          - column: targets_wants.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: targets_wants.profile_id
+            go_type:
+              type: ProfileID
+          - column: targets_wants.editions
+            go_type:
+              type: List
+              pointer: true
+          - column: targets_profile.editions
+            go_type:
+              type: List
+          - column: targets_profile_cut.profile_id
+            go_type:
+              type: ProfileID
+          - column: targets_profile_cut.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_wants_cut.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: targets_wants_cut.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_cut.key
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_cut_alias.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: targets_sighting.item_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID
+          - column: targets_sighting.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey

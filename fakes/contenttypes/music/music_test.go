@@ -20,8 +20,10 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -270,7 +272,7 @@ func TestStoreThenFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, works.Adding{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +339,7 @@ func TestNamingTokensNameATrack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, false)
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, works.Adding{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,6 +361,89 @@ func TestNamingTokensNameATrack(t *testing.T) {
 	}
 	if got, want := folder+"/"+file, "The Lanterns/The Lanterns - 1-02 - Paper Boats FLAC"; got != want {
 		t.Fatalf("named %q, want %q", got, want)
+	}
+	deluxe, err := naming.Render(templates.File, tokens, naming.Core{Target: "FLAC", EditionTag: "{edition-Deluxe}", Edition: "Deluxe"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "The Lanterns - 1-02 - Paper Boats Deluxe FLAC"; deluxe != want {
+		t.Fatalf("named the Deluxe file %q, want %q", deluxe, want)
+	}
+}
+
+func timings(t *testing.T, s scenario.Scenario, artist works.Key) map[works.Key]targets.Timing {
+	t.Helper()
+	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
+	m := open(faketest.Loopback(t, musicmeta.Fake, s))
+	w, err := works.Open(t.Context(), works.Config{
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
+		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), artist, works.Adding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var byID map[works.ItemID]targets.Timing
+	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		byID, err = m.Timings(ctx, r, []works.WorkID{tree.ID})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out := map[works.Key]targets.Timing{}
+	for _, it := range tree.Items {
+		if timing, ok := byID[it.ID]; ok {
+			out[it.Key] = timing
+		}
+	}
+	if len(out) != len(byID) {
+		t.Fatalf("Timings answered %d Items, %d of them in the Work", len(byID), len(out))
+	}
+	return out
+}
+
+func TestTimingsAreEachTracksLengthAndItsAlbumsDate(t *testing.T) {
+	harbor := release.Known(works.Date{Year: 2001, Month: 3, Day: 12})
+	ferry := release.Known(works.Date{Year: 2003})
+	ms := func(n int) release.Fact[time.Duration] { return release.Known(time.Duration(n) * time.Millisecond) }
+	want := map[works.Key]targets.Timing{
+		"b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000001": {Released: harbor, Runtime: ms(205000)},
+		"b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000002": {Released: harbor, Runtime: ms(242000)},
+		"b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000003": {Released: harbor, Runtime: ms(178000)},
+		"b1000000-0000-4000-8000-000000000002/d1000000-0000-4000-8000-000000000004": {Released: ferry, Runtime: ms(190000)},
+		"b1000000-0000-4000-8000-000000000002/d1000000-0000-4000-8000-000000000005": {Released: ferry, Runtime: ms(224000)},
+	}
+	if got := timings(t, catalog(t), lanterns); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Timings = %+v, want %+v", got, want)
+	}
+}
+
+func TestAnUndatedAlbumAndAnUntimedTrackStayUnknown(t *testing.T) {
+	const undated = "a1000000-0000-4000-8000-000000000007"
+	s := catalog(t)
+	s.Music.Artists = append(s.Music.Artists, scenario.MusicArtist{ID: undated, Revisions: []scenario.MusicRevision{{Name: "Undated", SortName: "Undated", Albums: []scenario.MusicAlbum{{
+		ID: "b7000000-0000-4000-8000-000000000001", Release: "c7000000-0000-4000-8000-000000000001", Title: "Someday", Kind: "Album",
+		Tracks: []scenario.MusicTrack{{Recording: "d7000000-0000-4000-8000-000000000001", Title: "Only", Disc: 1}},
+	}}}}})
+	want := map[works.Key]targets.Timing{"b7000000-0000-4000-8000-000000000001/d7000000-0000-4000-8000-000000000001": {}}
+	if got := timings(t, s, undated); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Timings = %+v, want one Item with neither a date nor a length", got)
+	}
+}
+
+func TestDeluxeNamesItsCut(t *testing.T) {
+	cuts := append(release.BuiltIn(), open(faketest.Loopback(t, musicmeta.Fake, catalog(t))).Cuts()...)
+	for title, want := range map[string]release.CutKey{
+		"The Lanterns - Harbor Lights (Deluxe Edition) 2001 FLAC": "deluxe",
+		"The Lanterns - Harbor Lights (Deluxe) 2001 FLAC":         "deluxe",
+		"The Lanterns - Harbor Lights 2001 FLAC":                  release.Standard,
+	} {
+		if got := release.Title(title, cuts).Cut; got != want {
+			t.Errorf("cut of %q = %s, want %s", title, got, want)
+		}
 	}
 }
 

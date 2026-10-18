@@ -10,16 +10,12 @@ import (
 
 type FileID struct{ storage.UUID }
 
-// Edition is a cut of an Item. Every Edition is Standard until Editions
-// arrive.
-type Edition string
-
-const Standard Edition = "standard"
-
-// Probe is what probing found in a file.
+// Probe is what probing found in a file: its video's frame and codec,
+// the codec by ffprobe's name.
 type Probe struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Codec  string `json:"codec"`
 }
 
 func (p Probe) Value() (driver.Value, error) {

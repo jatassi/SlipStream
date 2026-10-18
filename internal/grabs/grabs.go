@@ -19,7 +19,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
-	"github.com/jatassi/slipstream/internal/naming"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -148,10 +147,10 @@ type Payloads interface {
 type Config struct {
 	Library  *storage.DB[file]
 	Works    *works.Works
+	Targets  *targets.Targets
 	Files    *files.Files
 	Indexers *indexers.Indexers
 	Terms    map[works.TypeID]indexers.Facet
-	Naming   map[works.TypeID]naming.Facet
 	Roster   Roster
 	// Downloads is the Downloading Role's *role.Control.
 	Downloads Downloads
@@ -232,10 +231,11 @@ type Entered struct {
 }
 
 type Grab struct {
-	ID      GrabID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
-	Edition files.Edition
+	ID     GrabID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Edition is what its cells want: its release's cut, or any.
+	Edition targets.Edition
 	Targets []targets.TargetID
 	Release Release
 	// Node downloads the release: the Indexer's home Node until the fetch,

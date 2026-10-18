@@ -22,6 +22,7 @@
     "@tanstack/react-query": "5.104.2",
     "@tanstack/react-router": "1.170.42",
     "@tanstack/react-virtual": "3.14.15",
+    "motion": "14.1.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwindcss": "4.3.3",

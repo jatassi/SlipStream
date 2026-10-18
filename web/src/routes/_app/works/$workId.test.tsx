@@ -7,7 +7,14 @@ import { downloading, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
 import { renderApp } from "../../../test/render-app";
-import { filled, grabbed, searching, unavailable, workServer } from "../../../test/work-server";
+import {
+  filled,
+  grabbed,
+  searching,
+  unavailable,
+  upgradable,
+  workServer,
+} from "../../../test/work-server";
 
 const row = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
@@ -33,8 +40,8 @@ test("the Work page shows its fields and one cell per Target", async () => {
       .getByRole("columnheader")
       .all()
       .map((header) => header.element().textContent),
-  ).toEqual(["Film", "1080p", "2160p"]);
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  ).toEqual(["Film", "Status", "1080p", "2160p"]);
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
   await expect
     .element(page.getByText("No files yet. A Grab that imports puts its file here."))
     .toBeVisible();
@@ -49,17 +56,38 @@ test("the Work page shows its fields and one cell per Target", async () => {
 test("files.changed shows the new file without a reload", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
 
   server.fileArrives(filled);
 
   await expect
     .element(row())
-    .toHaveTextContent("The Quiet OrchardMetThe Quiet Orchard (2021) - 1080p.mkvDownloading");
+    .toHaveTextContent(
+      "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
+    );
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(
       "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021)1920×1080 · 700 MB",
+    );
+});
+
+test("a cell below its Target's cutoff shows upgradable with its file", async () => {
+  const server = workServer();
+  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
+
+  server.fileArrives(upgradable);
+
+  await expect
+    .element(row())
+    .toHaveTextContent(
+      "The Quiet OrchardMissingUpgradableThe Quiet Orchard (2021) - 1080p.mkvMissing",
+    );
+  await expect
+    .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
+    .toHaveTextContent(
+      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021)1920×1080 · 500 MB",
     );
 });
 
@@ -97,7 +125,9 @@ test("Search starts a search and says so, and the run and its Grab show without 
     .toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLDownloading25%175 MB of 700 MB");
   await expect
     .element(
-      page.getByRole("progressbar", { name: "Downloading The.Quiet.Orchard.2021.1080p.WEB-DL" }),
+      page.getByRole("progressbar", {
+        name: "Downloading The.Quiet.Orchard.2021.1080p.WEB-DL",
+      }),
     )
     .toHaveAttribute("aria-valuenow", "25");
 
@@ -105,7 +135,9 @@ test("Search starts a search and says so, and the run and its Grab show without 
   await expect.element(grabs).toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLImported");
   await expect
     .element(row())
-    .toHaveTextContent("The Quiet OrchardMetThe Quiet Orchard (2021) - 1080p.mkvDownloading");
+    .toHaveTextContent(
+      "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
+    );
 });
 
 test("a search its Indexer couldn't answer says what the Indexer waits for, until it stops waiting", async () => {
@@ -184,7 +216,7 @@ const failedImport: GrabsGrab = {
 test("a failed Grab shows under Needs you with its stage, cause and a way to search again", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
-  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissing");
+  await expect.element(row()).toHaveTextContent("The Quiet OrchardMissingMissingMissing");
 
   server.grabMoves(failedImport);
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
@@ -20,6 +21,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -65,15 +67,16 @@ func (alone) Changed() <-chan struct{}                            { return nil }
 func (alone) Touch(...role.NodeID)                                {}
 func (alone) Facts(role.NodeID) (*dlv1.Facts, bool)               { return nil, false }
 
-// site answers every search with one 1080p release whose .torrent isn't
-// bencode.
+// site answers every search with a 1080p and a 720p release, and every
+// .torrent fetch with bytes that aren't bencode.
 type site struct {
 	searchv1connect.UnimplementedSearchingServiceHandler
 }
 
 func (site) Search(context.Context, *searchv1.SearchRequest) (*searchv1.SearchResponse, error) {
 	body := `<rss><channel><item><title>The.Attic.1080p.WEB</title><size>4096</size><link>https://site.test/dl/1</link>` +
-		`<attr name="seeders" value="5"/></item></channel></rss>`
+		`<attr name="seeders" value="5"/></item><item><title>The.Attic.720p.WEB</title><size>2048</size><link>https://site.test/dl/2</link>` +
+		`<attr name="seeders" value="50"/></item></channel></rss>`
 	return &searchv1.SearchResponse{Body: []byte(body), Status: http.StatusOK}, nil
 }
 
@@ -111,19 +114,27 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
 	types := []works.TypeID{contenttypetest.ID}
-	goals := targets.New(targets.Config{Library: lib, Types: types, Changed: discard[targets.Changed]{}})
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, "1080p", []targets.Resolution{targets.R1080p}))
-	must[targets.Profile](t)(goals.CreateProfile(ctx, admin, "Standard", contenttypetest.ID, []targets.TargetID{hd.ID}))
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
+		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
+	}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{
+		Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}},
+	}))
+	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, standard.ID))
+	assign := func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+		return targets.Assign(ctx, tx, w, nil)
+	}
 	attic := works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
 	}}
 	fx.Put("w1", contenttypetest.Record{Tree: attic})
 	fx.Put("w2", contenttypetest.Record{Tree: attic})
-	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", true)
+	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", works.Adding{Monitor: true, Also: assign})
 	if err != nil {
 		t.Fatal(err)
 	}
-	unmonitored, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", false)
+	unmonitored, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", works.Adding{Also: assign})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +144,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	home, indexer := storage.NewUUID(), storage.NewUUID()
 	roster := alone{role.NodeID{UUID: home}}
 	g := grabs.New(grabs.Config{
-		Library: lib, Works: w, Files: files.New(files.Config{Library: lib, Works: w, Grabs: grabs.GrabCells{}}),
+		Library: lib, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
 			Changed: discard[indexers.Changed]{},
@@ -186,7 +197,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	item := tree.Items[0].ID.String()
 	run1 := `{"id":"` + run + `","itemId":"` + item + `","indexerId":"` + indexer.String() + `","startedAt":"T",`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"finishedAt":null,"outcome":null,"candidates":0,"grabId":null}]}`)
+		`{"searches":[`+run1+`"finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
 	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
@@ -206,8 +217,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("grabs.changed = %+v, want the Grab %s failing", failed, grab)
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"finishedAt":"T","outcome":"grabbed","candidates":1,"grabId":"`+grab+`"}]}`)
-	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"standard","targetIds":["` + hd.ID.String() + `"],` +
+		`{"searches":[`+run1+`"finishedAt":"T","outcome":"grabbed","candidates":2,`+
+			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
+			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
+	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
 		`"releaseTitle":"The.Attic.1080p.WEB","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`

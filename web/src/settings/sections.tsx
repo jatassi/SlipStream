@@ -6,8 +6,19 @@ import {
   getGetIdentitySettingsSuspenseQueryOptions,
 } from "../api/gen/query/identity/identity";
 import { getGetMailSettingsSuspenseQueryOptions } from "../api/gen/query/mail/mail";
-import { freshQuery } from "../api/query-client";
+import {
+  getListCutsSuspenseQueryOptions,
+  getListProfilesSuspenseQueryOptions,
+  getListQualitiesSuspenseQueryOptions,
+  getListTargetsSuspenseQueryOptions,
+} from "../api/gen/query/targets/targets";
+import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/works";
+import { ensureQuery, freshQuery } from "../api/query-client";
+import { EditionsSection } from "../targets/editions-section";
+import { ProfilesSection } from "../targets/profiles-section";
+import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
+// oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
 import { nodesSection } from "./nodes";
@@ -47,6 +58,43 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
       await freshQuery(queryClient, getGetAPIKeySuspenseQueryOptions());
     },
     component: ApiKeySection,
+  },
+  {
+    id: "targets",
+    label: "Targets",
+    load: async (queryClient) => {
+      await Promise.all([
+        ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
+      ]);
+    },
+    component: TargetsSection,
+    wide: true,
+  },
+  {
+    id: "profiles",
+    label: "Profiles",
+    load: async (queryClient) => {
+      await Promise.all([
+        ensureQuery(queryClient, getListProfilesSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+      ]);
+    },
+    component: ProfilesSection,
+    wide: true,
+  },
+  {
+    id: "editions",
+    label: "Editions",
+    load: async (queryClient) => {
+      await Promise.all([
+        ensureQuery(queryClient, getListCutsSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
+      ]);
+    },
+    component: EditionsSection,
+    wide: true,
   },
 ];
 

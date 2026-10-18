@@ -1,0 +1,145 @@
+package targets
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets/internal/db"
+	"github.com/jatassi/slipstream/internal/works"
+)
+
+// Goals is what one Work wants: its Profile, that Profile's Targets in
+// Profile order, and its effective Edition list, which is its own when
+// Own.
+type Goals struct {
+	Profile  Profile
+	Targets  []Target
+	Editions Editions
+	Own      bool
+}
+
+// Assign gives w its wants row in tx: Profile profile, or its Content
+// Type's default when profile is nil. A Profile of another Content Type is
+// ErrProfileWrongType.
+func Assign(ctx context.Context, tx *storage.Tx[file], w works.Summary, profile *ProfileID) error {
+	q := db.New(tx)
+	var p db.TargetsProfile
+	var err error
+	if profile == nil {
+		p, err = q.DefaultProfile(ctx, w.ContentType)
+	} else {
+		p, err = q.GetProfile(ctx, *profile)
+	}
+	switch {
+	case errors.Is(err, storage.ErrNoRows):
+		return ErrNoProfile
+	case err != nil:
+		return err
+	case p.ContentType != w.ContentType:
+		return ErrProfileWrongType
+	}
+	return q.InsertWants(ctx, db.InsertWantsParams{WorkID: w.ID, ProfileID: p.ID})
+}
+
+// GoalsIn reads work's Goals in r, works.ErrNoWork when no Work has id
+// work.
+func GoalsIn(ctx context.Context, r storage.Reader[file], work works.WorkID) (Goals, error) {
+	gs, err := GoalsOf(ctx, r, []works.WorkID{work})
+	return gs[work], err
+}
+
+// GoalsOf reads the Goals of each of ws in r, reading every Target and
+// Profile once for all of them: works.ErrNoWork when one of ws has no
+// wants row.
+func GoalsOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.WorkID]Goals, error) {
+	q := db.New(r)
+	rows, err := q.ListWantsOf(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) < len(ws) {
+		return nil, works.ErrNoWork
+	}
+	cuts, err := q.ListWantsCutsOf(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+	named := map[works.WorkID][]release.CutKey{}
+	for _, c := range cuts {
+		named[c.WorkID] = append(named[c.WorkID], c.Cut)
+	}
+	profiles, err := listProfiles(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	all, err := listTargets(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	profileOf := make(map[ProfileID]Profile, len(profiles))
+	for _, p := range profiles {
+		profileOf[p.ID] = p
+	}
+	targetOf := make(map[TargetID]Target, len(all))
+	for _, t := range all {
+		targetOf[t.ID] = t
+	}
+	out := make(map[works.WorkID]Goals, len(rows))
+	for _, row := range rows {
+		g := Goals{Profile: profileOf[row.ProfileID]}
+		g.Editions, g.Own = g.Profile.Editions, row.Editions != nil
+		if g.Own {
+			g.Editions = editionsOf(*row.Editions, named[row.WorkID])
+		}
+		for _, e := range g.Profile.Entries {
+			g.Targets = append(g.Targets, targetOf[e.Target])
+		}
+		out[row.WorkID] = g
+	}
+	return out, nil
+}
+
+// Goals reads work's Goals, works.ErrNoWork when no Work has id work.
+func (t *Targets) Goals(ctx context.Context, _ identity.Admin, work works.WorkID) (Goals, error) {
+	var g Goals
+	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		g, err = GoalsIn(ctx, r, work)
+		return err
+	})
+	return g, err
+}
+
+// WorksOf lists the Works wanting from Profile id in r.
+func WorksOf(ctx context.Context, r storage.Reader[file], id ProfileID) ([]works.WorkID, error) {
+	return db.New(r).ListWorksOfProfile(ctx, id)
+}
+
+// TimingsIn answers each Item of ws, Works of Content Type typ, from its
+// facet in one call.
+func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ works.TypeID, ws []works.WorkID) (map[works.ItemID]Timing, error) {
+	facet, ok := t.cfg.Types[typ]
+	if !ok {
+		return nil, ErrNoType
+	}
+	return facet.Timings(ctx, r, ws)
+}
+
+// NameOfFirst is the name of the first of ids a Target still has in r,
+// empty when none does.
+func NameOfFirst(ctx context.Context, r storage.Reader[file], ids []TargetID) (string, error) {
+	q := db.New(r)
+	for _, id := range ids {
+		t, err := q.GetTarget(ctx, id)
+		switch {
+		case err == nil:
+			return t.Name, nil
+		case !errors.Is(err, storage.ErrNoRows):
+			return "", err
+		}
+	}
+	return "", nil
+}
