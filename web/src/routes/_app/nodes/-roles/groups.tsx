@@ -67,7 +67,7 @@ function RoleRow({ row, onTick }: { row: Row; onTick: (on: boolean) => void }) {
 }
 
 const noteworthy = (rows: readonly Row[]): boolean =>
-  rows.some((row) => row.ticked || row.hint !== undefined);
+  rows.some((row) => row.ticked || row.hint !== undefined || row.line !== undefined);
 
 function GroupCard({
   group,

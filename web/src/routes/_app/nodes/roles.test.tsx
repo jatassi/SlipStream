@@ -53,7 +53,7 @@ test("the Roles section shows each Role Group's switch and every Role's state", 
     ),
   );
   await expect.element(page.getByText("0 of 2").first()).toBeVisible();
-  await userEvent.click(titled("Acquire"));
+  await expect.element(titled("Acquire")).toHaveAttribute("aria-expanded", "true");
   await expect.element(role("Downloading")).not.toBeChecked();
   await expect.element(page.getByText("Draining · 3 torrents (41 GB) left")).toBeVisible();
   await expect
@@ -62,7 +62,7 @@ test("the Roles section shows each Role Group's switch and every Role's state", 
   await expect.element(page.getByRole("button", { name: "Review" })).toBeDisabled();
 });
 
-test("a Role Group opens to its Roles only when one is ticked, hinted or just switched", async () => {
+test("a Role Group opens to its Roles only when one is ticked, hinted, draining or just switched", async () => {
   rolesOf(seedboxSeat);
   await expect.element(titled("Acquire")).toHaveAttribute("aria-expanded", "true");
   await expect.element(titled("Process")).toHaveAttribute("aria-expanded", "false");
