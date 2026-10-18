@@ -36,55 +36,55 @@ const everyCatalogSearch = everyPath(/^\/api\/v1\/content-types\/[^/]+\/catalog$
 
 export const effects = {
   ...systemEffects,
-  "identity.sessions-changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(data.account) });
-    void queryClient.invalidateQueries({ queryKey: getListAccountSessionsQueryKey(data.account) });
+  "identity.sessions-changed": (data, { refresh }) => {
+    refresh({ queryKey: getGetSessionQueryKey() });
+    refresh({ queryKey: getListSessionsQueryKey() });
+    refresh({ queryKey: getListAccountsQueryKey() });
+    refresh({ queryKey: getGetAccountQueryKey(data.account) });
+    refresh({ queryKey: getListAccountSessionsQueryKey(data.account) });
   },
-  "identity.accounts-changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
-    void queryClient.invalidateQueries(everyAccount);
+  "identity.accounts-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getGetSessionQueryKey() });
+    refresh({ queryKey: getListAccountsQueryKey() });
+    refresh(everyAccount);
   },
-  "identity.passkeys-changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListPasskeysQueryKey() });
+  "identity.passkeys-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListPasskeysQueryKey() });
   },
-  "identity.links-changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListSignupLinksQueryKey() });
-    void queryClient.invalidateQueries(everySignupLink);
+  "identity.links-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListSignupLinksQueryKey() });
+    refresh(everySignupLink);
   },
-  "works.changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListWorksQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetWorkQueryKey(data.workId) });
-    void queryClient.invalidateQueries({ queryKey: getGetWorkCellsQueryKey(data.workId) });
-    void queryClient.invalidateQueries(everyCatalogSearch);
+  "works.changed": (data, { refresh }) => {
+    refresh({ queryKey: getListWorksQueryKey() });
+    refresh({ queryKey: getGetWorkQueryKey(data.workId) });
+    refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    refresh(everyCatalogSearch);
   },
-  "works.content-types-changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListContentTypesQueryKey() });
+  "works.content-types-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListContentTypesQueryKey() });
   },
-  "targets.changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListTargetsQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getListProfilesQueryKey() });
-    void queryClient.invalidateQueries(everyWorksCells);
+  "targets.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListTargetsQueryKey() });
+    refresh({ queryKey: getListProfilesQueryKey() });
+    refresh(everyWorksCells);
   },
-  "roots.changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListRootsQueryKey() });
+  "roots.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListRootsQueryKey() });
   },
-  "indexers.changed": (_data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListIndexersQueryKey() });
+  "indexers.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListIndexersQueryKey() });
   },
-  "files.changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+  "files.changed": (data, { refresh }) => {
+    refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
   },
-  "grabs.changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListGrabsQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetGrabQueryKey(data.grabId) });
-    void queryClient.invalidateQueries({ queryKey: getGetWorkCellsQueryKey(data.workId) });
-    void queryClient.invalidateQueries({ queryKey: getGetCountsQueryKey() });
+  "grabs.changed": (data, { refresh }) => {
+    refresh({ queryKey: getListGrabsQueryKey() });
+    refresh({ queryKey: getGetGrabQueryKey(data.grabId) });
+    refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    refresh({ queryKey: getGetCountsQueryKey() });
   },
-  "grabs.search-changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListSearchesQueryKey(data.workId) });
+  "grabs.search-changed": (data, { refresh }) => {
+    refresh({ queryKey: getListSearchesQueryKey(data.workId) });
   },
 } satisfies LiveEffects;
