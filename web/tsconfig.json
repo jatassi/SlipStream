@@ -25,7 +25,7 @@
     "types": ["vite/client"],
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
-    "paths": { "@anatomy/*": ["./src/diagram/kit/*"] }
+    "paths": { "@anatomy/*": ["./src/diagram/kit/*", "./vendor/anatomy/kit/*"] }
   },
   "include": ["src", "orval", "orval.config.ts", "vite.config.ts", "vitest.config.ts"]
 }

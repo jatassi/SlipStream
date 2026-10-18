@@ -44,8 +44,9 @@ export function targetProjects(): readonly ProjectName[] {
 
 export const engineOf = (name: ProjectName): Engine => projects[name][0];
 
-// Specs of the desktop shell's own controls, such as the account menu.
-const desktopOnly = ["restart.spec.ts"];
+// Specs of the desktop shell's own controls, such as the account menu, and
+// of the Diagram's drags, which a phone doesn't take.
+const desktopOnly = ["restart.spec.ts", "diagram.spec.ts"];
 
 function project(name: ProjectName): Project {
   const [engine, preset] = projects[name];
