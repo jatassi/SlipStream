@@ -1116,6 +1116,13 @@ export const getRenameNodeResponseMock = (
     ] as const),
   })),
   self: faker.datatype.boolean(),
+  standing: faker.helpers.arrayElement([
+    "in-step",
+    "reconnecting",
+    "offline",
+    "lapsed",
+    "mismatched",
+  ] as const),
   ...overrideResponse,
 });
 
