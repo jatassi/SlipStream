@@ -576,6 +576,8 @@ export * from "./indexersIndexerProtocol.ts";
 export * from "./indexersNewAPIKey.ts";
 export * from "./indexersNewIndexer.ts";
 export * from "./indexersSearchMode.ts";
+export * from "./indexersWaiting.ts";
+export * from "./indexersWaitingStanding.ts";
 export * from "./joinInputBody.ts";
 export * from "./listAccounts401.ts";
 export * from "./listAccounts401Code.ts";

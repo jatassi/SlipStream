@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexersapi"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/nodes"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -42,6 +43,7 @@ func (r registry) Indexers() (*indexers.Indexers, bool) { return r.x, true }
 type roster struct {
 	self    role.NodeID
 	holders []role.NodeID
+	away    map[role.NodeID]nodes.Absence
 }
 
 func (r roster) Self() role.NodeID { return r.self }
@@ -55,6 +57,23 @@ func (r roster) Pick(_ role.Name, prefer role.NodeID) (role.NodeID, bool) {
 		return role.NodeID{}, false
 	}
 	return r.holders[0], true
+}
+
+// Route waits for home while it is away within the grace, else picks.
+func (r roster) Route(rn role.Name, home role.NodeID) (role.NodeID, error) {
+	if a, ok := r.Away(rn, home); ok && !a.Lapsed {
+		return role.NodeID{}, &nodes.Unrouted{Why: "home is " + a.Standing.String()}
+	}
+	to, ok := r.Pick(rn, home)
+	if !ok {
+		return role.NodeID{}, &nodes.Unrouted{Why: "no Node searches"}
+	}
+	return to, nil
+}
+
+func (r roster) Away(_ role.Name, node role.NodeID) (nodes.Absence, bool) {
+	a, ok := r.away[node]
+	return a, ok
 }
 
 // disconnected is a home Node whose link is down.
@@ -83,7 +102,7 @@ type served struct {
 // down, whose link is disconnected.
 func serve(t *testing.T, holders []role.NodeID, down role.NodeID) *served {
 	t.Helper()
-	return serveOn(t, fixtureSite(t), storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema()), holders, down)
+	return serveOn(t, fixtureSite(t), storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema()), roster{self: self, holders: holders}, down)
 }
 
 var fixtureScenario = scenario.Scenario{Name: "x", Seed: "indexersapi"}
@@ -93,14 +112,14 @@ func fixtureSite(t *testing.T) faketest.Served {
 	return faketest.Loopback(t, site.Fake, fixtureScenario)
 }
 
-func serveOn(t *testing.T, fixture faketest.Served, lib *storage.DB[storage.Library], holders []role.NodeID, down role.NodeID) *served {
+func serveOn(t *testing.T, fixture faketest.Served, lib *storage.DB[storage.Library], r roster, down role.NodeID) *served {
 	t.Helper()
 	srv := &served{key: site.APIKey(fixtureScenario), changed: &published{}, site: fixture}
 	home := indexers.NewHome(srv.site.Client, indexers.Timings{Request: 5 * time.Second})
 	x := indexers.New(indexers.Config{
 		Library: lib,
 		Sealer:  secrettest.Sealer(t),
-		Roster:  roster{self: self, holders: holders},
+		Roster:  r,
 		Searching: func(n role.NodeID) searchv1connect.SearchingServiceHandler {
 			srv.asked = append(srv.asked, n)
 			if n == down {
@@ -131,11 +150,11 @@ func TestAnIndexerIsCreatedOnItsHomeNodeAndListed(t *testing.T) {
 			s := serve(t, tc.holders, role.NodeID{})
 			url := s.site.Address.URL(site.TorznabPath)
 			modes := `"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]}]`
-			want := `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2","apiKeySet":true,` + modes + `,"createdAt":"T"}`
+			want := `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2","apiKeySet":true,` + modes + `,"waiting":null,"createdAt":"T"}`
 			s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key), http.StatusCreated, want)
 			_, list := s.owner.Call(t, http.MethodGet, "/api/v1/indexers", "")
 			id := ownertest.FirstID(list)
-			if want := `{"indexers":[{"id":"` + id + `","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"` + tc.home.String() + `","apiKeySet":true,` + modes + `,"createdAt":"T"}]}` + "\n"; ownertest.Masked(list) != ownertest.Masked(want) || !strings.Contains(list, `"homeNodeId":"`+tc.home.String()+`"`) {
+			if want := `{"indexers":[{"id":"` + id + `","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"` + tc.home.String() + `","apiKeySet":true,` + modes + `,"waiting":null,"createdAt":"T"}]}` + "\n"; ownertest.Masked(list) != ownertest.Masked(want) || !strings.Contains(list, `"homeNodeId":"`+tc.home.String()+`"`) {
 				t.Fatalf("listIndexers = %s, want %s", list, want)
 			}
 			if len(s.changed.ids) != 1 || s.changed.ids[0] != id {
@@ -206,9 +225,9 @@ func TestAKeyTheSealingMigrationDroppedIsEnteredAgain(t *testing.T) {
 	}
 	lib := open(secret.Schema(), identity.Schema(), indexers.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
-	s := serveOn(t, fixture, lib, []role.NodeID{self}, role.NodeID{})
+	s := serveOn(t, fixture, lib, roster{self: self, holders: []role.NodeID{self}}, role.NodeID{})
 	row := func(set bool, modes string) string {
-		return `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2","apiKeySet":` + strconv.FormatBool(set) + `,"searchModes":[` + modes + `],"createdAt":"T"}`
+		return `{"id":"id1","name":"Fixture Site","protocol":"torznab","url":"` + url + `","homeNodeId":"id2","apiKeySet":` + strconv.FormatBool(set) + `,"searchModes":[` + modes + `],"waiting":null,"createdAt":"T"}`
 	}
 	s.owner.Expect(t, http.MethodGet, "/api/v1/indexers", "", http.StatusOK, `{"indexers":[`+row(false, "")+`]}`)
 	s.owner.Expect(t, http.MethodPut, "/api/v1/indexers/"+storage.NewUUID().String()+"/api-key", `{"apiKey":"k"}`, http.StatusNotFound,
@@ -222,5 +241,31 @@ func TestAKeyTheSealingMigrationDroppedIsEnteredAgain(t *testing.T) {
 	s.owner.Expect(t, http.MethodGet, "/api/v1/indexers", "", http.StatusOK, `{"indexers":[`+row(true, modes)+`]}`)
 	if len(s.changed.ids) != 1 || s.changed.ids[0] != id.String() {
 		t.Fatalf("indexers.changed published %v, want [%s]", s.changed.ids, id)
+	}
+}
+
+func TestAnIndexerSaysItWaitsForItsHomeUntilTheGrace(t *testing.T) {
+	away := map[role.NodeID]nodes.Absence{}
+	s := serveOn(t, fixtureSite(t), storagetest.Library(t, secret.Schema(), identity.Schema(), indexers.Schema()),
+		roster{self: self, holders: []role.NodeID{self, worker}, away: away}, role.NodeID{})
+	if code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", s.body(site.TorznabPath, s.key)); code != http.StatusCreated {
+		t.Fatalf("createIndexer = %d %s, want 201", code, reply)
+	}
+	since := time.Date(2026, 10, 17, 21, 31, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name    string
+		absence nodes.Absence
+		waiting string
+	}{
+		{"offline within the grace", nodes.Absence{Since: since, Standing: nodes.Offline}, `{"standing":"offline","since":"2026-10-17T21:31:00Z"}`},
+		{"reconnecting", nodes.Absence{Since: since, Standing: nodes.Reconnecting}, `{"standing":"reconnecting","since":"2026-10-17T21:31:00Z"}`},
+		{"lapsed", nodes.Absence{Since: since, Standing: nodes.LapsedNode, Lapsed: true}, "null"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			away[self] = tc.absence
+			if _, list := s.owner.Call(t, http.MethodGet, "/api/v1/indexers", ""); !strings.Contains(list, `"waiting":`+tc.waiting+`,`) {
+				t.Fatalf("listIndexers = %s, want waiting %s", list, tc.waiting)
+			}
+		})
 	}
 }

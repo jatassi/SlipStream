@@ -200,6 +200,10 @@ export const GrabsGrab = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
   edition: zod.enum(["standard"]),
   failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
+  fetchNodeId: zod
+    .uuid()
+    .nullable()
+    .describe("The Searching Node that fetched the .torrent, null until it did"),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
   indexerId: zod.uuid(),
@@ -208,7 +212,11 @@ export const GrabsGrab = zod.object({
     .nullable()
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
   itemId: zod.uuid(),
-  nodeId: zod.uuid().describe("The Node that downloads it: the Indexer's home Node"),
+  nodeId: zod
+    .uuid()
+    .describe(
+      "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
+    ),
   progress: GrabsProgress.exactOptional().describe(
     "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
   ),
@@ -784,6 +792,20 @@ export const IndexersSearchMode = zod.object({
 export type IndexersSearchMode = zod.input<typeof IndexersSearchMode>;
 export type IndexersSearchModeOutput = zod.output<typeof IndexersSearchMode>;
 
+export const IndexersWaiting = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("The home Node's last Sync frame, or the Controller's start when it sent none since"),
+  standing: zod
+    .enum(["reconnecting", "offline", "mismatched"])
+    .describe(
+      "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
+    ),
+});
+
+export type IndexersWaiting = zod.input<typeof IndexersWaiting>;
+export type IndexersWaitingOutput = zod.output<typeof IndexersWaiting>;
+
 export const IndexersIndexer = zod.object({
   apiKeySet: zod
     .boolean()
@@ -795,6 +817,9 @@ export const IndexersIndexer = zod.object({
   protocol: zod.enum(["torznab"]),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
   url: zod.string(),
+  waiting: IndexersWaiting.describe(
+    "Why its calls wait for its home Node, null while they go through",
+  ),
 });
 
 export type IndexersIndexer = zod.input<typeof IndexersIndexer>;

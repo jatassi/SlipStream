@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -34,23 +35,32 @@ import (
 type outcome interface{ outcome() }
 
 // advance moves a Grab to its next stage with what that stage needs: the
-// torrent into downloading, the plan out of probing, the file into
-// imported.
+// torrent and the Nodes that fetched and download it into downloading,
+// the plan out of probing, the file into imported.
 type advance struct {
 	to      Stage
 	torrent *Torrent
+	fetched *fetched
 	plan    *Plan
 	file    *files.File
 }
+
+// fetched is the Searching Node that fetched a Grab's .torrent and the
+// Downloading Node that takes it.
+type fetched struct{ by, to role.NodeID }
 
 type fail struct {
 	code Code
 	msg  string
 }
 
-// wait retries the same step once the Node's link is in step and a
-// backoff has passed. It never fails the Grab.
-type wait struct{ cause error }
+// wait retries the same step once a backoff has passed and, when the
+// Grab's Node is out of step or roster is set, the roster has changed. It
+// never fails the Grab.
+type wait struct {
+	cause  error
+	roster bool
+}
 
 // stopped commits nothing: the step runs again at the next start.
 type stopped struct{}
@@ -86,7 +96,7 @@ func classify(ctx context.Context, err error, code Code) outcome {
 	case notSent && why == rpc.NotHolder:
 		return fail{IndexerUnavailable, err.Error()}
 	case notSent, rpc.Lost(err), errors.Is(err, transfers.ErrBroken), errors.Is(err, downloading.ErrNotPresent):
-		return wait{err}
+		return wait{cause: err}
 	}
 	return fail{code, err.Error()}
 }
@@ -97,22 +107,32 @@ func local(ctx context.Context, err error) outcome {
 	if ctx.Err() != nil {
 		return stopped{}
 	}
-	return wait{err}
+	return wait{cause: err}
 }
 
+// fetch brings the .torrent through the Node the Indexer routes to now and
+// hands it to a Downloading Node, that one when it may download. While no
+// Node may take either, it waits for the roster to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
-	if !gr.cfg.Roster.Holds(role.Downloading, g.Node) {
-		return fail{NoDownloadClient, "the Indexer's home Node doesn't hold Downloading"}
+	if _, err := gr.cfg.Roster.Route(role.Downloading, g.Node); err != nil {
+		return wait{cause: err, roster: true}
 	}
 	idx, err := indexers.Get(ctx, gr.cfg.Library, g.Release.Indexer)
 	if err != nil {
 		return local(ctx, err)
 	}
-	raw, err := gr.cfg.Indexers.FetchTorrent(ctx, idx, g.Release.Link)
+	f, err := gr.cfg.Indexers.FetchTorrent(ctx, idx, g.Release.Link)
+	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
+		return wait{cause: err, roster: true}
+	}
 	if err != nil {
 		return classify(ctx, err, TorrentUnreachable)
 	}
-	m, err := bencode.DecodeMetainfo(raw)
+	to, err := gr.cfg.Roster.Route(role.Downloading, f.Node)
+	if err != nil {
+		return wait{cause: err, roster: true}
+	}
+	m, err := bencode.DecodeMetainfo(f.Torrent)
 	switch {
 	case errors.Is(err, bencode.ErrV2Only):
 		return fail{TorrentV2Only, err.Error()}
@@ -121,7 +141,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	case g.Release.InfoHash != nil && *g.Release.InfoHash != m.InfoHash:
 		return fail{InfohashMismatch, fmt.Sprintf("the .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
 	}
-	return advance{to: Downloading, torrent: &Torrent{InfoHash: m.InfoHash, Metainfo: raw}}
+	return advance{to: Downloading, torrent: &Torrent{InfoHash: m.InfoHash, Metainfo: f.Torrent}, fetched: &fetched{by: f.Node, to: to}}
 }
 
 func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
@@ -275,6 +295,9 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	if err != nil || !won {
 		return err
 	}
+	if a.fetched != nil {
+		g.Node = a.fetched.to
+	}
 	gr.entered(ctx, g, params.Next)
 	return nil
 }
@@ -304,6 +327,9 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 		params.Next = o.to
 		if o.torrent != nil {
 			params.InfoHash, params.Metainfo = o.torrent.InfoHash[:], o.torrent.Metainfo
+		}
+		if o.fetched != nil {
+			params.FetchNodeID, params.NodeID = o.fetched.by, o.fetched.to
 		}
 		if o.plan != nil {
 			probe, err := json.Marshal(o.plan.Probe)
@@ -351,7 +377,7 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 	case wait:
 		gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", o.cause.Error())
 		changed := gr.cfg.Roster.Changed()
-		if !gr.cfg.Roster.InStep(g.Node) {
+		if o.roster || !gr.cfg.Roster.InStep(g.Node) {
 			select {
 			case <-changed:
 			case <-ctx.Done():
@@ -484,7 +510,8 @@ func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 	}
 }
 
-// next is how long the reconciler sleeps: until the earliest retry, and
+// next is how long the reconciler sleeps: until the earliest retry of a
+// job not running, as a running one may be waiting on the roster, and
 // no longer than one progress tick while a Grab downloads or transfers or
 // a read failed.
 func (s *schedule) next(now time.Time, grabs []Grab, readFailed bool, t Timings) time.Duration {
@@ -492,8 +519,8 @@ func (s *schedule) next(now time.Time, grabs []Grab, readFailed bool, t Timings)
 	if readFailed || slices.ContainsFunc(grabs, func(g Grab) bool { return g.Stage == Downloading && g.Download == nil || g.Stage == Transferring }) {
 		wake = now.Add(t.Progress)
 	}
-	for _, at := range s.retryAt {
-		if at.Before(wake) {
+	for id, at := range s.retryAt {
+		if !s.inflight[id] && at.Before(wake) {
 			wake = at
 		}
 	}

@@ -37,6 +37,10 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID
+          - column: grabs_grab.fetch_node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
           - column: grabs_grab.edition
             go_type:
               import: github.com/jatassi/slipstream/internal/files

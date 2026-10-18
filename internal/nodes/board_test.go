@@ -226,26 +226,27 @@ func TestWorkHomedOnANodeWaitsForItWithinTheGraceThenMoves(t *testing.T) {
 		at    time.Time
 		away  Absence
 		route ID
+		wait  string
 		why   string
 	}{
-		{start.Add(31 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: Reconnecting}, ID{}, "seedbox is reconnecting, and no other Node searches"},
-		{start.Add(40 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: Offline}, ID{}, offline + ", and no other Node searches"},
-		{start.Add(46 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: LapsedNode, Lapsed: true}, home, ""},
+		{start.Add(31 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: Reconnecting}, ID{}, "seedbox is reconnecting", "seedbox is reconnecting, and no other Node searches"},
+		{start.Add(40 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: Offline}, ID{}, offline, offline + ", and no other Node searches"},
+		{start.Add(46 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: LapsedNode, Lapsed: true}, home, "", ""},
 	} {
 		who := in.at(step.at).Who(role.Searching)
 		if got, ok := who.Away(box); !ok || got != step.away {
 			t.Errorf("at %s Away(seedbox) = %+v, %v; want %+v", step.at.Format(time.TimeOnly), got, ok, step.away)
 		}
-		if got, _ := who.Route(box); got != step.route {
-			t.Errorf("at %s Searching homed on seedbox routes to %s, want %s", step.at.Format(time.TimeOnly), got, step.route)
+		if got, err := who.Route(box); got != step.route || step.route.IsZero() && (err == nil || err.Error() != step.wait) {
+			t.Errorf("at %s Searching homed on seedbox routes to %s, %v; want %s, %q", step.at.Format(time.TimeOnly), got, err, step.route, step.wait)
 		}
 		if got := who.Why(); got != step.why {
 			t.Errorf("at %s Why() = %q, want %q", step.at.Format(time.TimeOnly), got, step.why)
 		}
 	}
 	lapsed := in.at(start.Add(46 * time.Minute))
-	if got, ok := lapsed.Who(role.Downloading).Route(box); ok {
-		t.Errorf("Downloading homed on lapsed seedbox routes to %s, want it waiting", got)
+	if got, err := lapsed.Who(role.Downloading).Route(box); err == nil || err.Error() != offline+", and no other Node downloads" {
+		t.Errorf("Downloading homed on lapsed seedbox routes to %s, %v; want it waiting on seedbox", got, err)
 	}
 	if got, want := lapsed.Who(role.Downloading).Why(), offline+", and no other Node downloads"; got != want {
 		t.Errorf("Downloading's Why() = %q, want %q", got, want)

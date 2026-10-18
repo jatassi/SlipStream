@@ -47,6 +47,7 @@ type GrabsGrab struct {
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
 	SeedDroppedAt   storage.Time
+	FetchNodeID     role.NodeID
 }
 
 type GrabsSearch struct {

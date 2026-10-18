@@ -429,6 +429,14 @@
             "$ref": "#/components/schemas/GrabsFailure",
             "description": "Why it failed, absent unless it did"
           },
+          "fetchNodeId": {
+            "description": "The Searching Node that fetched the .torrent, null until it did",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "history": {
             "description": "Each stage it entered, oldest first",
             "items": {
@@ -456,7 +464,7 @@
             "type": "string"
           },
           "nodeId": {
-            "description": "The Node that downloads it: the Indexer's home Node",
+            "description": "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
             "format": "uuid",
             "type": "string"
           },
@@ -506,6 +514,7 @@
           "releaseSize",
           "indexerId",
           "nodeId",
+          "fetchNodeId",
           "infoHash",
           "stage",
           "history",
@@ -1561,6 +1570,10 @@
           },
           "url": {
             "type": "string"
+          },
+          "waiting": {
+            "$ref": "#/components/schemas/IndexersWaiting",
+            "description": "Why its calls wait for its home Node, null while they go through"
           }
         },
         "required": [
@@ -1571,6 +1584,7 @@
           "homeNodeId",
           "apiKeySet",
           "searchModes",
+          "waiting",
           "createdAt"
         ],
         "type": "object"
@@ -1648,6 +1662,30 @@
         "required": [
           "mode",
           "params"
+        ],
+        "type": "object"
+      },
+      "IndexersWaiting": {
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "description": "The home Node's last Sync frame, or the Controller's start when it sent none since",
+            "format": "date-time",
+            "type": "string"
+          },
+          "standing": {
+            "description": "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
+            "enum": [
+              "reconnecting",
+              "offline",
+              "mismatched"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "standing",
+          "since"
         ],
         "type": "object"
       },

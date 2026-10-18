@@ -74,6 +74,10 @@ const (
 	MismatchedNode
 )
 
+func (s Standing) String() string {
+	return [...]string{"in-step", "reconnecting", "offline", "lapsed", "mismatched"}[s]
+}
+
 // NodeView is one Node on the board.
 type NodeView struct {
 	Named
@@ -269,14 +273,24 @@ func (h Holders) Away(n ID) (Absence, bool) {
 	return Absence{Since: v.Since, Standing: v.Standing, Lapsed: st == Lapsed}, true
 }
 
+// Unrouted is work no Node may take now. It waits for the roster to
+// change, and Why says why.
+type Unrouted struct{ Why string }
+
+func (e *Unrouted) Error() string { return e.Why }
+
 // Route is where the Role's work homed on home goes now: home while it
-// may; nowhere while home is away within the grace, so the work waits for
-// it; else Pick(home).
-func (h Holders) Route(home ID) (ID, bool) {
+// may, else Pick(home) once home is no longer away within the grace. It
+// fails with *Unrouted.
+func (h Holders) Route(home ID) (ID, error) {
 	if a, away := h.Away(home); away && !a.Lapsed {
-		return ID{}, false
+		v, _ := h.b.Node(home)
+		return ID{}, &Unrouted{Why: v.Name + " is " + standingWords(v)}
 	}
-	return h.Pick(home)
+	if to, ok := h.Pick(home); ok {
+		return to, nil
+	}
+	return ID{}, &Unrouted{Why: h.Why()}
 }
 
 // Why is why no Node may take new work for the Role, in words, or "" when

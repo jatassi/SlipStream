@@ -77,6 +77,10 @@ func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick
 
 func (s *Service) WrittenOff(r role.Name, node ID) bool { return s.Who(r).WrittenOff(node) }
 
+func (s *Service) Route(r role.Name, home ID) (ID, error) { return s.Who(r).Route(home) }
+
+func (s *Service) Away(r role.Name, node ID) (Absence, bool) { return s.Who(r).Away(node) }
+
 // InStep reports whether node's Sync session is attached, always for the
 // Controller.
 func (s *Service) InStep(node ID) bool {

@@ -13,7 +13,8 @@ import (
 // their Items are wanted again, then every one of its torrents leaves its
 // intent, files kept. It reads what is left each time, so a pass a crash
 // cut short finishes on the next, and a settled Node has nothing left.
-// It reports whether it changed anything.
+// A fetching Grab is not the Node's yet: the fetch routes it afresh. It
+// reports whether it changed anything.
 func (gr *Grabs) settleWriteOffs(ctx context.Context, open []Grab) (bool, error) {
 	var holding []role.NodeID
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -30,7 +31,7 @@ func (gr *Grabs) settleWriteOffs(ctx context.Context, open []Grab) (bool, error)
 			continue
 		}
 		for _, g := range open {
-			if g.Node != node {
+			if g.Node != node || g.Stage == Fetching {
 				continue
 			}
 			if err := gr.commit(ctx, g, fail{NodeWrittenOff, "the Admin wrote off what this Grab's Node downloads"}); err != nil {
