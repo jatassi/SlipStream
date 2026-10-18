@@ -5,7 +5,16 @@ test("Settings moves between its sections by tabs on desktop and pushed pages on
   adminPage: page,
 }) => {
   await navigate(page, "Settings");
-  const sections = ["Address", "Email", "Sign-in", "API key", "Targets", "Profiles", "Editions"];
+  const sections = [
+    "Address",
+    "Email",
+    "Sign-in",
+    "Nodes",
+    "API key",
+    "Targets",
+    "Profiles",
+    "Editions",
+  ];
   if (isPhone(page)) {
     const list = page.getByRole("list", { name: "Settings" });
     await expect(list.getByRole("link")).toHaveText(sections);

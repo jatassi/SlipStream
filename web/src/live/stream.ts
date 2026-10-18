@@ -1,9 +1,10 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { InvalidateQueryFilters, QueryClient } from "@tanstack/react-query";
 
 import { isProblem } from "../api/errors";
 import { getSession } from "../api/gen/query/identity/identity";
 import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
+import { refresh } from "./refresh";
 import { type Source, openSource } from "./source";
 import type {
   LiveEffect,
@@ -187,13 +188,17 @@ class Stream {
     }
   }
 
+  private readonly refreshQueries = (filters?: InvalidateQueryFilters) => {
+    void refresh(this.options.queryClient, filters);
+  };
+
   private resync() {
-    void this.options.queryClient.invalidateQueries();
+    this.refreshQueries();
   }
 
   private runEffect<N extends ProductEventName>(event: { event: N; data: PayloadOf<N> }) {
     const effect: LiveEffect<N> = table[event.event];
-    effect(event.data, { queryClient: this.options.queryClient });
+    effect(event.data, { queryClient: this.options.queryClient, refresh: this.refreshQueries });
   }
 
   private readonly onVisibilityChange = () => {

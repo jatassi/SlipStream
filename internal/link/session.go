@@ -142,6 +142,9 @@ func (l *Link) welcome(s *session, peer NodeInfo) bool {
 	}
 	s.peer, s.matched = peer, peer.Version == l.cfg.Node.Version
 	l.live[s.key] = s
+	if k := l.kept[s.key]; k != nil && s.dialed {
+		k.refused = 0
+	}
 	close(s.welcomed)
 	l.publish(Change{Key: s.key, State: s.state()})
 	l.mu.Unlock()
