@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { takeTraffic, trafficPair } from "../live/traffic";
+import { type TrafficPair, takeTraffic, trafficPair } from "../live/traffic";
 import { landingOf } from "../routes/_app/nodes/-landing/view";
 import { drawingOf } from "./drawing";
 import { fixtureClock, fixtureOf } from "./fixtures";
@@ -124,6 +124,23 @@ describe("motion", () => {
 });
 
 describe("still frame", () => {
+  test("a board takes pieces in at least at a trickle while its Node downloads anything, and none while it is idle", () => {
+    const { topology, board, traffic } = fixtureOf(1);
+    const landing = landingOf(topology, board, new Set(), fixtureClock);
+    const downloading = (downBps: number): TrafficPair => {
+      const [, latest] = traffic;
+      return [
+        undefined,
+        {
+          ...latest,
+          nodes: latest.nodes.map((node) => Object.assign(structuredClone(node), { downBps })),
+        },
+      ];
+    };
+    expect(targetsOf(landing, downloading(1000), 0).boards[0]?.pieces).toBe(TRICKLE);
+    expect(targetsOf(landing, downloading(0), 0).boards[0]?.pieces).toBe(0);
+  });
+
   test("the still frame spaces capsules a capsule's travel apart inside the ends, and lights whole and part cells", () => {
     const placed = stillCapsules(400, { worker: "w", rate: 2, speed: 100, towardWorker: 0.5 }, 28);
     expect(placed).toEqual([12, 62, 112, 162, 212, 262, 312, 362]);

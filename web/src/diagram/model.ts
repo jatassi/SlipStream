@@ -62,7 +62,7 @@ export type Flow = {
   readonly towardWorker: number;
 };
 
-/** The fewest capsules a second a link shows while any bytes cross it. */
+/** The fewest capsules or pieces a second the Diagram shows while any bytes move. */
 export const TRICKLE = 0.3;
 
 /**
@@ -147,7 +147,7 @@ function boardOf(node: NodeRow, samples: TrafficPair, share: number): Board {
     return torrent.wanted > 0 ? clamp(done / torrent.wanted, 0, 1) : 0;
   });
   const down = mix(was?.downBps, now?.downBps, share);
-  return { node: node.id, panels, pieces: clamp(down / 3e6, 0, 4) };
+  return { node: node.id, panels, pieces: down > 0 ? clamp(down / 3e6, TRICKLE, 4) : 0 };
 }
 
 /** Every rate, speed and fill the Diagram shows, `since` ms after the latest sample arrived. */
