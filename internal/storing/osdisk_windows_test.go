@@ -82,7 +82,7 @@ func TestLongPath(t *testing.T) {
 	ctx, d := t.Context(), newOSDisk(t)
 	deep := t.TempDir()
 	for len(deep) < 300 {
-		deep = filepath.Join(deep, strings.Repeat("long folder ", 4))
+		deep = filepath.Join(deep, strings.TrimSpace(strings.Repeat("long folder ", 4)))
 	}
 	if err := os.MkdirAll(deep, 0o755); err != nil {
 		t.Fatal(err)
