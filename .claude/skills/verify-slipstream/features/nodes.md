@@ -46,7 +46,7 @@ Steps:
   $FW exec $RUN --proof nodes/nodes-overview -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-overview/overview.png
   ```
 
-- **Walk the sections.** Choose `Logs` in the page tabs named `home`. It becomes current and the breadcrumbs read `Nodes`, `home`, `Logs`.
+- **Walk the sections.** Choose `Logs` in the page tabs named `home`. It becomes current.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "home" }).getByRole("link", { name: "Logs" })'

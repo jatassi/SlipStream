@@ -10,7 +10,7 @@ import {
 import { cinema, orchard, orchardId } from "../test/library";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
-import { resize } from "../test/viewport";
+import { asPhone, resize } from "../test/viewport";
 import { workServer } from "../test/work-server";
 
 const shows: WorksContentType = {
@@ -23,7 +23,6 @@ const shows: WorksContentType = {
 };
 
 const mainNav = () => page.getByRole("navigation", { name: "Main" });
-const breadcrumbs = () => page.getByRole("navigation", { name: "Breadcrumbs" });
 
 const currentLinks = () =>
   page
@@ -32,11 +31,7 @@ const currentLinks = () =>
     .filter((link) => link.element().getAttribute("aria-current") === "page")
     .map((link) => link.element().textContent);
 
-const crumbLinks = () =>
-  breadcrumbs()
-    .getByRole("link")
-    .all()
-    .map((link) => [link.element().textContent, link.element().getAttribute("href")]);
+const backLink = () => page.getByRole("banner").getByRole("link");
 
 function counting(first: number) {
   let activity = first;
@@ -139,25 +134,19 @@ test("the tab is titled after the page, and follows navigation", async () => {
 
   await userEvent.click(mainNav().getByRole("link", { name: "Nodes" }));
   await expect.poll(() => document.title).toBe("home · SlipStream");
-  await expect.element(breadcrumbs()).toHaveTextContent("Nodeshome");
-  expect(crumbLinks()).toEqual([["Nodes", "/nodes"]]);
   await expect
     .element(mainNav().getByRole("link", { name: "Nodes" }))
     .toHaveAttribute("aria-current", "page");
 });
 
-test("a Work's page is titled with its label, under its Content Type's library", async () => {
+test("a Work's page is titled with its label", async () => {
   renderApp({ path: `/works/${orchardId}`, handlers: workServer().handlers });
   await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
   await expect.poll(() => document.title).toBe("The Quiet Orchard · SlipStream");
-  await expect.element(breadcrumbs()).toHaveTextContent("LibraryFilmsThe Quiet Orchard");
-  expect(crumbLinks()).toEqual([
-    ["Library", "/library"],
-    ["Films", "/library/cinema"],
-  ]);
 });
 
 test("a Work of a disabled Content Type sits under the Library alone", async () => {
+  await asPhone();
   renderApp({
     path: `/works/${orchardId}`,
     handlers: [
@@ -166,21 +155,19 @@ test("a Work of a disabled Content Type sits under the Library alone", async () 
     ],
   });
   await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
-  await expect.element(breadcrumbs()).toHaveTextContent("LibraryThe Quiet Orchard");
-  expect(crumbLinks()).toEqual([["Library", "/library"]]);
+  await expect.element(backLink()).toHaveAccessibleName("Library");
+  await expect.element(backLink()).toHaveAttribute("href", "/library");
 });
 
 test("Add sits under its Content Type's library", async () => {
+  await asPhone();
   renderApp({
     path: "/add?contentType=cinema",
     handlers: [getListContentTypesMockHandler({ contentTypes: [cinema] })],
   });
   await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
-  await expect.element(breadcrumbs()).toHaveTextContent("LibraryFilmsAdd a Film");
-  expect(crumbLinks()).toEqual([
-    ["Library", "/library"],
-    ["Films", "/library/cinema"],
-  ]);
+  await expect.element(backLink()).toHaveAccessibleName("Films");
+  await expect.element(backLink()).toHaveAttribute("href", "/library/cinema");
 });
 
 test("the account menu opens the portal", async () => {
@@ -206,7 +193,6 @@ test("a Content Type's page lists its Works, is titled with them and adds one", 
   await expect.element(page.getByRole("heading", { name: "Films" })).toBeVisible();
   await expect.poll(() => document.title).toBe("Films · SlipStream");
   expect(asked).toEqual(["?contentType=cinema"]);
-  await expect.element(breadcrumbs()).toHaveTextContent("LibraryFilms");
   await expect
     .element(page.getByRole("banner").getByRole("button", { name: "Add a Film" }))
     .toHaveAttribute("href", "/add?contentType=cinema");
