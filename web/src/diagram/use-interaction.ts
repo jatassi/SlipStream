@@ -72,7 +72,10 @@ function useListened(element: RefObject<HTMLElement | null>, handle: (event: Eve
 }
 
 type Drag = {
+  /** The drag as last drawn, for rendering. */
   readonly dragging: Dragging | undefined;
+  /** The drag as of the last event, which an event reads before React draws it. */
+  readonly current: () => Dragging | undefined;
   readonly drag: (next: Dragging | undefined) => void;
   readonly release: (event: PointerEvent, held: Dragging) => void;
   /** Whether a click is the end of a drag, which selects nothing; reading it clears it. */
@@ -82,15 +85,18 @@ type Drag = {
 /** A Role chip's drag: the verdict marked on the tile under it, and the drop asked for on release. */
 function useDrag(svg: RefObject<SVGSVGElement | null>, onDrop: (drop: Drop) => void): Drag {
   const [dragging, setDragging] = useState<Dragging>();
+  const live = useRef<Dragging>(undefined);
   const dragged = useRef(false);
   const drag = (next: Dragging | undefined) => {
     if (svg.current !== null) {
       markVerdict(svg.current, next?.to, next?.gesture?.verdict);
     }
+    live.current = next;
     setDragging(next);
   };
   return {
     dragging,
+    current: () => live.current,
     drag,
     release: (event, held) => {
       drag(undefined);
@@ -120,7 +126,7 @@ function onPointer(
   event: PointerEvent,
   { landing, takesDrags, gestureOf, figure, preview, setPreview, hold, drag }: Handlers,
 ) {
-  const { dragging } = drag;
+  const dragging = drag.current();
   if (event.type === "pointerleave") {
     setPreview(dragging === undefined ? undefined : preview);
     return;
@@ -131,6 +137,7 @@ function onPointer(
       ? dragFrom(landing, event)
       : undefined;
   if (started !== undefined) {
+    event.preventDefault();
     figure.current?.setPointerCapture(event.pointerId);
     drag.drag(started);
   } else if (dragging === undefined) {

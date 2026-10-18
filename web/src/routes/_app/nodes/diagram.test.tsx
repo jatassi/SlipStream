@@ -131,3 +131,14 @@ test("a click on a Node's tile opens the Inspector headed for it, and Escape clo
   await userEvent.keyboard("{Escape}");
   await expect.element(inspector).not.toBeInTheDocument();
 });
+
+test("a chip drags over text selected in the Diagram, which a browser would otherwise drag as text", async () => {
+  const server = dragServer();
+  renderApp({ path: "/nodes", handlers: server.handlers });
+  await expect.element(diagram()).toBeVisible();
+  document.getSelection()?.selectAllChildren(diagram().element());
+  await userEvent.keyboard("{Alt>}");
+  await commands.drag(chip(ids.home, "downloading"), tile(ids.vps));
+  await userEvent.keyboard("{/Alt}");
+  await expect.element(review()).toBeVisible();
+});
