@@ -69,8 +69,8 @@ func (l *Link) Reset(key Key) {
 	}
 }
 
-// answered records the peer's answer to k's last Hello: its refusal, or
-// zero. Down carries it while no session is live.
+// answered records the peer's refusal of k's last Hello, which Down
+// carries while no session is live. welcome clears it on a Welcome.
 func (l *Link) answered(k *keeper, refused linkv1.RefusedReason) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -139,7 +139,6 @@ func (l *Link) turnedAway(k *keeper, err error, refusal *string) bool {
 	switch {
 	case err == nil:
 		*refusal = ""
-		l.answered(k, 0)
 	case errors.As(err, &refused) || errors.As(err, &superseded):
 		if err.Error() != *refusal {
 			*refusal = err.Error()
