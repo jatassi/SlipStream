@@ -10,26 +10,45 @@ import (
 
 func TestRealMountsDropPseudoFilesystems(t *testing.T) {
 	got := realMounts([]Mount{
-		{"0:22", "/proc", "proc"},
-		{"0:23", "/sys", "sysfs"},
-		{"8:1", "/", "ext4"},
-		{"0:5", "/dev", "devtmpfs"},
-		{"0:30", "/run", "tmpfs"},
-		{"0:31", "/sys/fs/cgroup", "cgroup2"},
-		{"0:40", "/var/lib/docker/overlay2/x/merged", "overlay"},
-		{"7:0", "/snap/core/1", "squashfs"},
-		{"8:1", "/etc/hosts", "ext4"},
-		{"8:17", "/mnt/media/a/bind", "xfs"},
-		{"8:17", "/mnt/media", "xfs"},
-		{"0:50", "/mnt/nas", "cifs"},
-		{"0:51", "/mnt/pool", "fuse.mergerfs"},
-		{"0:52", "/run/user/1000/doc", "fuse.portal"},
+		{"0:22", "/", "/proc", "proc"},
+		{"0:23", "/", "/sys", "sysfs"},
+		{"8:1", "/", "/", "ext4"},
+		{"0:5", "/", "/dev", "devtmpfs"},
+		{"0:30", "/", "/run", "tmpfs"},
+		{"0:31", "/", "/sys/fs/cgroup", "cgroup2"},
+		{"0:40", "/", "/var/lib/docker/overlay2/x/merged", "overlay"},
+		{"7:0", "/", "/snap/core/1", "squashfs"},
+		{"8:1", "/srv", "/srv-again", "ext4"},
+		{"8:17", "/a", "/mnt/media/a/bind", "xfs"},
+		{"8:17", "/", "/mnt/media", "xfs"},
+		{"8:17", "/", "/mnt/media-too", "xfs"},
+		{"0:50", "/", "/mnt/nas", "cifs"},
+		{"0:51", "/", "/mnt/pool", "fuse.mergerfs"},
+		{"0:52", "/", "/run/user/1000/doc", "fuse.portal"},
 	})
 	want := []Mount{
-		{"8:1", "/", "ext4"},
-		{"8:17", "/mnt/media", "xfs"},
-		{"0:50", "/mnt/nas", "cifs"},
-		{"0:51", "/mnt/pool", "fuse.mergerfs"},
+		{"8:1", "/", "/", "ext4"},
+		{"8:17", "/", "/mnt/media", "xfs"},
+		{"0:50", "/", "/mnt/nas", "cifs"},
+		{"0:51", "/", "/mnt/pool", "fuse.mergerfs"},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("realMounts = %v, want %v", got, want)
+	}
+}
+
+func TestRealMountsKeepAContainersBindMounts(t *testing.T) {
+	got := realMounts([]Mount{
+		{"0:60", "/", "/", "overlay"},
+		{"254:1", "/var/lib/docker/containers/c1/hosts", "/etc/hosts", "ext4"},
+		{"254:1", "/srv/tv", "/tv", "ext4"},
+		{"254:1", "/srv/movies", "/movies", "ext4"},
+		{"254:1", "/srv/movies/4k", "/movies/4k", "ext4"},
+	})
+	want := []Mount{
+		{"254:1", "/var/lib/docker/containers/c1/hosts", "/etc/hosts", "ext4"},
+		{"254:1", "/srv/tv", "/tv", "ext4"},
+		{"254:1", "/srv/movies", "/movies", "ext4"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("realMounts = %v, want %v", got, want)
