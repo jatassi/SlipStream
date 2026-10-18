@@ -15,8 +15,8 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 - `pairing-worker-page` the Worker's own URL lands on `/worker`, headed `This Node is a Worker. Manage it from its Controller.` over its `Name`, its `Controller` and its `Key`, the fingerprint of its Node key.
 - `pairing-rename` `PATCH /api/v1/nodes/{id}` with `{"name":"attic"}` answers the Node under its new name once the Worker has it, and the Worker page's `Name` row reads `attic`; a name another Node has answers 409 `node_name_taken`, and one ending in a space 422 `node_name_invalid`.
 - `pairing-remove-blocked` `DELETE /api/v1/nodes/{id}` on home answers 409 `node_is_controller`, and on seedbox while it seeds an imported Grab 409 `node_holds_work`; each carries `outcome`, whose check reads `home is the Controller, so it can't be removed.` or `seedbox still holds 1 torrent (3.5 MB) for Downloading. Untick its Roles and remove it when they finish, or remove it now and write them off.`
-- `pairing-remove` `DELETE /api/v1/nodes/{id}?writeOff=true` answers 204 and the roster lists only home, holding Downloading. seedbox restarts Unclaimed: `GET /api/v1/status` reads `"claim":"unclaimed"` with `"removed":{"at":…,"controller":"home"}`, its log holds `This Node was removed from home on <d Mon>. Join with a new Join Code to use it again.`, and the file it downloaded still matches the release.
-- `pairing-remove-rejoin` the removed seedbox joins again through `POST /api/v1/setup/worker` with a new Join Code, as a new Node named `seedbox` with a new id, and seedbox announces no `started` for the old torrent.
+- `pairing-remove` `DELETE /api/v1/nodes/{id}?writeOff=true` answers 204 and the roster lists only home, holding Downloading. seedbox lets its torrent go, announcing `stopped`, and restarts Unclaimed: `GET /api/v1/status` reads `"claim":"unclaimed"` with `"removed":{"at":…,"controller":"home"}`, its log holds `This Node was removed from home on <d Mon>. Join with a new Join Code to use it again.`, and the file it downloaded still matches the release.
+- `pairing-remove-rejoin` the removed seedbox joins again through `POST /api/v1/setup/worker` with a new Join Code, as a new Node named `seedbox` with a new id and no Roles; with Downloading ticked on it, it runs Downloading and announces no `started` for the old torrent.
 
 ## How to get to it (user POV)
 
@@ -160,7 +160,7 @@ Steps:
   $FW exec $RUN --proof pairing/pairing-remove-blocked -- curl -sS -X DELETE -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}'
   ```
 
-- **Remove seedbox, writing its work off.** 204. The roster lists only home, holding Downloading. seedbox restarts Unclaimed: its status reads `removed` by `home`, its log holds the Removed sentence, and the file it downloaded still matches the release.
+- **Remove seedbox, writing its work off.** 204. The roster lists only home, holding Downloading. seedbox announces `stopped` for the torrent and restarts Unclaimed: its status reads `removed` by `home`, its log holds the Removed sentence, and the file it downloaded still matches the release.
 
   ```sh
   $FW exec $RUN --proof pairing/pairing-remove -- curl -sS -o /dev/null -w '%{{http_code}\n' -X DELETE -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}?writeOff=true'
@@ -171,14 +171,17 @@ Steps:
   $FW exec $RUN --proof pairing/pairing-remove -- $FW fs match {runDir} "{nodes.seedbox.dataDir}/downloads/$HASH/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv" --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   ```
 
-- **Join seedbox again.** With the new Setup code its log holds and a new Join Code, `POST /api/v1/setup/worker` answers 201 with a new `nodeId`. The roster lists `seedbox` `up` under that id with no Roles, and the tracker saw no `started` from seedbox after the removal.
+- **Join seedbox again.** With the new Setup code its log holds and a new Join Code, `POST /api/v1/setup/worker` answers 201 with `state` `joined` and a new `nodeId`. The roster lists `seedbox` `up` under that id with no Roles. Tick Searching and Downloading on it: its facts run `downloading`, and the tracker's last seedbox announce is still the `stopped` from the removal.
 
   ```sh
   SETUP=$($FW exec $RUN -- jq -r 'select(.msg == "setup code") | .code' '{nodes.seedbox.log}' | tail -1)
   CODE=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/join-codes' | jq -r .code)
-  $FW exec $RUN --proof pairing/pairing-remove-rejoin -- curl -sS -X POST -H "X-Setup-Code: $SETUP" -H 'Content-Type: application/json' -d "{\"code\":\"$CODE\"}" '{nodes.seedbox.url}/api/v1/setup/worker'
+  NEW=$($FW exec $RUN --proof pairing/pairing-remove-rejoin -- curl -sS -X POST -H "X-Setup-Code: $SETUP" -H 'Content-Type: application/json' -d "{\"code\":\"$CODE\"}" '{nodes.seedbox.url}/api/v1/setup/worker' | jq -r .nodeId)
   $FW exec $RUN --proof pairing/pairing-remove-rejoin -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
-  $FW announces list $RUN --node seedbox
+  BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
+  $FW exec $RUN --proof pairing/pairing-remove-rejoin -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"$NEW\",\"roles\":[\"searching\",\"downloading\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW exec $RUN --proof pairing/pairing-remove-rejoin -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  $FW exec $RUN --proof pairing/pairing-remove-rejoin -- $FW announces list $RUN --node seedbox
   ```
 
 ## Gotchas
@@ -192,4 +195,5 @@ Steps:
 - On `cgnat-home`, seedbox's own dials to home keep failing at home's link front, by design. Doctor lists `home-behind-cgnat` as an active fault, not a failure.
 - `$FW exec` reads `{...}` as a manifest token, so curl's write-out is spelled `%{{http_code}`.
 - A removed Node restarts itself, so the manifest's seedbox PID is stale after **Remove seedbox**; read its state through its URL, not `fakeworld node`. After the rejoin `{nodes.seedbox.nodeId}` still names the tombstone, and doctor's check 3 reports seedbox's Roles.
+- The removed Worker logs the Removed sentence twice: once as `pairing` when home refuses its Hello, and once as `node` when its successor starts Unclaimed.
 - Removing a Node that is down answers at once; the Node learns it was removed the next time it says Hello, which home refuses as removed.
