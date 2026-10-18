@@ -5,15 +5,15 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 ## Sub-features
 
 - `targets-starter` a fresh Controller lists the starter Target `1080p`, accepting `HDTV-720p to Remux-1080p` and held by `Movies`, and the default Profile `Movies`, marked `Default`; a Work added with no Profile choice reads `Missing` at `1080p` at once (P-044, P-070).
-- `targets-in-use` deleting `1080p` while `Movies` holds it reads `1080p can't be deleted. Movies uses it.` and the API answers 409 `target_in_use`; `Duplicate` makes `1080p copy`, held by no Profile, which deletes.
-- `profiles-default-fixed` the default Profile has no `Actions` menu, and deleting it over the API answers 409 `profile_is_default` (P-044).
+- `targets-in-use` deleting `1080p` while `Movies` holds it reads `1080p can't be deleted. Movies uses it.` and the API answers 409 `target_in_use` with the detail `Movies uses it`; `Duplicate` makes `1080p copy`, held by no Profile, which deletes.
+- `profiles-default-fixed` the default Profile has no `Actions` menu, and deleting it over the API, whatever `moveTo` names, answers 409 `profile_is_default` (P-044).
 - `add-sheet-profile` the add sheet's `Profile` picker reads the type's default with `(default)`, and a Work added on another Profile wants that Profile's Targets (P-044).
 - `targets-one-file` one WEB-DL fills both `1080p` and `HD`, the cells read `Upgradable` at both, and one file, `The Quiet Orchard (2021) - 1080p.mkv`, named after the first Target, sits on disk once (P-200, P-202, P-209).
 - `targets-upgrade` once fixture-site lists the Bluray, a search grabs it, the searches view refuses the held WEB-DL with `not_an_upgrade` at each Target, the Grab records both Targets, and the Bluray replaces the WEB-DL at the same path with both cells `Met` (P-203, P-210, P-211).
 - `targets-editor` a new Target filled from `Upgrade for disc or resolution` ticks and ranks its qualities with ties, moves its cutoff, says what its order means in a sentence and `Sample moves`, and keeps `CAM` apart under `Cinema sources`, off, with its warning (P-065, P-066, P-067).
 - `targets-filters-sizes` `Filters` sets `Any`, `Only these` or `Not these` per attribute with a value picker, and `Sizes` takes a minimum and a maximum in MiB per minute per accepted quality with what each means for a two-hour film (P-069).
 - `profiles-editor` Profiles lists each Content Type's Profiles with the default and the Works counted; a Profile's Targets show a disk estimate and a line naming a Target that contains another; a new Profile ranks its Targets by keyboard, its Editions sentence follows `Choose cuts` and warns `No Standard`, and `Make default` moves the default (P-064, P-201, P-044).
-- `work-wants-sheet` the Work page reads `Profile Films. Editions from the Profile.`, and `Profile and Editions` opens a sheet with the `Profile` picker, the Editions it takes from the Profile or `set for this Work` with `Reset to Profile`, and the cells table under each Edition's heading (P-208).
+- `work-wants-sheet` the Work page reads `Profile Films. Editions from the Profile.`, and `Profile and Editions` opens a sheet with the `Profile` picker, the Editions it takes from the Profile or `set for this Work` with `Reset to Profile`; the Work page's cells table sits under each wanted cut's heading (P-208).
 - `impact-keep` moving the Work to `UHD` opens the Impact, `1 Work changes.`, `1 file would fill nothing`, `1 cell becomes wanted.`, with `Delete` chosen; `Keep as Kept files` and `Save and keep 1 file` leave the file as `The Quiet Orchard (2021) - 1080p (extra 1).mkv`, its old label plus ` (extra 1)` (P-205, P-202, P-207).
 - `profiles-delete-move` deleting `UHD` asks where its Works go; the Work moves to `Films` and the Kept file fills again under `The Quiet Orchard (2021) - 1080p.mkv` (P-064).
 - `impact-delete` taking both Targets out of `Films` opens the Impact with `Delete` chosen and `Save and delete 1 file`, which removes the file from the media root and leaves the Work with no cells (P-199, P-204, P-206).
@@ -26,9 +26,9 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Settings`, then `Targets`, `Profiles` or `Editions` in the `Settings` navigation (`/settings/targets`, `/settings/profiles`, `/settings/editions`). A Target's name opens `/settings/targets/<id>` and `New Target` opens `/settings/targets/new`; Profiles likewise.
-- Phone shell: `More`, then `Settings`, then the section in the `Settings` list; each section and editor is a pushed page. A ranked row's `Actions for <name>` menu holds `Move up`, `Move down` and `Tie with the one above`.
+- Phone shell: `More`, then `Settings`, then the section in the `Settings` list; each section and editor is a pushed page. A ranked row's `Actions for <name>` opens a sheet of that name holding `Move up`, `Move down` and, where a tie can change, `Tie with the one above` or `Untie from the one above`.
 - Both shells: the Work page's `Profile and Editions`, above its cells; the add sheet that `Add <title>` opens on `/add`.
-- API (Admin): `GET /api/v1/qualities`; `GET`, `POST /api/v1/targets`, `GET`, `PUT`, `DELETE /api/v1/targets/{targetId}`, `POST /api/v1/targets/{targetId}/duplicate`; `GET`, `POST /api/v1/profiles`, `GET`, `PUT`, `DELETE /api/v1/profiles/{profileId}`, `POST /api/v1/profiles/{profileId}/default`; `GET`, `POST /api/v1/cuts`, `PUT`, `DELETE /api/v1/cuts/{cutKey}`; `GET`, `PUT /api/v1/works/{workId}/wants`; `GET /api/v1/works/{workId}/cells` and `/searches`. Every change takes `?preview=true` for its Impact alone, `?unwanted=delete|keep` and `?confirm=<n>`, and publishes `targets.changed`.
+- API (Admin): `GET /api/v1/qualities`; `GET`, `POST /api/v1/targets`, `GET`, `PUT`, `DELETE /api/v1/targets/{targetId}`, `POST /api/v1/targets/{targetId}/duplicate`; `GET`, `POST /api/v1/profiles`, `GET`, `PUT /api/v1/profiles/{profileId}`, `DELETE /api/v1/profiles/{profileId}?moveTo=<profileId>`, `POST /api/v1/profiles/{profileId}/default`; `GET`, `POST /api/v1/cuts`, `PUT`, `DELETE /api/v1/cuts/{cutKey}`; `GET`, `PUT /api/v1/works/{workId}/wants`; `GET /api/v1/works/{workId}/cells` and `/searches`. Every change takes `?preview=true` for its Impact alone, `?unwanted=delete|keep` and `?confirm=<n>`, and publishes `targets.changed`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -53,14 +53,14 @@ Steps on `home`:
   $FW exec $RUN --proof targets-and-profiles/targets-starter -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles'
   ```
 
-- **The default Profile stays.** Delete `Movies` over the API: 409 `profile_is_default`.
+- **The default Profile stays.** Delete `Movies` over the API: 409 `profile_is_default`. The route requires `moveTo`, and the default check comes first, so naming `Movies` itself reaches it.
 
   ```sh
   MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles' | jq -r '.profiles[] | select(.name == "Movies") | .id')
-  $FW exec $RUN --proof targets-and-profiles/profiles-default-fixed -- curl -sS -i -X DELETE -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/profiles/$MOVIES"
+  $FW exec $RUN --proof targets-and-profiles/profiles-default-fixed -- curl -sS -i -X DELETE -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/profiles/$MOVIES?moveTo=$MOVIES"
   ```
 
-- **A held Target can't go.** On `/settings/targets`, choose `Actions for 1080p`, then `Delete`, then `Delete` in `Delete 1080p?`. The dialog reads `1080p can't be deleted. Movies uses it.` Cancel it; the API answers 409 `target_in_use` with the same detail.
+- **A held Target can't go.** On `/settings/targets`, choose `Actions for 1080p`, then `Delete`, then `Delete` in `Delete 1080p?`. The dialog reads `1080p can't be deleted. Movies uses it.` Cancel it; the API answers 409 `target_in_use` with the detail `Movies uses it`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/targets'
@@ -159,7 +159,7 @@ Steps on `targets`:
   $FW exec $RUN --proof targets-and-profiles/targets-filters-sizes -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/targets'
   ```
 
-- **Profiles.** Open `/settings/profiles`, where `Films` reads `Default` and 1 Work. Open `Films`. Its `Targets` list shows an estimate for each Target, `About <size> across its Works, at <rate> MiB per minute`, and `Every file 1080p takes also meets HD.` Leave without saving. Choose `New Profile`, name it `UHD`, choose `Add Target`, then `2160p`: the row reads `No estimate yet`. Choose `Choose cuts`, `Add cut`, `Extended`, then `Remove Standard`: the chip `No Standard` shows and the sentence reads `Every Item wants Extended outright, even where no release of it has been seen. A release that names no cut is Standard, which this list doesn't want.` Choose `Any cut` again and `Create Profile`.
+- **Profiles.** Open `/settings/profiles`, where `Films` reads `Default` and 1 Work. Open `Films`. Its `Targets` list shows an estimate for each Target, `About <size> across its Works, at <rate> MiB per minute`, and `Every file 1080p takes also meets HD.` Leave without saving. Choose `New Profile`, name it `UHD`, choose `Add Target`, then `2160p`: the row reads `No estimate yet`. Add `1080p` the same way, focus `Move 2160p` and press ArrowDown: `1080p` ranks 1, and the page says `2160p moved to rank 2 of 2.` Choose `Remove 1080p`. Choose `Choose cuts`, `Add cut`, `Extended`, then `Remove Standard`: the chip `No Standard` shows and the sentence reads `Every Item wants Extended outright, even where no release of it has been seen. A release that names no cut is Standard, which this list doesn't want.` Choose `Any cut` again and `Create Profile`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/profiles'
@@ -169,6 +169,11 @@ Steps on `targets`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Name" })' UHD
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add Target" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "2160p", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add Target" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "1080p", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("button", { name: "Move 2160p", exact: true }).focus(); await page.keyboard.press("ArrowDown"); }'
+  $FW exec $RUN --proof targets-and-profiles/profiles-editor -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/profiles-editor/keyboard-rank.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Remove 1080p" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("radio", { name: "Choose cuts" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add cut" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Extended", exact: true })'
@@ -215,7 +220,7 @@ Steps on `targets`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   ```
 
-- **Delete UHD.** On `/settings/profiles` choose `Actions for UHD`, then `Delete`. The dialog `Delete UHD?` reads `Its 1 Work moves to the Profile you pick.` with `Films` in `Move its Works to`. Choose `Delete UHD`, and `Delete UHD` again on its Impact, which lists `1 file is renamed.` The toast reads `Deleted UHD. Its Works now take Films.`, and the Kept file fills again under the plain label.
+- **Delete UHD.** On `/settings/profiles` choose `Actions for UHD`, then `Delete`. The dialog `Delete UHD?` reads `Its 1 Work moves to the Profile you pick.` with `Films` in `Move its Works to`. Choose `Delete UHD`, and `Delete UHD` again on its Impact, which lists `1 Work changes.` and `1 file is renamed.` The toast reads `Deleted UHD. Its Works now take Films.`, and the Kept file fills again under the plain label.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/profiles'
@@ -257,6 +262,8 @@ Steps on `sizes`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a release").waitFor({ timeout: 30000 }); }'
   ORCHARD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works' | jq -r '.works[] | select(.label == "The Quiet Orchard") | .id')
   $FW exec $RUN --proof targets-and-profiles/sizes-refusals -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$ORCHARD/searches"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Files" }).getByText("The Quiet Orchard (2021) - Sized.mkv").waitFor({ timeout: 90000 }); }'
+  $FW exec $RUN --proof targets-and-profiles/sizes-refusals -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - Sized.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=lantern+keeper'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Lantern Keeper" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Lantern Keeper" }).getByRole("button", { name: "Add Movie" })'
@@ -275,7 +282,7 @@ Steps on `sizes`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("option", { name: "Encodes" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Copper Bell" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Any cut cells" }).getByText("Failed").waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Any cut cells" }).getByText("Failed").first().waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/targets-and-profiles/sizes-probed-codec/work.png
   $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
@@ -335,7 +342,18 @@ Steps on a second fresh `targets` run:
   $FW exec $RUN --proof targets-and-profiles/editions-cut-in-use -- curl -sS -i -X DELETE -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/cuts/superfan'
   ```
 
-- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`, open Settings > Targets > `2160p` on the first `targets` run, and screenshot the Qualities list and a row's `Actions for <name>` menu into `proof/targets-and-profiles/targets-editor/phone.png`.
+- **Phone.** On the first `targets` run, open `{runId}-admin-phone` as in the skill's Drive with `phone`. Choose `More`, then `Settings`, `Targets` in the `Settings` list and `2160p`. Screenshot the Qualities list, then choose `Actions for WEBRip-2160p`: the sheet holds `Move up`, `Move down` and `Untie from the one above`, since WEBRip-2160p is tied with HDTV-2160p.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("button", { name: "More" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("button", { name: "Settings" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("list", { name: "Settings" }).getByRole("link", { name: "Targets" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("link", { name: "2160p" })'
+  $FW exec $RUN --proof targets-and-profiles/targets-editor -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/targets-and-profiles/targets-editor/phone-editor.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("button", { name: "Actions for WEBRip-2160p" })'
+  $FW exec $RUN --proof targets-and-profiles/targets-editor -- $PW cli -s={runId}-admin-phone snapshot --filename={runDir}/proof/targets-and-profiles/targets-editor/phone-menu.aria.yml
+  $FW exec $RUN --proof targets-and-profiles/targets-editor -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/targets-and-profiles/targets-editor/phone.png
+  ```
 
 ## Gotchas
 
@@ -344,6 +362,8 @@ Steps on a second fresh `targets` run:
 - The Work page's Searches list shows each search's outcome but not its refusals. Read the reasons from `GET /api/v1/works/{workId}/searches`, whose `refused` lists each refused release with a `code` and `targetId` per Target, and whose `notes` hold the grabbed release's `size_not_checked`.
 - No page or API list shows Kept files yet. The Work page's Files come from the cells, and a Kept file fills none. Prove one on disk with `fs match` or `fs stat`.
 - Every scenario Profile wants Any cut, so a Work's cells sit under one heading, `Any cut`, in the table `Any cut cells`. A named list makes one table per wanted cut.
+- `DELETE /api/v1/profiles/{profileId}` without `moveTo` answers 422 `invalid` before any Profile check.
+- In `Any cut cells` the `Status` column and each Target's column read the same state, so `getByText("Failed")` or `getByText("Met")` matches more than one cell; add `.first()`.
 - The second `Delete UHD` is the Impact's button, in the dialog named `Delete UHD` without the question mark.
 - The payloads are a few seconds of video, so the Profile editor's estimates are tiny. Read their wording, not their numbers.
 - The add sheet keeps `Monitor` on; an unmonitored Work has no Wants and its Search finds nothing to do.
