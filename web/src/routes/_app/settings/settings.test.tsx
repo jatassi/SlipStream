@@ -88,7 +88,7 @@ test("/settings opens on Address, which suggests the address in use while none i
       .getByRole("radio")
       .all()
       .map((option) => option.element().textContent),
-  ).toEqual(["Address", "Email", "Sign-in", "API key"]);
+  ).toEqual(["Address", "Email", "Sign-in", "Nodes", "API key"]);
   await expect.element(field("Address")).toHaveValue("http://media-pc:8484");
   await expect
     .element(

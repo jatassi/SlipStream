@@ -8,6 +8,7 @@ import type {
   TasksWaitingState,
 } from "../api/gen/model";
 import { type Clock, type Noun, atWords, inWords, nounOf, sinceWords } from "../format";
+import { waitingLine } from "../nodes/standing";
 import type { Signal } from "../ui/signal-chip";
 
 export const groupTitles: { readonly [G in TasksGroupGroup]: string } = {
@@ -31,15 +32,8 @@ export const outcomes: {
   canceled: { word: "Cancelled", signal: undefined },
 };
 
-const standings: { readonly [S in TasksWaitingState["standing"]]: string } = {
-  reconnecting: "reconnecting",
-  offline: "offline",
-  lapsed: "offline",
-  mismatched: "on another version",
-};
-
 export const waitingWords = (state: TasksWaitingState, clock: Clock): string =>
-  `Waiting for ${state.node} · ${standings[state.standing]} since ${sinceWords(state.since, clock)}`;
+  waitingLine(state.node, state.standing, state.since, clock);
 
 export const nextWords = (task: TasksTask, next: string, clock: Clock): string =>
   task.cadence.inWindow ? atWords(next, clock) : inWords(next, clock.now);

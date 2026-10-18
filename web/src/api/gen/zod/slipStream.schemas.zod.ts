@@ -824,9 +824,9 @@ export const IndexersIndexer = zod.object({
   protocol: zod.enum(["torznab"]),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
   url: zod.string(),
-  waiting: IndexersWaiting.describe(
-    "Why its calls wait for its home Node, null while they go through",
-  ),
+  waiting: zod
+    .union([IndexersWaiting, zod.null()])
+    .describe("Why its calls wait for its home Node, null while they go through"),
 });
 
 export type IndexersIndexer = zod.input<typeof IndexersIndexer>;
@@ -1421,6 +1421,11 @@ export const NodesNode = zod.object({
     .describe("The last verdict of each probe the Node ran, kept while it is away"),
   roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
   self: zod.boolean(),
+  standing: zod
+    .enum(["in-step", "reconnecting", "offline", "lapsed", "mismatched"])
+    .describe(
+      "How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version",
+    ),
 });
 
 export type NodesNode = zod.input<typeof NodesNode>;

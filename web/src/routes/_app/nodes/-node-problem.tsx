@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { isProblem } from "../../../api/errors";
 import { Empty } from "../../../shell/empty";
 import { RouteError } from "../../../shell/errors";
-import { stateOfLink, useNode } from "./-node";
+import { useNode } from "./-node";
 
 const nodeRoute = getRouteApi("/_app/nodes/$nodeId");
 
 // A section that failed because its Node went offline loads again once the
-// Node's link has been seen down and then back up.
+// Node has been seen out of step and then back in step.
 function useReloadWhenBack(online: boolean, reload: () => void) {
   const [seenDown, setSeenDown] = useState(!online);
   if (!online && !seenDown) {
@@ -26,7 +26,7 @@ function useReloadWhenBack(online: boolean, reload: () => void) {
 export function NodeProblem(props: ErrorComponentProps) {
   const router = useRouter();
   const node = useNode(nodeRoute.useParams().nodeId);
-  useReloadWhenBack(stateOfLink[node.link.state] === "online", () => {
+  useReloadWhenBack(node.standing === "in-step", () => {
     props.reset();
     void router.invalidate();
   });
