@@ -54,6 +54,24 @@ func topologyProbes(t *testing.T, a *worldtest.API, name string) []worldtest.Pro
 	return nil
 }
 
+// awaitSeedboxProbes waits for seedbox's link to be up and listNodes to
+// carry want as its probes. The probes reach home through sync after the
+// link is up, so the listing can carry earlier probes for a moment.
+func awaitSeedboxProbes(t *testing.T, a *worldtest.API, want []worldtest.Probe) {
+	t.Helper()
+	for deadline := time.Now().Add(time.Minute); ; {
+		r := seedbox(t, a)
+		if r.Link.State == "up" && slices.Equal(r.Probes, want) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("listNodes has seedbox's link %s and probes %+v, want up and %+v", r.Link.State, r.Probes, want)
+		}
+		time.Sleep(time.Second)
+		synctest.Wait()
+	}
+}
+
 // TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere lists every
 // probe fitting on both Nodes, and the board suggests Searching and
 // Downloading for seedbox. Restarted with its downloads folder on a file,
@@ -84,19 +102,7 @@ func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 		box.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_TORRENT_DOWNLOADS="+file) })
 		want := slices.Clone(fitting)
 		want[0] = worldtest.Probe{Probe: "engine-starts", Fit: "fails", Reason: "downloads_not_writable"}
-		// The probes reach home through sync after the link is up, so the
-		// listing can carry seedbox's earlier probes for a moment.
-		for deadline := time.Now().Add(time.Minute); ; {
-			r := seedbox(t, a)
-			if r.Link.State == "up" && slices.Equal(r.Probes, want) {
-				break
-			}
-			if time.Now().After(deadline) {
-				t.Fatalf("listNodes has seedbox's link %s and probes %+v, want up and %+v", r.Link.State, r.Probes, want)
-			}
-			time.Sleep(time.Second)
-			synctest.Wait()
-		}
+		awaitSeedboxProbes(t, a, want)
 		if got := topologyProbes(t, a, "seedbox"); !slices.Equal(got, want) {
 			t.Fatalf("the topology has seedbox's probes %+v, want %+v", got, want)
 		}
