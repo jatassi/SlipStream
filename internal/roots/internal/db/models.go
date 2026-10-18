@@ -24,17 +24,17 @@ type RootsRoot struct {
 type RootsSeen struct {
 	RootID   RootID
 	Place    int64
-	VolumeID string
+	VolumeID VolumeID
 }
 
 type RootsSetting struct {
-	ID          int64
+	ID          Singleton
 	SampleEvery sql.NullInt64
 }
 
 type RootsVolume struct {
 	NodeID    role.NodeID
-	ID        string
+	ID        VolumeID
 	Name      string
 	Mount     string
 	Kind      string

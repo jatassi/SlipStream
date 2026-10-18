@@ -39,3 +39,12 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID
+          - column: roots_settings.id
+            go_type:
+              type: Singleton
+          - column: roots_seen.volume_id
+            go_type:
+              type: VolumeID
+          - column: roots_volume.id
+            go_type:
+              type: VolumeID

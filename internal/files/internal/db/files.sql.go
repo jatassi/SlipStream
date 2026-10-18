@@ -79,7 +79,7 @@ func (q *Queries) DeleteMove(ctx context.Context, arg DeleteMoveParams) (int64, 
 
 const doomedOfRoots = `-- name: DoomedOfRoots :many
 SELECT root_id, count(*) AS files FROM files_doomed
-WHERE root_id IN (/*SLICE:root_ids*/?) GROUP BY root_id
+WHERE root_id IN (/*SLICE:root_ids*/?) GROUP BY root_id ORDER BY root_id
 `
 
 type DoomedOfRootsRow struct {
@@ -582,7 +582,7 @@ func (q *Queries) RenameFile(ctx context.Context, arg RenameFileParams) error {
 
 const useOfRoots = `-- name: UseOfRoots :many
 SELECT root_id, count(*) AS files, CAST(total(size) AS INTEGER) AS bytes FROM files_file
-WHERE root_id IN (/*SLICE:root_ids*/?) GROUP BY root_id
+WHERE root_id IN (/*SLICE:root_ids*/?) GROUP BY root_id ORDER BY root_id
 `
 
 type UseOfRootsRow struct {

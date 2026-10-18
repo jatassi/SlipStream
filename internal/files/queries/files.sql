@@ -75,8 +75,8 @@ SELECT EXISTS (SELECT 1 FROM files_file WHERE work_id = sqlc.arg(work_id));
 
 -- name: UseOfRoots :many
 SELECT root_id, count(*) AS files, CAST(total(size) AS INTEGER) AS bytes FROM files_file
-WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id;
+WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id ORDER BY root_id;
 
 -- name: DoomedOfRoots :many
 SELECT root_id, count(*) AS files FROM files_doomed
-WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id;
+WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id ORDER BY root_id;

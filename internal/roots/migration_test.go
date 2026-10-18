@@ -2,6 +2,7 @@ package roots_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -25,20 +26,20 @@ func opener(t *testing.T) func(schemas ...storage.Schema[storage.Library]) *stor
 }
 
 type s09 struct {
-	movies, music     roots.ID
-	film, album, tune works.WorkID
+	alpha, beta     roots.ID
+	one, two, three works.WorkID
 }
 
 // seedS09 is a library of one root per Content Type as S09 (Walking
-// skeleton) left it: a movie root, a music root, and a Work of each type
+// skeleton) left it: a root of types alpha and beta, a Work of each type
 // plus one of a type with no root.
 func seedS09(t *testing.T) (*storage.DB[storage.Library], s09) {
 	t.Helper()
 	open := opener(t)
 	before := open(works.Schema(), roots.Schema().Through(1))
 	at := s09{
-		movies: roots.ID{UUID: storage.NewUUID()}, music: roots.ID{UUID: storage.NewUUID()},
-		film: works.WorkID{UUID: storage.NewUUID()}, album: works.WorkID{UUID: storage.NewUUID()}, tune: works.WorkID{UUID: storage.NewUUID()},
+		alpha: roots.ID{UUID: storage.NewUUID()}, beta: roots.ID{UUID: storage.NewUUID()},
+		one: works.WorkID{UUID: storage.NewUUID()}, two: works.WorkID{UUID: storage.NewUUID()}, three: works.WorkID{UUID: storage.NewUUID()},
 	}
 	node := storage.NewUUID()
 	err := before.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -46,11 +47,11 @@ func seedS09(t *testing.T) (*storage.DB[storage.Library], s09) {
 			sql  string
 			args []any
 		}{
-			{`INSERT INTO roots_root VALUES (?, 'movie', ?, '/media/movies')`, []any{at.movies, node}},
-			{`INSERT INTO roots_root VALUES (?, 'music', ?, '/media/music')`, []any{at.music, node}},
-			{`INSERT INTO works_work VALUES (?, 'movie', 'm1', 'Orchard', 'Orchard', 0, 0)`, []any{at.film}},
-			{`INSERT INTO works_work VALUES (?, 'music', 'a1', 'Lanterns', 'Lanterns', 0, 0)`, []any{at.album}},
-			{`INSERT INTO works_work VALUES (?, 'book', 'b1', 'Tide', 'Tide', 0, 0)`, []any{at.tune}},
+			{`INSERT INTO roots_root VALUES (?, 'alpha', ?, '/media/alpha')`, []any{at.alpha, node}},
+			{`INSERT INTO roots_root VALUES (?, 'beta', ?, '/media/beta')`, []any{at.beta, node}},
+			{`INSERT INTO works_work VALUES (?, 'alpha', 'a1', 'Orchard', 'Orchard', 0, 0)`, []any{at.one}},
+			{`INSERT INTO works_work VALUES (?, 'beta', 'b1', 'Lanterns', 'Lanterns', 0, 0)`, []any{at.two}},
+			{`INSERT INTO works_work VALUES (?, 'gamma', 'g1', 'Tide', 'Tide', 0, 0)`, []any{at.three}},
 		} {
 			if _, err := tx.ExecContext(ctx, stmt.sql, stmt.args...); err != nil {
 				return err
@@ -82,18 +83,18 @@ func TestTheRebuildKeepsIdsAndMakesEachRootItsTypesDefault(t *testing.T) {
 		id   roots.ID
 		typ  works.TypeID
 		path string
-	}{{at.movies, "movie", "/media/movies"}, {at.music, "music", "/media/music"}} {
+	}{{at.alpha, "alpha", "/media/alpha"}, {at.beta, "beta", "/media/beta"}} {
 		if r := all[i]; r.ID != want.id || r.ContentType != want.typ || r.Path != want.path || !r.Default {
 			t.Errorf("root %d = %+v, want %s's default %s at %s", i, r, want.typ, want.id, want.path)
 		}
 	}
 	err = lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'movie', ?, '/b', 1)`,
+		_, err := tx.ExecContext(ctx, `INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'alpha', ?, '/b', 1)`,
 			storage.NewUUID(), storage.NewUUID())
 		return err
 	})
 	if err == nil {
-		t.Fatal("a second default movie root was inserted, want the index to refuse it")
+		t.Fatal("a second default alpha root was inserted, want the index to refuse it")
 	}
 }
 
@@ -102,13 +103,13 @@ func TestEveryWorkTakesItsTypesRoot(t *testing.T) {
 	for _, want := range []struct {
 		work works.WorkID
 		root roots.ID
-	}{{at.film, at.movies}, {at.album, at.music}} {
+	}{{at.one, at.alpha}, {at.two, at.beta}} {
 		r, err := roots.OfWork(t.Context(), lib, want.work)
 		if err != nil || r.ID != want.root {
 			t.Errorf("OfWork(%s) = %s, %v; want %s", want.work, r.ID, err, want.root)
 		}
 	}
-	if r, err := roots.OfWork(t.Context(), lib, at.tune); err != roots.ErrNoRoot { //nolint:errorlint // OfWork answers the sentinel itself
+	if r, err := roots.OfWork(t.Context(), lib, at.three); !errors.Is(err, roots.ErrNoRoot) {
 		t.Errorf("OfWork of a Work whose type has no root = %+v, %v; want ErrNoRoot", r, err)
 	}
 }

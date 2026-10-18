@@ -24,11 +24,11 @@ UPDATE roots_root SET is_default = 1 WHERE id = sqlc.arg(id);
 SELECT r.* FROM roots_work w JOIN roots_root r ON r.id = w.root_id WHERE w.work_id = sqlc.arg(work_id);
 
 -- name: ListHomedWorks :many
-SELECT work_id FROM roots_work;
+SELECT work_id FROM roots_work ORDER BY work_id;
 
 -- name: HomeWork :exec
 INSERT INTO roots_work (work_id, root_id) VALUES (sqlc.arg(work_id), sqlc.arg(root_id))
 ON CONFLICT (work_id) DO UPDATE SET root_id = excluded.root_id;
 
 -- name: CountWorksByRoot :many
-SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id;
+SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id ORDER BY root_id;

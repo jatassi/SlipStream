@@ -3,12 +3,14 @@ package rootsapi_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,11 +161,11 @@ func (s *server) works(t *testing.T) string {
 	if err := json.Unmarshal([]byte(reply), &list); err != nil {
 		t.Fatal(err)
 	}
-	out := ""
+	var out strings.Builder
 	for _, r := range list.Roots {
-		out += r.ID + " default=" + strconv.FormatBool(r.Default) + " works=" + strconv.FormatInt(r.Works, 10) + "\n"
+		fmt.Fprintf(&out, "%s default=%t works=%d\n", r.ID, r.Default, r.Works)
 	}
-	return out
+	return out.String()
 }
 
 func TestARootIsCreatedOnThisNodeAndListed(t *testing.T) {
@@ -326,16 +328,16 @@ func TestSetWorkRootRefusesAWorkWithFiles(t *testing.T) {
 	s.Expect(t, http.MethodPatch, "/api/v1/works/"+empty, set(storage.NewUUID().String()), http.StatusNotFound,
 		`{"status":404,"code":"root_not_found","title":"No root has that id"}`)
 	_, list := s.Call(t, http.MethodGet, "/api/v1/roots", "")
-	var roots struct {
+	var listed struct {
 		Roots []struct {
 			Works     int64 `json:"works"`
 			FileBytes int64 `json:"fileBytes"`
 		} `json:"roots"`
 	}
-	if err := json.Unmarshal([]byte(list), &roots); err != nil {
+	if err := json.Unmarshal([]byte(list), &listed); err != nil {
 		t.Fatal(err)
 	}
-	if r := roots.Roots[0]; r.Works != 1 || r.FileBytes != 2048 {
+	if r := listed.Roots[0]; r.Works != 1 || r.FileBytes != 2048 {
 		t.Fatalf("the first root holds %d Works and %d bytes, want the held Work's 2048", r.Works, r.FileBytes)
 	}
 }

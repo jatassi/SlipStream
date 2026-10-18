@@ -297,25 +297,9 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	}
 	won := false
 	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		if n, err := q.Advance(ctx, params); err != nil || n == 0 {
-			return err
-		}
-		if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
-			return err
-		}
-		for i, t := range a.fills() {
-			if err := q.InsertFill(ctx, db.InsertFillParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
-				return err
-			}
-		}
-		if a.file != nil {
-			if err := gr.land(ctx, tx, g, *a.file); err != nil {
-				return err
-			}
-		}
-		won = true
-		return nil
+		var err error
+		won, err = gr.record(ctx, tx, g, params, a, now)
+		return err
 	})
 	if errors.Is(err, files.ErrRootChanged) {
 		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
@@ -328,6 +312,29 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	}
 	gr.entered(ctx, g, params.Next)
 	return nil
+}
+
+// record writes g's move by params in tx, false when g has left the
+// stage params moves it from.
+func (gr *Grabs) record(ctx context.Context, tx *storage.Tx[file], g Grab, params db.AdvanceParams, a advance, now storage.Time) (bool, error) {
+	q := db.New(tx)
+	if n, err := q.Advance(ctx, params); err != nil || n == 0 {
+		return false, err
+	}
+	if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
+		return false, err
+	}
+	for i, t := range a.fills() {
+		if err := q.InsertFill(ctx, db.InsertFillParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
+			return false, err
+		}
+	}
+	if a.file != nil {
+		if err := gr.land(ctx, tx, g, *a.file); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 // land imports g's file in tx, with its facts, under the choice a change

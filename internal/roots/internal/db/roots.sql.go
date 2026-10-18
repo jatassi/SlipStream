@@ -33,7 +33,7 @@ func (q *Queries) CountRootsOf(ctx context.Context, contentType works.TypeID) (i
 }
 
 const countWorksByRoot = `-- name: CountWorksByRoot :many
-SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id
+SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id ORDER BY root_id
 `
 
 type CountWorksByRootRow struct {
@@ -158,7 +158,7 @@ func (q *Queries) InsertRoot(ctx context.Context, arg InsertRootParams) error {
 }
 
 const listHomedWorks = `-- name: ListHomedWorks :many
-SELECT work_id FROM roots_work
+SELECT work_id FROM roots_work ORDER BY work_id
 `
 
 func (q *Queries) ListHomedWorks(ctx context.Context) ([]works.WorkID, error) {
