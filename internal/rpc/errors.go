@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connectproto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/jatassi/slipstream/internal/link"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
@@ -93,16 +94,35 @@ func NotSent(err error) (Why, bool) {
 // Unheld is the Role a NotHolder refusal names, "" when err is none or
 // names no Role, as for a Node the roster lacks.
 func Unheld(err error) role.Name {
-	if ce, ok := errors.AsType[*connect.Error](err); ok {
-		for _, d := range ce.Details() {
-			if v, err := connectproto.UnmarshalErrorDetail(d); err == nil {
-				if nh, ok := v.(*nodev1.NotHolder); ok {
-					return role.Name(nh.GetRole())
-				}
+	nh, _ := DetailOf[*nodev1.NotHolder](err)
+	return role.Name(nh.GetRole())
+}
+
+// ErrorWith is a handler's error carrying detail, which reaches the caller
+// beside the code and message for DetailOf to read.
+func ErrorWith(code Code, detail proto.Message, message string) error {
+	d, err := connectproto.NewErrorDetail(detail)
+	if err != nil {
+		panic(fmt.Sprintf("rpc: pack %s: %v", detail.ProtoReflect().Descriptor().FullName(), err))
+	}
+	return connect.NewError(code, message).WithDetail(d) //nolint:wrapcheck // the error a handler answers, built here
+}
+
+// DetailOf is err's first detail of type M, false when it carries none.
+func DetailOf[M proto.Message](err error) (M, bool) {
+	var none M
+	ce, ok := errors.AsType[*connect.Error](err)
+	if !ok {
+		return none, false
+	}
+	for _, d := range ce.Details() {
+		if v, err := connectproto.UnmarshalErrorDetail(d); err == nil {
+			if m, ok := v.(M); ok {
+				return m, true
 			}
 		}
 	}
-	return ""
+	return none, false
 }
 
 // Lost reports a call whose request left before the link died or the call
