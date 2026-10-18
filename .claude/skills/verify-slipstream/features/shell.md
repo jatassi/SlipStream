@@ -59,7 +59,7 @@ Steps:
   $FW exec $RUN --proof shell/shell-current-page -- $PW cli -s={runId}-admin-desktop eval 'document.title + " " + document.querySelector("nav[aria-label=Main] [aria-current=page]").textContent'
   ```
 
-- **Walk the sidebar.** Choose `Activity`, then `Nodes`. Each title follows: `Activity · SlipStream`, then `home · SlipStream`, the Node's name.
+- **Walk the sidebar.** Choose `Activity`, then `Nodes`. Each title follows: `Activity · SlipStream`, then `Nodes · SlipStream`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" })'
@@ -165,7 +165,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone press Escape
   ```
 
-- **Open More.** Choose `More`. The sheet lists `Movies`, `Nodes`, `Tasks`, `Ada Okafor`, `Open the portal`, `Restart SlipStream…`, `Sign out`, the switch `Startup sequence`, `SlipStream <version>` and `Cancel`. Choosing `Nodes` closes it and opens `/nodes/<id>`, titled `Nodes`.
+- **Open More.** Choose `More`. The sheet lists `Movies`, `Nodes`, `Tasks`, `Ada Okafor`, `Open the portal`, `Restart SlipStream…`, `Sign out`, the switch `Startup sequence`, `SlipStream <version>` and `Cancel`. Choosing `Nodes` closes it and opens `/nodes`, titled `Nodes`, on the Roster.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("button", { name: "More" })'

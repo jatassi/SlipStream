@@ -1,11 +1,15 @@
 # Nodes
 
-Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node the browser is talking to, at `/nodes/<id>`, titled with the Node's name, and a Node's pages are its sections: Overview, Roles, Web and API, Logs and Log settings. The Overview lists the Node's build version, when it started, its data folder and the addresses of its web, torrent and link listeners and its control socket, for any Node through the per-Node API. Web and API and Log settings edit the Node's own `config.yaml`, one field at a time. Logs streams the Node's log live, and Download logs saves its log folder as a zip. Restart restarts any Node, and the browser's own Node from the account menu, More and the palette too. `GET /api/v1/system` returns the facts of the Node that answers, plus the build stamp. A Worker that holds Serving answers its own address with its Controller's app, the Controller's sign-in and passkeys included, and while its Controller can't be reached it shows a status card of what it holds.
+Nodes is where an Admin runs a Node in the cluster. `/nodes` is the landing, titled `Nodes`: the topology sentence, then the Diagram or the Roster, `?view=diagram` or `?view=roster`, opening on the Diagram at 1000px wide and up and on the Roster below. The Roster lists the Controller first, then each Worker, with its state, when it was last seen, how it is reached, its Roles and what its probes found; a row opens the Node, and its actions menu renames it, writes off what it holds and removes it. A Node's pages are its sections: Overview, Roles, Web and API, Logs and Log settings. The Overview lists the Node's name, Roles, key, pairing and who dials it, then, under System, its build version, when it started, its data folder and the addresses of its web, torrent and link listeners and its control socket, for any Node through the per-Node API. Web and API and Log settings edit the Node's own `config.yaml`, one field at a time. Logs streams the Node's log live, and Download logs saves its log folder as a zip. Restart restarts any Node, and the browser's own Node from the account menu, More and the palette too. `GET /api/v1/system` returns the facts of the Node that answers, plus the build stamp. A Worker that holds Serving answers its own address with its Controller's app, the Controller's sign-in and passkeys included, and while its Controller can't be reached it shows a status card of what it holds.
 
 ## Sub-features
 
-- `nodes-overview` `/nodes` and the old `/system` land on `/nodes/<id>` for the Node that served the page, whose Overview lists Version, Running since, Data folder, Web and API, Torrents, Node link and Control socket, and the data folder sits in the run's own scratch dir, not a developer database (P-255).
-- `nodes-sections` in the desktop shell the page tabs, a nav named for the Node, link Overview, Roles, Web and API, Logs and Log settings and mark the current one; on phone the Node's page, titled `Nodes`, lists the other sections, and each is a pushed page whose back link reads `Nodes`.
+- `nodes-landing` `/nodes` reads the topology sentence over the view tabs `Diagram` and `Roster`, with `Add a Node` as the page's action; a desktop browser 1000px wide or more opens on the Diagram, which takes drags, and a narrower window or a phone opens on the Roster, where the Diagram is there to look at without drags. Until the Diagram is built its figure reads `The Diagram of your <n> Nodes is on its way. The Roster lists the same Nodes.` The old `/system` lands on `/nodes`.
+- `nodes-roster` each row reads the Node's name, a worded state dot, then `Online · Controller` for home, or `Online · seedbox dials home` (`home dials <name> · <n> ms round trip` for a dialed Worker), `Last seen <time>` while away, an outlined chip per Role with what it holds (`Downloading · Draining · 3 torrents (41 GB) left`), or `No Roles yet`, and a list `What <name> found` of weak or failing probes. A row opens `/nodes/<id>`. With one Node, an `Add a Node` row follows it.
+- `nodes-rename` `<name> actions`, then `Rename`, or `Rename` on the Overview, opens `Rename <name>`; a name another Node has reads `Another Node has this name` under the field, and a saved name shows on the Roster, the picker and the Node's page.
+- `nodes-remove` `<name> actions`, then `Remove`, or `Remove <name>` on the Overview, asks `Remove <name>?`; a Node that holds work says what, `<name> still holds 3 torrents (41 GB) for Downloading. Untick its Roles and remove it when they finish, or remove it now and write them off.`, and its button reads `Remove and write off`. Past the re-confirm window the PIN dialog `Confirm it's you` comes first. The removed Node leaves the Roster and the page lands on `/nodes`. The Controller can't be removed: its dialog `home can't be removed` says to hand the Controller over first, and its Overview's Remove section says the same. `Write off` sits on the menu only of a Node that holds work.
+- `nodes-overview` a Node's Overview lists Name with `Rename`, Roles as outlined chips with `Change Roles`, Key, Paired, Last seen while away and, on a Worker, Reached by with `Change`, which opens `How home reaches <name>` to paste a Node address or `Stop dialing`; then the System section lists Version, Running since, Data folder, Web and API, Torrents, Node link and Control socket, and the data folder sits in the run's own scratch dir, not a developer database (P-255).
+- `nodes-sections` in the desktop shell the page tabs, a nav named for the Node, link Overview, Roles, Web and API, Logs and Log settings and mark the current one; on phone the Node's page is pushed from the Roster with the back link `Nodes` and lists the other sections, and each is a pushed page whose back link reads the Node's name.
 - `nodes-picker` with a Worker paired, the `Node` select lists every Node with a dot for its standing (online, reconnecting, offline, offline past the grace or on another version), and choosing one keeps the section.
 - `nodes-system-api` `GET /api/v1/system` with the API key returns the PID, the data dir, the listeners and `build` with `stamped`, `commit` and `fingerprint`.
 - `nodes-web-settings` Web and API shows `Port` with `Default 8484.` and `Applies after restart.`, and `Ports to try`; a saved port toasts `Web and API settings saved` and shows the warning line `Restart to use port <port>` with `Restart now`, a port out of range answers 422 with `Between 1 and 65535.`, and a port an environment variable sets is locked with `Set by SLIPSTREAM_HTTP_LISTEN` (P-244). The running port is the one the Node bound, so saving the port it listens on, after a fallback or on a Node that started on port 0, waits for no restart.
@@ -24,8 +28,8 @@ Nodes is where an Admin runs a Node in the cluster. `/nodes` lands on the Node t
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Nodes`, below the separator and above `Tasks`, which opens `/nodes` and lands on `/nodes/<id>`; the page tabs `Overview`, `Roles`, `Web and API`, `Logs` and `Log settings` sit under the Node's name, and `Restart` is the page's action in the top bar. The `Nodes` row stays current on every Node page. The account menu holds `Restart SlipStream…` between the Startup sequence switch and `Sign out`.
-- Phone shell: the `More` tab, then the `Nodes` button in the sheet `More`, listed above `Tasks`, then a section's row in the list named for the Node; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
+- Desktop shell: the sidebar's `Nodes`, below the separator and above `Tasks`, which opens the landing at `/nodes`; `Roster`, then a row, opens `/nodes/<id>`, whose page tabs `Overview`, `Roles`, `Web and API`, `Logs` and `Log settings` sit under the Node's name, and `Restart` is the page's action in the top bar. The `Nodes` row stays current on the landing and every Node page. The account menu holds `Restart SlipStream…` between the Startup sequence switch and `Sign out`.
+- Phone shell: the `More` tab, then the `Nodes` button in the sheet `More`, listed above `Tasks`, which opens the Roster; a row opens the Node, then a section's row in the list named for the Node; the Node's page carries `Restart`. More holds `Restart SlipStream…` above `Sign out`. On Logs the filters sit behind `Filter`.
 - Both shells: the palette's `Go to Nodes`, `Go to Overview`, `Go to Roles`, `Go to Web and API`, `Go to Logs` and `Go to Log settings` for the browser's own Node, and `Restart SlipStream…`.
 - API (Admin): `GET /api/v1/system`, `GET /api/v1/nodes` for the Node ids and their `dial`, `PUT /api/v1/nodes/{id}/dial`, `GET /api/v1/nodes/topology`, then per Node `GET /api/v1/nodes/{id}/system`, `GET` and `PATCH /api/v1/nodes/{id}/config` (a key to value map, `null` resets), `POST /api/v1/nodes/{id}/restart` (202 with `startedAt` and `boundPort`), `GET /api/v1/nodes/{id}/logs/stream` (server-sent `log.record` and `log.reset`, resuming with `?after=<seq>`) and `GET /api/v1/nodes/{id}/logs/archive`; the live events `node.settings-changed` and `nodes.traffic`.
 - Serving: a Worker that holds Serving, at its own address (`{nodes.seedbox.browserUrl}` on `serving`); `/serving` is its status card, and `GET /api/v1/serving` (no sign-in) answers any Worker's facts.
@@ -40,10 +44,42 @@ Preconditions:
 
 Steps:
 
-- **Open Nodes.** Choose `Nodes` in the sidebar. The URL ends `/nodes/<id>`, the page is headed `home`, the tab `Overview` is current, Version reads the binary's short commit, and Data folder reads the manifest's `{nodes.home.dataDir}`.
+- **Open Nodes.** Choose `Nodes` in the sidebar. The URL ends `/nodes`, the page is headed `Nodes` over `Both Nodes are online.`, and the view tab `Diagram` is current. Choose `Roster`: home's row reads `Online · Controller`, seedbox's `Online · seedbox dials home`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Nodes" })'
+  $FW exec $RUN --proof nodes/nodes-landing -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-landing/diagram.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "View" }).getByRole("link", { name: "Roster" })'
+  $FW exec $RUN --proof nodes/nodes-roster -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("list", { name: "Roster" })' --filename={runDir}/proof/nodes/nodes-roster/roster.aria.yml
+  $FW exec $RUN --proof nodes/nodes-roster -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-roster/roster.png
+  ```
+
+- **Rename and remove from the Roster.** Choose `seedbox actions`, then `Rename`, and enter `home`: the field reads `Another Node has this name`. Enter `box`: the row reads `box`. Rename it back to `seedbox` the same way. Choose `seedbox actions`, then `Remove`: the dialog `Remove seedbox?` says what it holds, if anything; `Cancel` it. Choose `home actions`, then `Remove`: the dialog `home can't be removed` says to hand the Controller over first. A real removal is the last step of a run, or its own `home` run.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "seedbox actions" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Rename" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog", { name: "Rename seedbox" }).getByRole("textbox", { name: "Name" })' home
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Rename seedbox" }).getByRole("button", { name: "Rename" })'
+  $FW exec $RUN --proof nodes/nodes-rename -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-rename/taken.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog", { name: "Rename seedbox" }).getByRole("textbox", { name: "Name" })' box
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Rename seedbox" }).getByRole("button", { name: "Rename" })'
+  $FW exec $RUN --proof nodes/nodes-rename -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  $FW exec $RUN --proof nodes/nodes-rename -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"name":"seedbox"}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "seedbox actions" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Remove" })'
+  $FW exec $RUN --proof nodes/nodes-remove -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-remove/confirm.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Remove seedbox?" }).getByRole("button", { name: "Cancel" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "home actions" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Remove" })'
+  $FW exec $RUN --proof nodes/nodes-remove -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-remove/controller.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "home can'"'"'t be removed" }).getByRole("button", { name: "Close" })'
+  ```
+
+- **Open home.** Choose home's row. The URL ends `/nodes/<id>`, the page is headed `home`, the tab `Overview` is current, the Overview lists Name, Roles, Key and Paired with no Reached by, Version reads the binary's short commit, and Data folder reads the manifest's `{nodes.home.dataDir}`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Roster" }).getByRole("link", { name: /^home/ })'
   $FW exec $RUN --proof nodes/nodes-overview -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/nodes/nodes-overview/overview.aria.yml
   $FW exec $RUN --proof nodes/nodes-overview -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/nodes/nodes-overview/overview.png
   ```
@@ -74,11 +110,13 @@ Steps:
   $FW exec $RUN --proof nodes/nodes-web-settings -- sh -c 'a={nodes.home.listeners.http}; curl -sS -X PATCH -H "X-Api-Key: {apiKey}" -H "Content-Type: application/json" -d "{\"http.listen\":${a##*:}}" "{nodes.home.url}/api/v1/nodes/{nodes.home.nodeId}/config"'
   ```
 
-- **See it on phone.** In `{runId}-admin-phone`, choose `More`, then `Nodes`: the page is titled `Nodes`, lists the Node under `Node` and its sections under `Sections`. Choose `Logs`: it is a pushed page headed `Logs` with the back link `Nodes`, and its filters sit behind `Filter`.
+- **See it on phone.** In `{runId}-admin-phone`, choose `More`, then `Nodes`: the page is titled `Nodes` and opens on the Roster. Choose home's row: a pushed page headed `home` with the back link `Nodes`, listing the Node under `Node` and its sections under `Sections`. Choose `Logs`: it is a pushed page headed `Logs` with the back link `home`, and its filters sit behind `Filter`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("button", { name: "More" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("dialog", { name: "More" }).getByRole("button", { name: "Nodes" })'
+  $FW exec $RUN --proof nodes/nodes-landing -- $PW cli -s={runId}-admin-phone screenshot --full-page --filename={runDir}/proof/nodes/nodes-landing/roster-phone.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("list", { name: "Roster" }).getByRole("link", { name: /^home/ })'
   $FW exec $RUN --proof nodes/nodes-overview -- $PW cli -s={runId}-admin-phone screenshot --full-page --filename={runDir}/proof/nodes/nodes-overview/overview-phone.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("list", { name: "home" }).getByRole("link", { name: "Logs" })'
   $FW exec $RUN --proof nodes/nodes-sections -- $PW cli -s={runId}-admin-phone snapshot --filename={runDir}/proof/nodes/nodes-sections/logs-phone.aria.yml
@@ -197,7 +235,7 @@ Steps:
   $FW fault clear $RUN hold-link
   ```
 
-- **Take seedbox's port, then use the host CLI.** Stop seedbox and reload: its sections read `seedbox is offline. Its settings and logs come back when it reconnects.` Hold its HTTP port from a second shell for 150 seconds and start it: its Overview reads `Port <port> was taken, so SlipStream is on <next port>.` with `Change port`. Then `slipstream config set` and `unset` change seedbox's `log.level`, and once the holder exits `slipstream restart` brings it back on its own port.
+- **Take seedbox's port, then use the host CLI.** Stop seedbox and reload: its sections read `seedbox is offline. Its settings and logs come back when it reconnects.`, its Overview's System section reads `seedbox is offline. Its version and listeners show again when it reconnects.`, and its Roster row reads `Offline` or `Reconnecting` with `Last seen <time>`. Hold its HTTP port from a second shell for 150 seconds and start it: its Overview reads `Port <port> was taken, so SlipStream is on <next port>.` with `Change port`. Then `slipstream config set` and `unset` change seedbox's `log.level`, and once the holder exits `slipstream restart` brings it back on its own port.
 
   ```sh
   $FW node stop $RUN seedbox
@@ -278,7 +316,7 @@ Steps:
 
 ## Gotchas
 
-- A Worker chosen in the picker shows its own facts and settings through the Controller; an offline Worker's sections read `<name> is offline. Its settings and logs come back when it reconnects.` On the seedbox's own URL a Worker shows only the Worker page.
+- A Worker chosen in the picker shows its own facts and settings through the Controller; an offline Worker's sections read `<name> is offline. Its settings and logs come back when it reconnects.`, all but the Overview, which still lists what the Controller knows and reads `<name> is offline. Its version and listeners show again when it reconnects.` under System On the seedbox's own URL a Worker shows only the Worker page.
 - Ports are drawn at launch, so compare the page with the manifest, never with a remembered value. fakeworld pins each listen key to the port it bound, so `Port` reads that port with `Reset to default`, and a saved or reset port moves the Node off the manifest's port at its next restart. Put the port back before any restart, and restart last.
 - A choice such as `Level` saves as soon as it is chosen; a number field shows `Save` once it differs.
 - Nothing logs at Debug on an idle `home`, so a recipe makes a Debug line itself: bytes that aren't TLS on the link port log `link handshake failed`.

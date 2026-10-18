@@ -4,7 +4,7 @@ A person signs in on the Controller with their email and four-digit PIN, or with
 
 ## Sub-features
 
-- `sign-in-redirect` an anonymous visit to `/system` lands on `/sign-in?redirect=%2Fsystem`, and signing in returns there, which lands on Nodes at `/nodes/<id>`.
+- `sign-in-redirect` an anonymous visit to `/system` lands on `/sign-in?redirect=%2Fsystem`, and signing in returns there, which lands on Nodes at `/nodes`.
 - `sign-in-wrong-pin` a wrong PIN shows the alert `The email or PIN is wrong` and empties the PIN.
 - `sign-in-pin` the right email and PIN sign in; the email is matched without case or surrounding spaces.
 - `sign-in-saved-state` `bin/sign-in.ts` signs in through the real page, and its saved state opens a signed-in session.
@@ -45,7 +45,7 @@ Steps:
   $FW exec $RUN --proof sign-in/sign-in-wrong-pin -- $PW cli -s={runId}-ada-desktop snapshot --filename={runDir}/proof/sign-in/sign-in-wrong-pin/form.aria.yml
   ```
 
-- **Right PIN.** Type the manifest's PIN, `2468`. `/system` opens and lands on Nodes at `/nodes/<id>`, headed `home`.
+- **Right PIN.** Type the manifest's PIN, `2468`. `/system` opens and lands on Nodes at `/nodes`, headed `Nodes`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-ada-desktop click 'getByRole("textbox", { name: "PIN", exact: true })'
