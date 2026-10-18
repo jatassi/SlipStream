@@ -10,7 +10,7 @@ import {
   getSearchCatalogQueryKey,
 } from "../api/gen/query/works/works";
 import { ada, grace, problem } from "../test/handlers";
-import { liveServer, seeded } from "../test/live-server";
+import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
 
@@ -58,7 +58,7 @@ const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 test("works.changed invalidates the Works, that Work, its cells and every catalog search", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.poll(() => app.live.getState()).toBe("open");
+  await synced(app);
   const invalidated = seeded(app, {
     list: getListWorksQueryKey(),
     work: getGetWorkQueryKey(orchard),
@@ -80,7 +80,7 @@ test("works.changed invalidates the Works, that Work, its cells and every catalo
 test("targets.changed invalidates every Work's cells and no Work", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.poll(() => app.live.getState()).toBe("open");
+  await synced(app);
   const invalidated = seeded(app, {
     orchard: getGetWorkCellsQueryKey(orchard),
     harvest: getGetWorkCellsQueryKey(harvest),
@@ -94,7 +94,7 @@ test("targets.changed invalidates every Work's cells and no Work", async () => {
 test("files.changed invalidates only that Work's cells", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.poll(() => app.live.getState()).toBe("open");
+  await synced(app);
   const invalidated = seeded(app, {
     orchard: getGetWorkCellsQueryKey(orchard),
     harvest: getGetWorkCellsQueryKey(harvest),

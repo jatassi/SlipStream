@@ -9,13 +9,13 @@ import {
   getListTasksQueryKey,
 } from "../api/gen/query/tasks/tasks";
 import { getListWorksQueryKey } from "../api/gen/query/works/works";
-import { liveServer, seeded } from "../test/live-server";
+import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 
 test("tasks.changed invalidates every tasks query and nothing else", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.poll(() => app.live.getState()).toBe("open");
+  await synced(app);
   const invalidated = seeded(app, {
     list: getListTasksQueryKey(),
     task: getGetTaskQueryKey("housekeeping"),
