@@ -232,7 +232,7 @@ Steps:
   $FW exec $RUN --proof pairing/pairing-add-dialog-paired -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles'
   ```
 
-- **Revoke open codes.** Mint a stray code over the API, open the dialog, reload, and revoke the stray row, then `This code`.
+- **Revoke open codes.** On a fresh `cgnat-home` run, since every **Add a Node** press mints a code and the stray row must be the only other one: mint a stray code over the API, open the dialog, reload, and revoke the stray row, then `This code`.
 
   ```sh
   $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/join-codes'
