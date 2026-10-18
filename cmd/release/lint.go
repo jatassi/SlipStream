@@ -17,22 +17,31 @@ import (
 )
 
 func init() {
-	register("lint", "run the architecture lint, gofmt, go vet, the cgo-free openapi.json check, golangci-lint, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the web checks and the notices check", runLint)
+	register("lint", "run gofmt, go vet and golangci-lint (-part target), and the architecture lint, the cgo-free openapi.json check, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the web checks and the notices check (-part repo); -part all runs both", runLint)
 	register("fmt", "format the Go code with gofmt and the web app with Oxfmt", runFmt)
+}
+
+type lintCheck struct {
+	name string
+	run  func() error
 }
 
 func runLint(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("lint", flag.ContinueOnError)
 	only := fs.String("rule", "", "run only this architecture-lint rule")
+	part := fs.String("part", "all", "target runs the checks each OS must prove: gofmt, go vet and golangci-lint; repo runs the rest, which no OS changes; all runs both")
 	fs.Usage = func() {
 		out := fs.Output()
-		_, _ = fmt.Fprintln(out, "usage: go run ./cmd/release lint [-rule name]")
+		_, _ = fmt.Fprintln(out, "usage: go run ./cmd/release lint [-part all|target|repo] [-rule name]")
 		for _, r := range lint.Rules() {
 			_, _ = fmt.Fprintf(out, "  %-16s %s\n", r.Name, r.Doc)
 		}
 	}
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
+	}
+	if *part != "all" && *part != "target" && *part != "repo" {
+		return fmt.Errorf("-part %q is not one of all, target, repo", *part)
 	}
 	root, err := repoRoot(ctx)
 	if err != nil {
@@ -46,31 +55,64 @@ func runLint(ctx context.Context, args []string) error {
 		}
 		return lint.Run(os.Stdout, lint.Open(ctx, root), []lint.Rule{r})
 	}
+	var checks []lintCheck
+	if *part != "repo" {
+		target, err := targetChecks(ctx, root)
+		if err != nil {
+			return err
+		}
+		checks = append(checks, target...)
+	}
+	if *part != "target" {
+		repo, err := repoChecks(ctx, root)
+		if err != nil {
+			return err
+		}
+		checks = append(checks, repo...)
+	}
+	var failed []string
+	for _, c := range checks {
+		if err := c.run(); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", c.name, err)
+			failed = append(failed, c.name)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("failed: %s", strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+// targetChecks prove what each OS changes: line endings, and the cgo
+// packages that only type-check against the target's bundle.
+func targetChecks(ctx context.Context, root string) ([]lintCheck, error) {
+	_, _, bundle, err := goTargetBundle(ctx)
+	if err != nil {
+		return nil, err
+	}
+	goEnv := bundleEnv(bundle)
+	return []lintCheck{
+		{"gofmt", func() error { return golangciLint(ctx, root, nil, "fmt", "--diff") }},
+		{"go vet", func() error { return run(ctx, root, goEnv, "go", "vet", "./...") }},
+		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "./...") }},
+	}, nil
+}
+
+func repoChecks(ctx context.Context, root string) ([]lintCheck, error) {
 	// The web build type-checks the app and installs the packages that the
 	// web checks run and the notices check reads.
 	if err := buildWeb(ctx, root); err != nil {
-		return err
+		return nil, err
 	}
-	_, _, bundle, err := goTargetBundle(ctx)
-	if err != nil {
-		return err
-	}
-	goEnv := bundleEnv(bundle)
 	// The document must build without libtorrent, so a web-only change
 	// never needs the native toolchain.
 	cgoFree := append(bundleEnv(native.Bundle{}), "CGO_ENABLED=0")
 	web := filepath.Join(root, "web")
-	checks := []struct {
-		name string
-		run  func() error
-	}{
+	return []lintCheck{
 		{"architecture lint", func() error { return lint.Run(os.Stdout, lint.Open(ctx, root), lint.Rules()) }},
-		{"gofmt", func() error { return golangciLint(ctx, root, nil, "fmt", "--diff") }},
-		{"go vet", func() error { return run(ctx, root, goEnv, "go", "vet", "./...") }},
 		{"openapi.json without cgo", func() error {
 			return run(ctx, root, cgoFree, "go", "test", "-count=1", "-run", "^TestDocument$", "./internal/node/surface")
 		}},
-		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "./...") }},
 		{"sqlc drift", func() error {
 			configs, err := sqlcConfigs(ctx, root)
 			if err != nil {
@@ -87,18 +129,7 @@ func runLint(ctx context.Context, args []string) error {
 		{"oxlint", func() error { return run(ctx, web, nil, "bun", "run", "lint") }},
 		{"oxfmt", func() error { return run(ctx, web, nil, "bun", "run", "fmt:check") }},
 		{"notices", func() error { return notices.Check(ctx, root) }},
-	}
-	var failed []string
-	for _, c := range checks {
-		if err := c.run(); err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", c.name, err)
-			failed = append(failed, c.name)
-		}
-	}
-	if len(failed) > 0 {
-		return fmt.Errorf("failed: %s", strings.Join(failed, ", "))
-	}
-	return nil
+	}, nil
 }
 
 func runFmt(ctx context.Context, args []string) error {
