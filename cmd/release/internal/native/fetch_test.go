@@ -267,7 +267,7 @@ func TestFetchedBundleBuildsWithXcodeAndTheLibsLayer(t *testing.T) {
 		{"CXX", "clang++"},
 		{"CGO_CFLAGS", cflags},
 		{"CGO_CXXFLAGS", cflags},
-		{"CGO_LDFLAGS", filepath.Join(dir, "lib", "libssl.a") + " -lc++"},
+		{"CGO_LDFLAGS", filepath.Join(dir, "lib", "libssl.a") + " -lc++ -Wl,-no_warn_duplicate_libraries"},
 		{"MACOSX_DEPLOYMENT_TARGET", "13.0"},
 		{ToolsEnv, filepath.Join(tools, "ffmpeg") + string(os.PathListSeparator) + filepath.Join(tools, "ffprobe")},
 	}
