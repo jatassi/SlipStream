@@ -4728,7 +4728,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE
 SOFTWARE.
 
 ================================================================================
-libgcc 14.4.0 (toolchain runtime)
+libgcc 15.3.0 (toolchain runtime)
 License: GPL-3.0-with-GCC-exception
 Targets: linux-amd64, linux-arm64
 
@@ -5481,7 +5481,7 @@ presumption that third-party software is unaffected by the copyleft
 requirements of the license of GCC.
 
 ================================================================================
-libstdc++ 14.4.0 (toolchain runtime)
+libstdc++ 15.3.0 (toolchain runtime)
 License: GPL-3.0-with-GCC-exception
 Targets: linux-amd64, linux-arm64
 
