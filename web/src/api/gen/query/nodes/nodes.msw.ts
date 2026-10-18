@@ -50,6 +50,10 @@ export const getGetJoinCodeResponseMock = (
     ? {
         dialing: {
           address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          addresses: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
           since: faker.date.past().toISOString().slice(0, 19) + "Z",
           unreachable: faker.datatype.boolean(),
         },
