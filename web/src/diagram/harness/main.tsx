@@ -12,11 +12,10 @@ import { DiagramFigure } from "../figure";
 import { fixtureClock, fixtureOf } from "../fixtures";
 import type { Part } from "../parts-order";
 
-// The Diagram alone, drawn from a fixture (?fixture=1, 2, 5, 8 or 12; 1 is
-// a lone Controller holding all ten Roles), for the anatomy line check, the
-// frame budget and close-ups. A search reports every 5 s and a fetch every
-// 3 s, unless ?work=quiet. Development only: the app's build never includes
-// it.
+// The Diagram alone, drawn from a fixture (?fixture=1 to 15; 1 is a lone
+// Controller holding all ten Roles), for the anatomy line check, the frame
+// budget and close-ups. A search reports every 5 s and a fetch every 3 s,
+// unless ?work=quiet. Development only: the app's build never includes it.
 
 const params = new URLSearchParams(location.search);
 const fixture = fixtureOf(Number(params.get("fixture") ?? "2"));

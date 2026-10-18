@@ -134,6 +134,25 @@ test("a click on a Node's tile opens the Inspector headed for it, and Escape clo
   await expect.element(inspector).not.toBeInTheDocument();
 });
 
+test("the Inspector opens below the top bar, which keeps its search and Add a Node clear of each other", async () => {
+  renderApp({ path: "/nodes", handlers: dragServer().handlers });
+  await expect.element(diagram()).toBeVisible();
+  await userEvent.click(
+    page.elementLocator(document.querySelector(tile(ids.vps)) ?? document.body),
+  );
+  const inspector = page.getByRole("complementary", { name: "vps" });
+  await expect.element(inspector).toBeVisible();
+  const bar = page.getByRole("banner").element().getBoundingClientRect();
+  const search = page
+    .getByRole("button", { name: "Search Works or run a command" })
+    .element()
+    .getBoundingClientRect();
+  const add = page.getByRole("button", { name: "Add a Node" }).element().getBoundingClientRect();
+  expect(inspector.element().getBoundingClientRect().top).toBeGreaterThanOrEqual(bar.bottom + 12);
+  expect(search.right).toBeLessThan(add.left);
+  expect(add.right).toBeLessThanOrEqual(bar.right);
+});
+
 test("a chip drags over text selected in the Diagram, which a browser would otherwise drag as text", async () => {
   const server = dragServer();
   renderApp({ path: "/nodes", handlers: server.handlers });
