@@ -36,9 +36,9 @@ type Running struct {
 // Waiting is a task whose every unit is tied to a Node that can't start
 // work, since Since.
 type Waiting struct {
-	Node  string
-	Link  nodes.LinkState
-	Since time.Time
+	Node     string
+	Standing nodes.Standing
+	Since    time.Time
 }
 
 func (Idle) status()    {}
@@ -107,6 +107,7 @@ type Line struct {
 	Key     UnitKey
 	Label   string
 	Node    string
+	NodeID  role.NodeID
 	Outcome Outcome
 	Cause   string
 }
@@ -117,6 +118,7 @@ type UnitView struct {
 	Key              UnitKey
 	Label            string
 	Node             string
+	NodeID           role.NodeID
 	Outcome          Outcome
 	Cause            string
 	Ended, Succeeded time.Time
@@ -232,7 +234,8 @@ func (s *Scheduler) Task(ctx context.Context, id TaskID) (Detail, error) {
 		rows[row.UnitKey] = row
 	}
 	for _, u := range l.listed[id] {
-		uv := UnitView{Key: u.Key, Label: u.Label, Node: l.name(s.nodeOf(u.Place))}
+		node := s.nodeOf(u.Place)
+		uv := UnitView{Key: u.Key, Label: u.Label, Node: l.name(node), NodeID: node}
 		if row, ok := rows[u.Key]; ok && row.LastOutcome != nil {
 			uv.Outcome, uv.Cause = *row.LastOutcome, deref(row.LastCause)
 			uv.Ended, uv.Succeeded = row.LastEndedAt.Time(), row.LastSuccessAt.Time()
@@ -274,11 +277,20 @@ func (s *Scheduler) Running(ctx context.Context) ([]Active, error) {
 	return out, nil
 }
 
+// nodeOf is the Node a unit at p runs on now: the Controller, the tied
+// Node, or where the roster routes portable work, its home while no Node
+// may take it.
 func (s *Scheduler) nodeOf(p Place) role.NodeID {
-	if node, ok := p.Node(); ok {
-		return node
+	switch p.kind {
+	case onController:
+		return s.self
+	case portableOn:
+		if to, err := s.cfg.Roster.Route(p.role, p.node); err == nil {
+			return to
+		}
+	case tiedTo:
 	}
-	return s.self
+	return p.node
 }
 
 func (s *Scheduler) names(l look, units []Unit) []string {
@@ -344,8 +356,8 @@ func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status 
 		}
 	}
 	node := units[0].Place.node
-	link, since := s.cfg.Roster.Reach(node)
-	return Waiting{Node: l.name(node), Link: link, Since: since}
+	standing, since := s.cfg.Roster.Standing(node)
+	return Waiting{Node: l.name(node), Standing: standing, Since: since}
 }
 
 func (l look) runOf(row db.TasksRun) Run {
@@ -361,11 +373,12 @@ func (l look) runOf(row db.TasksRun) Run {
 		panic(fmt.Sprintf("tasks: run %d's units: %v", row.ID, err))
 	}
 	for _, ln := range lines {
-		name := ""
+		var node role.NodeID
 		if id, err := storage.ParseUUID(ln.Node); err == nil {
-			name = l.name(role.NodeID{UUID: id})
+			node = role.NodeID{UUID: id}
 		}
-		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, Outcome: ln.Outcome, Cause: ln.Cause})
+		name := l.name(node)
+		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, Outcome: ln.Outcome, Cause: ln.Cause})
 		if name != "" {
 			r.Nodes = appendNew(r.Nodes, name)
 		}

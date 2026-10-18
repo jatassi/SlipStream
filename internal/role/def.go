@@ -23,12 +23,14 @@ func LibrarySchema() storage.Schema[storage.Library] { return watermark.Schema()
 // result outbox.
 func LocalSchema() storage.Schema[storage.Local] { return holding.Schema() }
 
-// Timings are the Role supervisor's restart backoff bounds, and how often
-// a holder beats on its Sync stream.
+// Timings are the Role supervisor's restart backoff bounds, how often a
+// holder beats on its Sync stream, and how long the Controller lets a
+// Worker's Sync stream go silent before it closes the Worker's link.
 type Timings struct {
 	RestartMin time.Duration `yaml:"restart_min"`
 	RestartMax time.Duration `yaml:"restart_max"`
 	Beat       time.Duration `yaml:"beat"`
+	Stall      time.Duration `yaml:"stall"`
 }
 
 // Def binds a Role's name to its intent, facts and result messages.

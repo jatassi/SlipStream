@@ -50,6 +50,26 @@ var OfflineGrace = setting.Duration{
 	Step:    time.Minute,
 }
 
+func (s *Service) OfflineGraceField(ctx context.Context) (setting.DurationField, error) {
+	grace, err := db.New(s.cfg.Library).GetOfflineGrace(ctx)
+	if err != nil {
+		return setting.DurationField{}, fmt.Errorf("read the offline grace: %w", err)
+	}
+	return OfflineGrace.Field(grace), nil
+}
+
+// SetOfflineGrace stores the offline grace and reads the roster again, so
+// a Node away longer than the new grace lapses at once.
+func (s *Service) SetOfflineGrace(ctx context.Context, v setting.Stored[int64]) error {
+	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return db.New(tx).SetOfflineGrace(ctx, v.Override())
+	})
+	if err != nil {
+		return fmt.Errorf("set the offline grace: %w", err)
+	}
+	return s.reload(ctx)
+}
+
 // Board is the roster now.
 func (s *Service) Board() *Board { return s.board.Load() }
 
@@ -68,6 +88,21 @@ func (s *Service) Holds(r role.Name, node ID) bool { return s.Who(r).Holds(node)
 func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick(prefer) }
 
 func (s *Service) WrittenOff(r role.Name, node ID) bool { return s.Who(r).WrittenOff(node) }
+
+func (s *Service) Route(r role.Name, home ID) (ID, error) { return s.Who(r).Route(home) }
+
+func (s *Service) Away(r role.Name, node ID) (Absence, bool) { return s.Who(r).Away(node) }
+
+// Standing is how node stands on the board and since when: since it came
+// in step, or its last Sync frame while away. A Node the board doesn't
+// list is offline.
+func (s *Service) Standing(node ID) (Standing, time.Time) {
+	v, ok := s.Board().Node(node)
+	if !ok {
+		return Offline, time.Time{}
+	}
+	return v.Standing, v.Since
+}
 
 // InStep reports whether node's Sync session is attached, always for the
 // Controller.
@@ -246,6 +281,13 @@ func (s *Service) inStep(node ID, attached bool) {
 			in.detach(node, now)
 		}
 	})
+}
+
+// stalled closes the link of a Node whose Sync stream went silent.
+func (s *Service) stalled(node ID) {
+	if key, ok := s.Key(node); ok {
+		s.cfg.Link.Reset(key)
+	}
 }
 
 func (s *Service) seen(node ID) {

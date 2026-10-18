@@ -1,11 +1,11 @@
 import type { TasksWaitingStateKind } from "./tasksWaitingStateKind.ts";
-import type { TasksWaitingStateLink } from "./tasksWaitingStateLink.ts";
+import type { TasksWaitingStateStanding } from "./tasksWaitingStateStanding.ts";
 
 export interface TasksWaitingState {
   kind: TasksWaitingStateKind;
-  link: TasksWaitingStateLink;
   /** The Node every unit waits for */
   node: string;
-  /** When the Node's link entered that state */
+  /** The Node's last Sync frame, or the Controller's start when it sent none since */
   since: string;
+  standing: TasksWaitingStateStanding;
 }

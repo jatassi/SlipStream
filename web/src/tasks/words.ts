@@ -31,13 +31,15 @@ export const outcomes: {
   canceled: { word: "Cancelled", signal: undefined },
 };
 
-const links: { readonly [L in TasksWaitingState["link"]]: string } = {
-  down: "offline",
+const standings: { readonly [S in TasksWaitingState["standing"]]: string } = {
+  reconnecting: "reconnecting",
+  offline: "offline",
+  lapsed: "offline",
   mismatched: "on another version",
 };
 
 export const waitingWords = (state: TasksWaitingState, clock: Clock): string =>
-  `Waiting for ${state.node} · ${links[state.link]} since ${sinceWords(state.since, clock)}`;
+  `Waiting for ${state.node} · ${standings[state.standing]} since ${sinceWords(state.since, clock)}`;
 
 export const nextWords = (task: TasksTask, next: string, clock: Clock): string =>
   task.cadence.inWindow ? atWords(next, clock) : inWords(next, clock.now);

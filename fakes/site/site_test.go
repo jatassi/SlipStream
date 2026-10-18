@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
@@ -144,6 +145,10 @@ func (a alone) Self() role.NodeID { return a.self }
 
 func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool) { return a.self, true }
 
+func (a alone) Route(role.Name, role.NodeID) (role.NodeID, error) { return a.self, nil }
+
+func (alone) Away(role.Name, role.NodeID) (nodes.Absence, bool) { return nodes.Absence{}, false }
+
 type discard struct{}
 
 func (discard) Publish(context.Context, indexers.Changed) {}
@@ -183,9 +188,9 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("items =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	b, err := x.FetchTorrent(t.Context(), idx, items[0].Link)
-	if err != nil || string(b) != rewritten {
-		t.Fatalf("FetchTorrent = %q, %v, want %q", b, err, rewritten)
+	fetched, err := x.FetchTorrent(t.Context(), idx, items[0].Link)
+	if err != nil || string(fetched.Torrent) != rewritten {
+		t.Fatalf("FetchTorrent = %q, %v, want %q", fetched.Torrent, err, rewritten)
 	}
 	_, err = x.FetchTorrent(t.Context(), idx, "https://elsewhere.test/download/"+hash1080+".torrent")
 	var unavailable *indexers.UnavailableError

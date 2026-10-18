@@ -101,6 +101,7 @@ func (c *controller) open(t *testing.T, s *side) {
 		Changed: pub,
 		Owners:  nodestest.Unowned(),
 		Timings: nodes.DefaultTimings(),
+		Stall:   45 * time.Second,
 		Log:     discard,
 	})
 	if err != nil {
@@ -539,6 +540,8 @@ func (unlinked) State(link.Key) link.State { return link.Down{} }
 func (unlinked) Subscribe(context.Context) <-chan link.Change { return nil }
 
 func (unlinked) Advertised() (link.Addresses, bool) { return link.Addresses{}, false }
+
+func (unlinked) Reset(link.Key) {}
 
 func (unlinked) Keep(link.Target) {}
 

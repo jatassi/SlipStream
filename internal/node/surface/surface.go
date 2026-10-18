@@ -72,7 +72,7 @@ type Node interface {
 	indexersapi.Registry
 	filesapi.Library
 	grabsapi.Pipeline
-	shellapi.Pipeline
+	shellapi.Shell
 	systemapi.Systems
 	Removal() (pairing.Removal, bool)
 	tasksapi.Clock

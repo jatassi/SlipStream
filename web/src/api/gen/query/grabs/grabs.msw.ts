@@ -40,6 +40,7 @@ export const getListGrabsResponseMock = (
           },
         }
       : {}),
+    fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         at: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -118,6 +119,7 @@ export const getGetGrabResponseMock = (
         },
       }
     : {}),
+  fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",

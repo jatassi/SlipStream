@@ -84,3 +84,46 @@ func TestHomeCoversSearchingForALapsedSeedbox(t *testing.T) {
 		}
 	})
 }
+
+// TestAWorkerSilentOnSyncLosesItsLink restarts seedbox beating once an
+// hour. Its link still answers pings, but its Sync stream carries nothing,
+// so home closes the link at the stall and seedbox dials again, where a
+// beating seedbox keeps its one session.
+func TestAWorkerSilentOnSyncLosesItsLink(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, home(t))
+		a := w.API()
+		synctest.Wait()
+		stall := node.Defaults(contenttype.Set{}, install.Dev).Timings.Role.Stall
+		home := w.Node("home")
+		beating := home.SyncStreams()
+		time.Sleep(2 * stall)
+		synctest.Wait()
+		if got := home.SyncStreams(); got != beating {
+			t.Fatalf("home served %d Sync streams over two stalls of a beating seedbox, want %d", got, beating)
+		}
+
+		box := w.Node("seedbox")
+		box.Stop()
+		box.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_TIMINGS_ROLE_BEAT=1h") })
+		for seedbox(t, a).Link.State != "up" {
+			time.Sleep(time.Second)
+			synctest.Wait()
+		}
+		silent := home.SyncStreams()
+		time.Sleep(stall - time.Second)
+		synctest.Wait()
+		if got := home.SyncStreams(); got != silent {
+			t.Fatalf("home served %d Sync streams before the stall, want %d", got, silent)
+		}
+		time.Sleep(2 * time.Second)
+		synctest.Wait()
+		for seedbox(t, a).Link.State != "up" {
+			time.Sleep(time.Second)
+			synctest.Wait()
+		}
+		if got := home.SyncStreams(); got <= silent {
+			t.Fatalf("home served %d Sync streams after seedbox was silent for the stall, want more than %d", got, silent)
+		}
+	})
+}

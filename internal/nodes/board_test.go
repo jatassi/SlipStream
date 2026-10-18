@@ -216,3 +216,93 @@ func TestPicksAndHeldWork(t *testing.T) {
 		t.Errorf("Pick found a Relaying Node, want none")
 	}
 }
+
+func TestWorkHomedOnANodeWaitsForItWithinTheGraceThenMoves(t *testing.T) {
+	in := cluster()
+	in.node(box).seen = start.Add(31 * time.Minute)
+	in.detach(box, start.Add(31*time.Minute))
+	offline := "seedbox is offline since 2000-01-01T21:31:00Z"
+	for _, step := range []struct {
+		at    time.Time
+		away  Absence
+		route ID
+		wait  string
+		why   string
+	}{
+		{start.Add(31 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: Reconnecting}, ID{}, "seedbox is reconnecting", "seedbox is reconnecting, and no other Node searches"},
+		{start.Add(40 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: Offline}, ID{}, offline, offline + ", and no other Node searches"},
+		{start.Add(46 * time.Minute), Absence{Since: start.Add(31 * time.Minute), Standing: LapsedNode, Lapsed: true}, home, "", ""},
+	} {
+		who := in.at(step.at).Who(role.Searching)
+		if got, ok := who.Away(box); !ok || got != step.away {
+			t.Errorf("at %s Away(seedbox) = %+v, %v; want %+v", step.at.Format(time.TimeOnly), got, ok, step.away)
+		}
+		if got, err := who.Route(box); got != step.route || step.route.IsZero() && (err == nil || err.Error() != step.wait) {
+			t.Errorf("at %s Searching homed on seedbox routes to %s, %v; want %s, %q", step.at.Format(time.TimeOnly), got, err, step.route, step.wait)
+		}
+		if got := who.Why(); got != step.why {
+			t.Errorf("at %s Why() = %q, want %q", step.at.Format(time.TimeOnly), got, step.why)
+		}
+	}
+	lapsed := in.at(start.Add(46 * time.Minute))
+	if got, err := lapsed.Who(role.Downloading).Route(box); err == nil || err.Error() != offline+", and no other Node downloads" {
+		t.Errorf("Downloading homed on lapsed seedbox routes to %s, %v; want it waiting on seedbox", got, err)
+	}
+	if got, want := lapsed.Who(role.Downloading).Why(), offline+", and no other Node downloads"; got != want {
+		t.Errorf("Downloading's Why() = %q, want %q", got, want)
+	}
+
+	back := start.Add(50 * time.Minute)
+	in.attach(box, back)
+	if _, ok := in.at(back).Who(role.Searching).Away(box); ok {
+		t.Errorf("seedbox back in step reads away")
+	}
+	if got, _ := in.at(back).Who(role.Searching).Route(box); got != home {
+		t.Errorf("while seedbox settles Searching homed on it routes to %s, want home, which still covers", got)
+	}
+	if got, _ := in.at(back.Add(time.Minute)).Who(role.Searching).Route(box); got != box {
+		t.Errorf("once seedbox settled Searching homed on it routes to %s, want seedbox", got)
+	}
+}
+
+func TestWhyNamesEveryHolderThatMayNot(t *testing.T) {
+	in := cluster()
+	in.nodes = append(in.nodes, nodeIn{id: crate, name: "crate", assigned: role.Of(role.Searching), seen: start})
+	in.detach(box, start)
+	in.node(box).mismatched = true
+	if got, want := in.at(start.Add(2*time.Minute)).Who(role.Searching).Why(),
+		"seedbox is on another version since 2000-01-01T21:00:00Z and crate is offline since 2000-01-01T21:00:00Z"; got != want {
+		t.Errorf("Why() = %q, want %q", got, want)
+	}
+	if got, want := in.at(start).Who(role.Relaying).Why(), "no Node holds Relaying"; got != want {
+		t.Errorf("Why() for an unheld Role = %q, want %q", got, want)
+	}
+	if got := in.at(start).Who(role.Metadata).Why(); got != "" {
+		t.Errorf("Why() for a Role home may hold = %q, want none", got)
+	}
+}
+
+func TestTheAlertWarnsPastTheBlipAndFailsPastTheGrace(t *testing.T) {
+	in := cluster()
+	in.detach(box, start)
+	back := start.Add(20 * time.Minute)
+	for _, step := range []struct {
+		at   time.Time
+		want Alert
+	}{
+		{start.Add(30 * time.Second), NoAlert},
+		{start.Add(time.Minute), Warning},
+		{start.Add(15 * time.Minute), Failing},
+	} {
+		if got := in.at(step.at).Alert(); got != step.want {
+			t.Errorf("seedbox away at %s: the alert is %q, want %q", step.at.Format(time.TimeOnly), got, step.want)
+		}
+	}
+	in.attach(box, back)
+	if got := in.at(back).Alert(); got != Warning {
+		t.Errorf("while home still covers for settling seedbox the alert is %q, want warn", got)
+	}
+	if got := in.at(back.Add(time.Minute)).Alert(); got != NoAlert {
+		t.Errorf("once seedbox settled the alert is %q, want none", got)
+	}
+}

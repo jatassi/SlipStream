@@ -21,21 +21,25 @@ const advance = `-- name: Advance :execrows
 UPDATE grabs_grab SET
     stage = ?1,
     info_hash = coalesce(?2, info_hash),
-    metainfo = coalesce(?3, metainfo),
-    file_index = coalesce(?4, file_index),
-    probe = coalesce(?5, probe),
-    root_id = coalesce(?6, root_id),
-    path = coalesce(?7, path),
-    failed_stage = ?8,
-    failure_code = ?9,
-    failure_message = ?10,
-    updated_at = ?11
-WHERE id = ?12 AND stage = ?13
+    fetch_node_id = coalesce(?3, fetch_node_id),
+    node_id = coalesce(?4, node_id),
+    metainfo = coalesce(?5, metainfo),
+    file_index = coalesce(?6, file_index),
+    probe = coalesce(?7, probe),
+    root_id = coalesce(?8, root_id),
+    path = coalesce(?9, path),
+    failed_stage = ?10,
+    failure_code = ?11,
+    failure_message = ?12,
+    updated_at = ?13
+WHERE id = ?14 AND stage = ?15
 `
 
 type AdvanceParams struct {
 	Next           Stage
 	InfoHash       []byte
+	FetchNodeID    role.NodeID
+	NodeID         role.NodeID
 	Metainfo       []byte
 	FileIndex      *int64
 	Probe          *string
@@ -53,6 +57,8 @@ func (q *Queries) Advance(ctx context.Context, arg AdvanceParams) (int64, error)
 	result, err := q.db.ExecContext(ctx, advance,
 		arg.Next,
 		arg.InfoHash,
+		arg.FetchNodeID,
+		arg.NodeID,
 		arg.Metainfo,
 		arg.FileIndex,
 		arg.Probe,
@@ -143,7 +149,7 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, seed_dropped_at FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, seed_dropped_at, fetch_node_id FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -176,6 +182,7 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SeedDroppedAt,
+		&i.FetchNodeID,
 	)
 	return i, err
 }
@@ -345,7 +352,7 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, seed_dropped_at FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, seed_dropped_at, fetch_node_id FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -384,6 +391,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SeedDroppedAt,
+			&i.FetchNodeID,
 		); err != nil {
 			return nil, err
 		}
@@ -399,7 +407,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, seed_dropped_at FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, seed_dropped_at, fetch_node_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -438,6 +446,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SeedDroppedAt,
+			&i.FetchNodeID,
 		); err != nil {
 			return nil, err
 		}

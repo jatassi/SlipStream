@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -61,7 +62,11 @@ type ControlsConfig struct {
 	// block.
 	InStep func(node NodeID, attached bool)
 	Seen   func(node NodeID)
-	Log    *slog.Logger
+	// Stalled is called when a Worker's Sync stream carried nothing for
+	// Stall, before its session ends. It must not block.
+	Stalled func(node NodeID)
+	Stall   time.Duration
+	Log     *slog.Logger
 }
 
 // Controls is the control half: one session per holder, deriving its
@@ -268,9 +273,23 @@ func (c *Controls) session(ctx context.Context, node NodeID, s controlStream) er
 	if err := s.Send(&nodev1.Down{Frame: &nodev1.Down_CaughtUp{CaughtUp: &nodev1.CaughtUp{}}}); err != nil {
 		return err
 	}
+	return c.converse(ctx, sess, epoch, s, ups)
+}
+
+// converse answers the holder's frames and sends the scopes that change
+// until the session ends. A holder silent for the stall loses its link;
+// the Controller's own session never stalls, as it is always in step.
+func (c *Controls) converse(ctx context.Context, sess *controlSession, epoch storage.UUID, s controlStream, ups *inbox[*nodev1.Up]) error {
+	stall := time.NewTimer(c.cfg.Stall)
+	defer stall.Stop()
+	silence := stall.C
+	if sess.node == c.cfg.Nodes.Self() {
+		silence = nil
+	}
 	for {
 		select {
 		case <-ups.ready:
+			stall.Reset(c.cfg.Stall)
 			frames, end := ups.take()
 			if err := c.receive(ctx, sess, epoch, s, frames); err != nil {
 				return err
@@ -286,6 +305,9 @@ func (c *Controls) session(ctx context.Context, node NodeID, s controlStream) er
 			if err := c.sync(ctx, sess, s, dirty); err != nil {
 				return err
 			}
+		case <-silence:
+			c.cfg.Stalled(sess.node)
+			return fmt.Errorf("the holder sent nothing for %s", c.cfg.Stall)
 		case <-ctx.Done():
 			return fmt.Errorf("role session: %w", ctx.Err())
 		}

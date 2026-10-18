@@ -25,11 +25,12 @@ const (
 )
 
 type grabView struct {
-	ID       string `json:"id"`
-	NodeID   string `json:"nodeId"`
-	InfoHash string `json:"infoHash"`
-	Stage    string `json:"stage"`
-	Progress *struct {
+	ID          string  `json:"id"`
+	NodeID      string  `json:"nodeId"`
+	FetchNodeID *string `json:"fetchNodeId"`
+	InfoHash    string  `json:"infoHash"`
+	Stage       string  `json:"stage"`
+	Progress    *struct {
 		Done  int64 `json:"done"`
 		Total int64 `json:"total"`
 	} `json:"progress"`

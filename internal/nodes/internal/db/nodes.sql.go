@@ -689,6 +689,15 @@ func (q *Queries) SetJoinCodeLifetime(ctx context.Context, joinCodeLifetimeSecon
 	return err
 }
 
+const setOfflineGrace = `-- name: SetOfflineGrace :exec
+UPDATE nodes_settings SET offline_grace_seconds = ?1 WHERE id = 1
+`
+
+func (q *Queries) SetOfflineGrace(ctx context.Context, offlineGraceSeconds *int64) error {
+	_, err := q.db.ExecContext(ctx, setOfflineGrace, offlineGraceSeconds)
+	return err
+}
+
 const setPairedAt = `-- name: SetPairedAt :exec
 UPDATE nodes_node SET paired_at = ?1 WHERE id = ?2
 `

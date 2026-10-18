@@ -5,7 +5,7 @@ import { getCounts, getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { useAccount } from "../session/session";
 import type { CountDot } from "../ui/count";
 
-export type CountKey = keyof ShellCounts;
+export type CountKey = Exclude<keyof ShellCounts, "alerts">;
 
 // The server counts; this is the client's reading of which stages it counts.
 export const activityStages = {
