@@ -142,3 +142,14 @@ test("a chip drags over text selected in the Diagram, which a browser would othe
   await userEvent.keyboard("{/Alt}");
   await expect.element(review()).toBeVisible();
 });
+
+test("a click on a Role chip, which a press would start dragging, opens the Inspector for that Role", async () => {
+  renderApp({ path: "/nodes", handlers: dragServer().handlers });
+  await expect.element(diagram()).toBeVisible();
+  await userEvent.click(
+    page.elementLocator(document.querySelector(chip(ids.home, "downloading")) ?? document.body),
+  );
+  await expect
+    .element(page.getByRole("complementary", { name: "Downloading on home" }))
+    .toBeVisible();
+});

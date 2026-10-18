@@ -191,8 +191,8 @@ export function useInteraction(options: Options): Interaction {
   useListened(figure, (event) => {
     const handlers: Handlers = { ...options, parts, preview, setPreview, hold, drag };
     if (event.type === "click") {
-      if (!drag.endsDrag()) {
-        options.onSelect(partAt(event.target));
+      if (!drag.endsDrag() && event instanceof MouseEvent) {
+        options.onSelect(partAt(document.elementFromPoint(event.clientX, event.clientY)));
       }
     } else if (event instanceof PointerEvent) {
       onPointer(event, handlers);
