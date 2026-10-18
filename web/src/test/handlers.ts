@@ -7,7 +7,7 @@ import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
-import { home, nodesAre, topologyIs, topologyOf } from "./nodes";
+import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { board, boardIs, homeSeat } from "./roles";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
@@ -54,6 +54,9 @@ export function problem(status: number, code: string, title: string) {
     { status, headers: { "Content-Type": "application/problem+json" } },
   );
 }
+
+/** The Overview of the Node every test talks to. */
+export const homePage = `/nodes/${homeId}`;
 
 export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 

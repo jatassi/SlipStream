@@ -6,7 +6,7 @@ import type { NodesBoardNode, NodesNode } from "../../../api/gen/model";
 import { problem } from "../../../test/handlers";
 import { codeText, joinCodeServer, nodesFrom } from "../../../test/join-codes";
 import { liveServer, synced } from "../../../test/live-server";
-import { home, homeId } from "../../../test/nodes";
+import { home } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
 import { board, boardIs, homeSeat, outcome, rolesServer } from "../../../test/roles";
 

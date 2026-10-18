@@ -11,6 +11,7 @@ import { Skeleton } from "../../../ui/skeleton";
 import { NodesLanding } from "./-landing/landing";
 
 export const Route = createFileRoute("/_app/nodes/")({
+  staticData: { title: "Nodes" },
   validateSearch: z.object({ view: z.enum(["diagram", "roster"]).optional().catch(undefined) }),
   loader: async ({ context }) => {
     await Promise.all([

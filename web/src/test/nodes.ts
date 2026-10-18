@@ -1,4 +1,10 @@
-import type { NodesNode, NodesTopology, NodesTopologyNode, SystemReport } from "../api/gen/model";
+import type {
+  NodesNode,
+  NodesTopology,
+  NodesTopologyLink,
+  NodesTopologyNode,
+  SystemReport,
+} from "../api/gen/model";
 import {
   getGetTopologyMockHandler,
   getListNodesMockHandler,
@@ -45,19 +51,28 @@ export const seedbox: NodesNode = {
 export const nodesAre = (...nodes: NodesNode[]) => getListNodesMockHandler({ nodes });
 
 function topologyNodeOf(node: NodesNode): NodesTopologyNode {
-  const away = node.standing !== "in-step";
+  const { standing } = node;
+  const away = standing !== "in-step";
   return {
     id: node.id,
     name: node.name,
     self: node.self,
     controller: node.self,
-    state: away ? node.standing : "online",
+    state: standing === "in-step" ? "online" : standing,
     since: node.link.since,
     ...(away && { lastSeenAt: node.link.since }),
     roles: node.roles,
     probes: node.probes,
     resources: {},
   };
+}
+
+function linkOf(controller: string, { id, link, dial }: NodesNode, rtt: number | undefined) {
+  const up: Pick<NodesTopologyLink, "dialer" | "rttMs"> =
+    dial.by === undefined
+      ? {}
+      : { dialer: dial.by === "node" ? id : controller, ...(rtt !== undefined && { rttMs: rtt }) };
+  return { a: controller, b: id, state: link.state === "up" ? "up" : "down", ...up } as const;
 }
 
 /** Topology as the Controller of nodes would answer it, the Controller first in nodes. */
@@ -73,15 +88,7 @@ export function topologyOf(
     at: "2026-10-12T10:05:00Z",
     sentence,
     nodes: nodes.map((node) => topologyNodeOf(node)),
-    links: nodes
-      .filter(({ self }) => !self)
-      .map(({ id, link, dial }) => ({
-        a: controller.id,
-        b: id,
-        state: link.state === "up" ? "up" : "down",
-        ...(dial.by !== undefined && { dialer: dial.by === "node" ? id : controller.id }),
-        ...(dial.by !== undefined && rtt !== undefined && { rttMs: rtt }),
-      })),
+    links: nodes.filter(({ self }) => !self).map((node) => linkOf(controller.id, node, rtt)),
   };
 }
 

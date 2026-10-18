@@ -17,9 +17,14 @@ const linkTexts = (name: string) =>
     .all()
     .map((link) => [link.element().textContent, link.element().getAttribute("href")]);
 
-test("/system and /nodes land on the Overview of the Node the browser talks to", async () => {
+test("/system lands on Nodes", async () => {
   const { router } = renderApp({ path: "/system", handlers: system });
-  await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}`);
+  await expect.poll(() => router.state.location.href).toBe("/nodes");
+  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+});
+
+test("a Node's Overview lists what it reports about itself", async () => {
+  renderApp({ path: `/nodes/${homeId}`, handlers: system });
   await expect.element(page.getByRole("heading", { name: "home", level: 1 })).toBeVisible();
   await expect.element(page.getByText("0.0.0-dev+3f2a1c9")).toBeVisible();
   await expect.element(page.getByText("/data/home", { exact: true })).toBeVisible();
@@ -129,11 +134,12 @@ test("a Member gets the server's refusal", async () => {
     .toHaveAttribute("href", "/portal");
 });
 
-test("on phone, Nodes lists the Node's sections, and each pushes with a back link to Nodes", async () => {
+test("on phone, a Node lists its sections, and each pushes with a back link to the Node", async () => {
   await asPhone();
-  const { router } = renderApp({ path: "/nodes", handlers: system });
-  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  const { router } = renderApp({ path: `/nodes/${homeId}`, handlers: system });
   await expect.element(page.getByText("127.0.0.2:8080")).toBeVisible();
+  const nodeBack = page.getByRole("banner").getByRole("link", { name: "Nodes" });
+  await expect.element(nodeBack).toHaveAttribute("href", "/nodes");
   await expect.element(tabsOf("home")).not.toBeInTheDocument();
   const sections = page.getByRole("list", { name: "home" });
   expect(
@@ -147,7 +153,7 @@ test("on phone, Nodes lists the Node's sections, and each pushes with a back lin
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/logs`);
   const bar = page.getByRole("banner");
   await expect.element(bar.getByRole("heading", { name: "Logs" })).toBeVisible();
-  const back = bar.getByRole("link", { name: "Nodes" });
+  const back = bar.getByRole("link", { name: "home" });
   await expect.element(back).toHaveAttribute("href", `/nodes/${homeId}`);
   await userEvent.click(back);
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}`);
@@ -165,7 +171,9 @@ test("on phone, the Node row opens a sheet of Nodes that switches Node", async (
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${seedboxId}`);
   await expect
     .element(
-      page.getByText("seedbox is offline. Its settings and logs come back when it reconnects."),
+      page.getByText(
+        "seedbox is offline. Its version and listeners show again when it reconnects.",
+      ),
     )
     .toBeVisible();
   await expect.element(page.getByRole("button", { name: "offline seedbox Node" })).toBeVisible();

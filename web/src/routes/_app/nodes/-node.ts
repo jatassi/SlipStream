@@ -36,7 +36,6 @@ export async function loadNode(queryClient: QueryClient, nodeId: string): Promis
 
 export type NodeState = "online" | Away | "restarting";
 
-/** A Node's state in a word or three. */
 export const stateWords: { readonly [S in NodeState]: string } = {
   online: "online",
   reconnecting: "reconnecting",
