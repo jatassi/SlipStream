@@ -44,6 +44,9 @@ func (unlinked) State(link.Key) link.State                    { return link.Down
 func (unlinked) Subscribe(context.Context) <-chan link.Change { return nil }
 func (unlinked) Advertised() (link.Addresses, bool)           { return link.Addresses{}, false }
 func (unlinked) Reset(link.Key)                               {}
+func (unlinked) Keep(link.Target)                             {}
+func (unlinked) Drop(link.Key)                                {}
+func (unlinked) Invite(context.Context, link.Target) error    { return nil }
 
 // seed inserts one Grab in stage, with the columns the stage's CHECKs ask
 // for, against the one Item in the library.

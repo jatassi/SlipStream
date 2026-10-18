@@ -39,7 +39,7 @@ func CreateJoinCode(ctx context.Context, c *http.Client, baseURL, apiKey string)
 		Code string `json:"code"`
 	}
 	err := call(ctx, c, request{
-		what: "create a Join Code", method: http.MethodPost, url: baseURL + "/api/v1/nodes/join-codes",
+		what: "create a Join Code", method: http.MethodPost, url: baseURL + "/api/v1/join-codes",
 		header: apiKeyHeader(apiKey), want: http.StatusCreated,
 	}, &minted)
 	return minted.Code, err

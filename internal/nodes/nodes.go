@@ -6,8 +6,6 @@ package nodes
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/sha256"
 	"embed"
 	"errors"
@@ -20,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes/internal/db"
@@ -73,6 +70,9 @@ type Link interface {
 	Advertised() (link.Addresses, bool)
 	// Reset closes key's live session, keeping whoever dials it.
 	Reset(key link.Key)
+	Keep(t link.Target)
+	Drop(key link.Key)
+	Invite(ctx context.Context, t link.Target) error
 }
 
 type Config struct {
@@ -145,6 +145,11 @@ type Service struct {
 	rearm chan struct{}
 	// recount wakes Run to settle the forfeits.
 	recount chan struct{}
+
+	invites map[JoinCodeID]*inviting
+	// dmu guards kept: the Nodes the link keeps for nodes_dial.
+	dmu  sync.Mutex
+	kept map[link.Key]link.Target
 }
 
 // Open creates this Node's own row when it has none, holding every Role
@@ -163,6 +168,8 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		saved:     map[ID]time.Time{},
 		rearm:     make(chan struct{}, 1),
 		recount:   make(chan struct{}, 1),
+		invites:   map[JoinCodeID]*inviting{},
+		kept:      map[link.Key]link.Target{},
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -361,62 +368,12 @@ func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name
 	if err != nil {
 		return db.NodesNode{}, 0, err
 	}
+	if dials := pasted(code, peer); dials != nil {
+		if err := writeDials(ctx, q, row.ID, dials); err != nil {
+			return db.NodesNode{}, 0, err
+		}
+	}
 	return row, 0, q.UseJoinCode(ctx, db.UseJoinCodeParams{UsedBy: row.ID, UsedAt: now, SecretHash: hash})
-}
-
-// JoinCode is a minted code and when the Controller stops accepting it.
-type JoinCode struct {
-	Code      joincode.Code
-	ExpiresAt time.Time
-}
-
-// MintJoinCode draws a secret and stores only its hash, expiring after the
-// Join Code lifetime. The code names this Node's advertised addresses.
-func (s *Service) MintJoinCode(ctx context.Context) (JoinCode, error) {
-	addrs, ok := s.cfg.Link.Advertised()
-	if !ok {
-		return JoinCode{}, ErrNoLinkAddress
-	}
-	var secret [joincode.SecretSize]byte
-	_, _ = rand.Read(secret[:])
-	code, err := joincode.New(ed25519.PublicKey(s.cfg.Key[:]), secret, addrs.All())
-	if err != nil {
-		return JoinCode{}, err
-	}
-	hash := sha256.Sum256(secret[:])
-	var expires storage.Time
-	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		lifetime, err := q.GetJoinCodeLifetime(ctx)
-		if err != nil {
-			return err
-		}
-		now := storage.Now()
-		expires = storage.FromTime(now.Time().Add(JoinCodeLifetime.Value(lifetime)))
-		return q.InsertJoinCode(ctx, db.InsertJoinCodeParams{SecretHash: hash[:], CreatedAt: now, ExpiresAt: expires})
-	})
-	if err != nil {
-		return JoinCode{}, fmt.Errorf("mint a Join Code: %w", err)
-	}
-	return JoinCode{Code: code, ExpiresAt: expires.Time()}, nil
-}
-
-// PruneJoinCodes deletes every Join Code that expired more than one Join
-// Code lifetime ago. The grace keeps Pair's answer to a late retry of a
-// used code.
-func (s *Service) PruneJoinCodes(ctx context.Context) error {
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		lifetime, err := q.GetJoinCodeLifetime(ctx)
-		if err != nil {
-			return err
-		}
-		return q.DeleteJoinCodesExpiredBefore(ctx, storage.FromTime(time.Now().Add(-JoinCodeLifetime.Value(lifetime))))
-	})
-	if err != nil {
-		return fmt.Errorf("prune Join Codes: %w", err)
-	}
-	return nil
 }
 
 func (s *Service) JoinCodeLifetimeField(ctx context.Context) (setting.DurationField, error) {
@@ -585,6 +542,7 @@ type Node struct {
 	// Build is the peer's, or this Node's own for Local; nil while Down.
 	Build *link.NodeInfo
 	Facts *nodev1.NodeFacts
+	Dial  Dial
 }
 
 type Named struct {
@@ -713,6 +671,9 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 	}
 	if up, ok := s.cfg.Link.State(key).(link.Live); ok {
 		n.Build = &up.Peer
+	}
+	if n.Dial, err = s.dialOf(ctx, row, key); err != nil {
+		return Node{}, err
 	}
 	return n, nil
 }

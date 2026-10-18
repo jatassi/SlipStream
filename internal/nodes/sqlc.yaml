@@ -36,7 +36,19 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: Name
+          - column: nodes_join_code.id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: nodes_join_code.dial_address
+            go_type:
+              type: string
+              pointer: true
           - column: nodes_join_code.used_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: nodes_dial.node_id
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID

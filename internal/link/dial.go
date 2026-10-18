@@ -161,12 +161,7 @@ func (l *Link) turnedAway(k *keeper, err error, refusal *string) bool {
 func (l *Link) attempt(ctx context.Context, t Target) (*session, error) {
 	ctx, cancel := context.WithTimeout(ctx, l.cfg.Timings.Handshake)
 	defer cancel()
-	s, err := l.race(ctx, t.Addresses, func(k Key) error {
-		if k != t.Key {
-			return fmt.Errorf("peer key %s is not the pinned key %s", k.Fingerprint(), t.Key.Fingerprint())
-		}
-		return nil
-	})
+	s, err := l.race(ctx, t.Addresses, pinned(t.Key))
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +186,8 @@ type Paired struct {
 }
 
 // Pair dials code's Controller, checking its key against the code, sends
-// Pair{secret, name} and then Hello. It returns once the session is live.
+// Pair{secret, name} and then Hello, all within join_dial. It returns once
+// the session is live.
 // A Controller's refusal is a *RefusedError, and a peer whose key the
 // code does not name fails with ErrKeyMismatch.
 func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paired, error) {
@@ -199,7 +195,7 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 	if err != nil {
 		return Paired{}, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, l.cfg.Timings.Handshake)
+	ctx, cancel := context.WithTimeout(ctx, l.cfg.Timings.JoinDial)
 	defer cancel()
 	stop := context.AfterFunc(l.ctx, cancel)
 	defer stop()
@@ -212,6 +208,12 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 	if err != nil {
 		return Paired{}, err
 	}
+	return l.pairOn(ctx, s, code, name)
+}
+
+// pairOn sends Pair{secret, name} and then Hello on s, closing s unless
+// both succeed.
+func (l *Link) pairOn(ctx context.Context, s *session, code joincode.Code, name string) (Paired, error) {
 	paired, err := l.pair(ctx, s, code.Secret(), name)
 	if err == nil {
 		err = l.hello(ctx, s)

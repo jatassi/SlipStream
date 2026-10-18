@@ -48,15 +48,29 @@ ON CONFLICT (node_id, role) DO NOTHING;
 DELETE FROM nodes_role WHERE node_id = sqlc.arg(node_id) AND role = sqlc.arg(role);
 
 -- name: InsertJoinCode :exec
-INSERT INTO nodes_join_code (secret_hash, created_at, expires_at)
-VALUES (sqlc.arg(secret_hash), sqlc.arg(created_at), sqlc.arg(expires_at));
+INSERT INTO nodes_join_code (id, secret_hash, created_at, expires_at)
+VALUES (sqlc.arg(id), sqlc.arg(secret_hash), sqlc.arg(created_at), sqlc.arg(expires_at));
 
 -- name: GetJoinCode :one
 SELECT * FROM nodes_join_code WHERE secret_hash = sqlc.arg(secret_hash);
 
+-- name: GetJoinCodeByID :one
+SELECT * FROM nodes_join_code WHERE id = sqlc.arg(id);
+
+-- name: ListOpenJoinCodes :many
+SELECT * FROM nodes_join_code
+WHERE used_by IS NULL AND expires_at > sqlc.arg(now)
+ORDER BY created_at, id;
+
 -- name: UseJoinCode :exec
-UPDATE nodes_join_code SET used_by = sqlc.arg(used_by), used_at = sqlc.arg(used_at)
+UPDATE nodes_join_code SET used_by = sqlc.arg(used_by), used_at = sqlc.arg(used_at), dial_address = NULL, dial_at = NULL
 WHERE secret_hash = sqlc.arg(secret_hash);
+
+-- name: SetJoinCodeDial :exec
+UPDATE nodes_join_code SET dial_address = sqlc.arg(dial_address), dial_at = sqlc.arg(dial_at) WHERE id = sqlc.arg(id);
+
+-- name: DeleteJoinCode :execrows
+DELETE FROM nodes_join_code WHERE id = sqlc.arg(id);
 
 -- name: DeleteJoinCodesExpiredBefore :exec
 DELETE FROM nodes_join_code WHERE expires_at < sqlc.arg(expires_at);
@@ -82,3 +96,16 @@ VALUES (sqlc.arg(node_id), sqlc.arg(role), sqlc.arg(declared_at));
 
 -- name: DeleteForfeit :exec
 DELETE FROM nodes_forfeit WHERE node_id = sqlc.arg(node_id) AND role = sqlc.arg(role);
+
+-- name: ListDials :many
+SELECT * FROM nodes_dial ORDER BY node_id, position;
+
+-- name: NodeDials :many
+SELECT address FROM nodes_dial WHERE node_id = sqlc.arg(node_id) ORDER BY position;
+
+-- name: DeleteDials :exec
+DELETE FROM nodes_dial WHERE node_id = sqlc.arg(node_id);
+
+-- name: InsertDial :exec
+INSERT INTO nodes_dial (node_id, position, address)
+VALUES (sqlc.arg(node_id), sqlc.arg(position), sqlc.arg(address));

@@ -543,6 +543,12 @@ func (unlinked) Advertised() (link.Addresses, bool) { return link.Addresses{}, f
 
 func (unlinked) Reset(link.Key) {}
 
+func (unlinked) Keep(link.Target) {}
+
+func (unlinked) Drop(link.Key) {}
+
+func (unlinked) Invite(context.Context, link.Target) error { return nil }
+
 // TestTheRosterMigrationKeepsEveryNode migrates a library holding two
 // Nodes with Roles, an address and a used Join Code: every row and
 // reference survives the rebuild, and a tombstone may then share a live
@@ -551,7 +557,7 @@ func TestTheRosterMigrationKeepsEveryNode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)
 	homeKey, boxKey := bytes.Repeat([]byte{1}, 32), bytes.Repeat([]byte{2}, 32)
 	home, box := role.NodeID{UUID: storage.NewUUID()}, role.NodeID{UUID: storage.NewUUID()}
-	populate(t, path, []stmt{
+	populate(t, path, 2, []stmt{
 		{"INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, ?, 'home', 1), (?, ?, 'box', 2)", []any{home, homeKey, box, boxKey}},
 		{"INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, 'searching', 1), (?, 'downloading', 2)", []any{home, box}},
 		{"INSERT INTO nodes_address (node_id, position, address) VALUES (?, 0, '127.0.0.3:8485')", []any{box}},
@@ -618,9 +624,9 @@ type stmt struct {
 
 // populate makes a library at path on the nodes schema before the roster
 // migration and runs stmts in it.
-func populate(t *testing.T, path string, stmts []stmt) {
+func populate(t *testing.T, path string, through int64, stmts []stmt) {
 	t.Helper()
-	old, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{nodes.Schema().Through(2)}, nil, storage.DefaultTimings(), discard)
+	old, err := storage.OpenLibrary(t.Context(), path, []storage.Schema[storage.Library]{nodes.Schema().Through(through)}, nil, storage.DefaultTimings(), discard)
 	if err != nil {
 		t.Fatal(err)
 	}

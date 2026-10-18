@@ -164,7 +164,10 @@ Host commands act on the Node whose data dir is `--data-dir`, else `SLIPSTREAM_D
 | `slipstream config` | Prints the resolved configuration as JSON. |
 | `slipstream config set <key> <value>` | Saves a Node setting, such as `log.level`, in `config.yaml`. |
 | `slipstream config unset <key>` | Removes a Node setting from `config.yaml`, so its default applies. |
-| `slipstream join <code>` | Joins a stopped, Unclaimed Node to the Controller a Join Code names. |
+| `slipstream join [--node-port <port>] <code>` | Joins an Unclaimed Node, stopped or running, to the Controller a Join Code names. `--node-port` sets the port of `link.listen` first. |
+| `slipstream node-address` | Prints the Node address, `SLN1-…`, that a Controller dials this Node at. |
 | `slipstream version` | Prints the build stamp. |
+
+A Node that can't reach the Controller a Join Code names prints its Node address and waits up to 10 minutes. Paste the address into the Add a Node dialog on the Controller, which then dials this Node and keeps dialing it. Forward the port `--node-port` sets to this machine, or the Controller can't reach it either. A running Node binds a new `--node-port` only after a restart.
 
 `config set` and `config unset` print the key's value as the Node now resolves it. A running Node applies a live setting, such as `log.level`, at once. A setting such as `http.listen` waits for a restart, and the line ends `, applies after restart`. A setting an environment variable sets is refused.

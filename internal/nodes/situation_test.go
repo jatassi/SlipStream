@@ -22,6 +22,12 @@ func (noLink) Advertised() (link.Addresses, bool) { return link.Addresses{}, fal
 
 func (noLink) Reset(link.Key) {}
 
+func (noLink) Keep(link.Target) {}
+
+func (noLink) Drop(link.Key) {}
+
+func (noLink) Invite(context.Context, link.Target) error { return nil }
+
 type unheard struct{}
 
 func (unheard) Publish(context.Context, Changed) {}

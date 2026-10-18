@@ -61,8 +61,12 @@ func (worker) Worker() (servingapi.Facts, bool) {
 	return servingapi.Facts{Name: "seedbox", Fingerprint: "AAAA-BBBB-CCCC-DDDD", Controller: "home"}, true
 }
 
-func (worker) Join(context.Context, joincode.Code) (pairing.Joined, error) {
+func (worker) Join(context.Context, joincode.Code, func(pairing.Pending)) (pairing.Joined, error) {
 	panic("a Worker's closed gate admitted claimWorker")
+}
+
+func (worker) Pending() (pairing.Pending, bool) {
+	panic("a Worker's closed gate admitted getWorkerClaim")
 }
 
 func TestTheAccessWalkPassesOnAWorker(t *testing.T) {

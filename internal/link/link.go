@@ -80,6 +80,7 @@ type Link struct {
 	live     map[Key]*session
 	kept     map[Key]*keeper
 	subs     map[*subscriber]struct{}
+	awaits   map[*await]struct{}
 }
 
 func New(cfg Config) (*Link, error) {
@@ -111,6 +112,7 @@ func New(cfg Config) (*Link, error) {
 		live:      map[Key]*session{},
 		kept:      map[Key]*keeper{},
 		subs:      map[*subscriber]struct{}{},
+		awaits:    map[*await]struct{}{},
 	}
 	l.kinds = map[wire.Kind]func(*session, Stream){
 		wire.RPC: func(s *session, c Stream) { l.rpc.Push(rpcConn{c, s}) },
@@ -151,11 +153,16 @@ func (l *Link) spawn(fn func()) bool {
 	return true
 }
 
-// Serve accepts sessions on ln until ctx ends or Close.
-func (l *Link) Serve(ctx context.Context, ln net.Listener) error {
+// Serve has the link advertise ln's address from now on, and returns the
+// loop that accepts sessions on ln until ctx ends or Close.
+func (l *Link) Serve(ln net.Listener) func(context.Context) error {
 	l.mu.Lock()
 	l.bound = addrPort(ln.Addr())
 	l.mu.Unlock()
+	return func(ctx context.Context) error { return l.accepting(ctx, ln) }
+}
+
+func (l *Link) accepting(ctx context.Context, ln net.Listener) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stopLink := context.AfterFunc(l.ctx, cancel)
@@ -178,7 +185,8 @@ func (l *Link) Serve(ctx context.Context, ln net.Listener) error {
 }
 
 // accept runs TLS and the mux on c, then gives the peer handshake to say
-// Hello before closing the session.
+// Hello before closing the session. A session from an awaited Controller
+// pairs and says Hello itself within that handshake.
 func (l *Link) accept(raw net.Conn) {
 	ctx, cancel := context.WithTimeout(l.ctx, l.cfg.Timings.Handshake)
 	defer cancel()
@@ -193,6 +201,9 @@ func (l *Link) accept(raw net.Conn) {
 	if err != nil {
 		return
 	}
+	if l.pairAwaited(ctx, s) {
+		return
+	}
 	select {
 	case <-s.welcomed:
 	case <-s.mux.Done():
@@ -201,9 +212,13 @@ func (l *Link) accept(raw net.Conn) {
 	}
 }
 
-// admit is the accepting side's pin check: any key Trust does not refuse.
+// admit is the accepting side's pin check: an awaited Controller's key,
+// or any key Trust does not refuse.
 func (l *Link) admit(pub ed25519.PublicKey) error {
 	k := Key(pub)
+	if l.isAwaited(k) {
+		return nil
+	}
 	if _, refused := l.cfg.Trust.Admit(k).(Refused); refused {
 		return fmt.Errorf("peer key %s is refused", k.Fingerprint())
 	}
@@ -296,11 +311,7 @@ func (l *Link) Advertised() (Addresses, bool) {
 	if !l.advertise.IsZero() {
 		return l.advertise, true
 	}
-	var host []netip.Addr
-	if bound.Addr().IsUnspecified() {
-		host = hostAddrs()
-	}
-	return advertise(bound, host)
+	return advertiseBound(bound)
 }
 
 func (l *Link) info() NodeInfo {

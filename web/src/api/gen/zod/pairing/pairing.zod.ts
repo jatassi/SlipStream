@@ -1,8 +1,13 @@
-import { PairingJoinBody, PairingWorker } from "../slipStream.schemas.zod.ts";
+import { PairingJoinBody, PairingWorkerClaim } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary Join this Node to a Controller as a Worker with a Join Code
+ * @summary Get the Join that awaited its Controller's dial: still awaiting, joined or failed
+ */
+export const GetWorkerClaimResponse = PairingWorkerClaim;
+
+/**
+ * @summary Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial
  */
 export const ClaimWorkerBody = PairingJoinBody;
 
-export const ClaimWorkerResponse = PairingWorker;
+export const ClaimWorkerResponse = PairingWorkerClaim;

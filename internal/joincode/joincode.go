@@ -104,9 +104,14 @@ func (c Code) String() string {
 	if c.IsZero() {
 		return ""
 	}
-	b := append(c.keyHash[:], c.secret[:]...)
-	b = append(b, byte(len(c.addresses))) //nolint:gosec // New caps it at MaxAddresses
-	for _, a := range c.addresses {
+	return pack(prefix, appendAddresses(append(c.keyHash[:], c.secret[:]...), c.addresses))
+}
+
+// appendAddresses is b with addresses as both formats hold them: a count,
+// then each address's family, IP bytes and big-endian port.
+func appendAddresses(b []byte, addresses []netip.AddrPort) []byte {
+	b = append(b, byte(len(addresses))) //nolint:gosec // New and NewNodeAddress cap it at MaxAddresses
+	for _, a := range addresses {
 		ip := a.Addr()
 		if ip.Is4() {
 			b = append(b, 4)
@@ -116,8 +121,13 @@ func (c Code) String() string {
 		b = append(b, ip.AsSlice()...)
 		b = binary.BigEndian.AppendUint16(b, a.Port())
 	}
-	sum := sha256.Sum256(b)
-	text := crockford.EncodeToString(append(b, sum[:checksumSize]...))
+	return b
+}
+
+// pack is body with its checksum, as the text of the format prefix names.
+func pack(prefix string, body []byte) string {
+	sum := sha256.Sum256(body)
+	text := crockford.EncodeToString(append(body, sum[:checksumSize]...))
 	groups := []string{prefix}
 	for len(text) > groupSize {
 		groups = append(groups, text[:groupSize])
@@ -142,9 +152,28 @@ func (c Code) LogValue() slog.Value { return slog.StringValue(c.Redacted()) }
 // case, whitespace and dashes after the prefix, and reading O as 0 and I
 // and L as 1.
 func Parse(s string) (Code, error) {
+	body, err := unpack(prefix, s)
+	if err != nil {
+		return Code{}, err
+	}
+	if len(body) < hashSize+SecretSize {
+		return Code{}, ErrMistyped
+	}
+	c := Code{keyHash: [hashSize]byte(body[:hashSize]), secret: [SecretSize]byte(body[hashSize : hashSize+SecretSize])}
+	var ok bool
+	if c.addresses, ok = readAddresses(body[hashSize+SecretSize:]); !ok {
+		return Code{}, ErrMistyped
+	}
+	return c, nil
+}
+
+// unpack is the body of s, text in the format prefix names, with its
+// checksum checked: ErrNotSlipStream for text without the prefix and
+// ErrMistyped for the rest it refuses.
+func unpack(prefix, s string) ([]byte, error) {
 	s = strings.TrimSpace(s)
 	if len(s) < len(prefix) || !strings.EqualFold(s[:len(prefix)], prefix) {
-		return Code{}, ErrNotSlipStream
+		return nil, ErrNotSlipStream
 	}
 	text := strings.Map(func(r rune) rune {
 		switch {
@@ -161,41 +190,39 @@ func Parse(s string) (Code, error) {
 	// A changed last character can differ only in bits past the last byte,
 	// so the text must also be the one its bytes encode to.
 	if err != nil || crockford.EncodeToString(b) != text || len(b) < checksumSize {
-		return Code{}, ErrMistyped
+		return nil, ErrMistyped
 	}
 	body, sum := b[:len(b)-checksumSize], b[len(b)-checksumSize:]
 	if want := sha256.Sum256(body); !bytes.Equal(sum, want[:checksumSize]) {
-		return Code{}, ErrMistyped
+		return nil, ErrMistyped
 	}
-	return decode(body)
+	return body, nil
 }
 
-func decode(b []byte) (Code, error) {
-	if len(b) < hashSize+SecretSize+1 {
-		return Code{}, ErrMistyped
+// readAddresses reads what appendAddresses wrote, false unless it is all
+// of b and holds 1 to MaxAddresses addresses.
+func readAddresses(b []byte) ([]netip.AddrPort, bool) {
+	if len(b) < 1 {
+		return nil, false
 	}
-	c := Code{keyHash: [hashSize]byte(b[:hashSize]), secret: [SecretSize]byte(b[hashSize : hashSize+SecretSize])}
-	n := int(b[hashSize+SecretSize])
-	rest := b[hashSize+SecretSize+1:]
+	n, rest := int(b[0]), b[1:]
 	if n < 1 || n > MaxAddresses {
-		return Code{}, ErrMistyped
+		return nil, false
 	}
+	var out []netip.AddrPort
 	for range n {
 		if len(rest) < 1 {
-			return Code{}, ErrMistyped
+			return nil, false
 		}
 		size := map[byte]int{4: 4, 6: 16}[rest[0]]
 		if size == 0 || len(rest) < 1+size+2 {
-			return Code{}, ErrMistyped
+			return nil, false
 		}
 		ip, _ := netip.AddrFromSlice(rest[1 : 1+size])
-		c.addresses = append(c.addresses, netip.AddrPortFrom(ip, binary.BigEndian.Uint16(rest[1+size:])))
+		out = append(out, netip.AddrPortFrom(ip, binary.BigEndian.Uint16(rest[1+size:])))
 		rest = rest[1+size+2:]
 	}
-	if len(rest) != 0 {
-		return Code{}, ErrMistyped
-	}
-	return c, nil
+	return out, len(rest) == 0
 }
 
 func (c Code) MarshalText() ([]byte, error) { return []byte(c.String()), nil }

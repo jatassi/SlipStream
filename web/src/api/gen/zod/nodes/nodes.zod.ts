@@ -1,9 +1,13 @@
 import * as zod from "zod";
 
 import {
+  DialInputBody,
+  NodesCodeState,
   NodesJoinCode,
   NodesNode,
+  NodesNodeDial,
   NodesNodeList,
+  NodesOpenCodes,
   NodesOutcome,
   NodesRoleBoard,
   NodesRolesChange,
@@ -13,14 +17,48 @@ import {
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List every Node with its Roles, link and facts
+ * @summary List the Join Codes that may still pair a Node
  */
-export const ListNodesResponse = NodesNodeList;
+export const ListJoinCodesResponse = NodesOpenCodes;
 
 /**
  * @summary Mint a Join Code that pairs one Node with this Controller
  */
 export const CreateJoinCodeResponse = NodesJoinCode;
+
+/**
+ * @summary Revoke a Join Code, so no Node pairs with it
+ */
+export const RevokeJoinCodeParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const RevokeJoinCodeResponse = zod.void();
+
+/**
+ * @summary Get whether a Join Code is open, used or expired, and its dial
+ */
+export const GetJoinCodeParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const GetJoinCodeResponse = NodesCodeState;
+
+/**
+ * @summary Dial the Node waiting at a Node address, which pairs with the code over that session
+ */
+export const DialForCodeParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const DialForCodeBody = DialInputBody;
+
+export const DialForCodeResponse = zod.void();
+
+/**
+ * @summary List every Node with its Roles, link and facts
+ */
+export const ListNodesResponse = NodesNodeList;
 
 /**
  * @summary Get every Node's Roles and the plan's verdict on every drag
@@ -61,6 +99,17 @@ export const GetNodeParams = zod.object({
 });
 
 export const GetNodeResponse = NodesNode;
+
+/**
+ * @summary Set the Node address the Controller dials a Node at, or stop dialing it
+ */
+export const SetNodeDialParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const SetNodeDialBody = NodesNodeDial;
+
+export const SetNodeDialResponse = NodesNode;
 
 /**
  * @summary Give up the work a Node holds for Roles, live or offline; its files are kept

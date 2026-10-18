@@ -8,6 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -31,8 +35,13 @@ const usageText = `usage: slipstream <command>
   config unset [--data-dir <dir>] <key>
                              change a Node settings key in config.yaml; a running
                              Node applies a live key at once
-  join   [--data-dir <dir>] <code>
-                             join this Node to the Controller a Join Code names
+  join   [--data-dir <dir>] [--node-port <port>] <code>
+                             join this Node to the Controller a Join Code names;
+                             --node-port sets the port link.listen binds. When the
+                             Controller can't be reached, print a Node address and
+                             wait for the Controller to dial it
+  node-address [--data-dir <dir>]
+                             print the Node address a Controller dials this Node at
   admin reset [--data-dir <dir>] [--address <origin>] <email>
                              print a Reset link for the Account with <email>,
                              ending its sessions; --address sets the address
@@ -94,6 +103,8 @@ func run(args []string, types contenttype.Set) int {
 		return restart(rest, types)
 	case "join":
 		return join(rest, types)
+	case "node-address":
+		return nodeAddress(rest, types)
 	case "admin":
 		return admin(rest, types)
 	case "service":
@@ -138,40 +149,110 @@ func commandArgs(name string, args []string) (dataDir string, positional []strin
 	}
 }
 
+// joinFlags are slipstream join's arguments.
+type joinFlags struct {
+	dataDir string
+	// port is --node-port, 0 when absent.
+	port uint16
+	code string
+}
+
+func parseJoin(args []string) (joinFlags, error) {
+	var out joinFlags
+	fs := flag.NewFlagSet("join", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.StringVar(&out.dataDir, "data-dir", "", "")
+	fs.Func("node-port", "", func(s string) error {
+		port, err := strconv.ParseUint(s, 10, 16)
+		if err != nil || port == 0 {
+			return fmt.Errorf("%s is not a port", s)
+		}
+		out.port = uint16(port)
+		return nil
+	})
+	var positional []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return joinFlags{}, fmt.Errorf("join: %w", err)
+		}
+		if fs.NArg() == 0 {
+			break
+		}
+		positional = append(positional, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+	if len(positional) != 1 {
+		return joinFlags{}, errors.New("join takes one Join Code")
+	}
+	out.code = positional[0]
+	return out, nil
+}
+
 func join(args []string, types contenttype.Set) int {
-	dataDir, positional, err := commandArgs("join", args)
+	flags, err := parseJoin(args)
 	if err != nil {
 		return usage(err)
 	}
-	if len(positional) != 1 {
-		return usage(errors.New("join takes one Join Code"))
-	}
-	code, err := joincode.Parse(positional[0])
+	code, err := joincode.Parse(flags.code)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "slipstream join: %v\n", err)
 		return ExitUsage
 	}
-	env, err := ProcessEnv("join", dataDir)
+	env, err := ProcessEnv("join", flags.dataDir)
 	if err != nil {
 		return usage(fmt.Errorf("join: %w", err))
 	}
 	env.Types = types
-	ctx := context.Background()
-	joined, err := Join(ctx, env, code)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	port := flags.port
+	printed := false
+	printAwaiting := func(lines []string) {
+		if !printed {
+			fmt.Println(strings.Join(lines, "\n"))
+			printed = true
+		}
+	}
+	joined, err := Join(ctx, env, code, port, func(p pairing.Pending) { printAwaiting(p.Lines()) })
 	if _, held := errors.AsType[*InUseError](err); held {
-		var reply pairing.JoinReply
-		if reply, err = Call(ctx, env.Net, env.DataDir, pairing.JoinOp, pairing.JoinRequest{Code: code.String()}); err == nil {
-			if reply.Refused == nil {
-				fmt.Println(reply.Joined)
-				return ExitOK
+		var line string
+		err = Stream(ctx, env.Net, env.DataDir, pairing.JoinOp, pairing.JoinRequest{Code: code.String(), NodePort: port}, func(reply pairing.JoinReply) bool {
+			switch {
+			case reply.Awaiting != nil:
+				printAwaiting(reply.Awaiting)
+				return false
+			case reply.Refused != nil:
+				err = reply.Refused
+			default:
+				line = reply.Joined
 			}
-			err = reply.Refused
+			return true
+		})
+		if err == nil {
+			fmt.Println(line)
+			return ExitOK
 		}
 	} else if err == nil {
 		fmt.Println(joined)
 		return ExitOK
 	}
 	return joinFailed(err)
+}
+
+// nodeAddress is slipstream node-address: the SLN1 text of this Node's key
+// and the addresses its link advertises, read from config and node.key.
+func nodeAddress(args []string, types contenttype.Set) int {
+	env, err := nodeEnv("node-address", args, types)
+	if err != nil {
+		return usage(err)
+	}
+	addr, err := NodeAddress(env)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "slipstream node-address: %v\n", err)
+		return ExitCode(err)
+	}
+	fmt.Println(addr)
+	return ExitOK
 }
 
 func configCommand(args []string, types contenttype.Set) int {

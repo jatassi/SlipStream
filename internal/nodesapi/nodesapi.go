@@ -56,15 +56,6 @@ var blockedAs = map[nodes.Reason]api.Carrying[outcome]{
 	nodes.KeepsRole:   keepsRole,
 }
 
-type joinCode struct {
-	Code      string    `json:"code"`
-	ExpiresAt time.Time `json:"expiresAt"`
-}
-
-type joinCodeOutput struct {
-	Body joinCode
-}
-
 type node struct {
 	ID        string     `json:"id" format:"uuid"`
 	Name      string     `json:"name"`
@@ -74,9 +65,10 @@ type node struct {
 	Addresses []string   `json:"addresses" nullable:"false"`
 	Roles     []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
 	// IntentVersion is the node-scope version the library derives now.
-	IntentVersion string `json:"intentVersion" pattern:"^[0-9a-f]{32}$"`
-	Link          link   `json:"link"`
-	Facts         *facts `json:"facts,omitempty" doc:"Absent while the Node has no session"`
+	IntentVersion string   `json:"intentVersion" pattern:"^[0-9a-f]{32}$"`
+	Link          link     `json:"link"`
+	Dial          dialView `json:"dial"`
+	Facts         *facts   `json:"facts,omitempty" doc:"Absent while the Node has no session"`
 }
 
 type roleView struct {
@@ -143,6 +135,7 @@ func nodeOf(n nodes.Node) node {
 		Roles:         rolesOf(n.Roles),
 		IntentVersion: hex.EncodeToString(n.Version),
 		Link:          link{State: n.Link.String(), Since: n.Since},
+		Dial:          dialOf(n.Dial),
 	}
 	for _, a := range n.Addresses.All() {
 		out.Addresses = append(out.Addresses, a.String())
@@ -491,11 +484,55 @@ func Routes(r *api.Router, roster Roster) {
 	api.Register(o, api.Admin, api.Op{
 		ID:      "createJoinCode",
 		Method:  http.MethodPost,
-		Path:    "/nodes/join-codes",
+		Path:    "/join-codes",
 		Summary: "Mint a Join Code that pairs one Node with this Controller",
 		Status:  http.StatusCreated,
 		Errors:  []*api.Code{noLinkAddress},
 	}, h.createJoinCode)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listJoinCodes",
+		Method:  http.MethodGet,
+		Path:    "/join-codes",
+		Summary: "List the Join Codes that may still pair a Node",
+		Status:  http.StatusOK,
+	}, h.listJoinCodes)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getJoinCode",
+		Method:  http.MethodGet,
+		Path:    "/join-codes/{id}",
+		Summary: "Get whether a Join Code is open, used or expired, and its dial",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{joinCodeNotFound},
+	}, h.getJoinCode)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "revokeJoinCode",
+		Method:  http.MethodDelete,
+		Path:    "/join-codes/{id}",
+		Summary: "Revoke a Join Code, so no Node pairs with it",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{joinCodeNotFound},
+	}, h.revokeJoinCode)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "dialForCode",
+		Method:  http.MethodPost,
+		Path:    "/join-codes/{id}/dial",
+		Summary: "Dial the Node waiting at a Node address, which pairs with the code over that session",
+		Status:  http.StatusAccepted,
+		Errors:  []*api.Code{joinCodeNotFound, joinCodeClosed, nodeAddressDamaged},
+	}, h.dialForCode)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setNodeDial",
+		Method:  http.MethodPut,
+		Path:    "/nodes/{id}/dial",
+		Summary: "Set the Node address the Controller dials a Node at, or stop dialing it",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotFound, nodeAddressDamaged, nodeKeyMismatch},
+	}, h.setNodeDial)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listNodes",
@@ -570,17 +607,6 @@ func Routes(r *api.Router, roster Roster) {
 }
 
 type handlers struct{ roster Roster }
-
-func (h handlers) createJoinCode(ctx context.Context, _ identity.Admin, _ *struct{}) (*joinCodeOutput, error) {
-	code, err := open(h.roster).MintJoinCode(ctx)
-	if errors.Is(err, nodes.ErrNoLinkAddress) {
-		return nil, noLinkAddress
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &joinCodeOutput{Body: joinCode{Code: code.Code.String(), ExpiresAt: code.ExpiresAt}}, nil
-}
 
 func (h handlers) listNodes(ctx context.Context, _ identity.Admin, _ *struct{}) (*listOutput, error) {
 	list, err := open(h.roster).List(ctx)
