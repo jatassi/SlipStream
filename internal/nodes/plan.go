@@ -51,14 +51,27 @@ type Seat struct {
 	Assigned role.Set
 	Forfeit  role.Set
 	// Away: out of step, so its probes and reach tests can't run.
-	Away   bool
-	Probes map[role.Probe]role.Fit
+	Away bool
+	// Probes is the last verdict of each probe the Node ran.
+	Probes map[role.Probe]role.ProbeResult
 	// Held is the tied work each Role's owner counts on the Node: what drains
 	// and what a write-off gives up.
 	Held map[role.Name]Held
 	// Moves is the portable work each Role's owner moves to the heir once
 	// the Node loses the Role.
 	Moves map[role.Name]Held
+}
+
+// Suggested is what a new Node's Roles step ticks first: each Acquire
+// Role that has no probe or whose probe fits on the Node.
+func (s Seat) Suggested() role.Set {
+	var out role.Set
+	for _, r := range role.Names() {
+		if p := r.Rule().Probe; r.Group() == role.Acquire && (p == "" || s.Probes[p].Fit == role.Fits) {
+			out = out.With(r)
+		}
+	}
+	return out
 }
 
 // Situation is everything Plan reads: the live Nodes in id order, the
@@ -110,6 +123,9 @@ type Outcome struct {
 	Forfeit Roles
 	Effects []Effect
 	Checks  []Check
+	// Untested is each added Role whose reach test the plan would read,
+	// had the Situation run it.
+	Untested []NodeRole
 }
 
 func (o Outcome) Blocked() bool {
@@ -256,6 +272,7 @@ type planner struct {
 	out           []Effect
 	handbacks     []Effect
 	checks        []Check
+	untested      []NodeRole
 }
 
 func (p *planner) writeOff(seat Seat, roles role.Set) {
@@ -435,11 +452,11 @@ func (p *planner) test(seat Seat, r role.Name) {
 		p.checks = append(p.checks, offline(seat.Named, r))
 		return
 	}
-	switch seat.Probes[rule.Probe] {
+	switch probe := seat.Probes[rule.Probe]; probe.Fit {
 	case role.Fails:
-		p.checks = append(p.checks, probed(seat.Named, r, Block))
+		p.checks = append(p.checks, probed(seat.Named, r, Block, probe.Reason))
 	case role.Weak:
-		p.checks = append(p.checks, probed(seat.Named, r, Warn))
+		p.checks = append(p.checks, probed(seat.Named, r, Warn, probe.Reason))
 	case role.Fits:
 	}
 	if !rule.Reach {
@@ -449,18 +466,22 @@ func (p *planner) test(seat Seat, r role.Name) {
 		p.checks = append(p.checks, nothingToTest(seat.Named, r))
 		return
 	}
-	if res, ok := p.s.Reach[NodeRole{seat.ID, r}]; ok {
+	at := NodeRole{seat.ID, r}
+	if res, ok := p.s.Reach[at]; ok {
 		p.checks = append(p.checks, reached(seat.Named, r, res))
+	} else {
+		p.untested = append(p.untested, at)
 	}
 }
 
 func (p *planner) outcome() Outcome {
 	return Outcome{
-		Basis:   p.s.Basis(),
-		Next:    p.next,
-		Forfeit: p.forfeit,
-		Effects: p.out,
-		Checks:  p.checks,
+		Basis:    p.s.Basis(),
+		Next:     p.next,
+		Forfeit:  p.forfeit,
+		Effects:  p.out,
+		Checks:   p.checks,
+		Untested: p.untested,
 	}
 }
 

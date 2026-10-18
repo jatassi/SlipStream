@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"net/textproto"
 
 	gomail "github.com/wneessen/go-mail"
@@ -39,6 +40,8 @@ type SMTP struct {
 	// Roots are the CAs a server's certificate must chain to, nil for the
 	// system's.
 	Roots *x509.CertPool
+	// Dial reaches the server, nil for the OS network.
+	Dial func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 var _ Sender = SMTP{}
@@ -108,10 +111,12 @@ func (s SMTP) message(m Message) (*gomail.Msg, error) {
 }
 
 func (s SMTP) options() []gomail.Option {
+	config := &tls.Config{ServerName: s.Server.Host, RootCAs: s.Roots, MinVersion: tls.VersionTLS12}
 	opts := []gomail.Option{
 		gomail.WithPort(int(s.Server.Port)),
 		gomail.WithTimeout(s.Timings.Send),
-		gomail.WithTLSConfig(&tls.Config{ServerName: s.Server.Host, RootCAs: s.Roots, MinVersion: tls.VersionTLS12}),
+		gomail.WithTLSConfig(config),
+		gomail.WithDialContextFunc(s.dialer(config)),
 	}
 	switch s.Server.Security {
 	case None:
@@ -119,7 +124,10 @@ func (s SMTP) options() []gomail.Option {
 	case StartTLS:
 		opts = append(opts, gomail.WithTLSPolicy(gomail.TLSMandatory))
 	case TLS:
-		opts = append(opts, gomail.WithSSL())
+		// The dial already finished the handshake. go-mail reads it from
+		// the connection, so AUTH knows it is encrypted, and the server
+		// offers no STARTTLS to take.
+		opts = append(opts, gomail.WithTLSPolicy(gomail.TLSOpportunistic))
 	}
 	if s.Server.Username != "" {
 		auth := gomail.SMTPAuthAutoDiscover
@@ -129,6 +137,27 @@ func (s SMTP) options() []gomail.Option {
 		opts = append(opts, gomail.WithSMTPAuth(auth), gomail.WithUsername(s.Server.Username), gomail.WithPassword(s.Server.Password))
 	}
 	return opts
+}
+
+// dialer reaches the server through Dial, finishing a TLS handshake there
+// for TLS.
+func (s SMTP) dialer(config *tls.Config) gomail.DialContextFunc {
+	dial := s.Dial
+	if dial == nil {
+		dial = (&net.Dialer{}).DialContext
+	}
+	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		c, err := dial(ctx, network, address)
+		if err != nil || s.Server.Security != TLS {
+			return c, err
+		}
+		secured := tls.Client(c, config)
+		if err := secured.HandshakeContext(ctx); err != nil {
+			_ = c.Close()
+			return nil, fmt.Errorf("TLS handshake with %s: %w", address, err)
+		}
+		return secured, nil
+	}
 }
 
 func reply(err error) string {

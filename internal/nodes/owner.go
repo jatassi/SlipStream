@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -21,6 +22,10 @@ type Owner struct {
 	// takes the Role from node. It must not publish or do IO. Exactly the
 	// owners of Portable Roles have one.
 	Unassigned func(ctx context.Context, tx *storage.Tx[storage.Library], node, heir ID) error
+	// Reach is the target a Node is tested against before it gains the
+	// Role, false while none is configured. It reads the library and
+	// nothing else. Exactly the owners of Reach Roles have one.
+	Reach func(ctx context.Context, r storage.Reader[storage.Library]) (nodesystem.Target, bool, error)
 }
 
 // HoldsNothing is the Held of a Role whose work no feature keeps yet.
@@ -32,11 +37,20 @@ func HoldsNothing(context.Context, storage.Reader[storage.Library], ID) (Held, e
 // keeps yet.
 func MovesNothing(context.Context, *storage.Tx[storage.Library], ID, ID) error { return nil }
 
+// TestsNothing is the Reach of a Reach Role whose target no feature
+// configures yet.
+func TestsNothing(context.Context, storage.Reader[storage.Library]) (nodesystem.Target, bool, error) {
+	return nodesystem.Target{}, false, nil
+}
+
 // Unowned is the owner of a Role whose work a later spec adds.
 func Unowned(r role.Name) Owner {
 	o := Owner{Role: r, Held: HoldsNothing}
 	if r.Rule().Work == role.Portable {
 		o.Unassigned = MovesNothing
+	}
+	if r.Rule().Reach {
+		o.Reach = TestsNothing
 	}
 	return o
 }
@@ -55,6 +69,9 @@ func ownersByRole(owners []Owner) map[role.Name]Owner {
 		}
 		if portable := o.Role.Rule().Work == role.Portable; portable != (o.Unassigned != nil) {
 			panic(fmt.Sprintf("nodes: the %s Role's owner needs an Unassigned exactly when its work is portable", o.Role))
+		}
+		if o.Role.Rule().Reach != (o.Reach != nil) {
+			panic(fmt.Sprintf("nodes: the %s Role's owner needs a Reach exactly when the Role is tested before it is added", o.Role))
 		}
 		out[o.Role] = o
 	}

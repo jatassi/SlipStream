@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"embed"
+	"sync/atomic"
 
 	"github.com/jatassi/slipstream/internal/mail/internal/db"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -47,7 +48,20 @@ type Config struct {
 
 // Mail is the SMTP setting and the Sender built on it. It reads the
 // setting at every Send, so a change applies to the next email.
-type Mail struct{ cfg Config }
+type Mail struct {
+	cfg     Config
+	courier atomic.Pointer[Courier]
+}
+
+// Courier delivers a message through s from wherever it sends mail.
+type Courier interface {
+	Deliver(ctx context.Context, s Server, m Message) (Outcome, error)
+}
+
+// SetCourier hands every later Send to c. Until it is called, Send goes
+// to the server from this process, as `slipstream admin reset` does
+// offline.
+func (m *Mail) SetCourier(c Courier) { m.courier.Store(&c) }
 
 var _ Sender = (*Mail)(nil)
 
@@ -56,7 +70,12 @@ var passwordColumn = secret.NewColumn("mail_settings.password_sealed")
 func New(cfg Config) *Mail { return &Mail{cfg: cfg} }
 
 func (m *Mail) Settings(ctx context.Context) (Settings, error) {
-	row, err := db.New(m.cfg.Library).GetSettings(ctx)
+	return ReadSettings(ctx, m.cfg.Library)
+}
+
+// ReadSettings is the SMTP setting as r reads it.
+func ReadSettings(ctx context.Context, r storage.Reader[storage.Library]) (Settings, error) {
+	row, err := db.New(r).GetSettings(ctx)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -114,14 +133,20 @@ func (m *Mail) Send(ctx context.Context, msg Message) (Outcome, error) {
 	if err != nil {
 		return Outcome{}, err
 	}
+	s := settingsOf(row)
+	if s.Host == "" {
+		return Outcome{Kind: NotSetUp}, nil
+	}
 	var password []byte
 	if row.PasswordSealed.Set() {
 		if password, err = m.cfg.Sealer.Open(row.PasswordSealed, passwordColumn.Single()); err != nil {
 			return Outcome{}, err
 		}
 	}
-	s := settingsOf(row)
 	server := Server{Host: s.Host, Port: s.Port, Security: s.Security, Username: s.Username, Password: string(password), From: s.From}
+	if c := m.courier.Load(); c != nil {
+		return (*c).Deliver(ctx, server, msg)
+	}
 	return SMTP{Server: server, Timings: m.cfg.Timings, Roots: m.cfg.Roots}.Send(ctx, msg)
 }
 

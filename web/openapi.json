@@ -1955,10 +1955,36 @@
           "name": {
             "type": "string"
           },
+          "probes": {
+            "description": "The last verdict of each probe the Node ran",
+            "items": {
+              "$ref": "#/components/schemas/NodesProbe"
+            },
+            "type": "array"
+          },
           "roles": {
             "description": "Every Role the Node stands in, in table order",
             "items": {
               "$ref": "#/components/schemas/NodesRoleView"
+            },
+            "type": "array"
+          },
+          "suggested": {
+            "description": "What a new Node's Roles step ticks first: each Acquire Role that has no probe or whose probe fits on the Node",
+            "items": {
+              "enum": [
+                "searching",
+                "downloading",
+                "storage",
+                "converting",
+                "subtitles",
+                "metadata",
+                "media-server-link",
+                "notifying",
+                "relaying",
+                "serving"
+              ],
+              "type": "string"
             },
             "type": "array"
           }
@@ -1969,7 +1995,9 @@
           "controller",
           "away",
           "assigned",
-          "roles"
+          "roles",
+          "probes",
+          "suggested"
         ],
         "type": "object"
       },
@@ -2636,6 +2664,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "probes": {
+            "description": "The last verdict of each probe the Node ran, kept while it is away",
+            "items": {
+              "$ref": "#/components/schemas/NodesProbe"
+            },
+            "type": "array"
+          },
           "roles": {
             "description": "Every Role the Node stands in, in table order",
             "items": {
@@ -2669,7 +2704,8 @@
           "intentVersion",
           "link",
           "standing",
-          "dial"
+          "dial",
+          "probes"
         ],
         "type": "object"
       },
@@ -2824,6 +2860,73 @@
           "node",
           "role",
           "words"
+        ],
+        "type": "object"
+      },
+      "NodesPlanChange": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "description": "The basis of the board or Outcome the change was planned on",
+            "type": "string"
+          },
+          "set": {
+            "description": "The Roles of each Node the change names. A Node it doesn't name keeps its own.",
+            "items": {
+              "$ref": "#/components/schemas/NodesAssignment"
+            },
+            "type": "array"
+          },
+          "test": {
+            "description": "Run the reach test of each added Role whose target is set, from its Node; setRoles always runs them",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "basis",
+          "set"
+        ],
+        "type": "object"
+      },
+      "NodesProbe": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "fit": {
+            "enum": [
+              "fits",
+              "weak",
+              "fails"
+            ],
+            "type": "string"
+          },
+          "probe": {
+            "enum": [
+              "engine-starts",
+              "data-writable",
+              "listener-up"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why it is weak or fails; absent when it fits",
+            "enum": [
+              "engine_not_listening",
+              "downloads_not_writable",
+              "downloads_on_network_share",
+              "data_not_writable",
+              "http_not_listening"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "probe",
+          "fit",
+          "at"
         ],
         "type": "object"
       },
@@ -13190,7 +13293,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NodesRolesChange"
+                "$ref": "#/components/schemas/NodesPlanChange"
               }
             }
           },

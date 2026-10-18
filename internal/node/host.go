@@ -2,9 +2,11 @@ package node
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"strings"
 	"sync/atomic"
@@ -134,8 +136,40 @@ func viewConfig(v view) (nodesystem.Config, error) {
 	return c, nil
 }
 
+// Reach dials t on the Node's network, and finishes a TLS handshake
+// there when t asks for TLS.
+func (h *nodeHost) Reach(ctx context.Context, t nodesystem.Target) nodesystem.Reached {
+	start := time.Now()
+	conn, err := h.n.env.Net.DialContext(ctx, "tcp", t.String())
+	if err == nil && t.TLS {
+		secured := tls.Client(conn, &tls.Config{ServerName: t.Host, MinVersion: tls.VersionTLS12})
+		err = secured.HandshakeContext(ctx)
+		conn = secured
+	}
+	took := time.Since(start)
+	if conn != nil {
+		_ = conn.Close()
+	}
+	if err != nil {
+		return nodesystem.Reached{Took: took, Err: reachError(err)}
+	}
+	return nodesystem.Reached{OK: true, Took: took}
+}
+
+// reachError is why a dial failed, without the addresses the test names.
+func reachError(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timed out"
+	}
+	if op, ok := errors.AsType[*net.OpError](err); ok {
+		return op.Err.Error()
+	}
+	return err.Error()
+}
+
 // reportHost tells the Controller, through the holder half's node facts,
-// where the Node serves HTTP and which settings revision it shows.
+// where the Node serves HTTP, which settings revision it shows and what
+// its probes find now.
 // hostMu keeps a stale report from landing after a fresh one.
 func (n *Node) reportHost() {
 	n.hostMu.Lock()
@@ -153,5 +187,5 @@ func (n *Node) reportHost() {
 		n.log.Warn("settings revision not reported", "err", err.Error())
 		return
 	}
-	h.holding.SetHost(role.Host{HTTPAddress: addr, SettingsRevision: c.Revision()})
+	h.holding.SetHost(role.Host{HTTPAddress: addr, SettingsRevision: c.Revision(), Probes: n.probe()})
 }
