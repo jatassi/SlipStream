@@ -29,7 +29,13 @@ import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
 
 export { expect, expectAccessible };
 
-export type Scenario = "single-machine" | "first-run" | "home" | "serving" | "targets";
+export type Scenario =
+  | "single-machine"
+  | "first-run"
+  | "home"
+  | "serving"
+  | "targets"
+  | "cgnat-home";
 
 export type World = {
   manifest: Manifest;
@@ -38,7 +44,8 @@ export type World = {
   baseURL: string;
   admin: () => Identity;
   member: () => Identity;
-  setupCode: () => Promise<string>;
+  /** The Setup code an Unclaimed Node logged: the `at` Node, or the one named. */
+  setupCode: (name?: string) => Promise<string>;
   api: (
     method: string,
     path: `/api/v1/${string}`,
@@ -199,7 +206,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       baseURL: browserName === "chromium" ? node.browserUrl : node.url,
       admin: () => identity(manifest, "admin"),
       member: () => identity(manifest, "member"),
-      setupCode: () => readSetupCode(node.log),
+      setupCode: (name) =>
+        readSetupCode(name === undefined ? node.log : nodeOf(manifest, name).log),
       api: async (method, path, body) => {
         const response = await fetch(new URL(path, node.url), {
           method,
