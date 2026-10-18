@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	register("lint", "run the architecture lint, gofmt, go vet, the cgo-free openapi.json check, golangci-lint, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the web checks and the notices check", runLint)
+	register("lint", "run the architecture lint, gofmt, go vet, the cgo-free openapi.json check, golangci-lint, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the web checks and the notices check", runLint)
 	register("fmt", "format the Go code with gofmt and the web app with Oxfmt", runFmt)
 }
 
@@ -83,6 +83,7 @@ func runLint(ctx context.Context, args []string) error {
 		{"tokens generated", func() error { return tokens.Check(root) }},
 		{"contrast", func() error { return tokens.CheckContrast(root) }},
 		{"icons generated", func() error { return icons.Check(root) }},
+		{"diagram keys", func() error { return run(ctx, web, nil, "bun", "run", "diagram:keys", "--check") }},
 		{"oxlint", func() error { return run(ctx, web, nil, "bun", "run", "lint") }},
 		{"oxfmt", func() error { return run(ctx, web, nil, "bun", "run", "fmt:check") }},
 		{"notices", func() error { return notices.Check(ctx, root) }},

@@ -24,10 +24,17 @@ export function tube(
   name: string,
   points: readonly Point3[],
   r: number,
-  { tone = "mid", className, ...options }: TubeOptions & { readonly tone?: LineTone; readonly className?: string } = {},
+  {
+    tone = "mid",
+    className,
+    ...options
+  }: TubeOptions & { readonly tone?: LineTone; readonly className?: string } = {},
 ): Drawn & { readonly pipe: Pipe } {
   const pieces = tubePieces(points, r, P, { maxLength: 400, ...options });
-  const drawn = pieces.map((piece): Drawn => ({ el: <Piece piece={piece} tone={tone} />, shapes: [] }));
+  const drawn = pieces.map((piece): Drawn => ({
+    el: <Piece piece={piece} tone={tone} />,
+    shapes: [],
+  }));
   return {
     el: className === undefined ? keyed(drawn) : <g className={className}>{keyed(drawn)}</g>,
     shapes: [],

@@ -48,7 +48,13 @@ export function prismOf(
   s1: number,
   projection: Projection,
 ): SolidPaths;
-export function disc(s0: number, s1: number, r: number, frame: Frame, projection: Projection): SolidPaths;
+export function disc(
+  s0: number,
+  s1: number,
+  r: number,
+  frame: Frame,
+  projection: Projection,
+): SolidPaths;
 export function arcOf(frame: Frame, s: number, r: number, projection: Projection): string;
 export function ribsOf(
   frame: Frame,

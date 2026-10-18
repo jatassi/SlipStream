@@ -27,7 +27,7 @@ export function NodesLanding({ view }: { view: View | undefined }) {
         <StatusSentence parts={[{ kind: "plain", text: landing.sentence }]} />
       </div>
       {shown === "diagram" ? (
-        <Diagram landing={landing} takesDrags={wide} />
+        <Diagram landing={landing} takesDrags={wide} adding={adding} act={setActing} />
       ) : (
         <Roster landing={landing} adding={adding} act={setActing} />
       )}

@@ -8,7 +8,10 @@ import { StateDot } from "../-state-dot";
 import { AddRow } from "./add-row";
 import { RowMenu } from "./row-menu";
 import { rosterGroup, rowKeys, rowShell, rowWash } from "./rows";
-import type { Landing, NodeRow } from "./view";
+import { type Landing, type NodeRow, shareDone } from "./view";
+
+const torrentsLine = ({ torrents }: NodeRow): string =>
+  `Downloading ${torrents.map((torrent) => `${torrent.title}, ${shareDone(torrent)}`).join(" · ")}`;
 
 function RosterRow({ node, act }: { node: NodeRow; act: (acting: Acting) => void }) {
   return (
@@ -38,6 +41,9 @@ function RosterRow({ node, act }: { node: NodeRow; act: (acting: Acting) => void
                   </Chip>
                 ))}
               </span>
+            )}
+            {node.torrents.length > 0 && (
+              <span className="text-meta text-ink-3">{torrentsLine(node)}</span>
             )}
             <Findings findings={node.findings} label={`What ${node.name} found`} />
           </span>

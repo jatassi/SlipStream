@@ -4,7 +4,13 @@ import { CONDUIT, FEET, RISER, type Route, WORKER_SCALE } from "../layout";
 import { type Drawn, type Item, block, item, mark } from "./part";
 import { tube } from "./tube";
 
-function riser(P: Projection, name: string, [cx, cy]: Plane, degrees: number, scale: number): Drawn {
+function riser(
+  P: Projection,
+  name: string,
+  [cx, cy]: Plane,
+  degrees: number,
+  scale: number,
+): Drawn {
   const half = (RISER * scale) / 2;
   const radians = (degrees * Math.PI) / 180;
   const along: Plane = [Math.cos(radians) * half, Math.sin(radians) * half];

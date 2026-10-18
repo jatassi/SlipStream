@@ -101,7 +101,6 @@
 
 .diagram .cell {
   fill: var(--anatomy-hi);
-  opacity: 0;
 }
 
 .diagram .drop {

@@ -2,25 +2,27 @@ import type { Point3, Projection } from "@anatomy/iso-kit";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import * as A from "../vendor/anatomy/kit/audit.mjs";
-import { type Item, type Shape, placedPipe, placedShape } from "../src/diagram/parts/part";
+import type { Item, Shape } from "../src/diagram/parts/part";
+import { placedPipe, placedShape } from "../src/diagram/parts/placed";
 
 function shapeOf(shape: Shape): A.AuditShape {
   const meta = { name: shape.name, ...(shape.owner === undefined ? {} : { owner: shape.owner }) };
-  switch (shape.kind) {
-    case "slab": {
-      return A.slab(shape.plan, shape.z, shape.h, meta, shape.steps);
-    }
-    case "extruded": {
-      return A.extruded(shape.ring, shape.z, shape.h, meta);
-    }
-    case "prism": {
-      return A.prism(shape.frame, shape.polygon, shape.s0, shape.s1, meta);
-    }
-    case "disc": {
-      return A.disc(shape.frame, shape.s0, shape.s1, shape.r, meta);
-    }
+  if (shape.kind === "slab") {
+    return A.slab(shape.plan, shape.z, shape.h, meta, shape.steps);
   }
+  if (shape.kind === "extruded") {
+    return A.extruded(shape.ring, shape.z, shape.h, meta);
+  }
+  if (shape.kind === "prism") {
+    return A.prism(shape.frame, shape.polygon, shape.s0, shape.s1, meta);
+  }
+  return A.disc(shape.frame, shape.s0, shape.s1, shape.r, meta);
 }
+
+/** Writes one line to standard output. */
+export const say = (line: string): void => {
+  process.stdout.write(`${line}\n`);
+};
 
 /**
  * Records an item drawn in local coordinates with its local projection, at
@@ -29,9 +31,17 @@ function shapeOf(shape: Shape): A.AuditShape {
 export function record(
   R: A.Recorder,
   item: Item,
-  { by = [0, 0, 0], scale = 1, key }: { readonly by?: Point3; readonly scale?: number; readonly key?: number } = {},
+  {
+    by = [0, 0, 0],
+    scale = 1,
+    key,
+  }: { readonly by?: Point3; readonly scale?: number; readonly key?: number } = {},
 ): void {
-  const at: Point3 = [item.at[0] * scale + by[0], item.at[1] * scale + by[1], item.at[2] * scale + by[2]];
+  const at: Point3 = [
+    item.at[0] * scale + by[0],
+    item.at[1] * scale + by[1],
+    item.at[2] * scale + by[2],
+  ];
   R.put({
     name: item.name,
     at,

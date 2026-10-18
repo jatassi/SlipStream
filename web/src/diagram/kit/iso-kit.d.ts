@@ -122,7 +122,11 @@ export function lineOnTop(
   z: number,
   projection: Projection,
 ): string;
-export function segment(from: Readonly<Point3>, to: Readonly<Point3>, projection: Projection): string;
+export function segment(
+  from: Readonly<Point3>,
+  to: Readonly<Point3>,
+  projection: Projection,
+): string;
 export function ring(
   cx: number,
   cy: number,

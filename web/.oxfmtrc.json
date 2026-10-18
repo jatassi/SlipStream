@@ -2,6 +2,7 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "openapi.json",
+    "src/diagram/keys.gen.ts",
     "src/routeTree.gen.ts",
     "src/theme.gen.css",
     "src/theme.gen.ts",

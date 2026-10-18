@@ -10,8 +10,10 @@ import {
 } from "@anatomy/iso-kit";
 import { arcOf, disc as discOf, frameAlong, ribsOf } from "@anatomy/lathe";
 
-import { type Drawn, type Item, box, faceX, faceY, faded, halo, item, line, mark, post, roundRect, screws } from "./part";
 import { Solid } from "@anatomy/react/draw";
+
+import { type Drawn, type Item, box, faded, halo, item, line, mark, post, screws } from "./part";
+import { faceX, faceY, roundRect } from "./face";
 
 // Converting's machine: a roller press that film runs through. It stands
 // still until S44 (Conversion) gives it live figures.
@@ -36,7 +38,10 @@ function roller(P: Projection, name: string, z: number): Drawn {
     el: (
       <>
         <Solid paths={discOf(0, length, ROLL_R, frame, P)} tone="hi" crease="lo" inner={seams.el} />
-        {faded(ribsOf(frame, 0.4, length - 0.4, ROLL_R, RIB_COUNT, P, { fade: [0.08, 0.5] }), "lo").el}
+        {
+          faded(ribsOf(frame, 0.4, length - 0.4, ROLL_R, RIB_COUNT, P, { fade: [0.08, 0.5] }), "lo")
+            .el
+        }
       </>
     ),
     shapes: [{ kind: "disc", name, frame, s0: 0, s1: length, r: ROLL_R }],
@@ -71,72 +76,132 @@ function stand(P: Projection, name: string, y: number): Drawn[] {
   ];
 }
 
-export function press(P: Projection): Item {
-  const fy = PRESS.y + PRESS.d;
-  const outbox: Plan = { x: 128, y: 44, w: 12, d: 34, r: 1.5 };
-  const tableLines: string[] = [];
-  for (let index = 0; index <= 4; index++) {
-    tableLines.push(lineOnTop([IN_X0, 38 + index * 10], [NIP_X - 8, 38 + index * 10], 28.2, P));
-  }
-  return item("converting", [PRESS.x + PRESS.w / 2, PRESS.y + PRESS.d / 2, 0], [
-    halo(P, PRESS, 0, 4, 7),
-    ...corners(PRESS, 6)
-      .toSorted(([ax, ay], [bx, by]) => ax + ay - (bx + by))
-      .map((at, index) => post(P, `converting.foot.${String(index)}`, at, 3.4, 0, 3, { tone: "lo", steps: 18 })),
-    box(P, "converting.bed", PRESS, 3, 7, { steps: 4, bevel: 0.8 }),
-    line(planOutline(insetPlan(PRESS, 3), 10, P, 4), "faint"),
-    ...screws(P, corners(PRESS, 6), 10),
+function bedFace(P: Projection): Drawn {
+  return mark(
+    <g transform={faceY(P, PRESS.y + PRESS.d)}>
+      <path
+        className="iso-line"
+        data-tone="lo"
+        d={roundRect(PRESS.x + 6, 4.6, PRESS.x + 34, 8.6, 1)}
+      />
+      <path className="window" d={roundRect(PRESS.x + 7, 5.2, PRESS.x + 22, 8, 0.6)} />
+      {Array.from({ length: LANES }, (_, index) => (
+        <circle key={index} className="lamp-dot" cx={PRESS.x + 44 + index * 5} cy={-6.6} r={1.1} />
+      ))}
+      <path
+        className="iso-line"
+        data-tone="lo"
+        d={roundRect(PRESS.x + 40.6, 4.6, PRESS.x + 62.4, 8.6, 1)}
+      />
+      <circle className="window" cx={PRESS.x + 104} cy={-6.6} r={2.4} />
+      <path
+        className="iso-line"
+        data-tone="hi"
+        data-free="end"
+        d={`M${String(PRESS.x + 104)} -6.6l-1.7 1.2`}
+      />
+      <circle className="hub" cx={PRESS.x + 104} cy={-6.6} r={0.5} />
+    </g>,
+  );
+}
+
+function gears(P: Projection): Drawn {
+  return mark(
+    <g transform={faceY(P, ROLL_Y[1] + 7)}>
+      <path className="gear-back" d={gearPath(NIP_X, ROLL_LOW_Z, 6.4, 14)} />
+      {[ROLL_LOW_Z, ROLL_HIGH_Z].map((z) => (
+        <g key={z}>
+          <path className="gear" d={gearPath(NIP_X, z, 6.4, 14)} />
+          <path
+            className="iso-line"
+            data-tone="mid"
+            d={roundRect(NIP_X - 4.4, z - 0.5, NIP_X + 4.4, z + 0.5, 0.5, 2)}
+          />
+          <circle className="hub" cx={NIP_X} cy={-z} r={1.6} />
+        </g>
+      ))}
+    </g>,
+  );
+}
+
+const OUTBOX: Plan = { x: 128, y: 44, w: 12, d: 34, r: 1.5 };
+
+function outbox(P: Projection): Drawn[] {
+  return [
+    box(P, "converting.outbox", OUTBOX, 10, 26, { bevel: 0.6 }),
     mark(
-      <g transform={faceY(P, fy)}>
-        <path className="iso-line" data-tone="lo" d={roundRect(PRESS.x + 6, 4.6, PRESS.x + 34, 8.6, 1)} />
-        <path className="window" d={roundRect(PRESS.x + 7, 5.2, PRESS.x + 22, 8, 0.6)} />
-        {Array.from({ length: LANES }, (_, index) => (
-          <circle key={index} className="lamp-dot" cx={PRESS.x + 44 + index * 5} cy={-6.6} r={1.1} />
-        ))}
-        <path className="iso-line" data-tone="lo" d={roundRect(PRESS.x + 40.6, 4.6, PRESS.x + 62.4, 8.6, 1)} />
-        <circle className="window" cx={PRESS.x + 104} cy={-6.6} r={2.4} />
-        <path className="iso-line" data-tone="hi" data-free="end" d={`M${String(PRESS.x + 104)} -6.6l-1.7 1.2`} />
-        <circle className="hub" cx={PRESS.x + 104} cy={-6.6} r={0.5} />
-      </g>,
-    ),
-    ...stand(P, "converting.stand.back", ROLL_Y[0] - 7),
-    ...[2, 40].map((x) => box(P, `converting.leg.${String(x)}`, { x, y: 38, w: 6, d: 46, r: 1 }, 10, 15.6, { tone: "lo", steps: 2, bevel: 0.3 })),
-    box(P, "converting.table.in", { x: IN_X0, y: 37, w: NIP_X - 8 - IN_X0, d: 47, r: 1.2 }, 25.6, 2.6, { bevel: 0.5 }),
-    line(tableLines.join(""), "faint"),
-    box(P, "converting.leg.out", { x: 116, y: 40, w: 6, d: 42, r: 1 }, 10, 15.6, { tone: "lo", steps: 2, bevel: 0.3 }),
-    box(P, "converting.table.out", { x: NIP_X + 8, y: 39, w: OUT_X1 - NIP_X - 8, d: 44, r: 1.2 }, 25.6, 2.6, { bevel: 0.5 }),
-    roller(P, "converting.roller.low", ROLL_LOW_Z),
-    roller(P, "converting.roller.high", ROLL_HIGH_Z),
-    ...stand(P, "converting.stand.front", ROLL_Y[1]),
-    mark(
-      <g transform={faceY(P, ROLL_Y[1] + 7)}>
-        <path className="gear-back" d={gearPath(NIP_X, ROLL_LOW_Z, 6.4, 14)} />
-        {[ROLL_LOW_Z, ROLL_HIGH_Z].map((z) => (
-          <g key={z}>
-            <path className="gear" d={gearPath(NIP_X, z, 6.4, 14)} />
-            <path className="iso-line" data-tone="mid" d={roundRect(NIP_X - 4.4, z - 0.5, NIP_X + 4.4, z + 0.5, 0.5, 2)} />
-            <circle className="hub" cx={NIP_X} cy={-z} r={1.6} />
-          </g>
-        ))}
-      </g>,
-    ),
-    box(P, "converting.outbox", outbox, 10, 26, { bevel: 0.6 }),
-    mark(
-      <g transform={faceX(P, outbox.x + outbox.w)}>
+      <g transform={faceX(P, OUTBOX.x + OUTBOX.w)}>
         <path
           className="iso-line"
           data-tone="faint"
-          d={roundRect(-(outbox.y + outbox.d - 3), 13, -(outbox.y + 3), 33, 1)}
+          d={roundRect(-(OUTBOX.y + OUTBOX.d - 3), 13, -(OUTBOX.y + 3), 33, 1)}
         />
       </g>,
     ),
     ...screws(
       P,
       [
-        [outbox.x + 3, outbox.y + 3],
-        [outbox.x + 3, outbox.y + outbox.d - 3],
+        [OUTBOX.x + 3, OUTBOX.y + 3],
+        [OUTBOX.x + 3, OUTBOX.y + OUTBOX.d - 3],
       ],
       36,
     ),
-  ]);
+  ];
+}
+
+function tables(P: Projection): Drawn[] {
+  const grooves: string[] = [];
+  for (let index = 0; index <= 4; index++) {
+    grooves.push(lineOnTop([IN_X0, 38 + index * 10], [NIP_X - 8, 38 + index * 10], 28.2, P));
+  }
+  const leg = { tone: "lo", steps: 2, bevel: 0.3 } as const;
+  return [
+    ...[2, 40].map((x) =>
+      box(P, `converting.leg.${String(x)}`, { x, y: 38, w: 6, d: 46, r: 1 }, 10, 15.6, leg),
+    ),
+    box(
+      P,
+      "converting.table.in",
+      { x: IN_X0, y: 37, w: NIP_X - 8 - IN_X0, d: 47, r: 1.2 },
+      25.6,
+      2.6,
+      { bevel: 0.5 },
+    ),
+    line(grooves.join(""), "faint"),
+    box(P, "converting.leg.out", { x: 116, y: 40, w: 6, d: 42, r: 1 }, 10, 15.6, leg),
+    box(
+      P,
+      "converting.table.out",
+      { x: NIP_X + 8, y: 39, w: OUT_X1 - NIP_X - 8, d: 44, r: 1.2 },
+      25.6,
+      2.6,
+      { bevel: 0.5 },
+    ),
+  ];
+}
+
+export function press(P: Projection): Item {
+  return item(
+    "converting",
+    [PRESS.x + PRESS.w / 2, PRESS.y + PRESS.d / 2, 0],
+    [
+      halo(P, PRESS, 0, 4, 7),
+      ...corners(PRESS, 6)
+        .toSorted(([ax, ay], [bx, by]) => ax + ay - (bx + by))
+        .map((at, index) =>
+          post(P, `converting.foot.${String(index)}`, at, 3.4, 0, 3, { tone: "lo", steps: 18 }),
+        ),
+      box(P, "converting.bed", PRESS, 3, 7, { steps: 4, bevel: 0.8 }),
+      line(planOutline(insetPlan(PRESS, 3), 10, P, 4), "faint"),
+      ...screws(P, corners(PRESS, 6), 10),
+      bedFace(P),
+      ...stand(P, "converting.stand.back", ROLL_Y[0] - 7),
+      ...tables(P),
+      roller(P, "converting.roller.low", ROLL_LOW_Z),
+      roller(P, "converting.roller.high", ROLL_HIGH_Z),
+      ...stand(P, "converting.stand.front", ROLL_Y[1]),
+      gears(P),
+      ...outbox(P),
+    ],
+  );
 }

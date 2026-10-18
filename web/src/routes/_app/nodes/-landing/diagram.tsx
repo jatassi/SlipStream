@@ -1,22 +1,59 @@
+import { useState } from "react";
+
+import { DiagramFigure } from "../../../../diagram/figure";
+import { MOST_NODES } from "../../../../diagram/layout";
+import type { Part } from "../../../../diagram/parts-order";
+import type { Adding } from "../-add-node/add-node";
+import type { Acting } from "../-manage/dialogs";
+import { AddOnDiagram } from "./add-row";
+import { useDrops } from "./drops";
+import { DiagramInspector } from "./inspect";
 import type { Landing } from "./view";
 
-const waiting = (count: number) =>
-  count === 1
-    ? "The Diagram of your Node is on its way. The Roster lists it."
-    : `The Diagram of your ${count} Nodes is on its way. The Roster lists the same Nodes.`;
-
 /**
- * Where the Diagram draws the Nodes from the same reading the Roster lists.
- * Below 1000px it is look-only: it takes no drags.
+ * The Diagram of the landing's Nodes, with the Inspector for what is
+ * selected. Where it takes drags, a dropped Role chip opens the Review of
+ * that change; below 1000px it is there to look at.
  */
-export function Diagram({ landing, takesDrags }: { landing: Landing; takesDrags: boolean }) {
+export function Diagram({
+  landing,
+  takesDrags,
+  adding,
+  act,
+}: {
+  landing: Landing;
+  takesDrags: boolean;
+  adding: Adding;
+  act: (acting: Acting) => void;
+}) {
+  const [selected, setSelected] = useState<Part>();
+  const { gestureOf, onDrop, review } = useDrops();
   return (
-    <figure
-      aria-label="Diagram"
-      data-takes-drags={takesDrags}
-      className="flex min-h-[420px] flex-col items-center justify-center gap-2 rounded-card bg-glass p-6 text-center ring-1 ring-hairline ring-inset"
-    >
-      <figcaption className="max-w-[440px] text-ink-2">{waiting(landing.nodes.length)}</figcaption>
-    </figure>
+    <>
+      <DiagramFigure
+        landing={landing}
+        takesDrags={takesDrags}
+        selected={selected}
+        onSelect={setSelected}
+        gestureOf={gestureOf}
+        onDrop={onDrop}
+      >
+        {landing.nodes.length === 1 && <AddOnDiagram adding={adding} />}
+      </DiagramFigure>
+      {landing.nodes.length > MOST_NODES && (
+        <p className="mt-3 text-meta text-ink-3">
+          The Diagram draws {MOST_NODES} Nodes. The Roster lists all {landing.nodes.length}.
+        </p>
+      )}
+      <DiagramInspector
+        landing={landing}
+        part={selected}
+        onClose={() => {
+          setSelected(undefined);
+        }}
+        act={act}
+      />
+      {review}
+    </>
   );
 }

@@ -46,6 +46,10 @@ export type NodeRow = {
   readonly torrents: readonly NodesTorrentView[];
 };
 
+/** How much of a torrent is down, as a whole percent. */
+export const shareDone = ({ done, wanted }: NodesTorrentView): string =>
+  `${String(wanted > 0 ? Math.floor((done / wanted) * 100) : 0)}%`;
+
 /** The Node link between the Controller and one Worker. */
 export type LinkRow = {
   readonly worker: string;
@@ -167,7 +171,9 @@ export function landingOf(
     links: topology.links.map((link) => ({
       worker: link.b,
       state: link.state,
-      ...(link.dialer === undefined ? {} : { dialer: link.dialer === link.a ? "controller" : "worker" }),
+      ...(link.dialer === undefined
+        ? {}
+        : { dialer: link.dialer === link.a ? "controller" : "worker" }),
       ...(link.rttMs === undefined ? {} : { rttMs: link.rttMs }),
     })),
   };

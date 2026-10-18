@@ -6,7 +6,7 @@ import * as A from "../vendor/anatomy/kit/audit.mjs";
 import { itemsOf } from "../src/diagram/geometry";
 import { AZIMUTH, TILE } from "../src/diagram/layout";
 import type { NodeRow } from "../src/routes/_app/nodes/-landing/view";
-import { recorderFor, record } from "./diagram-record";
+import { recorderFor, record, say } from "./diagram-record";
 
 // Settles one canonical tile holding every Role, so every chip and machine is
 // on it, and writes each part's depth key. A part's key is the same at every
@@ -33,7 +33,13 @@ const canonical: NodeRow = {
   controller: true,
   state: "online",
   facts: [],
-  roles: roles.map((role) => ({ role, label: role, state: "holding", note: "holding", words: role })),
+  roles: roles.map((role) => ({
+    role,
+    label: role,
+    state: "holding",
+    note: "holding",
+    words: role,
+  })),
   findings: [],
   holds: false,
   plaque: "Online",
@@ -60,11 +66,11 @@ const text = [
 
 if (process.argv.includes("--check")) {
   if (readFileSync(OUT, "utf8") !== text) {
-    console.error("web/src/diagram/keys.gen.ts is stale: run bun run diagram:keys");
+    say("web/src/diagram/keys.gen.ts is stale: run bun run diagram:keys");
     process.exit(1);
   }
-  console.log("diagram keys are current");
+  say("diagram keys are current");
 } else {
   writeFileSync(OUT, text);
-  console.log(`wrote ${String(keys.length)} depth keys`);
+  say(`wrote ${String(keys.length)} depth keys`);
 }

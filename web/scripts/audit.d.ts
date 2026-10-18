@@ -22,12 +22,28 @@ declare module "*/vendor/anatomy/kit/audit.mjs" {
       readonly svg?: string;
     }): AuditItem;
     solid(shape: AuditShape): AuditShape;
-    route(name: string, points: readonly Point3[], radius: number, options?: { readonly owner?: string }): unknown;
+    route(
+      name: string,
+      points: readonly Point3[],
+      radius: number,
+      options?: { readonly owner?: string },
+    ): unknown;
   };
 
   export function recorder(P: Projection): Recorder;
-  export function slab(plan: Plan, z: number, height: number, meta: { readonly name: string; readonly owner?: string }, steps?: number): AuditShape;
-  export function extruded(ring: readonly Plane[], z: number, height: number, meta: { readonly name: string; readonly owner?: string }): AuditShape;
+  export function slab(
+    plan: Plan,
+    z: number,
+    height: number,
+    meta: { readonly name: string; readonly owner?: string },
+    steps?: number,
+  ): AuditShape;
+  export function extruded(
+    ring: readonly Plane[],
+    z: number,
+    height: number,
+    meta: { readonly name: string; readonly owner?: string },
+  ): AuditShape;
   export function prism(
     frame: Frame,
     polygon: readonly Plane[],
@@ -35,14 +51,31 @@ declare module "*/vendor/anatomy/kit/audit.mjs" {
     s1: number,
     meta: { readonly name: string; readonly owner?: string },
   ): AuditShape;
-  export function disc(frame: Frame, s0: number, s1: number, r: number, meta: { readonly name: string; readonly owner?: string }): AuditShape;
-  export function tube(points: readonly Point3[], radius: number, meta: { readonly name: string; readonly owner?: string }): AuditShape;
+  export function disc(
+    frame: Frame,
+    s0: number,
+    s1: number,
+    r: number,
+    meta: { readonly name: string; readonly owner?: string },
+  ): AuditShape;
+  export function tube(
+    points: readonly Point3[],
+    radius: number,
+    meta: { readonly name: string; readonly owner?: string },
+  ): AuditShape;
   export function settle(R: Recorder): Settled;
   export function overlapsOf(
     items: readonly AuditItem[],
     P: Projection,
-    options: { readonly states: readonly number[]; readonly skip: (a: AuditItem, b: AuditItem) => boolean },
+    options: {
+      readonly states: readonly number[];
+      readonly skip: (a: AuditItem, b: AuditItem) => boolean;
+    },
   ): unknown;
   export function sameRun(a: AuditItem, b: AuditItem): boolean;
-  export function auditOrExit(R: Recorder, P: Projection, options: { readonly argv: readonly string[] }): unknown;
+  export function auditOrExit(
+    R: Recorder,
+    P: Projection,
+    options: { readonly argv: readonly string[] },
+  ): unknown;
 }

@@ -1,5 +1,6 @@
 import { Add01Icon } from "@hugeicons/core-free-icons";
 
+import { Button } from "../../../../ui/button";
 import { Icon } from "../../../../ui/icon";
 import type { Adding } from "../-add-node/add-node";
 import { rowKeys, rowShell, rowWash } from "./rows";
@@ -25,5 +26,16 @@ export function AddRow({ adding }: { adding: Adding }) {
         </span>
       </button>
     </li>
+  );
+}
+
+/** With one machine, the Diagram offers the next one beside its tile. */
+export function AddOnDiagram({ adding }: { adding: Adding }) {
+  return (
+    <div className="absolute right-4 bottom-4">
+      <Button icon={Add01Icon} onClick={adding.start}>
+        Add a Node
+      </Button>
+    </div>
   );
 }

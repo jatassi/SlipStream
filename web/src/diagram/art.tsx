@@ -1,6 +1,6 @@
-import { memo } from "react";
+import { type Ref, memo } from "react";
 
-import type { Drawing, DrawnTile } from "./geometry";
+import type { Drawing, DrawnTile } from "./drawing";
 
 const Tile = memo(function Tile({ tile }: { tile: DrawnTile }) {
   const { node } = tile;
@@ -35,10 +35,17 @@ const Tile = memo(function Tile({ tile }: { tile: DrawnTile }) {
  * front, each tile's parts in depth-key order. The live loop only writes
  * attributes on what this draws.
  */
-export const Art = memo(function Art({ drawing }: { drawing: Drawing }) {
+export const Art = memo(function Art({
+  drawing,
+  ref,
+}: {
+  drawing: Drawing;
+  ref: Ref<SVGSVGElement>;
+}) {
   const { stage, links, tiles } = drawing;
   return (
     <svg
+      ref={ref}
       className="iso-svg"
       viewBox={`0 0 ${String(stage.width)} ${String(stage.height)}`}
       aria-hidden="true"

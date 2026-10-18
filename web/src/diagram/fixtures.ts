@@ -25,7 +25,11 @@ const groups: NodesRoleGroup[] = [
       { role: "downloading", label: "Downloading", probe: "engine-starts", pinned: false },
     ],
   },
-  { group: "store", label: "Store", roles: [{ role: "storage", label: "Storage", probe: "data-writable", pinned: false }] },
+  {
+    group: "store",
+    label: "Store",
+    roles: [{ role: "storage", label: "Storage", probe: "data-writable", pinned: false }],
+  },
   {
     group: "process",
     label: "Process",
@@ -53,7 +57,9 @@ const groups: NodesRoleGroup[] = [
   },
 ];
 
-const tableOrder: readonly RoleName[] = groups.flatMap(({ roles }) => roles.map(({ role }) => role));
+const tableOrder: readonly RoleName[] = groups.flatMap(({ roles }) =>
+  roles.map(({ role }) => role),
+);
 
 type Seat = {
   readonly name: string;
@@ -63,7 +69,18 @@ type Seat = {
 };
 
 const SEATS: readonly Seat[] = [
-  { name: "home", roles: ["searching", "downloading", "storage", "converting", "metadata", "notifying", "serving"] },
+  {
+    name: "home",
+    roles: [
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "metadata",
+      "notifying",
+      "serving",
+    ],
+  },
   { name: "seedbox", roles: ["downloading"] },
   { name: "vps", roles: ["relaying", "serving"] },
   { name: "attic", roles: ["storage", "subtitles"], away: true },
@@ -80,7 +97,8 @@ const SEATS: readonly Seat[] = [
   { name: "pier", roles: ["searching", "notifying"] },
 ];
 
-const idOf = (index: number): string => `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+const idOf = (index: number): string =>
+  `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
 
 const torrentsOf = (index: number): NodesTorrentView[] =>
   [
@@ -128,24 +146,19 @@ export type Fixture = {
   readonly traffic: readonly [NodesTraffic, NodesTraffic];
 };
 
-/** An install of `count` Nodes: the Controller, then Workers in pairing order. */
-export function fixtureOf(count: number): Fixture {
-  const seats = SEATS.slice(0, count);
-  const nodes = seats.map(nodeOf);
+function sampleOf(nodes: readonly NodesTopologyNode[], at: string, step: number): NodesTraffic {
   const [controller, ...workers] = nodes;
-  if (controller === undefined) {
-    throw new Error("a fixture has at least its Controller");
-  }
-  const up = workers.filter((node) => node.state === "online");
-  const sample = (at: string, step: number): NodesTraffic => ({
+  return {
     at,
-    links: up.map((node, index) => ({
-      a: controller.id,
-      b: node.id,
-      abBps: 40_000 + index * 9_000,
-      baBps: 1_800_000 + index * 600_000 + step * 120_000,
-      rttMs: 18 + index * 11,
-    })),
+    links: workers
+      .filter((node) => node.state === "online")
+      .map((node, index) => ({
+        a: controller?.id ?? "",
+        b: node.id,
+        abBps: 40_000 + index * 9_000,
+        baBps: 1_800_000 + index * 600_000 + step * 120_000,
+        rttMs: 18 + index * 11,
+      })),
     nodes: nodes
       .filter((node) => node.resources.downloading !== undefined)
       .map((node) => ({
@@ -158,36 +171,62 @@ export function fixtureOf(count: number): Fixture {
           done: Math.min(torrent.wanted, torrent.done + step * 6_200_000),
         })),
       })),
-  });
+  };
+}
+
+function topologyOf(
+  controller: NodesTopologyNode,
+  workers: readonly NodesTopologyNode[],
+): NodesTopology {
   const away = workers.filter((node) => node.state !== "online");
   return {
-    topology: {
-      at: AT,
-      sentence:
-        away.length === 0 ? "Every Node is online." : `${away.map(({ name }) => name).join(" and ")} is offline.`,
-      nodes,
-      links: workers.map((node, index) =>
-        node.state === "online"
-          ? { a: controller.id, b: node.id, state: "up", dialer: index % 3 === 2 ? controller.id : node.id, rttMs: 18 + index * 11 }
-          : { a: controller.id, b: node.id, state: "down" },
-      ),
-    },
-    board: {
-      basis: "basis-1",
-      groups,
-      gestures: [],
-      nodes: nodes.map((node) => ({
-        id: node.id,
-        name: node.name,
-        controller: node.controller,
-        away: node.state !== "online",
-        assigned: node.roles.map(({ role }) => role),
-        roles: node.roles,
-        probes: [],
-        suggested: [],
-      })),
-    },
-    traffic: [sample("2026-10-12T21:39:59Z", 0), sample(AT, 1)],
+    at: AT,
+    sentence:
+      away.length === 0
+        ? "Every Node is online."
+        : `${away.map(({ name }) => name).join(" and ")} is offline.`,
+    nodes: [controller, ...workers],
+    links: workers.map((node, index) =>
+      node.state === "online"
+        ? {
+            a: controller.id,
+            b: node.id,
+            state: "up",
+            dialer: index % 3 === 2 ? controller.id : node.id,
+            rttMs: 18 + index * 11,
+          }
+        : { a: controller.id, b: node.id, state: "down" },
+    ),
+  };
+}
+
+const boardOf = (nodes: readonly NodesTopologyNode[]): NodesRoleBoard => ({
+  basis: "basis-1",
+  groups,
+  gestures: [],
+  nodes: nodes.map((node) => ({
+    id: node.id,
+    name: node.name,
+    controller: node.controller,
+    away: node.state !== "online",
+    assigned: node.roles.map(({ role }) => role),
+    roles: node.roles,
+    probes: [],
+    suggested: [],
+  })),
+});
+
+/** An install of `count` Nodes: the Controller, then Workers in pairing order. */
+export function fixtureOf(count: number): Fixture {
+  const nodes = SEATS.slice(0, count).map((seat, index) => nodeOf(seat, index));
+  const [controller, ...workers] = nodes;
+  if (controller === undefined) {
+    throw new Error("a fixture has at least its Controller");
+  }
+  return {
+    topology: topologyOf(controller, workers),
+    board: boardOf(nodes),
+    traffic: [sampleOf(nodes, "2026-10-12T21:39:59Z", 0), sampleOf(nodes, AT, 1)],
   };
 }
 

@@ -4,13 +4,15 @@
   "type": "module",
   "scripts": {
     "gen": "orval && tsr generate",
-    "build": "orval && vite build && tsc --noEmit && tsc --noEmit -p e2e && tsc --noEmit -p harness",
+    "build": "orval && vite build && tsc --noEmit && tsc --noEmit -p e2e && tsc --noEmit -p harness && tsc --noEmit -p scripts",
     "test": "vitest run",
     "e2e:install": "node e2e/install.ts",
     "e2e": "playwright test -c e2e",
     "lint": "oxlint",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "diagram:keys": "bun scripts/diagram-keys.ts",
+    "diagram:check": "bun scripts/diagram-check.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

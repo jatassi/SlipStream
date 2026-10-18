@@ -10,10 +10,7 @@ import {
   extrude,
   haloOf,
   iso,
-  pathOf,
   ring as ringAt,
-  roundedPlan,
-  sideMatrix,
   slabOf,
 } from "@anatomy/iso-kit";
 import { type Faded, type Frame, disc as discOf, prismOf } from "@anatomy/lathe";
@@ -29,8 +26,19 @@ export type Shape = {
   /** The solid this one is set into on purpose, so the audit excuses their overlap. */
   readonly owner?: string;
 } & (
-  | { readonly kind: "slab"; readonly plan: Plan; readonly z: number; readonly h: number; readonly steps: number }
-  | { readonly kind: "extruded"; readonly ring: readonly Plane[]; readonly z: number; readonly h: number }
+  | {
+      readonly kind: "slab";
+      readonly plan: Plan;
+      readonly z: number;
+      readonly h: number;
+      readonly steps: number;
+    }
+  | {
+      readonly kind: "extruded";
+      readonly ring: readonly Plane[];
+      readonly z: number;
+      readonly h: number;
+    }
   | {
       readonly kind: "prism";
       readonly frame: Frame;
@@ -38,14 +46,24 @@ export type Shape = {
       readonly s0: number;
       readonly s1: number;
     }
-  | { readonly kind: "disc"; readonly frame: Frame; readonly s0: number; readonly s1: number; readonly r: number }
+  | {
+      readonly kind: "disc";
+      readonly frame: Frame;
+      readonly s0: number;
+      readonly s1: number;
+      readonly r: number;
+    }
 );
 
 /** What one call draws: its markup, and the shapes of the solids in it. */
 export type Drawn = { readonly el: ReactNode; readonly shapes: readonly Shape[] };
 
 /** A pipe or cable drawn in an item: its centreline and radius. */
-export type Pipe = { readonly name: string; readonly points: readonly Point3[]; readonly r: number };
+export type Pipe = {
+  readonly name: string;
+  readonly points: readonly Point3[];
+  readonly r: number;
+};
 
 /**
  * One painted item: a group of parts drawn in the order given, sorted
@@ -110,7 +128,12 @@ export function post(
   };
 }
 
-const upright = ([x, y]: Plane): Frame => ({ o: [x, y, 0], a: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0] });
+const upright = ([x, y]: Plane): Frame => ({
+  o: [x, y, 0],
+  a: [0, 0, 1],
+  u: [1, 0, 0],
+  v: [0, 1, 0],
+});
 
 /** Any floor outline, extruded straight up from z. */
 export function block(
@@ -121,7 +144,10 @@ export function block(
   h: number,
   style: SolidStyle = {},
 ): Drawn {
-  return { el: styled(extrude(ring, z, h, P), style), shapes: [{ kind: "extruded", name, ring, z, h }] };
+  return {
+    el: styled(extrude(ring, z, h, P), style),
+    shapes: [{ kind: "extruded", name, ring, z, h }],
+  };
 }
 
 /** A polygon in the frame's u, v plane, extruded from s0 to s1 along its axis. */
@@ -150,7 +176,10 @@ export function disc(
   r: number,
   style: SolidStyle = {},
 ): Drawn {
-  return { el: styled(discOf(s0, s1, r, frame, P), style), shapes: [{ kind: "disc", name, frame, s0, s1, r }] };
+  return {
+    el: styled(discOf(s0, s1, r, frame, P), style),
+    shapes: [{ kind: "disc", name, frame, s0, s1, r }],
+  };
 }
 
 export const line = (d: string, tone: LineTone = "lo", free?: true | "start" | "end"): Drawn => ({
@@ -174,17 +203,27 @@ export const owned = (drawn: Drawn, owner: string): Drawn => ({
 export const mark = (el: ReactNode): Drawn => ({ el, shapes: [] });
 
 /** Several drawn things in one group, with the attributes the live loop finds them by. */
-export function group(attributes: Readonly<Record<string, string>>, parts: readonly Drawn[]): Drawn {
+export function group(
+  attributes: Readonly<Record<string, string>>,
+  parts: readonly Drawn[],
+): Drawn {
   return {
     el: <g {...attributes}>{keyed(parts)}</g>,
     shapes: parts.flatMap(({ shapes }) => shapes),
   };
 }
 
+// A drawn list is fixed in length and order, so its places are its keys.
 export const keyed = (parts: readonly Drawn[]): ReactNode =>
+  // oxlint-disable-next-line react/no-array-index-key -- a drawn list never reorders
   parts.map(({ el }, index) => <Fragment key={index}>{el}</Fragment>);
 
-export function item(name: string, at: Point3, parts: readonly Drawn[], pipes: readonly Pipe[] = []): Item {
+export function item(
+  name: string,
+  at: Point3,
+  parts: readonly Drawn[],
+  pipes: readonly Pipe[] = [],
+): Item {
   return {
     name,
     at,
@@ -207,71 +246,13 @@ export function screws(P: Projection, points: readonly Plane[], z: number): Draw
 
 /** The soft shadow a plan casts on the floor. */
 export const halo = (P: Projection, plan: Plan, z: number, h: number, blur: number): Drawn =>
-  mark(<path className="iso-halo" d={haloOf(plan, z, h, P)} style={{ filter: `blur(${String(blur)}px)` }} />);
-
-/** A rounded rectangle on a face, from (u0, z0) to (u1, z1), in a face's own coordinates. */
-export const roundRect = (u0: number, z0: number, u1: number, z1: number, r: number, steps = 4): string =>
-  pathOf(
-    roundedPlan({ x: u0, y: z0, w: u1 - u0, d: z1 - z0, r }, steps).map(([u, z]): Flat => [u, -z]),
-    true,
+  mark(
+    <path
+      className="iso-halo"
+      d={haloOf(plan, z, h, P)}
+      style={{ filter: `blur(${String(blur)}px)` }}
+    />,
   );
-
-/** The projection that draws local coordinates at `by` in the world. */
-export const movedP = (P: Projection, by: Point3): Projection => ({ ...P, origin: iso(by, P) });
-
-const add = ([x, y, z]: Point3, [dx, dy, dz]: Point3): Point3 => [x + dx, y + dy, z + dz];
-
-/** A shape moved by `by` and scaled about the origin by `scale`, as the audit places it in the world. */
-export function placedShape(shape: Shape, by: Point3, scale = 1): Shape {
-  const [dx, dy, dz] = by;
-  const at = (point: Point3): Point3 => add([point[0] * scale, point[1] * scale, point[2] * scale], by);
-  const frame = (f: Frame): Frame => ({ ...f, o: at(f.o) });
-  switch (shape.kind) {
-    case "slab": {
-      const { plan } = shape;
-      return {
-        ...shape,
-        plan: { x: plan.x * scale + dx, y: plan.y * scale + dy, w: plan.w * scale, d: plan.d * scale, r: plan.r * scale },
-        z: shape.z * scale + dz,
-        h: shape.h * scale,
-      };
-    }
-    case "extruded": {
-      return {
-        ...shape,
-        ring: shape.ring.map(([x, y]): Plane => [x * scale + dx, y * scale + dy]),
-        z: shape.z * scale + dz,
-        h: shape.h * scale,
-      };
-    }
-    case "prism": {
-      return {
-        ...shape,
-        frame: frame(shape.frame),
-        polygon: shape.polygon.map(([u, v]): Plane => [u * scale, v * scale]),
-        s0: shape.s0 * scale,
-        s1: shape.s1 * scale,
-      };
-    }
-    case "disc": {
-      return { ...shape, frame: frame(shape.frame), s0: shape.s0 * scale, s1: shape.s1 * scale, r: shape.r * scale };
-    }
-  }
-}
-
-export const placedPipe = (pipe: Pipe, by: Point3, scale = 1): Pipe => ({
-  ...pipe,
-  points: pipe.points.map((point) => add([point[0] * scale, point[1] * scale, point[2] * scale], by)),
-  r: pipe.r * scale,
-});
-
-/** An item drawn in local coordinates, with its shapes and anchor moved by `by` into its parent's. */
-export const placed = (it: Item, by: Point3): Item => ({
-  ...it,
-  at: add(it.at, by),
-  shapes: it.shapes.map((shape) => placedShape(shape, by)),
-  pipes: it.pipes.map((pipe) => placedPipe(pipe, by)),
-});
 
 /** Strokes that fade by their alpha, grouped so each alpha is one path. */
 export function faded(list: readonly Faded[], tone: LineTone = "lo"): Drawn {
@@ -285,13 +266,14 @@ export function faded(list: readonly Faded[], tone: LineTone = "lo"): Drawn {
   return mark(
     <>
       {[...groups].map(([alpha, d]) => (
-        <path key={alpha} className="iso-line" data-tone={tone} d={d} opacity={alpha < 1 ? alpha : undefined} />
+        <path
+          key={alpha}
+          className="iso-line"
+          data-tone={tone}
+          d={d}
+          opacity={alpha < 1 ? alpha : undefined}
+        />
       ))}
     </>,
   );
 }
-
-/** The transform onto the face at y, looking from +y: u runs along x, up is z. */
-export const faceY = (P: Projection, y: number): string => sideMatrix([0, y], 0, P, "left");
-/** The transform onto the face at x, looking from +x: u runs along -y, up is z. */
-export const faceX = (P: Projection, x: number): string => sideMatrix([x, 0], 0, P, "right");
