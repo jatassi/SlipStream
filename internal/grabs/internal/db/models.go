@@ -24,7 +24,7 @@ type GrabsGrab struct {
 	ID              GrabID
 	WorkID          works.WorkID
 	ItemID          works.ItemID
-	Edition         files.Edition
+	Edition         targets.Edition
 	Source          string
 	IndexerID       indexers.ID
 	NodeID          role.NodeID
@@ -46,6 +46,14 @@ type GrabsGrab struct {
 	FailureMessage  *string
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
+	Unwanted        *files.Unwanted
+}
+
+type GrabsRefusal struct {
+	SearchID SearchID
+	Position int64
+	Title    string
+	Reasons  string
 }
 
 type GrabsSearch struct {
@@ -58,6 +66,7 @@ type GrabsSearch struct {
 	Outcome    *Outcome
 	Candidates int64
 	GrabID     GrabID
+	Notes      *string
 }
 
 type GrabsStage struct {

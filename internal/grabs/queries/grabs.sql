@@ -66,7 +66,7 @@ VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(indexer_id)
 
 -- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = sqlc.arg(finished_at), outcome = sqlc.arg(outcome), candidates = sqlc.arg(candidates),
-    grab_id = sqlc.narg(grab_id)
+    grab_id = sqlc.narg(grab_id), notes = sqlc.narg(notes)
 WHERE id = sqlc.arg(id) AND finished_at IS NULL;
 
 -- name: ListOpenSearches :many
@@ -75,8 +75,30 @@ SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
 -- name: ListSearchesOfWork :many
 SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) ORDER BY started_at DESC, id DESC;
 
+-- name: InsertRefusal :exec
+INSERT INTO grabs_refusal (search_id, position, title, reasons)
+VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(title), sqlc.arg(reasons));
+
+-- name: ListRefusalsOfWork :many
+SELECT grabs_refusal.* FROM grabs_refusal
+JOIN grabs_search ON grabs_search.id = grabs_refusal.search_id
+WHERE grabs_search.work_id = sqlc.arg(work_id)
+ORDER BY grabs_refusal.search_id, grabs_refusal.position;
+
 -- name: ListTargetsOfWork :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id = sqlc.arg(work_id)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
+
+-- name: ListTargetsOfWorks :many
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+WHERE grabs_grab.work_id IN (sqlc.slice(work_ids))
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
+
+-- name: SettleGrab :exec
+UPDATE grabs_grab SET unwanted = sqlc.arg(unwanted) WHERE id = sqlc.arg(id);
+
+-- name: GetUnwanted :one
+SELECT unwanted FROM grabs_grab WHERE id = sqlc.arg(id);

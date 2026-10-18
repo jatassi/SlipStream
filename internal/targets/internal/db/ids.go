@@ -1,49 +1,44 @@
 package db
 
-import (
-	"database/sql/driver"
-	"fmt"
-
-	"github.com/jatassi/slipstream/internal/storage"
-)
+import "github.com/jatassi/slipstream/internal/storage"
 
 type (
 	TargetID  struct{ storage.UUID }
 	ProfileID struct{ storage.UUID }
 )
 
-// Resolution ranks by value: a lower one is the higher resolution.
-type Resolution uint8
+// Attribute is a fact a hard filter rules on.
+type Attribute string
 
 const (
-	R2160p Resolution = iota + 1
-	R1080p
-	R720p
-	R576p
-	R480p
+	HDR        Attribute = "hdr"
+	VideoCodec Attribute = "video_codec"
+	AudioCodec Attribute = "audio_codec"
+	Channels   Attribute = "channels"
+	Language   Attribute = "language"
 )
 
-var resolutionNames = [...]string{R2160p: "2160p", R1080p: "1080p", R720p: "720p", R576p: "576p", R480p: "480p"}
+// Mode is how a hard filter rules. Any, the zero value, has no row.
+type Mode string
 
-func ParseResolution(s string) (Resolution, error) {
-	for r, name := range resolutionNames {
-		if r > 0 && name == s {
-			return Resolution(r), nil
-		}
-	}
-	return 0, fmt.Errorf("%q is not a resolution", s)
-}
+const (
+	Any  Mode = ""
+	Only Mode = "only"
+	Not  Mode = "not"
+)
 
-func (r Resolution) String() string { return resolutionNames[r] }
+type Sourcing string
 
-func (r Resolution) Value() (driver.Value, error) { return r.String(), nil }
+const Download Sourcing = "download"
 
-func (r *Resolution) Scan(v any) error {
-	s, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("scan a resolution from %T", v)
-	}
-	parsed, err := ParseResolution(s)
-	*r = parsed
-	return err
-}
+// Singleton is the id of a one-row table, fixed at 1 by a CHECK.
+type Singleton int64
+
+// List is the kind of an Edition list: any cut, or named cuts in their
+// own rows. A Work's NULL list is its Profile's.
+type List string
+
+const (
+	AnyList  List = "any"
+	CutsList List = "cuts"
+)

@@ -28,7 +28,7 @@ import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
 
 export { expect, expectAccessible };
 
-export type Scenario = "single-machine" | "first-run" | "home";
+export type Scenario = "single-machine" | "first-run" | "home" | "targets";
 
 export type World = {
   manifest: Manifest;

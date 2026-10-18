@@ -18,6 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -288,6 +289,7 @@ func (n *Node) env() node.Env {
 // Probe when the world runs it. Each start serves a fresh Probe control.
 func (n *Node) test() node.Test {
 	t := node.Test{
+		Today: func() time.Time { return time.Now().AddDate(26, 0, 0) },
 		Started: func(h node.Half) {
 			n.mu.Lock()
 			defer n.mu.Unlock()

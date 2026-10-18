@@ -77,6 +77,12 @@ func (w *Works) Types(ctx context.Context) ([]ContentType, error) {
 	return out, nil
 }
 
+// Describe is t's description, false when no registered type has id t.
+func (w *Works) Describe(t TypeID) (Description, bool) {
+	reg, ok := w.types[t]
+	return reg.desc, ok
+}
+
 // SetEnabled turns t on or off. Turning off a type that holds a Work is
 // ErrTypeInUse. A change publishes ContentTypesChanged; a repeat changes
 // nothing.
@@ -153,11 +159,18 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 
 const maxCandidates = 25
 
+// Adding is how Add creates a Work: its Items monitored when Monitor is
+// set, and Also, when set, run in the same Write once the Work exists, so
+// another owner's rows for it commit or roll back with it.
+type Adding struct {
+	Monitor bool
+	Also    func(ctx context.Context, tx *storage.Tx[file], w Summary) error
+}
+
 // Add puts the Work t's source knows by key in the library with its whole
-// tree, its Items monitored when monitor is set, or returns the Work
-// already there, unchanged, with created false. Two racing adds converge on
-// one Work.
-func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, monitor bool) (tree Tree, created bool, err error) {
+// tree as a says, or returns the Work already there, unchanged, with
+// created false. Two racing adds converge on one Work.
+func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a Adding) (tree Tree, created bool, err error) {
 	reg, err := w.open(ctx, t)
 	if err != nil {
 		return Tree{}, false, err
@@ -192,18 +205,8 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, m
 		if !errors.Is(err, storage.ErrNoRows) {
 			return err
 		}
-		now := storage.Now()
 		created = true
-		if err := q.InsertWork(ctx, db.InsertWorkParams{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel, AddedAt: now, RefreshedAt: now}); err != nil {
-			return err
-		}
-		if err := converge(ctx, tx, reg.catalog, id, p, now); err != nil {
-			return err
-		}
-		if monitor {
-			return q.MonitorItems(ctx, id)
-		}
-		return nil
+		return insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel}, p, a)
 	})
 	if err != nil {
 		return Tree{}, false, err
@@ -213,6 +216,29 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, m
 	}
 	tree, err = w.Get(ctx, by, id)
 	return tree, created, err
+}
+
+// insert writes Work w, as p has it, now.
+func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary, p parsed, a Adding) error {
+	q := db.New(tx)
+	w.AddedAt = storage.Now()
+	w.RefreshedAt = w.AddedAt
+	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt}
+	if err := q.InsertWork(ctx, work); err != nil {
+		return err
+	}
+	if err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
+		return err
+	}
+	if a.Monitor {
+		if err := q.MonitorItems(ctx, w.ID); err != nil {
+			return err
+		}
+	}
+	if a.Also == nil {
+		return nil
+	}
+	return a.Also(ctx, tx, w)
 }
 
 // Refresh converges a Work on what its source has now, keeping every id.

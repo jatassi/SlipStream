@@ -21,18 +21,20 @@ type Facet interface {
 	DefaultTemplates() Templates
 }
 
-// Templates hold {Token}s: the type's own, and the core's {Target} and
-// {Edition Tag}.
+// Templates hold {Token}s: the type's own, and the core's {Target},
+// {Edition Tag} and {Edition}.
 type Templates struct {
 	Folder string
 	File   string
 }
 
 // Core is the tokens the core supplies: Target is the first Target in
-// Profile order the file fills, EditionTag is empty for Standard.
+// Profile order the file fills; Edition is the file's cut by name and
+// EditionTag is it as {edition-<name>}, both empty for Standard.
 type Core struct {
 	Target     string
 	EditionTag string
+	Edition    string
 }
 
 var token = regexp.MustCompile(`\{([^{}]*)\}`)
@@ -41,7 +43,7 @@ var token = regexp.MustCompile(`\{([^{}]*)\}`)
 // segment. A token neither tokens nor core holds is an error, as is a
 // name that sanitizes to nothing.
 func Render(template string, tokens map[string]string, core Core) (string, error) {
-	values := map[string]string{"Target": core.Target, "Edition Tag": core.EditionTag}
+	values := map[string]string{"Target": core.Target, "Edition Tag": core.EditionTag, "Edition": core.Edition}
 	for k, v := range tokens {
 		values[k] = v
 	}

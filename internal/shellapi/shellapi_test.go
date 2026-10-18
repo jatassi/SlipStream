@@ -58,7 +58,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
 	}}})
 	var admin identity.Admin
-	if _, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", true); err != nil {
+	if _, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", works.Adding{Monitor: true}); err != nil {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) { shellapi.Routes(r, pipeline{grabs.New(grabs.Config{Library: lib})}) })

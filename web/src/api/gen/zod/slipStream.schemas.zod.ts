@@ -35,37 +35,49 @@ export const FieldError = zod.object({
 export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
+export const FilesUnreleasedCell = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  itemId: zod.uuid(),
+  state: zod.enum(["unreleased"]).describe("Its Item has no release date, or a later one"),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+});
+
+export type FilesUnreleasedCell = zod.input<typeof FilesUnreleasedCell>;
+export type FilesUnreleasedCellOutput = zod.output<typeof FilesUnreleasedCell>;
+
 export const FilesMissingCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["missing"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
 export type FilesMissingCellOutput = zod.output<typeof FilesMissingCell>;
 
 export const FilesDownloadingCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["downloading"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
 export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
 
 export const FilesFailedCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
   state: zod.enum(["failed"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
@@ -89,37 +101,94 @@ export const FilesLibraryFile = zod.object({
   id: zod.uuid(),
   path: zod.string().describe("Relative to its root, / separated"),
   probe: FilesProbe,
+  quality: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
   size: zod.int().min(filesLibraryFileSizeMin),
 });
 
 export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
 
+export const FilesUpgradableCell = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  file: FilesLibraryFile.describe("The file filling it, below its Target's cutoff"),
+  itemId: zod.uuid(),
+  state: zod.enum(["upgradable"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+});
+
+export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
+export type FilesUpgradableCellOutput = zod.output<typeof FilesUpgradableCell>;
+
 export const FilesMetCell = zod.object({
-  edition: zod.enum(["standard"]),
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe("The file filling it"),
   itemId: zod.uuid(),
   state: zod.enum(["met"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored"),
+  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
 });
 
 export type FilesMetCell = zod.input<typeof FilesMetCell>;
 export type FilesMetCellOutput = zod.output<typeof FilesMetCell>;
 
 export const FilesCell = zod.discriminatedUnion("state", [
+  FilesUnreleasedCell,
   FilesMissingCell,
   FilesDownloadingCell,
   FilesFailedCell,
+  FilesUpgradableCell,
   FilesMetCell,
 ]);
 
 export type FilesCell = zod.input<typeof FilesCell>;
 export type FilesCellOutput = zod.output<typeof FilesCell>;
 
+export const FilesItemStatus = zod.object({
+  itemId: zod.uuid(),
+  status: zod
+    .union([
+      zod.literal("unreleased"),
+      zod.literal("missing"),
+      zod.literal("downloading"),
+      zod.literal("failed"),
+      zod.literal("upgradable"),
+      zod.literal("met"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe(
+      "The first state its cells hold, in the glossary's order; null for an Item with no cell",
+    ),
+});
+
+export type FilesItemStatus = zod.input<typeof FilesItemStatus>;
+export type FilesItemStatusOutput = zod.output<typeof FilesItemStatus>;
+
 export const FilesCellList = zod.object({
   cells: zod.array(FilesCell).describe("By Item in tree order, then Target in Profile order"),
+  items: zod.array(FilesItemStatus).describe("Every Item in tree order"),
 });
 
 export type FilesCellList = zod.input<typeof FilesCellList>;
@@ -197,7 +266,9 @@ export const grabsGrabReleaseSizeMin = 0;
 
 export const GrabsGrab = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
-  edition: zod.enum(["standard"]),
+  edition: zod
+    .string()
+    .describe("The Edition it was grabbed to fill: any under any cut, else a cut key"),
   failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
   history: zod.array(GrabsEntered).describe("Each stage it entered, oldest first"),
   id: zod.uuid(),
@@ -236,6 +307,46 @@ export const GrabsGrabList = zod.object({
 export type GrabsGrabList = zod.input<typeof GrabsGrabList>;
 export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
 
+export const GrabsReason = zod.object({
+  attribute: zod
+    .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
+    .exactOptional()
+    .describe("The attribute a failed filter rules on"),
+  code: zod.enum([
+    "wrong_work",
+    "cut_not_wanted",
+    "quality_not_in_target",
+    "filter",
+    "size_below",
+    "size_above",
+    "size_not_checked",
+    "not_an_upgrade",
+  ]),
+  targetId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Target whose verdict it is, absent for wrong_work and cut_not_wanted"),
+  value: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants",
+    ),
+});
+
+export type GrabsReason = zod.input<typeof GrabsReason>;
+export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
+
+export const GrabsRefusal = zod.object({
+  reasons: zod
+    .array(GrabsReason)
+    .describe("Each open cell's Target's failures and notes, in Profile order"),
+  title: zod.string(),
+});
+
+export type GrabsRefusal = zod.input<typeof GrabsRefusal>;
+export type GrabsRefusalOutput = zod.output<typeof GrabsRefusal>;
+
 export const grabsSearchCandidatesMin = 0;
 
 export const GrabsSearch = zod.object({
@@ -245,6 +356,11 @@ export const GrabsSearch = zod.object({
   id: zod.uuid(),
   indexerId: zod.uuid(),
   itemId: zod.uuid(),
+  notes: zod
+    .array(GrabsReason)
+    .describe(
+      "The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for",
+    ),
   outcome: zod
     .union([
       zod.literal("grabbed"),
@@ -255,6 +371,11 @@ export const GrabsSearch = zod.object({
     ])
     .nullable()
     .describe("Null while the run searches"),
+  refused: zod
+    .array(GrabsRefusal)
+    .describe(
+      "The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused",
+    ),
   startedAt: zod.iso.datetime({ offset: true }),
 });
 
@@ -1433,48 +1554,351 @@ export const SystemStatus = zod.object({
 export type SystemStatus = zod.input<typeof SystemStatus>;
 export type SystemStatusOutput = zod.output<typeof SystemStatus>;
 
+export const TargetsAnyCut = zod.object({
+  kind: zod.enum(["any"]).describe("Any cut: one file per Target, of whatever cut"),
+});
+
+export type TargetsAnyCut = zod.input<typeof TargetsAnyCut>;
+export type TargetsAnyCutOutput = zod.output<typeof TargetsAnyCut>;
+
 export const TargetsChanged = zod.object({});
 
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
+
+export const targetsCutContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const TargetsCut = zod.object({
+  aliases: zod
+    .array(zod.string())
+    .describe(
+      "The phrases that name it in a title or file name, a custom cut's name first; Standard is read where none is named",
+    ),
+  contentType: zod
+    .string()
+    .regex(targetsCutContentTypeRegExp)
+    .exactOptional()
+    .describe("The Content Type that adds it, for origin type"),
+  key: zod.string(),
+  name: zod.string(),
+  origin: zod
+    .enum(["builtin", "type", "custom"])
+    .describe("Built into SlipStream, added by a Content Type, or added by an Admin"),
+});
+
+export type TargetsCut = zod.input<typeof TargetsCut>;
+export type TargetsCutOutput = zod.output<typeof TargetsCut>;
+
+export const targetsUnwantedFilesBytesMin = 0;
+
+export const targetsUnwantedFilesFilesMin = 0;
+
+export const TargetsUnwantedFiles = zod.object({
+  bytes: zod.int().min(targetsUnwantedFilesBytesMin),
+  files: zod.int().min(targetsUnwantedFilesFilesMin),
+});
+
+export type TargetsUnwantedFiles = zod.input<typeof TargetsUnwantedFiles>;
+export type TargetsUnwantedFilesOutput = zod.output<typeof TargetsUnwantedFiles>;
+
+export const targetsImpactDownloadingMin = 0;
+
+export const targetsImpactNewlyWantedMin = 0;
+
+export const targetsImpactOwnListMin = 0;
+
+export const targetsImpactRenamedMin = 0;
+
+export const targetsImpactWorksMin = 0;
+
+export const TargetsImpact = zod.object({
+  downloading: zod
+    .int()
+    .min(targetsImpactDownloadingMin)
+    .describe("Downloads in flight for cells that go; their files follow the save's choice"),
+  newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
+  ownList: zod
+    .int()
+    .min(targetsImpactOwnListMin)
+    .describe("Works that keep their own Edition list through a change to their Profile's"),
+  renamed: zod
+    .int()
+    .min(targetsImpactRenamedMin)
+    .describe("Files that still fill a cell and change name"),
+  unwanted: TargetsUnwantedFiles.describe(
+    "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
+  ),
+  works: zod
+    .int()
+    .min(targetsImpactWorksMin)
+    .describe("Works whose cells, fills or file names change"),
+});
+
+export type TargetsImpact = zod.input<typeof TargetsImpact>;
+export type TargetsImpactOutput = zod.output<typeof TargetsImpact>;
+
+export const TargetsCutChange = zod.object({
+  cut: TargetsCut,
+  impact: TargetsImpact,
+});
+
+export type TargetsCutChange = zod.input<typeof TargetsCutChange>;
+export type TargetsCutChangeOutput = zod.output<typeof TargetsCutChange>;
+
+export const TargetsCutList = zod.object({
+  cuts: zod
+    .array(TargetsCut)
+    .describe(
+      "The built-in cuts, Standard first, then each Content Type's by type, then the custom ones by name",
+    ),
+});
+
+export type TargetsCutList = zod.input<typeof TargetsCutList>;
+export type TargetsCutListOutput = zod.output<typeof TargetsCutList>;
+
+export const TargetsNamedCuts = zod.object({
+  cuts: zod.array(zod.string()).min(1).describe("Cut keys in list order"),
+  kind: zod
+    .enum(["cuts"])
+    .describe(
+      "Named cuts: with Standard, each other cut once seen for an Item; without it, every cut outright",
+    ),
+});
+
+export type TargetsNamedCuts = zod.input<typeof TargetsNamedCuts>;
+export type TargetsNamedCutsOutput = zod.output<typeof TargetsNamedCuts>;
+
+export const TargetsEditions = zod.discriminatedUnion("kind", [TargetsAnyCut, TargetsNamedCuts]);
+
+export type TargetsEditions = zod.input<typeof TargetsEditions>;
+export type TargetsEditionsOutput = zod.output<typeof TargetsEditions>;
+
+export const TargetsEntry = zod.object({
+  sourcing: zod.enum(["download"]).describe("How the Target gets its file"),
+  targetId: zod.uuid(),
+});
+
+export type TargetsEntry = zod.input<typeof TargetsEntry>;
+export type TargetsEntryOutput = zod.output<typeof TargetsEntry>;
+
+export const targetsEstimateBytesMin = 0;
+
+export const targetsEstimateMibPerMinuteMin = 0;
+
+export const TargetsEstimate = zod.object({
+  bytes: zod
+    .int()
+    .min(targetsEstimateBytesMin)
+    .nullable()
+    .describe("That rate over the runtime of the Profile's Works, null with no estimate yet"),
+  mibPerMinute: zod
+    .number()
+    .min(targetsEstimateMibPerMinuteMin)
+    .nullable()
+    .describe("What the files filling the Target average, null with no estimate yet"),
+  targetId: zod.uuid(),
+});
+
+export type TargetsEstimate = zod.input<typeof TargetsEstimate>;
+export type TargetsEstimateOutput = zod.output<typeof TargetsEstimate>;
+
+export const TargetsFilter = zod.object({
+  attribute: zod.enum(["hdr", "video_codec", "audio_codec", "channels", "language"]),
+  mode: zod
+    .enum(["only", "not"])
+    .describe(
+      "Only passes a fact holding one of the values, not one holding none; an unknown fact passes",
+    ),
+  values: zod
+    .array(zod.string())
+    .min(1)
+    .describe("The attribute's values by name; a language is an ISO 639 code or original"),
+});
+
+export type TargetsFilter = zod.input<typeof TargetsFilter>;
+export type TargetsFilterOutput = zod.output<typeof TargetsFilter>;
+
+export const targetsNewCutAliasesMax = 20;
+
+export const targetsNewCutNameMax = 100;
+
+export const TargetsNewCut = zod.object({
+  aliases: zod
+    .array(zod.string())
+    .max(targetsNewCutAliasesMax)
+    .exactOptional()
+    .describe("Other phrases that name it in a title; its name always does"),
+  name: zod
+    .string()
+    .min(1)
+    .max(targetsNewCutNameMax)
+    .describe("Its key is the name's words in lower case joined by hyphens, fixed once made"),
+});
+
+export type TargetsNewCut = zod.input<typeof TargetsNewCut>;
+export type TargetsNewCutOutput = zod.output<typeof TargetsNewCut>;
 
 export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsNewProfileNameMax = 100;
 
 export const TargetsNewProfile = zod.object({
   contentType: zod.string().regex(targetsNewProfileContentTypeRegExp),
+  editions: TargetsEditions,
   name: zod.string().min(1).max(targetsNewProfileNameMax),
-  targetIds: zod.array(zod.uuid()).min(1).describe("Highest ranked first"),
+  targets: zod
+    .array(TargetsEntry)
+    .describe("In Profile order; none is a Profile whose Works want nothing"),
 });
 
 export type TargetsNewProfile = zod.input<typeof TargetsNewProfile>;
 export type TargetsNewProfileOutput = zod.output<typeof TargetsNewProfile>;
 
+export const targetsSizeMaxMin = 0;
+
+export const targetsSizeMinMin = 0;
+
+export const TargetsSize = zod.object({
+  max: zod.number().min(targetsSizeMaxMin).nullable().describe("MiB per minute; null is no limit"),
+  min: zod
+    .number()
+    .min(targetsSizeMinMin)
+    .describe("MiB per minute of the runtime the file covers"),
+  quality: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
+});
+
+export type TargetsSize = zod.input<typeof TargetsSize>;
+export type TargetsSizeOutput = zod.output<typeof TargetsSize>;
+
 export const targetsNewTargetNameMax = 100;
 
 export const TargetsNewTarget = zod.object({
+  cutoff: zod
+    .enum([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ])
+    .describe("Any quality of the tier at which a file is final"),
+  filters: zod.array(TargetsFilter).nullish().describe("An attribute left out is Any"),
   name: zod.string().min(1).max(targetsNewTargetNameMax),
-  resolutions: zod
-    .array(zod.enum(["2160p", "1080p", "720p", "576p", "480p"]))
+  sizes: zod
+    .array(TargetsSize)
+    .nullish()
+    .describe("An accepted quality left out takes its floor and no maximum"),
+  tiers: zod
+    .array(zod.array(zod.string()).nullable())
     .min(1)
-    .describe("Highest ranked first"),
+    .describe("Quality keys, best tier first; a tier's qualities rank as equal"),
 });
 
 export type TargetsNewTarget = zod.input<typeof TargetsNewTarget>;
 export type TargetsNewTargetOutput = zod.output<typeof TargetsNewTarget>;
 
+export const TargetsNewWants = zod.object({
+  editions: zod
+    .union([TargetsEditions, zod.null()])
+    .describe("The Work's own Edition list, or null for its Profile's"),
+  profileId: zod.uuid(),
+});
+
+export type TargetsNewWants = zod.input<typeof TargetsNewWants>;
+export type TargetsNewWantsOutput = zod.output<typeof TargetsNewWants>;
+
+export const TargetsPreset = zod.object({
+  key: zod.enum(["disc-or-resolution", "anything-better", "resolution-only"]),
+  name: zod.string(),
+  tiers: zod
+    .array(zod.array(zod.string()).nullable())
+    .describe(
+      "Every quality, best tier first. Over chosen qualities, keep these tiers to them; with no upgrades, put the cutoff at the bottom tier",
+    ),
+});
+
+export type TargetsPreset = zod.input<typeof TargetsPreset>;
+export type TargetsPresetOutput = zod.output<typeof TargetsPreset>;
+
 export const targetsProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const targetsProfileWorksMin = 0;
 
 export const TargetsProfile = zod.object({
   contentType: zod.string().regex(targetsProfileContentTypeRegExp),
-  default: zod.boolean().describe("Whether the Content Type's Works use it"),
+  default: zod.boolean().describe("Whether a Work added with no Profile takes it"),
+  editions: TargetsEditions,
   id: zod.uuid(),
   name: zod.string(),
-  targetIds: zod.array(zod.uuid()).describe("Highest ranked first"),
+  targets: zod
+    .array(TargetsEntry)
+    .describe("In Profile order: a file is named after the first it fills"),
+  works: zod.int().min(targetsProfileWorksMin).describe("The Works wanting from it"),
 });
 
 export type TargetsProfile = zod.input<typeof TargetsProfile>;
 export type TargetsProfileOutput = zod.output<typeof TargetsProfile>;
+
+export const TargetsProfileChange = zod.object({
+  impact: TargetsImpact,
+  profile: TargetsProfile,
+});
+
+export type TargetsProfileChange = zod.input<typeof TargetsProfileChange>;
+export type TargetsProfileChangeOutput = zod.output<typeof TargetsProfileChange>;
+
+export const targetsProfileDetailContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const targetsProfileDetailWorksMin = 0;
+
+export const TargetsProfileDetail = zod.object({
+  contentType: zod.string().regex(targetsProfileDetailContentTypeRegExp),
+  default: zod.boolean().describe("Whether a Work added with no Profile takes it"),
+  editions: TargetsEditions,
+  estimates: zod
+    .array(TargetsEstimate)
+    .describe(
+      "One per Target, in Profile order. A Target no file of known runtime fills yet has no estimate",
+    ),
+  id: zod.uuid(),
+  name: zod.string(),
+  targets: zod
+    .array(TargetsEntry)
+    .describe("In Profile order: a file is named after the first it fills"),
+  works: zod.int().min(targetsProfileDetailWorksMin).describe("The Works wanting from it"),
+});
+
+export type TargetsProfileDetail = zod.input<typeof TargetsProfileDetail>;
+export type TargetsProfileDetailOutput = zod.output<typeof TargetsProfileDetail>;
 
 export const TargetsProfileList = zod.object({
   profiles: zod.array(TargetsProfile).describe("By Content Type, then name"),
@@ -1483,17 +1907,95 @@ export const TargetsProfileList = zod.object({
 export type TargetsProfileList = zod.input<typeof TargetsProfileList>;
 export type TargetsProfileListOutput = zod.output<typeof TargetsProfileList>;
 
-export const TargetsTarget = zod.object({
-  createdAt: zod.iso.datetime({ offset: true }),
+export const TargetsProfileRef = zod.object({
   id: zod.uuid(),
   name: zod.string(),
-  resolutions: zod
-    .array(zod.enum(["2160p", "1080p", "720p", "576p", "480p"]))
-    .describe("Highest ranked first"),
+});
+
+export type TargetsProfileRef = zod.input<typeof TargetsProfileRef>;
+export type TargetsProfileRefOutput = zod.output<typeof TargetsProfileRef>;
+
+export const targetsQualityFloorMin = 0;
+
+export const TargetsQuality = zod.object({
+  cinema: zod
+    .boolean()
+    .describe("A cinema recording: kept out of a Target unless an Admin adds it"),
+  floor: zod
+    .number()
+    .min(targetsQualityFloorMin)
+    .describe("A new Target's minimum size, in MiB per minute"),
+  key: zod.enum([
+    "sdtv",
+    "dvd",
+    "webrip-480p",
+    "hdtv-720p",
+    "webrip-720p",
+    "webdl-720p",
+    "bluray-720p",
+    "hdtv-1080p",
+    "webrip-1080p",
+    "webdl-1080p",
+    "bluray-1080p",
+    "remux-1080p",
+    "hdtv-2160p",
+    "webrip-2160p",
+    "webdl-2160p",
+    "bluray-2160p",
+    "remux-2160p",
+    "cam",
+  ]),
+  name: zod.string(),
+  resolution: zod
+    .union([
+      zod.literal("2160p"),
+      zod.literal("1080p"),
+      zod.literal("720p"),
+      zod.literal("480p"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Null for cinema sources"),
+  source: zod.enum(["tv", "hdtv", "dvd", "webrip", "webdl", "bluray", "remux", "cinema"]),
+});
+
+export type TargetsQuality = zod.input<typeof TargetsQuality>;
+export type TargetsQualityOutput = zod.output<typeof TargetsQuality>;
+
+export const TargetsQualityList = zod.object({
+  presets: zod.array(TargetsPreset).describe("The default first"),
+  qualities: zod.array(TargetsQuality).describe("Low to high, the presets' default order"),
+});
+
+export type TargetsQualityList = zod.input<typeof TargetsQualityList>;
+export type TargetsQualityListOutput = zod.output<typeof TargetsQualityList>;
+
+export const TargetsTarget = zod.object({
+  contains: zod
+    .array(zod.uuid())
+    .describe("The other Targets every file of which also meets this one"),
+  createdAt: zod.iso.datetime({ offset: true }),
+  cutoff: zod.string().describe("The first quality of the tier at which a file is final"),
+  filters: zod.array(TargetsFilter).describe("Every attribute that isn't Any, in attribute order"),
+  id: zod.uuid(),
+  name: zod.string(),
+  profiles: zod.array(TargetsProfileRef).describe("The Profiles holding it, by name"),
+  sizes: zod.array(TargetsSize).describe("Every accepted quality's size, in tier order"),
+  tiers: zod
+    .array(zod.array(zod.string()).nullable())
+    .describe("Quality keys, best tier first; a tier's qualities rank as equal"),
 });
 
 export type TargetsTarget = zod.input<typeof TargetsTarget>;
 export type TargetsTargetOutput = zod.output<typeof TargetsTarget>;
+
+export const TargetsTargetChange = zod.object({
+  impact: TargetsImpact,
+  target: TargetsTarget,
+});
+
+export type TargetsTargetChange = zod.input<typeof TargetsTargetChange>;
+export type TargetsTargetChangeOutput = zod.output<typeof TargetsTargetChange>;
 
 export const TargetsTargetList = zod.object({
   targets: zod.array(TargetsTarget).describe("By name"),
@@ -1501,6 +2003,26 @@ export const TargetsTargetList = zod.object({
 
 export type TargetsTargetList = zod.input<typeof TargetsTargetList>;
 export type TargetsTargetListOutput = zod.output<typeof TargetsTargetList>;
+
+export const TargetsWants = zod.object({
+  editions: TargetsEditions.describe("The effective Edition list"),
+  from: zod
+    .enum(["profile", "work"])
+    .describe("Whether the Edition list is the Profile's or the Work's own"),
+  profileId: zod.uuid(),
+  profileName: zod.string(),
+});
+
+export type TargetsWants = zod.input<typeof TargetsWants>;
+export type TargetsWantsOutput = zod.output<typeof TargetsWants>;
+
+export const TargetsWantsChange = zod.object({
+  impact: TargetsImpact,
+  wants: TargetsWants,
+});
+
+export type TargetsWantsChange = zod.input<typeof TargetsWantsChange>;
+export type TargetsWantsChangeOutput = zod.output<typeof TargetsWantsChange>;
 
 export const TasksCadence = zod.object({
   field: SettingDurationField,
@@ -2034,6 +2556,12 @@ export const WorksNewWork = zod.object({
     .boolean()
     .exactOptional()
     .describe("Monitor a new Work's Items; adding a Work already in the library changes nothing"),
+  profileId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The Profile of the Content Type a new Work wants from; left out, the type's default",
+    ),
 });
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;

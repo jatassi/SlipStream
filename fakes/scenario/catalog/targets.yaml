@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, whose movies want the starter 1080p
+  and HD, a second Target of the same qualities. fixture-site lists a
+  1080p WEB-DL, and a 1080p Bluray or an Extended 1080p WEB-DL once the
+  fixture-site-list cue posts it.
+seed: targets
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 7}
+    seeders: 30
+    seeded: true
+    advertised_size: 9.8GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.EXTENDED.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 20
+    seeded: true
+    advertised_size: 8.9GiB
+    unlisted: true
+  - name: The.Quiet.Orchard.2021.Superfan.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 9}
+    seeders: 15
+    seeded: true
+    advertised_size: 8.4GiB
+    unlisted: true
+tracker:
+  interval: 5s
+library:
+  roots: [{content_type: movie, folder: movies}]
+  targets:
+    - name: HD
+      tiers: [[bluray-1080p, remux-1080p], [hdtv-1080p, webrip-1080p, webdl-1080p], [bluray-720p], [hdtv-720p, webrip-720p, webdl-720p]]
+      cutoff: bluray-1080p
+  profiles: [{name: Films, content_type: movie, targets: [1080p, HD], default: true}]
+  indexers: [{name: Fixture Site, site: fixture-site}]

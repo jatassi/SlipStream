@@ -56,7 +56,6 @@ export type NavRow = {
 };
 
 const contentTypeLibrary = "/library/$contentType";
-const settingsSection = "/settings/$section";
 
 export type NavChild = {
   id: string;
@@ -212,5 +211,4 @@ export const navPaths: ReadonlySet<string> = new Set([
   ...portalNav.map((row) => row.to),
   ...landings.keys(),
   contentTypeLibrary,
-  settingsSection,
 ]);

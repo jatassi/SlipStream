@@ -554,6 +554,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.grabs.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MIN"},
 			{Key: "timings.grabs.retry_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MAX"},
 			{Key: "timings.grabs.progress", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_PROGRESS"},
+			{Key: "timings.files.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_FILES_RETRY_MIN"},
+			{Key: "timings.files.retry_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_FILES_RETRY_MAX"},
 			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_FACTS"},
 			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_PROBE"},
 			{Key: "timings.mail.send", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MAIL_SEND"},

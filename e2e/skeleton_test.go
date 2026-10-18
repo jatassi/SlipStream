@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/events"
@@ -25,11 +26,12 @@ const (
 )
 
 type grabView struct {
-	ID       string `json:"id"`
-	NodeID   string `json:"nodeId"`
-	InfoHash string `json:"infoHash"`
-	Stage    string `json:"stage"`
-	Progress *struct {
+	ID          string `json:"id"`
+	ReleaseSize int64  `json:"releaseSize"`
+	NodeID      string `json:"nodeId"`
+	InfoHash    string `json:"infoHash"`
+	Stage       string `json:"stage"`
+	Progress    *struct {
 		Done  int64 `json:"done"`
 		Total int64 `json:"total"`
 	} `json:"progress"`
@@ -74,7 +76,36 @@ func walk(t *testing.T, name string) walked {
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
+	w.tookTheAdvertised(t, search)
 	return w
+}
+
+// tookTheAdvertised checks the search took the 1080p release at the size
+// the site advertised. The starter Target accepts the 720p one too and
+// ranks it lower, and the movie's known runtime lets it check sizes, so
+// nothing is refused and nothing noted.
+func (w *walked) tookTheAdvertised(t *testing.T, search string) {
+	t.Helper()
+	if want := int64(w.s.Releases[0].AdvertisedSize); w.grab.ReleaseSize != want {
+		t.Fatalf("the Grab's release size is %d, want the advertised %d", w.grab.ReleaseSize, want)
+	}
+	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
+	var list struct {
+		Searches []struct {
+			ItemID     string `json:"itemId"`
+			IndexerID  string `json:"indexerId"`
+			StartedAt  string `json:"startedAt"`
+			FinishedAt string `json:"finishedAt"`
+		} `json:"searches"`
+	}
+	decode(t, "listSearches", reply, &list)
+	if len(list.Searches) != 1 {
+		t.Fatalf("listSearches = %s, want one search", reply.Body)
+	}
+	r := list.Searches[0]
+	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemId":"` + r.ItemID +
+		`","indexerId":"` + r.IndexerID + `","startedAt":"` + r.StartedAt + `","finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
+		`"refused":[],"grabId":"` + w.grab.ID + `","notes":[]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the
@@ -101,8 +132,8 @@ func begin(t *testing.T, name string) walked {
 	target := cells(t, w.a, w.work).Cells[0].TargetID
 	worldtest.Expect(t, "getWorkCells before the search", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
-		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"standard","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
-			`"state":"missing"}]}` + "\n",
+		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
+			`"state":"missing"}],"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing"}]}` + "\n",
 	})
 	return w
 }
@@ -179,7 +210,7 @@ func TestSkeletonHome(t *testing.T) {
 		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
 	}
 	checkAnnounces(t, w, seedbox)
-	checkMet(t, w)
+	checkUpgradable(t, w)
 }
 
 func TestSkeletonSingleMachine(t *testing.T) {
@@ -196,16 +227,14 @@ func TestSkeletonSingleMachine(t *testing.T) {
 		t.Fatalf("the root has a staging folder (%v), want none: no Transfer ran", err)
 	}
 	checkAnnounces(t, w, w.m.Nodes[0])
-	checkMet(t, w)
+	checkUpgradable(t, w)
 }
 
-// checkPlaced checks the media dir holds only the imported file, the
-// catalog payload's bytes with links links.
+// checkPlaced checks the media dir comes to hold only the imported file
+// at its name, the catalog payload's bytes with links links.
 func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	t.Helper()
-	if got := filesUnder(t, m.MediaDir); !slices.Equal(got, []string{placed}) {
-		t.Fatalf("the media dir holds %v, want exactly [%s]", got, placed)
-	}
+	holdsOnly(t, m, placed)
 	info, err := world.MatchRelease(m, filepath.Join(m.MediaDir, filepath.FromSlash(placed)), release)
 	if err != nil {
 		t.Fatal(err)
@@ -215,17 +244,30 @@ func checkPlaced(t *testing.T, m world.Manifest, links uint64) {
 	}
 }
 
-func checkMet(t *testing.T, w walked) {
+// holdsOnly waits for the media dir to hold exactly paths: an import
+// commits before the disk queue gives the file its name.
+func holdsOnly(t *testing.T, m world.Manifest, paths ...string) {
+	t.Helper()
+	var got []string
+	worldtest.Until(t, "the media dir holds exactly "+strings.Join(paths, ", "), func() (bool, error) {
+		got = filesUnder(t, m.MediaDir)
+		return slices.Equal(got, paths), nil
+	})
+}
+
+// checkUpgradable checks the WEB-DL file fills the starter Target below
+// its Bluray-1080p cutoff tier, so the cell stays a Want.
+func checkUpgradable(t *testing.T, w walked) {
 	t.Helper()
 	c := cells(t, w.a, w.work).Cells[0]
 	if c.File == nil {
-		t.Fatalf("getWorkCells = %+v, want a met cell", c)
+		t.Fatalf("getWorkCells = %+v, want a filled cell", c)
 	}
 	worldtest.Expect(t, "getWorkCells after the import", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
-		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"standard","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":false,"state":"met",` +
+		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"any","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":true,"state":"upgradable",` +
 			`"file":{"id":"` + c.File.ID + `","path":"The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv","size":` + strconv.FormatInt(c.File.Size, 10) +
-			`,"probe":{"width":1920,"height":1080}}}]}` + "\n",
+			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}],"items":[{"itemId":"` + c.ItemID + `","status":"upgradable"}]}` + "\n",
 	})
 }
 

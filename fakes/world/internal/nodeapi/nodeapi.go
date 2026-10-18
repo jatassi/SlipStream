@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
@@ -134,24 +135,91 @@ func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey, name, u
 	return indexer.ID, err
 }
 
-// CreateTarget creates a Target and returns its id.
-func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, name string, resolutions []string) (string, error) {
+// CreateTarget creates the Scenario Target t and returns its id.
+func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t scenario.LibraryTarget) (string, error) {
 	var target struct {
 		ID string `json:"id"`
 	}
 	_, err := call(ctx, c, request{
-		what: "create Target " + name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
-		header: apiKeyHeader(apiKey), body: struct {
-			Name        string   `json:"name"`
-			Resolutions []string `json:"resolutions"`
-		}{name, resolutions}, want: http.StatusCreated,
+		what: "create Target " + t.Name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
+		header: apiKeyHeader(apiKey), body: targetBody(t), want: http.StatusCreated,
 	}, &target)
 	return target.ID, err
 }
 
-// CreateProfile creates a Profile of the Targets with ids targetIDs and
-// returns its id.
+// UpdateTarget replaces Target id's rules with the Scenario Target t's,
+// deleting any file they leave filling nothing.
+func UpdateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, id string, t scenario.LibraryTarget) error {
+	_, err := call(ctx, c, request{
+		what: "update Target " + t.Name, method: http.MethodPut, url: baseURL + "/api/v1/targets/" + id,
+		header: apiKeyHeader(apiKey), body: targetBody(t), want: http.StatusOK,
+	}, nil)
+	return err
+}
+
+type targetFilter struct {
+	Attribute string   `json:"attribute"`
+	Mode      string   `json:"mode"`
+	Values    []string `json:"values"`
+}
+
+type targetSize struct {
+	Quality scenario.QualityKey `json:"quality"`
+	Min     float64             `json:"min"`
+	Max     *float64            `json:"max,omitempty"`
+}
+
+type newTarget struct {
+	Name    string                  `json:"name"`
+	Tiers   [][]scenario.QualityKey `json:"tiers"`
+	Cutoff  scenario.QualityKey     `json:"cutoff"`
+	Filters []targetFilter          `json:"filters,omitempty"`
+	Sizes   []targetSize            `json:"sizes,omitempty"`
+}
+
+func targetBody(t scenario.LibraryTarget) newTarget {
+	body := newTarget{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff}
+	for _, f := range t.Filters {
+		body.Filters = append(body.Filters, targetFilter(f))
+	}
+	for _, z := range t.Sizes {
+		body.Sizes = append(body.Sizes, targetSize(z))
+	}
+	return body
+}
+
+// ListTargets lists the Targets' ids by name.
+func ListTargets(ctx context.Context, c *http.Client, baseURL, apiKey string) (map[string]string, error) {
+	var list struct {
+		Targets []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"targets"`
+	}
+	_, err := call(ctx, c, request{
+		what: "list Targets", method: http.MethodGet, url: baseURL + "/api/v1/targets", header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, &list)
+	out := map[string]string{}
+	for _, t := range list.Targets {
+		out[t.Name] = t.ID
+	}
+	return out, err
+}
+
+// CreateProfile creates a Profile of the Targets with ids targetIDs, in
+// Profile order, downloaded, of any cut, and returns its id.
 func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, targetIDs []string) (string, error) {
+	type entry struct {
+		TargetID string `json:"targetId"`
+		Sourcing string `json:"sourcing"`
+	}
+	type editions struct {
+		Kind string `json:"kind"`
+	}
+	entries := []entry{}
+	for _, id := range targetIDs {
+		entries = append(entries, entry{id, "download"})
+	}
 	var profile struct {
 		ID string `json:"id"`
 	}
@@ -160,10 +228,20 @@ func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, c
 		header: apiKeyHeader(apiKey), body: struct {
 			Name        string   `json:"name"`
 			ContentType string   `json:"contentType"`
-			TargetIDs   []string `json:"targetIds"`
-		}{name, contentType, targetIDs}, want: http.StatusCreated,
+			Targets     []entry  `json:"targets"`
+			Editions    editions `json:"editions"`
+		}{name, contentType, entries, editions{"any"}}, want: http.StatusCreated,
 	}, &profile)
 	return profile.ID, err
+}
+
+// MakeDefaultProfile makes Profile id its Content Type's default.
+func MakeDefaultProfile(ctx context.Context, c *http.Client, baseURL, apiKey, id string) error {
+	_, err := call(ctx, c, request{
+		what: "make Profile " + id + " the default", method: http.MethodPost, url: baseURL + "/api/v1/profiles/" + id + "/default",
+		header: apiKeyHeader(apiKey), want: http.StatusOK,
+	}, nil)
+	return err
 }
 
 // SetAddress sets the address the Controller builds its links on.

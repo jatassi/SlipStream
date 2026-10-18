@@ -42,7 +42,7 @@ func TestALongRunningShowRefreshes(t *testing.T) {
 	h := shaped(t, "seasonal", seasonalShape)
 	h.fx.Put("s1", longShow(longSeasons, false))
 	start := time.Now()
-	first, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1", false)
+	first, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1", works.Adding{})
 	added := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func BenchmarkLongShow(b *testing.B) {
 			n++
 			key := works.Key(fmt.Sprintf("s%d", n))
 			h.fx.Put(key, original)
-			if _, _, err := h.works.Add(b.Context(), admin, "seasonal", key, false); err != nil {
+			if _, _, err := h.works.Add(b.Context(), admin, "seasonal", key, works.Adding{}); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -114,7 +114,7 @@ func BenchmarkLongShow(b *testing.B) {
 	b.Run("Refresh", func(b *testing.B) {
 		h := shaped(b, "seasonal", seasonalShape)
 		h.fx.Put("s1", original)
-		tree, _, err := h.works.Add(b.Context(), admin, "seasonal", "s1", false)
+		tree, _, err := h.works.Add(b.Context(), admin, "seasonal", "s1", works.Adding{})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -131,7 +131,7 @@ func BenchmarkLongShow(b *testing.B) {
 	b.Run("Get", func(b *testing.B) {
 		h := shaped(b, "seasonal", seasonalShape)
 		h.fx.Put("s1", revised)
-		tree, _, err := h.works.Add(b.Context(), admin, "seasonal", "s1", false)
+		tree, _, err := h.works.Add(b.Context(), admin, "seasonal", "s1", works.Adding{})
 		if err != nil {
 			b.Fatal(err)
 		}

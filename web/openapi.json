@@ -61,11 +61,16 @@
             "downloading": "#/components/schemas/FilesDownloadingCell",
             "failed": "#/components/schemas/FilesFailedCell",
             "met": "#/components/schemas/FilesMetCell",
-            "missing": "#/components/schemas/FilesMissingCell"
+            "missing": "#/components/schemas/FilesMissingCell",
+            "unreleased": "#/components/schemas/FilesUnreleasedCell",
+            "upgradable": "#/components/schemas/FilesUpgradableCell"
           },
           "propertyName": "state"
         },
         "oneOf": [
+          {
+            "$ref": "#/components/schemas/FilesUnreleasedCell"
+          },
           {
             "$ref": "#/components/schemas/FilesMissingCell"
           },
@@ -74,6 +79,9 @@
           },
           {
             "$ref": "#/components/schemas/FilesFailedCell"
+          },
+          {
+            "$ref": "#/components/schemas/FilesUpgradableCell"
           },
           {
             "$ref": "#/components/schemas/FilesMetCell"
@@ -89,10 +97,18 @@
               "$ref": "#/components/schemas/FilesCell"
             },
             "type": "array"
+          },
+          "items": {
+            "description": "Every Item in tree order",
+            "items": {
+              "$ref": "#/components/schemas/FilesItemStatus"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "cells"
+          "cells",
+          "items"
         ],
         "type": "object"
       },
@@ -113,9 +129,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -136,7 +150,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored",
+            "description": "Missing or failed, and its Item monitored and released",
             "type": "boolean"
           }
         },
@@ -154,9 +168,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -177,7 +189,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored",
+            "description": "Missing or failed, and its Item monitored and released",
             "type": "boolean"
           }
         },
@@ -188,6 +200,35 @@
           "targetId",
           "targetName",
           "wanted"
+        ],
+        "type": "object"
+      },
+      "FilesItemStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "description": "The first state its cells hold, in the glossary's order; null for an Item with no cell",
+            "enum": [
+              "unreleased",
+              "missing",
+              "downloading",
+              "failed",
+              "upgradable",
+              "met"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "itemId",
+          "status"
         ],
         "type": "object"
       },
@@ -205,6 +246,29 @@
           "probe": {
             "$ref": "#/components/schemas/FilesProbe"
           },
+          "quality": {
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
           "size": {
             "format": "int64",
             "minimum": 0,
@@ -215,6 +279,7 @@
           "id",
           "path",
           "size",
+          "quality",
           "probe"
         ],
         "type": "object"
@@ -223,9 +288,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "file": {
@@ -250,7 +313,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored",
+            "description": "Missing or failed, and its Item monitored and released",
             "type": "boolean"
           }
         },
@@ -269,9 +332,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
           "itemId": {
@@ -292,7 +353,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored",
+            "description": "Missing or failed, and its Item monitored and released",
             "type": "boolean"
           }
         },
@@ -323,6 +384,90 @@
         "required": [
           "width",
           "height"
+        ],
+        "type": "object"
+      },
+      "FilesUnreleasedCell": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cell wants",
+            "type": "string"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "state": {
+            "description": "Its Item has no release date, or a later one",
+            "enum": [
+              "unreleased"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetName": {
+            "type": "string"
+          },
+          "wanted": {
+            "description": "Missing or failed, and its Item monitored and released",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "itemId",
+          "edition",
+          "targetId",
+          "targetName",
+          "wanted"
+        ],
+        "type": "object"
+      },
+      "FilesUpgradableCell": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cell wants",
+            "type": "string"
+          },
+          "file": {
+            "$ref": "#/components/schemas/FilesLibraryFile",
+            "description": "The file filling it, below its Target's cutoff"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "upgradable"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetName": {
+            "type": "string"
+          },
+          "wanted": {
+            "description": "Missing or failed, and its Item monitored and released",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "file",
+          "itemId",
+          "edition",
+          "targetId",
+          "targetName",
+          "wanted"
         ],
         "type": "object"
       },
@@ -419,9 +564,7 @@
             "type": "string"
           },
           "edition": {
-            "enum": [
-              "standard"
-            ],
+            "description": "The Edition it was grabbed to fill: any under any cut, else a cut key",
             "type": "string"
           },
           "failure": {
@@ -550,6 +693,68 @@
         ],
         "type": "object"
       },
+      "GrabsReason": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "description": "The attribute a failed filter rules on",
+            "enum": [
+              "hdr",
+              "video_codec",
+              "audio_codec",
+              "channels",
+              "language"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "wrong_work",
+              "cut_not_wanted",
+              "quality_not_in_target",
+              "filter",
+              "size_below",
+              "size_above",
+              "size_not_checked",
+              "not_an_upgrade"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "description": "The Target whose verdict it is, absent for wrong_work and cut_not_wanted",
+            "format": "uuid",
+            "type": "string"
+          },
+          "value": {
+            "description": "The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "GrabsRefusal": {
+        "additionalProperties": false,
+        "properties": {
+          "reasons": {
+            "description": "Each open cell's Target's failures and notes, in Profile order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsReason"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "reasons"
+        ],
+        "type": "object"
+      },
       "GrabsSearch": {
         "additionalProperties": false,
         "properties": {
@@ -587,6 +792,13 @@
             "format": "uuid",
             "type": "string"
           },
+          "notes": {
+            "description": "The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for",
+            "items": {
+              "$ref": "#/components/schemas/GrabsReason"
+            },
+            "type": "array"
+          },
           "outcome": {
             "description": "Null while the run searches",
             "enum": [
@@ -599,6 +811,13 @@
               "string",
               "null"
             ]
+          },
+          "refused": {
+            "description": "The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused",
+            "items": {
+              "$ref": "#/components/schemas/GrabsRefusal"
+            },
+            "type": "array"
           },
           "startedAt": {
             "format": "date-time",
@@ -613,7 +832,9 @@
           "finishedAt",
           "outcome",
           "candidates",
-          "grabId"
+          "refused",
+          "grabId",
+          "notes"
         ],
         "type": "object"
       },
@@ -3181,8 +3402,301 @@
         ],
         "type": "object"
       },
+      "TargetsAnyCut": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "Any cut: one file per Target, of whatever cut",
+            "enum": [
+              "any"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "TargetsChanged": {
         "additionalProperties": false,
+        "type": "object"
+      },
+      "TargetsCut": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "description": "The phrases that name it in a title or file name, a custom cut's name first; Standard is read where none is named",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "contentType": {
+            "description": "The Content Type that adds it, for origin type",
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "description": "Built into SlipStream, added by a Content Type, or added by an Admin",
+            "enum": [
+              "builtin",
+              "type",
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "aliases",
+          "origin"
+        ],
+        "type": "object"
+      },
+      "TargetsCutChange": {
+        "additionalProperties": false,
+        "properties": {
+          "cut": {
+            "$ref": "#/components/schemas/TargetsCut"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          }
+        },
+        "required": [
+          "impact",
+          "cut"
+        ],
+        "type": "object"
+      },
+      "TargetsCutList": {
+        "additionalProperties": false,
+        "properties": {
+          "cuts": {
+            "description": "The built-in cuts, Standard first, then each Content Type's by type, then the custom ones by name",
+            "items": {
+              "$ref": "#/components/schemas/TargetsCut"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cuts"
+        ],
+        "type": "object"
+      },
+      "TargetsEditions": {
+        "discriminator": {
+          "mapping": {
+            "any": "#/components/schemas/TargetsAnyCut",
+            "cuts": "#/components/schemas/TargetsNamedCuts"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TargetsAnyCut"
+          },
+          {
+            "$ref": "#/components/schemas/TargetsNamedCuts"
+          }
+        ]
+      },
+      "TargetsEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "sourcing": {
+            "description": "How the Target gets its file",
+            "enum": [
+              "download"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId",
+          "sourcing"
+        ],
+        "type": "object"
+      },
+      "TargetsEstimate": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "That rate over the runtime of the Profile's Works, null with no estimate yet",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mibPerMinute": {
+            "description": "What the files filling the Target average, null with no estimate yet",
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId",
+          "mibPerMinute",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "TargetsFilter": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "enum": [
+              "hdr",
+              "video_codec",
+              "audio_codec",
+              "channels",
+              "language"
+            ],
+            "type": "string"
+          },
+          "mode": {
+            "description": "Only passes a fact holding one of the values, not one holding none; an unknown fact passes",
+            "enum": [
+              "only",
+              "not"
+            ],
+            "type": "string"
+          },
+          "values": {
+            "description": "The attribute's values by name; a language is an ISO 639 code or original",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "attribute",
+          "mode",
+          "values"
+        ],
+        "type": "object"
+      },
+      "TargetsImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "downloading": {
+            "description": "Downloads in flight for cells that go; their files follow the save's choice",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "newlyWanted": {
+            "description": "Cells that become wanted",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ownList": {
+            "description": "Works that keep their own Edition list through a change to their Profile's",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "renamed": {
+            "description": "Files that still fill a cell and change name",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unwanted": {
+            "$ref": "#/components/schemas/TargetsUnwantedFiles",
+            "description": "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"
+          },
+          "works": {
+            "description": "Works whose cells, fills or file names change",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "works",
+          "ownList",
+          "unwanted",
+          "renamed",
+          "newlyWanted",
+          "downloading"
+        ],
+        "type": "object"
+      },
+      "TargetsNamedCuts": {
+        "additionalProperties": false,
+        "properties": {
+          "cuts": {
+            "description": "Cut keys in list order",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "kind": {
+            "description": "Named cuts: with Standard, each other cut once seen for an Item; without it, every cut outright",
+            "enum": [
+              "cuts"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "cuts"
+        ],
+        "type": "object"
+      },
+      "TargetsNewCut": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "description": "Other phrases that name it in a title; its name always does",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "name": {
+            "description": "Its key is the name's words in lower case joined by hyphens, fixed once made",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
         "type": "object"
       },
       "TargetsNewProfile": {
@@ -3192,18 +3706,19 @@
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
           },
+          "editions": {
+            "$ref": "#/components/schemas/TargetsEditions"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
-          "targetIds": {
-            "description": "Highest ranked first",
+          "targets": {
+            "description": "In Profile order; none is a Profile whose Works want nothing",
             "items": {
-              "format": "uuid",
-              "type": "string"
+              "$ref": "#/components/schemas/TargetsEntry"
             },
-            "minItems": 1,
             "type": "array",
             "uniqueItems": true
           }
@@ -3211,38 +3726,142 @@
         "required": [
           "name",
           "contentType",
-          "targetIds"
+          "targets",
+          "editions"
         ],
         "type": "object"
       },
       "TargetsNewTarget": {
         "additionalProperties": false,
         "properties": {
+          "cutoff": {
+            "description": "Any quality of the tier at which a file is final",
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
+          "filters": {
+            "description": "An attribute left out is Any",
+            "items": {
+              "$ref": "#/components/schemas/TargetsFilter"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
-          "resolutions": {
-            "description": "Highest ranked first",
+          "sizes": {
+            "description": "An accepted quality left out takes its floor and no maximum",
             "items": {
-              "enum": [
-                "2160p",
-                "1080p",
-                "720p",
-                "576p",
-                "480p"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/TargetsSize"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "tiers": {
+            "description": "Quality keys, best tier first; a tier's qualities rank as equal",
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
             },
             "minItems": 1,
-            "type": "array",
-            "uniqueItems": true
+            "type": "array"
           }
         },
         "required": [
           "name",
-          "resolutions"
+          "tiers",
+          "cutoff"
+        ],
+        "type": "object"
+      },
+      "TargetsNewWants": {
+        "additionalProperties": false,
+        "properties": {
+          "editions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetsEditions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Work's own Edition list, or null for its Profile's"
+          },
+          "profileId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileId",
+          "editions"
+        ],
+        "type": "object"
+      },
+      "TargetsPreset": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "enum": [
+              "disc-or-resolution",
+              "anything-better",
+              "resolution-only"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tiers": {
+            "description": "Every quality, best tier first. Over chosen qualities, keep these tiers to them; with no upgrades, put the cutoff at the bottom tier",
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "tiers"
         ],
         "type": "object"
       },
@@ -3254,8 +3873,11 @@
             "type": "string"
           },
           "default": {
-            "description": "Whether the Content Type's Works use it",
+            "description": "Whether a Work added with no Profile takes it",
             "type": "boolean"
+          },
+          "editions": {
+            "$ref": "#/components/schemas/TargetsEditions"
           },
           "id": {
             "format": "uuid",
@@ -3264,13 +3886,18 @@
           "name": {
             "type": "string"
           },
-          "targetIds": {
-            "description": "Highest ranked first",
+          "targets": {
+            "description": "In Profile order: a file is named after the first it fills",
             "items": {
-              "format": "uuid",
-              "type": "string"
+              "$ref": "#/components/schemas/TargetsEntry"
             },
             "type": "array"
+          },
+          "works": {
+            "description": "The Works wanting from it",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
@@ -3278,7 +3905,79 @@
           "name",
           "contentType",
           "default",
-          "targetIds"
+          "targets",
+          "editions",
+          "works"
+        ],
+        "type": "object"
+      },
+      "TargetsProfileChange": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/TargetsProfile"
+          }
+        },
+        "required": [
+          "impact",
+          "profile"
+        ],
+        "type": "object"
+      },
+      "TargetsProfileDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "default": {
+            "description": "Whether a Work added with no Profile takes it",
+            "type": "boolean"
+          },
+          "editions": {
+            "$ref": "#/components/schemas/TargetsEditions"
+          },
+          "estimates": {
+            "description": "One per Target, in Profile order. A Target no file of known runtime fills yet has no estimate",
+            "items": {
+              "$ref": "#/components/schemas/TargetsEstimate"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "targets": {
+            "description": "In Profile order: a file is named after the first it fills",
+            "items": {
+              "$ref": "#/components/schemas/TargetsEntry"
+            },
+            "type": "array"
+          },
+          "works": {
+            "description": "The Works wanting from it",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "estimates",
+          "id",
+          "name",
+          "contentType",
+          "default",
+          "targets",
+          "editions",
+          "works"
         ],
         "type": "object"
       },
@@ -3298,12 +3997,197 @@
         ],
         "type": "object"
       },
+      "TargetsProfileRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "TargetsQuality": {
+        "additionalProperties": false,
+        "properties": {
+          "cinema": {
+            "description": "A cinema recording: kept out of a Target unless an Admin adds it",
+            "type": "boolean"
+          },
+          "floor": {
+            "description": "A new Target's minimum size, in MiB per minute",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "key": {
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "resolution": {
+            "description": "Null for cinema sources",
+            "enum": [
+              "2160p",
+              "1080p",
+              "720p",
+              "480p"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "enum": [
+              "tv",
+              "hdtv",
+              "dvd",
+              "webrip",
+              "webdl",
+              "bluray",
+              "remux",
+              "cinema"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "source",
+          "resolution",
+          "cinema",
+          "floor"
+        ],
+        "type": "object"
+      },
+      "TargetsQualityList": {
+        "additionalProperties": false,
+        "properties": {
+          "presets": {
+            "description": "The default first",
+            "items": {
+              "$ref": "#/components/schemas/TargetsPreset"
+            },
+            "type": "array"
+          },
+          "qualities": {
+            "description": "Low to high, the presets' default order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsQuality"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "qualities",
+          "presets"
+        ],
+        "type": "object"
+      },
+      "TargetsSize": {
+        "additionalProperties": false,
+        "properties": {
+          "max": {
+            "description": "MiB per minute; null is no limit",
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "min": {
+            "description": "MiB per minute of the runtime the file covers",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "quality": {
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "quality",
+          "min",
+          "max"
+        ],
+        "type": "object"
+      },
       "TargetsTarget": {
         "additionalProperties": false,
         "properties": {
+          "contains": {
+            "description": "The other Targets every file of which also meets this one",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "cutoff": {
+            "description": "The first quality of the tier at which a file is final",
+            "type": "string"
+          },
+          "filters": {
+            "description": "Every attribute that isn't Any, in attribute order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsFilter"
+            },
+            "type": "array"
           },
           "id": {
             "format": "uuid",
@@ -3312,17 +4196,30 @@
           "name": {
             "type": "string"
           },
-          "resolutions": {
-            "description": "Highest ranked first",
+          "profiles": {
+            "description": "The Profiles holding it, by name",
             "items": {
-              "enum": [
-                "2160p",
-                "1080p",
-                "720p",
-                "576p",
-                "480p"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/TargetsProfileRef"
+            },
+            "type": "array"
+          },
+          "sizes": {
+            "description": "Every accepted quality's size, in tier order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsSize"
+            },
+            "type": "array"
+          },
+          "tiers": {
+            "description": "Quality keys, best tier first; a tier's qualities rank as equal",
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
             },
             "type": "array"
           }
@@ -3330,8 +4227,29 @@
         "required": [
           "id",
           "name",
-          "resolutions",
+          "tiers",
+          "cutoff",
+          "filters",
+          "sizes",
+          "profiles",
+          "contains",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "TargetsTargetChange": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetsTarget"
+          }
+        },
+        "required": [
+          "impact",
+          "target"
         ],
         "type": "object"
       },
@@ -3348,6 +4266,73 @@
         },
         "required": [
           "targets"
+        ],
+        "type": "object"
+      },
+      "TargetsUnwantedFiles": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "TargetsWants": {
+        "additionalProperties": false,
+        "properties": {
+          "editions": {
+            "$ref": "#/components/schemas/TargetsEditions",
+            "description": "The effective Edition list"
+          },
+          "from": {
+            "description": "Whether the Edition list is the Profile's or the Work's own",
+            "enum": [
+              "profile",
+              "work"
+            ],
+            "type": "string"
+          },
+          "profileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "profileName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileId",
+          "profileName",
+          "editions",
+          "from"
+        ],
+        "type": "object"
+      },
+      "TargetsWantsChange": {
+        "additionalProperties": false,
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/TargetsImpact"
+          },
+          "wants": {
+            "$ref": "#/components/schemas/TargetsWants"
+          }
+        },
+        "required": [
+          "impact",
+          "wants"
         ],
         "type": "object"
       },
@@ -4660,6 +5645,11 @@
           "monitor": {
             "description": "Monitor a new Work's Items; adding a Work already in the library changes nothing",
             "type": "boolean"
+          },
+          "profileId": {
+            "description": "The Profile of the Content Type a new Work wants from; left out, the type's default",
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
@@ -7846,6 +8836,741 @@
         "summary": "Get the counts the shell shows beside its navigation",
         "tags": [
           "shell"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/cuts": {
+      "get": {
+        "operationId": "listCuts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsCutList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the cuts an Edition list can name: built in, added by a Content Type, or custom",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "createCut",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewCut"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsCut"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Add a custom cut, keyed by its name's words, which every title parse reads from then on",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/cuts/{cutKey}": {
+      "delete": {
+        "operationId": "deleteCut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cutKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_in_use",
+                            "cut_not_custom",
+                            "standard_is_fixed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove a custom cut no Edition list names and no file is of",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateCut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cutKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewCut"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsCutChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_name_taken",
+                            "cut_not_custom",
+                            "impact_changed",
+                            "standard_is_fixed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename a custom cut or replace its aliases, renaming the files of it, or preview the change's Impact",
+        "tags": [
+          "targets"
         ],
         "x-slipstream-access": "admin"
       }
@@ -14401,7 +16126,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the Profiles",
+        "summary": "List the Profiles, each with the count of Works wanting from it",
         "tags": [
           "targets"
         ],
@@ -14545,6 +16270,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "cut_not_found",
                             "invalid",
                             "target_not_found"
                           ],
@@ -14595,7 +16321,1022 @@
             "apiKey": []
           }
         ],
-        "summary": "Create a Profile; a Content Type's first is its default",
+        "summary": "Create a Profile of Targets in Profile order; it is never the default",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/profiles/{profileId}": {
+      "delete": {
+        "operationId": "deleteProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The Profile of the same Content Type that its Works move to",
+            "explode": false,
+            "in": "query",
+            "name": "moveTo",
+            "required": true,
+            "schema": {
+              "description": "The Profile of the same Content Type that its Works move to",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsProfileChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "profile_is_default",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "profile_not_found",
+                            "profile_wrong_type"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete a Profile that isn't its Content Type's default, moving its Works to another of the type, or preview the change's Impact",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "get": {
+        "operationId": "getProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsProfileDetail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Profile with the disk each of its Targets costs across its Works",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsProfileChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "profile_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_not_found",
+                            "invalid",
+                            "profile_wrong_type",
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/profiles/{profileId}/default": {
+      "post": {
+        "operationId": "makeDefaultProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsProfile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "profile_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Make a Profile its Content Type's default; existing Works keep theirs",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/qualities": {
+      "get": {
+        "operationId": "listQualities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsQualityList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the qualities a Target can accept, and the presets that order them",
         "tags": [
           "targets"
         ],
@@ -18504,6 +21245,196 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "invalid",
+                            "quality_not_in_target"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Create a Target from its tiers of qualities, cutoff, filters and sizes",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/targets/{targetId}": {
+      "delete": {
+        "operationId": "deleteTarget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "targetId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "target_in_use",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
                             "invalid"
                           ],
                           "type": "string"
@@ -18553,7 +21484,638 @@
             "apiKey": []
           }
         ],
-        "summary": "Create a Target from its resolutions",
+        "summary": "Delete a Target no Profile holds",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "get": {
+        "operationId": "getTarget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "targetId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsTarget"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Target",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateTarget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "targetId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewTarget"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsTargetChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "target_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "quality_not_in_target"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/targets/{targetId}/duplicate": {
+      "post": {
+        "operationId": "duplicateTarget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "targetId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsTarget"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "target_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Copy a Target's rules under the first free name ending in copy",
         "tags": [
           "targets"
         ],
@@ -20244,7 +23806,9 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "profile_not_found",
+                            "profile_wrong_type"
                           ],
                           "type": "string"
                         }
@@ -20709,7 +24273,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get each of a Work's cells with its state and the file filling it",
+        "summary": "Get each of a Work's cells with its state and the file filling it, and each Item's status",
         "tags": [
           "files"
         ],
@@ -21328,6 +24892,445 @@
         "summary": "List a Work's search runs and their outcomes",
         "tags": [
           "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/wants": {
+      "get": {
+        "operationId": "getWorkWants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsWants"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Profile a Work wants from and its Edition list",
+        "tags": [
+          "targets"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "setWorkWants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Answer the change's Impact and save nothing",
+            "explode": false,
+            "in": "query",
+            "name": "preview",
+            "schema": {
+              "description": "Answer the change's Impact and save nothing",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "explode": false,
+            "in": "query",
+            "name": "unwanted",
+            "schema": {
+              "default": "delete",
+              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "schema": {
+              "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsNewWants"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsWantsChange"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "impact_changed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "cut_not_found",
+                            "invalid",
+                            "profile_not_found",
+                            "profile_wrong_type"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set the Profile a Work wants from and its own Edition list, refilling and renaming its files, or preview the change's Impact",
+        "tags": [
+          "targets"
         ],
         "x-slipstream-access": "admin"
       }

@@ -48,6 +48,10 @@ import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$no
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
 import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
+import { Route as AppSettingsProfilesProfileIdRouteImport } from "./routes/_app/settings/profiles.$profileId";
+import { Route as AppSettingsProfilesNewRouteImport } from "./routes/_app/settings/profiles.new";
+import { Route as AppSettingsTargetsTargetIdRouteImport } from "./routes/_app/settings/targets.$targetId";
+import { Route as AppSettingsTargetsNewRouteImport } from "./routes/_app/settings/targets.new";
 
 const AppRoute = AppRouteImport.update({
   id: "/_app",
@@ -244,6 +248,28 @@ const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
   path: "/web",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppSettingsProfilesProfileIdRoute =
+  AppSettingsProfilesProfileIdRouteImport.update({
+    id: "/settings/profiles/$profileId",
+    path: "/settings/profiles/$profileId",
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppSettingsProfilesNewRoute = AppSettingsProfilesNewRouteImport.update({
+  id: "/settings/profiles/new",
+  path: "/settings/profiles/new",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppSettingsTargetsTargetIdRoute =
+  AppSettingsTargetsTargetIdRouteImport.update({
+    id: "/settings/targets/$targetId",
+    path: "/settings/targets/$targetId",
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppSettingsTargetsNewRoute = AppSettingsTargetsNewRouteImport.update({
+  id: "/settings/targets/new",
+  path: "/settings/targets/new",
+  getParentRoute: () => AppRoute,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute;
@@ -283,6 +309,10 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
+  "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
+  "/settings/targets/$targetId": typeof AppSettingsTargetsTargetIdRoute;
+  "/settings/targets/new": typeof AppSettingsTargetsNewRoute;
   "/nodes/$nodeId/": typeof AppNodesNodeIdIndexRoute;
 }
 export interface FileRoutesByTo {
@@ -318,6 +348,10 @@ export interface FileRoutesByTo {
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
+  "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
+  "/settings/targets/$targetId": typeof AppSettingsTargetsTargetIdRoute;
+  "/settings/targets/new": typeof AppSettingsTargetsNewRoute;
   "/nodes/$nodeId": typeof AppNodesNodeIdIndexRoute;
 }
 export interface FileRoutesById {
@@ -360,6 +394,10 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/_app/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
+  "/_app/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
+  "/_app/settings/targets/$targetId": typeof AppSettingsTargetsTargetIdRoute;
+  "/_app/settings/targets/new": typeof AppSettingsTargetsNewRoute;
   "/_app/nodes/$nodeId/": typeof AppNodesNodeIdIndexRoute;
 }
 export interface FileRouteTypes {
@@ -402,6 +440,10 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/web"
+    | "/settings/profiles/$profileId"
+    | "/settings/profiles/new"
+    | "/settings/targets/$targetId"
+    | "/settings/targets/new"
     | "/nodes/$nodeId/";
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -437,6 +479,10 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/web"
+    | "/settings/profiles/$profileId"
+    | "/settings/profiles/new"
+    | "/settings/targets/$targetId"
+    | "/settings/targets/new"
     | "/nodes/$nodeId";
   id:
     | "__root__"
@@ -478,6 +524,10 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/web"
+    | "/_app/settings/profiles/$profileId"
+    | "/_app/settings/profiles/new"
+    | "/_app/settings/targets/$targetId"
+    | "/_app/settings/targets/new"
     | "/_app/nodes/$nodeId/";
   fileRoutesById: FileRoutesById;
 }
@@ -769,6 +819,34 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdWebRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/settings/profiles/$profileId": {
+      id: "/_app/settings/profiles/$profileId";
+      path: "/settings/profiles/$profileId";
+      fullPath: "/settings/profiles/$profileId";
+      preLoaderRoute: typeof AppSettingsProfilesProfileIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/settings/profiles/new": {
+      id: "/_app/settings/profiles/new";
+      path: "/settings/profiles/new";
+      fullPath: "/settings/profiles/new";
+      preLoaderRoute: typeof AppSettingsProfilesNewRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/settings/targets/$targetId": {
+      id: "/_app/settings/targets/$targetId";
+      path: "/settings/targets/$targetId";
+      fullPath: "/settings/targets/$targetId";
+      preLoaderRoute: typeof AppSettingsTargetsTargetIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/settings/targets/new": {
+      id: "/_app/settings/targets/new";
+      path: "/settings/targets/new";
+      fullPath: "/settings/targets/new";
+      preLoaderRoute: typeof AppSettingsTargetsNewRouteImport;
+      parentRoute: typeof AppRoute;
+    };
   }
 }
 
@@ -846,6 +924,10 @@ interface AppRouteChildren {
   AppWorksWorkIdRoute: typeof AppWorksWorkIdRoute;
   AppAccountsIndexRoute: typeof AppAccountsIndexRoute;
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute;
+  AppSettingsProfilesProfileIdRoute: typeof AppSettingsProfilesProfileIdRoute;
+  AppSettingsProfilesNewRoute: typeof AppSettingsProfilesNewRoute;
+  AppSettingsTargetsTargetIdRoute: typeof AppSettingsTargetsTargetIdRoute;
+  AppSettingsTargetsNewRoute: typeof AppSettingsTargetsNewRoute;
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -863,6 +945,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppWorksWorkIdRoute: AppWorksWorkIdRoute,
   AppAccountsIndexRoute: AppAccountsIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppSettingsProfilesProfileIdRoute: AppSettingsProfilesProfileIdRoute,
+  AppSettingsProfilesNewRoute: AppSettingsProfilesNewRoute,
+  AppSettingsTargetsTargetIdRoute: AppSettingsTargetsTargetIdRoute,
+  AppSettingsTargetsNewRoute: AppSettingsTargetsNewRoute,
 };
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);

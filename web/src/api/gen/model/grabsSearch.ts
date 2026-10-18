@@ -1,3 +1,5 @@
+import type { GrabsReason } from "./grabsReason.ts";
+import type { GrabsRefusal } from "./grabsRefusal.ts";
 import type { GrabsSearchOutcome } from "./grabsSearchOutcome.ts";
 
 export interface GrabsSearch {
@@ -19,10 +21,14 @@ export interface GrabsSearch {
   id: string;
   indexerId: string;
   itemId: string;
+  /** The grabbed release's notes, such as size_not_checked, for each Target it was grabbed for */
+  notes: GrabsReason[];
   /**
    * Null while the run searches
    * @nullable
    */
   outcome: GrabsSearchOutcome;
+  /** The releases it didn't grab for a reason, in the Indexer's order; a release it outranked isn't refused */
+  refused: GrabsRefusal[];
   startedAt: string;
 }

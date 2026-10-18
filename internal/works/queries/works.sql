@@ -42,6 +42,9 @@ SELECT * FROM works_item WHERE id = sqlc.arg(id);
 -- name: ListItems :many
 SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY withdrawn_at IS NOT NULL, position, id;
 
+-- name: ListItemsOfWorks :many
+SELECT * FROM works_item WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, withdrawn_at IS NOT NULL, position, id;
+
 -- name: InsertItem :exec
 INSERT INTO works_item (id, work_id, level_id, key, label, position, withdrawn_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(level_id), sqlc.arg(key), sqlc.arg(label), sqlc.arg(position), sqlc.arg(withdrawn_at));
