@@ -2189,6 +2189,7 @@
             "drains": "#/components/schemas/NodesDrains",
             "gains": "#/components/schemas/NodesGains",
             "handed-back": "#/components/schemas/NodesHandedBack",
+            "leaves": "#/components/schemas/NodesLeaves",
             "lets-go": "#/components/schemas/NodesLetsGo",
             "moves": "#/components/schemas/NodesMoves",
             "pinned": "#/components/schemas/NodesPinned",
@@ -2217,6 +2218,9 @@
           },
           {
             "$ref": "#/components/schemas/NodesWritesOff"
+          },
+          {
+            "$ref": "#/components/schemas/NodesLeaves"
           }
         ]
       },
@@ -2438,6 +2442,29 @@
           "id",
           "code",
           "expiresAt"
+        ],
+        "type": "object"
+      },
+      "NodesLeaves": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "leaves"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "words"
         ],
         "type": "object"
       },
@@ -2797,6 +2824,19 @@
           "node",
           "role",
           "words"
+        ],
+        "type": "object"
+      },
+      "NodesRenameBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "1 to 63 characters, with no space at either end, that no other Node has",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -4118,6 +4158,24 @@
         ],
         "type": "object"
       },
+      "SystemRemoved": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "controller": {
+            "description": "The name of the Controller that removed the Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "controller"
+        ],
+        "type": "object"
+      },
       "SystemReport": {
         "additionalProperties": false,
         "properties": {
@@ -4199,6 +4257,10 @@
           "passkeys": {
             "$ref": "#/components/schemas/SystemPasskeys",
             "description": "Whether the address this request reached SlipStream at can hold a passkey"
+          },
+          "removed": {
+            "$ref": "#/components/schemas/SystemRemoved",
+            "description": "Set on an Unclaimed Node its Controller removed, until it joins again"
           }
         },
         "required": [
@@ -4828,13 +4890,17 @@
             "type": "string"
           },
           "node": {
-            "description": "Empty when the Node is no longer paired",
+            "description": "The Node it ran on, still named once removed; empty when no Node has its id",
             "type": "string"
           },
           "nodeId": {
             "description": "The Node it ran on",
             "format": "uuid",
             "type": "string"
+          },
+          "nodeRemoved": {
+            "description": "The Node it ran on was removed since",
+            "type": "boolean"
           },
           "outcome": {
             "enum": [
@@ -4851,6 +4917,7 @@
           "label",
           "node",
           "nodeId",
+          "nodeRemoved",
           "outcome",
           "cause"
         ],
@@ -5155,6 +5222,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "nodeRemoved": {
+            "description": "The Node it runs on was removed",
+            "type": "boolean"
+          },
           "outcome": {
             "description": "Its last outcome, null before it has run",
             "enum": [
@@ -5174,6 +5245,7 @@
           "label",
           "node",
           "nodeId",
+          "nodeRemoved",
           "outcome",
           "cause",
           "endedAt",
@@ -13612,6 +13684,209 @@
       }
     },
     "/nodes/{id}": {
+      "delete": {
+        "operationId": "removeNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+            "explode": false,
+            "in": "query",
+            "name": "writeOff",
+            "schema": {
+              "description": "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_holds_work",
+                            "node_is_controller",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "$ref": "#/components/schemas/NodesOutcome"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      },
       "get": {
         "operationId": "getNode",
         "parameters": [
@@ -13800,6 +14075,211 @@
           }
         ],
         "summary": "Get one Node with its Roles, link and facts",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "renameNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodesRenameBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesNode"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "node_name_invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename a Node; a Node in step has its new name when this answers",
         "tags": [
           "nodes"
         ],

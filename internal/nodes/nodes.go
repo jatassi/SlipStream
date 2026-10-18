@@ -122,7 +122,6 @@ var JoinCodeLifetime = setting.Duration{
 type Service struct {
 	cfg      Config
 	self     ID
-	name     string
 	opened   time.Time
 	owners   map[role.Name]Owner
 	controls *role.Controls
@@ -130,7 +129,9 @@ type Service struct {
 	mu    sync.Mutex
 	keys  map[ID]link.Key
 	byKey map[link.Key]ID
-	wake  map[ID]chan struct{}
+	// removed is every key only a tombstone holds.
+	removed map[link.Key]bool
+	wake    map[ID]chan struct{}
 	// revisions is each Node's last settings revision. It outlives a
 	// session, so a Node that reconnects unchanged publishes nothing.
 	revisions map[ID]string
@@ -157,12 +158,13 @@ type Service struct {
 // unless every Role has exactly one owner.
 func Open(ctx context.Context, cfg Config) (*Service, error) {
 	s := &Service{
-		cfg:    cfg,
-		opened: time.Now(),
-		owners: ownersByRole(cfg.Owners),
-		keys:   map[ID]link.Key{},
-		byKey:  map[link.Key]ID{},
-		wake:   map[ID]chan struct{}{},
+		cfg:     cfg,
+		opened:  time.Now(),
+		owners:  ownersByRole(cfg.Owners),
+		keys:    map[ID]link.Key{},
+		byKey:   map[link.Key]ID{},
+		removed: map[link.Key]bool{},
+		wake:    map[ID]chan struct{}{},
 
 		revisions: map[ID]string{},
 		saved:     map[ID]time.Time{},
@@ -175,7 +177,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		q := db.New(tx)
 		row, err := q.GetNodeByKey(ctx, cfg.Key[:])
 		if err == nil {
-			s.self, s.name = row.ID, row.Name
+			s.self = row.ID
 			return nil
 		}
 		if !errors.Is(err, storage.ErrNoRows) {
@@ -183,10 +185,11 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		}
 		now := storage.Now()
 		s.self = ID{UUID: storage.NewUUID()}
-		if s.name, err = freeName(ctx, q, cfg.Name); err != nil {
+		name, err := freeName(ctx, q, s.self, cfg.Name)
+		if err != nil {
 			return err
 		}
-		if err := q.InsertNode(ctx, db.InsertNodeParams{ID: s.self, PublicKey: cfg.Key[:], Name: s.name, PairedAt: now}); err != nil {
+		if err := q.InsertNode(ctx, db.InsertNodeParams{ID: s.self, PublicKey: cfg.Key[:], Name: name, PairedAt: now}); err != nil {
 			return err
 		}
 		for _, r := range role.Names() {
@@ -205,7 +208,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 	if err := s.load(ctx); err != nil {
 		return nil, err
 	}
-	rows, grace, err := s.read(ctx)
+	rows, removed, grace, err := s.read(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +219,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		blip:       cfg.Timings.Blip,
 		settle:     cfg.Timings.Settle,
 		nodes:      rows,
+		removed:    removed,
 	}
 	s.board.Store(derive(s.in, s.opened))
 	s.controls = role.NewControls(role.ControlsConfig{
@@ -247,6 +251,17 @@ func (s *Service) load(ctx context.Context) error {
 		s.keys[row.ID] = key
 		s.byKey[key] = row.ID
 	}
+	removed, err := q.ListRemovedNodes(ctx)
+	if err != nil {
+		return fmt.Errorf("load the roster: %w", err)
+	}
+	for _, row := range removed {
+		key, err := link.KeyFromBytes(row.RemovedKey)
+		if err != nil {
+			return fmt.Errorf("load the roster: removed node %s: %w", row.ID, err)
+		}
+		s.removed[key] = true
+	}
 	return nil
 }
 
@@ -269,19 +284,26 @@ func (s *Service) Key(node ID) (link.Key, bool) {
 	return key, ok
 }
 
-// Admit pins every Worker in the roster and lets any other key only Pair.
+// Admit pins every Worker in the roster, tells a key only a tombstone
+// holds that it was removed, and lets any other key only Pair.
 func (s *Service) Admit(key link.Key) link.Admission {
 	if key == s.cfg.Key {
 		return link.Refused{}
 	}
-	if _, ok := s.NodeOf(key); ok {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.byKey[key]; ok {
 		return link.Pinned{}
+	}
+	if s.removed[key] {
+		return link.Removed{}
 	}
 	return link.Pairing{}
 }
 
-// freeName is name, or name-2, name-3 and on when another Node holds it.
-func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
+// freeName is name, or name-2, name-3 and on when a Node other than id
+// holds it.
+func freeName(ctx context.Context, q *db.Queries, id ID, name string) (string, error) {
 	if name == "" {
 		name = "node"
 	}
@@ -290,7 +312,7 @@ func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
 		if n > 1 {
 			candidate = name + "-" + strconv.Itoa(n)
 		}
-		taken, err := q.NameTaken(ctx, candidate)
+		taken, err := q.NameTaken(ctx, db.NameTakenParams{Name: candidate, ID: id})
 		if err != nil || !taken {
 			return candidate, err
 		}
@@ -301,16 +323,22 @@ func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
 // code by the secret's hash, refuses an unknown, expired or used one,
 // upserts peer's row by its key and marks the code used. A known key keeps
 // its id, name and Roles, and the key that used a code may use it again.
-// Peer is pinned before Pair returns, so its Hello is welcome.
+// A removed key pairs as a new row. Peer is pinned before Pair returns, so
+// its Hello is welcome.
 func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	hash := sha256.Sum256(req.GetSecret())
 	var (
 		row     db.NodesNode
+		self    db.NodesNode
 		refused linkv1.RefusedReason
 	)
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
 		var err error
-		row, refused, err = pairIn(ctx, db.New(tx), peer, hash[:], req.GetName())
+		if self, err = q.GetNode(ctx, s.self); err != nil {
+			return err
+		}
+		row, refused, err = pairIn(ctx, q, peer, hash[:], req.GetName())
 		return err
 	})
 	if err != nil {
@@ -330,7 +358,7 @@ func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReque
 	}
 	s.changed(row.ID)
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Paired{
-		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: s.name},
+		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: self.Name},
 	}}, nil
 }
 
@@ -361,7 +389,7 @@ func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name
 		err = q.SetPairedAt(ctx, db.SetPairedAtParams{ID: row.ID, PairedAt: now})
 	} else {
 		row = db.NodesNode{ID: ID{UUID: storage.NewUUID()}, PublicKey: peer[:], PairedAt: now}
-		if row.Name, err = freeName(ctx, q, name); err == nil {
+		if row.Name, err = freeName(ctx, q, row.ID, name); err == nil {
 			err = q.InsertNode(ctx, db.InsertNodeParams{ID: row.ID, PublicKey: row.PublicKey, Name: row.Name, PairedAt: row.PairedAt})
 		}
 	}
@@ -550,10 +578,12 @@ type Node struct {
 type Named struct {
 	ID   ID
 	Name string
+	// Removed: the Node's row is a tombstone, kept for history.
+	Removed bool
 }
 
-// Names is every Node's id and name in id order, so the Controller's own
-// row, the first paired, comes first.
+// Names is every live Node's id and name in id order, so the Controller's
+// own row, the first paired, comes first.
 func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
 	rows, err := db.New(r).ListNodes(ctx)
 	if err != nil {
@@ -562,6 +592,20 @@ func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
 	out := make([]Named, len(rows))
 	for i, row := range rows {
 		out[i] = Named{ID: row.ID, Name: row.Name}
+	}
+	return out, nil
+}
+
+// Names is every Node's id and name, tombstones included, for history
+// that names a removed Node.
+func (s *Service) Names(ctx context.Context) (map[ID]Named, error) {
+	rows, err := db.New(s.cfg.Library).ListNames(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the Nodes' names: %w", err)
+	}
+	out := make(map[ID]Named, len(rows))
+	for _, row := range rows {
+		out[row.ID] = Named{ID: row.ID, Name: row.Name, Removed: !row.RemovedAt.IsZero()}
 	}
 	return out, nil
 }

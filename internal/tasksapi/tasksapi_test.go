@@ -44,20 +44,20 @@ func (roster) Standing(node role.NodeID) (nodes.Standing, time.Time) {
 
 func (roster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
 
-func (r roster) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
-	list, err := r.List(ctx)
-	for _, n := range list {
-		if n.ID == id {
-			return n, err
-		}
+func (roster) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
+	switch id {
+	case home:
+		return nodes.Node{ID: home, Name: "home", Self: true, Link: nodes.Local}, nil
+	case seedbox:
+		return nodes.Node{ID: seedbox, Name: "seedbox", Link: nodes.Down, Since: offline}, nil
 	}
 	return nodes.Node{}, nodes.ErrNotFound
 }
 
-func (roster) List(context.Context) ([]nodes.Node, error) {
-	return []nodes.Node{
-		{ID: home, Name: "home", Self: true, Link: nodes.Local},
-		{ID: seedbox, Name: "seedbox", Link: nodes.Down, Since: offline},
+func (roster) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
+	return map[role.NodeID]nodes.Named{
+		home:    {ID: home, Name: "home"},
+		seedbox: {ID: seedbox, Name: "seedbox"},
 	}, nil
 }
 
@@ -145,8 +145,8 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
 			tidyTask(8, `{"kind":"running","runId":1,"trigger":"run-now","since":"T","done":0,"total":2}`, "", `{"available":false,"reason":"running"}`)+
 			`,"units":[`+
-			`{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false},`+
-			`{"key":"b","label":"B","node":"home","nodeId":"id1","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],`+
+			`{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false},`+
+			`{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],`+
 			`"runs":[{"id":1,"trigger":"run-now","startedAt":"T","endedAt":null,"result":null,"summary":"","cause":null,"nodes":[],"units":[]}]}`)
 
 		if status, reply := o.Call(t, http.MethodDelete, "/api/v1/tasks/runs/1", ""); status != http.StatusNoContent || reply != "" {
@@ -155,13 +155,13 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 		synctest.Wait()
 		o.Expect(t, http.MethodDelete, "/api/v1/tasks/runs/1", "", http.StatusNotFound,
 			`{"status":404,"code":"run_not_open","title":"No open run has this id"}`)
-		lines := `"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":"canceled","cause":null},{"key":"b","label":"B","node":"home","nodeId":"id1","outcome":"canceled","cause":null}]`
+		lines := `"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null},{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null}]`
 		last := `{"id":1,"trigger":"run-now","startedAt":"T","endedAt":"T","result":"canceled","summary":"0 of 2 steps","cause":null,"nodes":["home"],` + lines + `}`
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
 			tidyTask(8, idle, `"lastRun":`+last+`,`, available)+
 			`,"units":[`+
-			`{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false},`+
-			`{"key":"b","label":"B","node":"home","nodeId":"id1","outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false}],`+
+			`{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false},`+
+			`{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false}],`+
 			`"runs":[`+last+`]}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/runs/open", "", http.StatusOK, `{"headerDelaySeconds":5,"runs":[]}`)
 	})
@@ -176,7 +176,7 @@ func TestACadenceOutsideItsRangeAnswersItsSentenceAndNullResets(t *testing.T) {
 			`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Choose Catch up or Wait."}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":7200}`, http.StatusOK, tidyTask(2, idle, "", available))
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+tidyTask(2, idle, "", available)+
-			`,"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[]}`)
+			`,"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[]}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":null}`, http.StatusOK, tidyTask(8, idle, "", available))
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/nothing", `{"cadence":null}`, http.StatusNotFound,
 			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)

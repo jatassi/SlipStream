@@ -51,6 +51,11 @@ func PutIntent(ctx context.Context, tx *storage.Tx[file], in Intent) error {
 	return db.New(tx).PutIntent(ctx, db.PutIntentParams(in))
 }
 
+// ClearIntents deletes every cached intent.
+func ClearIntents(ctx context.Context, tx *storage.Tx[file]) error {
+	return db.New(tx).DeleteIntents(ctx)
+}
+
 type Result struct {
 	Seq     uint64
 	Scope   string
