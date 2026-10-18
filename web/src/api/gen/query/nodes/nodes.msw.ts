@@ -135,6 +135,9 @@ export const getListNodesResponseMock = (
               ] as const),
             }
           : {}),
+        ...(faker.datatype.boolean()
+          ? { words: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
       }),
     ),
     roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -209,6 +212,45 @@ export const getGetRoleBoardResponseMock = (
       word: faker.string.alpha({ length: { min: 10, max: 20 } }),
     }),
   ),
+  groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      group: faker.helpers.arrayElement([
+        "acquire",
+        "store",
+        "process",
+        "connect",
+        "reach",
+      ] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          pinned: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                probe: faker.helpers.arrayElement([
+                  "engine-starts",
+                  "data-writable",
+                  "listener-up",
+                ] as const),
+              }
+            : {}),
+          role: faker.helpers.arrayElement([
+            "searching",
+            "downloading",
+            "storage",
+            "converting",
+            "subtitles",
+            "metadata",
+            "media-server-link",
+            "notifying",
+            "relaying",
+            "serving",
+          ] as const),
+        }),
+      ),
+    }),
+  ),
   nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     assigned: faker.helpers.arrayElements([
       "searching",
@@ -245,6 +287,9 @@ export const getGetRoleBoardResponseMock = (
                 "http_not_listening",
               ] as const),
             }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { words: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
       }),
     ),
@@ -1029,6 +1074,9 @@ export const getGetTopologyResponseMock = (
               ] as const),
             }
           : {}),
+        ...(faker.datatype.boolean()
+          ? { words: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
       }),
     ),
     resources: {
@@ -1166,6 +1214,9 @@ export const getGetNodeResponseMock = (
             ] as const),
           }
         : {}),
+      ...(faker.datatype.boolean()
+        ? { words: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
     }),
   ),
   roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
@@ -1280,6 +1331,9 @@ export const getRenameNodeResponseMock = (
             ] as const),
           }
         : {}),
+      ...(faker.datatype.boolean()
+        ? { words: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
     }),
   ),
   roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
@@ -1393,6 +1447,9 @@ export const getSetNodeDialResponseMock = (
               "http_not_listening",
             ] as const),
           }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { words: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
     }),
   ),

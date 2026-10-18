@@ -148,15 +148,6 @@ func size(n int64) string {
 	return strconv.FormatFloat(v, 'f', digits, 64) + " " + sizeUnits[unit]
 }
 
-// probeWords is what each ProbeReason found, as a sentence.
-var probeWords = map[role.ProbeReason]string{
-	role.EngineNotListening:      "Its torrent engine isn't listening for peers.",
-	role.DownloadsNotWritable:    "Its downloads folder can't be written to.",
-	role.DownloadsOnNetworkShare: "Its downloads folder is on a network share.",
-	role.DataNotWritable:         "Its data folder can't be written to.",
-	role.HTTPNotListening:        "Its web server isn't listening.",
-}
-
 func newCheck(n Named, r role.Name, v Verdict, why Reason, words, word string) Check {
 	return Check{Node: n, Role: r, Verdict: v, Reason: why, Words: words, gestureWord: word}
 }
@@ -170,10 +161,10 @@ func roleTaken(added Named, r role.Name, holder Named) Check {
 func probed(n Named, r role.Name, v Verdict, why role.ProbeReason) Check {
 	if v == Block {
 		return newCheck(n, r, v, ProbeFails,
-			fmt.Sprintf("%s can't run on %s. %s", r.Label(), n.Name, probeWords[why]), "Can't run here")
+			fmt.Sprintf("%s can't run on %s. %s", r.Label(), n.Name, why.Words()), "Can't run here")
 	}
 	return newCheck(n, r, v, ProbeWeak,
-		fmt.Sprintf("%s may run poorly on %s. %s", r.Label(), n.Name, probeWords[why]), "Runs poorly here")
+		fmt.Sprintf("%s may run poorly on %s. %s", r.Label(), n.Name, why.Words()), "Runs poorly here")
 }
 
 func offline(n Named, r role.Name) Check {

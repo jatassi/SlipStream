@@ -8,4 +8,6 @@ export interface NodesProbe {
   probe: NodesProbeProbe;
   /** Why it is weak or fails; absent when it fits */
   reason?: NodesProbeReason;
+  /** What it found, as a sentence; absent when it fits */
+  words?: string;
 }

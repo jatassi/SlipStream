@@ -22,4 +22,11 @@ func TestEveryRoleHasItsGlossaryLabelAndGroup(t *testing.T) {
 	if got := role.Groups(); !slices.Equal(got, []role.Group{"acquire", "store", "process", "connect", "reach"}) {
 		t.Fatalf("Groups() = %v", got)
 	}
+	var labels []string
+	for _, g := range role.Groups() {
+		labels = append(labels, g.Label())
+	}
+	if want := []string{"Acquire", "Store", "Process", "Connect", "Reach"}; !slices.Equal(labels, want) {
+		t.Fatalf("the Group labels are %v, want %v", labels, want)
+	}
 }

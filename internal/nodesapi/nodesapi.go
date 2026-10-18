@@ -83,6 +83,7 @@ type probe struct {
 	Probe  string    `json:"probe" enum:"engine-starts,data-writable,listener-up"`
 	Fit    string    `json:"fit" enum:"fits,weak,fails"`
 	Reason string    `json:"reason,omitempty" enum:"engine_not_listening,downloads_not_writable,downloads_on_network_share,data_not_writable,http_not_listening" doc:"Why it is weak or fails; absent when it fits"`
+	Words  string    `json:"words,omitempty" doc:"What it found, as a sentence; absent when it fits"`
 	At     time.Time `json:"at"`
 }
 
@@ -99,7 +100,7 @@ func inTableOrder(m map[role.Probe]role.ProbeResult) []role.ProbeResult {
 func probesOf(results []role.ProbeResult) []probe {
 	out := []probe{}
 	for _, p := range results {
-		out = append(out, probe{Probe: string(p.Probe), Fit: p.Fit.String(), Reason: string(p.Reason), At: p.At})
+		out = append(out, probe{Probe: string(p.Probe), Fit: p.Fit.String(), Reason: string(p.Reason), Words: p.Reason.Words(), At: p.At})
 	}
 	return out
 }
@@ -453,12 +454,43 @@ func effectOf(e nodes.Effect) any {
 
 type roleBoard struct {
 	Basis    string      `json:"basis"`
+	Groups   []roleGroup `json:"groups" nullable:"false" doc:"Every Role Group and its Roles, in the table's order"`
 	Nodes    []boardNode `json:"nodes" nullable:"false" doc:"Every Node, in id order"`
 	Gestures []gesture   `json:"gestures" nullable:"false" doc:"The plan's verdict on every move and add a drag can make"`
 }
 
 type roleBoardOutput struct {
 	Body roleBoard
+}
+
+type roleGroup struct {
+	Group string      `json:"group" enum:"acquire,store,process,connect,reach"`
+	Label string      `json:"label"`
+	Roles []roleEntry `json:"roles" nullable:"false"`
+}
+
+type roleEntry struct {
+	Role   string `json:"role" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving"`
+	Label  string `json:"label"`
+	Probe  string `json:"probe,omitempty" enum:"engine-starts,data-writable,listener-up" doc:"The probe a Node runs before it is given the Role; absent for none"`
+	Pinned bool   `json:"pinned" doc:"The Controller holds it whatever the Admin ticks"`
+}
+
+// groups is the Role table as the Roles section lays it out.
+func groups() []roleGroup {
+	out := []roleGroup{}
+	for _, g := range role.Groups() {
+		entry := roleGroup{Group: string(g), Label: g.Label(), Roles: []roleEntry{}}
+		for _, n := range role.Names() {
+			if n.Group() == g {
+				entry.Roles = append(entry.Roles, roleEntry{
+					Role: string(n), Label: n.Label(), Probe: string(n.Rule().Probe), Pinned: n.Rule().Controller,
+				})
+			}
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 type boardNode struct {
@@ -482,7 +514,7 @@ type gesture struct {
 }
 
 func boardOf(b nodes.RoleBoard) roleBoard {
-	out := roleBoard{Basis: string(b.Basis()), Nodes: []boardNode{}, Gestures: []gesture{}}
+	out := roleBoard{Basis: string(b.Basis()), Groups: groups(), Nodes: []boardNode{}, Gestures: []gesture{}}
 	for _, seat := range b.Seats {
 		out.Nodes = append(out.Nodes, boardNode{
 			ID: seat.ID.String(), Name: seat.Name, Controller: seat.ID == b.Controller, Away: seat.Away,
