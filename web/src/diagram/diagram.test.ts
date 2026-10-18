@@ -71,40 +71,48 @@ const machinesOn = (items: readonly TileItem[]): TileItem[] =>
   items.filter(({ role, name }) => role !== undefined && !name.startsWith("chip."));
 
 /** The floor a machine's solids cover, as the box around them. */
-function footprintOf(item: TileItem): Plan {
-  const points = item.shapes.flatMap((shape): Plane[] => {
-    if (shape.kind === "slab") {
-      const { x, y, w, d } = shape.plan;
-      return [
-        [x, y],
-        [x + w, y + d],
+function footprintOf(items: readonly TileItem[]): Plan {
+  const points = items
+    .flatMap(({ shapes }) => shapes)
+    .flatMap((shape): readonly Plane[] => {
+      if (shape.kind === "slab") {
+        const { x, y, w, d } = shape.plan;
+        return [
+          [x, y],
+          [x + w, y + d],
+        ];
+      }
+      if (shape.kind === "extruded") {
+        return shape.ring;
+      }
+      const { o, a, u, v } = shape.frame;
+      const along = (s: number, p: number, q: number): Plane => [
+        o[0] + a[0] * s + u[0] * p + v[0] * q,
+        o[1] + a[1] * s + u[1] * p + v[1] * q,
       ];
-    }
-    if (shape.kind === "extruded") {
-      return [...shape.ring];
-    }
-    const { o, a, u, v } = shape.frame;
-    const along = (s: number, p: number, q: number): Plane => [
-      o[0] + a[0] * s + u[0] * p + v[0] * q,
-      o[1] + a[1] * s + u[1] * p + v[1] * q,
-    ];
-    const polygon: readonly Plane[] =
-      shape.kind === "prism"
-        ? shape.polygon
-        : [
-            [-shape.r, -shape.r],
-            [shape.r, shape.r],
-            [-shape.r, shape.r],
-            [shape.r, -shape.r],
-          ];
-    return [shape.s0, shape.s1].flatMap((s) => polygon.map(([p, q]) => along(s, p, q)));
-  });
+      const polygon: readonly Plane[] =
+        shape.kind === "prism"
+          ? shape.polygon
+          : [
+              [-shape.r, -shape.r],
+              [shape.r, shape.r],
+              [-shape.r, shape.r],
+              [shape.r, -shape.r],
+            ];
+      return [shape.s0, shape.s1].flatMap((s) => polygon.map(([p, q]) => along(s, p, q)));
+    });
   const xs = points.map(([x]) => x);
   const ys = points.map(([, y]) => y);
   const x = Math.min(...xs);
   const y = Math.min(...ys);
   return { x, y, w: Math.max(...xs) - x, d: Math.max(...ys) - y, r: 0 };
 }
+
+const footprintsOf = (machines: readonly TileItem[]) =>
+  [...new Set(machines.map(({ role }) => role))].map((role) => ({
+    name: String(role),
+    plan: footprintOf(machines.filter((machine) => machine.role === role)),
+  }));
 
 describe("machines", () => {
   test("a tile draws a machine for each Role its Node holds and none other, and a chip for every Role", () => {
@@ -120,7 +128,7 @@ describe("machines", () => {
     const [tile] = drawingOf(landingFrom(1)).tiles;
     const machines = machinesOn(tile?.items ?? []);
     expect(new Set(machines.map(({ role }) => role)).size).toBe(10);
-    const plans = machines.map((machine) => ({ name: machine.name, plan: footprintOf(machine) }));
+    const plans = footprintsOf(machines);
     const chips = Math.min(...[0, 5].map((slot) => chipPlan(slot).y));
     for (const [index, { name, plan }] of plans.entries()) {
       expect(

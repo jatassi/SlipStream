@@ -5,7 +5,7 @@ import { type DrawnTile, tileP } from "./drawing";
 import { machineP } from "./machines";
 import type { Busy } from "./model";
 import { DRAWER_TRAVEL } from "./parts/catalog";
-import { REST_HEADING, headOf, paintOf } from "./parts/radar-head";
+import { type HeadPath, REST_HEADING, headOf, paintOf } from "./parts/radar-head";
 import { write } from "./svg";
 
 // A tile's small machines that follow work: the radar dish turning while a
@@ -14,10 +14,17 @@ import { write } from "./svg";
 /** How fast a sweeping dish turns, in degrees a second. */
 const SWEEP_SPEED = 60;
 
-/** The least turn worth redrawing the head for, in degrees. */
-const REDRAW_STEP = 1.2;
+/** The step the head turns in, in degrees: each pose is drawn once and kept. */
+const POSE_STEP = 2;
 
-type Head = { readonly P: Projection; readonly paths: readonly SVGPathElement[] };
+const poseOf = (heading: number): number =>
+  (((Math.round(heading / POSE_STEP) * POSE_STEP) % 360) + 360) % 360;
+
+type Head = {
+  readonly P: Projection;
+  readonly paths: readonly SVGPathElement[];
+  readonly poses: Map<number, readonly HeadPath[]>;
+};
 
 export type MachinesLive = {
   readonly node: string;
@@ -52,13 +59,14 @@ export function machinesOf(
         : {
             P: machineP(P, "searching"),
             paths: [...dish.querySelectorAll("path")],
+            poses: new Map(),
           },
     led: tile.querySelector('[data-led="search"]'),
     drawer,
     drawerP: drawer === null ? undefined : machineP(P, "metadata"),
     written: new WeakMap(),
     heading: REST_HEADING,
-    drawn: REST_HEADING,
+    drawn: poseOf(REST_HEADING),
     speed: 0,
     out: 0,
   };
@@ -69,14 +77,17 @@ function drawHead(live: MachinesLive, heading: number) {
   if (head === undefined) {
     return;
   }
-  headOf(head.P, heading).forEach(({ paint, d }, index) => {
+  const pose = poseOf(heading);
+  const paths = head.poses.get(pose) ?? headOf(head.P, pose);
+  head.poses.set(pose, paths);
+  paths.forEach(({ paint, d }, index) => {
     const path = head.paths[index] ?? null;
     write(live.written, path, "d", d);
     for (const [name, value] of Object.entries(paintOf(paint))) {
       write(live.written, path, name, value);
     }
   });
-  live.drawn = heading;
+  live.drawn = pose;
 }
 
 function slide(live: MachinesLive, out: number) {
@@ -94,7 +105,7 @@ function slide(live: MachinesLive, out: number) {
 export function moveMachines(live: MachinesLive, busy: Busy, running: number, dt: number) {
   live.speed = follow(live.speed, busy.sweep * running * SWEEP_SPEED, dt, 0.5);
   live.heading = (live.heading + live.speed * dt) % 360;
-  if (Math.abs(live.heading - live.drawn) >= REDRAW_STEP) {
+  if (poseOf(live.heading) !== live.drawn) {
     drawHead(live, live.heading);
   }
   write(live.written, live.led, "opacity", (0.2 + 0.8 * (live.speed / SWEEP_SPEED)).toFixed(2));

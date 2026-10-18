@@ -1,5 +1,5 @@
 import { type Plan, type Plane, type Projection, corners, iso, sideSeam } from "@anatomy/iso-kit";
-import { arcOf, frameAlong, frameOf } from "@anatomy/lathe";
+import { frameAlong, frameOf } from "@anatomy/lathe";
 
 import {
   type Drawn,
@@ -41,6 +41,9 @@ const END: Plane[] = [
   }),
   [-HALF, WALL],
 ];
+
+/** A band round the mailbox, a little proud of its shell. */
+const RIB: Plane[] = END.map(([u, v]) => [u * 1.08, v * 1.04]);
 
 const across = frameOf([0, BOX_Y, SHELF], [0, 1, 0], [1, 0, 0], [0, 0, 1]);
 
@@ -102,12 +105,6 @@ function flag(P: Projection): Drawn[] {
 }
 
 export function mailbox(P: Projection): Item {
-  const shell = line(
-    [3, LENGTH - 3]
-      .map((s) => arcOf(frameAlong([0, BOX_Y, SHELF + WALL], [0, 1, 0]), s, HALF, P))
-      .join(""),
-    "faint",
-  );
   return item(
     "notifying",
     [0, 0, 0],
@@ -131,7 +128,13 @@ export function mailbox(P: Projection): Item {
           bevel: 0.2,
         },
       ),
-      prism(P, "notifying.box", across, END, 0, LENGTH, { inner: shell.el }),
+      prism(P, "notifying.box", across, END, 0, LENGTH),
+      ...[3, LENGTH - 3].map((s) =>
+        owned(
+          prism(P, `notifying.rib.${String(s)}`, across, RIB, s - 0.5, s + 0.5, { tone: "mid" }),
+          "notifying.box",
+        ),
+      ),
       door(P),
       dots([iso([0, FRONT, SHELF + 2.6], P)], 0.7, "hi"),
       ...flag(P),

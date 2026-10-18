@@ -19,7 +19,7 @@ const HUB = 3;
 const SHELL = 0.8;
 
 /** Where the dish faces at rest, in degrees about the turntable's axis. */
-export const REST_HEADING = 117;
+export const REST_HEADING = 118;
 
 const bowlDepth = (r: number): number => (r * r) / (4 * FOCUS);
 const DEPTH = bowlDepth(RIM);
@@ -40,14 +40,16 @@ type Paint = "0" | "1" | "2" | "3" | "top" | "hi" | "mid" | "lo" | "faint";
 export type HeadPath = { readonly paint: Paint; readonly d: string };
 
 /** How many paths the head draws in every pose, so the live loop rewrites them in place. */
-export const HEAD_PATHS = 14;
+export const HEAD_PATHS = 15;
 
+/** How many points draw a circle: the bowl's rims, and the small round parts. */
 const RING = 24;
+const SMALL_RING = 12;
 
-function circle(P: Projection, F: Frame, s: number, r: number): Flat[] {
+function circle(P: Projection, F: Frame, s: number, r: number, count = RING): Flat[] {
   const out: Flat[] = [];
-  for (let index = 0; index < RING; index++) {
-    const t = (index / RING) * Math.PI * 2;
+  for (let index = 0; index < count; index++) {
+    const t = (index / count) * Math.PI * 2;
     const c = Math.cos(t) * r;
     const n = Math.sin(t) * r;
     out.push(
@@ -66,7 +68,7 @@ function circle(P: Projection, F: Frame, s: number, r: number): Flat[] {
 
 const closed = (points: readonly Flat[]): string => pathOf(points, true);
 const round = (P: Projection, F: Frame, s0: number, s1: number, r: number): string =>
-  closed(hullOf([...circle(P, F, s0, r), ...circle(P, F, s1, r)]));
+  closed(hullOf([...circle(P, F, s0, r, SMALL_RING), ...circle(P, F, s1, r, SMALL_RING)]));
 
 /** A short round part on the axis: its body, then its end toward the viewer, then its outline. */
 function plug(
@@ -80,7 +82,7 @@ function plug(
   const body = round(P, F, s0, s1, r);
   return [
     { paint: "1", d: body },
-    { paint: "top", d: closed(circle(P, F, facing ? s1 : s0, r)) },
+    { paint: "top", d: closed(circle(P, F, facing ? s1 : s0, r, SMALL_RING)) },
     { paint: "mid", d: body },
   ];
 }
@@ -113,12 +115,9 @@ function headPaths(P: Projection, heading: number): HeadPath[] {
     { paint: "mid", d: neck },
   ];
   const lip = HUB + DEPTH;
-  const rim = round(at, F, lip, lip + SHELL, RIM);
+  const rim = closed(hullOf([...circle(at, F, lip, RIM), ...circle(at, F, lip + SHELL, RIM)]));
   const feed = [
-    {
-      paint: "mid" as const,
-      d: pathOf([iso(pointAt(F, HUB + SHELL), at), iso(pointAt(F, FOCUS + HUB), at)]),
-    },
+    ...plug(at, F, HUB + SHELL, FOCUS + HUB, 0.45, facing),
     ...plug(at, F, FOCUS + HUB, FOCUS + HUB + 1.8, 1.5, facing),
   ];
   if (facing) {
@@ -128,11 +127,13 @@ function headPaths(P: Projection, heading: number): HeadPath[] {
       { paint: "0", d: closed(circle(at, F, lip + SHELL, RIM - 0.6)) },
       { paint: "faint", d: closed(circle(at, F, HUB + SHELL + bowlDepth(6.5), 6.5)) },
       { paint: "hi", d: rim },
-      { paint: "hi", d: closed(circle(at, F, HUB + SHELL, 1.1)) },
+      { paint: "hi", d: closed(circle(at, F, HUB + SHELL, 1.1, SMALL_RING)) },
       ...feed,
     ];
   }
-  const back = closed(hullOf([...circle(at, F, lip + SHELL, RIM), ...circle(at, F, HUB, 3)]));
+  const back = closed(
+    hullOf([...circle(at, F, lip + SHELL, RIM), ...circle(at, F, HUB, 3, SMALL_RING)]),
+  );
   return [
     ...feed,
     { paint: "1", d: back },
@@ -144,13 +145,6 @@ function headPaths(P: Projection, heading: number): HeadPath[] {
   ];
 }
 
-const pointAt = (F: Frame, s: number): Point3 => [
-  F.o[0] + F.a[0] * s,
-  F.o[1] + F.a[1] * s,
-  F.o[2] + F.a[2] * s,
-];
-
-/** The attributes that paint a head path. */
 export function paintOf(paint: Paint): Readonly<Record<string, string>> {
   if (paint === "top") {
     return { class: "iso-top", "data-shade": "", "data-tone": "" };

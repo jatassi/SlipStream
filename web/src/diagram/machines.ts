@@ -38,7 +38,6 @@ const MACHINES: Readonly<Record<RoleName, Machine>> = {
 /** Whether a Role's machine moves with its real work; the rest stand at rest. */
 export const movesWithWork = (role: RoleName): boolean => MACHINES[role].live;
 
-/** The projection a Role's machine is drawn in, from its tile's. */
 export const machineP = (P: Projection, role: RoleName): Projection => movedP(P, MACHINES[role].at);
 
 /** A Role's machine on a Node's tile, as the items it sorts by, in tile coordinates. */

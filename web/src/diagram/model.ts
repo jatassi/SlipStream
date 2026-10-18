@@ -3,6 +3,7 @@ import type { Point3 } from "@anatomy/iso-kit";
 import type { NodesTraffic } from "../api/gen/model";
 import type { Work } from "../live/activity";
 import type { TrafficPair } from "../live/traffic";
+import type { RoleName } from "../nodes/roles";
 import type { Landing, NodeRow } from "../routes/_app/nodes/-landing/view";
 
 // The one pure model of the Diagram's motion: from the landing and the last
@@ -168,7 +169,7 @@ function boardOf(node: NodeRow, samples: TrafficPair, share: number): Board {
   return { node: node.id, panels, pieces: down > 0 ? clamp(down / 3e6, TRICKLE, 4) : 0 };
 }
 
-const holds = (node: NodeRow, role: NodeRow["roles"][number]["role"]): boolean =>
+const holds = (node: NodeRow, role: RoleName): boolean =>
   node.roles.some((chip) => chip.role === role);
 
 /**
@@ -197,7 +198,7 @@ export function targetsOf(
     busy: busyOf(landing, ages),
     flows: flowsOf(landing, samples, share),
     boards: landing.nodes
-      .filter((node) => node.roles.some(({ role }) => role === "downloading"))
+      .filter((node) => holds(node, "downloading"))
       .map((node) => boardOf(node, samples, share)),
     running: new Map(landing.nodes.map((node) => [node.id, node.state === "online" ? 1 : 0])),
   };

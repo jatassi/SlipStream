@@ -216,7 +216,6 @@ const boardOf = (nodes: readonly NodesTopologyNode[]): NodesRoleBoard => ({
   })),
 });
 
-/** A Controller alone, which holds every Role. */
 const LONE: Seat = { name: "home", roles: tableOrder };
 
 /** An install of `count` Nodes: the Controller, then Workers in pairing order. */
