@@ -1,6 +1,7 @@
 import type { NodesDrains } from "./nodesDrains.ts";
 import type { NodesGains } from "./nodesGains.ts";
 import type { NodesHandedBack } from "./nodesHandedBack.ts";
+import type { NodesLeaves } from "./nodesLeaves.ts";
 import type { NodesLetsGo } from "./nodesLetsGo.ts";
 import type { NodesMoves } from "./nodesMoves.ts";
 import type { NodesPinned } from "./nodesPinned.ts";
@@ -13,4 +14,5 @@ export type NodesEffect =
   | NodesHandedBack
   | NodesPinned
   | NodesMoves
-  | NodesWritesOff;
+  | NodesWritesOff
+  | NodesLeaves;

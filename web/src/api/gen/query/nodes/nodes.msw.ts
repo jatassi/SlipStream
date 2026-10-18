@@ -9,6 +9,7 @@ import type {
   NodesGains,
   NodesHandedBack,
   NodesJoinCode,
+  NodesLeaves,
   NodesLetsGo,
   NodesMoves,
   NodesNode,
@@ -471,6 +472,17 @@ export const getSetRolesResponseNodesWritesOffMock = (
   ...overrideResponse,
 });
 
+export const getSetRolesResponseNodesLeavesMock = (
+  overrideResponse: Partial<NodesLeaves> = {},
+): NodesLeaves => ({
+  ...{
+    kind: faker.helpers.arrayElement(["leaves"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getSetRolesResponseMock = (
   overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
 ): NodesOutcome => ({
@@ -520,6 +532,7 @@ export const getSetRolesResponseMock = (
       { ...getSetRolesResponseNodesPinnedMock() },
       { ...getSetRolesResponseNodesMovesMock() },
       { ...getSetRolesResponseNodesWritesOffMock() },
+      { ...getSetRolesResponseNodesLeavesMock() },
     ]),
   ),
   forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -740,6 +753,17 @@ export const getPlanRolesResponseNodesWritesOffMock = (
   ...overrideResponse,
 });
 
+export const getPlanRolesResponseNodesLeavesMock = (
+  overrideResponse: Partial<NodesLeaves> = {},
+): NodesLeaves => ({
+  ...{
+    kind: faker.helpers.arrayElement(["leaves"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getPlanRolesResponseMock = (
   overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
 ): NodesOutcome => ({
@@ -789,6 +813,7 @@ export const getPlanRolesResponseMock = (
       { ...getPlanRolesResponseNodesPinnedMock() },
       { ...getPlanRolesResponseNodesMovesMock() },
       { ...getPlanRolesResponseNodesWritesOffMock() },
+      { ...getPlanRolesResponseNodesLeavesMock() },
     ]),
   ),
   forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -959,6 +984,113 @@ export const getUpdateNodeSettingsResponseMock = (
 });
 
 export const getGetNodeResponseMock = (
+  overrideResponse: Partial<Extract<NodesNode, object>> = {},
+): NodesNode => ({
+  addresses: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  dial: {
+    ...(faker.datatype.boolean()
+      ? { by: faker.helpers.arrayElement(["node", "controller"] as const) }
+      : {}),
+    controllerDials: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+  },
+  ...(faker.datatype.boolean()
+    ? {
+        facts: {
+          appliedVersion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          assigned: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          httpAddress: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          restarting: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          running: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        },
+      }
+    : {}),
+  id: faker.string.uuid(),
+  intentVersion: faker.helpers.fromRegExp("^[0-9a-f]{32}$"),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  link: {
+    ...(faker.datatype.boolean()
+      ? {
+          build: {
+            arch: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            installKind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            os: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+        }
+      : {}),
+    since: faker.date.past().toISOString().slice(0, 19) + "Z",
+    state: faker.helpers.arrayElement(["local", "up", "down", "mismatched"] as const),
+  },
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      at: faker.date.past().toISOString().slice(0, 19) + "Z",
+      fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            reason: faker.helpers.arrayElement([
+              "engine_not_listening",
+              "downloads_not_writable",
+              "downloads_on_network_share",
+              "data_not_writable",
+              "http_not_listening",
+            ] as const),
+          }
+        : {}),
+    }),
+  ),
+  roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    ...(faker.datatype.boolean()
+      ? {
+          held: {
+            bytes: faker.number.int(),
+            noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            units: faker.number.int(),
+          },
+        }
+      : {}),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    state: faker.helpers.arrayElement([
+      "holding",
+      "away",
+      "lapsed",
+      "draining",
+      "writing-off",
+      "covering",
+    ] as const),
+  })),
+  self: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getRenameNodeResponseMock = (
   overrideResponse: Partial<Extract<NodesNode, object>> = {},
 ): NodesNode => ({
   addresses: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -1355,6 +1487,17 @@ export const getWriteOffResponseNodesWritesOffMock = (
   ...overrideResponse,
 });
 
+export const getWriteOffResponseNodesLeavesMock = (
+  overrideResponse: Partial<NodesLeaves> = {},
+): NodesLeaves => ({
+  ...{
+    kind: faker.helpers.arrayElement(["leaves"] as const),
+    node: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getWriteOffResponseMock = (
   overrideResponse: Partial<Extract<NodesOutcome, object>> = {},
 ): NodesOutcome => ({
@@ -1404,6 +1547,7 @@ export const getWriteOffResponseMock = (
       { ...getWriteOffResponseNodesPinnedMock() },
       { ...getWriteOffResponseNodesMovesMock() },
       { ...getWriteOffResponseNodesWritesOffMock() },
+      { ...getWriteOffResponseNodesLeavesMock() },
     ]),
   ),
   forfeit: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -1695,6 +1839,25 @@ export const getUpdateNodeSettingsMockHandler = (
   );
 };
 
+export const getRemoveNodeMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/nodes/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
 export const getGetNodeMockHandler = (
   overrideResponse?:
     | NodesNode
@@ -1710,6 +1873,28 @@ export const getGetNodeMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getGetNodeResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getRenameNodeMockHandler = (
+  overrideResponse?:
+    | NodesNode
+    | ((info: Parameters<Parameters<typeof http.patch>[1]>[0]) => Promise<NodesNode> | NodesNode),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/nodes/:id",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRenameNodeResponseMock(),
         { status: 200 },
       );
     },
@@ -1774,7 +1959,9 @@ export const getNodesMock = () => [
   getPlanRolesMockHandler(),
   getGetNodeSettingsMockHandler(),
   getUpdateNodeSettingsMockHandler(),
+  getRemoveNodeMockHandler(),
   getGetNodeMockHandler(),
+  getRenameNodeMockHandler(),
   getSetNodeDialMockHandler(),
   getWriteOffMockHandler(),
 ];

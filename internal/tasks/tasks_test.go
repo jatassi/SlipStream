@@ -40,9 +40,8 @@ func (roster) Standing(role.NodeID) (nodes.Standing, time.Time) { return nodes.I
 
 func (roster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
 
-func (r roster) List(ctx context.Context) ([]nodes.Node, error) {
-	n, err := r.Get(ctx, home)
-	return []nodes.Node{n}, err
+func (roster) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
+	return map[role.NodeID]nodes.Named{home: {ID: home, Name: "home"}}, nil
 }
 
 type quiet struct{}
@@ -314,11 +313,13 @@ func TestPruneRunsKeepsRunsKeptAndEveryOpenRun(t *testing.T) {
 func equal(a, b []string) bool { return strings.Join(a, "\n") == strings.Join(b, "\n") }
 
 // links is home and seedbox, which lapsed once lapsed is set: its
-// portable work routes to home.
+// portable work routes to home. Once removed is set, seedbox's row is a
+// tombstone.
 type links struct {
-	mu     sync.Mutex
-	link   nodes.LinkState
-	lapsed bool
+	mu      sync.Mutex
+	link    nodes.LinkState
+	lapsed  bool
+	removed bool
 }
 
 var seedbox = role.NodeID{UUID: storage.NewUUID()}
@@ -360,20 +361,77 @@ func (l *links) Route(_ role.Name, h role.NodeID) (role.NodeID, error) {
 	return h, nil
 }
 
-func (l *links) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
-	list, err := l.List(ctx)
-	for _, n := range list {
-		if n.ID == id {
-			return n, err
-		}
+func (l *links) remove() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.removed = true
+}
+
+func (l *links) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch {
+	case id == home:
+		return nodes.Node{ID: home, Name: "home", Self: true, Link: nodes.Local}, nil
+	case id == seedbox && !l.removed:
+		return nodes.Node{ID: seedbox, Name: "seedbox", Link: l.link}, nil
 	}
 	return nodes.Node{}, nodes.ErrNotFound
 }
 
-func (l *links) List(context.Context) ([]nodes.Node, error) {
+func (l *links) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return []nodes.Node{{ID: home, Name: "home", Self: true, Link: nodes.Local}, {ID: seedbox, Name: "seedbox", Link: l.link}}, nil
+	return map[role.NodeID]nodes.Named{
+		home:    {ID: home, Name: "home"},
+		seedbox: {ID: seedbox, Name: "seedbox", Removed: l.removed},
+	}, nil
+}
+
+// TestARunStillNamesARemovedNode runs a unit on seedbox, then removes
+// seedbox: the run's line still names it and says it was removed, and the
+// install no longer counts as multinode.
+func TestARunStillNamesARemovedNode(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		far := tidy(nil)
+		far.Units = func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+			return []tasks.Unit{{Key: "s", Label: "S", Place: tasks.TiedTo(seedbox)}}, nil
+		}
+		far.Run = func(context.Context, tasks.Unit, *tasks.Progress) error { return nil }
+		r := &links{link: nodes.Up}
+		s := openOn(t, lib, r, newHub(t), far)
+		clock(t, s)
+		if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		r.remove()
+
+		d, err := s.Task(t.Context(), "tidy")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.Runs) != 1 || len(d.Runs[0].Lines) != 1 {
+			t.Fatalf("runs = %+v, want one run with one line", d.Runs)
+		}
+		if ln := d.Runs[0].Lines[0]; ln.Node != "seedbox" || ln.NodeID != seedbox || !ln.NodeRemoved {
+			t.Fatalf("the line reads %+v, want seedbox, removed", ln)
+		}
+		if got := d.Runs[0].Nodes; !equal(got, []string{"seedbox"}) {
+			t.Fatalf("the run names %q, want seedbox", got)
+		}
+		if u := d.Units[0]; u.Node != "seedbox" || !u.NodeRemoved {
+			t.Fatalf("the unit reads %+v, want seedbox, removed", u)
+		}
+		o, err := s.Overview(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if o.Multinode {
+			t.Fatal("the overview is multinode with seedbox removed, want home alone")
+		}
+	})
 }
 
 func TestANodeReturningRunsItsDueUnitsOnce(t *testing.T) {

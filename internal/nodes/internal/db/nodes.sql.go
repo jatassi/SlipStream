@@ -374,6 +374,39 @@ func (q *Queries) ListForfeits(ctx context.Context) ([]ListForfeitsRow, error) {
 	return items, nil
 }
 
+const listNames = `-- name: ListNames :many
+SELECT id, name, removed_at FROM nodes_node ORDER BY id
+`
+
+type ListNamesRow struct {
+	ID        role.NodeID
+	Name      string
+	RemovedAt storage.Time
+}
+
+func (q *Queries) ListNames(ctx context.Context) ([]ListNamesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNamesRow
+	for rows.Next() {
+		var i ListNamesRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.RemovedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNodes = `-- name: ListNodes :many
 SELECT id, public_key, name, paired_at, seen_at, removed_at, removed_key FROM nodes_node WHERE removed_at IS NULL ORDER BY id
 `
@@ -447,6 +480,38 @@ func (q *Queries) ListOpenJoinCodes(ctx context.Context, now storage.Time) ([]No
 	return items, nil
 }
 
+const listRemovedNodes = `-- name: ListRemovedNodes :many
+SELECT id, removed_key FROM nodes_node WHERE removed_at IS NOT NULL ORDER BY id
+`
+
+type ListRemovedNodesRow struct {
+	ID         role.NodeID
+	RemovedKey []byte
+}
+
+func (q *Queries) ListRemovedNodes(ctx context.Context) ([]ListRemovedNodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRemovedNodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRemovedNodesRow
+	for rows.Next() {
+		var i ListRemovedNodesRow
+		if err := rows.Scan(&i.ID, &i.RemovedKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoles = `-- name: ListRoles :many
 SELECT node_id, role, assigned_at FROM nodes_role ORDER BY node_id, role
 `
@@ -475,11 +540,16 @@ func (q *Queries) ListRoles(ctx context.Context) ([]NodesRole, error) {
 }
 
 const nameTaken = `-- name: NameTaken :one
-SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = ?1 AND removed_at IS NULL)
+SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = ?1 AND id <> ?2 AND removed_at IS NULL)
 `
 
-func (q *Queries) NameTaken(ctx context.Context, name string) (bool, error) {
-	row := q.db.QueryRowContext(ctx, nameTaken, name)
+type NameTakenParams struct {
+	Name string
+	ID   role.NodeID
+}
+
+func (q *Queries) NameTaken(ctx context.Context, arg NameTakenParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, nameTaken, arg.Name, arg.ID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -564,6 +634,35 @@ func (q *Queries) NodeRoles(ctx context.Context, nodeID role.NodeID) ([]role.Nam
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeNode = `-- name: RemoveNode :exec
+UPDATE nodes_node SET removed_at = ?1, removed_key = public_key, public_key = NULL
+WHERE id = ?2 AND removed_at IS NULL
+`
+
+type RemoveNodeParams struct {
+	RemovedAt storage.Time
+	ID        role.NodeID
+}
+
+func (q *Queries) RemoveNode(ctx context.Context, arg RemoveNodeParams) error {
+	_, err := q.db.ExecContext(ctx, removeNode, arg.RemovedAt, arg.ID)
+	return err
+}
+
+const renameNode = `-- name: RenameNode :exec
+UPDATE nodes_node SET name = ?1 WHERE id = ?2
+`
+
+type RenameNodeParams struct {
+	Name string
+	ID   role.NodeID
+}
+
+func (q *Queries) RenameNode(ctx context.Context, arg RenameNodeParams) error {
+	_, err := q.db.ExecContext(ctx, renameNode, arg.Name, arg.ID)
+	return err
 }
 
 const setJoinCodeDial = `-- name: SetJoinCodeDial :exec

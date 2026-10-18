@@ -10,6 +10,7 @@ import {
   NodesOpenCodes,
   NodesOutcome,
   NodesPlanChange,
+  NodesRenameBody,
   NodesRoleBoard,
   NodesRolesChange,
   NodesSettings,
@@ -93,6 +94,24 @@ export const UpdateNodeSettingsBody = NodesSettingsPatch;
 export const UpdateNodeSettingsResponse = NodesSettings;
 
 /**
+ * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history
+ */
+export const RemoveNodeParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const RemoveNodeQueryParams = zod.object({
+  writeOff: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+    ),
+});
+
+export const RemoveNodeResponse = zod.void();
+
+/**
  * @summary Get one Node with its Roles, link and facts
  */
 export const GetNodeParams = zod.object({
@@ -100,6 +119,17 @@ export const GetNodeParams = zod.object({
 });
 
 export const GetNodeResponse = NodesNode;
+
+/**
+ * @summary Rename a Node; a Node in step has its new name when this answers
+ */
+export const RenameNodeParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const RenameNodeBody = NodesRenameBody;
+
+export const RenameNodeResponse = NodesNode;
 
 /**
  * @summary Set the Node address the Controller dials a Node at, or stop dialing it

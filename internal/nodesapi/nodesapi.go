@@ -44,16 +44,22 @@ var (
 	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "A guardrail blocks this change", "outcome")
 	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node holds nothing to write off for these Roles", "outcome")
 	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "The Node is the last that can hold a Role it would write off", "outcome")
+	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed; hand it over instead", "outcome")
+	holdsWork     = api.NewCarrying[outcome](http.StatusConflict, "node_holds_work", "The Node holds work; remove it with writeOff to write the work off", "outcome")
+	nameTaken     = api.NewCode(http.StatusConflict, "node_name_taken", "Another Node has this name")
+	nameInvalid   = api.NewCode(http.StatusUnprocessableEntity, "node_name_invalid", "A Node's name is 1 to 63 characters, with no space at either end")
 )
 
 // blockedAs is the code each guardrail that can block a change answers
 // with.
 var blockedAs = map[nodes.Reason]api.Carrying[outcome]{
-	nodes.RoleTaken:   rolesBlocked,
-	nodes.ProbeFails:  rolesBlocked,
-	nodes.ReachFailed: rolesBlocked,
-	nodes.NothingHeld: nothingHeld,
-	nodes.KeepsRole:   keepsRole,
+	nodes.RoleTaken:    rolesBlocked,
+	nodes.ProbeFails:   rolesBlocked,
+	nodes.ReachFailed:  rolesBlocked,
+	nodes.NothingHeld:  nothingHeld,
+	nodes.KeepsRole:    keepsRole,
+	nodes.IsController: isController,
+	nodes.HoldsWork:    holdsWork,
 }
 
 type node struct {
@@ -274,6 +280,20 @@ func (in writeOffInput) change() (nodes.WriteOff, error) {
 	return nodes.WriteOff{Node: id, Roles: set}, nil
 }
 
+type renameInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body renameBody
+}
+
+type renameBody struct {
+	Name string `json:"name" doc:"1 to 63 characters, with no space at either end, that no other Node has"`
+}
+
+type removeInput struct {
+	ID       string `path:"id" format:"uuid"`
+	WriteOff bool   `query:"writeOff" doc:"Write off the work the Node holds, files kept, instead of refusing while it holds any"`
+}
+
 type assignment struct {
 	NodeID string   `json:"nodeId" format:"uuid"`
 	Roles  []string `json:"roles" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" nullable:"false"`
@@ -340,7 +360,7 @@ type check struct {
 type effect struct{}
 
 func (effect) Variants() (discriminator string, variants []any) {
-	return "kind", []any{gains{}, letsGo{}, drains{}, handedBack{}, pinned{}, moves{}, writesOff{}}
+	return "kind", []any{gains{}, letsGo{}, drains{}, handedBack{}, pinned{}, moves{}, writesOff{}, leaves{}}
 }
 
 type gains struct {
@@ -397,6 +417,12 @@ type writesOff struct {
 	Words string `json:"words"`
 }
 
+type leaves struct {
+	Kind  string `json:"kind" enum:"leaves"`
+	Node  named  `json:"node"`
+	Words string `json:"words"`
+}
+
 func effectOf(e nodes.Effect) any {
 	switch e := e.(type) {
 	case nodes.Gains:
@@ -417,8 +443,10 @@ func effectOf(e nodes.Effect) any {
 		return moves{Kind: "moves", Role: string(e.Role), From: namedOf(e.From), To: namedOf(e.To), Held: heldOf(e.Held), Words: e.Words()}
 	case nodes.WritesOff:
 		return writesOff{Kind: "writes-off", Node: namedOf(e.Node), Role: string(e.Role), Held: heldOf(e.Held), Words: e.Words()}
+	case nodes.Leaves:
+		return leaves{Kind: "leaves", Node: namedOf(e.Node), Words: e.Words()}
 	}
-	panic(fmt.Sprintf("nodesapi: no answer for the %T effect a set or a write-off can't make", e))
+	panic(fmt.Sprintf("nodesapi: no answer for the %T effect", e))
 }
 
 type roleBoard struct {
@@ -592,6 +620,24 @@ func Routes(r *api.Router, roster Roster) {
 	}, h.getNode)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "renameNode",
+		Method:  http.MethodPatch,
+		Path:    "/nodes/{id}",
+		Summary: "Rename a Node; a Node in step has its new name when this answers",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotFound, nameTaken, nameInvalid},
+	}, h.renameNode)
+
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID:      "removeNode",
+		Method:  http.MethodDelete,
+		Path:    "/nodes/{id}",
+		Summary: "Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{nodeNotFound, isController.Code, holdsWork.Code},
+	}, h.removeNode)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "getRoleBoard",
 		Method:  http.MethodGet,
 		Path:    "/nodes/roles",
@@ -673,6 +719,36 @@ func (h handlers) getNode(ctx context.Context, _ identity.Admin, in *idInput) (*
 		return nil, err
 	}
 	return &nodeOutput{Body: nodeOf(n)}, nil
+}
+
+func (h handlers) renameNode(ctx context.Context, _ identity.Admin, in *renameInput) (*nodeOutput, error) {
+	id, err := nodeID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	n, err := open(h.roster).Rename(ctx, id, in.Body.Name)
+	switch {
+	case errors.Is(err, nodes.ErrNotFound):
+		return nil, nodeNotFound
+	case errors.Is(err, nodes.ErrNameTaken):
+		return nil, nameTaken
+	case errors.Is(err, nodes.ErrNameInvalid):
+		return nil, nameInvalid
+	case err != nil:
+		return nil, err
+	}
+	return &nodeOutput{Body: nodeOf(n)}, nil
+}
+
+func (h handlers) removeNode(ctx context.Context, _ identity.Admin, in *removeInput) (*struct{}, error) {
+	id, err := nodeID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := open(h.roster).Apply(ctx, nodes.Remove{Node: id, WriteOff: in.WriteOff}); err != nil {
+		return nil, refusal(err)
+	}
+	return &struct{}{}, nil
 }
 
 func (h handlers) getRoleBoard(ctx context.Context, _ identity.Admin, _ *struct{}) (*roleBoardOutput, error) {

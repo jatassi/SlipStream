@@ -346,7 +346,8 @@ func TestAClaimNoControllerDialsFailsAtAwaitDial(t *testing.T) {
 
 func TestARecordThisBinaryCannotReadIsRefused(t *testing.T) {
 	for _, c := range []struct{ name, record, want string }{
-		{"another schema", `{"schema":2}`, "schema 2, want 1"},
+		{"another schema", `{"schema":3}`, "schema 3, want 1 or 2"},
+		{"a schema 1 removal", `{"schema":1,"removed":{}}`, "removed in a schema 1 record"},
 		{"an unknown key", `{"schema":1,"later":true}`, `decode: json: unknown field "later"`},
 	} {
 		t.Run(c.name, func(t *testing.T) {

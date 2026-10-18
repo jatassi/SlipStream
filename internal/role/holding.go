@@ -141,6 +141,25 @@ func (h *Holding) Name() string {
 	return h.name
 }
 
+// Reset forgets every cached intent, in local.db and in memory, so the
+// Node holds no Role until a Controller sends it one: its Roles stop and
+// let go what they hold, and a later start can't resume them from a
+// Controller that removed the Node.
+func (h *Holding) Reset(ctx context.Context) error {
+	if err := h.cfg.Local.Write(ctx, holding.ClearIntents); err != nil {
+		return fmt.Errorf("clear the role intent cache: %w", err)
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for scope := range h.cache {
+		h.notify(scope)
+	}
+	clear(h.cache)
+	h.assigned, h.draining, h.name = nil, nil, ""
+	h.wake()
+	return nil
+}
+
 // remember caches an intent in memory. The caller holds h.mu or owns h.
 func (h *Holding) remember(scope string, c cached) error {
 	if scope == nodeScope {

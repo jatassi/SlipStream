@@ -237,7 +237,7 @@ type linkService struct{ l *Link }
 func (h linkService) Pair(ctx context.Context, req *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	s := sessionOf(ctx)
 	switch h.l.cfg.Trust.Admit(s.key).(type) {
-	case Pairing, Pinned:
+	case Pairing, Pinned, Removed:
 		return h.l.cfg.Pair(ctx, s.key, req)
 	}
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Refused{
@@ -262,6 +262,10 @@ func (h linkService) Hello(ctx context.Context, req *linkv1.HelloRequest) (*link
 	case Superseded:
 		return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Superseded{
 			Superseded: &linkv1.Superseded{ByKey: a.By[:], Addresses: a.Addresses.Proto()},
+		}}, nil
+	case Removed:
+		return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Refused{
+			Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_REMOVED},
 		}}, nil
 	}
 	return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Refused{

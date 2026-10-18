@@ -14,7 +14,7 @@ type Trust interface {
 	Admit(key Key) Admission
 }
 
-// Admission is one of Refused, Pinned, Pairing or Superseded.
+// Admission is one of Refused, Pinned, Pairing, Superseded or Removed.
 type Admission interface{ admission() }
 
 type (
@@ -31,12 +31,16 @@ type (
 		By        Key
 		Addresses Addresses
 	}
+	// Removed is a key a Controller removed: its Hello is refused as
+	// removed, and it may Pair again.
+	Removed struct{}
 )
 
 func (Refused) admission()    {}
 func (Pinned) admission()     {}
 func (Pairing) admission()    {}
 func (Superseded) admission() {}
+func (Removed) admission()    {}
 
 // State is Down or Live.
 type State interface{ state() }

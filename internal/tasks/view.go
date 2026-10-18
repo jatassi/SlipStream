@@ -104,12 +104,14 @@ type Run struct {
 }
 
 type Line struct {
-	Key     UnitKey
-	Label   string
-	Node    string
-	NodeID  role.NodeID
-	Outcome Outcome
-	Cause   string
+	Key    UnitKey
+	Label  string
+	Node   string
+	NodeID role.NodeID
+	// NodeRemoved: the Node it ran on was removed since.
+	NodeRemoved bool
+	Outcome     Outcome
+	Cause       string
 }
 
 // UnitView is one unit a task lists now, with its last outcome. Outcome
@@ -119,6 +121,7 @@ type UnitView struct {
 	Label            string
 	Node             string
 	NodeID           role.NodeID
+	NodeRemoved      bool
 	Outcome          Outcome
 	Cause            string
 	Ended, Succeeded time.Time
@@ -172,18 +175,20 @@ type look struct {
 	snap   snapshot
 	listed map[TaskID][]Unit
 	rows   map[TaskID][]db.TasksUnit
-	nodes  map[role.NodeID]nodes.Node
+	nodes  map[role.NodeID]nodes.Named
 	count  int
 }
 
 func (s *Scheduler) look(ctx context.Context) (look, error) {
-	list, err := s.cfg.Roster.List(ctx)
+	names, err := s.cfg.Roster.Names(ctx)
 	if err != nil {
 		return look{}, err
 	}
-	l := look{listed: map[TaskID][]Unit{}, rows: map[TaskID][]db.TasksUnit{}, nodes: map[role.NodeID]nodes.Node{}, count: len(list)}
-	for _, n := range list {
-		l.nodes[n.ID] = n
+	l := look{listed: map[TaskID][]Unit{}, rows: map[TaskID][]db.TasksUnit{}, nodes: names}
+	for _, n := range names {
+		if !n.Removed {
+			l.count++
+		}
 	}
 	err = s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		q := db.New(r)
@@ -205,6 +210,8 @@ func (s *Scheduler) look(ctx context.Context) (look, error) {
 }
 
 func (l look) name(node role.NodeID) string { return l.nodes[node].Name }
+
+func (l look) removed(node role.NodeID) bool { return l.nodes[node].Removed }
 
 func (s *Scheduler) Overview(ctx context.Context) (Overview, error) {
 	l, err := s.look(ctx)
@@ -235,7 +242,7 @@ func (s *Scheduler) Task(ctx context.Context, id TaskID) (Detail, error) {
 	}
 	for _, u := range l.listed[id] {
 		node := s.nodeOf(u.Place)
-		uv := UnitView{Key: u.Key, Label: u.Label, Node: l.name(node), NodeID: node}
+		uv := UnitView{Key: u.Key, Label: u.Label, Node: l.name(node), NodeID: node, NodeRemoved: l.removed(node)}
 		if row, ok := rows[u.Key]; ok && row.LastOutcome != nil {
 			uv.Outcome, uv.Cause = *row.LastOutcome, deref(row.LastCause)
 			uv.Ended, uv.Succeeded = row.LastEndedAt.Time(), row.LastSuccessAt.Time()
@@ -255,14 +262,11 @@ func (s *Scheduler) Task(ctx context.Context, id TaskID) (Detail, error) {
 
 // Running is every open run this process runs, oldest first.
 func (s *Scheduler) Running(ctx context.Context) ([]Active, error) {
-	list, err := s.cfg.Roster.List(ctx)
+	names, err := s.cfg.Roster.Names(ctx)
 	if err != nil {
 		return nil, err
 	}
-	l := look{nodes: map[role.NodeID]nodes.Node{}}
-	for _, n := range list {
-		l.nodes[n.ID] = n
-	}
+	l := look{nodes: names}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Active, 0, len(s.running))
@@ -378,7 +382,7 @@ func (l look) runOf(row db.TasksRun) Run {
 			node = role.NodeID{UUID: id}
 		}
 		name := l.name(node)
-		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, Outcome: ln.Outcome, Cause: ln.Cause})
+		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, NodeRemoved: l.removed(node), Outcome: ln.Outcome, Cause: ln.Cause})
 		if name != "" {
 			r.Nodes = appendNew(r.Nodes, name)
 		}

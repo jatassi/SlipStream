@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/system"
@@ -53,6 +54,8 @@ type controller struct {
 }
 
 func (c controller) Systems() (*nodesystem.Nodes, bool) { return c.systems, true }
+
+func (controller) Removal() (pairing.Removal, bool) { return pairing.Removal{}, false }
 
 func newNode(t *testing.T, f system.Facts) *node { return newController(t, f, nil) }
 
@@ -168,6 +171,7 @@ type worker struct{}
 func (worker) Claim(context.Context) (system.Claim, error) { return system.Worker, nil }
 func (worker) Identity() (*identity.Service, bool)         { return nil, false }
 func (worker) Systems() (*nodesystem.Nodes, bool)          { return nil, false }
+func (worker) Removal() (pairing.Removal, bool)            { return pairing.Removal{}, false }
 
 func TestAWorkerReportsItsClaimAndSendsAdminsToItsController(t *testing.T) {
 	log := slog.New(slog.DiscardHandler)
@@ -181,4 +185,28 @@ func TestAWorkerReportsItsClaimAndSendsAdminsToItsController(t *testing.T) {
 	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker",`+plainHTTP+`}`+"\n")
 	expect(t, n.do(http.MethodGet, "/api/v1/system", "", map[string]string{"X-Api-Key": "ssk_made-up"}), 409,
 		`{"status":409,"code":"worker_node","title":"This Node is a Worker. Manage it from its Controller."}`+"\n")
+}
+
+// removedWorker is a Node its Controller home removed: Unclaimed, with the
+// removal on its record.
+type removedWorker struct{}
+
+func (removedWorker) Claim(context.Context) (system.Claim, error) { return system.Unclaimed, nil }
+func (removedWorker) Identity() (*identity.Service, bool)         { return nil, false }
+func (removedWorker) Systems() (*nodesystem.Nodes, bool)          { return nil, false }
+func (removedWorker) Removal() (pairing.Removal, bool) {
+	return pairing.Removal{At: time.Date(2026, 10, 17, 21, 31, 0, 0, time.UTC), ControllerName: "home"}, true
+}
+
+func TestARemovedNodeReportsWhoRemovedIt(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	gate, _, err := identity.NewGate(t.Context(), removedWorker{}.Claim, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := api.NewRouter(api.Services{Node: removedWorker{}, Gate: gate, Web: fstest.MapFS{}, Log: log})
+	systemapi.Routes(r, facts, removedWorker{})
+	n := &node{t: t, h: r.Handler()}
+	expect(t, n.do(http.MethodGet, "/api/v1/status", "", nil), 200,
+		`{"claim":"unclaimed",`+plainHTTP+`,"removed":{"at":"2026-10-17T21:31:00Z","controller":"home"}}`+"\n")
 }

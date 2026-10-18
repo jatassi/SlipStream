@@ -8,7 +8,20 @@ SELECT * FROM nodes_node WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 SELECT * FROM nodes_node WHERE public_key = sqlc.arg(public_key);
 
 -- name: NameTaken :one
-SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = sqlc.arg(name) AND removed_at IS NULL);
+SELECT EXISTS (SELECT 1 FROM nodes_node WHERE name = sqlc.arg(name) AND id <> sqlc.arg(id) AND removed_at IS NULL);
+
+-- name: RenameNode :exec
+UPDATE nodes_node SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+
+-- name: RemoveNode :exec
+UPDATE nodes_node SET removed_at = sqlc.arg(removed_at), removed_key = public_key, public_key = NULL
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: ListRemovedNodes :many
+SELECT id, removed_key FROM nodes_node WHERE removed_at IS NOT NULL ORDER BY id;
+
+-- name: ListNames :many
+SELECT id, name, removed_at FROM nodes_node ORDER BY id;
 
 -- name: InsertNode :exec
 INSERT INTO nodes_node (id, public_key, name, paired_at)

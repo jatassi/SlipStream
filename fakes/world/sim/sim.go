@@ -79,8 +79,9 @@ type Node struct {
 	host *fault.Host
 	dir  node.DataDir
 
-	running *node.Node
-	syncs   atomic.Int64
+	running      *node.Node
+	syncs        atomic.Int64
+	restartAsked atomic.Bool
 
 	mu      sync.Mutex
 	half    node.Half
@@ -282,7 +283,11 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
-		Test:    n.test(),
+		Restart: func() error {
+			n.restartAsked.Store(true)
+			return nil
+		},
+		Test: n.test(),
 	}
 	if n.w.walk != nil {
 		n.w.walk.env(&env)
@@ -342,6 +347,18 @@ func (n *Node) Stop() {
 		t.Errorf("node %s stopped with %v", n.spec.Name, err)
 	}
 	n.running = nil
+}
+
+// AwaitRestart waits until the Node stopped for a restart it asked for,
+// then starts it again on its data dir, as its successor process would.
+func (n *Node) AwaitRestart() {
+	t := n.w.t
+	t.Helper()
+	<-n.running.Done()
+	if err := n.running.Err(); err != nil || !n.restartAsked.Swap(false) {
+		t.Fatalf("node %s stopped with %v, want a restart it asked for", n.spec.Name, err)
+	}
+	n.Start()
 }
 
 // SyncStreams is how many Sync streams reached the Node's lockstep handler
