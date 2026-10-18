@@ -16,11 +16,8 @@ import (
 
 // Library creates the Scenario's library on its controller Node, over c
 // with the Controller's API key: each root's folder under mediaDir and the
-// root, then the Targets, then the Profiles, each made default when it
-// says so, then the Indexers on the site fakes at sites, as an Admin
-// would. A Target named like one the Controller already has, such as the
-// starter, is left as the Controller has it, since Targets can't be
-// edited yet.
+// root, then the Targets and Profiles as goals makes them, then the
+// Indexers on the site fakes at sites, as an Admin would.
 func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, apiKey, mediaDir string, sites map[string]fake.Address) error {
 	var controller string
 	for i, n := range s.Nodes {
