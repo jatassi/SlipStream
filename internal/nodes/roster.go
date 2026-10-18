@@ -93,6 +93,17 @@ func (s *Service) Route(r role.Name, home ID) (ID, error) { return s.Who(r).Rout
 
 func (s *Service) Away(r role.Name, node ID) (Absence, bool) { return s.Who(r).Away(node) }
 
+// Standing is how node stands on the board and since when: since it came
+// in step, or its last Sync frame while away. A Node the board doesn't
+// list is offline.
+func (s *Service) Standing(node ID) (Standing, time.Time) {
+	v, ok := s.Board().Node(node)
+	if !ok {
+		return Offline, time.Time{}
+	}
+	return v.Standing, v.Since
+}
+
 // InStep reports whether node's Sync session is attached, always for the
 // Controller.
 func (s *Service) InStep(node ID) bool {

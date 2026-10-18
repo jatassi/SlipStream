@@ -2030,6 +2030,7 @@ export const TasksRunUnit = zod.object({
   key: zod.string(),
   label: zod.string(),
   node: zod.string().describe("Empty when the Node is no longer paired"),
+  nodeId: zod.uuid().describe("The Node it ran on"),
   outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
 });
 
@@ -2104,9 +2105,11 @@ export type TasksRunningStateOutput = zod.output<typeof TasksRunningState>;
 
 export const TasksWaitingState = zod.object({
   kind: zod.enum(["waiting"]),
-  link: zod.enum(["down", "mismatched"]),
   node: zod.string().describe("The Node every unit waits for"),
-  since: zod.iso.datetime({ offset: true }).describe("When the Node's link entered that state"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("The Node's last Sync frame, or the Controller's start when it sent none since"),
+  standing: zod.enum(["reconnecting", "offline", "lapsed", "mismatched"]),
 });
 
 export type TasksWaitingState = zod.input<typeof TasksWaitingState>;
@@ -2152,6 +2155,7 @@ export const TasksUnit = zod.object({
     .nullable()
     .describe("Null before it has succeeded"),
   node: zod.string().describe("The Node it runs on"),
+  nodeId: zod.uuid().describe("The Node it runs on now: where the roster routes portable work"),
   outcome: zod
     .union([
       zod.literal("succeeded"),

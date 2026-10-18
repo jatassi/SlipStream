@@ -4812,6 +4812,11 @@
             "description": "Empty when the Node is no longer paired",
             "type": "string"
           },
+          "nodeId": {
+            "description": "The Node it ran on",
+            "format": "uuid",
+            "type": "string"
+          },
           "outcome": {
             "enum": [
               "succeeded",
@@ -4826,6 +4831,7 @@
           "key",
           "label",
           "node",
+          "nodeId",
           "outcome",
           "cause"
         ],
@@ -5125,6 +5131,11 @@
             "description": "The Node it runs on",
             "type": "string"
           },
+          "nodeId": {
+            "description": "The Node it runs on now: where the roster routes portable work",
+            "format": "uuid",
+            "type": "string"
+          },
           "outcome": {
             "description": "Its last outcome, null before it has run",
             "enum": [
@@ -5143,6 +5154,7 @@
           "key",
           "label",
           "node",
+          "nodeId",
           "outcome",
           "cause",
           "endedAt",
@@ -5160,27 +5172,29 @@
             ],
             "type": "string"
           },
-          "link": {
-            "enum": [
-              "down",
-              "mismatched"
-            ],
-            "type": "string"
-          },
           "node": {
             "description": "The Node every unit waits for",
             "type": "string"
           },
           "since": {
-            "description": "When the Node's link entered that state",
+            "description": "The Node's last Sync frame, or the Controller's start when it sent none since",
             "format": "date-time",
+            "type": "string"
+          },
+          "standing": {
+            "enum": [
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
             "type": "string"
           }
         },
         "required": [
           "kind",
           "node",
-          "link",
+          "standing",
           "since"
         ],
         "type": "object"

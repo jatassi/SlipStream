@@ -62,13 +62,12 @@ func (s *Scheduler) Cancel(id RunID) error {
 
 func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress) {
 	results := make([]result, len(r.units))
+	placed := make([]role.NodeID, len(r.units))
 	byNode := map[role.NodeID][]int{}
 	var order []role.NodeID
 	for i, u := range r.units {
-		node, ok := u.Place.Node()
-		if !ok {
-			node = s.self
-		}
+		node := s.nodeOf(u.Place)
+		placed[i] = node
 		if _, seen := byNode[node]; !seen {
 			order = append(order, node)
 		}
@@ -81,7 +80,7 @@ func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress)
 				if nodeCtx.Err() != nil {
 					return
 				}
-				results[i] = s.unit(nodeCtx, runCtx, r, r.units[i], p)
+				results[i] = s.unit(nodeCtx, runCtx, r, r.units[i], node, p)
 				p.finished()
 			}
 		})
@@ -90,23 +89,20 @@ func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress)
 	if nodeCtx.Err() != nil {
 		return
 	}
-	s.close(nodeCtx, r, results, errors.Is(context.Cause(runCtx), errCanceled))
+	s.close(nodeCtx, r, placed, results, errors.Is(context.Cause(runCtx), errCanceled))
 }
 
-func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, p *progress) result {
-	node, remote := u.Place.Node()
-	if !remote {
-		node = s.self
-	}
+// unit runs u on node, the Node its place routed it to for this run.
+func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, node role.NodeID, p *progress) result {
 	var res result
-	link, _ := s.cfg.Roster.Reach(node)
+	standing, _ := s.cfg.Roster.Standing(node)
 	switch who := s.peerOf(ctx, node); {
-	case !remote || link == nodes.Local || link == nodes.Up:
-		err := r.task.Run(runCtx, u, &Progress{step: p.step})
+	case node == s.self || standing == nodes.InStep:
+		err := r.task.Run(runCtx, placedOn(u, node), &Progress{step: p.step})
 		res = classify(runCtx, err, u.Place, who)
 	case who.name == "":
 		res = unsent(rpc.NotHolder, "", u.Place, peer{name: "the Node"})
-	case link == nodes.Mismatched:
+	case standing == nodes.MismatchedNode:
 		res = unsent(rpc.Mismatched, "", u.Place, who)
 	default:
 		res = unsent(rpc.Disconnected, "", u.Place, who)
@@ -119,6 +115,12 @@ func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, p *prog
 	}
 	s.changed(ctx, r.task.ID)
 	return res
+}
+
+// placedOn is u as its task's Run sees it, on node.
+func placedOn(u Unit, node role.NodeID) Unit {
+	u.Place.node = node
+	return u
 }
 
 func (s *Scheduler) record(ctx context.Context, r openRun, u Unit, node role.NodeID, res result) error {
@@ -145,15 +147,11 @@ func (s *Scheduler) record(ctx context.Context, r openRun, u Unit, node role.Nod
 	})
 }
 
-func (s *Scheduler) close(ctx context.Context, r openRun, results []result, canceled bool) {
+func (s *Scheduler) close(ctx context.Context, r openRun, placed []role.NodeID, results []result, canceled bool) {
 	outcome, summary, cause := rollUp(r.task.Noun, results, canceled)
 	lines := make([]line, len(r.units))
 	for i, u := range r.units {
-		node, _ := u.Place.Node()
-		if u.Place.kind == onController {
-			node = s.self
-		}
-		lines[i] = lineOf(u.Key, u.Label, node, results[i])
+		lines[i] = lineOf(u.Key, u.Label, placed[i], results[i])
 	}
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)

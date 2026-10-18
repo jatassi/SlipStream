@@ -47,9 +47,14 @@ export const getListTasksResponseTasksWaitingStateMock = (
 ): TasksWaitingState => ({
   ...{
     kind: faker.helpers.arrayElement(["waiting"] as const),
-    link: faker.helpers.arrayElement(["down", "mismatched"] as const),
     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
     since: faker.date.past().toISOString().slice(0, 19) + "Z",
+    standing: faker.helpers.arrayElement([
+      "reconnecting",
+      "offline",
+      "lapsed",
+      "mismatched",
+    ] as const),
   },
   ...overrideResponse,
 });
@@ -190,6 +195,7 @@ export const getListTasksResponseMock = (
                     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
                     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
                     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    nodeId: faker.string.uuid(),
                     outcome: faker.helpers.arrayElement([
                       "succeeded",
                       "failed",
@@ -1027,9 +1033,14 @@ export const getGetTaskResponseTasksWaitingStateMock = (
 ): TasksWaitingState => ({
   ...{
     kind: faker.helpers.arrayElement(["waiting"] as const),
-    link: faker.helpers.arrayElement(["down", "mismatched"] as const),
     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
     since: faker.date.past().toISOString().slice(0, 19) + "Z",
+    standing: faker.helpers.arrayElement([
+      "reconnecting",
+      "offline",
+      "lapsed",
+      "mismatched",
+    ] as const),
   },
   ...overrideResponse,
 });
@@ -1066,6 +1077,7 @@ export const getGetTaskResponseMock = (
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         node: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        nodeId: faker.string.uuid(),
         outcome: faker.helpers.arrayElement([
           "succeeded",
           "failed",
@@ -1165,6 +1177,7 @@ export const getGetTaskResponseMock = (
               key: faker.string.alpha({ length: { min: 10, max: 20 } }),
               label: faker.string.alpha({ length: { min: 10, max: 20 } }),
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              nodeId: faker.string.uuid(),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",
@@ -1236,6 +1249,7 @@ export const getGetTaskResponseMock = (
       null,
     ]),
     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nodeId: faker.string.uuid(),
     outcome: faker.helpers.arrayElement([
       faker.helpers.arrayElement(["succeeded", "failed", "skipped", "canceled"] as const),
       null,
@@ -1273,9 +1287,14 @@ export const getUpdateTaskResponseTasksWaitingStateMock = (
 ): TasksWaitingState => ({
   ...{
     kind: faker.helpers.arrayElement(["waiting"] as const),
-    link: faker.helpers.arrayElement(["down", "mismatched"] as const),
     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
     since: faker.date.past().toISOString().slice(0, 19) + "Z",
+    standing: faker.helpers.arrayElement([
+      "reconnecting",
+      "offline",
+      "lapsed",
+      "mismatched",
+    ] as const),
   },
   ...overrideResponse,
 });
@@ -1369,6 +1388,7 @@ export const getUpdateTaskResponseMock = (
               key: faker.string.alpha({ length: { min: 10, max: 20 } }),
               label: faker.string.alpha({ length: { min: 10, max: 20 } }),
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              nodeId: faker.string.uuid(),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",

@@ -125,6 +125,7 @@ type Unit struct {
 type Place struct {
 	kind placeKind
 	node role.NodeID
+	role role.Name
 }
 
 type placeKind uint8
@@ -141,9 +142,12 @@ func OnController() Place { return Place{} }
 // due when node returns.
 func TiedTo(node role.NodeID) Place { return Place{kind: tiedTo, node: node} }
 
-// PortableOn runs a unit on node, the holder its feature's placement rule
-// chose; one that couldn't run waits for the next slot.
-func PortableOn(node role.NodeID) Place { return Place{kind: portableOn, node: node} }
+// PortableOn runs a unit of r's work homed on home on the Node the roster
+// routes it to at each slot: home while it may, another holder of r once
+// home lapses. One that couldn't run waits for the next slot.
+func PortableOn(r role.Name, home role.NodeID) Place {
+	return Place{kind: portableOn, node: home, role: r}
+}
 
 // Node is the Node the unit runs on, false on the Controller.
 func (p Place) Node() (role.NodeID, bool) { return p.node, p.kind != onController }

@@ -22,6 +22,8 @@ export interface TasksUnit {
   lastSuccessAt: string | null;
   /** The Node it runs on */
   node: string;
+  /** The Node it runs on now: where the roster routes portable work */
+  nodeId: string;
   /**
    * Its last outcome, null before it has run
    * @nullable
