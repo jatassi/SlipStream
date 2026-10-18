@@ -9,7 +9,6 @@ const checkSignals: { readonly [V in NodesCheck["verdict"]]: { signal: Signal; c
   allow: { signal: "ok", chip: "Checked" },
 };
 
-/** What an Outcome does, as the plan words each effect. */
 export function Planned({ outcome, stale }: { outcome: NodesOutcome; stale: boolean }) {
   return (
     <>
@@ -27,7 +26,6 @@ export function Planned({ outcome, stale }: { outcome: NodesOutcome; stale: bool
   );
 }
 
-/** Each guardrail's verdict on the change, with its words. */
 export function Checks({ checks }: { checks: readonly NodesCheck[] }) {
   if (checks.length === 0) {
     return null;

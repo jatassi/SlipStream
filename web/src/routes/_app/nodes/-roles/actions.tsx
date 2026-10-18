@@ -2,7 +2,6 @@ import type { NodesBoardNode, NodesRoleBoard } from "../../../../api/gen/model";
 import { labelOf } from "../../../../nodes/roles";
 import { Button } from "../../../../ui/button";
 
-/** A Node that holds no Roles yet, offered the ones it can start with. */
 export function Suggestion({
   board,
   seat,
@@ -47,7 +46,7 @@ export function Actions({
         </Button>
       )}
       {seat.roles.some(({ held }) => held !== undefined) && (
-        <Button look="ghost" className="ml-auto text-fail-ink" onClick={onWriteOff}>
+        <Button className="ml-auto" onClick={onWriteOff}>
           Write off what {seat.name} holds
         </Button>
       )}
