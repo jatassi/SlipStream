@@ -25,8 +25,14 @@ var errReturned = errors.New("returned while the Role was still held")
 
 // supervise runs each Role while the Node holds or drains it and, for a
 // scoped Role, its intent is cached, releases each one it lets go, and
-// reports the node scope's facts, until ctx ends.
+// reports the node scope's facts, until ctx ends. It starts once the
+// holder settled, so no Role acts on an intent the Controller superseded.
 func (h *Holding) supervise(ctx context.Context) {
+	select {
+	case <-h.settled:
+	case <-ctx.Done():
+		return
+	}
 	var roles sync.WaitGroup
 	defer roles.Wait()
 	var reported *nodev1.NodeFacts

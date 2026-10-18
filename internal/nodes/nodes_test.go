@@ -166,7 +166,7 @@ func (c *controller) open(t *testing.T, s *side) {
 // the test's end.
 func (c *controller) hold(t *testing.T, w *linktest.Node) (stop func()) {
 	t.Helper()
-	return holder(t, role.OverLink(w.Link, c.node.Key))
+	return holder(t, role.OverLink(w.Link, c.node.Key, linktest.Timings))
 }
 
 func holder(t *testing.T, upstream role.Upstream) (stop func()) {

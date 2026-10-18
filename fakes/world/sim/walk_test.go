@@ -324,9 +324,9 @@ func (a adds) Add(p engine.AddParams) (engine.Handle, error) {
 }
 
 // TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing restarts
-// seedbox with its link to home stalled: it adds the torrent again from
-// its cached intent, and its second Completed, once applied, changes
-// nothing.
+// seedbox with its link to home stalled: once home had time to answer, it
+// adds the torrent again from its cached intent, and its second Completed,
+// once applied, changes nothing.
 func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var mu sync.Mutex
@@ -351,6 +351,8 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		box := w.Node("seedbox")
 		box.Stop()
 		box.Start()
+		timings := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
+		time.Sleep(timings.RedialMax + timings.Handshake)
 		synctest.Wait()
 		hash, err := bencode.ParseInfoHash(before.InfoHash)
 		if err != nil {

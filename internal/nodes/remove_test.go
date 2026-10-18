@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/nodes"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -75,7 +76,7 @@ func TestARenameReachesTheNodeInItsIntent(t *testing.T) {
 		c := startController(t)
 		w := c.worker(t, "box", "127.0.0.3")
 		_, box := c.pair(t, w, c.mint(t), "box")
-		h := named(t, role.OverLink(w.Link, c.node.Key))
+		h := named(t, role.OverLink(w.Link, c.node.Key, linktest.Timings))
 		holder(t, role.InProcess(c.svc.Controls()))
 		synctest.Wait()
 		if h.Name() != "box" {
