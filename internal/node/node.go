@@ -424,13 +424,11 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		Name:      cfg.Name,
 		Claims:    surfaceNode{n},
 		AwaitDial: cfg.Timings.Link.AwaitDial,
+		Removed:   n.removed,
 		Log:       n.rootLog.With("subsystem", "pairing"),
 	})
-	if _, malformed := errors.AsType[*pairing.RecordError](err); malformed {
-		err = &RecordError{Err: err}
-	}
 	if err != nil {
-		return 0, "", err
+		return 0, "", refusedRecord(err)
 	}
 	switch claim {
 	case system.Controller:
@@ -441,6 +439,9 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 			err = n.startWorker(ctx)
 		}
 	case system.Unclaimed:
+		if r, ok := n.pairing.Removal(); ok {
+			n.log.Warn(r.Sentence())
+		}
 	}
 	if err != nil {
 		return 0, "", n.stoppedOr(err)

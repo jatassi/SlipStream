@@ -32,7 +32,8 @@ type Roster interface {
 	// Route is where r work homed on home goes now, or why it waits.
 	Route(r role.Name, home role.NodeID) (role.NodeID, error)
 	Get(ctx context.Context, id role.NodeID) (nodes.Node, error)
-	List(ctx context.Context) ([]nodes.Node, error)
+	// Names is every Node's name, removed Nodes included.
+	Names(ctx context.Context) (map[role.NodeID]nodes.Named, error)
 }
 
 // Changed tells Admins that a task, its runs or the schedule changed. An

@@ -66,6 +66,44 @@ func TestAWriteOffForfeitsUntilTheOwnerHoldsNothing(t *testing.T) {
 	}
 }
 
+// TestRemovingANodeThatHoldsWorkNeedsAWriteOff removes seedbox while it
+// seeds 3 torrents: it is refused until the removal writes them off, and
+// the Controller is never removed.
+func TestRemovingANodeThatHoldsWorkNeedsAWriteOff(t *testing.T) {
+	var torrents atomic.Int64
+	torrents.Store(3)
+	s, _, seedbox := downloadingSeedbox(t, &torrents)
+	_, err := s.Apply(t.Context(), Remove{Node: seedbox})
+	if blocked, ok := errors.AsType[*BlockedError](err); !ok || len(blocked.Outcome.Checks) != 1 || blocked.Outcome.Checks[0].Reason != HoldsWork {
+		t.Fatalf("removing seedbox while it seeds = %v, want blocked with node_holds_work", err)
+	}
+	if _, err := s.Get(t.Context(), seedbox); err != nil {
+		t.Fatalf("the refused removal took seedbox away: %v", err)
+	}
+	out, err := s.Apply(t.Context(), Remove{Node: seedbox, WriteOff: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var said []string
+	for _, e := range out.Effects {
+		said = append(said, e.Words())
+	}
+	want := []string{
+		"The 3 torrents seedbox holds for Downloading are written off. No files are deleted.",
+		"seedbox is removed. It can join again with a new Join Code.",
+	}
+	if !slices.Equal(said, want) {
+		t.Fatalf("the removal says %q, want %q", said, want)
+	}
+	if !s.WrittenOff(role.Downloading, seedbox) {
+		t.Fatal("seedbox's torrents read as kept once it is removed with a write-off")
+	}
+	_, err = s.Apply(t.Context(), Remove{Node: s.Self(), WriteOff: true})
+	if blocked, ok := errors.AsType[*BlockedError](err); !ok || len(blocked.Outcome.Checks) != 1 || blocked.Outcome.Checks[0].Reason != IsController {
+		t.Fatalf("removing the Controller = %v, want blocked with node_is_controller", err)
+	}
+}
+
 // downloadingSeedbox is home with seedbox paired and ticked for
 // Downloading, whose owner counts torrents on seedbox and none elsewhere.
 func downloadingSeedbox(t *testing.T, torrents *atomic.Int64) (*Service, *storage.DB[storage.Library], ID) {

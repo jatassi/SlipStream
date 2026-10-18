@@ -189,12 +189,12 @@ func differing(a, b *Board) []ID {
 func (s *Service) reload(ctx context.Context) error {
 	s.reloading.Lock()
 	defer s.reloading.Unlock()
-	rows, grace, err := s.read(ctx)
+	rows, removed, grace, err := s.read(ctx)
 	if err != nil {
 		return err
 	}
 	s.update(func(in *inputs, _ time.Time) {
-		in.grace = grace
+		in.grace, in.removed = grace, removed
 		for i, n := range rows {
 			if was := in.node(n.id); was != nil {
 				rows[i].attached, rows[i].since, rows[i].seen = was.attached, was.since, was.seen
@@ -206,17 +206,25 @@ func (s *Service) reload(ctx context.Context) error {
 	return nil
 }
 
-// read is the live rows, their Roles, forfeits and held work, and the
-// grace.
-func (s *Service) read(ctx context.Context) ([]nodeIn, time.Duration, error) {
+// read is the live rows, their Roles, forfeits and held work, the
+// tombstones' ids and the grace.
+func (s *Service) read(ctx context.Context) ([]nodeIn, []ID, time.Duration, error) {
 	var (
-		rows  []nodeIn
-		grace time.Duration
+		rows    []nodeIn
+		removed []ID
+		grace   time.Duration
 	)
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
 		if rows, err = loadRows(ctx, r); err != nil {
 			return err
+		}
+		tombs, err := db.New(r).ListRemovedNodes(ctx)
+		if err != nil {
+			return err
+		}
+		for _, t := range tombs {
+			removed = append(removed, t.ID)
 		}
 		work, err := countWork(ctx, r, s.owners, rows)
 		if err != nil {
@@ -230,9 +238,9 @@ func (s *Service) read(ctx context.Context) ([]nodeIn, time.Duration, error) {
 		return err
 	})
 	if err != nil {
-		return nil, 0, fmt.Errorf("load the roster: %w", err)
+		return nil, nil, 0, fmt.Errorf("load the roster: %w", err)
 	}
-	return rows, grace, nil
+	return rows, removed, grace, nil
 }
 
 // loadRows is every live row in id order with its assignment and forfeits.

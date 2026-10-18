@@ -480,3 +480,84 @@ func TestTheJoinCodeOperations(t *testing.T) {
 		t.Fatalf("setNodeDial to stop dialing answered %+v, want no session and no dials", row.Dial)
 	}
 }
+
+// box holds a torrent for Downloading and seed holds nothing. Renaming
+// refuses a taken or malformed name; removing refuses the Controller and
+// box while it holds work, and writing that work off removes box, whose
+// name is then free.
+func TestTheRenameAndRemoveOperations(t *testing.T) {
+	log := slog.New(slog.DiscardHandler)
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema())
+	boxID, seedID := storage.NewUUID(), storage.NewUUID()
+	pairDownloading(t, lib, map[storage.UUID]string{boxID: "box", seedID: "seed"})
+	owners := nodestest.Unowned()
+	for i, o := range owners {
+		if o.Role == role.Downloading {
+			owners[i].Held = func(_ context.Context, _ storage.Reader[storage.Library], node nodes.ID) (nodes.Held, error) {
+				if node.UUID == boxID {
+					return nodes.Held{Units: 3, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: 41 << 30}, nil
+				}
+				return nodes.Held{}, nil
+			}
+		}
+	}
+	ns, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unadvertised{}, Changed: changes{}, Owners: owners, Log: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { nodesapi.Routes(r, roster{ns}) })
+	node := func(id fmt.Stringer) string { return "/api/v1/nodes/" + id.String() }
+	refused := func(method, path, body string, status int, code string) problem {
+		t.Helper()
+		var p problem
+		call(t, s, method, path, body, status, &p)
+		if p.Code != code {
+			t.Fatalf("%s %s answered %+v, want %s", method, path, p, code)
+		}
+		return p
+	}
+
+	refused(http.MethodPatch, node(seedID), `{"name":"box"}`, http.StatusConflict, "node_name_taken")
+	for _, name := range []string{"", " seed", "seed ", strings.Repeat("s", 64)} {
+		refused(http.MethodPatch, node(seedID), fmt.Sprintf(`{"name":%q}`, name), http.StatusUnprocessableEntity, "node_name_invalid")
+	}
+	refused(http.MethodPatch, node(storage.NewUUID()), `{"name":"new"}`, http.StatusNotFound, "node_not_found")
+	var renamed struct {
+		Name string `json:"name"`
+	}
+	call(t, s, http.MethodPatch, node(seedID), `{"name":"`+strings.Repeat("ü", 63)+`"}`, http.StatusOK, &renamed)
+	call(t, s, http.MethodPatch, node(seedID), `{"name":"seedbox"}`, http.StatusOK, &renamed)
+	if renamed.Name != "seedbox" {
+		t.Fatalf("renameNode answered %+v, want seedbox", renamed)
+	}
+
+	refused(http.MethodDelete, node(ns.Self()), "", http.StatusConflict, "node_is_controller")
+	holds := refused(http.MethodDelete, node(boxID), "", http.StatusConflict, "node_holds_work")
+	want := "box still holds 3 torrents (41 GB) for Downloading. Untick its Roles and remove it when they finish, or remove it now and write them off."
+	if len(holds.Outcome.Checks) != 1 || holds.Outcome.Checks[0].Words != want {
+		t.Fatalf("removing box while it holds work answered %+v, want the check %q", holds, want)
+	}
+	if status, reply := s.Call(t, http.MethodDelete, node(boxID)+"?writeOff=true", ""); status != http.StatusNoContent {
+		t.Fatalf("removing box with writeOff answered %d %s, want 204", status, reply)
+	}
+	refused(http.MethodGet, node(boxID), "", http.StatusNotFound, "node_not_found")
+	refused(http.MethodDelete, node(boxID), "", http.StatusNotFound, "node_not_found")
+	var list struct {
+		Nodes []struct {
+			Name string `json:"name"`
+		} `json:"nodes"`
+	}
+	call(t, s, http.MethodGet, "/api/v1/nodes", "", http.StatusOK, &list)
+	var names []string
+	for _, n := range list.Nodes {
+		names = append(names, n.Name)
+	}
+	slices.Sort(names)
+	if !slices.Equal(names, []string{"home", "seedbox"}) {
+		t.Fatalf("listNodes answered %v, want seedbox and home without box", names)
+	}
+	call(t, s, http.MethodPatch, node(seedID), `{"name":"box"}`, http.StatusOK, &renamed)
+	if !ns.WrittenOff(role.Downloading, nodes.ID{UUID: boxID}) {
+		t.Fatal("box's Downloading reads as kept, want written off once removed")
+	}
+}

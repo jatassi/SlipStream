@@ -24,6 +24,8 @@ export interface TasksUnit {
   node: string;
   /** The Node it runs on now: where the roster routes portable work */
   nodeId: string;
+  /** The Node it runs on was removed */
+  nodeRemoved: boolean;
   /**
    * Its last outcome, null before it has run
    * @nullable

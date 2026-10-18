@@ -66,6 +66,7 @@ import type {
   NodesNodeList,
   NodesOpenCodes,
   NodesOutcome,
+  NodesRenameBody,
   NodesRoleBoard,
   NodesRolesChange,
   NodesSettings,
@@ -78,6 +79,19 @@ import type {
   PlanRoles409,
   PlanRoles422,
   PlanRoles500,
+  RemoveNode401,
+  RemoveNode403,
+  RemoveNode404,
+  RemoveNode409,
+  RemoveNode422,
+  RemoveNode500,
+  RemoveNodeParams,
+  RenameNode401,
+  RenameNode403,
+  RenameNode404,
+  RenameNode409,
+  RenameNode422,
+  RenameNode500,
   RevokeJoinCode401,
   RevokeJoinCode403,
   RevokeJoinCode404,
@@ -1506,6 +1520,110 @@ export function useGetTopologySuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getRemoveNodeUrl = (id: string, params?: RemoveNodeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/nodes/${id}?${stringifiedParams}`
+    : `/api/v1/nodes/${id}`;
+};
+
+/**
+ * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history
+ */
+export const removeNode = async (
+  id: string,
+  params?: RemoveNodeParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getRemoveNodeUrl(id, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveNodeMutationKey = () => ["removeNode"] as const;
+
+export const getRemoveNodeMutationOptions = <
+  TError = ErrorType<
+    RemoveNode401 | RemoveNode403 | RemoveNode404 | RemoveNode409 | RemoveNode422 | RemoveNode500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeNode>>,
+    TError,
+    RemoveNodeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeNode>>,
+  TError,
+  RemoveNodeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRemoveNodeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeNode>>,
+    RemoveNodeMutationVariables
+  > = (props) => {
+    const { id, params } = props ?? {};
+
+    return removeNode(id, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveNodeMutationResult = NonNullable<Awaited<ReturnType<typeof removeNode>>>;
+
+export type RemoveNodeMutationError = ErrorType<
+  RemoveNode401 | RemoveNode403 | RemoveNode404 | RemoveNode409 | RemoveNode422 | RemoveNode500
+>;
+export type RemoveNodeMutationVariables = { id: string; params?: RemoveNodeParams };
+
+/**
+ * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history
+ */
+export const useRemoveNode = <
+  TError = ErrorType<
+    RemoveNode401 | RemoveNode403 | RemoveNode404 | RemoveNode409 | RemoveNode422 | RemoveNode500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof removeNode>>,
+      TError,
+      RemoveNodeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof removeNode>>,
+  TError,
+  RemoveNodeMutationVariables,
+  TContext
+> => {
+  return useMutation(getRemoveNodeMutationOptions(options), queryClient);
+};
 export const getGetNodeUrl = (id: string) => {
   return `/api/v1/nodes/${id}`;
 };
@@ -1618,6 +1736,119 @@ export function useGetNodeSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getRenameNodeUrl = (id: string) => {
+  return `/api/v1/nodes/${id}`;
+};
+
+/**
+ * @summary Rename a Node; a Node in step has its new name when this answers
+ */
+export const renameNode = async (
+  id: string,
+  nodesRenameBody: NodesRenameBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesNode> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NodesNode>(getRenameNodeUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(nodesRenameBody),
+  });
+};
+
+export const getRenameNodeMutationKey = () => ["renameNode"] as const;
+
+export const getRenameNodeMutationOptions = <
+  TError = ErrorType<
+    RenameNode401 | RenameNode403 | RenameNode404 | RenameNode409 | RenameNode422 | RenameNode500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameNode>>,
+    TError,
+    RenameNodeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renameNode>>,
+  TError,
+  RenameNodeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRenameNodeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renameNode>>,
+    RenameNodeMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return renameNode(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenameNodeMutationResult = NonNullable<Awaited<ReturnType<typeof renameNode>>>;
+export type RenameNodeMutationBody = NodesRenameBody;
+export type RenameNodeMutationError = ErrorType<
+  RenameNode401 | RenameNode403 | RenameNode404 | RenameNode409 | RenameNode422 | RenameNode500
+>;
+export type RenameNodeMutationVariables = { id: string; data: NodesRenameBody };
+
+/**
+ * @summary Rename a Node; a Node in step has its new name when this answers
+ */
+export const useRenameNode = <
+  TError = ErrorType<
+    RenameNode401 | RenameNode403 | RenameNode404 | RenameNode409 | RenameNode422 | RenameNode500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof renameNode>>,
+      TError,
+      RenameNodeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof renameNode>>,
+  TError,
+  RenameNodeMutationVariables,
+  TContext
+> => {
+  return useMutation(getRenameNodeMutationOptions(options), queryClient);
+};
 export const getSetNodeDialUrl = (id: string) => {
   return `/api/v1/nodes/${id}/dial`;
 };

@@ -208,7 +208,7 @@ func TestARefusedJoinCodeLeavesTheNodeUnclaimed(t *testing.T) {
 
 func TestAPairingRecordOfAnotherSchemaRefusesTheStart(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := os.WriteFile(filepath.Join(env.DataDir.Path(), "pairing.json"), []byte(`{"schema":2}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(env.DataDir.Path(), "pairing.json"), []byte(`{"schema":3}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	synctest.Test(t, func(t *testing.T) {

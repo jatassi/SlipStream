@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
-	"os"
-	"path/filepath"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -99,12 +96,12 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 // every call: the Setup gate, the status endpoint and every Account check
 // read it.
 func (n *Node) claim(ctx context.Context) (system.Claim, error) {
-	_, err := os.Stat(filepath.Join(n.env.DataDir.Path(), pairing.RecordFile))
+	worker, err := pairing.IsWorker(n.env.DataDir.Path())
 	switch {
-	case err == nil:
+	case err != nil:
+		return 0, refusedRecord(fmt.Errorf("read the claim: %w", err))
+	case worker:
 		return system.Worker, nil
-	case !errors.Is(err, fs.ErrNotExist):
-		return 0, fmt.Errorf("read the claim: %w", err)
 	}
 	lib := n.lib.Load()
 	if lib == nil {
@@ -128,7 +125,7 @@ func (s surfaceNode) Worker() (servingapi.Facts, bool) {
 		return servingapi.Facts{}, false
 	}
 	rec, _ := s.n.pairing.Record()
-	f := servingapi.Facts{Name: s.n.cfg.Name, Fingerprint: s.n.key.Public().Fingerprint(), Controller: rec.ControllerName, Seeding: s.n.downloads.Seeding()}
+	f := servingapi.Facts{Name: h.holding.Name(), Fingerprint: s.n.key.Public().Fingerprint(), Controller: rec.ControllerName, Seeding: s.n.downloads.Seeding()}
 	f.Since, _ = h.serving.Unreachable()
 	for _, r := range role.Names() {
 		if r != role.Serving && h.holding.Holds(r) {
@@ -260,3 +257,5 @@ func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func
 }
 
 func (s surfaceNode) Pending() (pairing.Pending, bool) { return s.n.pairing.Pending() }
+
+func (s surfaceNode) Removal() (pairing.Removal, bool) { return s.n.pairing.Removal() }

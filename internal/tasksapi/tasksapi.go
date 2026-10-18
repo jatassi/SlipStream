@@ -189,12 +189,13 @@ type run struct {
 }
 
 type runUnit struct {
-	Key     string  `json:"key"`
-	Label   string  `json:"label"`
-	Node    string  `json:"node" doc:"Empty when the Node is no longer paired"`
-	NodeID  string  `json:"nodeId" format:"uuid" doc:"The Node it ran on"`
-	Outcome string  `json:"outcome" enum:"succeeded,failed,skipped,canceled"`
-	Cause   *string `json:"cause" doc:"Why it failed or was skipped, null when it succeeded"`
+	Key         string  `json:"key"`
+	Label       string  `json:"label"`
+	Node        string  `json:"node" doc:"The Node it ran on, still named once removed; empty when no Node has its id"`
+	NodeID      string  `json:"nodeId" format:"uuid" doc:"The Node it ran on"`
+	NodeRemoved bool    `json:"nodeRemoved" doc:"The Node it ran on was removed since"`
+	Outcome     string  `json:"outcome" enum:"succeeded,failed,skipped,canceled"`
+	Cause       *string `json:"cause" doc:"Why it failed or was skipped, null when it succeeded"`
 }
 
 func runOf(r tasks.Run) run {
@@ -204,7 +205,7 @@ func runOf(r tasks.Run) run {
 		out.EndedAt, out.Result = &ended, &result
 	}
 	for _, l := range r.Lines {
-		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), Outcome: string(l.Outcome), Cause: optional(l.Cause)})
+		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), NodeRemoved: l.NodeRemoved, Outcome: string(l.Outcome), Cause: optional(l.Cause)})
 	}
 	return out
 }
@@ -214,6 +215,7 @@ type unit struct {
 	Label         string     `json:"label"`
 	Node          string     `json:"node" doc:"The Node it runs on"`
 	NodeID        string     `json:"nodeId" format:"uuid" doc:"The Node it runs on now: where the roster routes portable work"`
+	NodeRemoved   bool       `json:"nodeRemoved" doc:"The Node it runs on was removed"`
 	Outcome       *string    `json:"outcome" enum:"succeeded,failed,skipped,canceled" doc:"Its last outcome, null before it has run"`
 	Cause         *string    `json:"cause" doc:"Why it last failed or was skipped, null otherwise"`
 	EndedAt       *time.Time `json:"endedAt" doc:"When it last ended, null before it has run"`
@@ -222,7 +224,7 @@ type unit struct {
 }
 
 func unitOf(u tasks.UnitView) unit {
-	out := unit{Key: string(u.Key), Label: u.Label, Node: u.Node, NodeID: u.NodeID.String(), Cause: optional(u.Cause), DueOnReturn: u.DueOnReturn}
+	out := unit{Key: string(u.Key), Label: u.Label, Node: u.Node, NodeID: u.NodeID.String(), NodeRemoved: u.NodeRemoved, Cause: optional(u.Cause), DueOnReturn: u.DueOnReturn}
 	if u.Outcome != "" {
 		outcome := string(u.Outcome)
 		out.Outcome, out.EndedAt = &outcome, &u.Ended

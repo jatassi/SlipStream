@@ -11,6 +11,15 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const deleteIntents = `-- name: DeleteIntents :exec
+DELETE FROM role_intent
+`
+
+func (q *Queries) DeleteIntents(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteIntents)
+	return err
+}
+
 const deleteOutboxThrough = `-- name: DeleteOutboxThrough :exec
 DELETE FROM role_outbox WHERE seq <= ?1
 `
