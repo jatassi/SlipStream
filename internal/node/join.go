@@ -277,8 +277,11 @@ type offline struct{ env Env }
 
 func (o offline) Claim(ctx context.Context) (system.Claim, error) {
 	dir := o.env.DataDir
+	worker, err := pairing.IsWorker(dir.Path())
 	switch {
-	case exists(dir.Path(), pairing.RecordFile):
+	case err != nil:
+		return 0, err
+	case worker:
 		return system.Worker, nil
 	case !exists(dir.LibraryDB()):
 		return system.Unclaimed, nil

@@ -1289,6 +1289,15 @@ export const NodesWritesOff = zod.object({
 export type NodesWritesOff = zod.input<typeof NodesWritesOff>;
 export type NodesWritesOffOutput = zod.output<typeof NodesWritesOff>;
 
+export const NodesLeaves = zod.object({
+  kind: zod.enum(["leaves"]),
+  node: NodesNamed,
+  words: zod.string(),
+});
+
+export type NodesLeaves = zod.input<typeof NodesLeaves>;
+export type NodesLeavesOutput = zod.output<typeof NodesLeaves>;
+
 export const NodesEffect = zod.discriminatedUnion("kind", [
   NodesGains,
   NodesLetsGo,
@@ -1297,6 +1306,7 @@ export const NodesEffect = zod.discriminatedUnion("kind", [
   NodesPinned,
   NodesMoves,
   NodesWritesOff,
+  NodesLeaves,
 ]);
 
 export type NodesEffect = zod.input<typeof NodesEffect>;
@@ -1427,6 +1437,15 @@ export const NodesOutcome = zod.object({
 
 export type NodesOutcome = zod.input<typeof NodesOutcome>;
 export type NodesOutcomeOutput = zod.output<typeof NodesOutcome>;
+
+export const NodesRenameBody = zod.object({
+  name: zod
+    .string()
+    .describe("1 to 63 characters, with no space at either end, that no other Node has"),
+});
+
+export type NodesRenameBody = zod.input<typeof NodesRenameBody>;
+export type NodesRenameBodyOutput = zod.output<typeof NodesRenameBody>;
 
 export const NodesRoleBoard = zod.object({
   basis: zod.string(),
@@ -1900,6 +1919,14 @@ export const SystemPasskeys = zod.object({
 export type SystemPasskeys = zod.input<typeof SystemPasskeys>;
 export type SystemPasskeysOutput = zod.output<typeof SystemPasskeys>;
 
+export const SystemRemoved = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  controller: zod.string().describe("The name of the Controller that removed the Node"),
+});
+
+export type SystemRemoved = zod.input<typeof SystemRemoved>;
+export type SystemRemovedOutput = zod.output<typeof SystemRemoved>;
+
 export const SystemReport = zod.object({
   build: SystemBuild,
   dataDir: zod.string(),
@@ -1932,6 +1959,9 @@ export const SystemStatus = zod.object({
   claim: zod.enum(["unclaimed", "controller", "worker"]),
   passkeys: SystemPasskeys.describe(
     "Whether the address this request reached SlipStream at can hold a passkey",
+  ),
+  removed: SystemRemoved.exactOptional().describe(
+    "Set on an Unclaimed Node its Controller removed, until it joins again",
   ),
 });
 
@@ -2029,8 +2059,11 @@ export const TasksRunUnit = zod.object({
   cause: zod.string().nullable().describe("Why it failed or was skipped, null when it succeeded"),
   key: zod.string(),
   label: zod.string(),
-  node: zod.string().describe("Empty when the Node is no longer paired"),
+  node: zod
+    .string()
+    .describe("The Node it ran on, still named once removed; empty when no Node has its id"),
   nodeId: zod.uuid().describe("The Node it ran on"),
+  nodeRemoved: zod.boolean().describe("The Node it ran on was removed since"),
   outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
 });
 
@@ -2156,6 +2189,7 @@ export const TasksUnit = zod.object({
     .describe("Null before it has succeeded"),
   node: zod.string().describe("The Node it runs on"),
   nodeId: zod.uuid().describe("The Node it runs on now: where the roster routes portable work"),
+  nodeRemoved: zod.boolean().describe("The Node it runs on was removed"),
   outcome: zod
     .union([
       zod.literal("succeeded"),

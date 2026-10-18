@@ -18,11 +18,12 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// RecordFile is the pairing record in the data dir. Its existence makes a
-// Node a Worker.
+// RecordFile is the pairing record in the data dir. A record no
+// Controller removed makes a Node a Worker.
 const RecordFile = "pairing.json"
 
-const schema = 1
+// schema 2 adds removed; it reads a schema 1 record as it was.
+const schema = 2
 
 func recordPath(dataDir string) string { return filepath.Join(dataDir, RecordFile) }
 
@@ -35,6 +36,27 @@ type Record struct {
 	ControllerName string
 	Superseded     []Superseded
 	PairedAt       time.Time
+	// Removed is set once the Controller removed this Node, which is then
+	// Unclaimed. The rest is the pairing it lost.
+	Removed *Removal
+}
+
+// Removal is when the Controller removed this Node, and its name.
+type Removal struct {
+	At             time.Time
+	ControllerName string
+}
+
+// Sentence is what the log says of the removal.
+func (r Removal) Sentence() string {
+	return "This Node was removed from " + r.ControllerName + " on " + r.At.Local().Format("2 Jan") + ". Join with a new Join Code to use it again."
+}
+
+// IsWorker reports whether the pairing record in dataDir makes the Node a
+// Worker: it exists, and no Controller removed the Node.
+func IsWorker(dataDir string) (bool, error) {
+	rec, ok, err := readRecord(recordPath(dataDir))
+	return ok && rec.Removed == nil, err
 }
 
 // Superseded is a Controller key a re-pair replaced, with the key that
@@ -62,6 +84,12 @@ type recordJSON struct {
 	Controller controllerJSON   `json:"controller"`
 	Superseded []supersededJSON `json:"superseded"`
 	PairedAt   time.Time        `json:"pairedAt"`
+	Removed    *removalJSON     `json:"removed,omitempty"`
+}
+
+type removalJSON struct {
+	At             time.Time `json:"at"`
+	ControllerName string    `json:"controllerName"`
 }
 
 type controllerJSON struct {
@@ -101,8 +129,11 @@ func decode(data []byte) (Record, error) {
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
 		return Record{}, errors.New("data after the record")
 	}
-	if j.Schema != schema {
-		return Record{}, fmt.Errorf("schema %d, want %d", j.Schema, schema)
+	if j.Schema != 1 && j.Schema != schema {
+		return Record{}, fmt.Errorf("schema %d, want 1 or %d", j.Schema, schema)
+	}
+	if j.Schema == 1 && j.Removed != nil {
+		return Record{}, errors.New("removed in a schema 1 record")
 	}
 	id, err := storage.ParseUUID(j.NodeID)
 	if err != nil {
@@ -125,6 +156,9 @@ func decode(data []byte) (Record, error) {
 	for _, s := range j.Superseded {
 		rec.Superseded = append(rec.Superseded, Superseded{Key: s.Key, By: s.ByKey, At: s.At})
 	}
+	if r := j.Removed; r != nil {
+		rec.Removed = &Removal{At: r.At, ControllerName: r.ControllerName}
+	}
 	return rec, nil
 }
 
@@ -138,6 +172,9 @@ func encode(rec Record) ([]byte, error) {
 	}
 	for _, s := range rec.Superseded {
 		j.Superseded = append(j.Superseded, supersededJSON{Key: s.Key, ByKey: s.By, At: s.At})
+	}
+	if r := rec.Removed; r != nil {
+		j.Removed = &removalJSON{At: r.At, ControllerName: r.ControllerName}
 	}
 	data, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {

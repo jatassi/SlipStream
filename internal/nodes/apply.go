@@ -65,11 +65,12 @@ func (s *Service) Preview(ctx context.Context, c Change) (Outcome, error) {
 }
 
 // Apply plans c again inside one Write and stores its Outcome: the Role
-// rows, the forfeits and the portable work each owner moves to its heir.
-// A stale Basis or a block refuses c, and an Outcome that stores nothing
-// new writes nothing. After the commit the roster reads the rows again,
-// each Node whose rows changed is sent its new intent, and Apply waits
-// until those in step apply it or ctx ends.
+// rows, the forfeits, the portable work each owner moves to its heir and
+// the tombstone of a removed Node. A stale Basis or a block refuses c, and
+// an Outcome that stores nothing new writes nothing. After the commit a
+// removed Node's key is refused and its session closed, the roster reads
+// the rows again, each other Node whose rows changed is sent its new
+// intent, and Apply waits until those in step apply it or ctx ends.
 func (s *Service) Apply(ctx context.Context, c Change) (Outcome, error) {
 	var (
 		out     Outcome
@@ -90,7 +91,9 @@ func (s *Service) Apply(ctx context.Context, c Change) (Outcome, error) {
 	if err != nil {
 		return out, err
 	}
-	if len(touched) == 0 {
+	if gone, ok := out.leaves(); ok {
+		s.forget(ctx, gone)
+	} else if len(touched) == 0 {
 		return out, nil
 	}
 	if err := s.reload(ctx); err != nil {
@@ -124,42 +127,21 @@ func (s *Service) plan(ctx context.Context, r storage.Reader[file], c Change) (S
 	return sit, out, nil
 }
 
-// store writes out over sit: each Node's Role rows and forfeits, then the
-// work each Moves effect names through its Role's owner. It returns every
-// Node whose rows changed.
+// store writes out over sit: each Node's Role rows and forfeits, the work
+// each Moves effect names through its Role's owner, then the tombstone of
+// the Node it removes. It returns every other Node whose rows changed.
 func (s *Service) store(ctx context.Context, tx *storage.Tx[file], sit Situation, out Outcome) ([]ID, error) {
 	q := db.New(tx)
 	now := storage.Now()
+	gone, leaves := out.leaves()
 	var touched []ID
 	for _, seat := range sit.Seats {
-		next, forfeit := out.Next[seat.ID], out.Forfeit[seat.ID]
-		if next == seat.Assigned && forfeit == seat.Forfeit {
-			continue
+		changed, err := storeSeat(ctx, q, now, seat, out.Next[seat.ID], out.Forfeit[seat.ID])
+		if err != nil {
+			return nil, err
 		}
-		touched = append(touched, seat.ID)
-		writes := []struct {
-			roles role.Set
-			write func(role.Name) error
-		}{
-			{seat.Assigned &^ next, func(r role.Name) error {
-				return q.DeleteRole(ctx, db.DeleteRoleParams{NodeID: seat.ID, Role: r})
-			}},
-			{next &^ seat.Assigned, func(r role.Name) error {
-				return q.InsertRole(ctx, db.InsertRoleParams{NodeID: seat.ID, Role: r, AssignedAt: now})
-			}},
-			{seat.Forfeit &^ forfeit, func(r role.Name) error {
-				return q.DeleteForfeit(ctx, db.DeleteForfeitParams{NodeID: seat.ID, Role: r})
-			}},
-			{forfeit &^ seat.Forfeit, func(r role.Name) error {
-				return q.InsertForfeit(ctx, db.InsertForfeitParams{NodeID: seat.ID, Role: r, DeclaredAt: now})
-			}},
-		}
-		for _, w := range writes {
-			for _, r := range w.roles.Names() {
-				if err := w.write(r); err != nil {
-					return nil, err
-				}
-			}
+		if changed && (!leaves || seat.ID != gone) {
+			touched = append(touched, seat.ID)
 		}
 	}
 	for _, e := range out.Effects {
@@ -169,5 +151,43 @@ func (s *Service) store(ctx context.Context, tx *storage.Tx[file], sit Situation
 			}
 		}
 	}
+	if leaves {
+		if err := entomb(ctx, q, gone); err != nil {
+			return nil, err
+		}
+	}
 	return touched, nil
+}
+
+// storeSeat writes seat's Role rows and forfeits as next and forfeit, and
+// reports whether they changed.
+func storeSeat(ctx context.Context, q *db.Queries, now storage.Time, seat Seat, next, forfeit role.Set) (bool, error) {
+	if next == seat.Assigned && forfeit == seat.Forfeit {
+		return false, nil
+	}
+	writes := []struct {
+		roles role.Set
+		write func(role.Name) error
+	}{
+		{seat.Assigned &^ next, func(r role.Name) error {
+			return q.DeleteRole(ctx, db.DeleteRoleParams{NodeID: seat.ID, Role: r})
+		}},
+		{next &^ seat.Assigned, func(r role.Name) error {
+			return q.InsertRole(ctx, db.InsertRoleParams{NodeID: seat.ID, Role: r, AssignedAt: now})
+		}},
+		{seat.Forfeit &^ forfeit, func(r role.Name) error {
+			return q.DeleteForfeit(ctx, db.DeleteForfeitParams{NodeID: seat.ID, Role: r})
+		}},
+		{forfeit &^ seat.Forfeit, func(r role.Name) error {
+			return q.InsertForfeit(ctx, db.InsertForfeitParams{NodeID: seat.ID, Role: r, DeclaredAt: now})
+		}},
+	}
+	for _, w := range writes {
+		for _, r := range w.roles.Names() {
+			if err := w.write(r); err != nil {
+				return false, err
+			}
+		}
+	}
+	return true, nil
 }

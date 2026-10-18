@@ -65,6 +65,8 @@ func (worker) Join(context.Context, joincode.Code, func(pairing.Pending)) (pairi
 	panic("a Worker's closed gate admitted claimWorker")
 }
 
+func (worker) Removal() (pairing.Removal, bool) { return pairing.Removal{}, false }
+
 func (worker) Pending() (pairing.Pending, bool) {
 	panic("a Worker's closed gate admitted getWorkerClaim")
 }

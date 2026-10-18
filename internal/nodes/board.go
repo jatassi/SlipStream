@@ -23,6 +23,8 @@ type inputs struct {
 	pauses []span
 	// nodes is the live rows in id order.
 	nodes []nodeIn
+	// removed is every tombstone's id, in order.
+	removed []ID
 }
 
 type span struct{ from, to time.Time }
@@ -110,6 +112,7 @@ type Board struct {
 	nodes   []NodeView
 	states  []map[role.Name]RoleState
 	forfeit []role.Set
+	removed []ID
 	alert   Alert
 	changed chan struct{}
 }
@@ -133,7 +136,7 @@ func (b *Board) index(id ID) (int, bool) {
 // same reports whether b and o say the same about every Node.
 func (b *Board) same(o *Board) bool {
 	return b.alert == o.alert && slices.Equal(b.nodes, o.nodes) && slices.Equal(b.forfeit, o.forfeit) &&
-		slices.EqualFunc(b.states, o.states, maps.Equal)
+		slices.EqualFunc(b.states, o.states, maps.Equal) && slices.Equal(b.removed, o.removed)
 }
 
 // covering is the Roles the Controller covers.
@@ -339,11 +342,14 @@ func (h Holders) Covering() bool {
 	return false
 }
 
-// WrittenOff reports whether the Admin wrote off what n holds for the Role, so its owner
-// settles that work.
+// WrittenOff reports whether the Admin wrote off what n holds for the
+// Role, or removed n, so its owner settles that work.
 func (h Holders) WrittenOff(n ID) bool {
-	i, ok := h.b.index(n)
-	return ok && h.b.forfeit[i].Has(h.r)
+	if i, ok := h.b.index(n); ok {
+		return h.b.forfeit[i].Has(h.r)
+	}
+	_, removed := slices.BinarySearchFunc(h.b.removed, n, func(a, b ID) int { return a.Compare(b.UUID) })
+	return removed
 }
 
 // derive is the board at now. The grace runs from max(seen, start) on the
@@ -353,6 +359,7 @@ func derive(in inputs, now time.Time) *Board {
 		nodes:   make([]NodeView, len(in.nodes)),
 		states:  make([]map[role.Name]RoleState, len(in.nodes)),
 		forfeit: make([]role.Set, len(in.nodes)),
+		removed: in.removed,
 		changed: make(chan struct{}),
 	}
 	for i, n := range in.nodes {

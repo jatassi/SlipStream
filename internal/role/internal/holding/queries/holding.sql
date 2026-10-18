@@ -22,3 +22,6 @@ SELECT * FROM role_intent ORDER BY scope;
 -- name: PutIntent :exec
 INSERT INTO role_intent (scope, version, payload) VALUES (sqlc.arg(scope), sqlc.arg(version), sqlc.arg(payload))
 ON CONFLICT (scope) DO UPDATE SET version = excluded.version, payload = excluded.payload;
+
+-- name: DeleteIntents :exec
+DELETE FROM role_intent;
