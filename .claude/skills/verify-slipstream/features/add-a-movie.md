@@ -6,8 +6,8 @@ An Admin searches the metadata catalog from the Library's `Add` menu and adds a 
 
 - `add-search` a title search lists catalog matches from the Fake world's TMDB with year and an `Add` button, from the `home` Scenario's catalog (P-256).
 - `add-no-match` a search with no match reads `Nothing matches “<query>”.`
-- `add-work` `Add The Quiet Orchard` creates the Work and opens its Work page.
-- `add-work-page` the Work page shows Year `2021`, Released `2021-04-16`, Runtime `1h 44m` and a Cells table with the Scenario's `1080p` Target reading `Missing` (P-259).
+- `add-work` `Add The Quiet Orchard` opens the add sheet, whose `Profile` reads `Movies (default)`, and its `Add Movie` creates the Work and opens its Work page.
+- `add-work-page` the Work page shows Year `2021`, Released `2021-04-16`, Runtime `1h 44m` and the table `Any cut cells` with the starter `1080p` Target reading `Missing` (P-259).
 - `add-open-existing` a Work already in the library is a link, `The Quiet Orchard 2021 In the library`, in place of `Add`, and opens its Work page.
 
 ## How to get to it (user POV)
@@ -43,11 +43,12 @@ Steps:
   $FW exec $RUN --proof add-a-movie/add-no-match -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-no-match/results.aria.yml
   ```
 
-- **Add the Work.** Search again and choose `Add The Quiet Orchard`. The Work page opens, headed `The Quiet Orchard`, with its fields and the `1080p` cell reading `Missing`.
+- **Add the Work.** Search again, choose `Add The Quiet Orchard`, then `Add Movie` in the sheet. The Work page opens, headed `The Quiet Orchard`, with its fields and the `1080p` cell reading `Missing`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/add-a-movie/add-work-page/work.aria.yml
   $FW exec $RUN --proof add-a-movie/add-work-page -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/add-a-movie/add-work-page/work.png
   $FW exec $RUN --proof add-a-movie/add-work -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/works'

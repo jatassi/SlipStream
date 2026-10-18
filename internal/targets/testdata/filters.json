@@ -1,0 +1,35 @@
+{
+  "audio_codec": [
+    "TrueHD",
+    "DTS-HD MA",
+    "DTS",
+    "DD+",
+    "DD",
+    "AAC",
+    "FLAC",
+    "PCM",
+    "Opus",
+    "MP3"
+  ],
+  "channels": [
+    "7.1",
+    "5.1",
+    "2.0",
+    "1.0"
+  ],
+  "hdr": [
+    "DV",
+    "HDR10+",
+    "HDR10",
+    "HLG",
+    "SDR"
+  ],
+  "video_codec": [
+    "x264",
+    "x265",
+    "AV1",
+    "VP9",
+    "XviD",
+    "MPEG2"
+  ]
+}

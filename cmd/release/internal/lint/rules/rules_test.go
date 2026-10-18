@@ -224,6 +224,7 @@ func TestConfigWriter(t *testing.T) {
 
 func TestCredentialColumns(t *testing.T) {
 	assertFindings(t, check(t, "credential-columns", fixtureRepo(t, "credential-columns")), []string{
+		"internal/archive/schema/00001_archive.sql:4: [credential-columns] archive_feed.token holds a credential in plain text; seal it as token_sealed or keep only its digest as token_hash",
 		"internal/vault/schema/00001_vault.sql:4: [credential-columns] vault_login.password holds a credential in plain text; seal it as password_sealed or keep only its digest as password_hash",
 		"internal/vault/schema/00002_vault_cookie.sql:2: [credential-columns] vault_login.tracker_cookie holds a credential in plain text; seal it as tracker_cookie_sealed or keep only its digest as tracker_cookie_hash",
 	})
@@ -310,6 +311,14 @@ func TestMailConfined(t *testing.T) {
 		"fakes/smtp/smtp_test.go:3: [mail-confined]" + outside,
 		"internal/identity/emails.go:6: [mail-confined]" + outside,
 		"internal/mail/mailtest/mailtest.go:3: [mail-confined]" + outside,
+	})
+}
+
+func TestTargetsApplyConfined(t *testing.T) {
+	const outside = " targets.Apply outside internal/files; save a Change with files.Change, which refills the Works it touches"
+	assertFindings(t, check(t, "targets-apply-confined", fixtureRepo(t, "targets-apply-confined")), []string{
+		"internal/files/filestest/filestest.go:5: [targets-apply-confined]" + outside,
+		"internal/targetsapi/profiles.go:12: [targets-apply-confined]" + outside,
 	})
 }
 

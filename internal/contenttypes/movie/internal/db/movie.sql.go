@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -28,6 +29,51 @@ func (q *Queries) GetMovie(ctx context.Context, workID works.WorkID) (MovieMovie
 		&i.RuntimeMinutes,
 	)
 	return i, err
+}
+
+const listMovies = `-- name: ListMovies :many
+SELECT work_id, tmdb_id, imdb_id, title, year, released, runtime_minutes FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]MovieMovie, error) {
+	query := listMovies
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MovieMovie
+	for rows.Next() {
+		var i MovieMovie
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Title,
+			&i.Year,
+			&i.Released,
+			&i.RuntimeMinutes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const upsertMovie = `-- name: UpsertMovie :exec

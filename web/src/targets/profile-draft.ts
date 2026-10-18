@@ -1,0 +1,41 @@
+import type { TargetsNewProfile, TargetsProfile } from "../api/gen/model";
+import { type EditionsDraft, editionsBodyOf, editionsDraftOf } from "./editions-draft";
+
+/**
+ * A Profile being edited. `id` is null until it is created; once set, the
+ * Content Type is fixed and the Profile's estimates can be read.
+ */
+export type ProfileDraft = {
+  readonly id: string | null;
+  readonly name: string;
+  readonly contentType: string;
+  /** Target ids, in Profile order. */
+  readonly targets: readonly string[];
+  readonly editions: EditionsDraft;
+};
+
+export const newProfileDraft = (contentType: string): ProfileDraft => ({
+  id: null,
+  name: "",
+  contentType,
+  targets: [],
+  editions: editionsDraftOf({ kind: "any" }),
+});
+
+export const profileDraftOf = (profile: TargetsProfile): ProfileDraft => ({
+  id: profile.id,
+  name: profile.name,
+  contentType: profile.contentType,
+  targets: profile.targets.map((entry) => entry.targetId),
+  editions: editionsDraftOf(profile.editions),
+});
+
+export const profileProblemsOf = (draft: ProfileDraft): string[] =>
+  draft.name.trim() === "" ? ["Name the Profile."] : [];
+
+export const profileBodyOf = (draft: ProfileDraft): TargetsNewProfile => ({
+  name: draft.name.trim(),
+  contentType: draft.contentType,
+  targets: draft.targets.map((targetId) => ({ targetId, sourcing: "download" })),
+  editions: editionsBodyOf(draft.editions),
+});

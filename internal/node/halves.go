@@ -157,15 +157,32 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Changed: indexers.ChangedEvent.Bind(n.hub),
 	})
-	shelf := files.New(files.Config{Library: lib.db, Works: tree, Grabs: grabs.GrabCells{}})
+	goals, err := targets.Open(ctx, targets.Config{
+		Library: lib.db,
+		Works:   tree,
+		Types:   contenttype.Project(opened, func(t contenttype.Type) targets.Facet { return t }),
+		Changed: targets.ChangedEvent.Bind(n.hub),
+	})
+	if err != nil {
+		return err
+	}
+	shelf := files.New(files.Config{
+		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
+		Naming:  contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
+		Today:   n.today,
+		Disk:    files.OSDisk{},
+		Timings: n.cfg.Timings.Files,
+		Rand:    n.filesRand,
+		Log:     n.rootLog.With("subsystem", "files"),
+	})
 	receiver := transfers.NewReceiver(transfers.Config{Local: local, Link: n.link, Keys: side, Timings: n.cfg.Timings.Transfers})
 	pipeline := grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
+		Targets:   goals,
 		Files:     shelf,
 		Indexers:  registry,
 		Terms:     contenttype.Project(opened, func(t contenttype.Type) indexers.Facet { return t }),
-		Naming:    contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
 		Roster:    side,
 		Downloads: downloads,
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
@@ -206,7 +223,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	n.setHalf(&half{
 		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
-		targets:   targets.New(targets.Config{Library: lib.db, Types: types, Changed: targets.ChangedEvent.Bind(n.hub)}),
+		targets:   goals,
 		roots:     roots.New(roots.Config{Library: lib.db, Types: types, Self: side.Self(), Changed: roots.ChangedEvent.Bind(n.hub)}),
 		files:     shelf,
 		grabs:     pipeline,
@@ -215,9 +232,18 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("grabs", pipeline.Run)
+	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.env.Test.started(started)
 	return nil
+}
+
+// today is the time now in the Controller's zone.
+func (n *Node) today() time.Time {
+	if n.env.Test.Today != nil {
+		return n.env.Test.Today().In(n.zone())
+	}
+	return time.Now().In(n.zone())
 }
 
 func (n *Node) zone() *time.Location {

@@ -5,27 +5,43 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+type FilesDoomed struct {
+	FileID FileID
+	RootID roots.ID
+	Path   string
+	Sits   *string
+}
+
 type FilesFile struct {
 	ID      FileID
 	WorkID  works.WorkID
 	ItemID  works.ItemID
-	Edition Edition
+	Cut     release.CutKey
 	RootID  roots.ID
 	Path    string
 	Size    int64
 	Probe   Probe
 	GrabID  storage.UUID
+	Quality release.Quality
+	Label   string
+	Extra   int64
 }
 
 type FilesFill struct {
 	FileID   FileID
 	TargetID targets.TargetID
 	ItemID   works.ItemID
-	Edition  Edition
+	Edition  targets.Edition
+}
+
+type FilesMove struct {
+	FileID FileID
+	Sits   string
 }

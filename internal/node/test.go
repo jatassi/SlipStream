@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/link"
@@ -40,6 +41,9 @@ type Test struct {
 	Transfers transfers.Hooks
 	// BeforeStep sees each Grab step on the Controller before it runs.
 	BeforeStep func(context.Context, grabs.Stage)
+	// Today stands in for the Controller's clock where it decides which
+	// Items are out, for a synctest bubble, whose time starts in 2000.
+	Today func() time.Time
 }
 
 // Half is a started half as a test reaches it. Library, Controls and

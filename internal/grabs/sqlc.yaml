@@ -21,6 +21,9 @@ sql:
           - column: grabs_search.id
             go_type:
               type: SearchID
+          - column: grabs_refusal.search_id
+            go_type:
+              type: SearchID
           - column: "*.work_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/works
@@ -43,8 +46,13 @@ sql:
               type: NodeID
           - column: grabs_grab.edition
             go_type:
-              import: github.com/jatassi/slipstream/internal/files
+              import: github.com/jatassi/slipstream/internal/targets
               type: Edition
+          - column: grabs_grab.unwanted
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: Unwanted
+              pointer: true
           - column: grabs_grab.root_id
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
@@ -91,4 +99,8 @@ sql:
           - column: grabs_grab.file_index
             go_type:
               type: int64
+              pointer: true
+          - column: grabs_search.notes
+            go_type:
+              type: string
               pointer: true

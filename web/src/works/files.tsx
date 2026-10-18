@@ -25,7 +25,7 @@ function FileRow({ file }: { file: FilesLibraryFile }) {
 export function Files({ cells }: { cells: readonly FilesCell[] }) {
   const files = [
     ...new Map(
-      cells.flatMap((cell) => (cell.state === "met" ? [[cell.file.id, cell.file] as const] : [])),
+      cells.flatMap((cell) => ("file" in cell ? [[cell.file.id, cell.file] as const] : [])),
     ).values(),
   ];
   return (

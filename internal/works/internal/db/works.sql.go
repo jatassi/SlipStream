@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -272,6 +273,52 @@ SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FR
 
 func (q *Queries) ListItems(ctx context.Context, workID WorkID) ([]WorksItem, error) {
 	rows, err := q.db.QueryContext(ctx, listItems, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorksItem
+	for rows.Next() {
+		var i WorksItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.LevelID,
+			&i.Key,
+			&i.Label,
+			&i.Position,
+			&i.WithdrawnAt,
+			&i.Monitored,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listItemsOfWorks = `-- name: ListItemsOfWorks :many
+SELECT id, work_id, level_id, "key", label, position, withdrawn_at, monitored FROM works_item WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id, withdrawn_at IS NOT NULL, position, id
+`
+
+func (q *Queries) ListItemsOfWorks(ctx context.Context, workIds []WorkID) ([]WorksItem, error) {
+	query := listItemsOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

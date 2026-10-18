@@ -16,7 +16,9 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -105,7 +107,7 @@ func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 	f := works.Fetched{Label: artist.Name, SortLabel: artist.SortName}
 	d := detail{Country: artist.Country, Disambiguation: artist.Disambiguation}
 	for _, album := range albums {
-		release, ok, err := m.source.Canonical(ctx, album.ID)
+		canonical, ok, err := m.source.Canonical(ctx, album.ID)
 		if err != nil {
 			return works.Fetched{}, err
 		}
@@ -117,9 +119,9 @@ func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 			released = ""
 		}
 		level := works.Entry{Key: works.Key(album.ID), Label: album.Title}
-		ad := albumDetail{Key: level.Key, Released: released, PrimaryType: album.PrimaryType, Release: db.ReleaseID(release.ID)}
-		slices.SortFunc(release.Media, func(a, b musicbrainz.Medium) int { return cmp.Compare(a.Position, b.Position) })
-		for _, medium := range release.Media {
+		ad := albumDetail{Key: level.Key, Released: released, PrimaryType: album.PrimaryType, Release: db.ReleaseID(canonical.ID)}
+		slices.SortFunc(canonical.Media, func(a, b musicbrainz.Medium) int { return cmp.Compare(a.Position, b.Position) })
+		for _, medium := range canonical.Media {
 			slices.SortFunc(medium.Tracks, func(a, b musicbrainz.Track) int { return cmp.Compare(a.Position, b.Position) })
 			for _, t := range medium.Tracks {
 				track := works.Entry{Key: works.Key(album.ID + "/" + t.Recording.ID), Label: t.Title}
@@ -212,12 +214,57 @@ func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item wor
 }
 
 func (*Music) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Target}"}
+	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Edition} {Target}"}
 }
 
 // SearchTerms answers indexers' empty answer: music isn't searched.
 func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
+}
+
+// Timings answers each track's length and its album's release date.
+func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
+	q := db.New(r)
+	albums, err := q.ListAlbumsOf(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+	released := map[works.LevelID]release.Fact[works.Date]{}
+	for _, a := range albums {
+		if a.Released == "" {
+			continue
+		}
+		d, err := works.ParseDate(a.Released)
+		if err != nil {
+			return nil, fmt.Errorf("album %s: %w", a.LevelID, err)
+		}
+		released[a.LevelID] = release.Known(d)
+	}
+	tracks, err := q.ListTracksOf(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+	length := map[works.ItemID]release.Fact[time.Duration]{}
+	for _, t := range tracks {
+		if t.LengthMs != nil {
+			length[t.ItemID] = release.Known(time.Duration(*t.LengthMs) * time.Millisecond)
+		}
+	}
+	items, err := works.ItemsOf(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	out := map[works.ItemID]targets.Timing{}
+	for _, of := range items {
+		for _, it := range of {
+			out[it.ID] = targets.Timing{Released: released[it.LevelID], Runtime: length[it.ID]}
+		}
+	}
+	return out, nil
+}
+
+func (*Music) Cuts() []release.Cut {
+	return []release.Cut{{Key: "deluxe", Name: "Deluxe", Aliases: []string{"Deluxe", "Deluxe Edition"}}}
 }
 
 func artistFields(country string) []works.FieldValue {

@@ -5,6 +5,7 @@ package site
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -21,6 +23,9 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
+// List lists an unlisted release from now on: {"release": "<name>"}.
+var List = fake.CueSpec{Name: "fixture-site-list"}
+
 // Fake reaches no Endpoints entry: an Admin enters an Indexer's URL.
 var Fake = fake.Spec{
 	Name:      "fixture-site",
@@ -28,6 +33,7 @@ var Fake = fake.Spec{
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
+	Cues:      []fake.CueSpec{List},
 	Entered:   indexers,
 }
 
@@ -62,14 +68,22 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			imdb[m.ID] = m.IMDbID
 		}
 	}
+	unlisted := map[string]bool{}
+	for _, r := range s.Releases {
+		unlisted[r.Name] = r.Unlisted
+	}
 	var listed []Release
 	passkey := ""
 	if env.Releases != nil {
 		passkey = env.Releases.Passkey
 		for _, r := range env.Releases.Releases {
+			size := r.Size
+			if r.AdvertisedSize > 0 {
+				size = int64(r.AdvertisedSize)
+			}
 			listed = append(listed, Release{
-				Name: r.Name, Size: r.Size, InfoHash: r.InfoHash.String(),
-				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo,
+				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
+				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
 			})
 		}
 	}
@@ -80,12 +94,17 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		}
 		return at.URL("/announce/" + passkey), nil
 	}
-	return fake.HTTP(env, Routes(APIKey(s), listed, announce)), nil
+	site := newSite(APIKey(s), listed, announce)
+	if err := fake.OnCue(env, List.Name, site.list); err != nil {
+		return nil, err
+	}
+	return fake.HTTP(env, site.routes()), nil
 }
 
 // Release is one item the site lists, and its .torrent.
 type Release struct {
 	Name string
+	// Size is what the listing advertises, not the payload's.
 	Size int64
 	// InfoHash is the torrent's v1 info hash, lowercase hex.
 	InfoHash string
@@ -93,6 +112,8 @@ type Release struct {
 	IMDbID   string
 	Seeders  int64
 	Torrent  []byte
+	// Unlisted leaves it out of every feed until the List cue lists it.
+	Unlisted bool
 }
 
 // APIKey is the site's API key in a world with Scenario s.
@@ -112,6 +133,9 @@ type site struct {
 	apiKey   string
 	releases []Release
 	announce Announce
+
+	mu     sync.Mutex
+	listed map[string]bool
 }
 
 // Announce is the tracker URL a .torrent announces to when origin fetches
@@ -121,11 +145,45 @@ type Announce func(origin string) (string, error)
 // Routes serve releases behind apiKey. Each .torrent announces to the
 // URL announce gives its downloader.
 func Routes(apiKey string, releases []Release, announce Announce) fake.Routes {
-	s := &site{apiKey: apiKey, releases: releases, announce: announce}
+	return newSite(apiKey, releases, announce).routes()
+}
+
+func newSite(apiKey string, releases []Release, announce Announce) *site {
+	return &site{apiKey: apiKey, releases: releases, announce: announce, listed: map[string]bool{}}
+}
+
+func (s *site) routes() fake.Routes {
 	return fake.Routes{
 		"torznab":  {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
 		"download": {Pattern: "GET /download/{file}", Handler: s.download},
 	}
+}
+
+// ListArgs names the release the List cue lists.
+type ListArgs struct {
+	Release string `json:"release"`
+}
+
+type wasListed struct {
+	Was bool `json:"was"`
+}
+
+func (s *site) list(_ context.Context, a ListArgs) (any, error) {
+	if !slices.ContainsFunc(s.releases, func(r Release) bool { return r.Name == a.Release && r.Unlisted }) {
+		return nil, fmt.Errorf("the site has no unlisted release %q", a.Release)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	was := s.listed[a.Release]
+	s.listed[a.Release] = true
+	return wasListed{was}, nil
+}
+
+// shown reports whether the feeds list rel.
+func (s *site) shown(rel Release) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !rel.Unlisted || s.listed[rel.Name]
 }
 
 func (s *site) api(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +246,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
     <title>fixture-site</title>
 `)
 	for _, rel := range s.releases {
-		if !keep(rel) {
+		if !keep(rel) || !s.shown(rel) {
 			continue
 		}
 		link := origin + "/download/" + rel.InfoHash + ".torrent"

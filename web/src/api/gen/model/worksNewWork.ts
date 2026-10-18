@@ -9,4 +9,6 @@ export interface WorksNewWork {
   key: string;
   /** Monitor a new Work's Items; adding a Work already in the library changes nothing */
   monitor?: boolean;
+  /** The Profile of the Content Type a new Work wants from; left out, the type's default */
+  profileId?: string;
 }

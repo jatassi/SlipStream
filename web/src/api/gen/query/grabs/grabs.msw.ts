@@ -10,7 +10,7 @@ export const getListGrabsResponseMock = (
 ): GrabsGrabList => ({
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-    edition: faker.helpers.arrayElement(["standard"] as const),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? {
           failure: {
@@ -89,7 +89,7 @@ export const getGetGrabResponseMock = (
   overrideResponse: Partial<Extract<GrabsGrab, object>> = {},
 ): GrabsGrab => ({
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-  edition: faker.helpers.arrayElement(["standard"] as const),
+  edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean()
     ? {
         failure: {
@@ -186,6 +186,35 @@ export const getListSearchesResponseMock = (
       id: faker.string.uuid(),
       indexerId: faker.string.uuid(),
       itemId: faker.string.uuid(),
+      notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          ...(faker.datatype.boolean()
+            ? {
+                attribute: faker.helpers.arrayElement([
+                  "hdr",
+                  "video_codec",
+                  "audio_codec",
+                  "channels",
+                  "language",
+                ] as const),
+              }
+            : {}),
+          code: faker.helpers.arrayElement([
+            "wrong_work",
+            "cut_not_wanted",
+            "quality_not_in_target",
+            "filter",
+            "size_below",
+            "size_above",
+            "size_not_checked",
+            "not_an_upgrade",
+          ] as const),
+          ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
+          ...(faker.datatype.boolean()
+            ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+        }),
+      ),
       outcome: faker.helpers.arrayElement([
         faker.helpers.arrayElement([
           "grabbed",
@@ -195,6 +224,41 @@ export const getListSearchesResponseMock = (
         ] as const),
         null,
       ]),
+      refused: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          reasons: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            ...(faker.datatype.boolean()
+              ? {
+                  attribute: faker.helpers.arrayElement([
+                    "hdr",
+                    "video_codec",
+                    "audio_codec",
+                    "channels",
+                    "language",
+                  ] as const),
+                }
+              : {}),
+            code: faker.helpers.arrayElement([
+              "wrong_work",
+              "cut_not_wanted",
+              "quality_not_in_target",
+              "filter",
+              "size_below",
+              "size_above",
+              "size_not_checked",
+              "not_an_upgrade",
+            ] as const),
+            ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
+            ...(faker.datatype.boolean()
+              ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
+          })),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
       startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     }),
   ),

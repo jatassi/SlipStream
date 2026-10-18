@@ -39,7 +39,7 @@ func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 		}
 		return lib
 	}
-	old := open(grabs.Schema().Through(2))
+	old := open(grabs.Schema().Through(3))
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: old, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
@@ -51,7 +51,7 @@ func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
 	}}})
-	if _, _, err := w.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", true); err != nil {
+	if _, _, err := w.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{Monitor: true}); err != nil {
 		t.Fatal(err)
 	}
 	home, indexer, fetched, fetching := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
@@ -64,7 +64,7 @@ func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 		}
 		const grab = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size,
 			release_link, stage, info_hash, metainfo, created_at, updated_at)
-		SELECT ?, work_id, id, 'standard', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, 'https://site.test/dl/1', ?, ?, ?, 0, 0 FROM works_item`
+		SELECT ?, work_id, id, 'any', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, 'https://site.test/dl/1', ?, ?, ?, 0, 0 FROM works_item`
 		if _, err := tx.ExecContext(ctx, grab, fetched, indexer, home, "downloading", []byte("01234567890123456789"), []byte{0}); err != nil {
 			return err
 		}

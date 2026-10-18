@@ -116,7 +116,7 @@ func film(cuts ...works.Entry) contenttypetest.Record {
 func TestAFlatWorkKeepsItsItemsThroughRefreshes(t *testing.T) {
 	h := shaped(t, "flat", flatShape)
 	h.fx.Put("f1", film(leaf("k1", "Theatrical"), leaf("k2", "Director's Cut")))
-	first, _, err := h.works.Add(t.Context(), admin, "flat", "f1", false)
+	first, _, err := h.works.Add(t.Context(), admin, "flat", "f1", works.Adding{})
 	expectTree(t, "add", first, err, `f1 "The Long Night" sort "The Long Night" year=1987
   item k1 in  #1 "Theatrical" runtime=1h58m0s
   item k2 in  #2 "Director's Cut" runtime=2h11m0s
@@ -150,7 +150,7 @@ func TestAFlatWorkKeepsItsItemsThroughRefreshes(t *testing.T) {
 func TestAFlatWorkAnnouncedWithNoItemsGainsOne(t *testing.T) {
 	h := shaped(t, "flat", flatShape)
 	h.fx.Put("f2", film())
-	first, _, err := h.works.Add(t.Context(), admin, "flat", "f2", false)
+	first, _, err := h.works.Add(t.Context(), admin, "flat", "f2", works.Adding{})
 	expectTree(t, "announced", first, err, `f2 "The Long Night" sort "The Long Night" year=1987
 `)
 	if first.Items != nil || first.Levels != nil {
@@ -167,7 +167,7 @@ func TestAFlatWorkAnnouncedWithNoItemsGainsOne(t *testing.T) {
 func TestAWithdrawnItemFollowsItsLiveSiblings(t *testing.T) {
 	h := shaped(t, "flat", flatShape)
 	h.fx.Put("f1", film(leaf("k1", "Theatrical"), leaf("k2", "Director's Cut")))
-	first, _, err := h.works.Add(t.Context(), admin, "flat", "f1", false)
+	first, _, err := h.works.Add(t.Context(), admin, "flat", "f1", works.Adding{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func show() contenttypetest.Record {
 func TestASeasonalWorkFollowsItsSource(t *testing.T) {
 	h := shaped(t, "seasonal", seasonalShape)
 	h.fx.Put("s1", show())
-	first, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1", false)
+	first, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1", works.Adding{})
 	expectTree(t, "add", first, err, `s1 "Lamplight Bay" sort "Lamplight Bay"
   level sp depth 1 under "" #1 "Specials" number=0
   level sn1 depth 1 under "" #2 "Season 1" number=1
@@ -281,7 +281,7 @@ func TestAnEpisodeKeyRepeatedUnderTwoSeasonsIsRefused(t *testing.T) {
 		branch("sn2", "Season 2", leaf("e1", "Return")),
 	}
 	h.fx.Put("s1", r)
-	_, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1", false)
+	_, _, err := h.works.Add(t.Context(), admin, "seasonal", "s1", works.Adding{})
 	if want := "the metadata source sent a record SlipStream can't use: season sn2: two Items have key e1"; err == nil || err.Error() != want || !errors.Is(err, works.ErrInvalid) {
 		t.Fatalf("add = %v, want %q", err, want)
 	}
@@ -309,7 +309,7 @@ func serial() contenttypetest.Record {
 func TestATwoLevelWorkMovesNodesAcrossParents(t *testing.T) {
 	h := shaped(t, "nested", nestedShape)
 	h.fx.Put("n1", serial())
-	first, _, err := h.works.Add(t.Context(), admin, "nested", "n1", false)
+	first, _, err := h.works.Add(t.Context(), admin, "nested", "n1", works.Adding{})
 	expectTree(t, "add", first, err, `n1 "The Archive" sort "The Archive"
   level a1 depth 1 under "" #1 "First Arc" arc_no=1
   level a2 depth 1 under "" #2 "Second Arc" arc_no=2
