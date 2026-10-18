@@ -2,7 +2,15 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog } from "@base-ui/react/dialog";
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { type ReactNode, type RefObject, createContext, use, useRef } from "react";
+import {
+  type ReactNode,
+  type RefCallback,
+  createContext,
+  use,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { Icon } from "./icon";
 import { type ShellKind, useShell } from "./shell-context";
@@ -17,7 +25,7 @@ export type PaletteOption = {
 
 export type PaletteGroup = { readonly label: string; readonly items: PaletteOption[] };
 
-const InputRef = createContext<RefObject<HTMLInputElement | null>>({ current: null });
+const InputRef = createContext<RefCallback<HTMLInputElement> | null>(null);
 
 const viewports = {
   desktop: "fixed inset-0 flex items-start justify-center px-4 pt-[12vh]",
@@ -31,6 +39,32 @@ const popups = {
     "flex h-dvh w-full flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]",
 } as const satisfies Record<ShellKind, string>;
 
+// The popup's initialFocus waits a frame, and keys typed straight after the
+// shortcut would land on the page, so the input takes focus as it mounts.
+// Focusing first hides the opener from the popup, so it is kept here for Esc to
+// return to.
+function useTypeaheadFocus(open: boolean) {
+  const input = useRef<HTMLInputElement>(null);
+  const opener = useRef<HTMLElement>(null);
+  const attachInput = useCallback((element: HTMLInputElement | null) => {
+    input.current = element;
+    if (element === null) {
+      return;
+    }
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    element.focus();
+  }, []);
+  // Reopened mid-close, the popup keeps its input, which WebKit has blurred.
+  useLayoutEffect(() => {
+    if (open) {
+      input.current?.focus();
+    }
+  }, [open]);
+  const finalFocus = () => opener.current?.isConnected === true && opener.current;
+  return { input, attachInput, finalFocus };
+}
+
 export function CommandPalette({
   label,
   open,
@@ -43,7 +77,7 @@ export function CommandPalette({
   children: ReactNode;
 }) {
   const shell = useShell();
-  const input = useRef<HTMLInputElement>(null);
+  const { input, attachInput, finalFocus } = useTypeaheadFocus(open);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -53,9 +87,10 @@ export function CommandPalette({
             aria-label={label}
             aria-modal="true"
             initialFocus={input}
+            finalFocus={finalFocus}
             className={`bg-popover text-ink-1 outline-none backdrop-blur-[30px] backdrop-saturate-[1.7] transition-[scale,opacity] duration-(--duration-palette) ease-standard data-starting-style:opacity-0 data-ending-style:opacity-0 ${popups[shell]}`}
           >
-            <InputRef value={input}>{children}</InputRef>
+            <InputRef value={attachInput}>{children}</InputRef>
           </Dialog.Popup>
         </Dialog.Viewport>
       </Dialog.Portal>

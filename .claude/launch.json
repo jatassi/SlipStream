@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/release", "dev", "-scenario", "single-machine"],
+      "port": 5173
+    },
+    {
+      "name": "dev-first-run",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/release", "dev", "-scenario", "first-run"],
+      "port": 5173
+    }
+  ]
+}

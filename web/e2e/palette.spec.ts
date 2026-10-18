@@ -44,3 +44,24 @@ test("the palette opens a Work by its name", async ({ adminPage: page, world }) 
   await expect(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
   await expect(palette).toHaveCount(0);
 });
+
+// Esc starts the close animation, and the palette reopens before it ends.
+async function closeAndReopen(page: Page): Promise<void> {
+  const palette = page.getByRole("dialog", { name: "Search Works or run a command" });
+  await openPalette(page);
+  await expect(palette.getByRole("combobox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await openPalette(page);
+  await page.keyboard.type("go to act");
+  await expect(palette.getByRole("combobox")).toHaveValue("go to act");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/activity$/u);
+  await expect(palette).toHaveCount(0);
+}
+
+test("the palette reopens mid-close and keeps every key typed", async ({ adminPage: page }) => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    // oxlint-disable-next-line no-await-in-loop -- each attempt starts from the last one's page
+    await closeAndReopen(page);
+  }
+});

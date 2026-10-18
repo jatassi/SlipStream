@@ -52,15 +52,17 @@ test("a forward navigation starts one push transition and Back one pop", async (
     .toEqual(isPhone(page) ? ["push-in", "pop-in"] : ["content-fade-in", "content-fade-in"]);
 });
 
-test("a link up to the page above pops back to it", async ({ adminPage: page }) => {
-  await recordTransitions(page);
-  await page.goto("/add?contentType=movie");
-  await expect(page.getByRole("heading", { name: "Add a Movie" })).toBeVisible();
+test(
+  "a back link up to the page above pops back to it",
+  { tag: "@phone" },
+  async ({ adminPage: page }) => {
+    await recordTransitions(page);
+    await page.goto("/add?contentType=movie");
+    await expect(page.getByRole("heading", { name: "Add a Movie" })).toBeVisible();
 
-  await page.getByRole("banner").getByRole("link", { name: "Movies" }).click();
-  await expect(page.getByRole("heading", { name: "Movies", level: 1 })).toBeVisible();
-  expect(await transitionTypes(page)).toEqual([["pop"]]);
-  await expect
-    .poll(() => contentAnimations(page))
-    .toEqual([isPhone(page) ? "pop-in" : "content-fade-in"]);
-});
+    await page.getByRole("banner").getByRole("link", { name: "Movies" }).click();
+    await expect(page.getByRole("heading", { name: "Movies", level: 1 })).toBeVisible();
+    expect(await transitionTypes(page)).toEqual([["pop"]]);
+    await expect.poll(() => contentAnimations(page)).toEqual(["pop-in"]);
+  },
+);

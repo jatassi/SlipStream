@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "feature/**"]
+    branches: [main]
     tags: ["v*"]
   schedule:
     - cron: "23 4 * * *"
@@ -47,13 +47,11 @@ jobs:
         uses: ./.github/actions/go
         with:
           cache: go-plan
-      # A push to a branch other than main is unmerged work, so it is planned
-      # like a pull request into main.
       - id: scope
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main')
+        if: github.event_name == 'pull_request'
         run: go run ./cmd/release scope -explain -base "origin/$BASE" -head HEAD
         env:
-          BASE: ${{ github.base_ref || 'main' }}
+          BASE: ${{ github.base_ref }}
       - id: tag
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
@@ -63,14 +61,14 @@ jobs:
           EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'tag' || github.ref == 'refs/heads/main' && 'push' || 'pr' }}
           SCOPE: ${{ steps.scope.outputs.scope }}
           PACKAGE: ${{ steps.scope.outputs.package }}
-      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
+      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: go run ./cmd/release migrations-frozen -base "$BASE"
         env:
-          BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
-      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^1' }}
+      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: go run ./cmd/release proto-frozen -base "$BASE"
         env:
-          BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || format('origin/{0}', github.base_ref || 'main') }}
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^1' }}
       - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v6
         with:

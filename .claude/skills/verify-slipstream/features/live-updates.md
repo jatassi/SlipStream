@@ -22,7 +22,7 @@ Preconditions:
 
 Steps:
 
-- **See it on.** The top bar holds the breadcrumbs, the capsule and the page's action, and no status.
+- **See it on.** The top bar holds the capsule and the page's action, and no status.
 
   ```sh
   $FW exec $RUN --proof live-updates/live-on -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("banner")' --filename={runDir}/proof/live-updates/live-on/banner.aria.yml

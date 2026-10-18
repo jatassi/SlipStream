@@ -1,12 +1,12 @@
 # Shell
 
-Every signed-in Admin page sits in one of two shells. In a desktop browser the desktop shell has a sidebar of every destination and a top bar with breadcrumbs, the ⌘K capsule and the page's main action. Below 768px the phone shell has a large title, a bottom tab bar and a More sheet. Both carry the command palette, toasts, route titles, errors that keep the shell standing, and the startup sequence that plays once per new tab. A Member, or an Admin who opens `/portal`, sees the portal shell instead.
+Every signed-in Admin page sits in one of two shells. In a desktop browser the desktop shell has a sidebar of every destination and a top bar with the ⌘K capsule and the page's main action. Below 768px the phone shell has a large title, a bottom tab bar and a More sheet. Both carry the command palette, toasts, route titles, errors that keep the shell standing, and the startup sequence that plays once per new tab. A Member, or an Admin who opens `/portal`, sees the portal shell instead.
 
 ## Sub-features
 
 - `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` in `home`), Activity, a separator, Nodes and Tasks, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
-- `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the breadcrumb's last item names the page; a Work and Add sit under `Library` › `Movies` (P-001).
-- `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001).
+- `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the page's title names it; on phone a Work and Add go back to `Movies` (P-001).
+- `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001). The toggle and the brand mark share the top row and keep their places in both widths, the toggle at x 14 to 46 inside the rail and the mark at x 74 to 98 just past its edge, while the wordmark wipes in and out with the sidebar.
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
 - `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` on the Library, and `Add a Movie` is a link on the Movies library.
 - `shell-top-bar-slots` the top bar's right side runs the connection line, the running-tasks capsule and the page's action, in that order; the capsule takes no room while no run is shown, and [Tasks](./tasks.md) drives it (P-007).
@@ -15,6 +15,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`), `Nodes`, `Tasks`, the Admin's name, `Open the portal`, `Restart SlipStream…`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
 - `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing part of a Work's name lists it under Works, Enter opens it, and Esc returns focus where it was.
+- `shell-palette-reopen` in the desktop shell, the shortcut pressed again straight after Esc, while the palette is still closing, reopens it with focus in the search field, and every key typed straight after lands in the query.
 - `shell-palette-commands` with no query the palette lists Go to each nav row and Content Type, Go to each section of the browser's own Node, `Add a Movie`, `Toggle sidebar` (desktop shell only), `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` in both shells.
 - `shell-palette-empty` an unmatched query reads `Nothing matches "volcano". Try a Work's name, or a command such as Add a Movie.`
 - `shell-palette-phone` the `Search` tab opens the palette full screen with `Cancel`.
@@ -31,7 +32,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's rows (`Library`, `Movies`, `Activity`, `Nodes`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`.
-- Desktop shell: the top bar's breadcrumbs, the capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, and the page's action (`Add` on the Library).
+- Desktop shell: the top bar's capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, and the page's action (`Add` on the Library).
 - Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies`, `Go to Activity`, `Go to Nodes`, `Go to Tasks`, `Go to Overview`, `Go to Web and API`, `Go to Logs`, `Go to Log settings`, `Add a Movie`, `Toggle sidebar`, `Restart SlipStream…` and `Sign out`.
 - Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, `Nodes`, `Tasks`, `Open the portal`, `Restart SlipStream…`, `Sign out` and `Startup sequence`).
 - Phone shell: the large title's `Search` button opens the palette and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
@@ -50,7 +51,7 @@ Preconditions:
 
 Steps:
 
-- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `Activity`, `Nodes` and `Tasks`, the Library row and the breadcrumb `Library` are current, and the title reads `Library · SlipStream`.
+- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `Activity`, `Nodes` and `Tasks`, the Library row is current, and the title reads `Library · SlipStream`.
 
   ```sh
   $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/shell/shell-sidebar/library.aria.yml
@@ -89,6 +90,14 @@ Steps:
   $FW exec $RUN --proof shell/shell-palette -- $PW cli -s={runId}-admin-desktop eval 'document.activeElement.getAttribute("aria-label")'
   ```
 
+- **Reopen the palette while it closes.** Open the palette, press Escape and at once Ctrl+K again, then type `go to act`: the field holds the whole query and Enter opens Activity. One `run-code` presses the keys back to back, since separate `press` commands can land after the 220ms close ends.
+
+  ```sh
+  $FW exec $RUN --proof shell/shell-palette-reopen -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.keyboard.press("Control+k"); await page.getByRole("dialog").getByRole("combobox").waitFor(); await page.keyboard.press("Escape"); await page.keyboard.press("Control+k"); await page.keyboard.type("go to act"); return page.getByRole("dialog").getByRole("combobox").inputValue(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Enter
+  $FW exec $RUN --proof shell/shell-palette-reopen -- $PW cli -s={runId}-admin-desktop eval 'location.pathname'
+  ```
+
 - **Add a Work from the palette.** Choose the capsule, type `add a` and press Enter. `Add a Movie` opens at `/add?contentType=movie`; search and add The Quiet Orchard as in [add-a-movie.md](add-a-movie.md). The toast `Added The Quiet Orchard` shows top right, and the Work page is titled `The Quiet Orchard · SlipStream`.
 
   ```sh
@@ -114,7 +123,7 @@ Steps:
   $FW exec $RUN --proof shell/shell-palette -- $PW cli -s={runId}-admin-desktop eval 'location.pathname'
   ```
 
-- **Use the page action and the account menu.** On the Library, `Add` opens the menu `Add a Work` with `Add a Movie`. On `Movies` the action is the link `Add a Movie`, under the breadcrumbs `Library` › `Movies`. `Account` opens `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?`, and `Cancel` leaves the Node running.
+- **Use the page action and the account menu.** On the Library, `Add` opens the menu `Add a Work` with `Add a Movie`. On `Movies` the action is the link `Add a Movie`. `Account` opens `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?`, and `Cancel` leaves the Node running.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
