@@ -212,8 +212,22 @@ type gesture struct {
 	Word    string `json:"word"`
 }
 
+type roleEntry struct {
+	Role   string `json:"role"`
+	Label  string `json:"label"`
+	Probe  string `json:"probe"`
+	Pinned bool   `json:"pinned"`
+}
+
+type roleGroup struct {
+	Group string      `json:"group"`
+	Label string      `json:"label"`
+	Roles []roleEntry `json:"roles"`
+}
+
 type board struct {
 	Basis    string      `json:"basis"`
+	Groups   []roleGroup `json:"groups"`
 	Nodes    []boardNode `json:"nodes"`
 	Gestures []gesture   `json:"gestures"`
 }
@@ -269,6 +283,11 @@ func TestTheRoleOperations(t *testing.T) {
 	if len(b.Nodes) != 2 || b.Nodes[0].Name != "box" || !b.Nodes[0].Away || !slices.Equal(b.Nodes[0].Assigned, []string{"relaying"}) ||
 		len(b.Nodes[0].Roles) != 1 || b.Nodes[0].Roles[0].State != "away" || !b.Nodes[1].Controller || b.Nodes[1].Away {
 		t.Fatalf("the board's nodes are %+v, want box away holding Relaying, then home the Controller", b.Nodes)
+	}
+	if len(b.Groups) != 5 || b.Groups[0].Label != "Acquire" ||
+		!slices.Equal(b.Groups[0].Roles, []roleEntry{{Role: "searching", Label: "Searching"}, {Role: "downloading", Label: "Downloading", Probe: "engine-starts"}}) ||
+		b.Groups[4].Roles[1] != (roleEntry{Role: "serving", Label: "Serving", Probe: "listener-up", Pinned: true}) {
+		t.Fatalf("the board's groups are %+v, want the Role table from Acquire to Reach", b.Groups)
 	}
 	if !slices.Contains(b.Gestures, gesture{Role: "relaying", Verdict: "block", Word: "box already relays"}) {
 		t.Fatalf("the gestures %+v have no blocked add of Relaying onto home", b.Gestures)

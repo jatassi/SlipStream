@@ -1,6 +1,7 @@
 import {
   Globe02Icon,
   InformationCircleIcon,
+  Layers01Icon,
   Settings02Icon,
   TextAlignLeftIcon,
 } from "@hugeicons/core-free-icons";
@@ -25,6 +26,7 @@ export type NodeSection = {
  */
 export const nodeSections = [
   { id: "overview", label: "Overview", icon: InformationCircleIcon, to: "/nodes/$nodeId" },
+  { id: "roles", label: "Roles", icon: Layers01Icon, to: "/nodes/$nodeId/roles" },
   { id: "web", label: "Web and API", icon: Globe02Icon, to: "/nodes/$nodeId/web" },
   { id: "logs", label: "Logs", icon: TextAlignLeftIcon, to: "/nodes/$nodeId/logs" },
   {

@@ -1,10 +1,14 @@
 # Roles
 
-An Admin changes which Node holds which Role through one plan, and writes off the work a Node still holds for a Role, live or offline. The Role board shows every Node's Roles and the plan's verdict on every drag. A plan answers what a set would do in words, and a set stores it once the guardrails allow it. A Role that SlipStream always needs goes back to the Controller when its last holder lets it go. A set planned on rows that changed since, or one a guardrail blocks, answers 409 with the plan as it stands, and nothing is stored. A Node unticked from Downloading while it seeds keeps seeding, draining, until its torrents are written off; a write-off lets them go and keeps every file. Each Node reports its probes, and a probe that fails blocks the Role it guards there. A Role with a target, such as Notifying and its mail server, is reach tested from the Node that gains it, and mail goes out through the Node that holds Notifying.
+An Admin changes which Node holds which Role through one plan, from each Node's Roles section or the API, and writes off the work a Node still holds for a Role, live or offline. The Role board shows every Node's Roles and the plan's verdict on every drag. A plan answers what a set would do in words, and a set stores it once the guardrails allow it. A Role that SlipStream always needs goes back to the Controller when its last holder lets it go. A set planned on rows that changed since, or one a guardrail blocks, answers 409 with the plan as it stands, and nothing is stored. A Node unticked from Downloading while it seeds keeps seeding, draining, until its torrents are written off; a write-off lets them go and keeps every file. Each Node reports its probes, and a probe that fails blocks the Role it guards there. A Role with a target, such as Notifying and its mail server, is reach tested from the Node that gains it, and mail goes out through the Node that holds Notifying.
 
 ## Sub-features
 
-- `roles-board` `GET /api/v1/nodes/roles` answers the `basis`, each Node with `assigned` and its `roles` with a `state` each, and `gestures`, the verdict on every move and add.
+- `roles-board` `GET /api/v1/nodes/roles` answers the `basis`, the `groups` of the Role table from Acquire to Reach with each Role's `label`, `probe` and `pinned`, each Node with `assigned` and its `roles` with a `state` each, and `gestures`, the verdict on every move and add.
+- `roles-section` a Node's Roles section lists the five Role Groups, each with a switch named for the group and `<n> of <m>` in its header. A group opens to its Roles when one is ticked, carries a hint or a state line (such as Draining), or when its switch was just toggled; the rest start collapsed and open from their title. Each Role as a checkbox ticked as assigned, with its state line, such as `Holding 1 torrent (8.2 GB)` on seedbox's Downloading. home's Serving is ticked and disabled with `The Controller always holds Serving.` Review stays off until something changes.
+- `roles-review` unticking Downloading on seedbox and choosing Review opens `Review the change`, listing `seedbox takes no new Downloading work. It keeps its 1 torrent (8.2 GB) until you move or write it off.` and `home takes over Downloading, since SlipStream always needs a Node that downloads.` Apply stores it: the section reads Downloading unticked and `Draining · 1 torrent (8.2 GB) left`.
+- `roles-review-stale` Apply on a Review opened before another change to the Roles reads `Roles changed since you opened this. Here is the change as it stands now.` with the change planned on the rows now, and Apply again stores that.
+- `roles-write-off-dialog` `Write off what seedbox holds` opens a dialog reading `seedbox holds 1 torrent (8.2 GB) for Downloading.` before anything is given up. Write off answers with the PIN re-confirm when the last one is old, the dialog closes, and the section no longer offers the write-off.
 - `roles-plan` `POST /api/v1/nodes/roles/plan` answers the Outcome, `effects` and `checks` in words, and stores nothing.
 - `roles-set` `PUT /api/v1/nodes/roles` stores the set and answers once the Nodes in step it changed hold their new Roles. Unticking seedbox's Downloading hands it to home: `home takes over Downloading, since SlipStream always needs a Node that downloads.`
 - `roles-stale` a plan or set on an old `basis` answers 409 `roles_stale` with `outcome`, the same change planned on the rows now.
@@ -22,7 +26,7 @@ An Admin changes which Node holds which Role through one plan, and writes off th
 
 - API on the Controller (Admin): `GET /api/v1/nodes/roles`, `POST /api/v1/nodes/roles/plan` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}], "test": true}` and `PUT /api/v1/nodes/roles` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}]}`, `POST /api/v1/mail/test` in an Admin's session, `POST /api/v1/nodes/{id}/write-offs` with `{"roles": […]}`, and `GET /api/v1/nodes`.
 - Desktop shell: the sidebar's `Activity` shows a written-off Grab's failure. Phone shell: the `Activity` tab.
-- Desktop and phone: no Roles screen or write-off action yet. The Roles section and its Review come later in the Nodes, Pairing and Roles build.
+- Desktop shell: `Nodes`, then the Node in the picker, then the `Roles` page tab, or the palette's `Go to Roles` for the browser's own Node. The section's `Review` and `Write off what <Node> holds` buttons open the Review and the write-off dialog. Phone shell: More, `Nodes`, then `Roles` in the Node's sections; the Review and the write-off dialog are sheets.
 
 ## Driving it with fakeworld and curl
 
@@ -196,8 +200,72 @@ Steps:
   $FW exec $RUN --proof roles/roles-write-off-offline -- bash -c "$FW announces list {runDir} --node seedbox | jq -s -e 'last.data.event == \"stopped\"'"
   ```
 
+### The Roles section, its Review and write-off
+
+Preconditions:
+
+- A fresh `home` run with doctor passing and the `{runId}-admin-desktop` and `{runId}-admin-phone` sessions signed in, used for nothing else: it grabs The Quiet Orchard and changes seedbox's Roles.
+
+Steps:
+
+- **Grab a release onto seedbox.** As in the drain recipe, add The Quiet Orchard, search it and wait for the Grab to read `imported`. Set `SB` to `{nodes.seedbox.nodeId}` from the manifest, since a shell variable can't hold a token.
+
+  ```sh
+  SB=$(jq -r '.nodes[] | select(.name == "seedbox") | .nodeId' $RUN/manifest.json)
+  HOME_ID=$(jq -r '.nodes[] | select(.name == "home") | .nodeId' $RUN/manifest.json)
+  ```
+
+- **Open seedbox's Roles.** Downloading reads `Holding 1 torrent (8.2 GB)`, the Acquire switch is on with `2 of 2`, and the page offers `Write off what seedbox holds`. On home's Roles, Serving is ticked, disabled, with `The Controller always holds Serving.` Capture desktop and phone.
+
+  ```sh
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/nodes/$SB/roles"
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/roles/roles-section/seedbox-desktop.aria.yml
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/roles/roles-section/seedbox-desktop.png
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-phone goto "{nodes.home.browserUrl}/nodes/$SB/roles"
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-phone screenshot --full-page --filename={runDir}/proof/roles/roles-section/seedbox-phone.png
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/nodes/$HOME_ID/roles"
+  $FW exec $RUN --proof roles/roles-section -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/roles/roles-section/home-desktop.aria.yml
+  ```
+
+- **Untick Downloading and review it.** The Review lists the drain and the handback to home. Apply, and the section reads `Draining · 1 torrent (8.2 GB) left`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/nodes/$SB/roles"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("checkbox", { name: "Downloading", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Review", exact: true })'
+  $FW exec $RUN --proof roles/roles-review -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/roles/roles-review/review.aria.yml
+  $FW exec $RUN --proof roles/roles-review -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/roles/roles-review/review.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Apply" })'
+  $FW exec $RUN --proof roles/roles-review -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/roles/roles-review/applied.png
+  ```
+
+- **Apply a Review gone stale.** Open the Process group, tick Subtitles and open the Review, then give seedbox Converting over the API on the current basis. Apply reads the stale line, with `seedbox stops Converting.`; Apply again stores Subtitles.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Process", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("checkbox", { name: "Subtitles", exact: true })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Review", exact: true })'
+  BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
+  $FW exec $RUN -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"$SB\",\"roles\":[\"searching\",\"converting\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Apply" })'
+  $FW exec $RUN --proof roles/roles-review-stale -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/roles/roles-review-stale/stale.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Apply" })'
+  $FW exec $RUN --proof roles/roles-review-stale -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles'
+  ```
+
+- **Write off what seedbox holds.** The dialog shows the count and size first. Write off closes it, and the section stops offering it once the torrent has left seedbox.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Write off what seedbox holds" })'
+  $FW exec $RUN --proof roles/roles-write-off-dialog -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/roles/roles-write-off-dialog/dialog.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Write off" })'
+  $FW announces wait $RUN --node seedbox --where event=stopped --timeout 60s
+  $FW exec $RUN --proof roles/roles-write-off-dialog -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/roles/roles-write-off-dialog/after.aria.yml
+  ```
+
 ## Gotchas
 
+- The section keeps unreviewed ticks while the board refreshes underneath, so a Review opened after another tab's change plans on the old basis and comes back stale on Apply; that is the `roles-review-stale` path, not a bug.
 - Every set needs the `basis` of the board or Outcome it was planned on. Read it again after each set; the old one answers `roles_stale`.
 - A Node the set doesn't name keeps its Roles. A Role SlipStream always needs comes back to home whenever no Node in the set holds it, and Serving stays on home whatever the set says.
 - A set naming a Node that is down answers at once; the Node gets its Roles when its Sync session attaches again.

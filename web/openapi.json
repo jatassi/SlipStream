@@ -3229,6 +3229,10 @@
               "http_not_listening"
             ],
             "type": "string"
+          },
+          "words": {
+            "description": "What it found, as a sentence; absent when it fits",
+            "type": "string"
           }
         },
         "required": [
@@ -3274,6 +3278,13 @@
             },
             "type": "array"
           },
+          "groups": {
+            "description": "Every Role Group and its Roles, in the table's order",
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleGroup"
+            },
+            "type": "array"
+          },
           "nodes": {
             "description": "Every Node, in id order",
             "items": {
@@ -3284,8 +3295,81 @@
         },
         "required": [
           "basis",
+          "groups",
           "nodes",
           "gestures"
+        ],
+        "type": "object"
+      },
+      "NodesRoleEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "pinned": {
+            "description": "The Controller holds it whatever the Admin ticks",
+            "type": "boolean"
+          },
+          "probe": {
+            "description": "The probe a Node runs before it is given the Role; absent for none",
+            "enum": [
+              "engine-starts",
+              "data-writable",
+              "listener-up"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "label",
+          "pinned"
+        ],
+        "type": "object"
+      },
+      "NodesRoleGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "enum": [
+              "acquire",
+              "store",
+              "process",
+              "connect",
+              "reach"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "group",
+          "label",
+          "roles"
         ],
         "type": "object"
       },

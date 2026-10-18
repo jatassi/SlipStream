@@ -33,6 +33,7 @@ test("the page tabs link to every section and mark the current one", async () =>
     .toHaveAttribute("aria-current", "page");
   expect(linkTexts("home")).toEqual([
     ["Overview", `/nodes/${homeId}`],
+    ["Roles", `/nodes/${homeId}/roles`],
     ["Web and API", `/nodes/${homeId}/web`],
     ["Logs", `/nodes/${homeId}/logs`],
     ["Log settings", `/nodes/${homeId}/log-settings`],
@@ -140,7 +141,7 @@ test("on phone, Nodes lists the Node's sections, and each pushes with a back lin
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Web and API", "Logs", "Log settings"]);
+  ).toEqual(["Roles", "Web and API", "Logs", "Log settings"]);
 
   await userEvent.click(sections.getByRole("link", { name: "Logs" }));
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/logs`);

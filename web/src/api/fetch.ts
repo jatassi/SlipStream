@@ -35,7 +35,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     return body as T;
   }
   if (response.headers.get("Content-Type")?.startsWith(problemType) === true) {
-    throw new ApiError(Problem.parse(await response.json()));
+    const body: unknown = await response.json();
+    throw new ApiError(Problem.parse(body), body);
   }
   throw new UnreachableError({ cause: new Error(`${response.status} ${response.statusText}`) });
 }

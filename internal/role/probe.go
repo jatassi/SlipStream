@@ -33,6 +33,17 @@ var probeReasons = map[ProbeReason]Probe{
 // ProbeReasons is every ProbeReason, sorted.
 func ProbeReasons() []ProbeReason { return slices.Sorted(maps.Keys(probeReasons)) }
 
+var probeWords = map[ProbeReason]string{
+	EngineNotListening:      "Its torrent engine isn't listening for peers.",
+	DownloadsNotWritable:    "Its downloads folder can't be written to.",
+	DownloadsOnNetworkShare: "Its downloads folder is on a network share.",
+	DataNotWritable:         "Its data folder can't be written to.",
+	HTTPNotListening:        "Its web server isn't listening.",
+}
+
+// Words is what r found, as a sentence.
+func (r ProbeReason) Words() string { return probeWords[r] }
+
 // Probe is the probe that finds r.
 func (r ProbeReason) Probe() Probe { return probeReasons[r] }
 

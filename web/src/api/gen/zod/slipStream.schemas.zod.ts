@@ -1112,6 +1112,7 @@ export const NodesProbe = zod.object({
     ])
     .exactOptional()
     .describe("Why it is weak or fails; absent when it fits"),
+  words: zod.string().exactOptional().describe("What it found, as a sentence; absent when it fits"),
 });
 
 export type NodesProbe = zod.input<typeof NodesProbe>;
@@ -1687,11 +1688,47 @@ export const NodesResources = zod.object({
 export type NodesResources = zod.input<typeof NodesResources>;
 export type NodesResourcesOutput = zod.output<typeof NodesResources>;
 
+export const NodesRoleEntry = zod.object({
+  label: zod.string(),
+  pinned: zod.boolean().describe("The Controller holds it whatever the Admin ticks"),
+  probe: zod
+    .enum(["engine-starts", "data-writable", "listener-up"])
+    .exactOptional()
+    .describe("The probe a Node runs before it is given the Role; absent for none"),
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+});
+
+export type NodesRoleEntry = zod.input<typeof NodesRoleEntry>;
+export type NodesRoleEntryOutput = zod.output<typeof NodesRoleEntry>;
+
+export const NodesRoleGroup = zod.object({
+  group: zod.enum(["acquire", "store", "process", "connect", "reach"]),
+  label: zod.string(),
+  roles: zod.array(NodesRoleEntry),
+});
+
+export type NodesRoleGroup = zod.input<typeof NodesRoleGroup>;
+export type NodesRoleGroupOutput = zod.output<typeof NodesRoleGroup>;
+
 export const NodesRoleBoard = zod.object({
   basis: zod.string(),
   gestures: zod
     .array(NodesGesture)
     .describe("The plan's verdict on every move and add a drag can make"),
+  groups: zod
+    .array(NodesRoleGroup)
+    .describe("Every Role Group and its Roles, in the table's order"),
   nodes: zod.array(NodesBoardNode).describe("Every Node, in id order"),
 });
 
