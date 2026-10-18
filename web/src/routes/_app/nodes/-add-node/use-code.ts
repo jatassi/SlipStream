@@ -21,16 +21,21 @@ export const dialPoll = 2000;
 const dialingOf = (state: NodesCodeState | undefined): boolean =>
   state?.dialing !== undefined && !state.dialing.unreachable;
 
-function answerOf(query: { data: NodesCodeState | undefined; error: unknown }): CodeAnswer {
-  if (query.data !== undefined) {
-    return { kind: "known", state: query.data };
+// A failed refetch keeps the last answer, so a 404 after a revoke wins over it.
+function answerOf({
+  data,
+  error,
+}: {
+  data: NodesCodeState | undefined;
+  error: unknown;
+}): CodeAnswer {
+  if (isApiError(error) && error.code === "join_code_not_found") {
+    return { kind: "gone" };
   }
-  if (query.error === null) {
-    return { kind: "loading" };
+  if (data !== undefined) {
+    return { kind: "known", state: data };
   }
-  return isApiError(query.error) && query.error.code === "join_code_not_found"
-    ? { kind: "gone" }
-    : { kind: "failed", sentence: sentenceOf(query.error) };
+  return error === null ? { kind: "loading" } : { kind: "failed", sentence: sentenceOf(error) };
 }
 
 /** The Join Code the dialog follows, where it stands, and the codes still open beside it. */
