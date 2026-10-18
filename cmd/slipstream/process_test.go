@@ -551,6 +551,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MIN"},
 			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MAX"},
 			{Key: "timings.role.beat", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_BEAT"},
+			{Key: "timings.role.stall", Value: "45s", Default: "45s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_STALL"},
 			{Key: "timings.nodes.seen_persist", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_SEEN_PERSIST"},
 			{Key: "timings.nodes.blip", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_BLIP"},
 			{Key: "timings.nodes.settle", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_SETTLE"},
