@@ -37,9 +37,14 @@ function Actions({
   );
 }
 
-/** The new Node's Role Groups, ticked from what it can do (its `suggested` Roles). */
+/**
+ * The new Node's Role Groups, ticked from what it can do (its `suggested`
+ * Roles). Until the Admin ticks something, the ticks follow the suggestions,
+ * which grow as the new Node's probes arrive.
+ */
 export function Pick({ board, seat, node, onClose, onApplied }: PickProps) {
-  const [draft, setDraft] = useState<Draft>(() => new Set(seat.suggested));
+  const [picked, setDraft] = useState<Draft>();
+  const draft = picked ?? new Set(seat.suggested);
   const [reviewing, setReviewing] = useState<Change>();
   const now = useNow(60_000);
   return (

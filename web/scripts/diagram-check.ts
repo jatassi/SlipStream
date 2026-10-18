@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { type Page, chromium } from "playwright";
 import { createServer } from "vite";
 
+import { LINE_ENDS } from "../../.claude/skills/anatomy/scripts/line-ends.mjs";
 import { FIXTURE_SIZES } from "../src/diagram/fixtures";
 import { say } from "./diagram-record";
 
@@ -17,14 +18,13 @@ import { say } from "./diagram-record";
 
 const WEB = fileURLToPath(new URL("..", import.meta.url));
 const ROOT = join(WEB, "..");
-const LINES = join(ROOT, ".claude/skills/anatomy/scripts/lines.mjs");
 const CLOSE_UPS = join(ROOT, ".verify/diagram");
 const FRAME_BUDGET_MS = 3;
 const BUDGET_FIXTURE = 8;
 const SETTLE_MS = 6000;
+const LINES_SETTLE_MS = 2700;
 
 env["DEV_API_ORIGIN"] ??= "http://127.0.0.1:1";
-env["CHROME_PATH"] ??= chromium.executablePath();
 
 const server = await createServer({
   root: WEB,
@@ -42,39 +42,36 @@ const pageOf = (size: number): string =>
 const failures: string[] = [];
 
 /** Runs a program to its end without blocking this process, which serves the harness page meanwhile. */
-function runOf(
-  command: string,
-  args: readonly string[],
-  echo: boolean,
-): Promise<{ status: number | null; out: string }> {
+function runOf(command: string, args: readonly string[]): Promise<number | null> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd: WEB,
-      stdio: ["ignore", echo ? "inherit" : "pipe", "inherit"],
-    });
-    let out = "";
-    child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
-      out += chunk;
-    });
+    const child = spawn(command, args, { cwd: WEB, stdio: "inherit" });
     child.on("error", reject);
-    child.on("close", (status) => {
-      resolve({ status, out });
-    });
+    child.on("close", resolve);
   });
 }
 
-async function lines(size: number) {
-  const run = await runOf("node", [LINES, pageOf(size), "--select", ".diagram"], false);
-  const verdict = /line ends: \d+[^\n]*/u.exec(run.out)?.[0] ?? "no verdict";
-  say(`fixture ${String(size)}: ${verdict}`);
-  if (run.status !== 0 || !verdict.startsWith("line ends: 0 ")) {
+type LineEnds = {
+  readonly problems: readonly unknown[];
+  readonly ends: number;
+  readonly lines: number;
+};
+
+// The anatomy skill's own line-ends check (what its lines.mjs runs), read
+// through Playwright: lines.mjs's driver aborts its navigation on Windows runners.
+async function lines(page: Page, size: number) {
+  await page.goto(pageOf(size), { waitUntil: "networkidle" });
+  await page.waitForTimeout(LINES_SETTLE_MS);
+  const result: LineEnds = await page.evaluate(`(${LINE_ENDS})({ select: ".diagram" })`);
+  say(
+    `fixture ${String(size)}: line ends: ${String(result.problems.length)} of ${String(result.ends)} ends on ${String(result.lines)} lines float`,
+  );
+  if (result.problems.length > 0) {
     failures.push(`line ends on fixture ${String(size)}`);
   }
 }
 
 async function audit() {
-  const run = await runOf("bun", [join(WEB, "scripts/diagram-audit.ts")], true);
-  if (run.status !== 0) {
+  if ((await runOf("bun", [join(WEB, "scripts/diagram-audit.ts")])) !== 0) {
     failures.push("anatomy audit");
   }
 }
@@ -142,9 +139,13 @@ async function closeUps(page: Page) {
 }
 
 try {
-  await Promise.all(FIXTURE_SIZES.map((size) => lines(size)));
-  await audit();
   const browser = await chromium.launch();
+  const linesPage = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+  await FIXTURE_SIZES.reduce(async (prior, size) => {
+    await prior;
+    await lines(linesPage, size);
+  }, Promise.resolve());
+  await audit();
   await frameBudget(await browser.newPage({ viewport: { width: 1400, height: 1000 } }));
   await closeUps(
     await browser.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 4 }),
