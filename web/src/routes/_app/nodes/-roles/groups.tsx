@@ -1,5 +1,5 @@
 import { Alert02Icon, CancelCircleIcon } from "@hugeicons/core-free-icons";
-import { useId } from "react";
+import { useState } from "react";
 
 import type {
   NodesBoardNode,
@@ -19,6 +19,7 @@ import {
   withRole,
 } from "../../../../nodes/roles";
 import { Checkbox } from "../../../../ui/checkbox";
+import { DisclosureCard } from "../../../../ui/disclosure-card";
 import { Icon } from "../../../../ui/icon";
 import { SwitchControl } from "../../../../ui/switch";
 
@@ -65,6 +66,9 @@ function RoleRow({ row, onTick }: { row: Row; onTick: (on: boolean) => void }) {
   );
 }
 
+const noteworthy = (rows: readonly Row[]): boolean =>
+  rows.some((row) => row.ticked || row.hint !== undefined);
+
 function GroupCard({
   group,
   rows,
@@ -76,27 +80,30 @@ function GroupCard({
   onGroup: (on: boolean) => void;
   onRole: (row: Row, on: boolean) => void;
 }) {
-  const titleId = useId();
+  const [open, setOpen] = useState(() => noteworthy(rows));
   const ticked = rows.filter((row) => row.ticked).length;
   return (
-    <section
-      aria-labelledby={titleId}
-      className="overflow-hidden rounded-card bg-fill ring-1 ring-hairline ring-inset"
+    <DisclosureCard
+      title={group.label}
+      open={open}
+      onOpenChange={setOpen}
+      aside={
+        <>
+          <span className="text-meta text-ink-3 tabular-nums">
+            {ticked} of {rows.length}
+          </span>
+          <SwitchControl
+            label={group.label}
+            checked={ticked === rows.length}
+            onCheckedChange={(on) => {
+              setOpen(true);
+              onGroup(on);
+            }}
+          />
+        </>
+      }
     >
-      <div className="flex min-h-11 items-center gap-3 px-4">
-        <h3 id={titleId} className="flex-1 font-semibold text-ink-1">
-          {group.label}
-        </h3>
-        <span className="text-meta text-ink-3 tabular-nums">
-          {ticked} of {rows.length}
-        </span>
-        <SwitchControl
-          label={group.label}
-          checked={ticked === rows.length}
-          onCheckedChange={onGroup}
-        />
-      </div>
-      <ul className="divide-y divide-hairline border-t border-hairline">
+      <ul className="divide-y divide-hairline">
         {rows.map((row) => (
           <RoleRow
             key={row.entry.role}
@@ -107,7 +114,7 @@ function GroupCard({
           />
         ))}
       </ul>
-    </section>
+    </DisclosureCard>
   );
 }
 

@@ -35,6 +35,7 @@ const drained: NodesBoardNode = {
 
 const dialog = () => page.getByRole("dialog", { name: "Review the change" });
 const role = (name: string) => page.getByRole("checkbox", { name, exact: true });
+const titled = (name: string) => page.getByRole("button", { name, exact: true });
 
 function rolesOf(seat: NodesBoardNode, { handlers = [] }: { handlers?: RequestHandler[] } = {}) {
   const others = seat.id === homeId ? [seedboxSeat] : [homeSeat];
@@ -51,12 +52,28 @@ test("the Roles section shows each Role Group's switch and every Role's state", 
       expect.element(page.getByRole("switch", { name: group })).toBeVisible(),
     ),
   );
+  await expect.element(page.getByText("0 of 2").first()).toBeVisible();
+  await userEvent.click(titled("Acquire"));
   await expect.element(role("Downloading")).not.toBeChecked();
   await expect.element(page.getByText("Draining · 3 torrents (41 GB) left")).toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Write off what seedbox holds" }))
     .toBeVisible();
   await expect.element(page.getByRole("button", { name: "Review" })).toBeDisabled();
+});
+
+test("a Role Group opens to its Roles only when one is ticked, hinted or just switched", async () => {
+  rolesOf(seedboxSeat);
+  await expect.element(titled("Acquire")).toHaveAttribute("aria-expanded", "true");
+  await expect.element(titled("Process")).toHaveAttribute("aria-expanded", "false");
+  await expect.element(role("Subtitles")).not.toBeInTheDocument();
+  await expect.element(page.getByText("0 of 2").first()).toBeVisible();
+
+  await userEvent.click(page.getByRole("switch", { name: "Process" }));
+  await expect.element(role("Subtitles")).toBeChecked();
+
+  await userEvent.click(titled("Connect"));
+  await expect.element(role("Notifying")).not.toBeChecked();
 });
 
 test("the Controller keeps Serving ticked and says why", async () => {
@@ -200,6 +217,7 @@ test("a change planned on an old basis comes back as a fresh Review, and a faile
     ],
   });
   rolesOf(seedboxSeat, { handlers: roles.handlers });
+  await userEvent.click(titled("Connect"));
   await userEvent.click(role("Notifying"));
   await userEvent.click(page.getByRole("button", { name: "Review" }));
   await userEvent.click(dialog().getByRole("button", { name: "Apply" }));

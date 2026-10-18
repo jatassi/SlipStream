@@ -63,6 +63,8 @@ test("a change someone made since the Review opened comes back as a fresh Review
 }) => {
   const seedbox = idOf(world, "seedbox");
   await page.goto(`/nodes/${seedbox}/roles`);
+  await expect(role(page, "Subtitles")).toHaveCount(0);
+  await page.getByRole("button", { name: "Process", exact: true }).click();
   await role(page, "Subtitles").click();
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await expect(review(page).getByRole("list", { name: "What changes" })).toHaveText(

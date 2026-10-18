@@ -5,7 +5,7 @@ An Admin changes which Node holds which Role through one plan, from each Node's 
 ## Sub-features
 
 - `roles-board` `GET /api/v1/nodes/roles` answers the `basis`, the `groups` of the Role table from Acquire to Reach with each Role's `label`, `probe` and `pinned`, each Node with `assigned` and its `roles` with a `state` each, and `gestures`, the verdict on every move and add.
-- `roles-section` a Node's Roles section lists the five Role Groups, each with a switch named for the group and `<n> of <m>`, and each Role as a checkbox ticked as assigned, with its state line, such as `Holding 1 torrent (8.2 GB)` on seedbox's Downloading. home's Serving is ticked and disabled with `The Controller always holds Serving.` Review stays off until something changes.
+- `roles-section` a Node's Roles section lists the five Role Groups, each with a switch named for the group and `<n> of <m>` in its header. A group opens to its Roles when one is ticked or carries a hint, or when its switch was just toggled; the rest start collapsed and open from their title. Each Role as a checkbox ticked as assigned, with its state line, such as `Holding 1 torrent (8.2 GB)` on seedbox's Downloading. home's Serving is ticked and disabled with `The Controller always holds Serving.` Review stays off until something changes.
 - `roles-review` unticking Downloading on seedbox and choosing Review opens `Review the change`, listing `seedbox takes no new Downloading work. It keeps its 1 torrent (8.2 GB) until you move or write it off.` and `home takes over Downloading, since SlipStream always needs a Node that downloads.` Apply stores it: the section reads Downloading unticked and `Draining · 1 torrent (8.2 GB) left`.
 - `roles-review-stale` Apply on a Review opened before another change to the Roles reads `Roles changed since you opened this. Here is the change as it stands now.` with the change planned on the rows now, and Apply again stores that.
 - `roles-write-off-dialog` `Write off what seedbox holds` opens a dialog reading `seedbox holds 1 torrent (8.2 GB) for Downloading.` before anything is given up. Write off answers with the PIN re-confirm when the last one is old, the dialog closes, and the section no longer offers the write-off.
@@ -239,9 +239,10 @@ Steps:
   $FW exec $RUN --proof roles/roles-review -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/roles/roles-review/applied.png
   ```
 
-- **Apply a Review gone stale.** Tick Subtitles and open the Review, then give seedbox Converting over the API on the current basis. Apply reads the stale line, with `seedbox stops Converting.`; Apply again stores Subtitles.
+- **Apply a Review gone stale.** Open the Process group, tick Subtitles and open the Review, then give seedbox Converting over the API on the current basis. Apply reads the stale line, with `seedbox stops Converting.`; Apply again stores Subtitles.
 
   ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Process", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("checkbox", { name: "Subtitles", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Review", exact: true })'
   BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
