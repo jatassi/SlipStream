@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -53,13 +54,13 @@ func TestARemovedWorkerRecordsItAndJoinsAgainAsANewNode(t *testing.T) {
 		time.Sleep(time.Minute)
 		synctest.Wait()
 
-		if home.svc.Admit(box.Key) != (link.Removed{}) {
-			t.Fatalf("home admits box as %#v, want Removed", home.svc.Admit(box.Key))
-		}
 		if removals.Load() != 1 {
 			t.Fatalf("Removed was called %d times, want once", removals.Load())
 		}
 		expectRemoved(t, p, dir, home.node.Key)
+		if home.svc.Admit(box.Key) != (link.Removed{}) {
+			t.Fatalf("home admits box as %#v, want Removed", home.svc.Admit(box.Key))
+		}
 		if got := box.State(home.node.Key); got != (link.Down{}) {
 			t.Fatalf("box's link to home is %#v, want down and no longer kept", got)
 		}
@@ -68,19 +69,26 @@ func TestARemovedWorkerRecordsItAndJoinsAgainAsANewNode(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if again.NodeID == first.NodeID {
-			t.Fatalf("box joined again as node %s, want a new row", again.NodeID)
-		}
-		if _, removed := p.Removal(); removed || !p.Paired() || record(t, dir)["removed"] != nil {
-			t.Fatalf("after joining again the record is %v, want paired and not removed", record(t, dir))
-		}
-		if home.svc.Admit(box.Key) != (link.Pinned{}) {
-			t.Fatalf("home admits the re-paired box as %#v, want Pinned", home.svc.Admit(box.Key))
-		}
-		if _, err := home.svc.Get(t.Context(), first.NodeID); err == nil {
-			t.Fatal("home still lists the removed row")
-		}
+		expectRepaired(t, p, dir, home, box.Key, first.NodeID, again.NodeID)
 	})
+}
+
+// expectRepaired checks box, once removed as first, paired again as the
+// new row again, which home pins.
+func expectRepaired(t *testing.T, p *pairing.Pairing, dir string, home controller, key link.Key, first, again role.NodeID) {
+	t.Helper()
+	if again == first {
+		t.Fatalf("box joined again as node %s, want a new row", again)
+	}
+	if _, removed := p.Removal(); removed || !p.Paired() || record(t, dir)["removed"] != nil {
+		t.Fatalf("after joining again the record is %v, want paired and not removed", record(t, dir))
+	}
+	if home.svc.Admit(key) != (link.Pinned{}) {
+		t.Fatalf("home admits the re-paired box as %#v, want Pinned", home.svc.Admit(key))
+	}
+	if _, err := home.svc.Get(t.Context(), first); err == nil {
+		t.Fatal("home still lists the removed row")
+	}
 }
 
 // expectRemoved checks p and its record in dir say the Controller holding
@@ -88,7 +96,7 @@ func TestARemovedWorkerRecordsItAndJoinsAgainAsANewNode(t *testing.T) {
 func expectRemoved(t *testing.T, p *pairing.Pairing, dir string, controller link.Key) {
 	t.Helper()
 	if p.Paired() || p.Admit(controller) != (link.Refused{}) {
-	t.Fatalf("after the removal box reads paired %v and admits home as %#v, want unpaired and refused", p.Paired(), p.Admit(controller))
+		t.Fatalf("after the removal box reads paired %v and admits home as %#v, want unpaired and refused", p.Paired(), p.Admit(controller))
 	}
 	if worker, err := pairing.IsWorker(dir); err != nil || worker {
 		t.Fatalf("IsWorker = %v, %v; want false", worker, err)
