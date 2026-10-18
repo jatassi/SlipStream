@@ -185,6 +185,22 @@ test("an event that fails to parse is reported once and resyncs", async () => {
   expect(reported).toHaveBeenCalledOnce();
 });
 
+test("a nodes.traffic sample that fails to parse is reported and dropped, never resynced", async () => {
+  const server = liveServer();
+  const requests = countRequests();
+  const reported = vi.spyOn(globalThis, "reportError").mockImplementation(() => {});
+  renderApp({ path: "/nodes", handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
+  await expect.poll(() => requests(overview)).toBe(1);
+
+  server.clients[0]?.dispatchEvent(
+    new MessageEvent("nodes.traffic", { data: JSON.stringify({ at: "soon", links: 3 }) }),
+  );
+  server.clients[0]?.send({ event: "live.resync", data: {} });
+  await expect.poll(() => requests(overview)).toBe(2);
+  expect(reported).toHaveBeenCalledOnce();
+});
+
 test("a refused stream with an expired session goes to sign-in", async () => {
   const server = liveServer();
   const { router } = renderApp({

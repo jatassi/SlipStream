@@ -15,6 +15,7 @@ import {
   NodesRolesChange,
   NodesSettings,
   NodesSettingsPatch,
+  NodesTopology,
   NodesWriteOffBody,
 } from "../slipStream.schemas.zod.ts";
 
@@ -92,6 +93,11 @@ export const GetNodeSettingsResponse = NodesSettings;
 export const UpdateNodeSettingsBody = NodesSettingsPatch;
 
 export const UpdateNodeSettingsResponse = NodesSettings;
+
+/**
+ * @summary Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates
+ */
+export const GetTopologyResponse = NodesTopology;
 
 /**
  * @summary Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history

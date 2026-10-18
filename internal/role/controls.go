@@ -54,6 +54,9 @@ type ControlsConfig struct {
 	// and after a Role's facts change in a way its Def's Notable reports.
 	// It must not block.
 	Changed func(node NodeID)
+	// Facts is called after a holder's Role facts are stored, with the
+	// Role's name. It must not block.
+	Facts func(node NodeID, scope string)
 	// Touched is called after a Role's Control.Touch, with the Role's name
 	// and the Nodes touched. It must not block.
 	Touched func(scope string, nodes []NodeID)
@@ -419,7 +422,13 @@ func (c *Controls) storeFacts(sess *controlSession, f *nodev1.Facts) {
 		c.facts[sess.node][f.GetScope()] = f.GetPayload()
 	}
 	c.mu.Unlock()
-	if !current || c.cfg.Changed == nil {
+	if !current {
+		return
+	}
+	if f.GetScope() != nodeScope && c.cfg.Facts != nil {
+		c.cfg.Facts(sess.node, f.GetScope())
+	}
+	if c.cfg.Changed == nil {
 		return
 	}
 	if srv := c.served[f.GetScope()]; f.GetScope() == nodeScope || srv != nil && srv.notableAny(last, f.GetPayload()) {

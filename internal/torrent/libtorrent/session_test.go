@@ -93,6 +93,7 @@ func TestEngineRoundTrip(t *testing.T) {
 	if st.State != engine.StateSeeding || st.Done != payloadSize || st.Wanted != payloadSize {
 		t.Fatalf("status = %+v, want seeding with %d of %d bytes done", st, payloadSize, payloadSize)
 	}
+	awaitUploaded(t, seeder, seedHandle, payloadSize)
 
 	for _, side := range []struct {
 		name string
@@ -105,6 +106,23 @@ func TestEngineRoundTrip(t *testing.T) {
 		waitFor(t, side.e.Events(), func(e engine.Removed) bool { return e.Torrent == side.h })
 		if err := side.e.Close(); err != nil {
 			t.Fatalf("%s close: %v", side.name, err)
+		}
+	}
+}
+
+// awaitUploaded waits until torrent h on e has uploaded at least n bytes.
+func awaitUploaded(t *testing.T, e engine.Engine, h engine.Handle, n int64) {
+	t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(100 * time.Millisecond) {
+		st, err := e.Status(h)
+		if err != nil {
+			t.Fatalf("status: %v", err)
+		}
+		if st.Uploaded >= n {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("status = %+v, want at least %d bytes uploaded", st, n)
 		}
 	}
 }

@@ -29,6 +29,9 @@ type Timings struct {
 	// DialReport is how long after a Node address is pasted the Add a Node
 	// dialog says the Controller can't connect.
 	DialReport time.Duration `yaml:"dial_report"`
+	// Traffic is how often the link's and torrents' rates are sampled and
+	// sent to Admins while bytes move.
+	Traffic time.Duration `yaml:"traffic"`
 	// Reach bounds each reach test from a Node.
 	Reach time.Duration `yaml:"reach"`
 }
@@ -40,6 +43,7 @@ func DefaultTimings() Timings {
 		Settle:      time.Minute,
 		DialInvite:  10 * time.Minute,
 		DialReport:  30 * time.Second,
+		Traffic:     time.Second,
 		Reach:       10 * time.Second,
 	}
 }
@@ -429,13 +433,15 @@ func (s *Service) work(ctx context.Context, r storage.Reader[file], node ID) (he
 // which Nodes' links are live on another build, records the addresses a
 // Worker's Hello advertises, re-derives the board whenever it wakes, so
 // at each edge, settles the forfeits at its start and whenever an owner's
-// intent changed, and writes seen_at every seen_persist and when a session
-// ends.
+// intent changed, writes seen_at every seen_persist and when a session
+// ends, and samples the traffic every traffic.
 func (s *Service) Run(ctx context.Context) error {
 	changes := s.cfg.Link.Subscribe(ctx)
 	s.touched("", nil)
 	persist := time.NewTicker(s.cfg.Timings.SeenPersist)
 	defer persist.Stop()
+	traffic := time.NewTicker(s.cfg.Timings.Traffic)
+	defer traffic.Stop()
 	edge := time.NewTimer(0)
 	defer edge.Stop()
 	defer s.persistSeen(context.WithoutCancel(ctx), true)
@@ -464,6 +470,8 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 		case <-persist.C:
 			s.persistSeen(ctx, true)
+		case <-traffic.C:
+			s.sample(ctx)
 		}
 	}
 }

@@ -176,12 +176,15 @@ func (x *Facts) GetTorrents() []*TorrentFacts {
 }
 
 type TorrentFacts struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	InfoHash      []byte                 `protobuf:"bytes,1,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
-	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
-	Done          int64                  `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
-	Wanted        int64                  `protobuf:"varint,4,opt,name=wanted,proto3" json:"wanted,omitempty"`
-	Peers         int32                  `protobuf:"varint,5,opt,name=peers,proto3" json:"peers,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	InfoHash []byte                 `protobuf:"bytes,1,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
+	State    string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	Done     int64                  `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
+	Wanted   int64                  `protobuf:"varint,4,opt,name=wanted,proto3" json:"wanted,omitempty"`
+	Peers    int32                  `protobuf:"varint,5,opt,name=peers,proto3" json:"peers,omitempty"`
+	// uploaded is every byte of payload the Node sent for the torrent since
+	// its client added it.
+	Uploaded      int64 `protobuf:"varint,6,opt,name=uploaded,proto3" json:"uploaded,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -247,6 +250,13 @@ func (x *TorrentFacts) GetWanted() int64 {
 func (x *TorrentFacts) GetPeers() int32 {
 	if x != nil {
 		return x.Peers
+	}
+	return 0
+}
+
+func (x *TorrentFacts) GetUploaded() int64 {
+	if x != nil {
+		return x.Uploaded
 	}
 	return 0
 }
@@ -520,13 +530,14 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\bmetainfo\x18\x02 \x01(\fR\bmetainfo\x12\x17\n" +
 	"\agrab_id\x18\x03 \x01(\fR\x06grabId\"L\n" +
 	"\x05Facts\x12C\n" +
-	"\btorrents\x18\x01 \x03(\v2'.slipstream.downloading.v1.TorrentFactsR\btorrents\"\x83\x01\n" +
+	"\btorrents\x18\x01 \x03(\v2'.slipstream.downloading.v1.TorrentFactsR\btorrents\"\x9f\x01\n" +
 	"\fTorrentFacts\x12\x1b\n" +
 	"\tinfo_hash\x18\x01 \x01(\fR\binfoHash\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x12\n" +
 	"\x04done\x18\x03 \x01(\x03R\x04done\x12\x16\n" +
 	"\x06wanted\x18\x04 \x01(\x03R\x06wanted\x12\x14\n" +
-	"\x05peers\x18\x05 \x01(\x05R\x05peers\"\xaf\x01\n" +
+	"\x05peers\x18\x05 \x01(\x05R\x05peers\x12\x1a\n" +
+	"\buploaded\x18\x06 \x01(\x03R\buploaded\"\xaf\x01\n" +
 	"\x06Result\x12\x17\n" +
 	"\agrab_id\x18\x01 \x01(\fR\x06grabId\x12D\n" +
 	"\tcompleted\x18\x02 \x01(\v2$.slipstream.downloading.v1.CompletedH\x00R\tcompleted\x12;\n" +

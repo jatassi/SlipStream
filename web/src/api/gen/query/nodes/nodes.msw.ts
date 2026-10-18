@@ -19,6 +19,7 @@ import type {
   NodesPinned,
   NodesRoleBoard,
   NodesSettings,
+  NodesTopology,
   NodesWritesOff,
 } from "../../model";
 
@@ -990,6 +991,111 @@ export const getUpdateNodeSettingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetTopologyResponseMock = (
+  overrideResponse: Partial<Extract<NodesTopology, object>> = {},
+): NodesTopology => ({
+  at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  links: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    a: faker.string.uuid(),
+    b: faker.string.uuid(),
+    ...(faker.datatype.boolean() ? { dialer: faker.string.uuid() } : {}),
+    ...(faker.datatype.boolean() ? { rttMs: faker.number.int() } : {}),
+    state: faker.helpers.arrayElement(["up", "down", "mismatched"] as const),
+  })),
+  nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    controller: faker.datatype.boolean(),
+    id: faker.string.uuid(),
+    ...(faker.datatype.boolean()
+      ? { lastSeenAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+      : {}),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        at: faker.date.past().toISOString().slice(0, 19) + "Z",
+        fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+        probe: faker.helpers.arrayElement([
+          "engine-starts",
+          "data-writable",
+          "listener-up",
+        ] as const),
+        ...(faker.datatype.boolean()
+          ? {
+              reason: faker.helpers.arrayElement([
+                "engine_not_listening",
+                "downloads_not_writable",
+                "downloads_on_network_share",
+                "data_not_writable",
+                "http_not_listening",
+              ] as const),
+            }
+          : {}),
+      }),
+    ),
+    resources: {
+      ...(faker.datatype.boolean()
+        ? {
+            downloading: {
+              torrents: Array.from(
+                { length: faker.number.int({ min: 1, max: 10 }) },
+                (_, i) => i + 1,
+              ).map(() => ({
+                done: faker.number.int(),
+                grabId: faker.string.uuid(),
+                peers: faker.number.int(),
+                title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                wanted: faker.number.int(),
+              })),
+            },
+          }
+        : {}),
+    },
+    roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        ...(faker.datatype.boolean()
+          ? {
+              held: {
+                bytes: faker.number.int(),
+                noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                units: faker.number.int(),
+              },
+            }
+          : {}),
+        role: faker.helpers.arrayElement([
+          "searching",
+          "downloading",
+          "storage",
+          "converting",
+          "subtitles",
+          "metadata",
+          "media-server-link",
+          "notifying",
+          "relaying",
+          "serving",
+        ] as const),
+        state: faker.helpers.arrayElement([
+          "holding",
+          "away",
+          "lapsed",
+          "draining",
+          "writing-off",
+          "covering",
+        ] as const),
+      }),
+    ),
+    self: faker.datatype.boolean(),
+    since: faker.date.past().toISOString().slice(0, 19) + "Z",
+    state: faker.helpers.arrayElement([
+      "online",
+      "reconnecting",
+      "offline",
+      "lapsed",
+      "mismatched",
+    ] as const),
+  })),
+  sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
 export const getGetNodeResponseMock = (
   overrideResponse: Partial<Extract<NodesNode, object>> = {},
 ): NodesNode => ({
@@ -1867,6 +1973,30 @@ export const getUpdateNodeSettingsMockHandler = (
   );
 };
 
+export const getGetTopologyMockHandler = (
+  overrideResponse?:
+    | NodesTopology
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NodesTopology> | NodesTopology),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/nodes/topology",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetTopologyResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getRemoveNodeMockHandler = (
   overrideResponse?:
     | void
@@ -1987,6 +2117,7 @@ export const getNodesMock = () => [
   getPlanRolesMockHandler(),
   getGetNodeSettingsMockHandler(),
   getUpdateNodeSettingsMockHandler(),
+  getGetTopologyMockHandler(),
   getRemoveNodeMockHandler(),
   getGetNodeMockHandler(),
   getRenameNodeMockHandler(),

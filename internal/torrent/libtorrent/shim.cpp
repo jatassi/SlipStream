@@ -289,6 +289,7 @@ int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* 
 		out->peers = st.num_peers;
 		out->done = st.total_done;
 		out->wanted = st.total_wanted;
+		out->uploaded = st.all_time_upload;
 	});
 }
 

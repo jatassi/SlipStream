@@ -22,6 +22,10 @@ const table: LiveEffects = effects;
 
 const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.options);
 
+// A sample that fails to parse is dropped: the next replaces it within a
+// second, where a resync would refetch every query at the samples' rate.
+const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic"]);
+
 type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
 type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
 
@@ -156,7 +160,9 @@ class Stream {
     this.running?.settle();
     const event = parse(message);
     if (event === undefined) {
-      this.resync();
+      if (!samples.has(message.type)) {
+        this.resync();
+      }
     } else if (isControl(event)) {
       this.onControl(event);
     } else {

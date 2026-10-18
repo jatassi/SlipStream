@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -63,13 +64,43 @@ func (p *published) has(id string) bool {
 	return slices.Contains(p.ids, id)
 }
 
+// heard records each nodes.traffic sample, with an Admin always listening.
+type heard struct {
+	mu      sync.Mutex
+	samples []nodes.Traffic
+}
+
+func (h *heard) Publish(_ context.Context, v nodes.Traffic) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.samples = append(h.samples, v)
+}
+
+func (*heard) Listening() bool { return true }
+
+func (h *heard) all() []nodes.Traffic {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return slices.Clone(h.samples)
+}
+
+// noClients is a Downloading control half no client reports to.
+type noClients struct{}
+
+func (noClients) Facts(nodes.ID) (*dlv1.Facts, bool) { return nil, false }
+
+func keptNothing(context.Context, storage.Reader[storage.Library], nodes.ID) ([]nodes.Grabbed, error) {
+	return nil, nil
+}
+
 type controller struct {
-	net  *fault.Network
-	node *linktest.Node
-	lib  *storage.DB[storage.Library]
-	svc  *nodes.Service
-	pub  *published
-	stop func()
+	net     *fault.Network
+	node    *linktest.Node
+	lib     *storage.DB[storage.Library]
+	svc     *nodes.Service
+	pub     *published
+	traffic *heard
+	stop    func()
 	// edit changes the roster's Config at each open.
 	edit []func(*nodes.Config)
 }
@@ -94,17 +125,20 @@ func startController(t *testing.T, edit ...func(*nodes.Config)) *controller {
 // open opens the roster on c's library and runs it until the test ends.
 func (c *controller) open(t *testing.T, s *side) {
 	t.Helper()
-	pub := &published{}
+	pub, traffic := &published{}, &heard{}
 	cfg := nodes.Config{
-		Library: c.lib,
-		Key:     c.node.Key,
-		Name:    "home",
-		Link:    c.node.Link,
-		Changed: pub,
-		Owners:  nodestest.Unowned(),
-		Timings: nodes.DefaultTimings(),
-		Stall:   45 * time.Second,
-		Log:     discard,
+		Library:   c.lib,
+		Key:       c.node.Key,
+		Name:      "home",
+		Link:      c.node.Link,
+		Changed:   pub,
+		Traffic:   traffic,
+		Owners:    nodestest.Unowned(),
+		Downloads: noClients{},
+		Kept:      keptNothing,
+		Timings:   nodes.DefaultTimings(),
+		Stall:     45 * time.Second,
+		Log:       discard,
 	}
 	for _, e := range c.edit {
 		e(&cfg)
@@ -125,7 +159,7 @@ func (c *controller) open(t *testing.T, s *side) {
 		<-done
 	})
 	t.Cleanup(stop)
-	c.svc, c.pub, c.stop = svc, pub, stop
+	c.svc, c.pub, c.traffic, c.stop = svc, pub, traffic, stop
 }
 
 // hold runs w's holder half in session with the Controller until stop or
@@ -554,6 +588,7 @@ func (unlinked) Keep(link.Target) {}
 func (unlinked) Drop(link.Key) {}
 
 func (unlinked) Invite(context.Context, link.Target) error { return nil }
+func (unlinked) Stats(link.Key) (link.Stats, bool)         { return link.Stats{}, false }
 
 // TestTheRosterMigrationKeepsEveryNode migrates a library holding two
 // Nodes with Roles, an address and a used Join Code: every row and

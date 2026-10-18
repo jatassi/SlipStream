@@ -40,11 +40,44 @@ func suggested(t *testing.T, a *worldtest.API, name string) []string {
 	return nil
 }
 
+// topologyProbes is the probes home's topology draws for the Node named
+// name.
+func topologyProbes(t *testing.T, a *worldtest.API, name string) []worldtest.Probe {
+	t.Helper()
+	topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+	for _, n := range topo.Nodes {
+		if n.Name == name {
+			return n.Probes
+		}
+	}
+	t.Fatalf("the topology has no node %s", name)
+	return nil
+}
+
+// awaitSeedboxProbes waits for seedbox's link to be up and listNodes to
+// carry want as its probes. The probes reach home through sync after the
+// link is up, so the listing can carry earlier probes for a moment.
+func awaitSeedboxProbes(t *testing.T, a *worldtest.API, want []worldtest.Probe) {
+	t.Helper()
+	for deadline := time.Now().Add(time.Minute); ; {
+		r := seedbox(t, a)
+		if r.Link.State == "up" && slices.Equal(r.Probes, want) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("listNodes has seedbox's link %s and probes %+v, want up and %+v", r.Link.State, r.Probes, want)
+		}
+		time.Sleep(time.Second)
+		synctest.Wait()
+	}
+}
+
 // TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere lists every
 // probe fitting on both Nodes, and the board suggests Searching and
 // Downloading for seedbox. Restarted with its downloads folder on a file,
-// seedbox's engine-starts probe fails, the board suggests Searching
-// alone, and giving seedbox Downloading back is blocked in those words.
+// seedbox's engine-starts probe fails on listNodes and in the topology,
+// the board suggests Searching alone, and giving seedbox Downloading back
+// is blocked in those words.
 func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t))
@@ -67,14 +100,11 @@ func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 		box := w.Node("seedbox")
 		box.Stop()
 		box.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_TORRENT_DOWNLOADS="+file) })
-		for seedbox(t, a).Link.State != "up" {
-			time.Sleep(time.Second)
-			synctest.Wait()
-		}
 		want := slices.Clone(fitting)
 		want[0] = worldtest.Probe{Probe: "engine-starts", Fit: "fails", Reason: "downloads_not_writable"}
-		if got := seedbox(t, a).Probes; !slices.Equal(got, want) {
-			t.Fatalf("listNodes has seedbox's probes %+v, want %+v", got, want)
+		awaitSeedboxProbes(t, a, want)
+		if got := topologyProbes(t, a, "seedbox"); !slices.Equal(got, want) {
+			t.Fatalf("the topology has seedbox's probes %+v, want %+v", got, want)
 		}
 		if got := suggested(t, a, "seedbox"); !slices.Equal(got, []string{"searching"}) {
 			t.Fatalf("the board suggests %v for seedbox, want Searching alone", got)

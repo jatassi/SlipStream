@@ -67,6 +67,7 @@ typedef struct {
 	int32_t peers;
 	int64_t done;
 	int64_t wanted;
+	int64_t uploaded;
 } lts_status;
 
 typedef struct {

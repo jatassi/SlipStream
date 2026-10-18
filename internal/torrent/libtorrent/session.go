@@ -188,10 +188,11 @@ func (s *Session) Status(h engine.Handle) (engine.Status, error) {
 		return engine.Status{}, err
 	}
 	return engine.Status{
-		State:  states[st.state],
-		Peers:  int(st.peers),
-		Done:   int64(st.done),
-		Wanted: int64(st.wanted),
+		State:    states[st.state],
+		Peers:    int(st.peers),
+		Done:     int64(st.done),
+		Wanted:   int64(st.wanted),
+		Uploaded: int64(st.uploaded),
 	}, nil
 }
 

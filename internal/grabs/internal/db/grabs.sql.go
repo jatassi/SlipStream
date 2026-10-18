@@ -444,6 +444,41 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 	return items, nil
 }
 
+const listKeptOfNode = `-- name: ListKeptOfNode :many
+SELECT id, info_hash, release_title FROM grabs_grab
+WHERE node_id = ?1 AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY info_hash, id
+`
+
+type ListKeptOfNodeRow struct {
+	ID           GrabID
+	InfoHash     []byte
+	ReleaseTitle string
+}
+
+func (q *Queries) ListKeptOfNode(ctx context.Context, nodeID role.NodeID) ([]ListKeptOfNodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listKeptOfNode, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKeptOfNodeRow
+	for rows.Next() {
+		var i ListKeptOfNodeRow
+		if err := rows.Scan(&i.ID, &i.InfoHash, &i.ReleaseTitle); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenGrabs = `-- name: ListOpenGrabs :many
 SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, seed_dropped_at, fetch_node_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `

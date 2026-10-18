@@ -2,6 +2,7 @@ import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import {
   getGetNodeQueryKey,
   getGetRoleBoardQueryKey,
+  getGetTopologyQueryKey,
   getListNodesQueryKey,
 } from "../api/gen/query/nodes/nodes";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
@@ -22,7 +23,10 @@ export const systemEffects = {
     refresh({ queryKey: getGetRoleBoardQueryKey() });
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListIndexersQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
   },
+  // Samples feed the Diagram alone, so no query caches them.
+  "nodes.traffic": () => {},
   "node.settings-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
     refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
@@ -44,5 +48,5 @@ export const systemEffects = {
   },
 } satisfies Pick<
   LiveEffects,
-  "nodes.changed" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
+  "nodes.changed" | "nodes.traffic" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
 >;

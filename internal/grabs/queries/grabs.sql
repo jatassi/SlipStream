@@ -62,6 +62,11 @@ SELECT id, info_hash, metainfo FROM grabs_grab
 WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
 ORDER BY info_hash, id;
 
+-- name: ListKeptOfNode :many
+SELECT id, info_hash, release_title FROM grabs_grab
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY info_hash, id;
+
 -- name: ListDownloadingNodes :many
 SELECT DISTINCT node_id FROM grabs_grab
 WHERE stage NOT IN ('imported', 'failed') OR info_hash IS NOT NULL AND seed_dropped_at IS NULL

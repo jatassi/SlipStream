@@ -350,7 +350,7 @@ func (c *Client) facts(intent *dlv1.Intent) *dlv1.Facts {
 		if err != nil {
 			continue
 		}
-		out.Torrents = append(out.Torrents, &dlv1.TorrentFacts{InfoHash: h[:], State: s.State.String(), Done: s.Done, Wanted: s.Wanted, Peers: int32(s.Peers)}) //nolint:gosec // a peer count fits
+		out.Torrents = append(out.Torrents, &dlv1.TorrentFacts{InfoHash: h[:], State: s.State.String(), Done: s.Done, Wanted: s.Wanted, Peers: int32(s.Peers), Uploaded: s.Uploaded}) //nolint:gosec // a peer count fits
 	}
 	return out
 }

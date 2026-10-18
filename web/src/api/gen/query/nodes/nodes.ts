@@ -47,6 +47,10 @@ import type {
   GetRoleBoard403,
   GetRoleBoard409,
   GetRoleBoard500,
+  GetTopology401,
+  GetTopology403,
+  GetTopology409,
+  GetTopology500,
   ListJoinCodes401,
   ListJoinCodes403,
   ListJoinCodes409,
@@ -68,6 +72,7 @@ import type {
   NodesRolesChange,
   NodesSettings,
   NodesSettingsPatch,
+  NodesTopology,
   NodesWriteOffBody,
   PlanRoles401,
   PlanRoles403,
@@ -1406,6 +1411,116 @@ export const useUpdateNodeSettings = <
 > => {
   return useMutation(getUpdateNodeSettingsMutationOptions(options), queryClient);
 };
+export const getGetTopologyUrl = () => {
+  return `/api/v1/nodes/topology`;
+};
+
+/**
+ * @summary Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates
+ */
+export const getTopology = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NodesTopology> => {
+  return apiFetch<NodesTopology>(getGetTopologyUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTopologyQueryKey = () => {
+  return [`/api/v1/nodes/topology`] as const;
+};
+
+export const getGetTopologySuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTopology>>,
+  TError = ErrorType<GetTopology401 | GetTopology403 | GetTopology409 | GetTopology500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTopology>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTopologyQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTopology>>> = ({ signal }) =>
+    getTopology({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTopology>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetTopologySuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getTopology>>>;
+export type GetTopologySuspenseQueryError = ErrorType<
+  GetTopology401 | GetTopology403 | GetTopology409 | GetTopology500
+>;
+
+export function useGetTopologySuspense<
+  TData = Awaited<ReturnType<typeof getTopology>>,
+  TError = ErrorType<GetTopology401 | GetTopology403 | GetTopology409 | GetTopology500>,
+>(
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTopology>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTopologySuspense<
+  TData = Awaited<ReturnType<typeof getTopology>>,
+  TError = ErrorType<GetTopology401 | GetTopology403 | GetTopology409 | GetTopology500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTopology>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTopologySuspense<
+  TData = Awaited<ReturnType<typeof getTopology>>,
+  TError = ErrorType<GetTopology401 | GetTopology403 | GetTopology409 | GetTopology500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTopology>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates
+ */
+
+export function useGetTopologySuspense<
+  TData = Awaited<ReturnType<typeof getTopology>>,
+  TError = ErrorType<GetTopology401 | GetTopology403 | GetTopology409 | GetTopology500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTopology>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetTopologySuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getRemoveNodeUrl = (id: string, params?: RemoveNodeParams) => {
   const normalizedParams = new URLSearchParams();
 

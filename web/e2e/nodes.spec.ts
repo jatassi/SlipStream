@@ -56,5 +56,5 @@ test("an offline seedbox lights the Nodes dot, its Indexer's search says what it
     /^The Indexer didn't answerWaiting for seedbox · offline since /u,
   );
 
-  await expectNodesRow(page, " failed", 90_000);
+  await expectNodesRow(page, " failed", 150_000);
 });

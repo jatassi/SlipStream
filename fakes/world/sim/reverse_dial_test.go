@@ -99,7 +99,7 @@ func TestAControllerDialsANodeBehindCGNAT(t *testing.T) {
 // TestASetupJoinAwaitsTheDial joins the running seedbox from its first-run
 // page. claimWorker answers 202 with the Node address, a Controller claim
 // meanwhile answers join_pending, and once home dials, getWorkerClaim
-// reads the Join as joined.
+// reads the Join as joined and the topology draws the link from home.
 func TestASetupJoinAwaitsTheDial(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := cgnatHome(t)
@@ -129,6 +129,10 @@ func TestASetupJoinAwaitsTheDial(t *testing.T) {
 		box := seedbox(t, a)
 		if box.Link.State != "up" || box.Dial.By != "controller" {
 			t.Fatalf("home lists seedbox %s dialed by %q, want up and dialed by the controller", box.Link.State, box.Dial.By)
+		}
+		topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+		if l := topo.Links; len(l) != 1 || l[0].B != box.ID || l[0].Dialer != topo.Nodes[0].ID || l[0].State != "up" {
+			t.Fatalf("the topology's links are %+v, want seedbox's link up and dialed by home", l)
 		}
 	})
 }

@@ -99,10 +99,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Node:    n.info,
 		Link:    n.link,
 		Changed: nodes.ChangedEvent.Bind(n.hub),
+		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads}, n.env.Test.Served...),
 		Owners:          owners(),
+		Downloads:       downloads,
+		Kept:            grabs.Kept,
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
