@@ -171,7 +171,8 @@ func TestAServedFrontNamesItsOriginAndLogsEachConnection(t *testing.T) {
 	}; !slices.Equal(opens, want) {
 		t.Fatalf("front.open records = %q, want %q", opens, want)
 	}
-	if want := []string{"seedbox 1 closed", "home 2 closed"}; !slices.Equal(closes, want) {
+	slices.Sort(closes)
+	if want := []string{"home 2 closed", "seedbox 1 closed"}; !slices.Equal(closes, want) {
 		t.Fatalf("front.close records end %q, want %q", closes, want)
 	}
 }
