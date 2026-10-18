@@ -4,14 +4,11 @@ import { page, userEvent } from "vitest/browser";
 
 import type { NodesBoardNode, NodesNode } from "../../../api/gen/model";
 import { problem } from "../../../test/handlers";
-import { getGetRoleBoardQueryKey } from "../../../api/gen/query/nodes/nodes";
-import { refresh } from "../../../live/refresh";
 import { codeText, joinCodeServer, nodesFrom } from "../../../test/join-codes";
 import { liveServer, synced } from "../../../test/live-server";
 import { home } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
-import { board, boardIs, homeSeat, outcome, rolesServer } from "../../../test/roles";
-import { worker } from "../../../test/worker";
+import { board, boardBecomes, boardIs, homeSeat, outcome, rolesServer } from "../../../test/roles";
 
 const vpsId = "7d9f1b3c-5e7a-4c9e-8b1d-3f5a7c9e1b2d";
 
@@ -174,8 +171,7 @@ test("the new Node's Roles tick as its suggestions arrive", async () => {
   const downloading = dialog().getByRole("checkbox", { name: "Downloading", exact: true });
   await expect.element(downloading).not.toBeChecked();
 
-  worker.use(boardIs(board(homeSeat, vpsSeat)));
-  await refresh(app.queryClient, { queryKey: getGetRoleBoardQueryKey() });
+  await boardBecomes(app.queryClient, board(homeSeat, vpsSeat));
   await expect.element(downloading).toBeChecked();
 });
 

@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { HttpResponse, http } from "msw";
 
 import type {
@@ -6,9 +7,12 @@ import type {
   NodesRoleBoard,
   NodesRoleGroup,
 } from "../api/gen/model";
+import { getGetRoleBoardQueryKey } from "../api/gen/query/nodes/nodes";
 import { getGetRoleBoardMockHandler } from "../api/gen/query/nodes/nodes.msw";
 import { NodesPlanChange, NodesWriteOffBody } from "../api/gen/zod/slipStream.schemas.zod";
+import { refresh } from "../live/refresh";
 import { homeId, seedboxId } from "./nodes";
+import { worker } from "./worker";
 
 export const groups: NodesRoleGroup[] = [
   {
@@ -93,6 +97,12 @@ export const board = (...nodes: NodesBoardNode[]): NodesRoleBoard => ({
 });
 
 export const boardIs = (shown: NodesRoleBoard) => getGetRoleBoardMockHandler(shown);
+
+/** Serves a new Role board from here on and refreshes it, as a live event would. */
+export async function boardBecomes(queryClient: QueryClient, shown: NodesRoleBoard) {
+  worker.use(boardIs(shown));
+  await refresh(queryClient, { queryKey: getGetRoleBoardQueryKey() });
+}
 
 export const outcome = (shown: Partial<NodesOutcome>): NodesOutcome => ({
   basis: "basis-1",
