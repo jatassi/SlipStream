@@ -1,5 +1,3 @@
-import type { QueryClient } from "@tanstack/react-query";
-
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import {
   getGetNodeQueryKey,
@@ -16,38 +14,21 @@ const everyTasksQuery = {
     typeof path === "string" && /^\/api\/v1\/tasks(?:\/|$)/u.test(path),
 };
 
-const refreshing = new WeakMap<QueryClient, { again: boolean }>();
-
-async function refreshTasks(queryClient: QueryClient): Promise<void> {
-  const inFlight = refreshing.get(queryClient);
-  if (inFlight !== undefined) {
-    inFlight.again = true;
-    return;
-  }
-  const slot = { again: false };
-  refreshing.set(queryClient, slot);
-  await queryClient.invalidateQueries(everyTasksQuery);
-  refreshing.delete(queryClient);
-  if (slot.again) {
-    await refreshTasks(queryClient);
-  }
-}
-
 export const systemEffects = {
-  "nodes.changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListNodesQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetRoleBoardQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetCountsQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getListIndexersQueryKey() });
+  "nodes.changed": (data, { refresh }) => {
+    refresh({ queryKey: getListNodesQueryKey() });
+    refresh({ queryKey: getGetNodeQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetRoleBoardQueryKey() });
+    refresh({ queryKey: getGetCountsQueryKey() });
+    refresh({ queryKey: getListIndexersQueryKey() });
   },
-  "node.settings-changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+  "node.settings-changed": (data, { refresh }) => {
+    refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
   },
-  "tasks.changed": (_data, { queryClient }) => {
-    void refreshTasks(queryClient);
+  "tasks.changed": (_data, { refresh }) => {
+    refresh(everyTasksQuery);
   },
   "tasks.progress": (data, { queryClient }) => {
     queryClient.setQueryData<Awaited<ReturnType<typeof listOpenTaskRuns>>>(
