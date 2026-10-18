@@ -36,7 +36,9 @@ const backLink = () => page.getByRole("banner").getByRole("link");
 function counting(first: number) {
   let activity = first;
   return {
-    handler: http.get("*/api/v1/counts", () => HttpResponse.json({ activity })),
+    handler: http.get("*/api/v1/counts", () =>
+      HttpResponse.json({ activity, alerts: { nodes: null } }),
+    ),
     set(next: number) {
       activity = next;
     },
@@ -133,7 +135,7 @@ test("the tab is titled after the page, and follows navigation", async () => {
   await expect.poll(() => document.title).toBe("Activity · SlipStream");
 
   await userEvent.click(mainNav().getByRole("link", { name: "Nodes" }));
-  await expect.poll(() => document.title).toBe("home · SlipStream");
+  await expect.poll(() => document.title).toBe("Nodes · SlipStream");
   await expect
     .element(mainNav().getByRole("link", { name: "Nodes" }))
     .toHaveAttribute("aria-current", "page");

@@ -3,6 +3,7 @@ import { type Clock, sinceWords } from "../format";
 import { Data } from "../ui/data";
 import { Section } from "../ui/section";
 import { type Column, Table } from "../ui/table";
+import { NodeName } from "./node-name";
 import { OutcomeChip } from "./outcome-chip";
 import { unitsAnchor } from "./task-head";
 
@@ -12,7 +13,11 @@ const causeOf = (unit: TasksUnit) =>
 function columnsOf(clock: Clock): readonly [Column<TasksUnit>, ...Column<TasksUnit>[]] {
   return [
     { id: "unit", header: "Unit", cell: (unit) => unit.label },
-    { id: "node", header: "Node", cell: (unit) => unit.node },
+    {
+      id: "node",
+      header: "Node",
+      cell: (unit) => <NodeName name={unit.node} nodeId={unit.nodeId} removed={unit.nodeRemoved} />,
+    },
     {
       id: "outcome",
       header: "Last outcome",

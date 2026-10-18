@@ -2,15 +2,19 @@ syntax = "proto3";
 
 package slipstream.node.v1;
 
-// NodeIntent is the node scope's intent: the Roles assigned to the Node.
+// NodeIntent is the node scope's intent: the Roles the Node holds, the
+// Roles it no longer holds but still drains, and its name.
 message NodeIntent {
   repeated string roles = 1;
+  repeated string draining = 2;
+  string name = 3;
 }
 
 // NodeFacts is the node scope's facts: the Roles the holder half has
 // assigned, running and waiting to restart, the node-scope version it
-// applied, the address its web server bound, and a digest of its Node
-// settings view, which changes whenever the view does.
+// applied, the address its web server bound, a digest of its Node
+// settings view, which changes whenever the view does, and the verdict of
+// each probe it ran.
 message NodeFacts {
   repeated string assigned = 1;
   repeated string running = 2;
@@ -18,4 +22,14 @@ message NodeFacts {
   bytes applied_version = 4;
   string http_address = 5;
   string settings_revision = 6;
+  repeated ProbeFact probes = 7;
+}
+
+// ProbeFact is one probe's verdict: fit is a role.Fit, and reason is why
+// it is weak or fails, empty when it fits.
+message ProbeFact {
+  string probe = 1;
+  int32 fit = 2;
+  string reason = 3;
+  int64 at_unix_ms = 4;
 }

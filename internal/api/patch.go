@@ -35,7 +35,26 @@ func (p *Patch[T]) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (Patch[T]) Schema(r huma.Registry) *huma.Schema {
+func (Patch[T]) Schema(r huma.Registry) *huma.Schema { return nullableSchema[T](r) }
+
+// Nullable is a response member that is a value or null. Huma can't mark a
+// pointer to a struct nullable, so its schema is T's or null.
+type Nullable[T any] struct{ value *T }
+
+// Some is a Nullable holding v.
+func Some[T any](v T) Nullable[T] { return Nullable[T]{value: &v} }
+
+func (n Nullable[T]) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(n.value)
+	if err != nil {
+		return nil, fmt.Errorf("api: encode %T: %w", n.value, err)
+	}
+	return b, nil
+}
+
+func (Nullable[T]) Schema(r huma.Registry) *huma.Schema { return nullableSchema[T](r) }
+
+func nullableSchema[T any](r huma.Registry) *huma.Schema {
 	s := r.Schema(reflect.TypeFor[T](), true, "")
 	if s.Ref != "" {
 		return &huma.Schema{AnyOf: []*huma.Schema{s, {Type: "null"}}}

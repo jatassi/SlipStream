@@ -1,8 +1,15 @@
-import type { QueryClient } from "@tanstack/react-query";
-
-import { getGetNodeQueryKey, getListNodesQueryKey } from "../api/gen/query/nodes/nodes";
+import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
+import {
+  getGetNodeQueryKey,
+  getGetRoleBoardQueryKey,
+  getGetTopologyQueryKey,
+  getListNodesQueryKey,
+} from "../api/gen/query/nodes/nodes";
+import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
+import { everyJoinCodeQuery } from "../nodes/join-codes";
+import { takeTraffic } from "./traffic";
 import type { LiveEffects } from "./types";
 
 const everyTasksQuery = {
@@ -10,35 +17,27 @@ const everyTasksQuery = {
     typeof path === "string" && /^\/api\/v1\/tasks(?:\/|$)/u.test(path),
 };
 
-const refreshing = new WeakMap<QueryClient, { again: boolean }>();
-
-async function refreshTasks(queryClient: QueryClient): Promise<void> {
-  const inFlight = refreshing.get(queryClient);
-  if (inFlight !== undefined) {
-    inFlight.again = true;
-    return;
-  }
-  const slot = { again: false };
-  refreshing.set(queryClient, slot);
-  await queryClient.invalidateQueries(everyTasksQuery);
-  refreshing.delete(queryClient);
-  if (slot.again) {
-    await refreshTasks(queryClient);
-  }
-}
-
 export const systemEffects = {
-  "nodes.changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getListNodesQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+  "nodes.changed": (data, { refresh }) => {
+    refresh({ queryKey: getListNodesQueryKey() });
+    refresh({ queryKey: getGetNodeQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetRoleBoardQueryKey() });
+    refresh({ queryKey: getGetCountsQueryKey() });
+    refresh({ queryKey: getListIndexersQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
+    refresh(everyJoinCodeQuery);
   },
-  "node.settings-changed": (data, { queryClient }) => {
-    void queryClient.invalidateQueries({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
-    void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+  // Samples feed the Diagram alone, so they go to its ring, not a query.
+  "nodes.traffic": (data) => {
+    takeTraffic(data);
   },
-  "tasks.changed": (_data, { queryClient }) => {
-    void refreshTasks(queryClient);
+  "node.settings-changed": (data, { refresh }) => {
+    refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
+    refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+  },
+  "tasks.changed": (_data, { refresh }) => {
+    refresh(everyTasksQuery);
   },
   "tasks.progress": (data, { queryClient }) => {
     queryClient.setQueryData<Awaited<ReturnType<typeof listOpenTaskRuns>>>(
@@ -54,5 +53,5 @@ export const systemEffects = {
   },
 } satisfies Pick<
   LiveEffects,
-  "nodes.changed" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
+  "nodes.changed" | "nodes.traffic" | "node.settings-changed" | "tasks.changed" | "tasks.progress"
 >;

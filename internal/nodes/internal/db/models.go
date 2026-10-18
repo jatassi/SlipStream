@@ -15,19 +15,37 @@ type NodesAddress struct {
 	Address  string
 }
 
+type NodesDial struct {
+	NodeID   role.NodeID
+	Position int64
+	Address  string
+}
+
+type NodesForfeit struct {
+	NodeID     role.NodeID
+	Role       role.Name
+	DeclaredAt storage.Time
+}
+
 type NodesJoinCode struct {
-	SecretHash []byte
-	CreatedAt  storage.Time
-	ExpiresAt  storage.Time
-	UsedBy     role.NodeID
-	UsedAt     storage.Time
+	ID          storage.UUID
+	SecretHash  []byte
+	CreatedAt   storage.Time
+	ExpiresAt   storage.Time
+	UsedBy      role.NodeID
+	UsedAt      storage.Time
+	DialAddress *string
+	DialAt      storage.Time
 }
 
 type NodesNode struct {
-	ID        role.NodeID
-	PublicKey []byte
-	Name      string
-	PairedAt  storage.Time
+	ID         role.NodeID
+	PublicKey  []byte
+	Name       string
+	PairedAt   storage.Time
+	SeenAt     storage.Time
+	RemovedAt  storage.Time
+	RemovedKey []byte
 }
 
 type NodesRole struct {
@@ -39,4 +57,5 @@ type NodesRole struct {
 type NodesSetting struct {
 	ID                      Singleton
 	JoinCodeLifetimeSeconds *int64
+	OfflineGraceSeconds     *int64
 }

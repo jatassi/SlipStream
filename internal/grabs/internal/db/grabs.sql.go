@@ -22,21 +22,25 @@ const advance = `-- name: Advance :execrows
 UPDATE grabs_grab SET
     stage = ?1,
     info_hash = coalesce(?2, info_hash),
-    metainfo = coalesce(?3, metainfo),
-    file_index = coalesce(?4, file_index),
-    probe = coalesce(?5, probe),
-    root_id = coalesce(?6, root_id),
-    path = coalesce(?7, path),
-    failed_stage = ?8,
-    failure_code = ?9,
-    failure_message = ?10,
-    updated_at = ?11
-WHERE id = ?12 AND stage = ?13
+    fetch_node_id = coalesce(?3, fetch_node_id),
+    node_id = coalesce(?4, node_id),
+    metainfo = coalesce(?5, metainfo),
+    file_index = coalesce(?6, file_index),
+    probe = coalesce(?7, probe),
+    root_id = coalesce(?8, root_id),
+    path = coalesce(?9, path),
+    failed_stage = ?10,
+    failure_code = ?11,
+    failure_message = ?12,
+    updated_at = ?13
+WHERE id = ?14 AND stage = ?15
 `
 
 type AdvanceParams struct {
 	Next           Stage
 	InfoHash       []byte
+	FetchNodeID    role.NodeID
+	NodeID         role.NodeID
 	Metainfo       []byte
 	FileIndex      *int64
 	Probe          *string
@@ -54,6 +58,8 @@ func (q *Queries) Advance(ctx context.Context, arg AdvanceParams) (int64, error)
 	result, err := q.db.ExecContext(ctx, advance,
 		arg.Next,
 		arg.InfoHash,
+		arg.FetchNodeID,
+		arg.NodeID,
 		arg.Metainfo,
 		arg.FileIndex,
 		arg.Probe,
@@ -81,6 +87,41 @@ func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countTorrentsOfNode = `-- name: CountTorrentsOfNode :one
+SELECT count(*) AS torrents, CAST(coalesce(sum(release_size), 0) AS INTEGER) AS bytes FROM grabs_grab
+WHERE node_id = ?1 AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
+`
+
+type CountTorrentsOfNodeRow struct {
+	Torrents int64
+	Bytes    int64
+}
+
+func (q *Queries) CountTorrentsOfNode(ctx context.Context, nodeID role.NodeID) (CountTorrentsOfNodeRow, error) {
+	row := q.db.QueryRowContext(ctx, countTorrentsOfNode, nodeID)
+	var i CountTorrentsOfNodeRow
+	err := row.Scan(&i.Torrents, &i.Bytes)
+	return i, err
+}
+
+const dropSeeding = `-- name: DropSeeding :execrows
+UPDATE grabs_grab SET seed_dropped_at = ?1, updated_at = ?1
+WHERE node_id = ?2 AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
+`
+
+type DropSeedingParams struct {
+	SeedDroppedAt storage.Time
+	NodeID        role.NodeID
+}
+
+func (q *Queries) DropSeeding(ctx context.Context, arg DropSeedingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, dropSeeding, arg.SeedDroppedAt, arg.NodeID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const finishSearch = `-- name: FinishSearch :exec
@@ -111,7 +152,7 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, seed_dropped_at, fetch_node_id FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -144,6 +185,8 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Unwanted,
+		&i.SeedDroppedAt,
+		&i.FetchNodeID,
 	)
 	return i, err
 }
@@ -289,6 +332,35 @@ func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) erro
 	return err
 }
 
+const listDownloadingNodes = `-- name: ListDownloadingNodes :many
+SELECT DISTINCT node_id FROM grabs_grab
+WHERE stage NOT IN ('imported', 'failed') OR info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY node_id
+`
+
+func (q *Queries) ListDownloadingNodes(ctx context.Context) ([]role.NodeID, error) {
+	rows, err := q.db.QueryContext(ctx, listDownloadingNodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []role.NodeID
+	for rows.Next() {
+		var node_id role.NodeID
+		if err := rows.Scan(&node_id); err != nil {
+			return nil, err
+		}
+		items = append(items, node_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFills = `-- name: ListFills :many
 SELECT grab_id, position, target_id FROM grabs_fill ORDER BY grab_id, position
 `
@@ -317,7 +389,7 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, seed_dropped_at, fetch_node_id FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -356,6 +428,8 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Unwanted,
+			&i.SeedDroppedAt,
+			&i.FetchNodeID,
 		); err != nil {
 			return nil, err
 		}
@@ -370,8 +444,43 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 	return items, nil
 }
 
+const listKeptOfNode = `-- name: ListKeptOfNode :many
+SELECT id, info_hash, release_title FROM grabs_grab
+WHERE node_id = ?1 AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY info_hash, id
+`
+
+type ListKeptOfNodeRow struct {
+	ID           GrabID
+	InfoHash     []byte
+	ReleaseTitle string
+}
+
+func (q *Queries) ListKeptOfNode(ctx context.Context, nodeID role.NodeID) ([]ListKeptOfNodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listKeptOfNode, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKeptOfNodeRow
+	for rows.Next() {
+		var i ListKeptOfNodeRow
+		if err := rows.Scan(&i.ID, &i.InfoHash, &i.ReleaseTitle); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, indexer_id, node_id, release_title, release_size, release_link, release_info_hash, stage, info_hash, metainfo, download_files, download_error, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, seed_dropped_at, fetch_node_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -410,6 +519,8 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Unwanted,
+			&i.SeedDroppedAt,
+			&i.FetchNodeID,
 		); err != nil {
 			return nil, err
 		}
@@ -689,7 +800,7 @@ func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID
 
 const listTorrentsOfNode = `-- name: ListTorrentsOfNode :many
 SELECT id, info_hash, metainfo FROM grabs_grab
-WHERE node_id = ?1 AND info_hash IS NOT NULL
+WHERE node_id = ?1 AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
 ORDER BY info_hash, id
 `
 

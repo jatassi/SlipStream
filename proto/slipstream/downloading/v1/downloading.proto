@@ -27,6 +27,9 @@ message TorrentFacts {
   int64 done = 3;
   int64 wanted = 4;
   int32 peers = 5;
+  // uploaded is every byte of payload the Node sent for the torrent since
+  // its client added it.
+  int64 uploaded = 6;
 }
 
 // Result is how one Grab's download ended. It names the Grab, because two

@@ -59,20 +59,29 @@ type searchMode struct {
 }
 
 type indexer struct {
-	ID          string       `json:"id" format:"uuid"`
-	Name        string       `json:"name"`
-	Protocol    string       `json:"protocol" enum:"torznab"`
-	URL         string       `json:"url"`
-	HomeNodeID  string       `json:"homeNodeId" format:"uuid" doc:"The Node that reaches the Indexer"`
-	APIKeySet   bool         `json:"apiKeySet" doc:"False when the key was dropped and an Admin must enter it again"`
-	SearchModes []searchMode `json:"searchModes" nullable:"false" doc:"By mode"`
-	CreatedAt   time.Time    `json:"createdAt"`
+	ID          string                `json:"id" format:"uuid"`
+	Name        string                `json:"name"`
+	Protocol    string                `json:"protocol" enum:"torznab"`
+	URL         string                `json:"url"`
+	HomeNodeID  string                `json:"homeNodeId" format:"uuid" doc:"The Node that reaches the Indexer"`
+	APIKeySet   bool                  `json:"apiKeySet" doc:"False when the key was dropped and an Admin must enter it again"`
+	SearchModes []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
+	Waiting     api.Nullable[waiting] `json:"waiting" doc:"Why its calls wait for its home Node, null while they go through"`
+	CreatedAt   time.Time             `json:"createdAt"`
 }
 
-func indexerOf(x indexers.Indexer) indexer {
+type waiting struct {
+	Standing string    `json:"standing" enum:"reconnecting,offline,mismatched" doc:"How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable"`
+	Since    time.Time `json:"since" doc:"The home Node's last Sync frame, or the Controller's start when it sent none since"`
+}
+
+func indexerOf(xs *indexers.Indexers, x indexers.Indexer) indexer {
 	out := indexer{ID: x.ID.String(), Name: x.Name, Protocol: x.Protocol, URL: x.URL, HomeNodeID: x.HomeNode.String(), APIKeySet: x.Key.Set(), SearchModes: []searchMode{}, CreatedAt: x.CreatedAt}
 	for _, m := range slices.Sorted(maps.Keys(x.Caps.Modes)) {
 		out.SearchModes = append(out.SearchModes, searchMode{Mode: m, Params: x.Caps.Modes[m]})
+	}
+	if a, ok := xs.Waiting(x); ok {
+		out.Waiting = api.Some(waiting{Standing: a.Standing.String(), Since: a.Since})
 	}
 	return out
 }
@@ -136,11 +145,12 @@ func Routes(r *api.Router, registry Registry) {
 type handlers struct{ registry Registry }
 
 func (h handlers) createIndexer(ctx context.Context, by identity.Admin, in *createIndexerInput) (*indexerOutput, error) {
-	x, err := open(h.registry).Create(ctx, by, indexers.Draft{Name: in.Body.Name, URL: in.Body.URL, APIKey: in.Body.APIKey})
+	xs := open(h.registry)
+	x, err := xs.Create(ctx, by, indexers.Draft{Name: in.Body.Name, URL: in.Body.URL, APIKey: in.Body.APIKey})
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &indexerOutput{Body: indexerOf(x)}, nil
+	return &indexerOutput{Body: indexerOf(xs, x)}, nil
 }
 
 func (h handlers) setIndexerAPIKey(ctx context.Context, by identity.Admin, in *apiKeyInput) (*indexerOutput, error) {
@@ -148,21 +158,23 @@ func (h handlers) setIndexerAPIKey(ctx context.Context, by identity.Admin, in *a
 	if err != nil {
 		return nil, indexerNotFound
 	}
-	x, err := open(h.registry).SetAPIKey(ctx, by, indexers.ID{UUID: id}, in.Body.APIKey)
+	xs := open(h.registry)
+	x, err := xs.SetAPIKey(ctx, by, indexers.ID{UUID: id}, in.Body.APIKey)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &indexerOutput{Body: indexerOf(x)}, nil
+	return &indexerOutput{Body: indexerOf(xs, x)}, nil
 }
 
 func (h handlers) listIndexers(ctx context.Context, by identity.Admin, _ *struct{}) (*indexerListOutput, error) {
-	list, err := open(h.registry).List(ctx, by)
+	xs := open(h.registry)
+	list, err := xs.List(ctx, by)
 	if err != nil {
 		return nil, err
 	}
 	out := indexerList{Indexers: []indexer{}}
 	for _, x := range list {
-		out.Indexers = append(out.Indexers, indexerOf(x))
+		out.Indexers = append(out.Indexers, indexerOf(xs, x))
 	}
 	return &indexerListOutput{Body: out}, nil
 }

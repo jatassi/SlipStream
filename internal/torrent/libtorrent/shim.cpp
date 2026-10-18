@@ -3,6 +3,7 @@
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/address.hpp>
 #include <libtorrent/alert_types.hpp>
+#include <libtorrent/announce_entry.hpp>
 #include <libtorrent/bdecode.hpp>
 #include <libtorrent/error_code.hpp>
 #include <libtorrent/file_storage.hpp>
@@ -35,6 +36,10 @@ struct lts_session {
 	std::unordered_map<int64_t, lt::torrent_handle> by_id;
 	std::unordered_map<lt::torrent_handle, int64_t> by_handle;
 	std::unordered_set<int64_t> finishing;
+	// parting holds each torrent removed while a tracker had yet to answer
+	// its started announce, by id. libtorrent announces stopped only to a
+	// tracker that answered started, so the removal waits for that answer.
+	std::unordered_map<lt::torrent_handle, int64_t> parting;
 	int64_t next = 1;
 	std::vector<lt::alert*> popped;
 	std::deque<lts_alert> pending;
@@ -138,6 +143,27 @@ int32_t state(lt::torrent_status::state_t st) {
 	throw std::logic_error("unknown torrent state");
 }
 
+// awaits_started is whether a tracker has yet to answer h's started
+// announce.
+bool awaits_started(lt::torrent_handle const& h) {
+	for (lt::announce_entry const& ae : h.trackers()) {
+		for (lt::announce_endpoint const& ep : ae.endpoints) {
+			for (lt::announce_infohash const& ih : ep.info_hashes) {
+				if (ih.updating && !ih.start_sent) return true;
+			}
+		}
+	}
+	return false;
+}
+
+// part removes a parting torrent once no tracker awaits its started
+// announce. Called with s->mu held.
+void part(lts_session* s, lt::torrent_handle const& h) {
+	if (s->parting.count(h) == 0 || awaits_started(h)) return;
+	s->parting.erase(h);
+	s->ses.remove_torrent(h);
+}
+
 int64_t id_of(lt::client_data_t const& userdata) {
 	return int64_t(reinterpret_cast<intptr_t>(userdata.get<lts_id>()));
 }
@@ -194,11 +220,13 @@ void convert(lts_session* s, lt::alert* a) {
 		break;
 	}
 	case lt::tracker_reply_alert::alert_type:
+		part(s, static_cast<lt::torrent_alert*>(a)->handle);
 		o.kind = LTS_ALERT_TRACKER_REPLIED;
 		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
 		break;
 	case lt::tracker_error_alert::alert_type: {
 		auto* te = static_cast<lt::tracker_error_alert*>(a);
+		part(s, te->handle);
 		o.kind = LTS_ALERT_TRACKER_FAILED;
 		o.torrent = torrent(te);
 		fill(&o.error, te->error);
@@ -267,6 +295,12 @@ int lts_add(lts_session* s, char const* metainfo, size_t len, char const* save_p
 		atp.userdata = lt::client_data_t(reinterpret_cast<lts_id*>(intptr_t(id)));
 		lt::torrent_handle h = s->ses.add_torrent(std::move(atp), ec);
 		check(ec);
+		// Adding a parting torrent again returns its handle: it stays, under
+		// the id it had.
+		if (auto p = s->parting.find(h); p != s->parting.end()) {
+			id = p->second;
+			s->parting.erase(p);
+		}
 		s->by_id[id] = h;
 		s->by_handle[h] = id;
 		*torrent = id;
@@ -289,16 +323,18 @@ int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* 
 		out->peers = st.num_peers;
 		out->done = st.total_done;
 		out->wanted = st.total_wanted;
+		out->uploaded = st.all_time_upload;
 	});
 }
 
 int lts_remove(lts_session* s, int64_t torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);
-		s->ses.remove_torrent(h);
 		std::lock_guard<std::mutex> l(s->mu);
 		s->by_handle.erase(h);
 		s->by_id.erase(torrent);
+		s->parting[h] = torrent;
+		part(s, h);
 	});
 }
 

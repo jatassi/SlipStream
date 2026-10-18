@@ -137,6 +137,12 @@ func (s *server) ReadLogArchive(_ context.Context, req *systemv1.ReadLogArchiveR
 	return &systemv1.ReadLogArchiveResponse{Data: data}, nil
 }
 
+func (s *server) Reach(ctx context.Context, req *systemv1.ReachRequest) (*systemv1.ReachResponse, error) {
+	t := Target{Host: req.GetHost(), Port: uint16(req.GetPort()), TLS: req.GetTls()} //nolint:gosec // a port the Controller sent from a uint16
+	r := s.host.Reach(ctx, t)
+	return &systemv1.ReachResponse{Ok: r.OK, Millis: r.Took.Milliseconds(), Error: r.Err}, nil
+}
+
 func (s *server) drop(id string) {
 	s.mu.Lock()
 	a, ok := s.archives[id]

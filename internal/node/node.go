@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -37,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -192,6 +194,10 @@ type Node struct {
 	hub       *live.Hub
 	gate      *identity.Gate
 	link      *link.Link
+	linkBound netip.AddrPort
+	// served is the Controller's end of the Serve streams Serving Workers
+	// open.
+	served    *serving.Listener
 	pairing   *pairing.Pairing
 	lockstep  *http.ServeMux
 	roleRand  *rand.Rand
@@ -204,7 +210,9 @@ type Node struct {
 	// orders its reports to the holder half.
 	host   *nodeHost
 	hostMu sync.Mutex
-	// downloads is the Node's built-in torrent client.
+	// torrent is the Node's torrent engine, and downloads its built-in
+	// client.
+	torrent   engine.Engine
 	downloads *downloading.Client
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
@@ -414,17 +422,17 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		return 0, "", err
 	}
 	n.pairing, err = pairing.Open(pairing.Config{
-		DataDir: n.env.DataDir.Path(),
-		Link:    n.link,
-		Name:    cfg.Name,
-		Claims:  surfaceNode{n},
-		Log:     n.rootLog.With("subsystem", "pairing"),
+		DataDir:   n.env.DataDir.Path(),
+		Key:       n.key.Public(),
+		Link:      n.link,
+		Name:      cfg.Name,
+		Claims:    surfaceNode{n},
+		AwaitDial: cfg.Timings.Link.AwaitDial,
+		Removed:   n.removed,
+		Log:       n.rootLog.With("subsystem", "pairing"),
 	})
-	if _, malformed := errors.AsType[*pairing.RecordError](err); malformed {
-		err = &RecordError{Err: err}
-	}
 	if err != nil {
-		return 0, "", err
+		return 0, "", refusedRecord(err)
 	}
 	switch claim {
 	case system.Controller:
@@ -435,6 +443,9 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 			err = n.startWorker(ctx)
 		}
 	case system.Unclaimed:
+		if r, ok := n.pairing.Removal(); ok {
+			n.log.Warn(r.Sentence())
+		}
 	}
 	if err != nil {
 		return 0, "", n.stoppedOr(err)
@@ -455,6 +466,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
+	n.torrent = torrent
 	n.downloads = downloading.NewClient(downloading.Config{
 		Engine:  torrent,
 		Dir:     n.env.DataDir.Resolve(cfg.Torrent.Downloads),

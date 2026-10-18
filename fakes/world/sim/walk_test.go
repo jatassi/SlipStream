@@ -23,11 +23,12 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
-	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -43,10 +44,12 @@ const (
 var walked = []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}
 
 type grabView struct {
-	ID       string `json:"id"`
-	InfoHash string `json:"infoHash"`
-	Stage    string `json:"stage"`
-	Failure  *struct {
+	ID          string `json:"id"`
+	NodeID      string `json:"nodeId"`
+	FetchNodeID string `json:"fetchNodeId"`
+	InfoHash    string `json:"infoHash"`
+	Stage       string `json:"stage"`
+	Failure     *struct {
 		Stage   string `json:"stage"`
 		Code    string `json:"code"`
 		Message string `json:"message"`
@@ -321,9 +324,9 @@ func (a adds) Add(p engine.AddParams) (engine.Handle, error) {
 }
 
 // TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing restarts
-// seedbox with its link to home stalled: it adds the torrent again from
-// its cached intent, and its second Completed, once applied, changes
-// nothing.
+// seedbox with its link to home stalled: once home had time to answer, it
+// adds the torrent again from its cached intent, and its second Completed,
+// once applied, changes nothing.
 func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var mu sync.Mutex
@@ -348,6 +351,8 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		box := w.Node("seedbox")
 		box.Stop()
 		box.Start()
+		timings := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
+		time.Sleep(timings.RedialMax + timings.Handshake)
 		synctest.Wait()
 		hash, err := bencode.ParseInfoHash(before.InfoHash)
 		if err != nil {
@@ -529,14 +534,19 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 	})
 }
 
-// TestCreatingAnIndexerWithNoSearchingNodeConflicts takes Searching from
-// every Node: createIndexer answers 409.
-func TestCreatingAnIndexerWithNoSearchingNodeConflicts(t *testing.T) {
+// TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts cuts seedbox,
+// the one Node that holds Searching, off: before the offline grace no Node
+// may search, so createIndexer answers 409.
+func TestCreatingAnIndexerWithNoSearchingNodeInStepConflicts(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
-		s.Nodes[1].Roles = slices.DeleteFunc(s.Nodes[1].Roles, func(r role.Name) bool { return r == role.Searching })
 		s.Library.Indexers = nil
 		w := sim.Launch(t, s, sim.WithWalk())
+		synctest.Wait()
+		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
+		time.Sleep(link.Keepalive + link.WriteTimeout)
+		synctest.Wait()
 		worldtest.Expect(t, "createIndexer", w.API().Admin("home", http.MethodPost, "/api/v1/indexers",
 			`{"name":"Fixture Site","url":"http://127.0.0.1:1/torznab","apiKey":"key"}`), worldtest.Reply{
 			Status: http.StatusConflict,

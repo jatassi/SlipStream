@@ -36,11 +36,12 @@ func (roster) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
 	return nodes.Node{ID: home, Name: "home", Self: true, Link: nodes.Local}, nil
 }
 
-func (roster) Reach(role.NodeID) (nodes.LinkState, time.Time) { return nodes.Local, time.Time{} }
+func (roster) Standing(role.NodeID) (nodes.Standing, time.Time) { return nodes.InStep, time.Time{} }
 
-func (r roster) List(ctx context.Context) ([]nodes.Node, error) {
-	n, err := r.Get(ctx, home)
-	return []nodes.Node{n}, err
+func (roster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
+
+func (roster) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
+	return map[role.NodeID]nodes.Named{home: {ID: home, Name: "home"}}, nil
 }
 
 type quiet struct{}
@@ -311,9 +312,14 @@ func TestPruneRunsKeepsRunsKeptAndEveryOpenRun(t *testing.T) {
 
 func equal(a, b []string) bool { return strings.Join(a, "\n") == strings.Join(b, "\n") }
 
+// links is home and seedbox, which lapsed once lapsed is set: its
+// portable work routes to home. Once removed is set, seedbox's row is a
+// tombstone.
 type links struct {
-	mu   sync.Mutex
-	link nodes.LinkState
+	mu      sync.Mutex
+	link    nodes.LinkState
+	lapsed  bool
+	removed bool
 }
 
 var seedbox = role.NodeID{UUID: storage.NewUUID()}
@@ -326,29 +332,106 @@ func (l *links) set(link nodes.LinkState) {
 
 func (*links) Self() role.NodeID { return home }
 
-func (l *links) Reach(node role.NodeID) (nodes.LinkState, time.Time) {
+func (l *links) lapse(lapsed bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if node == home {
-		return nodes.Local, time.Time{}
-	}
-	return l.link, time.Time{}
+	l.lapsed = lapsed
 }
 
-func (l *links) Get(ctx context.Context, id role.NodeID) (nodes.Node, error) {
-	list, err := l.List(ctx)
-	for _, n := range list {
-		if n.ID == id {
-			return n, err
-		}
+func (l *links) Standing(node role.NodeID) (nodes.Standing, time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch {
+	case node == home, l.link == nodes.Up:
+		return nodes.InStep, time.Time{}
+	case l.lapsed:
+		return nodes.LapsedNode, time.Time{}
+	case l.link == nodes.Mismatched:
+		return nodes.MismatchedNode, time.Time{}
+	}
+	return nodes.Offline, time.Time{}
+}
+
+func (l *links) Route(_ role.Name, h role.NodeID) (role.NodeID, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.lapsed {
+		return home, nil
+	}
+	return h, nil
+}
+
+func (l *links) remove() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.removed = true
+}
+
+func (l *links) Get(_ context.Context, id role.NodeID) (nodes.Node, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch {
+	case id == home:
+		return nodes.Node{ID: home, Name: "home", Self: true, Link: nodes.Local}, nil
+	case id == seedbox && !l.removed:
+		return nodes.Node{ID: seedbox, Name: "seedbox", Link: l.link}, nil
 	}
 	return nodes.Node{}, nodes.ErrNotFound
 }
 
-func (l *links) List(context.Context) ([]nodes.Node, error) {
+func (l *links) Names(context.Context) (map[role.NodeID]nodes.Named, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return []nodes.Node{{ID: home, Name: "home", Self: true, Link: nodes.Local}, {ID: seedbox, Name: "seedbox", Link: l.link}}, nil
+	return map[role.NodeID]nodes.Named{
+		home:    {ID: home, Name: "home"},
+		seedbox: {ID: seedbox, Name: "seedbox", Removed: l.removed},
+	}, nil
+}
+
+// TestARunStillNamesARemovedNode runs a unit on seedbox, then removes
+// seedbox: the run's line still names it and says it was removed, and the
+// install no longer counts as multinode.
+func TestARunStillNamesARemovedNode(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		far := tidy(nil)
+		far.Units = func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+			return []tasks.Unit{{Key: "s", Label: "S", Place: tasks.TiedTo(seedbox)}}, nil
+		}
+		far.Run = func(context.Context, tasks.Unit, *tasks.Progress) error { return nil }
+		r := &links{link: nodes.Up}
+		s := openOn(t, lib, r, newHub(t), far)
+		clock(t, s)
+		if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		r.remove()
+
+		d, err := s.Task(t.Context(), "tidy")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.Runs) != 1 || len(d.Runs[0].Lines) != 1 {
+			t.Fatalf("runs = %+v, want one run with one line", d.Runs)
+		}
+		if ln := d.Runs[0].Lines[0]; ln.Node != "seedbox" || ln.NodeID != seedbox || !ln.NodeRemoved {
+			t.Fatalf("the line reads %+v, want seedbox, removed", ln)
+		}
+		if got := d.Runs[0].Nodes; !equal(got, []string{"seedbox"}) {
+			t.Fatalf("the run names %q, want seedbox", got)
+		}
+		if u := d.Units[0]; u.Node != "seedbox" || !u.NodeRemoved {
+			t.Fatalf("the unit reads %+v, want seedbox, removed", u)
+		}
+		o, err := s.Overview(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if o.Multinode {
+			t.Fatal("the overview is multinode with seedbox removed, want home alone")
+		}
+	})
 }
 
 func TestANodeReturningRunsItsDueUnitsOnce(t *testing.T) {
@@ -380,6 +463,58 @@ func TestANodeReturningRunsItsDueUnitsOnce(t *testing.T) {
 		}
 		if got := rows(t, lib, "SELECT unit_key, last_outcome, due_on_return FROM tasks_unit ORDER BY position"); !equal(got, []string{"a|succeeded|0", "s|succeeded|0"}) {
 			t.Fatalf("units = %q, want both succeeded and none due", got)
+		}
+	})
+}
+
+// TestAPortableUnitRunsWhereItsHomeRoutesEachRun runs a unit of
+// seedbox's Searching work three times: skipped while seedbox is offline
+// within the grace, on home once seedbox lapsed, and on seedbox again once
+// it is back.
+func TestAPortableUnitRunsWhereItsHomeRoutesEachRun(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		search := tidy(nil)
+		search.Units = func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+			return []tasks.Unit{{Key: "s", Label: "S", Place: tasks.PortableOn(role.Searching, seedbox)}}, nil
+		}
+		var mu sync.Mutex
+		var ran []string
+		search.Run = func(_ context.Context, u tasks.Unit, _ *tasks.Progress) error {
+			node, _ := u.Place.Node()
+			mu.Lock()
+			defer mu.Unlock()
+			ran = append(ran, map[role.NodeID]string{home: "home", seedbox: "seedbox"}[node])
+			return nil
+		}
+		r := &links{}
+		s := openOn(t, lib, r, newHub(t), search)
+		clock(t, s)
+		runNow := func() {
+			t.Helper()
+			if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
+				t.Fatal(err)
+			}
+			synctest.Wait()
+		}
+		runNow()
+		r.lapse(true)
+		runNow()
+		r.lapse(false)
+		r.set(nodes.Up)
+		runNow()
+		if want := []string{"home", "seedbox"}; !equal(ran, want) {
+			t.Fatalf("the unit ran on %q, want %q", ran, want)
+		}
+		want := []string{"skipped|Waiting for seedbox", "succeeded|1 step", "succeeded|1 step"}
+		if got := rows(t, lib, "SELECT result, summary FROM tasks_run ORDER BY id"); !equal(got, want) {
+			t.Fatalf("runs = %q, want %q", got, want)
+		}
+		lines := rows(t, lib, "SELECT units FROM tasks_run ORDER BY id")
+		for i, node := range []role.NodeID{seedbox, home, seedbox} {
+			if !strings.Contains(lines[i], node.String()) {
+				t.Fatalf("run %d's line is %s, want it on %s", i+1, lines[i], node)
+			}
 		}
 	})
 }

@@ -7,7 +7,8 @@ import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
-import { home, nodesAre } from "./nodes";
+import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
+import { board, boardIs, homeSeat } from "./roles";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
   "../api/gen/query/**/*.msw.ts",
@@ -54,12 +55,15 @@ export function problem(status: number, code: string, title: string) {
   );
 }
 
+/** The Overview of the Node every test talks to. */
+export const homePage = `/nodes/${homeId}`;
+
 export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 
 export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_http" };
 
 const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
-const nothingMoving = getGetCountsMockHandler({ activity: 0 });
+const nothingMoving = getGetCountsMockHandler({ activity: 0, alerts: { nodes: null } });
 const signedInAsAda = getGetSessionMockHandler({
   account: ada,
   pinRequired: false,
@@ -76,6 +80,8 @@ export const baseHandlers: RequestHandler[] = [
   resyncStream,
   nothingMoving,
   nodesAre(home),
+  topologyIs(topologyOf([home], { sentence: "home is online." })),
+  boardIs(board(homeSeat)),
   noTaskRunning,
   ...tagMocks,
 ];

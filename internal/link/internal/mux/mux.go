@@ -14,8 +14,8 @@ import (
 )
 
 type Config struct {
-	// Keepalive is how often a session pings; a ping unanswered within
-	// WriteTimeout closes it.
+	// Keepalive is how often a session pings and measures its round
+	// trip; a ping unanswered within WriteTimeout closes it.
 	Keepalive    time.Duration
 	WriteTimeout time.Duration
 	// StreamWindow is the largest receive window one stream grows to.
@@ -37,6 +37,7 @@ func (c Config) Check() error {
 func (c Config) yamux() *yamux.Config {
 	y := yamux.DefaultConfig()
 	y.KeepAliveInterval = c.Keepalive
+	y.MeasureRTTInterval = c.Keepalive
 	y.ConnectionWriteTimeout = c.WriteTimeout
 	y.MaxStreamWindowSize = c.StreamWindow
 	y.LogOutput = io.Discard
@@ -77,6 +78,7 @@ func (s *Session) Open(ctx context.Context) (Stream, error) {
 	return st, nil
 }
 
+// Accept fails only once the session is closing.
 func (s *Session) Accept() (Stream, error) {
 	st, err := s.s.AcceptStream()
 	if err != nil {
@@ -92,6 +94,10 @@ func (s *Session) Close() error {
 	}
 	return nil
 }
+
+// RTT is the smoothed round trip of the session's pings, zero until the
+// first is answered.
+func (s *Session) RTT() time.Duration { return s.s.RTT() }
 
 // Done is closed once the session has ended, by either side, a failed
 // keepalive or its connection.

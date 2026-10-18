@@ -553,6 +553,14 @@ export const getGetStatusResponseMock = (
         }
       : {}),
   },
+  ...(faker.datatype.boolean()
+    ? {
+        removed: {
+          at: faker.date.past().toISOString().slice(0, 19) + "Z",
+          controller: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+      }
+    : {}),
   ...overrideResponse,
 });
 

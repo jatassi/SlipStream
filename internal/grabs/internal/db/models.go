@@ -47,6 +47,8 @@ type GrabsGrab struct {
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
 	Unwanted        *files.Unwanted
+	SeedDroppedAt   storage.Time
+	FetchNodeID     role.NodeID
 }
 
 type GrabsRefusal struct {

@@ -21,7 +21,7 @@ type knows struct{ node role.NodeID }
 
 func (k knows) Key(node role.NodeID) (link.Key, bool) { return link.Key{1}, node == k.node }
 
-func (knows) Holders(role.Name) []role.NodeID { return nil }
+func (knows) Serves(role.Name, role.NodeID) bool { return false }
 
 func TestClassify(t *testing.T) {
 	seedbox := role.NodeID{UUID: storage.NewUUID()}
@@ -42,21 +42,21 @@ func TestClassify(t *testing.T) {
 		{"a canceled run, though the link reads lost", canceled, rpc.Errorf(rpc.CodeCanceled, "context canceled"), TiedTo(seedbox), result{outcome: Canceled}},
 		{"disconnected, tied", t.Context(), fmt.Errorf("tidy: %w", link.ErrDisconnected), TiedTo(seedbox),
 			result{outcome: Skipped, cause: "seedbox is offline", node: "seedbox", short: "seedbox offline", dueOnReturn: true}},
-		{"disconnected, portable", t.Context(), fmt.Errorf("search: %w", link.ErrDisconnected), PortableOn(seedbox),
+		{"disconnected, portable", t.Context(), fmt.Errorf("search: %w", link.ErrDisconnected), PortableOn(role.Searching, seedbox),
 			result{outcome: Skipped, cause: "seedbox is offline", node: "seedbox", short: "seedbox offline"}},
 		{"mismatched, tied", t.Context(), fmt.Errorf("tidy: %w", link.ErrMismatched), TiedTo(seedbox),
 			result{outcome: Skipped, cause: "seedbox runs 2.3.0", node: "seedbox", short: "seedbox runs 2.3.0", dueOnReturn: true}},
-		{"mismatched, portable", t.Context(), fmt.Errorf("search: %w", link.ErrMismatched), PortableOn(seedbox),
+		{"mismatched, portable", t.Context(), fmt.Errorf("search: %w", link.ErrMismatched), PortableOn(role.Searching, seedbox),
 			result{outcome: Skipped, cause: "seedbox runs 2.3.0", node: "seedbox", short: "seedbox runs 2.3.0"}},
 		{"not holder, tied", t.Context(), notSearching, TiedTo(seedbox),
 			result{outcome: Skipped, cause: "seedbox no longer holds Searching", node: "seedbox", short: "seedbox no longer holds Searching"}},
-		{"not holder, portable", t.Context(), notSearching, PortableOn(seedbox),
+		{"not holder, portable", t.Context(), notSearching, PortableOn(role.Searching, seedbox),
 			result{outcome: Skipped, cause: "seedbox no longer holds Searching", node: "seedbox", short: "seedbox no longer holds Searching"}},
 		{"not in the roster", t.Context(), unpaired, TiedTo(seedbox),
 			result{outcome: Skipped, cause: "seedbox is no longer paired", node: "seedbox", short: "seedbox is no longer paired"}},
 		{"lost, tied", t.Context(), rpc.Errorf(rpc.CodeUnavailable, "session closed"), TiedTo(seedbox),
 			result{outcome: Skipped, cause: "lost seedbox mid-run", node: "seedbox", short: "seedbox offline", dueOnReturn: true}},
-		{"lost, portable", t.Context(), rpc.Errorf(rpc.CodeUnavailable, "session closed"), PortableOn(seedbox),
+		{"lost, portable", t.Context(), rpc.Errorf(rpc.CodeUnavailable, "session closed"), PortableOn(role.Searching, seedbox),
 			result{outcome: Skipped, cause: "lost seedbox mid-run", node: "seedbox", short: "seedbox offline"}},
 		{"a plain error", t.Context(), errors.New("database is locked"), OnController(), result{outcome: Failed, cause: "database is locked"}},
 	} {

@@ -186,7 +186,7 @@ func seedLibrary(ctx context.Context, tx *storage.Tx[storage.Library]) (seeds, e
 		sql  string
 		args []any
 	}{
-		{`INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, []any{at.node}},
+		{`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, []any{at.node}},
 		{`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, []any{at.indexer, at.node}},
 		{`INSERT INTO works_work VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, []any{at.work}},
 		{`INSERT INTO roots_root VALUES (?, 'fixture', ?, '/media')`, []any{at.root, at.node}},
@@ -268,7 +268,7 @@ func TestExistingFilesTakeTheFirstTargetTheyFillInProfileOrderAsTheirLabel(t *te
 			args []any
 		}
 		stmts := []stmt{
-			{`INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, []any{root}},
+			{`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, []any{root}},
 			{`INSERT INTO works_work VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, []any{work}},
 			{`INSERT INTO roots_root VALUES (?, 'fixture', ?, '/media')`, []any{root, root}},
 			{`INSERT INTO targets_target VALUES (?, 'Small', 1)`, []any{small}},

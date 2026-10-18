@@ -101,7 +101,8 @@ test("log.reset draws a divider for a restart and for skipped lines", async () =
   expect(page.getByText("Some lines were skipped").all()).toHaveLength(2);
 });
 
-const seedboxUp = (since: string) => ({ ...seedbox, link: { state: "up", since } }) as const;
+const seedboxUp = (since: string) =>
+  ({ ...seedbox, link: { state: "up", since }, standing: "in-step" }) as const;
 
 test("a Worker restarted while its Logs are open keeps the lines before, a divider and the lines after", async () => {
   const server = liveServer();

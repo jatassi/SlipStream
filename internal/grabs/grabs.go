@@ -67,6 +67,7 @@ const (
 	FillsNothing       Code = "fills_nothing"
 	TransferFailed     Code = "transfer_failed"
 	ImportFailed       Code = "import_failed"
+	NodeWrittenOff     Code = "node_written_off"
 )
 
 const (
@@ -120,9 +121,16 @@ var (
 
 // Roster is the Nodes and the Roles they hold.
 type Roster interface {
-	Holders(r role.Name) []role.NodeID
-	// AwaitInStep returns once node's link is live and matched.
-	AwaitInStep(ctx context.Context, node role.NodeID) error
+	// Route is where r work homed on home goes now. It fails with
+	// *nodes.Unrouted while no Node may take it.
+	Route(r role.Name, home role.NodeID) (role.NodeID, error)
+	// InStep reports whether node's Sync session is attached.
+	InStep(node role.NodeID) bool
+	// Changed is closed at the roster's next change.
+	Changed() <-chan struct{}
+	// WrittenOff reports whether the Admin wrote off what node holds for
+	// r, so its owner gives that work up.
+	WrittenOff(r role.Name, node role.NodeID) bool
 }
 
 // Downloads is the Downloading Role's Controller half.
@@ -230,15 +238,19 @@ type Grab struct {
 	Edition targets.Edition
 	Targets []targets.TargetID
 	Release Release
-	// Node is the Indexer's home Node, which downloads the release.
-	Node     role.NodeID
-	Stage    Stage
-	Torrent  *Torrent
-	Download *Download
-	Plan     *Plan
-	Failed   *Failure
-	History  []Entered
-	Created  time.Time
+	// Node downloads the release: the Indexer's home Node until the fetch,
+	// then the Downloading Node the fetch handed the .torrent to.
+	Node role.NodeID
+	// FetchNode is the Searching Node that fetched the .torrent, zero
+	// until it did.
+	FetchNode role.NodeID
+	Stage     Stage
+	Torrent   *Torrent
+	Download  *Download
+	Plan      *Plan
+	Failed    *Failure
+	History   []Entered
+	Created   time.Time
 }
 
 // Done reports whether the Grab has no step left.
@@ -283,7 +295,7 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, Indexer: row.IndexerID, Link: row.ReleaseLink},
-		Node:    row.NodeID, Stage: row.Stage, History: rel.history[row.ID], Created: row.CreatedAt.Time(),
+		Node:    row.NodeID, FetchNode: row.FetchNodeID, Stage: row.Stage, History: rel.history[row.ID], Created: row.CreatedAt.Time(),
 	}
 	if row.ReleaseInfoHash != nil {
 		h := bencode.InfoHash(row.ReleaseInfoHash)

@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	rpctestv1 "github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1/rpctestv1connect"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -286,7 +287,7 @@ func searching(h node.Half) tasks.Task {
 			if i < 0 {
 				return nil, nil
 			}
-			return []tasks.Unit{{Key: "search", Label: "Search", Place: tasks.PortableOn(named[i].ID)}}, nil
+			return []tasks.Unit{{Key: "search", Label: "Search", Place: tasks.PortableOn(role.Searching, named[i].ID)}}, nil
 		},
 		Run: func(ctx context.Context, u tasks.Unit, _ *tasks.Progress) error {
 			box, _ := u.Place.Node()

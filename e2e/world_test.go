@@ -75,7 +75,7 @@ func TestSingleMachine(t *testing.T) {
 
 	rows := a.Nodes("home")
 	every := []string{"searching", "downloading", "storage", "converting", "subtitles", "metadata", "media-server-link", "notifying", "serving"}
-	if len(rows) != 1 || !rows[0].Self || rows[0].Link.State != "local" || !slices.Equal(rows[0].Roles, every) || rows[0].Facts == nil || !slices.Equal(rows[0].Facts.Assigned, every) {
+	if len(rows) != 1 || !rows[0].Self || rows[0].Link.State != "local" || !slices.Equal(rows[0].Assigned(), every) || rows[0].Facts == nil || !slices.Equal(rows[0].Facts.Assigned, every) {
 		t.Fatalf("listNodes = %+v, want one row, self, local, holding and assigned %v", rows, every)
 	}
 	if home.NodeID != rows[0].ID || !slices.Equal(home.Roles, every) {

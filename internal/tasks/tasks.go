@@ -27,9 +27,13 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("tasks", sch
 
 type Roster interface {
 	Self() role.NodeID
-	Reach(node role.NodeID) (nodes.LinkState, time.Time)
+	// Standing is how node stands with the Controller, and since when.
+	Standing(node role.NodeID) (nodes.Standing, time.Time)
+	// Route is where r work homed on home goes now, or why it waits.
+	Route(r role.Name, home role.NodeID) (role.NodeID, error)
 	Get(ctx context.Context, id role.NodeID) (nodes.Node, error)
-	List(ctx context.Context) ([]nodes.Node, error)
+	// Names is every Node's name, removed Nodes included.
+	Names(ctx context.Context) (map[role.NodeID]nodes.Named, error)
 }
 
 // Changed tells Admins that a task, its runs or the schedule changed. An
@@ -87,9 +91,9 @@ func (e *ErrRunning) Error() string { return "the task has run since " + e.Since
 // ErrWaiting refuses Run now while every unit is tied to a Node that
 // can't start work.
 type ErrWaiting struct {
-	Node  string
-	Link  nodes.LinkState
-	Since time.Time
+	Node     string
+	Standing nodes.Standing
+	Since    time.Time
 }
 
 func (e *ErrWaiting) Error() string {

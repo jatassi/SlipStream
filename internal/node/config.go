@@ -24,9 +24,11 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -126,6 +128,7 @@ type TimingsBlock struct {
 	Live        live.Timings        `yaml:"live"`
 	Link        link.Timings        `yaml:"link"`
 	Role        role.Timings        `yaml:"role"`
+	Nodes       nodes.Timings       `yaml:"nodes"`
 	Works       works.Timings       `yaml:"works"`
 	Indexers    indexers.Timings    `yaml:"indexers"`
 	Transfers   transfers.Timings   `yaml:"transfers"`
@@ -134,6 +137,7 @@ type TimingsBlock struct {
 	Downloading downloading.Timings `yaml:"downloading"`
 	Media       media.Timings       `yaml:"media"`
 	Mail        mail.Timings        `yaml:"mail"`
+	Serving     serving.Timings     `yaml:"serving"`
 }
 
 type Timings struct {
@@ -181,8 +185,11 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 				FallbackDelay: 300 * time.Millisecond,
 				LogPoll:       20 * time.Second,
 				LogArchiveTTL: 10 * time.Minute,
+				JoinDial:      20 * time.Second,
+				AwaitDial:     10 * time.Minute,
 			},
-			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute},
+			Role:        role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second, Stall: 45 * time.Second, Probe: 10 * time.Minute},
+			Nodes:       nodes.DefaultTimings(),
 			Works:       works.DefaultTimings(),
 			Indexers:    indexers.DefaultTimings(),
 			Transfers:   transfers.DefaultTimings(),
@@ -191,6 +198,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Downloading: downloading.DefaultTimings(),
 			Media:       media.DefaultTimings(),
 			Mail:        mail.DefaultTimings(),
+			Serving:     serving.DefaultTimings(),
 		},
 	}
 }

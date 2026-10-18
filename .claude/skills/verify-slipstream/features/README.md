@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, and `serving` is `home` with Serving on seedbox too.
 
 ## Conventions
 
@@ -49,10 +49,12 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Accounts](./accounts.md) covers the Accounts list, making an Admin a Member and the re-gated tab, the last Admin, turning an Account off and the Member's portal.
 - [Settings](./settings.md) covers Settings > Address, Email with its test email, and Sign-in.
 - [API key](./api-key.md) covers Settings > API key, regenerating it and the old key refused.
-- [Pairing](./pairing.md) covers a Join Code, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
+- [Pairing](./pairing.md) covers a Join Code, the Add a Node dialog and its open codes, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
+- [Roles](./roles.md) covers the Role board, a Node's Roles section with its Review and write-off dialog, planning and applying a set of Roles, the handback to home, a stale or blocked set, probes, reach tests, Notifying, drain and write-off.
+- [Offline Nodes](./offline.md) covers the offline grace on the API and Settings > Nodes, the Nodes nav alert and its dot, each Node's standing, an Indexer waiting for its offline home, the Controller covering Searching past the grace, and a Grab that waits for a Node that downloads.
 - [Add a movie](./add-a-movie.md) covers the Library's Add menu, catalog search, adding a Work and the Work page.
 - [Search and grab](./search-and-grab.md) covers a 429 from the Indexer, Search, a held download, completing it now, the Transfer, import, Activity and Files.
 - [Targets and Profiles](./targets-and-profiles.md) covers the starter Target and default Profile, the Target and Profile editors, the add sheet's Profile, one file filling two Targets, an upgrade, the Work's Profile and Editions sheet, the Impact with Delete and Keep, size refusals, a file refused by its probed video codec, and custom cuts in Settings > Editions.
-- [Nodes](./nodes.md) covers the Nodes page, its sections and Node picker, Web and API and Log settings, the live Logs and Download logs, Restart, and `GET /api/v1/system`.
+- [Nodes](./nodes.md) covers the Nodes landing with its Diagram and its Roster, renaming and removing a Node, a Node's Overview, its sections and Node picker, Web and API and Log settings, the live Logs and Download logs, Restart, `GET /api/v1/system`, and Serving on a Worker: its address serving the Controller's app and the status card while the Controller can't be reached.
 - [Tasks](./tasks.md) covers the Tasks page, a task's detail page, Run now and Cancel, the header capsule and the phone's running list, cadence and Schedule settings, and Housekeeping going Partial and back when seedbox stops and starts.
 - [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

@@ -97,6 +97,9 @@ type Status struct {
 	Peers  int
 	Done   int64
 	Wanted int64
+	// Uploaded is the payload bytes sent to peers since the torrent was
+	// added.
+	Uploaded int64
 }
 
 type Event interface{ event() }

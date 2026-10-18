@@ -23,15 +23,25 @@ func LibrarySchema() storage.Schema[storage.Library] { return watermark.Schema()
 // result outbox.
 func LocalSchema() storage.Schema[storage.Local] { return holding.Schema() }
 
-// Timings are the Role supervisor's restart backoff bounds.
+// Timings are the Role supervisor's restart backoff bounds, how often a
+// holder beats on its Sync stream, and how long the Controller lets a
+// Worker's Sync stream go silent before it closes the Worker's link.
 type Timings struct {
 	RestartMin time.Duration `yaml:"restart_min"`
 	RestartMax time.Duration `yaml:"restart_max"`
+	Beat       time.Duration `yaml:"beat"`
+	Stall      time.Duration `yaml:"stall"`
+	// Probe is how often a Node runs its probes again after its start.
+	Probe time.Duration `yaml:"probe"`
 }
 
 // Def binds a Role's name to its intent, facts and result messages.
 type Def[I, F, R proto.Message] struct {
 	Name Name
+	// Notable reports whether a holder's next facts change what Admins see
+	// of its Node beside its last, which are empty before its first. Nil
+	// means facts never do.
+	Notable func(last, next F) bool
 }
 
 // Holder is a Role's holder half, as its run function sees it.
@@ -49,11 +59,15 @@ type Holder[I, F, R proto.Message] interface {
 type Snapshot[I proto.Message] struct {
 	Intent   I
 	Standing Standing
+	// Draining: the Node no longer holds the Role and finishes what it
+	// holds.
+	Draining bool
 }
 
 // MayStart reports whether a job may start now: in step with the
-// Controller. Out of step, finish in-flight work and start nothing new.
-func (s Snapshot[I]) MayStart() bool { return s.Standing == Live }
+// Controller and not draining. Otherwise, finish in-flight work and start
+// nothing new.
+func (s Snapshot[I]) MayStart() bool { return s.Standing == Live && !s.Draining }
 
 // Serve is the Role's Controller half: derive computes a Node's intent from
 // the library, and apply applies one of its results.
@@ -61,21 +75,33 @@ func (d Def[I, F, R]) Serve(
 	derive func(context.Context, storage.Reader[storage.Library], NodeID) (I, error),
 	apply func(context.Context, *storage.Tx[storage.Library], NodeID, R) error,
 ) *Control[I, F, R] {
-	return &Control[I, F, R]{name: d.Name, derive: derive, apply: apply}
+	return &Control[I, F, R]{name: d.Name, derive: derive, apply: apply, notable: d.Notable}
 }
 
 // Hold is the Role's holder half: the supervisor runs run while this Node
-// holds the Role and its intent is cached.
-func (d Def[I, F, R]) Hold(run func(context.Context, Holder[I, F, R]) error) Held {
-	return Held{name: d.Name, run: func(ctx context.Context, h *Holding) error {
+// holds or drains the Role and its intent is cached, and calls release once
+// it neither holds nor drains it. Release lets go of what the Role's runs
+// left behind; a shutdown or a restart after a failure never calls it.
+func (d Def[I, F, R]) Hold(run func(context.Context, Holder[I, F, R]) error, release func(context.Context) error) Held {
+	return Held{name: d.Name, scoped: true, release: release, run: func(ctx context.Context, h *Holding) error {
 		return run(ctx, holder[I, F, R]{h: h, scope: string(d.Name)})
 	}}
 }
 
-// Held is one Role's run function, for the supervisor.
+// HoldRun is the holder half of a Role with no intent, such as Serving: the
+// supervisor runs run while this Node holds or drains Role n, and calls
+// release as Hold does.
+func HoldRun(n Name, run, release func(context.Context) error) Held {
+	return Held{name: n, release: release, run: func(ctx context.Context, _ *Holding) error { return run(ctx) }}
+}
+
+// Held is one Role's run and release functions, for the supervisor. A
+// scoped Role runs only once its intent is cached.
 type Held struct {
-	name Name
-	run  func(context.Context, *Holding) error
+	name    Name
+	scoped  bool
+	run     func(context.Context, *Holding) error
+	release func(context.Context) error
 }
 
 // Control is one Role's Controller half.
@@ -83,6 +109,7 @@ type Control[I, F, R proto.Message] struct {
 	name     Name
 	derive   func(context.Context, storage.Reader[storage.Library], NodeID) (I, error)
 	apply    func(context.Context, *storage.Tx[storage.Library], NodeID, R) error
+	notable  func(last, next F) bool
 	controls *Controls
 }
 
@@ -111,6 +138,7 @@ type Served interface {
 	bind(c *Controls)
 	deriveAny(ctx context.Context, r storage.Reader[storage.Library], node NodeID) (proto.Message, error)
 	applyAny(ctx context.Context, tx *storage.Tx[storage.Library], node NodeID, payload *anypb.Any) error
+	notableAny(last, next *anypb.Any) bool
 }
 
 func (c *Control[I, F, R]) scope() string     { return string(c.name) }
@@ -128,6 +156,23 @@ func (c *Control[I, F, R]) applyAny(ctx context.Context, tx *storage.Tx[storage.
 	return c.apply(ctx, tx, node, r)
 }
 
+func (c *Control[I, F, R]) notableAny(last, next *anypb.Any) bool {
+	if c.notable == nil {
+		return false
+	}
+	l := newMessage[F]()
+	if last != nil {
+		if err := last.UnmarshalTo(l); err != nil {
+			panic(fmt.Sprintf("role: %s facts: %v", c.name, err))
+		}
+	}
+	n := newMessage[F]()
+	if err := next.UnmarshalTo(n); err != nil {
+		panic(fmt.Sprintf("role: %s facts: %v", c.name, err))
+	}
+	return c.notable(l, n)
+}
+
 type holder[I, F, R proto.Message] struct {
 	h     *Holding
 	scope string
@@ -136,13 +181,13 @@ type holder[I, F, R proto.Message] struct {
 func (h holder[I, F, R]) Intent(ctx context.Context) iter.Seq[Snapshot[I]] {
 	return func(yield func(Snapshot[I]) bool) {
 		for {
-			payload, standing, changed := h.h.watch(h.scope)
+			payload, standing, draining, changed := h.h.watch(h.scope)
 			if payload != nil {
 				i := newMessage[I]()
 				if err := payload.UnmarshalTo(i); err != nil {
 					panic(fmt.Sprintf("role: %s intent: %v", h.scope, err))
 				}
-				if !yield(Snapshot[I]{Intent: i, Standing: standing}) {
+				if !yield(Snapshot[I]{Intent: i, Standing: standing, Draining: draining}) {
 					return
 				}
 			}

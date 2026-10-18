@@ -1,9 +1,6 @@
 package role
 
-import (
-	"fmt"
-	"slices"
-)
+import "slices"
 
 type Group string
 
@@ -20,23 +17,13 @@ var groupOrder = []Group{Acquire, Store, Process, Connect, Reach}
 // Groups is every Role Group, in the glossary's order.
 func Groups() []Group { return slices.Clone(groupOrder) }
 
-var groups = map[Name]Group{
-	Searching:       Acquire,
-	Downloading:     Acquire,
-	Storage:         Store,
-	Converting:      Process,
-	Subtitles:       Process,
-	Metadata:        Connect,
-	MediaServerLink: Connect,
-	Notifying:       Connect,
-	Relaying:        Reach,
-	Serving:         Reach,
+var groupLabels = map[Group]string{
+	Acquire: "Acquire",
+	Store:   "Store",
+	Process: "Process",
+	Connect: "Connect",
+	Reach:   "Reach",
 }
 
-func (n Name) Group() Group {
-	g, ok := groups[n]
-	if !ok {
-		panic(fmt.Sprintf("role: %q is not a Role", string(n)))
-	}
-	return g
-}
+// Label is the Group's name as the UI writes it.
+func (g Group) Label() string { return groupLabels[g] }

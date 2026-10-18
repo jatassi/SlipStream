@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { TasksTask } from "../api/gen/model";
 import { liveServer } from "../test/live-server";
+import { homeId, seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 import {
   housekeeping,
@@ -49,7 +50,7 @@ const scan: TasksTask = {
   name: "Library scan",
   group: "store",
   cadence: { ...housekeeping.cadence, words: "Every 2 days in the Maintenance window" },
-  state: { kind: "waiting", node: "seedbox", link: "down", since: local(16, 21, 31) },
+  state: { kind: "waiting", node: "seedbox", standing: "offline", since: local(16, 21, 31) },
   runNow: { available: false, reason: "waiting" },
 };
 
@@ -258,4 +259,32 @@ test("on phone the tasks are a list with the result, the next run and Run now", 
   await expect
     .element(page.getByRole("list", { name: "Store" }))
     .toMatchTextContent("Waiting for seedbox · offline since 21:31");
+});
+
+test("a unit's Node links to the Node, and a removed Node is named as removed", async () => {
+  const tasks = taskServer({ tasks: [housekeeping] });
+  const [runsUnit, seedboxUnit] = succeededRun.units;
+  if (runsUnit === undefined || seedboxUnit === undefined) {
+    throw new Error("the succeeded run has two units");
+  }
+  tasks.state.runs = [
+    { ...succeededRun, units: [runsUnit, { ...seedboxUnit, nodeRemoved: true }] },
+  ];
+  renderApp({ path: "/tasks/housekeeping", handlers: tasks.handlers });
+  const units = page.getByRole("region", { name: "Units" });
+  await expect
+    .element(units.getByRole("link", { name: "home" }))
+    .toHaveAttribute("href", `/nodes/${homeId}`);
+  await expect
+    .element(units.getByRole("link", { name: "seedbox" }))
+    .toHaveAttribute("href", `/nodes/${seedboxId}`);
+
+  const runs = page.getByRole("region", { name: "Runs" });
+  await userEvent.click(runs.getByRole("button").first());
+  const lines = page.getByRole("list", { name: "Units in this run" });
+  await expect.element(lines.getByText("seedbox (removed)")).toBeVisible();
+  await expect.element(lines.getByRole("link", { name: "seedbox" })).not.toBeInTheDocument();
+  await expect
+    .element(lines.getByRole("link", { name: "home" }))
+    .toHaveAttribute("href", `/nodes/${homeId}`);
 });

@@ -1,5 +1,14 @@
-import type { NodesNode, SystemReport } from "../api/gen/model";
-import { getListNodesMockHandler } from "../api/gen/query/nodes/nodes.msw";
+import type {
+  NodesNode,
+  NodesTopology,
+  NodesTopologyLink,
+  NodesTopologyNode,
+  SystemReport,
+} from "../api/gen/model";
+import {
+  getGetTopologyMockHandler,
+  getListNodesMockHandler,
+} from "../api/gen/query/nodes/nodes.msw";
 
 export const homeId = "4a2c6e8f-1b3d-4f5a-9c7e-2d4f6a8b0c1e";
 export const seedboxId = "9e7c5a3f-1d2b-4c6e-8f0a-3b5d7f9a1c2e";
@@ -14,8 +23,14 @@ export const home: NodesNode = {
   intentVersion: "0123456789abcdef0123456789abcdef",
   key: "SHA256:home",
   link: { state: "local", since: "2026-10-12T09:00:00Z", build },
+  standing: "in-step",
+  dial: { controllerDials: [] },
   pairedAt: "2026-10-12T09:00:00Z",
-  roles: ["searching", "downloading"],
+  roles: [
+    { role: "searching", state: "holding" },
+    { role: "downloading", state: "holding" },
+  ],
+  probes: [],
 };
 
 export const seedbox: NodesNode = {
@@ -26,11 +41,58 @@ export const seedbox: NodesNode = {
   intentVersion: "fedcba9876543210fedcba9876543210",
   key: "SHA256:seedbox",
   link: { state: "down", since: "2026-10-12T10:00:00Z" },
+  standing: "offline",
+  dial: { controllerDials: [] },
   pairedAt: "2026-10-12T09:30:00Z",
-  roles: ["downloading"],
+  roles: [{ role: "downloading", state: "away" }],
+  probes: [],
 };
 
 export const nodesAre = (...nodes: NodesNode[]) => getListNodesMockHandler({ nodes });
+
+function topologyNodeOf(node: NodesNode): NodesTopologyNode {
+  const { standing } = node;
+  const away = standing !== "in-step";
+  return {
+    id: node.id,
+    name: node.name,
+    self: node.self,
+    controller: node.self,
+    state: standing === "in-step" ? "online" : standing,
+    since: node.link.since,
+    ...(away && { lastSeenAt: node.link.since }),
+    roles: node.roles,
+    probes: node.probes,
+    resources: {},
+  };
+}
+
+function linkOf(controller: string, { id, link, dial }: NodesNode, rtt: number | undefined) {
+  const up: Pick<NodesTopologyLink, "dialer" | "rttMs"> =
+    dial.by === undefined
+      ? {}
+      : { dialer: dial.by === "node" ? id : controller, ...(rtt !== undefined && { rttMs: rtt }) };
+  return { a: controller, b: id, state: link.state === "up" ? "up" : "down", ...up } as const;
+}
+
+/** Topology as the Controller of nodes would answer it, the Controller first in nodes. */
+export function topologyOf(
+  nodes: readonly NodesNode[],
+  { sentence = "Every Node is online.", rtt }: { sentence?: string; rtt?: number } = {},
+): NodesTopology {
+  const controller = nodes.find(({ self }) => self);
+  if (controller === undefined) {
+    throw new Error("topologyOf needs the Controller among the nodes");
+  }
+  return {
+    at: "2026-10-12T10:05:00Z",
+    sentence,
+    nodes: nodes.map((node) => topologyNodeOf(node)),
+    links: nodes.filter(({ self }) => !self).map((node) => linkOf(controller.id, node, rtt)),
+  };
+}
+
+export const topologyIs = (topology: NodesTopology) => getGetTopologyMockHandler(topology);
 
 export const homeSystem: SystemReport = {
   build: { stamped: true, version: "0.0.0-dev+3f2a1c9" },

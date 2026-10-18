@@ -14,7 +14,7 @@ type Trust interface {
 	Admit(key Key) Admission
 }
 
-// Admission is one of Refused, Pinned, Pairing or Superseded.
+// Admission is one of Refused, Pinned, Pairing, Superseded or Removed.
 type Admission interface{ admission() }
 
 type (
@@ -31,24 +31,35 @@ type (
 		By        Key
 		Addresses Addresses
 	}
+	// Removed is a key a Controller removed: its Hello is refused as
+	// removed, and it may Pair again.
+	Removed struct{}
 )
 
 func (Refused) admission()    {}
 func (Pinned) admission()     {}
 func (Pairing) admission()    {}
 func (Superseded) admission() {}
+func (Removed) admission()    {}
 
 // State is Down or Live.
 type State interface{ state() }
 
 type (
-	Down struct{}
+	// Down is no live session. Refused is a kept peer's refusal of the
+	// last Hello this Node sent it, zero when it answered otherwise or
+	// was never reached.
+	Down struct {
+		Refused linkv1.RefusedReason
+	}
 	Live struct {
 		Peer NodeInfo
 		// Matched is false when the peer runs another version, so only
 		// slipstream.link.v1 is served either way.
 		Matched       bool
 		Local, Remote netip.AddrPort
+		// Dialed is true on the side that dialed the session.
+		Dialed bool
 	}
 )
 

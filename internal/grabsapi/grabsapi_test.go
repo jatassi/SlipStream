@@ -54,15 +54,21 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 	return s.t, nil
 }
 
-// nobody is a roster where no Node holds Downloading.
-type nobody struct{}
+// alone is a roster of one Node holding every Role.
+type alone struct{ self role.NodeID }
 
-func (nobody) Holders(role.Name) []role.NodeID                { return nil }
-func (nobody) AwaitInStep(context.Context, role.NodeID) error { return nil }
-func (nobody) Touch(...role.NodeID)                           {}
-func (nobody) Facts(role.NodeID) (*dlv1.Facts, bool)          { return nil, false }
+func (a alone) Self() role.NodeID                                 { return a.self }
+func (a alone) Pick(role.Name, role.NodeID) (role.NodeID, bool)   { return a.self, true }
+func (a alone) Route(role.Name, role.NodeID) (role.NodeID, error) { return a.self, nil }
+func (alone) Away(role.Name, role.NodeID) (nodes.Absence, bool)   { return nodes.Absence{}, false }
+func (alone) InStep(role.NodeID) bool                             { return true }
+func (alone) WrittenOff(role.Name, role.NodeID) bool              { return false }
+func (alone) Changed() <-chan struct{}                            { return nil }
+func (alone) Touch(...role.NodeID)                                {}
+func (alone) Facts(role.NodeID) (*dlv1.Facts, bool)               { return nil, false }
 
-// site answers every search with a 1080p and a 720p release.
+// site answers every search with a 1080p and a 720p release, and every
+// .torrent fetch with bytes that aren't bencode.
 type site struct {
 	searchv1connect.UnimplementedSearchingServiceHandler
 }
@@ -72,6 +78,10 @@ func (site) Search(context.Context, *searchv1.SearchRequest) (*searchv1.SearchRe
 		`<attr name="seeders" value="5"/></item><item><title>The.Attic.720p.WEB</title><size>2048</size><link>https://site.test/dl/2</link>` +
 		`<attr name="seeders" value="50"/></item></channel></rss>`
 	return &searchv1.SearchResponse{Body: []byte(body), Status: http.StatusOK}, nil
+}
+
+func (site) FetchTorrent(context.Context, *searchv1.FetchTorrentRequest) (*searchv1.FetchTorrentResponse, error) {
+	return &searchv1.FetchTorrentResponse{Torrent: []byte("not bencode")}, nil
 }
 
 func must[T any](t *testing.T) func(T, error) T {
@@ -131,13 +141,15 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	terms := &terms{}
 	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
 	sealer := secrettest.Sealer(t)
+	home, indexer := storage.NewUUID(), storage.NewUUID()
+	roster := alone{role.NodeID{UUID: home}}
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
-			Library: lib, Sealer: sealer, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
+			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
 			Changed: discard[indexers.Changed]{},
 		}),
-		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: nobody{}, Downloads: nobody{},
+		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
@@ -159,9 +171,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
-	home, indexer := storage.NewUUID(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, home); err != nil {
 			return err
 		}
 		key := sealer.Seal([]byte("k"), secret.NewColumn("indexers_indexer.api_key_sealed").Row(indexer.String()))
@@ -210,8 +221,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
 			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
-		`"releaseTitle":"The.Attic.1080p.WEB","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","infoHash":null,` +
-		`"stage":"failed","failure":{"stage":"fetching","code":"no_download_client","message":"the Indexer's home Node doesn't hold Downloading"},` +
+		`"releaseTitle":"The.Attic.1080p.WEB","releaseSize":4096,"indexerId":"` + indexer.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"infoHash":null,` +
+		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)

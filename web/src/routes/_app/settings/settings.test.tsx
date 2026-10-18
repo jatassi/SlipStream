@@ -89,7 +89,7 @@ test("/settings opens on Address, which suggests the address in use while none i
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Address", "Email", "Sign-in", "API key", "Targets", "Profiles", "Editions"]);
+  ).toEqual(["Address", "Email", "Sign-in", "Nodes", "API key", "Targets", "Profiles", "Editions"]);
   await expect
     .element(tabs.getByRole("link", { name: "Address" }))
     .toHaveAttribute("aria-current", "page");

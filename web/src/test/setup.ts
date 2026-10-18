@@ -12,6 +12,20 @@ declare module "vitest/browser" {
   interface BrowserCommands {
     emulateReducedMotion: (reduce: boolean) => Promise<void>;
     drag: (from: string, to: string) => Promise<void>;
+    swipe: (
+      from: { selector: string; at: readonly [number, number] },
+      by: readonly [number, number],
+      finger: boolean,
+    ) => Promise<void>;
+    wheel: (
+      over: { selector: string; at: readonly [number, number] },
+      deltaY: number,
+    ) => Promise<void>;
+    pinch: (
+      centre: { selector: string; at: readonly [number, number] },
+      from: number,
+      to: number,
+    ) => Promise<void>;
   }
 }
 

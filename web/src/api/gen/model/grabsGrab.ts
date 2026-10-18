@@ -9,6 +9,11 @@ export interface GrabsGrab {
   edition: string;
   /** Why it failed, absent unless it did */
   failure?: GrabsFailure;
+  /**
+   * The Searching Node that fetched the .torrent, null until it did
+   * @nullable
+   */
+  fetchNodeId: string | null;
   /** Each stage it entered, oldest first */
   history: GrabsEntered[];
   id: string;
@@ -19,7 +24,7 @@ export interface GrabsGrab {
    */
   infoHash: string | null;
   itemId: string;
-  /** The Node that downloads it: the Indexer's home Node */
+  /** The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to */
   nodeId: string;
   /** The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring */
   progress?: GrabsProgress;

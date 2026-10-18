@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 
@@ -142,7 +141,8 @@ func codeOfBare(ctx context.Context) connect.Code {
 type Roster interface {
 	// Key is node's link key, false for a node the Controller does not know.
 	Key(node role.NodeID) (link.Key, bool)
-	Holders(r role.Name) []role.NodeID
+	// Serves reports whether node holds, drains or covers r.
+	Serves(r role.Name, node role.NodeID) bool
 }
 
 // Cluster is the Controller's dispatch: the Node services and Role services
@@ -164,7 +164,7 @@ func (c *Cluster) client(node role.NodeID, held role.Name) *connect.Client {
 	switch {
 	case !ok:
 		return connect.NewClient(refuse{notHolder(held, "node "+node.String()+" is not in the roster")})
-	case held != "" && !slices.Contains(c.roster.Holders(held), node):
+	case held != "" && !c.roster.Serves(held, node):
 		return connect.NewClient(refuse{notHolder(held, "node "+node.String()+" does not hold the "+string(held)+" Role")})
 	}
 	return c.d.client(key)

@@ -9,20 +9,35 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
 )
 
-type Pipeline interface {
-	// Grabs is the grab pipeline, false unless the Node is a Controller.
+// Shell is what the counts read on a Controller. Each is false on any
+// other Node.
+type Shell interface {
 	Grabs() (*grabs.Grabs, bool)
+	Nodes() (*nodes.Service, bool)
 }
 
 type counts struct {
-	Activity int `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
+	Activity int    `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
+	Alerts   alerts `json:"alerts"`
+}
+
+type alerts struct {
+	Nodes *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise"`
+}
+
+func alertsOf(a nodes.Alert) alerts {
+	if a == nodes.NoAlert {
+		return alerts{}
+	}
+	return alerts{Nodes: new(a.String())}
 }
 
 type countsOutput struct{ Body counts }
 
-func Routes(r *api.Router, p Pipeline) {
+func Routes(r *api.Router, sh Shell) {
 	o := r.Owner("shell", api.Admin)
 
 	api.Register(o, api.Admin, api.Op{
@@ -32,14 +47,15 @@ func Routes(r *api.Router, p Pipeline) {
 		Summary: "Get the counts the shell shows beside its navigation",
 		Status:  http.StatusOK,
 	}, func(ctx context.Context, by identity.Admin, _ *struct{}) (*countsOutput, error) {
-		g, ok := p.Grabs()
-		if !ok {
+		g, ok := sh.Grabs()
+		roster, alsoOK := sh.Nodes()
+		if !ok || !alsoOK {
 			panic("shellapi: getCounts ran on a Node that is no Controller")
 		}
 		n, err := g.Moving(ctx, by)
 		if err != nil {
 			return nil, err
 		}
-		return &countsOutput{Body: counts{Activity: n}}, nil
+		return &countsOutput{Body: counts{Activity: n, Alerts: alertsOf(roster.Board().Alert())}}, nil
 	})
 }

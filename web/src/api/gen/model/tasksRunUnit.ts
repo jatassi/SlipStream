@@ -8,7 +8,11 @@ export interface TasksRunUnit {
   cause: string | null;
   key: string;
   label: string;
-  /** Empty when the Node is no longer paired */
+  /** The Node it ran on, still named once removed; empty when no Node has its id */
   node: string;
+  /** The Node it ran on */
+  nodeId: string;
+  /** The Node it ran on was removed since */
+  nodeRemoved: boolean;
   outcome: TasksRunUnitOutcome;
 }

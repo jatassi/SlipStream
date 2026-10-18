@@ -74,11 +74,13 @@ func (h *host) ReadLogs(ctx context.Context, after uint64, _ time.Duration) (sys
 
 func (h *host) Archive() (nodesystem.Archive, error) { panic("unused") }
 
+func (h *host) Reach(context.Context, nodesystem.Target) nodesystem.Reached { panic("unused") }
+
 // self is a roster in which every id is this Node, called in process.
 type self struct{ key link.Key }
 
 func (s self) Key(role.NodeID) (link.Key, bool) { return s.key, true }
-func (self) Holders(role.Name) []role.NodeID    { return nil }
+func (self) Serves(role.Name, role.NodeID) bool { return false }
 
 // controllerOf is a claimed Controller whose Nodes reach h for any id,
 // through the in-process call path.

@@ -19,18 +19,24 @@ export function Switch({
   );
 }
 
-/** The track and knob alone, for a row whose own label makes the whole row the target. */
+/**
+ * The track and knob alone, for a row whose own label makes the whole row the
+ * target, or that names itself with label.
+ */
 export function SwitchControl({
+  label,
   checked,
   onCheckedChange,
   disabled = false,
 }: {
+  label?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
 }) {
   return (
     <BaseSwitch.Root
+      aria-label={label}
       checked={checked}
       onCheckedChange={(next) => {
         onCheckedChange(next);

@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 
-import type { GrabsGrabStage, ShellCounts } from "../api/gen/model";
+import type { GrabsGrabStage, ShellAlerts, ShellCounts } from "../api/gen/model";
 import { getCounts, getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { useAccount } from "../session/session";
-import type { CountDot } from "../ui/count";
+import type { AlertTone, CountDot } from "../ui/count";
 
-export type CountKey = keyof ShellCounts;
+export type CountKey = Exclude<keyof ShellCounts, "alerts">;
+
+export type AlertKey = keyof ShellAlerts;
 
 // The server counts; this is the client's reading of which stages it counts.
 export const activityStages = {
@@ -28,3 +30,8 @@ export function useCounts(): ShellCounts | undefined {
 }
 
 export const countDots = { activity: "live" } as const satisfies Record<CountKey, CountDot>;
+
+export const alertOf = (
+  counts: ShellCounts | undefined,
+  key: AlertKey | undefined,
+): AlertTone | undefined => (key === undefined ? undefined : (counts?.alerts[key] ?? undefined));

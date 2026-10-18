@@ -10,4 +10,5 @@ export type GrabsFailureCode =
   | "probe_failed"
   | "fills_nothing"
   | "transfer_failed"
-  | "import_failed";
+  | "import_failed"
+  | "node_written_off";

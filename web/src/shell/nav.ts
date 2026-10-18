@@ -16,14 +16,12 @@ import type { RegisteredRouter } from "@tanstack/react-router";
 
 import type { WorksContentType } from "../api/gen/model";
 import { getListContentTypesQueryKey, listContentTypes } from "../api/gen/query/works/works";
-import type { CountKey } from "./counts";
+import type { AlertKey, CountKey } from "./counts";
 import { contentTypeIcons } from "./icons";
 
 export type RoutePath = RegisteredRouter["routeTree"]["types"]["fileRouteTypes"]["to"];
 
 export type AppPath = Exclude<RoutePath, `${string}$${string}`>;
-
-type ParamPath = Extract<RoutePath, `${string}$${string}`>;
 
 export type NavId =
   | "library"
@@ -46,13 +44,11 @@ export type NavRow = {
   place: "main" | "system";
   tab?: { order: number };
   count?: CountKey;
+  /** The alert in the shell's counts whose dot the row carries, with no number. */
+  alert?: AlertKey;
   children?: "content-types";
-  /**
-   * The page `to` redirects to, such as the browser's own Node under Nodes.
-   * The row stays current on every page below `to`, and on phone the landing
-   * page is the row's top page, titled with the row's label.
-   */
-  lands?: ParamPath;
+  /** The row stays current on every page below `to`, such as a Node's sections under Nodes. */
+  within?: true;
 };
 
 const contentTypeLibrary = "/library/$contentType";
@@ -95,7 +91,8 @@ export const adminNav: NavTable = [
     label: "Nodes",
     icon: ServerStack01Icon,
     to: "/nodes",
-    lands: "/nodes/$nodeId",
+    within: true,
+    alert: "nodes",
     audience: "admin",
     place: "system",
   },
@@ -200,15 +197,9 @@ export const tabRows = (rows: readonly ShownRow[]): ShownRow[] =>
     .filter((row) => row.tab !== undefined)
     .toSorted((a, b) => (a.tab?.order ?? 0) - (b.tab?.order ?? 0));
 
-/** The route paths of each nav row's landing page, with the row's label. */
-export const landings: ReadonlyMap<string, string> = new Map(
-  adminNav.flatMap((row) => (row.lands === undefined ? [] : [[row.lands, row.label] as const])),
-);
-
 /** The paths a nav row or child leads to: the phone's top-level pages. */
 export const navPaths: ReadonlySet<string> = new Set([
   ...adminNav.map((row) => row.to),
   ...portalNav.map((row) => row.to),
-  ...landings.keys(),
   contentTypeLibrary,
 ]);

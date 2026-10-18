@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -215,6 +216,35 @@ func TestOnlyATrustedProxyNamesTheClient(t *testing.T) {
 			want(t, "a failure with a forged header", n.signInFrom("192.0.2.51:1", fmt.Sprintf("guess%d@example.com", i), "9999", forged), wrongAnswer)
 		}
 		want(t, "the peer that forged it", n.signInFrom("192.0.2.51:1", "admin@example.com", "1234", forwarded("198.51.100.9")), tooManyAnswer(until))
+	})
+}
+
+// A Serving Worker names its client in Forwarded, which the Controller
+// believes only over the link: the limit sees each browser behind the
+// Worker, and a TCP peer can't name another client.
+func TestOnlyAServingWorkerNamesTheClientInForwarded(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t)
+		n.claimed()
+		through := func(client, email, pin string) answer {
+			n.t.Helper()
+			return answerOf(n.do(call{method: http.MethodPost, target: "/api/v1/session", from: "link", overLink: true,
+				headers: map[string]string{"Forwarded": api.Forwarded(netip.MustParseAddr(client))},
+				body:    `{"email":"` + email + `","pin":"` + pin + `"}`}))
+		}
+		for i := range 30 {
+			want(t, "a failure through the Worker", through("198.51.100.7", fmt.Sprintf("guess%d@example.com", i), "9999"), wrongAnswer)
+		}
+		want(t, "that client again", through("198.51.100.7", "admin@example.com", "1234"), tooManyAnswer(time.Now().Add(15*time.Minute)))
+		for _, client := range []string{"198.51.100.8", "2001:db8::8"} {
+			if got := through(client, "admin@example.com", "1234"); got.status != http.StatusOK {
+				t.Fatalf("another client %s through the Worker = %d %s", client, got.status, got.body)
+			}
+		}
+		forged := map[string]string{"Forwarded": api.Forwarded(netip.MustParseAddr("198.51.100.7"))}
+		if got := n.signInFrom("192.0.2.50:1", "admin@example.com", "1234", forged); got.status != http.StatusOK {
+			t.Fatalf("a TCP peer naming the blocked client = %d %s, want its own address", got.status, got.body)
+		}
 	})
 }
 

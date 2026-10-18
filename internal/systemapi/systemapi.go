@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/system"
 )
@@ -26,6 +27,12 @@ type healthOutput struct {
 type status struct {
 	Claim    string   `json:"claim" enum:"unclaimed,controller,worker"`
 	Passkeys passkeys `json:"passkeys" doc:"Whether the address this request reached SlipStream at can hold a passkey"`
+	Removed  *removed `json:"removed,omitempty" doc:"Set on an Unclaimed Node its Controller removed, until it joins again"`
+}
+
+type removed struct {
+	At         time.Time `json:"at"`
+	Controller string    `json:"controller" doc:"The name of the Controller that removed the Node"`
 }
 
 type passkeys struct {
@@ -113,6 +120,9 @@ type Claims interface {
 type Node interface {
 	Claims
 	Systems
+	// Removal is when and by whom the Node was removed, false unless its
+	// Controller removed it since it last joined.
+	Removal() (pairing.Removal, bool)
 }
 
 // Routes reports this Node's facts and claim, and every Node's system.
@@ -141,7 +151,11 @@ func Routes(r *api.Router, facts system.Facts, node Node) {
 			return nil, err
 		}
 		v := a.Passkeys()
-		return &statusOutput{Body: status{Claim: claim.String(), Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}}}, nil
+		out := status{Claim: claim.String(), Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}}
+		if r, ok := node.Removal(); ok && claim == system.Unclaimed {
+			out.Removed = &removed{At: r.At, Controller: r.ControllerName}
+		}
+		return &statusOutput{Body: out}, nil
 	})
 
 	api.Register(o, api.Admin, api.Op{

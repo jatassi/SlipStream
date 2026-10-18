@@ -18,6 +18,8 @@ INSERT INTO grabs_stage (grab_id, stage, entered_at) VALUES (sqlc.arg(grab_id), 
 UPDATE grabs_grab SET
     stage = sqlc.arg(next),
     info_hash = coalesce(sqlc.narg(info_hash), info_hash),
+    fetch_node_id = coalesce(sqlc.narg(fetch_node_id), fetch_node_id),
+    node_id = coalesce(sqlc.narg(node_id), node_id),
     metainfo = coalesce(sqlc.narg(metainfo), metainfo),
     file_index = coalesce(sqlc.narg(file_index), file_index),
     probe = coalesce(sqlc.narg(probe), probe),
@@ -57,8 +59,22 @@ SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListTorrentsOfNode :many
 SELECT id, info_hash, metainfo FROM grabs_grab
-WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
 ORDER BY info_hash, id;
+
+-- name: ListKeptOfNode :many
+SELECT id, info_hash, release_title FROM grabs_grab
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY info_hash, id;
+
+-- name: ListDownloadingNodes :many
+SELECT DISTINCT node_id FROM grabs_grab
+WHERE stage NOT IN ('imported', 'failed') OR info_hash IS NOT NULL AND seed_dropped_at IS NULL
+ORDER BY node_id;
+
+-- name: DropSeeding :execrows
+UPDATE grabs_grab SET seed_dropped_at = sqlc.arg(seed_dropped_at), updated_at = sqlc.arg(seed_dropped_at)
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL;
 
 -- name: InsertSearch :exec
 INSERT INTO grabs_search (id, work_id, item_id, indexer_id, started_at)
@@ -90,6 +106,10 @@ SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, 
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id = sqlc.arg(work_id)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
+
+-- name: CountTorrentsOfNode :one
+SELECT count(*) AS torrents, CAST(coalesce(sum(release_size), 0) AS INTEGER) AS bytes FROM grabs_grab
+WHERE node_id = sqlc.arg(node_id) AND info_hash IS NOT NULL AND seed_dropped_at IS NULL;
 
 -- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id

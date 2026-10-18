@@ -13,6 +13,17 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const countHomedOn = `-- name: CountHomedOn :one
+SELECT count(*) FROM indexers_indexer WHERE home_node_id = ?1
+`
+
+func (q *Queries) CountHomedOn(ctx context.Context, homeNodeID role.NodeID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHomedOn, homeNodeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getIndexer = `-- name: GetIndexer :one
 SELECT id, name, protocol, url, api_key_sealed, home_node_id, caps, created_at FROM indexers_indexer WHERE id = ?1
 `
@@ -108,6 +119,20 @@ func (q *Queries) NameTaken(ctx context.Context, name string) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const rehome = `-- name: Rehome :exec
+UPDATE indexers_indexer SET home_node_id = ?1 WHERE home_node_id = ?2
+`
+
+type RehomeParams struct {
+	Heir       role.NodeID
+	HomeNodeID role.NodeID
+}
+
+func (q *Queries) Rehome(ctx context.Context, arg RehomeParams) error {
+	_, err := q.db.ExecContext(ctx, rehome, arg.Heir, arg.HomeNodeID)
+	return err
 }
 
 const setIndexerKey = `-- name: SetIndexerKey :execrows

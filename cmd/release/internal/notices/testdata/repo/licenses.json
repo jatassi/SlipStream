@@ -39,5 +39,11 @@
 			"license": "MIT",
 			"reason": "COPYING grants use without conditions; the author confirmed MIT in issue 4"
 		}
+	],
+	"vendored": [
+		{
+			"name": "sketch kit",
+			"path": "web/vendor/sketch"
+		}
 	]
 }

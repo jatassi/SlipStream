@@ -25,6 +25,19 @@
         },
         "type": "object"
       },
+      "DialInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeAddress": {
+            "description": "The SLN1 text the waiting Node printed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeAddress"
+        ],
+        "type": "object"
+      },
       "EmailChangeInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -531,7 +544,8 @@
               "probe_failed",
               "fills_nothing",
               "transfer_failed",
-              "import_failed"
+              "import_failed",
+              "node_written_off"
             ],
             "type": "string"
           },
@@ -571,6 +585,14 @@
             "$ref": "#/components/schemas/GrabsFailure",
             "description": "Why it failed, absent unless it did"
           },
+          "fetchNodeId": {
+            "description": "The Searching Node that fetched the .torrent, null until it did",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "history": {
             "description": "Each stage it entered, oldest first",
             "items": {
@@ -598,7 +620,7 @@
             "type": "string"
           },
           "nodeId": {
-            "description": "The Node that downloads it: the Indexer's home Node",
+            "description": "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
             "format": "uuid",
             "type": "string"
           },
@@ -648,6 +670,7 @@
           "releaseSize",
           "indexerId",
           "nodeId",
+          "fetchNodeId",
           "infoHash",
           "stage",
           "history",
@@ -1781,6 +1804,17 @@
           },
           "url": {
             "type": "string"
+          },
+          "waiting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersWaiting"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why its calls wait for its home Node, null while they go through"
           }
         },
         "required": [
@@ -1791,6 +1825,7 @@
           "homeNodeId",
           "apiKeySet",
           "searchModes",
+          "waiting",
           "createdAt"
         ],
         "type": "object"
@@ -1868,6 +1903,30 @@
         "required": [
           "mode",
           "params"
+        ],
+        "type": "object"
+      },
+      "IndexersWaiting": {
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "description": "The home Node's last Sync frame, or the Controller's start when it sent none since",
+            "format": "date-time",
+            "type": "string"
+          },
+          "standing": {
+            "description": "How the home Node stands, out of step within the offline grace: until the grace passes, its searches finish indexer_unavailable",
+            "enum": [
+              "reconnecting",
+              "offline",
+              "mismatched"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "standing",
+          "since"
         ],
         "type": "object"
       },
@@ -2049,6 +2108,120 @@
         ],
         "type": "object"
       },
+      "NodesAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "searching",
+                "downloading",
+                "storage",
+                "converting",
+                "subtitles",
+                "metadata",
+                "media-server-link",
+                "notifying",
+                "relaying",
+                "serving"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodeId",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "NodesBoardNode": {
+        "additionalProperties": false,
+        "properties": {
+          "assigned": {
+            "description": "The Roles ticked on the Node, as a set sends them",
+            "items": {
+              "enum": [
+                "searching",
+                "downloading",
+                "storage",
+                "converting",
+                "subtitles",
+                "metadata",
+                "media-server-link",
+                "notifying",
+                "relaying",
+                "serving"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "away": {
+            "description": "Out of step, so its checks can't run",
+            "type": "boolean"
+          },
+          "controller": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "probes": {
+            "description": "The last verdict of each probe the Node ran",
+            "items": {
+              "$ref": "#/components/schemas/NodesProbe"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "description": "Every Role the Node stands in, in table order",
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleView"
+            },
+            "type": "array"
+          },
+          "suggested": {
+            "description": "What a new Node's Roles step ticks first: each Acquire Role that has no probe or whose probe fits on the Node",
+            "items": {
+              "enum": [
+                "searching",
+                "downloading",
+                "storage",
+                "converting",
+                "subtitles",
+                "metadata",
+                "media-server-link",
+                "notifying",
+                "relaying",
+                "serving"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "controller",
+          "away",
+          "assigned",
+          "roles",
+          "probes",
+          "suggested"
+        ],
+        "type": "object"
+      },
       "NodesBuild": {
         "additionalProperties": false,
         "properties": {
@@ -2085,6 +2258,244 @@
           "nodeId"
         ],
         "type": "object"
+      },
+      "NodesCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "reason": {
+            "enum": [
+              "role_taken",
+              "probe_fails",
+              "probe_weak",
+              "offline_unchecked",
+              "reach_failed",
+              "reached",
+              "nothing_to_test",
+              "node_is_controller",
+              "node_holds_work",
+              "nothing_held",
+              "keeps_role"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "description": "Absent for a check on the whole Node",
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "allow",
+              "warn",
+              "block"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "verdict",
+          "reason",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesCodeState": {
+        "additionalProperties": false,
+        "properties": {
+          "dialing": {
+            "$ref": "#/components/schemas/NodesDialing",
+            "description": "The Node address the Controller dials for an open code; absent without one"
+          },
+          "nodeId": {
+            "description": "The Node that paired with the code; absent unless used",
+            "format": "uuid",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "used",
+              "expired"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
+      "NodesDialView": {
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "description": "The side that dialed the live session; absent with none",
+            "enum": [
+              "node",
+              "controller"
+            ],
+            "type": "string"
+          },
+          "controllerDials": {
+            "description": "The addresses the Controller dials the Node at; empty when the Node dials the Controller",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "controllerDials"
+        ],
+        "type": "object"
+      },
+      "NodesDialing": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "addresses": {
+            "description": "Where the Controller dials the Node, in order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "unreachable": {
+            "description": "The Node hasn't paired within timings.nodes.dial_report of the paste",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "address",
+          "addresses",
+          "since",
+          "unreachable"
+        ],
+        "type": "object"
+      },
+      "NodesDownloadingResource": {
+        "additionalProperties": false,
+        "properties": {
+          "torrents": {
+            "description": "Each Grab whose torrent the client keeps",
+            "items": {
+              "$ref": "#/components/schemas/NodesTorrentView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "torrents"
+        ],
+        "type": "object"
+      },
+      "NodesDrains": {
+        "additionalProperties": false,
+        "properties": {
+          "held": {
+            "$ref": "#/components/schemas/NodesHeld"
+          },
+          "kind": {
+            "enum": [
+              "drains"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "role",
+          "held",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesEffect": {
+        "discriminator": {
+          "mapping": {
+            "drains": "#/components/schemas/NodesDrains",
+            "gains": "#/components/schemas/NodesGains",
+            "handed-back": "#/components/schemas/NodesHandedBack",
+            "leaves": "#/components/schemas/NodesLeaves",
+            "lets-go": "#/components/schemas/NodesLetsGo",
+            "moves": "#/components/schemas/NodesMoves",
+            "pinned": "#/components/schemas/NodesPinned",
+            "writes-off": "#/components/schemas/NodesWritesOff"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NodesGains"
+          },
+          {
+            "$ref": "#/components/schemas/NodesLetsGo"
+          },
+          {
+            "$ref": "#/components/schemas/NodesDrains"
+          },
+          {
+            "$ref": "#/components/schemas/NodesHandedBack"
+          },
+          {
+            "$ref": "#/components/schemas/NodesPinned"
+          },
+          {
+            "$ref": "#/components/schemas/NodesMoves"
+          },
+          {
+            "$ref": "#/components/schemas/NodesWritesOff"
+          },
+          {
+            "$ref": "#/components/schemas/NodesLeaves"
+          }
+        ]
       },
       "NodesFacts": {
         "additionalProperties": false,
@@ -2124,6 +2535,167 @@
         ],
         "type": "object"
       },
+      "NodesGains": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "gains"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "role",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesGesture": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "The Node the Role moves from; absent for an add",
+            "format": "uuid",
+            "type": "string"
+          },
+          "note": {
+            "description": "The words of a Role the gesture hands back or pins",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "allow",
+              "warn",
+              "block"
+            ],
+            "type": "string"
+          },
+          "word": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "to",
+          "verdict",
+          "word"
+        ],
+        "type": "object"
+      },
+      "NodesHandedBack": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "Every Node that held the Role before",
+            "items": {
+              "$ref": "#/components/schemas/NodesNamed"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "handed-back"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "role",
+          "from",
+          "to",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesHeld": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "0 when sizes don't apply",
+            "format": "int64",
+            "type": "integer"
+          },
+          "noun": {
+            "description": "The noun that fits units: torrent, torrents",
+            "type": "string"
+          },
+          "units": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "units",
+          "noun",
+          "bytes"
+        ],
+        "type": "object"
+      },
       "NodesJoinCode": {
         "additionalProperties": false,
         "properties": {
@@ -2133,11 +2705,78 @@
           "expiresAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
+          "id",
           "code",
           "expiresAt"
+        ],
+        "type": "object"
+      },
+      "NodesLeaves": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "leaves"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesLetsGo": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "lets-go"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "role",
+          "words"
         ],
         "type": "object"
       },
@@ -2168,6 +2807,108 @@
         ],
         "type": "object"
       },
+      "NodesLinkTraffic": {
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "description": "The Controller",
+            "format": "uuid",
+            "type": "string"
+          },
+          "abBps": {
+            "description": "Bytes a second from a to b, TLS records included",
+            "format": "int64",
+            "type": "integer"
+          },
+          "b": {
+            "description": "The Worker",
+            "format": "uuid",
+            "type": "string"
+          },
+          "baBps": {
+            "description": "Bytes a second from b to a, TLS records included",
+            "format": "int64",
+            "type": "integer"
+          },
+          "rttMs": {
+            "description": "The link's round trip; 0 until its first ping is answered",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "abBps",
+          "baBps",
+          "rttMs"
+        ],
+        "type": "object"
+      },
+      "NodesMoves": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "held": {
+            "$ref": "#/components/schemas/NodesHeld"
+          },
+          "kind": {
+            "enum": [
+              "moves"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "role",
+          "from",
+          "to",
+          "held",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesNamed": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "NodesNode": {
         "additionalProperties": false,
         "properties": {
@@ -2176,6 +2917,9 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "dial": {
+            "$ref": "#/components/schemas/NodesDialView"
           },
           "facts": {
             "$ref": "#/components/schemas/NodesFacts",
@@ -2203,26 +2947,33 @@
             "format": "date-time",
             "type": "string"
           },
-          "roles": {
+          "probes": {
+            "description": "The last verdict of each probe the Node ran, kept while it is away",
             "items": {
-              "enum": [
-                "searching",
-                "downloading",
-                "storage",
-                "converting",
-                "subtitles",
-                "metadata",
-                "media-server-link",
-                "notifying",
-                "relaying",
-                "serving"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/NodesProbe"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "description": "Every Role the Node stands in, in table order",
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleView"
             },
             "type": "array"
           },
           "self": {
             "type": "boolean"
+          },
+          "standing": {
+            "description": "How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version",
+            "enum": [
+              "in-step",
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -2234,8 +2985,29 @@
           "addresses",
           "roles",
           "intentVersion",
-          "link"
+          "link",
+          "standing",
+          "dial",
+          "probes"
         ],
+        "type": "object"
+      },
+      "NodesNodeDial": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "description": "Send [] to stop dialing the Node, which then dials the Controller",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 0,
+            "type": "array"
+          },
+          "nodeAddress": {
+            "description": "Dial the Node at this Node address from now on",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "NodesNodeList": {
@@ -2253,30 +3025,420 @@
         ],
         "type": "object"
       },
-      "NodesRoles": {
+      "NodesNodeTraffic": {
         "additionalProperties": false,
         "properties": {
-          "roles": {
+          "downBps": {
+            "description": "Payload bytes a second its torrents download",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "torrents": {
+            "description": "Each Grab whose torrent its client keeps",
             "items": {
-              "enum": [
-                "searching",
-                "downloading",
-                "storage",
-                "converting",
-                "subtitles",
-                "metadata",
-                "media-server-link",
-                "notifying",
-                "relaying",
-                "serving"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/NodesTorrentTraffic"
+            },
+            "type": "array"
+          },
+          "upBps": {
+            "description": "Payload bytes a second its torrents upload",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "downBps",
+          "upBps",
+          "torrents"
+        ],
+        "type": "object"
+      },
+      "NodesOpenCode": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "NodesOpenCodes": {
+        "additionalProperties": false,
+        "properties": {
+          "codes": {
+            "description": "Every Join Code that may still pair a Node, oldest first",
+            "items": {
+              "$ref": "#/components/schemas/NodesOpenCode"
             },
             "type": "array"
           }
         },
         "required": [
+          "codes"
+        ],
+        "type": "object"
+      },
+      "NodesOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "description": "The basis of the rows it was planned on",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/NodesCheck"
+            },
+            "type": "array"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/NodesEffect"
+            },
+            "type": "array"
+          },
+          "forfeit": {
+            "description": "Every Node's written-off Roles once applied",
+            "items": {
+              "$ref": "#/components/schemas/NodesAssignment"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "Every Node's Roles once applied",
+            "items": {
+              "$ref": "#/components/schemas/NodesAssignment"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "basis",
+          "next",
+          "forfeit",
+          "effects",
+          "checks"
+        ],
+        "type": "object"
+      },
+      "NodesPinned": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "pinned"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "role",
+          "words"
+        ],
+        "type": "object"
+      },
+      "NodesPlanChange": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "description": "The basis of the board or Outcome the change was planned on",
+            "type": "string"
+          },
+          "set": {
+            "description": "The Roles of each Node the change names. A Node it doesn't name keeps its own.",
+            "items": {
+              "$ref": "#/components/schemas/NodesAssignment"
+            },
+            "type": "array"
+          },
+          "test": {
+            "description": "Run the reach test of each added Role whose target is set, from its Node; setRoles always runs them",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "basis",
+          "set"
+        ],
+        "type": "object"
+      },
+      "NodesProbe": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "fit": {
+            "enum": [
+              "fits",
+              "weak",
+              "fails"
+            ],
+            "type": "string"
+          },
+          "probe": {
+            "enum": [
+              "engine-starts",
+              "data-writable",
+              "listener-up"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why it is weak or fails; absent when it fits",
+            "enum": [
+              "engine_not_listening",
+              "downloads_not_writable",
+              "downloads_on_network_share",
+              "data_not_writable",
+              "http_not_listening"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "What it found, as a sentence; absent when it fits",
+            "type": "string"
+          }
+        },
+        "required": [
+          "probe",
+          "fit",
+          "at"
+        ],
+        "type": "object"
+      },
+      "NodesRenameBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "1 to 63 characters, with no space at either end, that no other Node has",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "NodesResources": {
+        "additionalProperties": false,
+        "properties": {
+          "downloading": {
+            "$ref": "#/components/schemas/NodesDownloadingResource",
+            "description": "Its torrent client; absent unless the Node stands in Downloading and is in step"
+          }
+        },
+        "type": "object"
+      },
+      "NodesRoleBoard": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "type": "string"
+          },
+          "gestures": {
+            "description": "The plan's verdict on every move and add a drag can make",
+            "items": {
+              "$ref": "#/components/schemas/NodesGesture"
+            },
+            "type": "array"
+          },
+          "groups": {
+            "description": "Every Role Group and its Roles, in the table's order",
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleGroup"
+            },
+            "type": "array"
+          },
+          "nodes": {
+            "description": "Every Node, in id order",
+            "items": {
+              "$ref": "#/components/schemas/NodesBoardNode"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "basis",
+          "groups",
+          "nodes",
+          "gestures"
+        ],
+        "type": "object"
+      },
+      "NodesRoleEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "pinned": {
+            "description": "The Controller holds it whatever the Admin ticks",
+            "type": "boolean"
+          },
+          "probe": {
+            "description": "The probe a Node runs before it is given the Role; absent for none",
+            "enum": [
+              "engine-starts",
+              "data-writable",
+              "listener-up"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "label",
+          "pinned"
+        ],
+        "type": "object"
+      },
+      "NodesRoleGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "enum": [
+              "acquire",
+              "store",
+              "process",
+              "connect",
+              "reach"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "group",
+          "label",
           "roles"
+        ],
+        "type": "object"
+      },
+      "NodesRoleView": {
+        "additionalProperties": false,
+        "properties": {
+          "held": {
+            "$ref": "#/components/schemas/NodesHeld",
+            "description": "The tied work the Node holds for the Role; absent when none"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "holding",
+              "away",
+              "lapsed",
+              "draining",
+              "writing-off",
+              "covering"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "state"
+        ],
+        "type": "object"
+      },
+      "NodesRolesChange": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "description": "The basis of the board or Outcome the change was planned on",
+            "type": "string"
+          },
+          "set": {
+            "description": "The Roles of each Node the change names. A Node it doesn't name keeps its own.",
+            "items": {
+              "$ref": "#/components/schemas/NodesAssignment"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "basis",
+          "set"
         ],
         "type": "object"
       },
@@ -2285,10 +3447,14 @@
         "properties": {
           "joinCodeLifetime": {
             "$ref": "#/components/schemas/SettingDurationField"
+          },
+          "offlineGrace": {
+            "$ref": "#/components/schemas/SettingDurationField"
           }
         },
         "required": [
-          "joinCodeLifetime"
+          "joinCodeLifetime",
+          "offlineGrace"
         ],
         "type": "object"
       },
@@ -2315,8 +3481,315 @@
               "integer",
               "null"
             ]
+          },
+          "offlineGrace": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
+        "type": "object"
+      },
+      "NodesTopology": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "links": {
+            "description": "The link between the Controller and each Worker, in the Workers' id order",
+            "items": {
+              "$ref": "#/components/schemas/NodesTopologyLink"
+            },
+            "type": "array"
+          },
+          "nodes": {
+            "description": "Every Node, in id order",
+            "items": {
+              "$ref": "#/components/schemas/NodesTopologyNode"
+            },
+            "type": "array"
+          },
+          "sentence": {
+            "description": "What stands out across the Nodes, in plain words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "sentence",
+          "nodes",
+          "links"
+        ],
+        "type": "object"
+      },
+      "NodesTopologyLink": {
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "description": "The Controller",
+            "format": "uuid",
+            "type": "string"
+          },
+          "b": {
+            "description": "The Worker",
+            "format": "uuid",
+            "type": "string"
+          },
+          "dialer": {
+            "description": "The Node that dialed the live session; absent while the link is down",
+            "format": "uuid",
+            "type": "string"
+          },
+          "rttMs": {
+            "description": "The live session's round trip; absent until its first ping is answered",
+            "format": "int64",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "up",
+              "down",
+              "mismatched"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "state"
+        ],
+        "type": "object"
+      },
+      "NodesTopologyNode": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "description": "Its last Sync frame; absent while it is online",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "probes": {
+            "description": "The last verdict of each probe the Node ran, kept while it is away",
+            "items": {
+              "$ref": "#/components/schemas/NodesProbe"
+            },
+            "type": "array"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/NodesResources"
+          },
+          "roles": {
+            "description": "Every Role the Node stands in, in table order",
+            "items": {
+              "$ref": "#/components/schemas/NodesRoleView"
+            },
+            "type": "array"
+          },
+          "self": {
+            "description": "The Node answering, which is the Controller",
+            "type": "boolean"
+          },
+          "since": {
+            "description": "When it came in step; while away, its last Sync frame",
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "online",
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "self",
+          "controller",
+          "state",
+          "since",
+          "roles",
+          "probes",
+          "resources"
+        ],
+        "type": "object"
+      },
+      "NodesTorrentTraffic": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "grabId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "peers": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "grabId",
+          "done",
+          "peers"
+        ],
+        "type": "object"
+      },
+      "NodesTorrentView": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "description": "Bytes downloaded",
+            "format": "int64",
+            "type": "integer"
+          },
+          "grabId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "peers": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "wanted": {
+            "description": "Bytes the torrent's selected files hold",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "grabId",
+          "title",
+          "done",
+          "wanted",
+          "peers"
+        ],
+        "type": "object"
+      },
+      "NodesTraffic": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "links": {
+            "description": "Every live link, between the Controller and a Worker",
+            "items": {
+              "$ref": "#/components/schemas/NodesLinkTraffic"
+            },
+            "type": "array"
+          },
+          "nodes": {
+            "description": "Every Node whose torrent client reports, in id order",
+            "items": {
+              "$ref": "#/components/schemas/NodesNodeTraffic"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "at",
+          "links",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "NodesWriteOffBody": {
+        "additionalProperties": false,
+        "properties": {
+          "roles": {
+            "description": "The Roles whose work the Node holds to give up. A Role still ticked on the Node is unticked.",
+            "items": {
+              "enum": [
+                "searching",
+                "downloading",
+                "storage",
+                "converting",
+                "subtitles",
+                "metadata",
+                "media-server-link",
+                "notifying",
+                "relaying",
+                "serving"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles"
+        ],
+        "type": "object"
+      },
+      "NodesWritesOff": {
+        "additionalProperties": false,
+        "properties": {
+          "held": {
+            "$ref": "#/components/schemas/NodesHeld"
+          },
+          "kind": {
+            "enum": [
+              "writes-off"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "node",
+          "role",
+          "held",
+          "words"
+        ],
         "type": "object"
       },
       "OwnPatchInputBody": {
@@ -2373,20 +3846,66 @@
         ],
         "type": "object"
       },
-      "PairingWorker": {
+      "PairingProblem": {
         "additionalProperties": false,
         "properties": {
-          "controller": {
-            "$ref": "#/components/schemas/PairingController"
+          "code": {
+            "enum": [
+              "controller_unreachable",
+              "join_code_unknown",
+              "join_code_expired",
+              "join_code_used",
+              "controller_key_mismatch",
+              "internal"
+            ],
+            "type": "string"
           },
-          "nodeId": {
-            "format": "uuid",
+          "detail": {
             "type": "string"
           }
         },
         "required": [
-          "nodeId",
-          "controller"
+          "code",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "PairingWorkerClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "$ref": "#/components/schemas/PairingController",
+            "description": "Set once joined"
+          },
+          "nodeAddress": {
+            "description": "The SLN1 text to paste into the Controller's Add a Node dialog; absent once joined without a wait",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "This Node's id; set once joined",
+            "format": "uuid",
+            "type": "string"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/PairingProblem",
+            "description": "Why a failed Join failed"
+          },
+          "state": {
+            "enum": [
+              "awaiting-dial",
+              "joined",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "until": {
+            "description": "When this Node stops waiting for the dial",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
         ],
         "type": "object"
       },
@@ -2509,6 +4028,48 @@
         },
         "required": [
           "roots"
+        ],
+        "type": "object"
+      },
+      "ServingWorker": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "description": "Its Controller's name",
+            "type": "string"
+          },
+          "fingerprint": {
+            "description": "This Worker's key fingerprint, as its Controller lists it",
+            "type": "string"
+          },
+          "holding": {
+            "description": "The labels of the Roles it holds beside Serving, in table order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "This Worker's name",
+            "type": "string"
+          },
+          "seeding": {
+            "description": "How many torrents it seeds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "since": {
+            "description": "Since when this Worker can't reach its Controller; absent while it can",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "fingerprint",
+          "controller",
+          "holding",
+          "seeding"
         ],
         "type": "object"
       },
@@ -3095,6 +4656,26 @@
         ],
         "type": "object"
       },
+      "ShellAlerts": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "description": "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "type": "object"
+      },
       "ShellCounts": {
         "additionalProperties": false,
         "properties": {
@@ -3103,10 +4684,14 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "alerts": {
+            "$ref": "#/components/schemas/ShellAlerts"
           }
         },
         "required": [
-          "activity"
+          "activity",
+          "alerts"
         ],
         "type": "object"
       },
@@ -3313,6 +4898,24 @@
         ],
         "type": "object"
       },
+      "SystemRemoved": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "controller": {
+            "description": "The name of the Controller that removed the Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "controller"
+        ],
+        "type": "object"
+      },
       "SystemReport": {
         "additionalProperties": false,
         "properties": {
@@ -3394,6 +4997,10 @@
           "passkeys": {
             "$ref": "#/components/schemas/SystemPasskeys",
             "description": "Whether the address this request reached SlipStream at can hold a passkey"
+          },
+          "removed": {
+            "$ref": "#/components/schemas/SystemRemoved",
+            "description": "Set on an Unclaimed Node its Controller removed, until it joins again"
           }
         },
         "required": [
@@ -4787,8 +6394,17 @@
             "type": "string"
           },
           "node": {
-            "description": "Empty when the Node is no longer paired",
+            "description": "The Node it ran on, still named once removed; empty when no Node has its id",
             "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node it ran on",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeRemoved": {
+            "description": "The Node it ran on was removed since",
+            "type": "boolean"
           },
           "outcome": {
             "enum": [
@@ -4804,6 +6420,8 @@
           "key",
           "label",
           "node",
+          "nodeId",
+          "nodeRemoved",
           "outcome",
           "cause"
         ],
@@ -5103,6 +6721,15 @@
             "description": "The Node it runs on",
             "type": "string"
           },
+          "nodeId": {
+            "description": "The Node it runs on now: where the roster routes portable work",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeRemoved": {
+            "description": "The Node it runs on was removed",
+            "type": "boolean"
+          },
           "outcome": {
             "description": "Its last outcome, null before it has run",
             "enum": [
@@ -5121,6 +6748,8 @@
           "key",
           "label",
           "node",
+          "nodeId",
+          "nodeRemoved",
           "outcome",
           "cause",
           "endedAt",
@@ -5138,27 +6767,29 @@
             ],
             "type": "string"
           },
-          "link": {
-            "enum": [
-              "down",
-              "mismatched"
-            ],
-            "type": "string"
-          },
           "node": {
             "description": "The Node every unit waits for",
             "type": "string"
           },
           "since": {
-            "description": "When the Node's link entered that state",
+            "description": "The Node's last Sync frame, or the Controller's start when it sent none since",
             "format": "date-time",
+            "type": "string"
+          },
+          "standing": {
+            "enum": [
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
             "type": "string"
           }
         },
         "required": [
           "kind",
           "node",
-          "link",
+          "standing",
           "since"
         ],
         "type": "object"
@@ -10174,6 +11805,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/NodesTraffic"
+                          },
+                          "event": {
+                            "const": "nodes.traffic",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event nodes.traffic",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/RootsChanged"
                           },
                           "event": {
@@ -12021,6 +13678,854 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/join-codes": {
+      "get": {
+        "operationId": "listJoinCodes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesOpenCodes"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Join Codes that may still pair a Node",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "createJoinCode",
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesJoinCode"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_link_address",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Mint a Join Code that pairs one Node with this Controller",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/join-codes/{id}": {
+      "delete": {
+        "operationId": "revokeJoinCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "join_code_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Revoke a Join Code, so no Node pairs with it",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "get": {
+        "operationId": "getJoinCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesCodeState"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "join_code_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get whether a Join Code is open, used or expired, and its dial",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/join-codes/{id}/dial": {
+      "post": {
+        "operationId": "dialForCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DialInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "join_code_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "join_code_closed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "node_address_damaged"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Dial the Node waiting at a Node address, which pairs with the code over that session",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/mail/settings": {
       "get": {
         "operationId": "getMailSettings",
@@ -12617,19 +15122,19 @@
         "x-slipstream-access": "admin"
       }
     },
-    "/nodes/join-codes": {
-      "post": {
-        "operationId": "createJoinCode",
+    "/nodes/roles": {
+      "get": {
+        "operationId": "getRoleBoard",
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NodesJoinCode"
+                  "$ref": "#/components/schemas/NodesRoleBoard"
                 }
               }
             },
-            "description": "Created"
+            "description": "OK"
           },
           "401": {
             "content": {
@@ -12695,7 +15200,6 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "no_link_address",
                             "worker_node"
                           ],
                           "type": "string"
@@ -12745,7 +15249,402 @@
             "apiKey": []
           }
         ],
-        "summary": "Mint a Join Code that pairs one Node with this Controller",
+        "summary": "Get every Node's Roles and the plan's verdict on every drag",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "setRoles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodesRolesChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesOutcome"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "roles_blocked",
+                            "roles_stale",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "$ref": "#/components/schemas/NodesOutcome"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Apply a change of Roles; the Nodes in step it changes have their new Roles when this answers",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/nodes/roles/plan": {
+      "post": {
+        "operationId": "planRoles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodesPlanChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesOutcome"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "roles_stale",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "$ref": "#/components/schemas/NodesOutcome"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Plan a change of Roles without applying it",
         "tags": [
           "nodes"
         ],
@@ -13054,7 +15953,344 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/nodes/topology": {
+      "get": {
+        "operationId": "getTopology",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesTopology"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get every Node, what it holds and the links between them, as the canvas draws them; nodes.traffic carries the rates",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/nodes/{id}": {
+      "delete": {
+        "operationId": "removeNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+            "explode": false,
+            "in": "query",
+            "name": "writeOff",
+            "schema": {
+              "description": "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_holds_work",
+                            "node_is_controller",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "$ref": "#/components/schemas/NodesOutcome"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove a Node: its Roles fall back as if unticked, and its row stays as a tombstone for history",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      },
       "get": {
         "operationId": "getNode",
         "parameters": [
@@ -13243,6 +16479,211 @@
           }
         ],
         "summary": "Get one Node with its Roles, link and facts",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "renameNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodesRenameBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesNode"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_name_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "node_name_invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename a Node; a Node in step has its new name when this answers",
         "tags": [
           "nodes"
         ],
@@ -13702,6 +17143,213 @@
         "summary": "Change a Node's settings, every key or none",
         "tags": [
           "system"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/nodes/{id}/dial": {
+      "put": {
+        "operationId": "setNodeDial",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodesNodeDial"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesNode"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_key_mismatch",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "node_address_damaged"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set the Node address the Controller dials a Node at, or stop dialing it",
+        "tags": [
+          "nodes"
         ],
         "x-slipstream-access": "admin"
       }
@@ -14451,211 +18099,6 @@
         "x-slipstream-access": "admin"
       }
     },
-    "/nodes/{id}/roles": {
-      "put": {
-        "operationId": "setNodeRoles",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NodesRoles"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NodesNode"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "api_key_wrong",
-                            "signed_out"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "needs_admin",
-                            "pin_required"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "node_not_found"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "worker_node"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "invalid"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unprocessable Entity"
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "internal"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          }
-        },
-        "security": [
-          {
-            "session": [
-              "admin"
-            ]
-          },
-          {
-            "apiKey": []
-          }
-        ],
-        "summary": "Set the Roles a Node holds; a connected Node in step has them when this answers",
-        "tags": [
-          "nodes"
-        ],
-        "x-slipstream-access": "admin"
-      }
-    },
     "/nodes/{id}/system": {
       "get": {
         "operationId": "getNodeSystem",
@@ -14875,6 +18318,218 @@
           "system"
         ],
         "x-slipstream-access": "admin"
+      }
+    },
+    "/nodes/{id}/write-offs": {
+      "post": {
+        "operationId": "writeOff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodesWriteOffBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesOutcome"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "keeps_role",
+                            "nothing_held",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "$ref": "#/components/schemas/NodesOutcome"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Give up the work a Node holds for Roles, live or offline; its files are kept",
+        "tags": [
+          "nodes"
+        ],
+        "x-slipstream-access": "reconfirmed"
       }
     },
     "/passkeys": {
@@ -17906,6 +21561,79 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/serving": {
+      "get": {
+        "operationId": "getServing",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServingWorker"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_a_worker"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [],
+        "summary": "Report this Worker's name, key and Controller, and what it holds and seeds; a Serving Worker answers it itself",
+        "tags": [
+          "serving"
+        ],
+        "x-slipstream-access": "public"
+      }
+    },
     "/session": {
       "delete": {
         "operationId": "deleteSession",
@@ -19424,6 +23152,7 @@
                         "code": {
                           "enum": [
                             "already_claimed",
+                            "join_pending",
                             "setup_busy"
                           ],
                           "type": "string"
@@ -19501,6 +23230,157 @@
       }
     },
     "/setup/worker": {
+      "get": {
+        "operationId": "getWorkerClaim",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingWorkerClaim"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "setup_code_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_join_pending"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "already_claimed",
+                            "setup_busy"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "setupCode": []
+          }
+        ],
+        "summary": "Get the Join that awaited its Controller's dial: still awaiting, joined or failed",
+        "tags": [
+          "pairing"
+        ],
+        "x-slipstream-access": "setup"
+      },
       "post": {
         "operationId": "claimWorker",
         "requestBody": {
@@ -19518,11 +23398,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PairingWorker"
+                  "$ref": "#/components/schemas/PairingWorkerClaim"
                 }
               }
             },
             "description": "Created"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingWorkerClaim"
+                }
+              }
+            },
+            "description": "Accepted"
           },
           "401": {
             "content": {
@@ -19590,6 +23480,9 @@
                         "code": {
                           "enum": [
                             "already_claimed",
+                            "join_pending",
+                            "node_unaddressed",
+                            "restart_required",
                             "setup_busy"
                           ],
                           "type": "string"
@@ -19666,8 +23559,7 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "controller_key_mismatch",
-                            "controller_unreachable"
+                            "controller_key_mismatch"
                           ],
                           "type": "string"
                         }
@@ -19686,7 +23578,7 @@
             "setupCode": []
           }
         ],
-        "summary": "Join this Node to a Controller as a Worker with a Join Code",
+        "summary": "Join this Node to a Controller as a Worker with a Join Code; 202 while it awaits the Controller's dial",
         "tags": [
           "pairing"
         ],

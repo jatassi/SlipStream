@@ -24,3 +24,6 @@ export const densityOf = { desktop: "console", phone: "touch" } as const satisfi
   ShellKind,
   string
 >;
+
+/** Wide enough for the Nodes Diagram to be the default view and to take drags. */
+export const diagramQuery = "(min-width: 1000px)";

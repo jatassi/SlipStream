@@ -15,9 +15,12 @@ export class ApiError<C extends string = string> extends Error {
   readonly title: string;
   readonly detail: string | undefined;
   readonly errors: readonly FieldError[];
+  /** The whole body, members past the Problem's own included, for a refusal that carries data. */
+  readonly body: unknown;
 
-  constructor(problem: ProblemBody & { code: C }) {
+  constructor(problem: ProblemBody & { code: C }, body: unknown = problem) {
     super(problem.title);
+    this.body = body;
     this.status = problem.status;
     this.code = problem.code;
     this.title = problem.title;

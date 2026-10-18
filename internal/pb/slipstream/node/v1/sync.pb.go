@@ -29,6 +29,7 @@ type Up struct {
 	//	*Up_Open
 	//	*Up_Facts
 	//	*Up_Result
+	//	*Up_Beat
 	Frame         isUp_Frame `protobuf_oneof:"frame"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -98,6 +99,15 @@ func (x *Up) GetResult() *Result {
 	return nil
 }
 
+func (x *Up) GetBeat() *Beat {
+	if x != nil {
+		if x, ok := x.Frame.(*Up_Beat); ok {
+			return x.Beat
+		}
+	}
+	return nil
+}
+
 type isUp_Frame interface {
 	isUp_Frame()
 }
@@ -114,11 +124,17 @@ type Up_Result struct {
 	Result *Result `protobuf:"bytes,3,opt,name=result,proto3,oneof"`
 }
 
+type Up_Beat struct {
+	Beat *Beat `protobuf:"bytes,4,opt,name=beat,proto3,oneof"`
+}
+
 func (*Up_Open) isUp_Frame() {}
 
 func (*Up_Facts) isUp_Frame() {}
 
 func (*Up_Result) isUp_Frame() {}
+
+func (*Up_Beat) isUp_Frame() {}
 
 type Open struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -336,6 +352,44 @@ func (x *Result) GetPayload() *anypb.Any {
 	return nil
 }
 
+// A holder sends a Beat every role.beat, so a session that carries nothing
+// else still shows the Controller it is alive.
+type Beat struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Beat) Reset() {
+	*x = Beat{}
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Beat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Beat) ProtoMessage() {}
+
+func (x *Beat) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Beat.ProtoReflect.Descriptor instead.
+func (*Beat) Descriptor() ([]byte, []int) {
+	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{5}
+}
+
 type Down struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Frame:
@@ -350,7 +404,7 @@ type Down struct {
 
 func (x *Down) Reset() {
 	*x = Down{}
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[5]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +416,7 @@ func (x *Down) String() string {
 func (*Down) ProtoMessage() {}
 
 func (x *Down) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[5]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +429,7 @@ func (x *Down) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Down.ProtoReflect.Descriptor instead.
 func (*Down) Descriptor() ([]byte, []int) {
-	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Down) GetFrame() isDown_Frame {
@@ -443,7 +497,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[6]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -455,7 +509,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[6]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -468,7 +522,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Ack) GetSeq() uint64 {
@@ -489,7 +543,7 @@ type Intent struct {
 
 func (x *Intent) Reset() {
 	*x = Intent{}
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[7]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -501,7 +555,7 @@ func (x *Intent) String() string {
 func (*Intent) ProtoMessage() {}
 
 func (x *Intent) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[7]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -514,7 +568,7 @@ func (x *Intent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Intent.ProtoReflect.Descriptor instead.
 func (*Intent) Descriptor() ([]byte, []int) {
-	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Intent) GetScope() string {
@@ -546,7 +600,7 @@ type CaughtUp struct {
 
 func (x *CaughtUp) Reset() {
 	*x = CaughtUp{}
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[8]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +612,7 @@ func (x *CaughtUp) String() string {
 func (*CaughtUp) ProtoMessage() {}
 
 func (x *CaughtUp) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_node_v1_sync_proto_msgTypes[8]
+	mi := &file_slipstream_node_v1_sync_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,18 +625,19 @@ func (x *CaughtUp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaughtUp.ProtoReflect.Descriptor instead.
 func (*CaughtUp) Descriptor() ([]byte, []int) {
-	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{8}
+	return file_slipstream_node_v1_sync_proto_rawDescGZIP(), []int{9}
 }
 
 var File_slipstream_node_v1_sync_proto protoreflect.FileDescriptor
 
 const file_slipstream_node_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\x1dslipstream/node/v1/sync.proto\x12\x12slipstream.node.v1\x1a\x19google/protobuf/any.proto\x1a slipstream/node/v1/options.proto\"\xa6\x01\n" +
+	"\x1dslipstream/node/v1/sync.proto\x12\x12slipstream.node.v1\x1a\x19google/protobuf/any.proto\x1a slipstream/node/v1/options.proto\"\xd6\x01\n" +
 	"\x02Up\x12.\n" +
 	"\x04open\x18\x01 \x01(\v2\x18.slipstream.node.v1.OpenH\x00R\x04open\x121\n" +
 	"\x05facts\x18\x02 \x01(\v2\x19.slipstream.node.v1.FactsH\x00R\x05facts\x124\n" +
-	"\x06result\x18\x03 \x01(\v2\x1a.slipstream.node.v1.ResultH\x00R\x06resultB\a\n" +
+	"\x06result\x18\x03 \x01(\v2\x1a.slipstream.node.v1.ResultH\x00R\x06result\x12.\n" +
+	"\x04beat\x18\x04 \x01(\v2\x18.slipstream.node.v1.BeatH\x00R\x04beatB\a\n" +
 	"\x05frame\"J\n" +
 	"\x04Open\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\fR\x05epoch\x12,\n" +
@@ -596,7 +651,8 @@ const file_slipstream_node_v1_sync_proto_rawDesc = "" +
 	"\x06Result\x12\x14\n" +
 	"\x05scope\x18\x01 \x01(\tR\x05scope\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\x04R\x03seq\x12.\n" +
-	"\apayload\x18\x03 \x01(\v2\x14.google.protobuf.AnyR\apayload\"\xaf\x01\n" +
+	"\apayload\x18\x03 \x01(\v2\x14.google.protobuf.AnyR\apayload\"\x06\n" +
+	"\x04Beat\"\xaf\x01\n" +
 	"\x04Down\x12+\n" +
 	"\x03ack\x18\x01 \x01(\v2\x17.slipstream.node.v1.AckH\x00R\x03ack\x124\n" +
 	"\x06intent\x18\x02 \x01(\v2\x1a.slipstream.node.v1.IntentH\x00R\x06intent\x12;\n" +
@@ -626,37 +682,39 @@ func file_slipstream_node_v1_sync_proto_rawDescGZIP() []byte {
 	return file_slipstream_node_v1_sync_proto_rawDescData
 }
 
-var file_slipstream_node_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_slipstream_node_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_slipstream_node_v1_sync_proto_goTypes = []any{
 	(*Up)(nil),        // 0: slipstream.node.v1.Up
 	(*Open)(nil),      // 1: slipstream.node.v1.Open
 	(*Have)(nil),      // 2: slipstream.node.v1.Have
 	(*Facts)(nil),     // 3: slipstream.node.v1.Facts
 	(*Result)(nil),    // 4: slipstream.node.v1.Result
-	(*Down)(nil),      // 5: slipstream.node.v1.Down
-	(*Ack)(nil),       // 6: slipstream.node.v1.Ack
-	(*Intent)(nil),    // 7: slipstream.node.v1.Intent
-	(*CaughtUp)(nil),  // 8: slipstream.node.v1.CaughtUp
-	(*anypb.Any)(nil), // 9: google.protobuf.Any
+	(*Beat)(nil),      // 5: slipstream.node.v1.Beat
+	(*Down)(nil),      // 6: slipstream.node.v1.Down
+	(*Ack)(nil),       // 7: slipstream.node.v1.Ack
+	(*Intent)(nil),    // 8: slipstream.node.v1.Intent
+	(*CaughtUp)(nil),  // 9: slipstream.node.v1.CaughtUp
+	(*anypb.Any)(nil), // 10: google.protobuf.Any
 }
 var file_slipstream_node_v1_sync_proto_depIdxs = []int32{
 	1,  // 0: slipstream.node.v1.Up.open:type_name -> slipstream.node.v1.Open
 	3,  // 1: slipstream.node.v1.Up.facts:type_name -> slipstream.node.v1.Facts
 	4,  // 2: slipstream.node.v1.Up.result:type_name -> slipstream.node.v1.Result
-	2,  // 3: slipstream.node.v1.Open.have:type_name -> slipstream.node.v1.Have
-	9,  // 4: slipstream.node.v1.Facts.payload:type_name -> google.protobuf.Any
-	9,  // 5: slipstream.node.v1.Result.payload:type_name -> google.protobuf.Any
-	6,  // 6: slipstream.node.v1.Down.ack:type_name -> slipstream.node.v1.Ack
-	7,  // 7: slipstream.node.v1.Down.intent:type_name -> slipstream.node.v1.Intent
-	8,  // 8: slipstream.node.v1.Down.caught_up:type_name -> slipstream.node.v1.CaughtUp
-	9,  // 9: slipstream.node.v1.Intent.payload:type_name -> google.protobuf.Any
-	0,  // 10: slipstream.node.v1.SyncService.Sync:input_type -> slipstream.node.v1.Up
-	5,  // 11: slipstream.node.v1.SyncService.Sync:output_type -> slipstream.node.v1.Down
-	11, // [11:12] is the sub-list for method output_type
-	10, // [10:11] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	5,  // 3: slipstream.node.v1.Up.beat:type_name -> slipstream.node.v1.Beat
+	2,  // 4: slipstream.node.v1.Open.have:type_name -> slipstream.node.v1.Have
+	10, // 5: slipstream.node.v1.Facts.payload:type_name -> google.protobuf.Any
+	10, // 6: slipstream.node.v1.Result.payload:type_name -> google.protobuf.Any
+	7,  // 7: slipstream.node.v1.Down.ack:type_name -> slipstream.node.v1.Ack
+	8,  // 8: slipstream.node.v1.Down.intent:type_name -> slipstream.node.v1.Intent
+	9,  // 9: slipstream.node.v1.Down.caught_up:type_name -> slipstream.node.v1.CaughtUp
+	10, // 10: slipstream.node.v1.Intent.payload:type_name -> google.protobuf.Any
+	0,  // 11: slipstream.node.v1.SyncService.Sync:input_type -> slipstream.node.v1.Up
+	6,  // 12: slipstream.node.v1.SyncService.Sync:output_type -> slipstream.node.v1.Down
+	12, // [12:13] is the sub-list for method output_type
+	11, // [11:12] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_node_v1_sync_proto_init() }
@@ -669,8 +727,9 @@ func file_slipstream_node_v1_sync_proto_init() {
 		(*Up_Open)(nil),
 		(*Up_Facts)(nil),
 		(*Up_Result)(nil),
+		(*Up_Beat)(nil),
 	}
-	file_slipstream_node_v1_sync_proto_msgTypes[5].OneofWrappers = []any{
+	file_slipstream_node_v1_sync_proto_msgTypes[6].OneofWrappers = []any{
 		(*Down_Ack)(nil),
 		(*Down_Intent)(nil),
 		(*Down_CaughtUp)(nil),
@@ -681,7 +740,7 @@ func file_slipstream_node_v1_sync_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_node_v1_sync_proto_rawDesc), len(file_slipstream_node_v1_sync_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

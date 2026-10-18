@@ -9,7 +9,7 @@ import {
   getListWorksQueryKey,
   getSearchCatalogQueryKey,
 } from "../api/gen/query/works/works";
-import { ada, grace, problem } from "../test/handlers";
+import { ada, grace, homePage, problem } from "../test/handlers";
 import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
@@ -107,8 +107,8 @@ test("files.changed invalidates only that Work's cells", async () => {
 test("live.resync refetches every active query once", async () => {
   const server = liveServer();
   const requests = countRequests();
-  renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
+  renderApp({ path: homePage, handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   const reads = () => ({
     system: requests(overview),
     session: requests("GET /api/v1/session"),
@@ -121,8 +121,8 @@ test("live.resync refetches every active query once", async () => {
 
 test("live.session-ended clears this tab and every other tab", async () => {
   const server = liveServer();
-  const first = renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
+  const first = renderApp({ path: homePage, handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   const second = renderApp({ path: "/" });
   await expect.poll(() => server.clients.length).toBe(2);
   await expect.poll(() => second.queryClient.isFetching()).toBe(0);
@@ -138,8 +138,8 @@ test("live.session-ended clears this tab and every other tab", async () => {
 
 test("live.access-changed re-gates the tab, so a demoted Admin lands on the portal", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
+  const app = renderApp({ path: homePage, handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect.poll(() => app.live.getState()).toBe("open");
 
   server.become({ ...ada, admin: false });
@@ -148,6 +148,7 @@ test("live.access-changed re-gates the tab, so a demoted Admin lands on the port
   expect(app.router.state.location.href).toBe("/portal");
   await expect.element(page.getByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
   expect(nodeReads(app.queryClient).map((query) => query.state.data)).toEqual([
+    undefined,
     undefined,
     undefined,
   ]);
@@ -175,12 +176,28 @@ test("an event that fails to parse is reported once and resyncs", async () => {
   const server = liveServer();
   const requests = countRequests();
   const reported = vi.spyOn(globalThis, "reportError").mockImplementation(() => {});
-  renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "home" })).toBeVisible();
+  renderApp({ path: homePage, handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 
   server.clients[0]?.dispatchEvent(
     new MessageEvent("identity.sessions-changed", { data: JSON.stringify({ account: 42 }) }),
   );
+  await expect.poll(() => requests(overview)).toBe(2);
+  expect(reported).toHaveBeenCalledOnce();
+});
+
+test("a nodes.traffic sample that fails to parse is reported and dropped, never resynced", async () => {
+  const server = liveServer();
+  const requests = countRequests();
+  const reported = vi.spyOn(globalThis, "reportError").mockImplementation(() => {});
+  renderApp({ path: homePage, handlers: server.handlers });
+  await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect.poll(() => requests(overview)).toBe(1);
+
+  server.clients[0]?.dispatchEvent(
+    new MessageEvent("nodes.traffic", { data: JSON.stringify({ at: "soon", links: 3 }) }),
+  );
+  server.clients[0]?.send({ event: "live.resync", data: {} });
   await expect.poll(() => requests(overview)).toBe(2);
   expect(reported).toHaveBeenCalledOnce();
 });

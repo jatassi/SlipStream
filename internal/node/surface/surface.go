@@ -20,9 +20,11 @@ import (
 	"github.com/jatassi/slipstream/internal/mailapi"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
+	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
+	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/shellapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
@@ -43,6 +45,7 @@ var Events = []live.Event{
 	identity.PasskeysChangedEvent,
 	nodes.ChangedEvent,
 	nodes.SettingsChangedEvent,
+	nodes.TrafficEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
 	targets.ChangedEvent,
@@ -70,9 +73,11 @@ type Node interface {
 	indexersapi.Registry
 	filesapi.Library
 	grabsapi.Pipeline
-	shellapi.Pipeline
+	shellapi.Shell
 	systemapi.Systems
+	Removal() (pairing.Removal, bool)
 	tasksapi.Clock
+	servingapi.Worker
 }
 
 // Services are what the operations run against. Document passes none.
@@ -99,6 +104,7 @@ func Mount(r *api.Router, s Services) {
 	grabsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)
+	servingapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

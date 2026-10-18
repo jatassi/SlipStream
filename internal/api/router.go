@@ -123,6 +123,9 @@ type Op struct {
 	Path    string
 	Summary string
 	Status  int
+	// Also are statuses beside Status that the handler selects through
+	// its output's Status field. Each answers Status's body.
+	Also []int
 	// Errors are the owner's codes the handler may return, beyond its
 	// level's codes, invalid and internal.
 	Errors []*Code
@@ -143,6 +146,7 @@ func Register[P, I, O any](o *Owner, level Level[P], op Op, handler func(context
 	r := o.router
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[I]())
 	mustDocumentEmbedded(reflect.TypeFor[O](), map[reflect.Type]bool{})
+	documentAlso(r.huma.OpenAPI().Components.Schemas, &hop, op, reflect.TypeFor[O]())
 	huma.Register(r.huma, hop, func(ctx context.Context, in *I) (out *O, err error) {
 		p := principal[P](ctx, op)
 		defer func() {
@@ -180,12 +184,31 @@ func humaOperation[P any](o *Owner, level Level[P], op Op, input reflect.Type) (
 		DefaultStatus: op.Status,
 		Security:      level.security,
 		Extensions:    map[string]any{accessExtension: level.name},
-		Responses:     errorResponses(declared),
+		Responses:     errorResponses(o.router.huma.OpenAPI().Components.Schemas, declared),
 		// Huma answers 413 when it reads exactly MaxBodyBytes, so the limit
 		// itself is MaxBodyBytes-1.
 		MaxBodyBytes: limit + 1,
 		Middlewares:  huma.Middlewares{admitMiddleware(o.router, level)},
 	}, declared
+}
+
+// documentAlso adds each of op.Also to hop's responses with the body of
+// output, which must carry the Status field that selects it.
+func documentAlso(registry huma.Registry, hop *huma.Operation, op Op, output reflect.Type) {
+	if len(op.Also) == 0 {
+		return
+	}
+	body, hasBody := output.FieldByName("Body")
+	if _, hasStatus := output.FieldByName("Status"); !hasStatus || !hasBody {
+		panic(op.ID + ": an operation answering more than one status has an output with Status and Body")
+	}
+	schema := huma.SchemaFromField(registry, body, op.ID+"Response")
+	for _, status := range op.Also {
+		hop.Responses[strconv.Itoa(status)] = &huma.Response{
+			Description: http.StatusText(status),
+			Content:     map[string]*huma.MediaType{"application/json": {Schema: schema}},
+		}
+	}
 }
 
 func principal[P any](ctx context.Context, op Op) P {
@@ -313,24 +336,40 @@ func (r *Router) logFailure(ctx context.Context, msg string, attrs ...any) {
 	r.services.Log.Log(ctx, level, msg, attrs...)
 }
 
-// errorResponses documents each status's codes, so a client's generated
-// types know exactly which codes an operation answers.
-func errorResponses(codes []*Code) map[string]*huma.Response {
+// errorResponses documents each status's codes, and the members they
+// carry, so a client's generated types know exactly which codes an
+// operation answers.
+func errorResponses(registry huma.Registry, codes []*Code) map[string]*huma.Response {
 	byStatus := map[int][]any{}
+	carried := map[int]map[string]reflect.Type{}
 	for _, c := range codes {
 		if !slices.Contains(byStatus[c.status], any(c.name)) {
 			byStatus[c.status] = append(byStatus[c.status], c.name)
 		}
+		if c.member == "" {
+			continue
+		}
+		if carried[c.status] == nil {
+			carried[c.status] = map[string]reflect.Type{}
+		}
+		if t, ok := carried[c.status][c.member]; ok && t != c.carries {
+			panic(fmt.Sprintf("api: two %d codes carry %s as %s and %s", c.status, c.member, t, c.carries))
+		}
+		carried[c.status][c.member] = c.carries
 	}
 	responses := map[string]*huma.Response{}
 	for _, status := range slices.Sorted(maps.Keys(byStatus)) {
 		names := byStatus[status]
 		slices.SortFunc(names, func(a, b any) int { return strings.Compare(fmt.Sprint(a), fmt.Sprint(b)) })
+		properties := map[string]*huma.Schema{"code": {Type: "string", Enum: names}}
+		for member, t := range carried[status] {
+			properties[member] = registry.Schema(t, true, "")
+		}
 		responses[strconv.Itoa(status)] = &huma.Response{
 			Description: http.StatusText(status),
 			Content: map[string]*huma.MediaType{problemType: {Schema: &huma.Schema{AllOf: []*huma.Schema{
 				{Ref: schemaPrefix + "Problem"},
-				{Type: "object", Properties: map[string]*huma.Schema{"code": {Type: "string", Enum: names}}},
+				{Type: "object", Properties: properties},
 			}}}},
 		}
 	}

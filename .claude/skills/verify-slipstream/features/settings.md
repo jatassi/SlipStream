@@ -1,6 +1,6 @@
 # Settings: Address, Email and Sign-in
 
-Settings holds the Controller-wide settings an Admin tunes. Address is the origin every link is built on, refusing an IP address and warning about plain HTTP. Email is the one SMTP server every SlipStream email goes through, with a write-only password and Send a test email. Sign-in holds every PIN limit and lifetime, each bounded by a floor and a ceiling.
+Settings holds the Controller-wide settings an Admin tunes. Address is the origin every link is built on, refusing an IP address and warning about plain HTTP. Email is the one SMTP server every SlipStream email goes through, from the Node that holds Notifying, with a write-only password and Send a test email. Sign-in holds every PIN limit and lifetime, each bounded by a floor and a ceiling.
 
 ## Sub-features
 

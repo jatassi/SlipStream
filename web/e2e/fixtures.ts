@@ -18,6 +18,7 @@ import {
   type Manifest,
   type ManifestNode,
   identity,
+  node as nodeOf,
   read,
 } from "../harness/manifest.ts";
 import { signIn } from "../harness/sign-in.ts";
@@ -25,10 +26,9 @@ import { expectAccessible } from "./accessible.ts";
 import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
+import type { Scenario } from "./scenario.ts";
 
 export { expect, expectAccessible };
-
-export type Scenario = "single-machine" | "first-run" | "home" | "targets";
 
 export type World = {
   manifest: Manifest;
@@ -37,7 +37,7 @@ export type World = {
   baseURL: string;
   admin: () => Identity;
   member: () => Identity;
-  setupCode: () => Promise<string>;
+  setupCode: (name?: string) => Promise<string>;
   api: (
     method: string,
     path: `/api/v1/${string}`,
@@ -47,6 +47,7 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
+  at: string;
   startupSequence: boolean;
   runDir: string;
   world: World;
@@ -145,6 +146,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
   // page, so only tests that use it ask for it.
   startupSequence: [false, { option: true }],
 
+  at: ["home", { option: true }],
+
   runDir: [
     async ({ scenario }, use, testInfo) => {
       const runDir = testInfo.outputPath("run");
@@ -181,12 +184,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { timeout: (launchTimeout + 10) * 1000 },
   ],
 
-  world: async ({ runDir, browserName }, use) => {
+  world: async ({ runDir, browserName, at }, use) => {
     const manifest = await read(runDir);
-    const [node] = manifest.nodes;
-    if (node === undefined) {
-      throw new Error(`the manifest of ${runDir} has no Nodes`);
-    }
+    const node = nodeOf(manifest, at);
     const app = await fetch(node.url);
     if (!app.ok) {
       throw new Error("TEST_SLIPSTREAM_BINARY has no embedded web app; run release build");
@@ -198,7 +198,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       baseURL: browserName === "chromium" ? node.browserUrl : node.url,
       admin: () => identity(manifest, "admin"),
       member: () => identity(manifest, "member"),
-      setupCode: () => readSetupCode(node.log),
+      setupCode: (name = at) => readSetupCode(nodeOf(manifest, name).log),
       api: async (method, path, body) => {
         const response = await fetch(new URL(path, node.url), {
           method,

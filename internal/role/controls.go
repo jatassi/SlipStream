@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -35,14 +36,39 @@ type Nodes interface {
 	NodeOf(key link.Key) (NodeID, bool)
 }
 
+// NodeScope is the node scope as the control half derives it: the Roles a
+// Node holds, assigned or covering, the Roles it no longer holds but still
+// holds work for, so it drains them, and its name.
+type NodeScope struct {
+	Holds    []Name
+	Draining []Name
+	Name     string
+}
+
 type ControlsConfig struct {
 	Library *storage.DB[storage.Library]
 	Nodes   Nodes
-	// Assigned derives the node scope: the Roles assigned to node.
-	Assigned func(ctx context.Context, r storage.Reader[storage.Library], node NodeID) ([]Name, error)
-	// Changed is called after a Node's session or facts change. It must not
-	// block.
+	// Scope derives the node scope.
+	Scope func(ctx context.Context, r storage.Reader[storage.Library], node NodeID) (NodeScope, error)
+	// Changed is called after a Node's session or node-scope facts change,
+	// and after a Role's facts change in a way its Def's Notable reports.
+	// It must not block.
 	Changed func(node NodeID)
+	// Facts is called after a holder's Role facts are stored, with the
+	// Role's name. It must not block.
+	Facts func(node NodeID, scope string)
+	// Touched is called after a Role's Control.Touch, with the Role's name
+	// and the Nodes touched. It must not block.
+	Touched func(scope string, nodes []NodeID)
+	// InStep is called when node's Sync session attaches and when it ends,
+	// and Seen after each frame its holder sends after Open. Neither may
+	// block.
+	InStep func(node NodeID, attached bool)
+	Seen   func(node NodeID)
+	// Stalled is called when a Worker's Sync stream carried nothing for
+	// Stall, before its session ends. It must not block.
+	Stalled func(node NodeID)
+	Stall   time.Duration
 	Log     *slog.Logger
 }
 
@@ -118,7 +144,6 @@ func (c *Controls) Touch(nodes ...NodeID) { c.touch(nodeScope, nodes) }
 
 func (c *Controls) touch(scope string, nodes []NodeID) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	for _, node := range nodes {
 		if s := c.sessions[node]; s != nil {
 			s.dirty[scope] = true
@@ -127,6 +152,10 @@ func (c *Controls) touch(scope string, nodes []NodeID) {
 			default:
 			}
 		}
+	}
+	c.mu.Unlock()
+	if scope != nodeScope && c.cfg.Touched != nil {
+		c.cfg.Touched(scope, nodes)
 	}
 }
 
@@ -145,11 +174,11 @@ func (c *Controls) NodeFacts(node NodeID) (*nodev1.NodeFacts, bool) {
 
 // NodeVersion is the node-scope version the library derives for node now.
 func (c *Controls) NodeVersion(ctx context.Context, node NodeID) ([]byte, error) {
-	assigned, err := c.cfg.Assigned(ctx, c.cfg.Library, node)
+	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
 	if err != nil {
 		return nil, err
 	}
-	return version(nodeIntent(assigned))
+	return version(nodeIntent(scope))
 }
 
 func (c *Controls) factsOf(node NodeID, scope string) (*anypb.Any, bool) {
@@ -247,9 +276,23 @@ func (c *Controls) session(ctx context.Context, node NodeID, s controlStream) er
 	if err := s.Send(&nodev1.Down{Frame: &nodev1.Down_CaughtUp{CaughtUp: &nodev1.CaughtUp{}}}); err != nil {
 		return err
 	}
+	return c.converse(ctx, sess, epoch, s, ups)
+}
+
+// converse answers the holder's frames and sends the scopes that change
+// until the session ends. A holder silent for the stall loses its link;
+// the Controller's own session never stalls, as it is always in step.
+func (c *Controls) converse(ctx context.Context, sess *controlSession, epoch storage.UUID, s controlStream, ups *inbox[*nodev1.Up]) error {
+	stall := time.NewTimer(c.cfg.Stall)
+	defer stall.Stop()
+	silence := stall.C
+	if sess.node == c.cfg.Nodes.Self() {
+		silence = nil
+	}
 	for {
 		select {
 		case <-ups.ready:
+			stall.Reset(c.cfg.Stall)
 			frames, end := ups.take()
 			if err := c.receive(ctx, sess, epoch, s, frames); err != nil {
 				return err
@@ -265,6 +308,9 @@ func (c *Controls) session(ctx context.Context, node NodeID, s controlStream) er
 			if err := c.sync(ctx, sess, s, dirty); err != nil {
 				return err
 			}
+		case <-silence:
+			c.cfg.Stalled(sess.node)
+			return fmt.Errorf("the holder sent nothing for %s", c.cfg.Stall)
 		case <-ctx.Done():
 			return fmt.Errorf("role session: %w", ctx.Err())
 		}
@@ -279,6 +325,9 @@ func (c *Controls) attach(s *controlSession) {
 	if old != nil {
 		old.cancel()
 	}
+	if c.cfg.InStep != nil {
+		c.cfg.InStep(s.node, true)
+	}
 }
 
 func (c *Controls) detach(s *controlSession) {
@@ -289,6 +338,9 @@ func (c *Controls) detach(s *controlSession) {
 		delete(c.facts, s.node)
 	}
 	c.mu.Unlock()
+	if current && c.cfg.InStep != nil {
+		c.cfg.InStep(s.node, false)
+	}
 	if current && c.cfg.Changed != nil {
 		c.cfg.Changed(s.node)
 	}
@@ -297,22 +349,15 @@ func (c *Controls) detach(s *controlSession) {
 // receive stores a batch's facts and applies its results in one Write,
 // then acks them.
 func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch storage.UUID, s controlStream, batch []*nodev1.Up) error {
-	var results []*nodev1.Result
-	for _, u := range batch {
-		switch f := u.GetFrame().(type) {
-		case *nodev1.Up_Facts:
-			c.storeFacts(sess, f.Facts)
-		case *nodev1.Up_Result:
-			results = append(results, f.Result)
-		default:
-			return fmt.Errorf("unexpected frame %T after Open", f)
-		}
+	results, err := c.sort(sess, batch)
+	if err != nil {
+		return err
 	}
 	if len(results) == 0 {
 		return nil
 	}
 	var top uint64
-	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		if top, err = watermark.Get(ctx, tx, sess.node.UUID, epoch); err != nil {
 			return err
@@ -342,17 +387,51 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 	return s.Send(&nodev1.Down{Frame: &nodev1.Down_Ack{Ack: &nodev1.Ack{Seq: top}}})
 }
 
+// sort stores a batch's facts, notes that its Node was seen and returns
+// its results.
+func (c *Controls) sort(sess *controlSession, batch []*nodev1.Up) ([]*nodev1.Result, error) {
+	var results []*nodev1.Result
+	for _, u := range batch {
+		switch f := u.GetFrame().(type) {
+		case *nodev1.Up_Facts:
+			c.storeFacts(sess, f.Facts)
+		case *nodev1.Up_Result:
+			results = append(results, f.Result)
+		case *nodev1.Up_Beat:
+		default:
+			return nil, fmt.Errorf("unexpected frame %T after Open", f)
+		}
+	}
+	if len(batch) > 0 && c.cfg.Seen != nil {
+		c.cfg.Seen(sess.node)
+	}
+	return results, nil
+}
+
+// storeFacts keeps f as its Node's facts for its scope, and tells the
+// roster the Node changed when they are node-scope facts or notable ones.
 func (c *Controls) storeFacts(sess *controlSession, f *nodev1.Facts) {
 	c.mu.Lock()
 	current := c.sessions[sess.node] == sess
+	var last *anypb.Any
 	if current {
 		if c.facts[sess.node] == nil {
 			c.facts[sess.node] = map[string]*anypb.Any{}
 		}
+		last = c.facts[sess.node][f.GetScope()]
 		c.facts[sess.node][f.GetScope()] = f.GetPayload()
 	}
 	c.mu.Unlock()
-	if current && c.cfg.Changed != nil {
+	if !current {
+		return
+	}
+	if f.GetScope() != nodeScope && c.cfg.Facts != nil {
+		c.cfg.Facts(sess.node, f.GetScope())
+	}
+	if c.cfg.Changed == nil {
+		return
+	}
+	if srv := c.served[f.GetScope()]; f.GetScope() == nodeScope || srv != nil && srv.notableAny(last, f.GetPayload()) {
 		c.cfg.Changed(sess.node)
 	}
 }
@@ -381,11 +460,12 @@ func (c *Controls) sync(ctx context.Context, sess *controlSession, s controlStre
 	return nil
 }
 
-// derive is node's intent for the scopes in dirty, as sync reads it: Role
-// scopes in assigned order, then the node scope.
+// derive is node's intent for the scopes in dirty, as sync reads it: the
+// scopes of the Roles it holds, then of those it drains, then the node
+// scope.
 func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]bool) ([]*nodev1.Intent, error) {
 	all := dirty == nil || dirty[nodeScope]
-	assigned, err := c.cfg.Assigned(ctx, c.cfg.Library, node)
+	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
 	if err != nil {
 		return nil, fmt.Errorf("derive node intent: %w", err)
 	}
@@ -398,7 +478,7 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		intents = append(intents, &nodev1.Intent{Scope: scope, Version: v, Payload: mustAny(msg)})
 		return nil
 	}
-	for _, name := range assigned {
+	for _, name := range slices.Concat(scope.Holds, scope.Draining) {
 		srv := c.served[string(name)]
 		if srv == nil || !all && !dirty[string(name)] {
 			continue
@@ -412,17 +492,21 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 		}
 	}
 	if all {
-		if err := add(nodeScope, nodeIntent(assigned)); err != nil {
+		if err := add(nodeScope, nodeIntent(scope)); err != nil {
 			return nil, err
 		}
 	}
 	return intents, nil
 }
 
-func nodeIntent(assigned []Name) *nodev1.NodeIntent {
-	roles := make([]string, len(assigned))
-	for i, n := range assigned {
-		roles[i] = string(n)
+func nodeIntent(s NodeScope) *nodev1.NodeIntent {
+	return &nodev1.NodeIntent{Roles: roleStrings(s.Holds), Draining: roleStrings(s.Draining), Name: s.Name}
+}
+
+func roleStrings(ns []Name) []string {
+	out := make([]string, len(ns))
+	for i, n := range ns {
+		out[i] = string(n)
 	}
-	return &nodev1.NodeIntent{Roles: roles}
+	return out
 }

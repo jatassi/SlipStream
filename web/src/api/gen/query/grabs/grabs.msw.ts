@@ -27,6 +27,7 @@ export const getListGrabsResponseMock = (
               "fills_nothing",
               "transfer_failed",
               "import_failed",
+              "node_written_off",
             ] as const),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             stage: faker.helpers.arrayElement([
@@ -39,6 +40,7 @@ export const getListGrabsResponseMock = (
           },
         }
       : {}),
+    fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         at: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -104,6 +106,7 @@ export const getGetGrabResponseMock = (
             "fills_nothing",
             "transfer_failed",
             "import_failed",
+            "node_written_off",
           ] as const),
           message: faker.string.alpha({ length: { min: 10, max: 20 } }),
           stage: faker.helpers.arrayElement([
@@ -116,6 +119,7 @@ export const getGetGrabResponseMock = (
         },
       }
     : {}),
+  fetchNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   history: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",

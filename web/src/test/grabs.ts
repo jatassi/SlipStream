@@ -13,6 +13,7 @@ const fetched: GrabsGrab = {
   releaseSize: 734_003_200,
   indexerId: "0e2a4c6e-8f1b-4d3f-a5c7-e9b1d3f5a7c9",
   nodeId: "4a6c8e0f-2b4d-4f6a-8c0e-2a4c6e8f0b1d",
+  fetchNodeId: null,
   infoHash: "0102030405060708090a0b0c0d0e0f1011121314",
   stage: "fetching",
   history: [{ stage: "fetching", at: "2026-10-12T09:01:00Z" }],
@@ -21,6 +22,7 @@ const fetched: GrabsGrab = {
 
 export const downloading: GrabsGrab = {
   ...fetched,
+  fetchNodeId: fetched.nodeId,
   stage: "downloading",
   history: [...fetched.history, { stage: "downloading", at: "2026-10-12T09:01:02Z" }],
   progress: { done: 183_500_800, total: 734_003_200 },

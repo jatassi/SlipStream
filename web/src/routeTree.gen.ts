@@ -14,6 +14,7 @@ import { Route as ConfirmEmailRouteImport } from "./routes/confirm-email";
 import { Route as NewPinRouteImport } from "./routes/new-pin";
 import { Route as PortalRouteImport } from "./routes/portal";
 import { Route as ResetRouteImport } from "./routes/reset";
+import { Route as ServingRouteImport } from "./routes/serving";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
 import { Route as SignupRouteImport } from "./routes/signup";
@@ -47,6 +48,7 @@ import { Route as AccountPasskeysNewRouteImport } from "./routes/account.passkey
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
+import { Route as AppNodesNodeIdRolesRouteImport } from "./routes/_app/nodes/$nodeId/roles";
 import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
 import { Route as AppSettingsProfilesProfileIdRouteImport } from "./routes/_app/settings/profiles.$profileId";
 import { Route as AppSettingsProfilesNewRouteImport } from "./routes/_app/settings/profiles.new";
@@ -75,6 +77,11 @@ const PortalRoute = PortalRouteImport.update({
 const ResetRoute = ResetRouteImport.update({
   id: "/reset",
   path: "/reset",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ServingRoute = ServingRouteImport.update({
+  id: "/serving",
+  path: "/serving",
   getParentRoute: () => rootRouteImport,
 } as any);
 const SetupRoute = SetupRouteImport.update({
@@ -243,6 +250,11 @@ const AppNodesNodeIdLogsRoute = AppNodesNodeIdLogsRouteImport.update({
   path: "/logs",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppNodesNodeIdRolesRoute = AppNodesNodeIdRolesRouteImport.update({
+  id: "/roles",
+  path: "/roles",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
 const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
   id: "/web",
   path: "/web",
@@ -277,6 +289,7 @@ export interface FileRoutesByFullPath {
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
   "/reset": typeof ResetRoute;
+  "/serving": typeof ServingRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
@@ -308,6 +321,7 @@ export interface FileRoutesByFullPath {
   "/tasks/": typeof AppTasksIndexRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -319,6 +333,7 @@ export interface FileRoutesByTo {
   "/confirm-email": typeof ConfirmEmailRoute;
   "/new-pin": typeof NewPinRoute;
   "/reset": typeof ResetRoute;
+  "/serving": typeof ServingRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
@@ -347,6 +362,7 @@ export interface FileRoutesByTo {
   "/tasks": typeof AppTasksIndexRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -361,6 +377,7 @@ export interface FileRoutesById {
   "/new-pin": typeof NewPinRoute;
   "/portal": typeof PortalRouteWithChildren;
   "/reset": typeof ResetRoute;
+  "/serving": typeof ServingRoute;
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
@@ -393,6 +410,7 @@ export interface FileRoutesById {
   "/_app/tasks/": typeof AppTasksIndexRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/_app/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/_app/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -408,6 +426,7 @@ export interface FileRouteTypes {
     | "/new-pin"
     | "/portal"
     | "/reset"
+    | "/serving"
     | "/setup"
     | "/sign-in"
     | "/signup"
@@ -439,6 +458,7 @@ export interface FileRouteTypes {
     | "/tasks/"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
+    | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/web"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
@@ -450,6 +470,7 @@ export interface FileRouteTypes {
     | "/confirm-email"
     | "/new-pin"
     | "/reset"
+    | "/serving"
     | "/setup"
     | "/sign-in"
     | "/signup"
@@ -478,6 +499,7 @@ export interface FileRouteTypes {
     | "/tasks"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
+    | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/web"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
@@ -491,6 +513,7 @@ export interface FileRouteTypes {
     | "/new-pin"
     | "/portal"
     | "/reset"
+    | "/serving"
     | "/setup"
     | "/sign-in"
     | "/signup"
@@ -523,6 +546,7 @@ export interface FileRouteTypes {
     | "/_app/tasks/"
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
+    | "/_app/nodes/$nodeId/roles"
     | "/_app/nodes/$nodeId/web"
     | "/_app/settings/profiles/$profileId"
     | "/_app/settings/profiles/new"
@@ -537,6 +561,7 @@ export interface RootRouteChildren {
   NewPinRoute: typeof NewPinRoute;
   PortalRoute: typeof PortalRouteWithChildren;
   ResetRoute: typeof ResetRoute;
+  ServingRoute: typeof ServingRoute;
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
   SignupRoute: typeof SignupRoute;
@@ -579,6 +604,13 @@ declare module "@tanstack/react-router" {
       path: "/reset";
       fullPath: "/reset";
       preLoaderRoute: typeof ResetRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/serving": {
+      id: "/serving";
+      path: "/serving";
+      fullPath: "/serving";
+      preLoaderRoute: typeof ServingRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/setup": {
@@ -812,6 +844,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdLogsRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/nodes/$nodeId/roles": {
+      id: "/_app/nodes/$nodeId/roles";
+      path: "/roles";
+      fullPath: "/nodes/$nodeId/roles";
+      preLoaderRoute: typeof AppNodesNodeIdRolesRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
     "/_app/nodes/$nodeId/web": {
       id: "/_app/nodes/$nodeId/web";
       path: "/web";
@@ -867,6 +906,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
+  AppNodesNodeIdRolesRoute: typeof AppNodesNodeIdRolesRoute;
   AppNodesNodeIdWebRoute: typeof AppNodesNodeIdWebRoute;
   AppNodesNodeIdIndexRoute: typeof AppNodesNodeIdIndexRoute;
 }
@@ -874,6 +914,7 @@ interface AppNodesNodeIdRouteRouteChildren {
 const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
+  AppNodesNodeIdRolesRoute: AppNodesNodeIdRolesRoute,
   AppNodesNodeIdWebRoute: AppNodesNodeIdWebRoute,
   AppNodesNodeIdIndexRoute: AppNodesNodeIdIndexRoute,
 };
@@ -978,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewPinRoute: NewPinRoute,
   PortalRoute: PortalRouteWithChildren,
   ResetRoute: ResetRoute,
+  ServingRoute: ServingRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SignupRoute: SignupRoute,

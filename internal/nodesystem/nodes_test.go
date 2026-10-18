@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -41,6 +42,8 @@ type host struct {
 	batches    []readAnswer
 	archive    []byte
 	archiveDir string
+	reached    nodesystem.Reached
+	reaches    []nodesystem.Target
 }
 
 type readAnswer struct {
@@ -98,6 +101,13 @@ func (h *host) Archive() (nodesystem.Archive, error) {
 	return nodesystem.Archive{File: f, Size: int64(len(h.archive)), Stamp: "20261016-120000"}, nil
 }
 
+func (h *host) Reach(_ context.Context, t nodesystem.Target) nodesystem.Reached {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.reaches = append(h.reaches, t)
+	return h.reached
+}
+
 // pair is a Controller reaching a Worker that serves h over linktest.
 type pair struct {
 	*linktest.Pair
@@ -143,7 +153,7 @@ func (r roster) Key(node role.NodeID) (link.Key, bool) {
 	return k, ok
 }
 
-func (roster) Holders(role.Name) []role.NodeID { return nil }
+func (roster) Serves(role.Name, role.NodeID) bool { return false }
 
 var boxFacts = system.Facts{
 	DataDir:        "/srv/box",
@@ -369,4 +379,24 @@ func archives(t *testing.T, dir string) int {
 		t.Fatal(err)
 	}
 	return len(matches)
+}
+
+func TestTheControllerRunsAReachTestFromAWorker(t *testing.T) {
+	h := &host{reached: nodesystem.Reached{Took: 2 * time.Second, Err: "connect: connection refused"}}
+	synctest.Test(t, func(t *testing.T) {
+		p := newPair(t, h, "")
+		p.Connect(t)
+		target := nodesystem.Target{Host: "smtp.example.com", Port: 465, TLS: true}
+
+		got, err := p.nodes.Reach(t.Context(), p.worker, target)
+		if err != nil || got != h.reached {
+			t.Fatalf("Reach = %+v, %v; want %+v", got, err, h.reached)
+		}
+		if !slices.Equal(h.reaches, []nodesystem.Target{target}) {
+			t.Fatalf("the Worker dialed %v, want %v", h.reaches, target)
+		}
+		if _, err := p.nodes.Reach(t.Context(), role.NodeID{UUID: storage.NewUUID()}, target); !errors.Is(err, nodesystem.ErrNotFound) {
+			t.Fatalf("Reach on a Node the roster lacks = %v, want ErrNotFound", err)
+		}
+	})
 }

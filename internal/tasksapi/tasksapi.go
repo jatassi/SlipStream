@@ -42,7 +42,7 @@ func answer(err error) error {
 		return taskRunning.Because("The task has been running since " + running.Since.UTC().Format(time.RFC3339))
 	}
 	if waiting, ok := errors.AsType[*tasks.ErrWaiting](err); ok {
-		return taskWaiting.Because(fmt.Sprintf("Every unit waits for %s, %s since %s", waiting.Node, linkWords[waiting.Link], waiting.Since.UTC().Format(time.RFC3339)))
+		return taskWaiting.Because(fmt.Sprintf("Every unit waits for %s, %s since %s", waiting.Node, standingWords[waiting.Standing], waiting.Since.UTC().Format(time.RFC3339)))
 	}
 	switch {
 	case errors.Is(err, tasks.ErrUnknownTask):
@@ -53,7 +53,9 @@ func answer(err error) error {
 	return settingapi.Refused(err)
 }
 
-var linkWords = map[nodes.LinkState]string{nodes.Down: "offline", nodes.Mismatched: "on another version"}
+var standingWords = map[nodes.Standing]string{
+	nodes.Reconnecting: "reconnecting", nodes.Offline: "offline", nodes.LapsedNode: "offline", nodes.MismatchedNode: "on another version",
+}
 
 type part struct{}
 
@@ -111,10 +113,10 @@ type runningState struct {
 }
 
 type waitingState struct {
-	Kind  string    `json:"kind" enum:"waiting"`
-	Node  string    `json:"node" doc:"The Node every unit waits for"`
-	Link  string    `json:"link" enum:"down,mismatched"`
-	Since time.Time `json:"since" doc:"When the Node's link entered that state"`
+	Kind     string    `json:"kind" enum:"waiting"`
+	Node     string    `json:"node" doc:"The Node every unit waits for"`
+	Standing string    `json:"standing" enum:"reconnecting,offline,lapsed,mismatched"`
+	Since    time.Time `json:"since" doc:"The Node's last Sync frame, or the Controller's start when it sent none since"`
 }
 
 func stateOf(s tasks.Status) api.OneOf[state] {
@@ -122,7 +124,7 @@ func stateOf(s tasks.Status) api.OneOf[state] {
 	case tasks.Running:
 		return api.NewOneOf[state](runningState{Kind: "running", RunID: int64(s.Run), Trigger: string(s.Trigger), Since: s.Since, Done: s.Done, Total: s.Total})
 	case tasks.Waiting:
-		return api.NewOneOf[state](waitingState{Kind: "waiting", Node: s.Node, Link: s.Link.String(), Since: s.Since})
+		return api.NewOneOf[state](waitingState{Kind: "waiting", Node: s.Node, Standing: s.Standing.String(), Since: s.Since})
 	case tasks.Idle:
 		return api.NewOneOf[state](idleState{Kind: "idle", Next: s.Next})
 	}
@@ -187,11 +189,13 @@ type run struct {
 }
 
 type runUnit struct {
-	Key     string  `json:"key"`
-	Label   string  `json:"label"`
-	Node    string  `json:"node" doc:"Empty when the Node is no longer paired"`
-	Outcome string  `json:"outcome" enum:"succeeded,failed,skipped,canceled"`
-	Cause   *string `json:"cause" doc:"Why it failed or was skipped, null when it succeeded"`
+	Key         string  `json:"key"`
+	Label       string  `json:"label"`
+	Node        string  `json:"node" doc:"The Node it ran on, still named once removed; empty when no Node has its id"`
+	NodeID      string  `json:"nodeId" format:"uuid" doc:"The Node it ran on"`
+	NodeRemoved bool    `json:"nodeRemoved" doc:"The Node it ran on was removed since"`
+	Outcome     string  `json:"outcome" enum:"succeeded,failed,skipped,canceled"`
+	Cause       *string `json:"cause" doc:"Why it failed or was skipped, null when it succeeded"`
 }
 
 func runOf(r tasks.Run) run {
@@ -201,7 +205,7 @@ func runOf(r tasks.Run) run {
 		out.EndedAt, out.Result = &ended, &result
 	}
 	for _, l := range r.Lines {
-		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, Outcome: string(l.Outcome), Cause: optional(l.Cause)})
+		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), NodeRemoved: l.NodeRemoved, Outcome: string(l.Outcome), Cause: optional(l.Cause)})
 	}
 	return out
 }
@@ -210,6 +214,8 @@ type unit struct {
 	Key           string     `json:"key"`
 	Label         string     `json:"label"`
 	Node          string     `json:"node" doc:"The Node it runs on"`
+	NodeID        string     `json:"nodeId" format:"uuid" doc:"The Node it runs on now: where the roster routes portable work"`
+	NodeRemoved   bool       `json:"nodeRemoved" doc:"The Node it runs on was removed"`
 	Outcome       *string    `json:"outcome" enum:"succeeded,failed,skipped,canceled" doc:"Its last outcome, null before it has run"`
 	Cause         *string    `json:"cause" doc:"Why it last failed or was skipped, null otherwise"`
 	EndedAt       *time.Time `json:"endedAt" doc:"When it last ended, null before it has run"`
@@ -218,7 +224,7 @@ type unit struct {
 }
 
 func unitOf(u tasks.UnitView) unit {
-	out := unit{Key: string(u.Key), Label: u.Label, Node: u.Node, Cause: optional(u.Cause), DueOnReturn: u.DueOnReturn}
+	out := unit{Key: string(u.Key), Label: u.Label, Node: u.Node, NodeID: u.NodeID.String(), NodeRemoved: u.NodeRemoved, Cause: optional(u.Cause), DueOnReturn: u.DueOnReturn}
 	if u.Outcome != "" {
 		outcome := string(u.Outcome)
 		out.Outcome, out.EndedAt = &outcome, &u.Ended

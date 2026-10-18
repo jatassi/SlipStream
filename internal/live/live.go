@@ -110,6 +110,10 @@ func (p AdminPublisher[T]) Publish(ctx context.Context, v T) {
 	p.hub.publish(ctx, p.decl, storage.UUID{}, v)
 }
 
+// Listening reports whether an Admin's subscription is open, so a
+// publisher of samples can skip the work no one would read.
+func (p AdminPublisher[T]) Listening() bool { return p.hub.adminListens() }
+
 func (p AccountPublisher[T]) Publish(ctx context.Context, account storage.UUID, v T) {
 	p.hub.publish(ctx, p.decl, account, v)
 }
@@ -283,6 +287,17 @@ func (h *Hub) publish(ctx context.Context, e Event, account storage.UUID, data a
 			}
 		}
 	}
+}
+
+func (h *Hub) adminListens() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for s := range h.subs {
+		if s.viewer.Admin && s.state == reading {
+			return true
+		}
+	}
+	return false
 }
 
 // wake runs under mu. Closing the channel wakes every waiting reader at

@@ -23,7 +23,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var Def = role.Def[*dlv1.Intent, *dlv1.Facts, *dlv1.Result]{Name: role.Downloading}
+// Def is the Downloading Role. A change in which torrents a Node's client
+// holds is notable, since Admins see each torrent's title.
+var Def = role.Def[*dlv1.Intent, *dlv1.Facts, *dlv1.Result]{Name: role.Downloading, Notable: torrentsDiffer}
+
+func torrentsDiffer(last, next *dlv1.Facts) bool {
+	if len(last.GetTorrents()) != len(next.GetTorrents()) {
+		return true
+	}
+	held := map[bencode.InfoHash]bool{}
+	for _, t := range last.GetTorrents() {
+		held[infoHash(t.GetInfoHash())] = true
+	}
+	for _, t := range next.GetTorrents() {
+		if !held[infoHash(t.GetInfoHash())] {
+			return true
+		}
+	}
+	return false
+}
 
 type Holder = role.Holder[*dlv1.Intent, *dlv1.Facts, *dlv1.Result]
 
@@ -109,6 +127,19 @@ func (c *Client) note(ev engine.Event) {
 	}
 }
 
+// Seeding is how many finished torrents the client holds.
+func (c *Client) Seeding() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for h := range c.byHash {
+		if c.finished[h] {
+			n++
+		}
+	}
+	return n
+}
+
 // Path is where file index of torrent h lies on this Node, ErrNotPresent
 // until the client finished h.
 func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
@@ -128,6 +159,9 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 	}
 	return filepath.Join(c.savePath(h), filepath.FromSlash(files[i].Path)), nil
 }
+
+// Dir is the folder each torrent's save path is in.
+func (c *Client) Dir() string { return c.cfg.Dir }
 
 func (c *Client) savePath(h bencode.InfoHash) string { return filepath.Join(c.cfg.Dir, h.String()) }
 
@@ -188,12 +222,28 @@ func latest(seq iter.Seq[role.Snapshot[*dlv1.Intent]]) <-chan role.Snapshot[*dlv
 	return ch
 }
 
-// keep adds each torrent the intent lists and the client lacks. Out of
-// step it adds only a torrent whose save path exists, which it held
-// before: that resumes seeding and starts nothing new.
+// keep makes the client hold the torrents the intent lists: it removes
+// each one the intent no longer lists, keeping its files, and adds each
+// one the client lacks. When it may not start, out of step or draining,
+// it adds only a torrent whose save path exists, which it held before:
+// that resumes seeding and starts nothing new.
 func (c *Client) keep(s role.Snapshot[*dlv1.Intent]) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	listed := map[bencode.InfoHash]bool{}
+	for _, t := range s.Intent.GetTorrents() {
+		listed[infoHash(t.GetInfoHash())] = true
+	}
+	for h := range c.byHash {
+		if !listed[h] {
+			c.remove(h)
+		}
+	}
+	for h := range c.failed {
+		if !listed[h] {
+			delete(c.failed, h)
+		}
+	}
 	for _, t := range s.Intent.GetTorrents() {
 		h := infoHash(t.GetInfoHash())
 		if _, ok := c.byHash[h]; ok || c.failed[h] != "" {
@@ -210,6 +260,30 @@ func (c *Client) keep(s role.Snapshot[*dlv1.Intent]) {
 		}
 		c.byHash[h], c.hashOf[handle] = handle, h
 	}
+}
+
+// Release removes every torrent the client holds, keeping their files: the
+// Node let Downloading go.
+func (c *Client) Release(context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for h := range c.byHash {
+		c.remove(h)
+	}
+	clear(c.failed)
+	return nil
+}
+
+// remove takes torrent h out of the engine, leaving its files where they
+// lie. The caller holds c.mu.
+func (c *Client) remove(h bencode.InfoHash) {
+	handle := c.byHash[h]
+	if err := c.cfg.Engine.Remove(handle); err != nil {
+		c.cfg.Log.Error("remove a torrent", "info_hash", h.String(), "err", err.Error())
+	}
+	delete(c.byHash, h)
+	delete(c.hashOf, handle)
+	delete(c.finished, h)
 }
 
 func (c *Client) report(ctx context.Context, local *storage.DB[storage.Local], h Holder, intent *dlv1.Intent, reported map[storage.UUID]bool) error {
@@ -276,7 +350,7 @@ func (c *Client) facts(intent *dlv1.Intent) *dlv1.Facts {
 		if err != nil {
 			continue
 		}
-		out.Torrents = append(out.Torrents, &dlv1.TorrentFacts{InfoHash: h[:], State: s.State.String(), Done: s.Done, Wanted: s.Wanted, Peers: int32(s.Peers)}) //nolint:gosec // a peer count fits
+		out.Torrents = append(out.Torrents, &dlv1.TorrentFacts{InfoHash: h[:], State: s.State.String(), Done: s.Done, Wanted: s.Wanted, Peers: int32(s.Peers), Uploaded: s.Uploaded}) //nolint:gosec // a peer count fits
 	}
 	return out
 }

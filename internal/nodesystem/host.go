@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/system"
@@ -25,6 +27,25 @@ type Host interface {
 	Restart() (Restarting, error)
 	ReadLogs(ctx context.Context, after uint64, wait time.Duration) (system.LogBatch, error)
 	Archive() (Archive, error)
+	// Reach dials t from the Node until ctx ends.
+	Reach(ctx context.Context, t Target) Reached
+}
+
+// Target is a host and port a Role reaches from its Node, over TLS when
+// TLS is set.
+type Target struct {
+	Host string
+	Port uint16
+	TLS  bool
+}
+
+func (t Target) String() string { return net.JoinHostPort(t.Host, strconv.Itoa(int(t.Port))) }
+
+// Reached is how a reach test went: Err says why it failed, "" when OK.
+type Reached struct {
+	OK   bool
+	Took time.Duration
+	Err  string
 }
 
 var (

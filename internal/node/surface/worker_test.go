@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -56,8 +57,18 @@ func (worker) Grabs() (*grabs.Grabs, bool) { return nil, false }
 
 func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 
-func (worker) Join(context.Context, joincode.Code) (pairing.Joined, error) {
+func (worker) Worker() (servingapi.Facts, bool) {
+	return servingapi.Facts{Name: "seedbox", Fingerprint: "AAAA-BBBB-CCCC-DDDD", Controller: "home"}, true
+}
+
+func (worker) Join(context.Context, joincode.Code, func(pairing.Pending)) (pairing.Joined, error) {
 	panic("a Worker's closed gate admitted claimWorker")
+}
+
+func (worker) Removal() (pairing.Removal, bool) { return pairing.Removal{}, false }
+
+func (worker) Pending() (pairing.Pending, bool) {
+	panic("a Worker's closed gate admitted getWorkerClaim")
 }
 
 func TestTheAccessWalkPassesOnAWorker(t *testing.T) {

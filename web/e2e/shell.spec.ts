@@ -1,10 +1,7 @@
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate, shellNav } from "./shell.ts";
 
-test("the shell reaches every destination and titles each tab", async ({
-  adminPage: page,
-  world,
-}) => {
+test("the shell reaches every destination and titles each tab", async ({ adminPage: page }) => {
   await expect(shellNav(page)).toBeVisible();
   await expect(page).toHaveTitle("Library · SlipStream");
 
@@ -14,10 +11,8 @@ test("the shell reaches every destination and titles each tab", async ({
   await expectAccessible(page);
 
   await navigate(page, "Nodes");
-  await expect(
-    page.getByRole("heading", { name: isPhone(page) ? "Nodes" : world.node.name, level: 1 }),
-  ).toBeVisible();
-  await expect(page).toHaveTitle(`${world.node.name} · SlipStream`);
+  await expect(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  await expect(page).toHaveTitle("Nodes · SlipStream");
 
   await navigate(page, "Library");
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();

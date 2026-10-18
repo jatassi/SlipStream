@@ -42,11 +42,19 @@ type Holding struct {
 	epoch storage.UUID
 	// post wakes the session to send changed facts or queued results.
 	post chan struct{}
+	// settled closes once the supervisor may act on the cached intent: a
+	// session caught up, or the Controller is out of reach. Before then the
+	// cache may hold an intent the Controller superseded while the Node was
+	// away.
+	settled chan struct{}
+	settle  func()
 
 	mu       sync.Mutex
 	standing Standing
 	cache    map[string]cached
 	assigned []Name
+	draining []Name
+	name     string
 	// waits holds, per scope, a channel closed at its next change.
 	waits map[string]chan struct{}
 	// changed is closed at any change the supervisor acts on.
@@ -61,6 +69,7 @@ type Holding struct {
 type Host struct {
 	HTTPAddress      netip.AddrPort
 	SettingsRevision string
+	Probes           []ProbeResult
 }
 
 // SetHost records v for the node scope's facts, which supervise sends
@@ -80,9 +89,12 @@ type cached struct {
 // NewHolding loads local.db's epoch and intent cache, so a Node that
 // starts out of reach of its Controller works from its last intent.
 func NewHolding(ctx context.Context, cfg HoldingConfig) (*Holding, error) {
+	settled := make(chan struct{})
 	h := &Holding{
 		cfg:     cfg,
 		post:    make(chan struct{}, 1),
+		settled: settled,
+		settle:  sync.OnceFunc(func() { close(settled) }),
 		cache:   map[string]cached{},
 		waits:   map[string]chan struct{}{},
 		changed: make(chan struct{}),
@@ -123,11 +135,38 @@ func (h *Holding) Run(ctx context.Context) error {
 	return nil
 }
 
-// Holds reports whether this Node's last intent assigns it r.
+// Holds reports whether this Node's last intent assigns it r or has it
+// drain r: the holder's dispatch gate.
 func (h *Holding) Holds(r Name) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return slices.Contains(h.assigned, r)
+	return slices.Contains(h.assigned, r) || slices.Contains(h.draining, r)
+}
+
+// Name is this Node's name, as its last intent gives it.
+func (h *Holding) Name() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.name
+}
+
+// Reset forgets every cached intent, in local.db and in memory, so the
+// Node holds no Role until a Controller sends it one: its Roles stop and
+// let go what they hold, and a later start can't resume them from a
+// Controller that removed the Node.
+func (h *Holding) Reset(ctx context.Context) error {
+	if err := h.cfg.Local.Write(ctx, holding.ClearIntents); err != nil {
+		return fmt.Errorf("clear the role intent cache: %w", err)
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for scope := range h.cache {
+		h.notify(scope)
+	}
+	clear(h.cache)
+	h.assigned, h.draining, h.name = nil, nil, ""
+	h.wake()
+	return nil
 }
 
 // remember caches an intent in memory. The caller holds h.mu or owns h.
@@ -137,18 +176,49 @@ func (h *Holding) remember(scope string, c cached) error {
 		if err := c.payload.UnmarshalTo(in); err != nil {
 			return fmt.Errorf("node intent: %w", err)
 		}
-		h.assigned = make([]Name, len(in.GetRoles()))
-		for i, r := range in.GetRoles() {
-			h.assigned[i] = Name(r)
+		draining := names(in.GetDraining())
+		for _, r := range symmetricDifference(h.draining, draining) {
+			h.notify(string(r))
 		}
+		h.assigned, h.draining, h.name = names(in.GetRoles()), draining, in.GetName()
 	}
 	h.cache[scope] = c
+	h.notify(scope)
+	h.wake()
+	return nil
+}
+
+// notify closes the channel scope's watchers wait on. The caller holds
+// h.mu or owns h.
+func (h *Holding) notify(scope string) {
 	if ch := h.waits[scope]; ch != nil {
 		close(ch)
 		delete(h.waits, scope)
 	}
-	h.wake()
-	return nil
+}
+
+func names(roles []string) []Name {
+	out := make([]Name, len(roles))
+	for i, r := range roles {
+		out[i] = Name(r)
+	}
+	return out
+}
+
+// symmetricDifference is every Name in exactly one of a and b.
+func symmetricDifference(a, b []Name) []Name {
+	var out []Name
+	for _, n := range a {
+		if !slices.Contains(b, n) {
+			out = append(out, n)
+		}
+	}
+	for _, n := range b {
+		if !slices.Contains(a, n) {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // wake closes changed. The caller holds h.mu.
@@ -157,7 +227,9 @@ func (h *Holding) wake() {
 	h.changed = make(chan struct{})
 }
 
-func (h *Holding) watch(scope string) (*anypb.Any, Standing, <-chan struct{}) {
+// watch is scope's cached intent, the standing, whether the Node drains
+// the Role, and a channel closed when any of them changes.
+func (h *Holding) watch(scope string) (payload *anypb.Any, standing Standing, draining bool, changed <-chan struct{}) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	ch := h.waits[scope]
@@ -165,7 +237,7 @@ func (h *Holding) watch(scope string) (*anypb.Any, Standing, <-chan struct{}) {
 		ch = make(chan struct{})
 		h.waits[scope] = ch
 	}
-	return h.cache[scope].payload, h.standing, ch
+	return h.cache[scope].payload, h.standing, slices.Contains(h.draining, Name(scope)), ch
 }
 
 func (h *Holding) setStanding(s Standing) {
@@ -236,6 +308,8 @@ func (h *Holding) session(ctx context.Context, s holderStream) (bool, error) {
 	if err := h.sendFacts(s, true); err != nil {
 		return false, err
 	}
+	beat := time.NewTicker(h.cfg.Timings.Beat)
+	defer beat.Stop()
 	for {
 		var err error
 		select {
@@ -243,6 +317,8 @@ func (h *Holding) session(ctx context.Context, s holderStream) (bool, error) {
 			err = hs.receive(ctx, downs)
 		case <-h.post:
 			err = hs.flush(ctx)
+		case <-beat.C:
+			err = s.Send(&nodev1.Up{Frame: &nodev1.Up_Beat{Beat: &nodev1.Beat{}}})
 		case <-ctx.Done():
 			err = fmt.Errorf("role session: %w", ctx.Err())
 		}
@@ -286,6 +362,7 @@ func (hs *holderSession) frame(ctx context.Context, d *nodev1.Down) error {
 	case *nodev1.Down_CaughtUp:
 		hs.caughtUp = true
 		hs.h.setStanding(Live)
+		hs.h.settle()
 		return nil
 	}
 	return fmt.Errorf("unexpected frame %T", d.GetFrame())
@@ -416,9 +493,15 @@ func InProcess(c *Controls) Upstream {
 }
 
 // OverLink is a Worker's holder half, in session with the Controller
-// holding controller whenever the link to it is live and in step.
-func OverLink(l *link.Link, controller link.Key) Upstream {
+// holding controller whenever the link to it is live and in step. The
+// Worker acts on its cached intent once a session caught up, or once the
+// Controller is out of reach: the link joins another version, or no
+// session caught up within the longest either side takes to dial under t,
+// the Controller's longest redial and one handshake.
+func OverLink(l *link.Link, controller link.Key, t link.Timings) Upstream {
 	return Upstream{run: func(ctx context.Context, h *Holding) {
+		reach := time.AfterFunc(t.RedialMax+t.Handshake, h.settle)
+		defer reach.Stop()
 		changes := l.Subscribe(ctx)
 		n := 0
 		for {
@@ -427,6 +510,7 @@ func OverLink(l *link.Link, controller link.Key) Upstream {
 			case link.Live:
 				if !st.Matched {
 					h.setStanding(Mismatched)
+					h.settle()
 					break
 				}
 				caughtUp := h.overLink(ctx, l, controller)

@@ -17,7 +17,9 @@ const mainNav = () => page.getByRole("navigation", { name: "Main" });
 const tabs = () => page.getByRole("navigation", { name: "Tabs" });
 
 function counting(activity: number) {
-  return http.get("*/api/v1/counts", () => HttpResponse.json({ activity }));
+  return http.get("*/api/v1/counts", () =>
+    HttpResponse.json({ activity, alerts: { nodes: null } }),
+  );
 }
 
 const listed = (count: number): WorksListedWork[] =>
@@ -76,6 +78,26 @@ const system = getGetSystemMockHandler({
   startedAt: "2026-10-12T09:00:00Z",
 });
 
+test("in More, the Nodes row carries the alert's dot", async () => {
+  await asPhone();
+  renderApp({
+    path: "/library",
+    handlers: [
+      getListContentTypesMockHandler({ contentTypes: [cinema] }),
+      http.get("*/api/v1/counts", () =>
+        HttpResponse.json({ activity: 0, alerts: { nodes: "warn" } }),
+      ),
+    ],
+  });
+  await userEvent.click(tabs().getByRole("button", { name: "More" }));
+  const sheet = page.getByRole("dialog", { name: "More" });
+  await expect
+    .element(sheet.getByRole("button", { name: /^Nodes/u }))
+    .toHaveTextContent("Nodes needs attention");
+  await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
+  await expect.element(sheet).not.toBeInTheDocument();
+});
+
 test("More opens a sheet with the rest of the nav and the version, and Cancel closes it", async () => {
   await asPhone();
   const { router } = renderApp({
@@ -106,7 +128,7 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
   await userEvent.click(sheet.getByRole("button", { name: "Nodes" }));
   await expect.element(sheet).not.toBeInTheDocument();
   await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toMatch(/^\/nodes\/[0-9a-f-]{36}$/u);
+  expect(router.state.location.pathname).toBe("/nodes");
   await expect
     .element(tabs().getByRole("button", { name: "More" }))
     .not.toHaveAttribute("aria-current");

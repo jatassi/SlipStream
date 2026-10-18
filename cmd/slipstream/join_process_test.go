@@ -3,15 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -70,7 +75,7 @@ func (h home) mint(t *testing.T) string {
 	var res struct {
 		Code string `json:"code"`
 	}
-	h.admin(t, http.MethodPost, "/api/v1/nodes/join-codes", &res)
+	h.admin(t, http.MethodPost, "/api/v1/join-codes", &res)
 	return res.Code
 }
 
@@ -123,13 +128,6 @@ func (p *nodeProc) await(msg string) map[string]any {
 	}
 }
 
-func expectRows(t *testing.T, got []string, want ...string) {
-	t.Helper()
-	if fmt.Sprint(got) != fmt.Sprint(want) {
-		t.Fatalf("listNodes rows %v, want %v", got, want)
-	}
-}
-
 // TestJoinByEnvironment launches single-machine and starts a second
 // binary with SLIPSTREAM_JOIN_CODE: it joins as a Worker, the code reaches
 // no log, and a restart with the same code changes nothing.
@@ -139,7 +137,7 @@ func TestJoinByEnvironment(t *testing.T) {
 	var minted struct {
 		Code string `json:"code"`
 	}
-	if r := a.Admin("home", http.MethodPost, "/api/v1/nodes/join-codes", ""); r.Status != http.StatusCreated || json.Unmarshal([]byte(r.Body), &minted) != nil {
+	if r := a.Admin("home", http.MethodPost, "/api/v1/join-codes", ""); r.Status != http.StatusCreated || json.Unmarshal([]byte(r.Body), &minted) != nil {
 		t.Fatalf("createJoinCode = %d %s", r.Status, r.Body)
 	}
 	env := slices.Concat(boxEnv, []string{"SLIPSTREAM_JOIN_CODE=" + minted.Code})
@@ -164,13 +162,16 @@ func TestJoinByEnvironment(t *testing.T) {
 	}
 	var rows []string
 	id := ""
-	for _, n := range a.Nodes("home") {
-		rows = append(rows, n.Name+" "+n.Link.State)
-		if n.Name == "box" {
-			id = n.ID
+	worldtest.Until(t, "home lists box's link up", func() (bool, error) {
+		rows, id = nil, ""
+		for _, n := range a.Nodes("home") {
+			rows = append(rows, n.Name+" "+n.Link.State)
+			if n.Name == "box" {
+				id = n.ID
+			}
 		}
-	}
-	expectRows(t, rows, "home local", "box up")
+		return fmt.Sprint(rows) == fmt.Sprint([]string{"home local", "box up"}), nil
+	})
 
 	stopNode(t, box, dir)
 	again := startNode(t, dir, env...)
@@ -235,5 +236,43 @@ func TestJoinRunning(t *testing.T) {
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
 	if claimed := box.await("claimed"); claimed["claim"] != "worker" {
 		t.Fatalf("claimed record %v, want claim worker", claimed)
+	}
+}
+
+// TestJoinWaitsAtTheNodePortForTheDial joins a stopped Node with a code
+// naming an address it can't reach. --node-port writes link.listen, and
+// the join prints the Node address at that port, which node-address
+// prints too, then fails once await_dial passes with no dial.
+func TestJoinWaitsAtTheNodePortForTheDial(t *testing.T) {
+	t.Parallel()
+	h := startHomeWith(t, append(listenersOn("127.0.0.2", "home"), "SLIPSTREAM_LINK_ADVERTISE=127.0.0.250:8485"))
+	dir := dataDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("link:\n  listen: 127.0.0.6:0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if res := slipstream(t, childEnv(), "join", "--data-dir", dir, "--node-port", "0", h.mint(t)); res.code != node.ExitUsage {
+		t.Fatalf("join --node-port 0: exit %d, stderr %q; want the usage code", res.code, res.stderr)
+	}
+	free, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.6:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := netip.MustParseAddrPort(free.Addr().String())
+	if err := free.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	env := childEnv("SLIPSTREAM_NAME=box", "SLIPSTREAM_TIMINGS_LINK_JOIN_DIAL=1s", "SLIPSTREAM_TIMINGS_LINK_AWAIT_DIAL=2s")
+	res := slipstream(t, env, "join", "--data-dir", dir, "--node-port", strconv.Itoa(int(at.Port())), h.mint(t))
+	lines := strings.Split(strings.TrimSuffix(res.stdout, "\n"), "\n")
+	if res.code != node.ExitFailed || len(lines) != 4 || lines[0] != "Can't reach the Controller at 127.0.0.250:8485." || !strings.HasPrefix(res.stderr, "join failed: the Controller didn't dial this Node by ") {
+		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 1 after the awaiting lines", res.code, res.stdout, res.stderr)
+	}
+	printed, err := joincode.ParseNodeAddress(strings.TrimPrefix(lines[2], "  "))
+	if want := []netip.AddrPort{at}; err != nil || !slices.Equal(printed.Addresses(), want) {
+		t.Fatalf("join printed the Node address %q (%v), want one at %v", lines[2], err, want)
+	}
+	if res := slipstream(t, childEnv(), "node-address", "--data-dir", dir); res.code != node.ExitOK || res.stdout != printed.String()+"\n" {
+		t.Fatalf("node-address: exit %d, stdout %q, stderr %q; want %s", res.code, res.stdout, res.stderr, printed)
 	}
 }

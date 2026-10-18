@@ -30,12 +30,15 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     throw new UnreachableError({ cause: error });
   }
   if (response.ok) {
-    const body: unknown = response.status === 204 ? undefined : await response.json();
+    // A 204, or a 202 such as dialForCode's, carries no body and no Content-Type.
+    const body: unknown =
+      response.headers.get("Content-Type") === null ? undefined : await response.json();
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the generated client types each body from the drift-checked document
     return body as T;
   }
   if (response.headers.get("Content-Type")?.startsWith(problemType) === true) {
-    throw new ApiError(Problem.parse(await response.json()));
+    const body: unknown = await response.json();
+    throw new ApiError(Problem.parse(body), body);
   }
   throw new UnreachableError({ cause: new Error(`${response.status} ${response.statusText}`) });
 }

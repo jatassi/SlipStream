@@ -116,6 +116,25 @@ func TestAdminReceivesAdminEntries(t *testing.T) {
 	})
 }
 
+func TestAnAdminEventListensWhileAnAdminSubscriptionIsOpen(t *testing.T) {
+	h, pub := newHub(t)
+	if pub.nodes.Listening() {
+		t.Fatal("an empty hub listens for Admin events")
+	}
+	h.Subscribe(member, "")
+	if pub.nodes.Listening() {
+		t.Fatal("a member's subscription listens for Admin events")
+	}
+	s := h.Subscribe(admin, "")
+	if !pub.nodes.Listening() {
+		t.Fatal("an Admin's open subscription doesn't listen")
+	}
+	s.Close()
+	if pub.nodes.Listening() {
+		t.Fatal("a closed Admin subscription still listens")
+	}
+}
+
 func TestNextWaitsForTheNextPublish(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		h, pub := newHub(t)

@@ -2,6 +2,7 @@ import { http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import type { NodesNode } from "../../../api/gen/model";
 import { problem } from "../../../test/handlers";
 import { nodeSystems } from "../../../test/node-system";
 import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
@@ -16,9 +17,14 @@ const linkTexts = (name: string) =>
     .all()
     .map((link) => [link.element().textContent, link.element().getAttribute("href")]);
 
-test("/system and /nodes land on the Overview of the Node the browser talks to", async () => {
+test("/system lands on Nodes", async () => {
   const { router } = renderApp({ path: "/system", handlers: system });
-  await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}`);
+  await expect.poll(() => router.state.location.href).toBe("/nodes");
+  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+});
+
+test("a Node's Overview lists what it reports about itself", async () => {
+  renderApp({ path: `/nodes/${homeId}`, handlers: system });
   await expect.element(page.getByRole("heading", { name: "home", level: 1 })).toBeVisible();
   await expect.element(page.getByText("0.0.0-dev+3f2a1c9")).toBeVisible();
   await expect.element(page.getByText("/data/home", { exact: true })).toBeVisible();
@@ -32,6 +38,7 @@ test("the page tabs link to every section and mark the current one", async () =>
     .toHaveAttribute("aria-current", "page");
   expect(linkTexts("home")).toEqual([
     ["Overview", `/nodes/${homeId}`],
+    ["Roles", `/nodes/${homeId}/roles`],
     ["Web and API", `/nodes/${homeId}/web`],
     ["Logs", `/nodes/${homeId}/logs`],
     ["Log settings", `/nodes/${homeId}/log-settings`],
@@ -71,6 +78,44 @@ test("the Node picker lists each Node with its state and switches Node, keeping 
     .toHaveAttribute("aria-current", "page");
 });
 
+const away = (name: string, id: string, standing: NodesNode["standing"]): NodesNode => ({
+  ...seedbox,
+  id,
+  name,
+  standing,
+});
+
+test("the Node picker says how each Node stands: reconnecting, offline, past the grace or on another version", async () => {
+  renderApp({
+    path: `/nodes/${homeId}/logs`,
+    handlers: [
+      ...system,
+      nodesAre(
+        home,
+        away("seedbox", seedboxId, "reconnecting"),
+        away("vps", "2b4d6f8a-0c1e-4a3b-8d5f-7a9c1e3b5d70", "offline"),
+        away("nas", "3c5e7a9b-1d2f-4b4c-9e6a-8b0d2f4c6e81", "lapsed"),
+        away("laptop", "4d6f8b0c-2e3a-4c5d-8f7b-9c1e3a5d7f92", "mismatched"),
+      ),
+    ],
+  });
+  await page.getByRole("combobox", { name: "Node" }).click();
+  await expect
+    .poll(() =>
+      page
+        .getByRole("option")
+        .all()
+        .map((option) => option.element().textContent),
+    )
+    .toEqual([
+      "onlinehome",
+      "reconnectingseedbox",
+      "offlinevps",
+      "offline past the gracenas",
+      "on another versionlaptop",
+    ]);
+});
+
 test("an unknown Node is not found", async () => {
   renderApp({ path: "/nodes/00000000-0000-0000-0000-000000000000", handlers: system });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
@@ -89,11 +134,12 @@ test("a Member gets the server's refusal", async () => {
     .toHaveAttribute("href", "/portal");
 });
 
-test("on phone, Nodes lists the Node's sections, and each pushes with a back link to Nodes", async () => {
+test("on phone, a Node lists its sections, and each pushes with a back link to the Node", async () => {
   await asPhone();
-  const { router } = renderApp({ path: "/nodes", handlers: system });
-  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
+  const { router } = renderApp({ path: `/nodes/${homeId}`, handlers: system });
   await expect.element(page.getByText("127.0.0.2:8080")).toBeVisible();
+  const nodeBack = page.getByRole("banner").getByRole("link", { name: "Nodes" });
+  await expect.element(nodeBack).toHaveAttribute("href", "/nodes");
   await expect.element(tabsOf("home")).not.toBeInTheDocument();
   const sections = page.getByRole("list", { name: "home" });
   expect(
@@ -101,13 +147,13 @@ test("on phone, Nodes lists the Node's sections, and each pushes with a back lin
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Web and API", "Logs", "Log settings"]);
+  ).toEqual(["Roles", "Web and API", "Logs", "Log settings"]);
 
   await userEvent.click(sections.getByRole("link", { name: "Logs" }));
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/logs`);
   const bar = page.getByRole("banner");
   await expect.element(bar.getByRole("heading", { name: "Logs" })).toBeVisible();
-  const back = bar.getByRole("link", { name: "Nodes" });
+  const back = bar.getByRole("link", { name: "home" });
   await expect.element(back).toHaveAttribute("href", `/nodes/${homeId}`);
   await userEvent.click(back);
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}`);
@@ -125,7 +171,9 @@ test("on phone, the Node row opens a sheet of Nodes that switches Node", async (
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${seedboxId}`);
   await expect
     .element(
-      page.getByText("seedbox is offline. Its settings and logs come back when it reconnects."),
+      page.getByText(
+        "seedbox is offline. Its version and listeners show again when it reconnects.",
+      ),
     )
     .toBeVisible();
   await expect.element(page.getByRole("button", { name: "offline seedbox Node" })).toBeVisible();

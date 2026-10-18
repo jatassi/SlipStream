@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
+	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -25,6 +27,20 @@ func DownloadIntent(ctx context.Context, r storage.Reader[file], node role.NodeI
 		intent.Torrents = append(intent.Torrents, &dlv1.Torrent{InfoHash: row.InfoHash, Metainfo: row.Metainfo, GrabId: row.ID.Bytes()})
 	}
 	return intent, nil
+}
+
+// Kept is every Grab on node whose torrent its Downloading intent lists,
+// with the release's title, in the intent's order.
+func Kept(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]nodes.Grabbed, error) {
+	rows, err := db.New(r).ListKeptOfNode(ctx, node)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]nodes.Grabbed, len(rows))
+	for i, row := range rows {
+		out[i] = nodes.Grabbed{Grab: row.ID.UUID, InfoHash: bencode.InfoHash(row.InfoHash), Title: row.ReleaseTitle}
+	}
+	return out, nil
 }
 
 // ApplyDownload records how a Grab's download ended. It never moves the

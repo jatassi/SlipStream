@@ -10,12 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/nodes"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -92,8 +92,9 @@ var (
 // UnavailableError is a call that didn't reach the Indexer or brought
 // back nothing usable.
 type UnavailableError struct {
-	// Wait is true when the home Node's link was down, mismatched or lost
-	// the call: the same call may succeed once the link is up again.
+	// Wait is true when no Node could take the call, or its link was down,
+	// mismatched or lost the call: the same call may succeed once the
+	// roster changes.
 	Wait bool
 	Err  error
 }
@@ -105,8 +106,13 @@ func (e *UnavailableError) Unwrap() error { return e.Err }
 // Roster is the Nodes and the Roles they hold.
 type Roster interface {
 	Self() role.NodeID
-	// HoldersByPairing is every Node holding r, first paired first.
-	HoldersByPairing(ctx context.Context, r role.Name) ([]role.NodeID, error)
+	// Pick is prefer when it may take new r work, else the Controller when
+	// it may, else the first Node by id that may.
+	Pick(r role.Name, prefer role.NodeID) (role.NodeID, bool)
+	// Route is where r work homed on home goes now, or why it waits.
+	Route(r role.Name, home role.NodeID) (role.NodeID, error)
+	// Away is how node stands while it is assigned r and out of step.
+	Away(r role.Name, node role.NodeID) (nodes.Absence, bool)
 }
 
 type Config struct {
@@ -140,7 +146,7 @@ func (x *Indexers) Create(ctx context.Context, _ identity.Admin, d Draft) (Index
 	case taken:
 		return Indexer{}, ErrNameTaken
 	}
-	home, err := x.home(ctx)
+	home, err := x.home()
 	if err != nil {
 		return Indexer{}, err
 	}
@@ -206,17 +212,11 @@ func (x *Indexers) SetAPIKey(ctx context.Context, _ identity.Admin, id ID, key s
 	return idx, nil
 }
 
-func (x *Indexers) home(ctx context.Context) (role.NodeID, error) {
-	holders, err := x.cfg.Roster.HoldersByPairing(ctx, role.Searching)
-	switch {
-	case err != nil:
-		return role.NodeID{}, err
-	case len(holders) == 0:
-		return role.NodeID{}, ErrNoSearchingNode
-	case slices.Contains(holders, x.cfg.Roster.Self()):
-		return x.cfg.Roster.Self(), nil
+func (x *Indexers) home() (role.NodeID, error) {
+	if node, ok := x.cfg.Roster.Pick(role.Searching, x.cfg.Roster.Self()); ok {
+		return node, nil
 	}
-	return holders[0], nil
+	return role.NodeID{}, ErrNoSearchingNode
 }
 
 // List lists every Indexer by name.
@@ -257,11 +257,11 @@ func indexer(row db.IndexersIndexer) (Indexer, error) {
 }
 
 func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {
-	w, err := x.wire(idx)
+	node, w, err := x.call(idx)
 	if err != nil {
 		return Caps{}, err
 	}
-	res, err := x.cfg.Searching(idx.HomeNode).Caps(ctx, &searchv1.CapsRequest{Indexer: w})
+	res, err := x.cfg.Searching(node).Caps(ctx, &searchv1.CapsRequest{Indexer: w})
 	if err != nil {
 		return Caps{}, unavailable(err)
 	}
@@ -275,14 +275,14 @@ func (x *Indexers) caps(ctx context.Context, idx Indexer) (Caps, error) {
 	return c, nil
 }
 
-// Search asks idx's home Node to search for terms and parses the answer.
-// It fails with *UnavailableError or *RefusedError.
+// Search asks the Node idx routes through to search for terms and parses
+// the answer. It fails with *UnavailableError or *RefusedError.
 func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Item, error) {
-	w, err := x.wire(idx)
+	node, w, err := x.call(idx)
 	if err != nil {
 		return nil, err
 	}
-	res, err := x.cfg.Searching(idx.HomeNode).Search(ctx, &searchv1.SearchRequest{Indexer: w, Params: Query(idx.Caps, terms)})
+	res, err := x.cfg.Searching(node).Search(ctx, &searchv1.SearchRequest{Indexer: w, Params: Query(idx.Caps, terms)})
 	if err != nil {
 		return nil, unavailable(err)
 	}
@@ -296,18 +296,43 @@ func (x *Indexers) Search(ctx context.Context, idx Indexer, terms Terms) ([]Item
 	return items, nil
 }
 
-// FetchTorrent asks idx's home Node for the .torrent at link, which must
-// be on the Indexer's own host. It fails with *UnavailableError.
-func (x *Indexers) FetchTorrent(ctx context.Context, idx Indexer, link string) ([]byte, error) {
+// Fetched is a .torrent and the Node that fetched it.
+type Fetched struct {
+	Torrent []byte
+	Node    role.NodeID
+}
+
+// FetchTorrent asks the Node idx routes through for the .torrent at link,
+// which must be on the Indexer's own host. It fails with
+// *UnavailableError.
+func (x *Indexers) FetchTorrent(ctx context.Context, idx Indexer, link string) (Fetched, error) {
+	node, w, err := x.call(idx)
+	if err != nil {
+		return Fetched{}, err
+	}
+	res, err := x.cfg.Searching(node).FetchTorrent(ctx, &searchv1.FetchTorrentRequest{Indexer: w, Url: link})
+	if err != nil {
+		return Fetched{}, unavailable(err)
+	}
+	return Fetched{Torrent: res.GetTorrent(), Node: node}, nil
+}
+
+// Waiting is the absence of idx's home Node while idx's calls wait for it:
+// out of step, but not yet past the offline grace.
+func (x *Indexers) Waiting(idx Indexer) (nodes.Absence, bool) {
+	a, away := x.cfg.Roster.Away(role.Searching, idx.HomeNode)
+	return a, away && !a.Lapsed
+}
+
+// call is the Node a call to idx goes through now, routed afresh each
+// time so it goes home once home is back, and idx on the wire.
+func (x *Indexers) call(idx Indexer) (role.NodeID, *searchv1.Indexer, error) {
+	node, err := x.cfg.Roster.Route(role.Searching, idx.HomeNode)
+	if err != nil {
+		return role.NodeID{}, nil, &UnavailableError{Wait: true, Err: err}
+	}
 	w, err := x.wire(idx)
-	if err != nil {
-		return nil, err
-	}
-	res, err := x.cfg.Searching(idx.HomeNode).FetchTorrent(ctx, &searchv1.FetchTorrentRequest{Indexer: w, Url: link})
-	if err != nil {
-		return nil, unavailable(err)
-	}
-	return res.GetTorrent(), nil
+	return node, w, err
 }
 
 var apiKeyColumn = secret.NewColumn("indexers_indexer.api_key_sealed")

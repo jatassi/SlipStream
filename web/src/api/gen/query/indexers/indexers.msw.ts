@@ -26,6 +26,13 @@ export const getListIndexersResponseMock = (
         ),
       })),
       url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      waiting: faker.helpers.arrayElement([
+        {
+          since: faker.date.past().toISOString().slice(0, 19) + "Z",
+          standing: faker.helpers.arrayElement(["reconnecting", "offline", "mismatched"] as const),
+        },
+        null,
+      ]),
     }),
   ),
   ...overrideResponse,
@@ -49,6 +56,13 @@ export const getCreateIndexerResponseMock = (
     }),
   ),
   url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  waiting: faker.helpers.arrayElement([
+    {
+      since: faker.date.past().toISOString().slice(0, 19) + "Z",
+      standing: faker.helpers.arrayElement(["reconnecting", "offline", "mismatched"] as const),
+    },
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -70,6 +84,13 @@ export const getSetIndexerAPIKeyResponseMock = (
     }),
   ),
   url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  waiting: faker.helpers.arrayElement([
+    {
+      since: faker.date.past().toISOString().slice(0, 19) + "Z",
+      standing: faker.helpers.arrayElement(["reconnecting", "offline", "mismatched"] as const),
+    },
+    null,
+  ]),
   ...overrideResponse,
 });
 

@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -79,8 +80,9 @@ type Node struct {
 	host *fault.Host
 	dir  node.DataDir
 
-	running *node.Node
-	syncs   atomic.Int64
+	running      *node.Node
+	syncs        atomic.Int64
+	restartAsked atomic.Bool
 
 	mu      sync.Mutex
 	half    node.Half
@@ -96,12 +98,12 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	net := fault.NewNetwork()
-	local := net.Host(netip.MustParseAddr("127.0.0.1"))
+	network := fault.NewNetwork()
+	local := network.Host(netip.MustParseAddr("127.0.0.1"))
 	w := &World{
 		t:        t,
 		scenario: s,
-		net:      net,
+		net:      network,
 		client:   &http.Client{Transport: &http.Transport{DialContext: local.DialContext, DisableKeepAlives: true}},
 		opts:     options{version: Version},
 	}
@@ -116,7 +118,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	listen := listenKeys(t)
 	for i, spec := range s.Nodes {
 		n := &Node{w: w, spec: spec, addr: setup.Address(i)}
-		n.host = net.Host(n.addr)
+		n.host = network.Host(n.addr)
 		n.dir = dataDir(t, s, i, listen, endpoints)
 		w.nodes = append(w.nodes, n)
 		n.Start()
@@ -230,6 +232,12 @@ func (w *World) Path(a, b string) *fault.Plan {
 	return w.net.Path(w.Node(a).addr, w.Node(b).addr)
 }
 
+// Listen listens at addr on the world's network, as a server beside the
+// Nodes would.
+func (w *World) Listen(addr netip.AddrPort) (net.Listener, error) {
+	return w.net.Host(addr.Addr()).Listen("tcp", addr.String())
+}
+
 // Client calls the world's Nodes from 127.0.0.1 on its network.
 func (w *World) Client() *http.Client { return w.client }
 
@@ -253,9 +261,11 @@ func (n *Node) Start(edit ...func(*node.Env)) {
 }
 
 // Join runs slipstream join on the stopped Node's data dir, as an
-// operator pairs a Node with no service running.
-func (n *Node) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
-	return node.Join(ctx, n.env(), code)
+// operator pairs a Node with no service running, with --node-port
+// nodePort unless it is 0. awaiting is called once if the Join awaits its
+// Controller's dial.
+func (n *Node) Join(ctx context.Context, code joincode.Code, nodePort uint16, awaiting func(pairing.Pending)) (pairing.Joined, error) {
+	return node.Join(ctx, n.env(), code, nodePort, awaiting)
 }
 
 // JoinOp sends the join op to the running Node over its control socket,
@@ -274,7 +284,11 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
-		Test:    n.test(),
+		Restart: func() error {
+			n.restartAsked.Store(true)
+			return nil
+		},
+		Test: n.test(),
 	}
 	if n.w.walk != nil {
 		n.w.walk.env(&env)
@@ -335,6 +349,18 @@ func (n *Node) Stop() {
 		t.Errorf("node %s stopped with %v", n.spec.Name, err)
 	}
 	n.running = nil
+}
+
+// AwaitRestart waits until the Node stopped for a restart it asked for,
+// then starts it again on its data dir, as its successor process would.
+func (n *Node) AwaitRestart() {
+	t := n.w.t
+	t.Helper()
+	<-n.running.Done()
+	if err := n.running.Err(); err != nil || !n.restartAsked.Swap(false) {
+		t.Fatalf("node %s stopped with %v, want a restart it asked for", n.spec.Name, err)
+	}
+	n.Start()
 }
 
 // SyncStreams is how many Sync streams reached the Node's lockstep handler

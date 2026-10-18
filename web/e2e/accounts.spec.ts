@@ -1,7 +1,8 @@
-import type { BrowserContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { z } from "zod";
 
 import { offersPasskeys, signIn } from "../harness/sign-in.ts";
+import { addVirtualAuthenticator } from "./authenticator.ts";
 import { expect, test } from "./fixtures.ts";
 import { signOut } from "./shell.ts";
 
@@ -43,21 +44,6 @@ async function openAccount(admin: Page, name: string) {
   await admin.goto("/accounts");
   await admin.getByRole("table", { name: "Accounts" }).getByRole("link", { name }).click();
   await expect(admin.getByRole("heading", { name, level: 1 })).toBeVisible();
-}
-
-async function addVirtualAuthenticator(context: BrowserContext, page: Page) {
-  const cdp = await context.newCDPSession(page);
-  await cdp.send("WebAuthn.enable");
-  await cdp.send("WebAuthn.addVirtualAuthenticator", {
-    options: {
-      protocol: "ctap2",
-      transport: "internal",
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
 }
 
 async function issueSignupLink(admin: Page, email: string): Promise<string> {
@@ -213,7 +199,7 @@ test("making an Admin a Member moves their open tab to the portal", async ({
   const tab = await (await newContext()).newPage();
   await signIn(tab, { ...grace, admin: true });
   await tab.goto("/system");
-  await expect(tab.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(tab.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
 
   await openAccount(adminPage, grace.displayName);
   await adminPage.getByRole("button", { name: "Make Member" }).click();

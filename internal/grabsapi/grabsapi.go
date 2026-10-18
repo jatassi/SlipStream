@@ -130,7 +130,7 @@ func searchOf(s grabs.Search) search {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed"`
+	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off"`
 	Message string `json:"message"`
 }
 
@@ -153,7 +153,8 @@ type grab struct {
 	ReleaseTitle string    `json:"releaseTitle"`
 	ReleaseSize  int64     `json:"releaseSize" minimum:"0"`
 	IndexerID    string    `json:"indexerId" format:"uuid"`
-	NodeID       string    `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node"`
+	NodeID       string    `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
+	FetchNodeID  *string   `json:"fetchNodeId" format:"uuid" doc:"The Searching Node that fetched the .torrent, null until it did"`
 	InfoHash     *string   `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
 	Stage        string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
 	Failure      *failure  `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
@@ -167,6 +168,10 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
 		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: v.Release.Indexer.String(), NodeID: v.Node.String(),
 		Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
+	}
+	if !v.FetchNode.IsZero() {
+		id := v.FetchNode.String()
+		out.FetchNodeID = &id
 	}
 	for _, t := range v.Targets {
 		out.TargetIDs = append(out.TargetIDs, t.String())

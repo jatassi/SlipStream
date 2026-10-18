@@ -18,10 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-type discard struct{}
-
-func (discard) Publish(context.Context, targets.Changed) {}
-
 type fixtureNamed struct{}
 
 func (fixtureNamed) Describe(works.TypeID) (works.Description, bool) {
@@ -50,7 +46,7 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 		}{
 			{`INSERT INTO targets_target VALUES (?, '1080p', 0)`, []any{target}},
 			{`INSERT INTO targets_resolution VALUES (?, 1, '1080p')`, []any{target}},
-			{`INSERT INTO nodes_node VALUES (?, randomblob(32), 'home', 0)`, []any{node}},
+			{`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, []any{node}},
 			{`INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, []any{indexer, node}},
 			{`INSERT INTO works_work VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, []any{work}},
 			{`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i1', 'Orchard', 1)`, []any{item, work}},
@@ -88,7 +84,7 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 		t.Fatalf("after the migration the Grab is for %v, want the Target %s", got, target)
 	}
 	goals, err := targets.Open(ctx, targets.Config{
-		Library: lib, Works: fixtureNamed{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: contenttypetest.New()}, Changed: discard{},
+		Library: lib, Works: fixtureNamed{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: contenttypetest.New()}, Changed: discard[targets.Changed]{},
 	})
 	if err != nil {
 		t.Fatal(err)

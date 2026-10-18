@@ -123,6 +123,15 @@ func (n *Nodes) Restart(ctx context.Context, id role.NodeID) (Restarting, error)
 	}, nil
 }
 
+// Reach dials t from id.
+func (n *Nodes) Reach(ctx context.Context, id role.NodeID, t Target) (Reached, error) {
+	res, err := n.on(id).Reach(ctx, &systemv1.ReachRequest{Host: t.Host, Port: uint32(t.Port), Tls: t.TLS})
+	if err != nil {
+		return Reached{}, fail(err)
+	}
+	return Reached{OK: res.GetOk(), Took: time.Duration(res.GetMillis()) * time.Millisecond, Err: res.GetError()}, nil
+}
+
 // Follow sends id's log after after until ctx ends: the ring first, then
 // each record as it comes, a reset when after was lapped or came from an
 // earlier process, and an empty batch whenever the Node's poll passes

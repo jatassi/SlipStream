@@ -6,7 +6,6 @@ package role
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -27,26 +26,6 @@ const (
 	Relaying        Name = "relaying"
 	Serving         Name = "serving"
 )
-
-var names = []Name{Searching, Downloading, Storage, Converting, Subtitles, Metadata, MediaServerLink, Notifying, Relaying, Serving}
-
-// Names is every Role, in the glossary's order.
-func Names() []Name { return slices.Clone(names) }
-
-var labels = map[Name]string{
-	Searching: "Searching", Downloading: "Downloading", Storage: "Storage", Converting: "Converting",
-	Subtitles: "Subtitles", Metadata: "Metadata", MediaServerLink: "Media Server link", Notifying: "Notifying",
-	Relaying: "Relaying", Serving: "Serving",
-}
-
-func (n Name) Label() string { return labels[n] }
-
-func ParseName(s string) (Name, error) {
-	if n := Name(s); slices.Contains(names, n) {
-		return n, nil
-	}
-	return "", fmt.Errorf("%q is not a Role", s)
-}
 
 // NodeID is a Node's id, nodes_node.id. The nodes package declares its id
 // as this type, so role and rpc never import it.

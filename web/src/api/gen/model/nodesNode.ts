@@ -1,9 +1,13 @@
+import type { NodesDialView } from "./nodesDialView.ts";
 import type { NodesFacts } from "./nodesFacts.ts";
 import type { NodesLink } from "./nodesLink.ts";
-import type { NodesNodeRolesItem } from "./nodesNodeRolesItem.ts";
+import type { NodesNodeStanding } from "./nodesNodeStanding.ts";
+import type { NodesProbe } from "./nodesProbe.ts";
+import type { NodesRoleView } from "./nodesRoleView.ts";
 
 export interface NodesNode {
   addresses: string[];
+  dial: NodesDialView;
   /** Absent while the Node has no session */
   facts?: NodesFacts;
   id: string;
@@ -14,6 +18,11 @@ export interface NodesNode {
   link: NodesLink;
   name: string;
   pairedAt: string;
-  roles: NodesNodeRolesItem[];
+  /** The last verdict of each probe the Node ran, kept while it is away */
+  probes: NodesProbe[];
+  /** Every Role the Node stands in, in table order */
+  roles: NodesRoleView[];
   self: boolean;
+  /** How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version */
+  standing: NodesNodeStanding;
 }

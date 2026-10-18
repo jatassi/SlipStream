@@ -1,9 +1,10 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { InvalidateQueryFilters, QueryClient } from "@tanstack/react-query";
 
 import { isProblem } from "../api/errors";
 import { getSession } from "../api/gen/query/identity/identity";
 import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
 import { effects } from "./effects";
+import { refresh } from "./refresh";
 import { type Source, openSource } from "./source";
 import type {
   LiveEffect,
@@ -20,6 +21,10 @@ const reopenDelays = [1000, 2000, 5000, 10_000, 30_000] as const;
 const table: LiveEffects = effects;
 
 const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.options);
+
+// A sample that fails to parse is dropped: the next replaces it within a
+// second, where a resync would refetch every query at the samples' rate.
+const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic"]);
 
 type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
 type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
@@ -155,7 +160,9 @@ class Stream {
     this.running?.settle();
     const event = parse(message);
     if (event === undefined) {
-      this.resync();
+      if (!samples.has(message.type)) {
+        this.resync();
+      }
     } else if (isControl(event)) {
       this.onControl(event);
     } else {
@@ -181,13 +188,17 @@ class Stream {
     }
   }
 
+  private readonly refreshQueries = (filters?: InvalidateQueryFilters) => {
+    void refresh(this.options.queryClient, filters);
+  };
+
   private resync() {
-    void this.options.queryClient.invalidateQueries();
+    this.refreshQueries();
   }
 
   private runEffect<N extends ProductEventName>(event: { event: N; data: PayloadOf<N> }) {
     const effect: LiveEffect<N> = table[event.event];
-    effect(event.data, { queryClient: this.options.queryClient });
+    effect(event.data, { queryClient: this.options.queryClient, refresh: this.refreshQueries });
   }
 
   private readonly onVisibilityChange = () => {

@@ -1,6 +1,7 @@
 package link_test
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
+	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 )
 
 type dial struct {
@@ -252,6 +254,139 @@ func TestKeepRefusesAPeerHoldingAnotherKey(t *testing.T) {
 		}
 		if got := worker.State(pinned); got != (link.Down{}) {
 			t.Fatalf("the Worker sees %+v for the pinned key, want Down", got)
+		}
+	})
+}
+
+// drain is every Change queued on changes, once the bubble is idle.
+func drain(changes <-chan link.Change) []link.Change {
+	var got []link.Change
+	for {
+		synctest.Wait()
+		select {
+		case c := <-changes:
+			got = append(got, c)
+		default:
+			return got
+		}
+	}
+}
+
+// When each side keeps the other, both dial at once, and over a 20 ms path
+// each side welcomes the two sessions in its own order. Both keep the
+// session the lower key dialed and close the other, so neither dials
+// again: they settle on that session and stay on it. The lower key's side
+// may first welcome the other session and see it end before its own
+// dial's Welcome arrives, which is one Down, not a redial. The race runs
+// eight times, since the order of goroutines at one instant varies.
+func TestBothSidesKeepOneSession(t *testing.T) {
+	for range 8 {
+		bothSidesKeep(t)
+	}
+}
+
+func bothSidesKeep(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		atC, atW := &recorder{start: time.Now()}, &recorder{start: time.Now()}
+		p := linktest.New(t,
+			linktest.Side{Net: func(h *fault.Host) link.Network { atC.Network = h; return atC }},
+			linktest.Side{Net: func(h *fault.Host) link.Network { atW.Network = h; return atW }},
+		)
+		for _, path := range []*fault.Plan{p.Net.Path(linktest.WorkerAddr, linktest.ControllerAddr), p.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr)} {
+			if _, err := path.Set(fault.Rule{Fault: fault.Latency(20 * time.Millisecond)}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		atController, atWorker := p.Controller.Subscribe(t.Context()), p.Worker.Subscribe(t.Context())
+		p.Controller.Keep(p.Worker.Target())
+		p.Worker.Keep(p.Controller.Target())
+		time.Sleep(time.Minute)
+		if c, w := len(atC.seen()), len(atW.seen()); c != 1 || w != 1 {
+			t.Fatalf("the Controller dialed %d times and the Worker %d, want once each", c, w)
+		}
+
+		c, cok := p.Controller.State(p.Worker.Key).(link.Live)
+		w, wok := p.Worker.State(p.Controller.Key).(link.Live)
+		if !cok || !wok || c.Local != w.Remote || c.Remote != w.Local {
+			t.Fatalf("the Controller sees %+v and the Worker %+v, want one live session", p.Controller.State(p.Worker.Key), p.Worker.State(p.Controller.Key))
+		}
+		workerLower := bytes.Compare(p.Worker.Key[:], p.Controller.Key[:]) < 0
+		if w.Dialed != workerLower || c.Dialed == w.Dialed {
+			t.Fatalf("the Worker dialed the live session: %v, the Controller: %v; want the lower key's side, and the Worker's key is lower: %v", w.Dialed, c.Dialed, workerLower)
+		}
+
+		drain(atController)
+		drain(atWorker)
+		time.Sleep(3 * time.Minute)
+		if got := [2][]link.Change{drain(atController), drain(atWorker)}; len(got[0])+len(got[1]) > 0 {
+			t.Fatalf("after settling the Controller saw %+v and the Worker %+v", got[0], got[1])
+		}
+		if p.Controller.State(p.Worker.Key) != c || p.Worker.State(p.Controller.Key) != w {
+			t.Fatal("the session changed without a Change")
+		}
+	})
+}
+
+// Reset closes the live session and leaves the keeper, so the Worker
+// dials again, whichever side resets.
+func TestResetRedialsAKeptPeer(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := linktest.New(t, linktest.Side{}, linktest.Side{})
+		changes := p.Worker.Subscribe(t.Context())
+		p.Worker.Keep(p.Controller.Target())
+		first := linktest.AwaitLive(t, changes, p.Controller.Key)
+		for _, reset := range []func(){
+			func() { p.Controller.Reset(p.Worker.Key) },
+			func() { p.Worker.Reset(p.Controller.Key) },
+		} {
+			reset()
+			if c := <-changes; c.State != (link.Down{}) {
+				t.Fatalf("after Reset the Worker saw %+v, want Down", c)
+			}
+			again := linktest.AwaitLive(t, changes, p.Controller.Key)
+			if again.Local == first.Local {
+				t.Fatalf("the Worker came back on %v, the session Reset closed", again.Local)
+			}
+			first = again
+		}
+	})
+}
+
+// A kept peer that refuses Hello leaves the key Down with the reason, in
+// one Change however often the keeper dials again. A Welcome clears it,
+// and so does Drop.
+func TestRefusedHelloIsDownWithTheReason(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := linktest.New(t, linktest.Side{}, linktest.Side{})
+		p.Controller.Trust.Set(p.Worker.Key, link.Pairing{})
+		changes := p.Worker.Subscribe(t.Context())
+		p.Worker.Keep(p.Controller.Target())
+		time.Sleep(3 * time.Minute)
+		refused := link.Down{Refused: linkv1.RefusedReason_REFUSED_REASON_UNKNOWN_KEY}
+		if got := drain(changes); !slices.Equal(got, []link.Change{{Key: p.Controller.Key, State: refused}}) {
+			t.Fatalf("the Worker saw %+v, want one Change to %+v", got, refused)
+		}
+		if got := p.Worker.State(p.Controller.Key); got != refused {
+			t.Fatalf("the Worker sees %+v, want %+v", got, refused)
+		}
+
+		p.Controller.Trust.Set(p.Worker.Key, link.Pinned{})
+		linktest.AwaitLive(t, changes, p.Controller.Key)
+		p.Controller.Reset(p.Worker.Key)
+		if c := <-changes; c.State != (link.Down{}) {
+			t.Fatalf("after a Welcome the session's end is %+v, want Down with no reason", c)
+		}
+
+		p.Controller.Trust.Set(p.Worker.Key, link.Pairing{})
+		p.Worker.Reset(p.Controller.Key)
+		time.Sleep(3 * time.Minute)
+		if got := p.Worker.State(p.Controller.Key); got != refused {
+			t.Fatalf("refused again, the Worker sees %+v", got)
+		}
+		drain(changes)
+		p.Worker.Drop(p.Controller.Key)
+		if got := drain(changes); !slices.Equal(got, []link.Change{{Key: p.Controller.Key, State: link.Down{}}}) {
+			t.Fatalf("after Drop the Worker saw %+v, want one Change to Down", got)
 		}
 	})
 }

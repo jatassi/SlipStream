@@ -7,7 +7,14 @@ import { downloading, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
 import { renderApp } from "../../../test/render-app";
-import { filled, grabbed, searching, upgradable, workServer } from "../../../test/work-server";
+import {
+  filled,
+  grabbed,
+  searching,
+  unavailable,
+  upgradable,
+  workServer,
+} from "../../../test/work-server";
 
 const row = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
@@ -131,6 +138,29 @@ test("Search starts a search and says so, and the run and its Grab show without 
     .toHaveTextContent(
       "The Quiet OrchardDownloadingMetThe Quiet Orchard (2021) - 1080p.mkvDownloading",
     );
+});
+
+test("a search its Indexer couldn't answer says what the Indexer waits for, until it stops waiting", async () => {
+  const server = workServer();
+  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
+  server.searchRuns(unavailable);
+  const searches = page.getByRole("list", { name: "Searches" });
+  await expect.element(searches).toMatchTextContent(/^The Indexer didn't answerOct 12/u);
+
+  const since = new Date();
+  since.setHours(21, 31, 0, 0);
+  server.indexerWaits({ standing: "offline", since: since.toISOString() });
+  await expect
+    .element(searches)
+    .toMatchTextContent(/^The Indexer didn't answerWaiting for seedbox · offline since 21:31/u);
+
+  server.indexerWaits({ standing: "reconnecting", since: since.toISOString() });
+  await expect
+    .element(searches)
+    .toMatchTextContent(/^The Indexer didn't answerWaiting for seedbox · reconnectingOct 12/u);
+
+  server.indexerWaits(null);
+  await expect.element(searches).toMatchTextContent(/^The Indexer didn't answerOct 12/u);
 });
 
 test("Search shows it is busy while its request is pending", async () => {

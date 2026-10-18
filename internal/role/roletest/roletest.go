@@ -108,17 +108,25 @@ type Probe struct {
 	local *storage.DB[storage.Local]
 	crash chan struct{}
 
-	mu     sync.Mutex
-	holder role.Holder[*probev1.Intent, *probev1.Facts, *probev1.Result]
-	last   *role.Snapshot[*probev1.Intent]
-	starts int
+	mu       sync.Mutex
+	holder   role.Holder[*probev1.Intent, *probev1.Facts, *probev1.Result]
+	last     *role.Snapshot[*probev1.Intent]
+	starts   int
+	releases int
 }
 
 func NewProbe(local *storage.DB[storage.Local]) *Probe {
 	return &Probe{local: local, crash: make(chan struct{})}
 }
 
-func (p *Probe) Held() role.Held { return Def.Hold(p.run) }
+func (p *Probe) Held() role.Held { return Def.Hold(p.run, p.release) }
+
+func (p *Probe) release(context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.releases++
+	return nil
+}
 
 func (p *Probe) run(ctx context.Context, h role.Holder[*probev1.Intent, *probev1.Facts, *probev1.Result]) error {
 	p.mu.Lock()
@@ -158,6 +166,13 @@ func (p *Probe) Starts() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.starts
+}
+
+// Releases is how many times the supervisor released the Probe.
+func (p *Probe) Releases() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.releases
 }
 
 // Report commits result n in its own local.db Write.

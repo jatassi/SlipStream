@@ -171,8 +171,8 @@ func testOnline(ctx context.Context, root string, o testOptions) error {
 	return nil
 }
 
-// testComponent installs Chromium first, which Vitest's browser mode
-// launches through Playwright.
+// testComponent installs Chromium first, which Vitest's browser mode and
+// the Diagram check launch through Playwright.
 func testComponent(ctx context.Context, root string, _ testOptions) error {
 	if err := installWeb(ctx, root); err != nil {
 		return err
@@ -181,7 +181,10 @@ func testComponent(ctx context.Context, root string, _ testOptions) error {
 	if err := run(ctx, web, nil, "bun", "x", "playwright", "install", "chromium"); err != nil {
 		return err
 	}
-	return run(ctx, web, nil, "bun", "run", "test")
+	if err := run(ctx, web, nil, "bun", "run", "test"); err != nil {
+		return err
+	}
+	return run(ctx, web, nil, "bun", "run", "diagram:check")
 }
 
 // testBrowser needs Go only to find or build a binary the variables leave

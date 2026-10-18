@@ -137,7 +137,11 @@ test("a Worker's sections read its own facts and settings", async () => {
   renderApp({
     path: `/nodes/${seedboxId}/log-settings`,
     handlers: [
-      nodesAre(home, { ...seedbox, link: { state: "up", since: "2026-10-12T10:00:00Z" } }),
+      nodesAre(home, {
+        ...seedbox,
+        link: { state: "up", since: "2026-10-12T10:00:00Z" },
+        standing: "in-step",
+      }),
       ...nodeSystems({
         systems: { [homeId]: homeSystem, [seedboxId]: seedboxSystem },
         configs: { [homeId]: homeConfig, [seedboxId]: homeConfig },
@@ -174,7 +178,13 @@ test("an offline Worker's section loads once its link is back", async () => {
   await expect.element(page.getByText(/^seedbox is offline\./u)).toBeVisible();
 
   systems.state.configs[seedboxId] = homeConfig;
-  worker.use(nodesAre(home, { ...seedbox, link: { state: "up", since: "2026-10-12T11:00:00Z" } }));
+  worker.use(
+    nodesAre(home, {
+      ...seedbox,
+      link: { state: "up", since: "2026-10-12T11:00:00Z" },
+      standing: "in-step",
+    }),
+  );
   server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedboxId } });
   await expect.element(field("Port")).toHaveValue("8484");
 });

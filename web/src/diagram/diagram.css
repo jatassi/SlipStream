@@ -1,0 +1,287 @@
+.diagram {
+  --anatomy-page: hsl(var(--h) 7% 5%);
+  --anatomy-card: hsl(var(--h) 8% 7%);
+  --anatomy-text: hsl(var(--h) 14% 71%);
+  --anatomy-strong: hsl(var(--h) 25% 96%);
+  --anatomy-muted: hsl(var(--h) 12% 60%);
+  --anatomy-paper: hsl(var(--h) 8% 7%);
+  --anatomy-face: hsl(var(--h) 9% 11%);
+  --anatomy-top: hsl(var(--h) 9% 11.5%);
+  --anatomy-shade-0: hsl(var(--h) 9% 6.2%);
+  --anatomy-shade-1: hsl(var(--h) 9% 7.4%);
+  --anatomy-shade-2: hsl(var(--h) 9% 8.6%);
+  --anatomy-shade-3: hsl(var(--h) 9% 9.8%);
+  --anatomy-lit-top: hsl(var(--h) 14% 17%);
+  --anatomy-lit-shade: hsl(var(--h) 12% 12.5%);
+  --anatomy-hi: hsl(var(--h) 18% 83%);
+  --anatomy-mid: hsl(var(--h) 9% 42%);
+  --anatomy-lo: hsl(var(--h) 9% 25%);
+  --anatomy-faint: hsl(var(--h) 9% 16%);
+  --anatomy-lit: hsl(var(--h) 25% 96%);
+  --anatomy-halo: hsl(var(--h) 30% 2%);
+  --anatomy-halo-opacity: 0.9;
+  --anatomy-dot: hsl(var(--h) 25% 90%);
+  --anatomy-mono: var(--font-mono);
+  --diagram-glow: var(--color-glow);
+  --diagram-ok: var(--color-ok);
+  --diagram-warn: var(--color-warn);
+  --diagram-fail: var(--color-fail);
+  position: relative;
+  outline: none;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.diagram .iso-svg {
+  overflow: hidden;
+}
+
+.diagram[data-zoomed] {
+  touch-action: none;
+  cursor: grab;
+}
+
+.diagram[data-panning],
+.diagram[data-panning] [data-part] {
+  cursor: grabbing;
+}
+
+.diagram:focus-visible {
+  box-shadow: 0 0 0 1px var(--anatomy-muted);
+}
+
+.diagram [data-part] {
+  transition: opacity 0.4s;
+}
+
+.diagram[data-focus] [data-node] {
+  --anatomy-hi: hsl(var(--h) 9% 42%);
+  --anatomy-mid: hsl(var(--h) 9% 25%);
+  --anatomy-lo: hsl(var(--h) 9% 17%);
+  --anatomy-faint: hsl(var(--h) 9% 12.5%);
+}
+
+.diagram[data-focus] [data-on],
+.diagram[data-focus] [data-node][data-on] [data-part] {
+  --anatomy-hi: var(--anatomy-lit);
+  --anatomy-mid: hsl(var(--h) 18% 83%);
+  --anatomy-lo: hsl(var(--h) 9% 42%);
+  --anatomy-faint: hsl(var(--h) 9% 25%);
+}
+
+.diagram [data-on] .iso-top,
+.diagram [data-on] .tb-shine {
+  fill: var(--anatomy-lit-top);
+}
+
+.diagram [data-on] .iso-shade,
+.diagram [data-on] .tb-body {
+  fill: var(--anatomy-lit-shade);
+}
+
+.diagram .iso-line,
+.diagram .iso-dots circle {
+  transition:
+    stroke 0.35s,
+    opacity 0.35s;
+}
+
+.diagram [data-role-state="draining"],
+.diagram [data-role-state="writing-off"],
+.diagram [data-state="offline"] [data-role],
+.diagram [data-state="lapsed"] [data-role],
+.diagram [data-state="reconnecting"] [data-role],
+.diagram [data-state="mismatched"] [data-role] {
+  opacity: 0.55;
+}
+
+.diagram .glass .tb-body {
+  fill: hsl(var(--h) 30% 60%);
+  fill-opacity: 0.07;
+}
+
+.diagram .glass .tb-shine {
+  fill: hsl(var(--h) 40% 85%);
+  fill-opacity: 0.1;
+}
+
+.diagram .glass .tb-shade {
+  fill: hsl(var(--h) 20% 3%);
+  fill-opacity: 0.25;
+}
+
+.diagram .cell-well {
+  fill: var(--anatomy-shade-0);
+}
+
+.diagram .cell {
+  fill: var(--anatomy-hi);
+}
+
+.diagram .drop {
+  fill: var(--anatomy-lit);
+}
+
+.diagram .card {
+  fill: var(--anatomy-shade-3);
+}
+
+.diagram .window {
+  fill: hsl(var(--h) 12% 4%);
+  stroke: var(--anatomy-lo);
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram .screen {
+  fill: hsl(var(--h) 12% 3%);
+  stroke: var(--anatomy-lo);
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram .open-glow {
+  fill: hsl(var(--h) 12% 4%);
+  transition: fill 0.4s;
+}
+
+.diagram [data-state="online"] [data-open-sign="lit"] .open-glow {
+  fill: color-mix(in oklab, var(--diagram-glow) 38%, hsl(var(--h) 12% 4%));
+}
+
+.diagram .lamp-dot {
+  fill: var(--anatomy-lo);
+}
+
+.diagram .gear {
+  fill: var(--anatomy-top);
+  stroke: var(--anatomy-mid);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram .gear-back {
+  fill: var(--anatomy-shade-0);
+  stroke: var(--anatomy-lo);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  transform: translate(0.9px, 0.5px);
+}
+
+.diagram .hub {
+  fill: var(--anatomy-mid);
+}
+
+.diagram .socket {
+  fill: hsl(var(--h) 12% 4%);
+  stroke: var(--anatomy-lo);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram .keyhole {
+  fill: hsl(var(--h) 12% 4%);
+}
+
+.diagram .cpu-cell {
+  fill: var(--anatomy-faint);
+}
+
+.diagram .port-led {
+  fill: var(--anatomy-lo);
+}
+
+.diagram .lamp-glow {
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.diagram .lamp-glow .gh {
+  filter: blur(2.2px);
+  opacity: 0.55;
+}
+
+.diagram [data-state="online"] .lamp-glow {
+  opacity: 1;
+  fill: var(--diagram-ok);
+}
+
+.diagram [data-state="reconnecting"] .lamp-glow,
+.diagram [data-state="mismatched"] .lamp-glow {
+  opacity: 1;
+  fill: var(--diagram-warn);
+}
+
+.diagram [data-state="offline"] .lamp-glow,
+.diagram [data-state="lapsed"] .lamp-glow {
+  opacity: 1;
+  fill: var(--diagram-fail);
+}
+
+.diagram [data-state="restarting"] .lamp-glow {
+  opacity: 1;
+  fill: var(--diagram-glow);
+}
+
+.diagram .led circle {
+  opacity: 0.2;
+}
+
+.diagram .capsule {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.diagram .capsule-halo {
+  stroke: var(--diagram-glow);
+  stroke-width: 5;
+  opacity: 0.28;
+}
+
+.diagram .capsule-core {
+  stroke: hsl(var(--h) 60% 97%);
+  stroke-width: 2.2;
+}
+
+.diagram .piece {
+  fill: hsl(var(--h) 60% 96%);
+  stroke: var(--diagram-glow);
+  stroke-width: 1.6;
+  stroke-opacity: 0.35;
+  vector-effect: non-scaling-stroke;
+  paint-order: stroke;
+}
+
+.diagram [data-link][data-dialer] .conduit .tb-body {
+  fill: hsl(var(--h) 60% 70%);
+  fill-opacity: 0.1;
+}
+
+.diagram [data-verdict] [data-item="tile.base"] .iso-top {
+  transition: fill 0.2s;
+}
+
+.diagram [data-verdict="allow"] [data-item="tile.base"] .iso-top {
+  fill: color-mix(in oklab, var(--diagram-ok) 22%, var(--anatomy-top));
+}
+
+.diagram [data-verdict="warn"] [data-item="tile.base"] .iso-top {
+  fill: color-mix(in oklab, var(--diagram-warn) 22%, var(--anatomy-top));
+}
+
+.diagram [data-verdict="block"] [data-item="tile.base"] .iso-top {
+  fill: color-mix(in oklab, var(--diagram-fail) 22%, var(--anatomy-top));
+}
+
+[data-part] {
+  cursor: pointer;
+}
+
+.diagram [data-chip] {
+  cursor: grab;
+}
+
+.diagram[data-dragging] {
+  cursor: grabbing;
+}

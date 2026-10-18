@@ -1,6 +1,4 @@
-import type { QueryClient } from "@tanstack/react-query";
 import { notFound } from "@tanstack/react-router";
-import type { ComponentType } from "react";
 
 import {
   getGetAPIKeySuspenseQueryOptions,
@@ -18,21 +16,14 @@ import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
-// oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
+// oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
+import { nodesSection } from "./nodes";
+import type { SettingsSection } from "./section";
 import { SignInSection } from "./sign-in";
-
-export type SettingsSection = {
-  readonly id: string;
-  readonly label: string;
-  readonly load: (queryClient: QueryClient) => Promise<void>;
-  readonly component: ComponentType;
-  /** Drops the 560px column, for an editor that needs the page's width. */
-  readonly wide?: boolean;
-};
 
 export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] = [
   {
@@ -59,6 +50,7 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
     },
     component: SignInSection,
   },
+  nodesSection,
   {
     id: "api-key",
     label: "API key",

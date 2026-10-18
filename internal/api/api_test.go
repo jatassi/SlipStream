@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -181,6 +182,47 @@ func TestACodeOnAMemberAnswersItAsAFieldError(t *testing.T) {
 	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"Debug, Info, Warn or Error.","errors":[{"location":"body.log.level","message":"Debug, Info, Warn or Error."}]}` + "\n"
 	if w.Code != http.StatusGone || w.Body.String() != want {
 		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
+	}
+}
+
+type fixtureFresh struct {
+	Basis string `json:"basis"`
+}
+
+var fixtureStale = NewCarrying[fixtureFresh](http.StatusConflict, "fixture_stale", "The fixture changed", "fresh")
+
+func TestACarryingCodeAnswersItsMemberAndDocumentsIt(t *testing.T) {
+	r := newRouter(t, &bytes.Buffer{})
+	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureStale.Code}},
+		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
+			return nil, fixtureStale.With(fixtureFresh{Basis: "b2"})
+		})
+	w := get(t, r.Handler(), "/api/v1/fixture")
+	want := `{"status":409,"code":"fixture_stale","title":"The fixture changed","fresh":{"basis":"b2"}}` + "\n"
+	if w.Code != http.StatusConflict || w.Body.String() != want {
+		t.Fatalf("got %d %q, want 409 %q", w.Code, w.Body, want)
+	}
+	var doc struct {
+		Paths map[string]map[string]struct {
+			Responses map[string]struct {
+				Content map[string]struct {
+					Schema struct {
+						AllOf []struct {
+							Properties map[string]struct {
+								Ref string `json:"$ref"`
+							} `json:"properties"`
+						} `json:"allOf"`
+					} `json:"schema"`
+				} `json:"content"`
+			} `json:"responses"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(r.Document(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	conflict := doc.Paths["/fixture"]["get"].Responses["409"].Content["application/problem+json"].Schema.AllOf
+	if len(conflict) != 2 || conflict[1].Properties["fresh"].Ref != "#/components/schemas/FixtureFresh" {
+		t.Fatalf("the 409 is documented as %+v, want the problem with fresh a FixtureFresh", conflict)
 	}
 }
 

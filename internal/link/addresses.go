@@ -117,6 +117,24 @@ func advertise(bound netip.AddrPort, host []netip.Addr) (Addresses, bool) {
 	return a, err == nil
 }
 
+// Advertising is the record Advertised answers once a link with s serves
+// on s.Listen, for a command that runs no link.
+func Advertising(s Settings) (Addresses, bool) {
+	if len(s.Advertise) > 0 {
+		a, err := ParseAddresses(s.Advertise)
+		return a, err == nil
+	}
+	return advertiseBound(s.Listen)
+}
+
+func advertiseBound(bound netip.AddrPort) (Addresses, bool) {
+	var host []netip.Addr
+	if bound.Addr().IsUnspecified() {
+		host = hostAddrs()
+	}
+	return advertise(bound, host)
+}
+
 // hostAddrs is every address on an up interface of this machine.
 func hostAddrs() []netip.Addr {
 	ifaces, err := net.Interfaces()

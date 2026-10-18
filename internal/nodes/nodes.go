@@ -6,8 +6,6 @@ package nodes
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/sha256"
 	"embed"
 	"errors"
@@ -17,12 +15,13 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes/internal/db"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -70,6 +69,12 @@ type Link interface {
 	State(key link.Key) link.State
 	Subscribe(ctx context.Context) <-chan link.Change
 	Advertised() (link.Addresses, bool)
+	// Reset closes key's live session, keeping whoever dials it.
+	Reset(key link.Key)
+	Keep(t link.Target)
+	Drop(key link.Key)
+	Invite(ctx context.Context, t link.Target) error
+	Stats(key link.Key) (link.Stats, bool)
 }
 
 type Config struct {
@@ -82,15 +87,30 @@ type Config struct {
 	Node    link.NodeInfo
 	Link    Link
 	Changed Publisher
+	// Traffic carries the sampled rates to Admins.
+	Traffic TrafficPublisher
 	// SettingsChanged is published whenever a Node's facts carry a new
 	// settings revision.
 	SettingsChanged SettingsPublisher
 	// Served is every Role's control half.
 	Served []role.Served
+	// Owners keeps each Role's work: exactly one per Role of the table.
+	Owners []Owner
+	// Downloads is Downloading's control half in Served, and Kept the
+	// Grabs whose torrents a Node's client keeps.
+	Downloads Downloads
+	Kept      func(ctx context.Context, r storage.Reader[file], node ID) ([]Grabbed, error)
+	// Reach runs a reach test from node to t.
+	Reach func(ctx context.Context, node ID, t nodesystem.Target) (nodesystem.Reached, error)
 	// Always is Roles every Node holds beyond its nodes_role rows: only a
 	// test's, as the simulation tier runs roletest's Probe.
-	Always []role.Name
-	Log    *slog.Logger
+	Always  []role.Name
+	Timings Timings
+	// Stall is how long a Worker's Sync stream may carry nothing before
+	// the roster closes its link, so a wedged Worker whose link still
+	// answers pings goes out of step and redials.
+	Stall time.Duration
+	Log   *slog.Logger
 }
 
 var (
@@ -108,47 +128,72 @@ var JoinCodeLifetime = setting.Duration{
 }
 
 // Service is the Controller's roster and its Nodes' records. Its memory
-// holds what calls read on every request: each Node's key and Roles.
+// holds what calls read on every request: each Node's key, and the board.
 type Service struct {
 	cfg      Config
 	self     ID
-	name     string
 	opened   time.Time
+	owners   map[role.Name]Owner
 	controls *role.Controls
 
-	mu      sync.Mutex
-	members map[ID]member
-	byKey   map[link.Key]ID
-	since   map[link.Key]time.Time
+	mu    sync.Mutex
+	keys  map[ID]link.Key
+	byKey map[link.Key]ID
+	// removed is every key only a tombstone holds.
+	removed map[link.Key]bool
 	wake    map[ID]chan struct{}
 	// revisions is each Node's last settings revision. It outlives a
 	// session, so a Node that reconnects unchanged publishes nothing.
 	revisions map[ID]string
-}
+	// probes is each Node's last probe verdicts, kept while it is away.
+	probes map[ID][]role.ProbeResult
 
-type member struct {
-	key   link.Key
-	roles []role.Name
+	reloading sync.Mutex
+	// rmu guards in and saved. board is derived from in, and replaced
+	// whole, so reads never lock.
+	rmu   sync.Mutex
+	in    inputs
+	saved map[ID]time.Time
+	board atomic.Pointer[Board]
+	rearm chan struct{}
+	// recount wakes Run to settle the forfeits.
+	recount chan struct{}
+
+	invites map[JoinCodeID]*inviting
+	// dmu guards kept: the Nodes the link keeps for nodes_dial.
+	dmu  sync.Mutex
+	kept map[link.Key]link.Target
+
+	meter *meter
 }
 
 // Open creates this Node's own row when it has none, holding every Role
-// but Relaying, loads the roster and builds the control half.
+// but Relaying, loads the roster and builds the control half. It panics
+// unless every Role has exactly one owner.
 func Open(ctx context.Context, cfg Config) (*Service, error) {
 	s := &Service{
 		cfg:     cfg,
 		opened:  time.Now(),
-		members: map[ID]member{},
+		owners:  ownersByRole(cfg.Owners),
+		keys:    map[ID]link.Key{},
 		byKey:   map[link.Key]ID{},
-		since:   map[link.Key]time.Time{},
+		removed: map[link.Key]bool{},
 		wake:    map[ID]chan struct{}{},
 
 		revisions: map[ID]string{},
+		probes:    map[ID][]role.ProbeResult{},
+		saved:     map[ID]time.Time{},
+		rearm:     make(chan struct{}, 1),
+		recount:   make(chan struct{}, 1),
+		invites:   map[JoinCodeID]*inviting{},
+		kept:      map[link.Key]link.Target{},
+		meter:     newMeter(2 * cfg.Timings.Traffic),
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		row, err := q.GetNodeByKey(ctx, cfg.Key[:])
 		if err == nil {
-			s.self, s.name = row.ID, row.Name
+			s.self = row.ID
 			return nil
 		}
 		if !errors.Is(err, storage.ErrNoRows) {
@@ -156,10 +201,11 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		}
 		now := storage.Now()
 		s.self = ID{UUID: storage.NewUUID()}
-		if s.name, err = freeName(ctx, q, cfg.Name); err != nil {
+		name, err := freeName(ctx, q, s.self, cfg.Name)
+		if err != nil {
 			return err
 		}
-		if err := q.InsertNode(ctx, db.InsertNodeParams{ID: s.self, PublicKey: cfg.Key[:], Name: s.name, PairedAt: now}); err != nil {
+		if err := q.InsertNode(ctx, db.InsertNodeParams{ID: s.self, PublicKey: cfg.Key[:], Name: name, PairedAt: now}); err != nil {
 			return err
 		}
 		for _, r := range role.Names() {
@@ -178,12 +224,32 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 	if err := s.load(ctx); err != nil {
 		return nil, err
 	}
+	rows, removed, grace, err := s.read(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.in = inputs{
+		controller: s.self,
+		start:      s.opened,
+		grace:      grace,
+		blip:       cfg.Timings.Blip,
+		settle:     cfg.Timings.Settle,
+		nodes:      rows,
+		removed:    removed,
+	}
+	s.board.Store(derive(s.in, s.opened))
 	s.controls = role.NewControls(role.ControlsConfig{
-		Library:  cfg.Library,
-		Nodes:    s,
-		Assigned: s.Assigned,
-		Changed:  s.changed,
-		Log:      cfg.Log,
+		Library: cfg.Library,
+		Nodes:   s,
+		Scope:   s.scope,
+		Changed: s.changed,
+		Facts:   s.factsIn,
+		Touched: s.touched,
+		InStep:  s.inStep,
+		Seen:    s.seen,
+		Stalled: s.stalled,
+		Stall:   cfg.Stall,
+		Log:     cfg.Log,
 	}, cfg.Served...)
 	return s, nil
 }
@@ -194,21 +260,24 @@ func (s *Service) load(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load the roster: %w", err)
 	}
-	roles, err := q.ListRoles(ctx)
-	if err != nil {
-		return fmt.Errorf("load the roster: %w", err)
-	}
-	held := map[ID][]role.Name{}
-	for _, r := range roles {
-		held[r.NodeID] = append(held[r.NodeID], r.Role)
-	}
 	for _, row := range rows {
 		key, err := link.KeyFromBytes(row.PublicKey)
 		if err != nil {
 			return fmt.Errorf("load the roster: node %s: %w", row.ID, err)
 		}
-		s.members[row.ID] = member{key: key, roles: ordered(held[row.ID])}
+		s.keys[row.ID] = key
 		s.byKey[key] = row.ID
+	}
+	removed, err := q.ListRemovedNodes(ctx)
+	if err != nil {
+		return fmt.Errorf("load the roster: %w", err)
+	}
+	for _, row := range removed {
+		key, err := link.KeyFromBytes(row.RemovedKey)
+		if err != nil {
+			return fmt.Errorf("load the roster: removed node %s: %w", row.ID, err)
+		}
+		s.removed[key] = true
 	}
 	return nil
 }
@@ -228,59 +297,30 @@ func (s *Service) NodeOf(key link.Key) (ID, bool) {
 func (s *Service) Key(node ID) (link.Key, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, ok := s.members[node]
-	return m.key, ok
+	key, ok := s.keys[node]
+	return key, ok
 }
 
-// Holders is every Node holding r, in id order.
-func (s *Service) Holders(r role.Name) []ID {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var ids []ID
-	for id, m := range s.members {
-		if slices.Contains(m.roles, r) {
-			ids = append(ids, id)
-		}
-	}
-	slices.SortFunc(ids, func(a, b ID) int { return a.Compare(b.UUID) })
-	return ids
-}
-
-// HoldersByPairing is every Node holding r, first paired first.
-func (s *Service) HoldersByPairing(ctx context.Context, r role.Name) ([]ID, error) {
-	return db.New(s.cfg.Library).HoldersByPairing(ctx, r)
-}
-
-// Admit pins every Worker in the roster and lets any other key only Pair.
+// Admit pins every Worker in the roster, tells a key only a tombstone
+// holds that it was removed, and lets any other key only Pair.
 func (s *Service) Admit(key link.Key) link.Admission {
 	if key == s.cfg.Key {
 		return link.Refused{}
 	}
-	if _, ok := s.NodeOf(key); ok {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.byKey[key]; ok {
 		return link.Pinned{}
+	}
+	if s.removed[key] {
+		return link.Removed{}
 	}
 	return link.Pairing{}
 }
 
-// Assigned derives the node scope: the Roles assigned to node, in
-// role.Names() order, then Always.
-func (s *Service) Assigned(ctx context.Context, r storage.Reader[file], node ID) ([]role.Name, error) {
-	roles, err := db.New(r).NodeRoles(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-	return append(ordered(roles), s.cfg.Always...), nil
-}
-
-func ordered(roles []role.Name) []role.Name {
-	names := role.Names()
-	out := slices.Clone(roles)
-	slices.SortFunc(out, func(a, b role.Name) int { return slices.Index(names, a) - slices.Index(names, b) })
-	return out
-}
-
-// freeName is name, or name-2, name-3 and on when another Node holds it.
-func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
+// freeName is name, or name-2, name-3 and on when a Node other than id
+// holds it.
+func freeName(ctx context.Context, q *db.Queries, id ID, name string) (string, error) {
 	if name == "" {
 		name = "node"
 	}
@@ -289,7 +329,7 @@ func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
 		if n > 1 {
 			candidate = name + "-" + strconv.Itoa(n)
 		}
-		taken, err := q.NameTaken(ctx, candidate)
+		taken, err := q.NameTaken(ctx, db.NameTakenParams{Name: candidate, ID: id})
 		if err != nil || !taken {
 			return candidate, err
 		}
@@ -300,16 +340,22 @@ func freeName(ctx context.Context, q *db.Queries, name string) (string, error) {
 // code by the secret's hash, refuses an unknown, expired or used one,
 // upserts peer's row by its key and marks the code used. A known key keeps
 // its id, name and Roles, and the key that used a code may use it again.
-// Peer is pinned before Pair returns, so its Hello is welcome.
+// A removed key pairs as a new row. Peer is pinned before Pair returns, so
+// its Hello is welcome.
 func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	hash := sha256.Sum256(req.GetSecret())
 	var (
 		row     db.NodesNode
+		self    db.NodesNode
 		refused linkv1.RefusedReason
 	)
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
 		var err error
-		row, refused, err = pairIn(ctx, db.New(tx), peer, hash[:], req.GetName())
+		if self, err = q.GetNode(ctx, s.self); err != nil {
+			return err
+		}
+		row, refused, err = pairIn(ctx, q, peer, hash[:], req.GetName())
 		return err
 	})
 	if err != nil {
@@ -319,14 +365,17 @@ func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReque
 		return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Refused{Refused: &linkv1.Refused{Reason: refused}}}, nil
 	}
 	s.mu.Lock()
-	if _, ok := s.members[row.ID]; !ok {
-		s.members[row.ID] = member{key: peer}
+	if _, ok := s.keys[row.ID]; !ok {
+		s.keys[row.ID] = peer
 		s.byKey[peer] = row.ID
 	}
 	s.mu.Unlock()
+	if err := s.reload(ctx); err != nil {
+		return nil, fmt.Errorf("pair %s: %w", peer.Fingerprint(), err)
+	}
 	s.changed(row.ID)
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Paired{
-		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: s.name},
+		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: self.Name},
 	}}, nil
 }
 
@@ -357,69 +406,19 @@ func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name
 		err = q.SetPairedAt(ctx, db.SetPairedAtParams{ID: row.ID, PairedAt: now})
 	} else {
 		row = db.NodesNode{ID: ID{UUID: storage.NewUUID()}, PublicKey: peer[:], PairedAt: now}
-		if row.Name, err = freeName(ctx, q, name); err == nil {
-			err = q.InsertNode(ctx, db.InsertNodeParams(row))
+		if row.Name, err = freeName(ctx, q, row.ID, name); err == nil {
+			err = q.InsertNode(ctx, db.InsertNodeParams{ID: row.ID, PublicKey: row.PublicKey, Name: row.Name, PairedAt: row.PairedAt})
 		}
 	}
 	if err != nil {
 		return db.NodesNode{}, 0, err
 	}
+	if dials := pasted(code, peer); dials != nil {
+		if err := writeDials(ctx, q, row.ID, dials); err != nil {
+			return db.NodesNode{}, 0, err
+		}
+	}
 	return row, 0, q.UseJoinCode(ctx, db.UseJoinCodeParams{UsedBy: row.ID, UsedAt: now, SecretHash: hash})
-}
-
-// JoinCode is a minted code and when the Controller stops accepting it.
-type JoinCode struct {
-	Code      joincode.Code
-	ExpiresAt time.Time
-}
-
-// MintJoinCode draws a secret and stores only its hash, expiring after the
-// Join Code lifetime. The code names this Node's advertised addresses.
-func (s *Service) MintJoinCode(ctx context.Context) (JoinCode, error) {
-	addrs, ok := s.cfg.Link.Advertised()
-	if !ok {
-		return JoinCode{}, ErrNoLinkAddress
-	}
-	var secret [joincode.SecretSize]byte
-	_, _ = rand.Read(secret[:])
-	code, err := joincode.New(ed25519.PublicKey(s.cfg.Key[:]), secret, addrs.All())
-	if err != nil {
-		return JoinCode{}, err
-	}
-	hash := sha256.Sum256(secret[:])
-	var expires storage.Time
-	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		lifetime, err := q.GetJoinCodeLifetime(ctx)
-		if err != nil {
-			return err
-		}
-		now := storage.Now()
-		expires = storage.FromTime(now.Time().Add(JoinCodeLifetime.Value(lifetime)))
-		return q.InsertJoinCode(ctx, db.InsertJoinCodeParams{SecretHash: hash[:], CreatedAt: now, ExpiresAt: expires})
-	})
-	if err != nil {
-		return JoinCode{}, fmt.Errorf("mint a Join Code: %w", err)
-	}
-	return JoinCode{Code: code, ExpiresAt: expires.Time()}, nil
-}
-
-// PruneJoinCodes deletes every Join Code that expired more than one Join
-// Code lifetime ago. The grace keeps Pair's answer to a late retry of a
-// used code.
-func (s *Service) PruneJoinCodes(ctx context.Context) error {
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		lifetime, err := q.GetJoinCodeLifetime(ctx)
-		if err != nil {
-			return err
-		}
-		return q.DeleteJoinCodesExpiredBefore(ctx, storage.FromTime(time.Now().Add(-JoinCodeLifetime.Value(lifetime))))
-	})
-	if err != nil {
-		return fmt.Errorf("prune Join Codes: %w", err)
-	}
-	return nil
 }
 
 func (s *Service) JoinCodeLifetimeField(ctx context.Context) (setting.DurationField, error) {
@@ -436,63 +435,14 @@ func (s *Service) SetJoinCodeLifetime(ctx context.Context, v setting.Stored[int6
 	})
 }
 
-// SetRoles makes roles the set node holds and tells the control half. For
-// a Node in step, here or over a live link, it returns once the Node's
-// facts show the node-scope version derived from that set, or ctx ends.
-func (s *Service) SetRoles(ctx context.Context, node ID, roles []role.Name) (Node, error) {
-	want := ordered(slices.Compact(slices.Sorted(slices.Values(roles))))
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return replaceRoles(ctx, db.New(tx), node, want)
-	})
-	if err != nil {
-		return Node{}, err
-	}
-	s.mu.Lock()
-	m := s.members[node]
-	m.roles = want
-	s.members[node] = m
-	s.mu.Unlock()
-	s.controls.Touch(node)
-	s.changed(node)
-	if err := s.AwaitDelivery(ctx, node); err != nil {
-		return Node{}, err
-	}
-	return s.Get(ctx, node)
-}
-
-func replaceRoles(ctx context.Context, q *db.Queries, node ID, want []role.Name) error {
-	if _, err := q.GetNode(ctx, node); errors.Is(err, storage.ErrNoRows) {
-		return ErrNotFound
-	} else if err != nil {
-		return err
-	}
-	held, err := q.NodeRoles(ctx, node)
-	if err != nil {
-		return err
-	}
-	for _, r := range held {
-		if slices.Contains(want, r) {
-			continue
-		}
-		if err := q.DeleteRole(ctx, db.DeleteRoleParams{NodeID: node, Role: r}); err != nil {
-			return err
-		}
-	}
-	now := storage.Now()
-	for _, r := range want {
-		if err := q.InsertRole(ctx, db.InsertRoleParams{NodeID: node, Role: r, AssignedAt: now}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// AwaitDelivery waits while node is in step and its facts lag the node
-// scope the library derives now.
+// AwaitDelivery waits while node can receive its intent and its facts lag
+// the node scope the library derives now. A Node can receive while it is
+// in step, or while its link is live and matched and its Sync session is
+// about to attach.
 func (s *Service) AwaitDelivery(ctx context.Context, node ID) error {
 	for {
 		woken := s.awaitChange(node)
-		if !s.inStep(node) {
+		if !s.receives(node) {
 			return nil
 		}
 		want, err := s.controls.NodeVersion(ctx, node)
@@ -510,53 +460,35 @@ func (s *Service) AwaitDelivery(ctx context.Context, node ID) error {
 	}
 }
 
-// AwaitInStep returns once node's link is live and matched, at once for
-// this Node, or with ctx's error when it ends first.
-func (s *Service) AwaitInStep(ctx context.Context, node ID) error {
-	for {
-		woken := s.awaitChange(node)
-		if s.inStep(node) {
-			return nil
-		}
-		select {
-		case <-woken:
-		case <-ctx.Done():
-			return fmt.Errorf("await node %s in step: %w", node, ctx.Err())
-		}
-	}
-}
-
-func (s *Service) inStep(node ID) bool {
-	state, _ := s.Reach(node)
-	return state == Local || state == Up
-}
-
-// Reach is how the Controller reaches node now and since when: Local for
-// itself, Up when its link is live and on this build, Mismatched when live
-// on another, and Down otherwise. A Node that can start work is Local or
-// Up.
-func (s *Service) Reach(node ID) (LinkState, time.Time) {
-	if node == s.self {
-		return Local, s.opened
+func (s *Service) receives(node ID) bool {
+	if s.InStep(node) {
+		return true
 	}
 	key, ok := s.Key(node)
 	if !ok {
-		return Down, s.opened
+		return false
 	}
-	s.mu.Lock()
-	since, ok := s.since[key]
-	s.mu.Unlock()
-	if !ok {
-		since = s.opened
-	}
-	up, ok := s.cfg.Link.State(key).(link.Live)
+	up, on := s.cfg.Link.State(key).(link.Live)
+	return on && up.Matched
+}
+
+// linkOf is how the Controller reaches node now and since when: Local for
+// itself, Up while its Sync session is attached, Mismatched while its link
+// is live on another build, and Down otherwise, since its last Sync frame.
+// A Node that can start work is Local or Up.
+func (s *Service) linkOf(node ID) (LinkState, time.Time) {
+	v, ok := s.Board().Node(node)
 	switch {
 	case !ok:
-		return Down, since
-	case !up.Matched:
-		return Mismatched, since
+		return Down, s.opened
+	case v.Controller:
+		return Local, v.Since
+	case v.Standing == InStep:
+		return Up, v.Since
+	case v.Standing == MismatchedNode:
+		return Mismatched, v.Since
 	}
-	return Up, since
+	return Down, v.Since
 }
 
 func (s *Service) awaitChange(node ID) <-chan struct{} {
@@ -571,11 +503,15 @@ func (s *Service) awaitChange(node ID) <-chan struct{} {
 }
 
 // changed wakes whoever waits on node and tells Admins, of its settings
-// too when its facts carry a new revision. It never blocks.
+// too when its facts carry a new revision. It keeps the probe verdicts
+// facts carry. It never blocks.
 func (s *Service) changed(node ID) {
-	facts, _ := s.controls.NodeFacts(node)
+	facts, ok := s.controls.NodeFacts(node)
 	revision := facts.GetSettingsRevision()
 	s.mu.Lock()
+	if ok {
+		s.probes[node] = role.ProbesOf(facts)
+	}
 	ch := s.wake[node]
 	delete(s.wake, node)
 	settings := revision != "" && revision != s.revisions[node]
@@ -592,26 +528,12 @@ func (s *Service) changed(node ID) {
 	}
 }
 
-// Run follows the link until ctx ends: when a Node's session starts or
-// ends it notes the time, records the addresses a Worker's Hello
-// advertises, and publishes nodes.changed.
-func (s *Service) Run(ctx context.Context) error {
-	for c := range s.cfg.Link.Subscribe(ctx) {
-		s.mu.Lock()
-		s.since[c.Key] = time.Now()
-		id, known := s.byKey[c.Key]
-		s.mu.Unlock()
-		if !known {
-			continue
-		}
-		if up, ok := c.State.(link.Live); ok && !up.Peer.Addresses.IsZero() {
-			if err := s.recordAddresses(ctx, id, up.Peer.Addresses.All()); err != nil && ctx.Err() == nil {
-				s.cfg.Log.Error("record a Node's addresses", "node", id.String(), "err", err.Error())
-			}
-		}
-		s.changed(id)
-	}
-	return nil
+// probesOf is node's last probe verdicts, from facts it may have sent
+// before it went away.
+func (s *Service) probesOf(node ID) []role.ProbeResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.probes[node]
 }
 
 func (s *Service) recordAddresses(ctx context.Context, node ID, addrs []netip.AddrPort) error {
@@ -669,22 +591,30 @@ type Node struct {
 	Self      bool
 	PairedAt  time.Time
 	Addresses link.Addresses
-	Roles     []role.Name
-	Version   []byte
-	Link      LinkState
-	Since     time.Time
+	// Roles is every Role the Node stands in, in table order.
+	Roles   []RoleView
+	Version []byte
+	Link    LinkState
+	Since   time.Time
+	// Standing is how the Node stands on the board, since Since.
+	Standing Standing
 	// Build is the peer's, or this Node's own for Local; nil while Down.
 	Build *link.NodeInfo
 	Facts *nodev1.NodeFacts
+	// Probes is the Node's last probe verdicts, kept while it is away.
+	Probes []role.ProbeResult
+	Dial   Dial
 }
 
 type Named struct {
 	ID   ID
 	Name string
+	// Removed: the Node's row is a tombstone, kept for history.
+	Removed bool
 }
 
-// Names is every Node's id and name in id order, so the Controller's own
-// row, the first paired, comes first.
+// Names is every live Node's id and name in id order, so the Controller's
+// own row, the first paired, comes first.
 func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
 	rows, err := db.New(r).ListNodes(ctx)
 	if err != nil {
@@ -693,6 +623,20 @@ func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
 	out := make([]Named, len(rows))
 	for i, row := range rows {
 		out[i] = Named{ID: row.ID, Name: row.Name}
+	}
+	return out, nil
+}
+
+// Names is every Node's id and name, tombstones included, for history
+// that names a removed Node.
+func (s *Service) Names(ctx context.Context) (map[ID]Named, error) {
+	rows, err := db.New(s.cfg.Library).ListNames(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the Nodes' names: %w", err)
+	}
+	out := make(map[ID]Named, len(rows))
+	for _, row := range rows {
+		out[row.ID] = Named{ID: row.ID, Name: row.Name, Removed: !row.RemovedAt.IsZero()}
 	}
 	return out, nil
 }
@@ -774,7 +718,7 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 	if err != nil {
 		return Node{}, fmt.Errorf("node %s: %w", row.ID, err)
 	}
-	roles, err := s.Assigned(ctx, s.cfg.Library, row.ID)
+	held, _, err := s.work(ctx, s.cfg.Library, row.ID)
 	if err != nil {
 		return Node{}, err
 	}
@@ -789,11 +733,13 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 		Self:      row.ID == s.self,
 		PairedAt:  row.PairedAt.Time(),
 		Addresses: addrs,
-		Roles:     roles,
+		Roles:     s.Board().Roles(row.ID, held),
 		Version:   version,
 	}
 	n.Facts, _ = s.controls.NodeFacts(row.ID)
-	n.Link, n.Since = s.Reach(row.ID)
+	n.Probes = s.probesOf(row.ID)
+	n.Link, n.Since = s.linkOf(row.ID)
+	n.Standing, _ = s.Standing(row.ID)
 	if n.Self {
 		own := s.cfg.Node
 		n.Build = &own
@@ -804,6 +750,9 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 	}
 	if up, ok := s.cfg.Link.State(key).(link.Live); ok {
 		n.Build = &up.Peer
+	}
+	if n.Dial, err = s.dialOf(ctx, row, key); err != nil {
+		return Node{}, err
 	}
 	return n, nil
 }

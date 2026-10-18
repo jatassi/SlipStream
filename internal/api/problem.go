@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -21,13 +23,35 @@ type Code struct {
 	status int
 	name   string
 	title  string
+	// member is the name of the one member a Carrying code's problem adds,
+	// whose value is a carries. It is empty for a plain code.
+	member  string
+	carries reflect.Type
 }
 
 func NewCode(status int, name, title string) *Code {
 	return &Code{status: status, name: name, title: title}
 }
 
+// Carrying is a code whose problem carries one more member, a T, so a
+// refusal answers with what the client needs next without a second call.
+type Carrying[T any] struct{ *Code }
+
+// NewCarrying declares a code whose problem carries member, a T, which the
+// document describes beside the code.
+func NewCarrying[T any](status int, name, title, member string) Carrying[T] {
+	c := NewCode(status, name, title)
+	c.member, c.carries = member, reflect.TypeFor[T]()
+	return Carrying[T]{c}
+}
+
+// With answers c with v as its member.
+func (c Carrying[T]) With(v T) error { return &explained{code: c.Code, carried: v} }
+
 func (c *Code) Error() string { return c.name }
+
+// ServeHTTP answers c as the problem, for a handler that is no operation.
+func (c *Code) ServeHTTP(w http.ResponseWriter, _ *http.Request) { writeProblem(w, c.problem()) }
 
 func (c *Code) problem() *Problem {
 	return &Problem{Status: c.status, Code: c.name, Title: c.title}
@@ -57,6 +81,7 @@ type explained struct {
 	detail     string
 	retryAfter time.Time
 	fields     []FieldError
+	carried    any
 }
 
 func (e *explained) Error() string { return e.code.name + ": " + e.detail }
@@ -67,6 +92,9 @@ func (e *explained) answer(code *Code) error {
 		return p
 	}
 	p.Detail, p.Errors = e.detail, e.fields
+	if e.carried != nil {
+		p.member, p.carried = code.member, e.carried
+	}
 	if e.retryAfter.IsZero() {
 		return p
 	}
@@ -94,6 +122,7 @@ var (
 	SetupCodeWrong = NewCode(http.StatusForbidden, "setup_code_wrong", "The Setup code is wrong")
 	SetupBusy      = NewCode(http.StatusConflict, "setup_busy", "Another setup is running")
 	AlreadyClaimed = NewCode(http.StatusConflict, "already_claimed", "This Node is already set up")
+	JoinPending    = NewCode(http.StatusConflict, "join_pending", "A Join waits for its Controller to dial this Node")
 	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site cannot do this")
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
 	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")
@@ -146,6 +175,31 @@ type Problem struct {
 	Errors []FieldError `json:"errors,omitempty" nullable:"false"`
 
 	headers http.Header
+	member  string
+	carried any
+}
+
+// MarshalJSON writes the problem's own members, then the member its code
+// carries.
+func (p *Problem) MarshalJSON() ([]byte, error) {
+	type plain Problem
+	own, err := json.Marshal((*plain)(p))
+	if err != nil {
+		return nil, fmt.Errorf("api: encode the %s problem: %w", p.Code, err)
+	}
+	if p.member == "" {
+		return own, nil
+	}
+	carried, err := json.Marshal(p.carried)
+	if err != nil {
+		return nil, fmt.Errorf("api: encode the %s problem's %s: %w", p.Code, p.member, err)
+	}
+	var b bytes.Buffer
+	b.Write(own[:len(own)-1])
+	b.WriteString("," + strconv.Quote(p.member) + ":")
+	b.Write(carried)
+	b.WriteByte('}')
+	return b.Bytes(), nil
 }
 
 type FieldError struct {

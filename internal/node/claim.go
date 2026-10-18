@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
-	"os"
-	"path/filepath"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -19,8 +16,10 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -97,12 +96,12 @@ func (n *Node) openLibrary(ctx context.Context) (*library, error) {
 // every call: the Setup gate, the status endpoint and every Account check
 // read it.
 func (n *Node) claim(ctx context.Context) (system.Claim, error) {
-	_, err := os.Stat(filepath.Join(n.env.DataDir.Path(), pairing.RecordFile))
+	worker, err := pairing.IsWorker(n.env.DataDir.Path())
 	switch {
-	case err == nil:
+	case err != nil:
+		return 0, refusedRecord(fmt.Errorf("read the claim: %w", err))
+	case worker:
 		return system.Worker, nil
-	case !errors.Is(err, fs.ErrNotExist):
-		return 0, fmt.Errorf("read the claim: %w", err)
 	}
 	lib := n.lib.Load()
 	if lib == nil {
@@ -119,6 +118,22 @@ func (n *Node) claim(ctx context.Context) (system.Claim, error) {
 type surfaceNode struct{ n *Node }
 
 func (s surfaceNode) Claim(ctx context.Context) (system.Claim, error) { return s.n.claim(ctx) }
+
+func (s surfaceNode) Worker() (servingapi.Facts, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.serving == nil {
+		return servingapi.Facts{}, false
+	}
+	rec, _ := s.n.pairing.Record()
+	f := servingapi.Facts{Name: h.holding.Name(), Fingerprint: s.n.key.Public().Fingerprint(), Controller: rec.ControllerName, Seeding: s.n.downloads.Seeding()}
+	f.Since, _ = h.serving.Unreachable()
+	for _, r := range role.Names() {
+		if r != role.Serving && h.holding.Holds(r) {
+			f.Holding = append(f.Holding, r)
+		}
+	}
+	return f, true
+}
 
 func (s surfaceNode) Identity() (*identity.Service, bool) {
 	lib := s.n.lib.Load()
@@ -145,6 +160,9 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 	defer s.n.claimMu.Unlock()
 	if s.n.pairing.Paired() {
 		return identity.ErrAlreadyClaimed
+	}
+	if s.n.pairing.Awaiting() {
+		return identity.ErrJoinPending
 	}
 	lib, err := s.n.openLibrary(context.WithoutCancel(ctx))
 	if err != nil {
@@ -234,6 +252,10 @@ func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
 	return h.tasks, true
 }
 
-func (s surfaceNode) Join(ctx context.Context, code joincode.Code) (pairing.Joined, error) {
-	return s.n.join(ctx, code)
+func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {
+	return s.n.join(ctx, code, awaiting)
 }
+
+func (s surfaceNode) Pending() (pairing.Pending, bool) { return s.n.pairing.Pending() }
+
+func (s surfaceNode) Removal() (pairing.Removal, bool) { return s.n.pairing.Removal() }
