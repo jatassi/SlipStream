@@ -171,14 +171,14 @@ func testOnline(ctx context.Context, root string, o testOptions) error {
 	return nil
 }
 
-// testComponent installs the target's browsers first, because Vitest's
-// browser mode launches the same Chromium the browser tier does.
+// testComponent installs Chromium first, which Vitest's browser mode
+// launches through Playwright.
 func testComponent(ctx context.Context, root string, _ testOptions) error {
 	if err := installWeb(ctx, root); err != nil {
 		return err
 	}
 	web := filepath.Join(root, "web")
-	if err := run(ctx, web, nil, "bun", "run", "e2e:install"); err != nil {
+	if err := run(ctx, web, nil, "bun", "x", "playwright", "install", "chromium"); err != nil {
 		return err
 	}
 	return run(ctx, web, nil, "bun", "run", "test")
