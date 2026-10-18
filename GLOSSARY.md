@@ -24,17 +24,33 @@ _Avoid_: Match, scope
 A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition. A Work's list is either any cut or named cuts, never both. Under any cut, an Item wants one file at each Target, of whatever Edition, and the file's own Edition sets only its name. A list naming Standard always wants it, and wants each other Edition on the list only once a release or file of it has been seen for the Item. A list without Standard wants its Editions outright. Each wanted Edition is wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
 _Avoid_: Version
 
+**Cut**:
+A named kind of Edition, such as Extended, that an Edition list names and that SlipStream reads from release titles and file names by its name and aliases. A cut is built in, added by a Content Type or added by an Admin, and Standard is fixed.
+_Avoid_: Edition type, version
+
 **Target**:
-A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with its own quality rules, Custom Format scores, cutoff and upgrades. A Profile sources each of its Targets by download, by Conversion from another Target, or both. One file meets every Target whose rules it passes.
+A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with the qualities it accepts ranked in tiers, a cutoff, hard filters, sizes and Custom Format scores. A Profile sources each of its Targets by download, by Conversion from another Target, or both. One file meets every Target whose rules it passes.
 _Avoid_: Rendition, slot, version, quality version, variant
+
+**Quality**:
+One of the 18 fixed kinds of release or file a Target can accept, such as WEBDL-1080p, set by its source and resolution. CAM, for cinema recordings, is one of them.
+_Avoid_: Resolution (for the whole kind), format, source
+
+**Tier**:
+A set of qualities a Target ranks as equal, so neither replaces the other as an upgrade.
+_Avoid_: Group, quality group
 
 **Fills**:
 A file fills a Target for an Edition when it is the one file that Target holds for that Edition. Under any cut, a Target holds one file of any Edition. A file can meet a Target without filling it, when another file ranks higher there.
 _Avoid_: Holds, occupies, assigned to
 
 **Kept file**:
-A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a rescan found. It is named with the label of the first Target it meets plus ` (extra N)`, a counter, so two Kept files never clash.
+A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a rescan found. It is named with the label of the first Target it meets, or its current label when it meets none, plus ` (extra N)`, a counter, so two Kept files never clash.
 _Avoid_: Extra, extras
+
+**Impact**:
+What a change to a Target, a Profile, a cut or one Work's Profile or Editions would do, shown before it saves: the Works it changes, the files it leaves filling nothing, the files it renames and the cells it makes wanted. The Admin chooses whether the files that fill nothing are deleted or stay as Kept files.
+_Avoid_: Dry run, conflict check, impact check
 
 **Cell**:
 One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is unreleased, held, missing, downloading, converting, failed, upgradable or met, and a missing cell is either Not found or waiting on its source Target.
@@ -49,7 +65,7 @@ The list of what only a person can resolve, such as failed cells, upgrades avail
 _Avoid_: Alerts, attention, inbox
 
 **Profile**:
-The set of Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
+The ordered Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
 _Avoid_: Rendition profile, quality profile, slot
 
 **Conversion**:
