@@ -1,6 +1,4 @@
-import type { QueryClient } from "@tanstack/react-query";
 import { notFound } from "@tanstack/react-router";
-import type { ComponentType } from "react";
 
 import {
   getGetAPIKeySuspenseQueryOptions,
@@ -12,14 +10,9 @@ import { freshQuery } from "../api/query-client";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
+import { nodesSection } from "./nodes";
+import type { SettingsSection } from "./section";
 import { SignInSection } from "./sign-in";
-
-export type SettingsSection = {
-  readonly id: string;
-  readonly label: string;
-  readonly load: (queryClient: QueryClient) => Promise<void>;
-  readonly component: ComponentType;
-};
 
 export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] = [
   {
@@ -46,6 +39,7 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
     },
     component: SignInSection,
   },
+  nodesSection,
   {
     id: "api-key",
     label: "API key",

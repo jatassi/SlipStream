@@ -67,6 +67,7 @@ type node struct {
 	// IntentVersion is the node-scope version the library derives now.
 	IntentVersion string   `json:"intentVersion" pattern:"^[0-9a-f]{32}$"`
 	Link          link     `json:"link"`
+	Standing      string   `json:"standing" enum:"in-step,reconnecting,offline,lapsed,mismatched" doc:"How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version"`
 	Dial          dialView `json:"dial"`
 	Facts         *facts   `json:"facts,omitempty" doc:"Absent while the Node has no session"`
 }
@@ -135,6 +136,7 @@ func nodeOf(n nodes.Node) node {
 		Roles:         rolesOf(n.Roles),
 		IntentVersion: hex.EncodeToString(n.Version),
 		Link:          link{State: n.Link.String(), Since: n.Since},
+		Standing:      n.Standing.String(),
 		Dial:          dialOf(n.Dial),
 	}
 	for _, a := range n.Addresses.All() {

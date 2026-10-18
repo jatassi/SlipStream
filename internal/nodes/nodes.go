@@ -539,6 +539,8 @@ type Node struct {
 	Version []byte
 	Link    LinkState
 	Since   time.Time
+	// Standing is how the Node stands on the board, since Since.
+	Standing Standing
 	// Build is the peer's, or this Node's own for Local; nil while Down.
 	Build *link.NodeInfo
 	Facts *nodev1.NodeFacts
@@ -661,6 +663,7 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 	}
 	n.Facts, _ = s.controls.NodeFacts(row.ID)
 	n.Link, n.Since = s.Reach(row.ID)
+	n.Standing, _ = s.Standing(row.ID)
 	if n.Self {
 		own := s.cfg.Node
 		n.Build = &own

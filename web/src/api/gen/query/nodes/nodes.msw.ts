@@ -147,6 +147,13 @@ export const getListNodesResponseMock = (
       }),
     ),
     self: faker.datatype.boolean(),
+    standing: faker.helpers.arrayElement([
+      "in-step",
+      "reconnecting",
+      "offline",
+      "lapsed",
+      "mismatched",
+    ] as const),
   })),
   ...overrideResponse,
 });
@@ -988,6 +995,13 @@ export const getGetNodeResponseMock = (
     ] as const),
   })),
   self: faker.datatype.boolean(),
+  standing: faker.helpers.arrayElement([
+    "in-step",
+    "reconnecting",
+    "offline",
+    "lapsed",
+    "mismatched",
+  ] as const),
   ...overrideResponse,
 });
 
@@ -1077,6 +1091,13 @@ export const getSetNodeDialResponseMock = (
     ] as const),
   })),
   self: faker.datatype.boolean(),
+  standing: faker.helpers.arrayElement([
+    "in-step",
+    "reconnecting",
+    "offline",
+    "lapsed",
+    "mismatched",
+  ] as const),
   ...overrideResponse,
 });
 

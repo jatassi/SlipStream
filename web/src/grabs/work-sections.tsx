@@ -1,71 +1,8 @@
-import type { GrabsSearch } from "../api/gen/model";
-import { useListGrabsSuspense, useListSearchesSuspense } from "../api/gen/query/grabs/grabs";
-import { clock } from "../format";
-import { Data } from "../ui/data";
-import { List, ListRow } from "../ui/list";
+import { useListGrabsSuspense } from "../api/gen/query/grabs/grabs";
 import { Section } from "../ui/section";
-import { Spinner } from "../ui/spinner";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
 import { isFailed, withoutRetriedFailures } from "./stages";
-
-const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
-  grabbed: "Grabbed a release",
-  nothing_acceptable: "Found nothing acceptable",
-  indexer_unavailable: "The Indexer didn't answer",
-  indexer_refused: "The Indexer refused the search",
-};
-
-const found = (count: number) => (count === 1 ? "1 release found" : `${count} releases found`);
-
-function SearchRow({ search }: { search: GrabsSearch }) {
-  const time = (
-    <span className="text-meta">
-      <Data>{clock(search.startedAt)}</Data>
-    </span>
-  );
-  if (search.outcome === null) {
-    return (
-      <ListRow
-        title="Searching"
-        trailing={
-          <span className="flex items-center gap-3">
-            <Spinner />
-            {time}
-          </span>
-        }
-      />
-    );
-  }
-  return (
-    <ListRow
-      title={outcomeText[search.outcome]}
-      meta={
-        search.outcome === "grabbed" || search.outcome === "nothing_acceptable"
-          ? found(search.candidates)
-          : undefined
-      }
-      trailing={time}
-    />
-  );
-}
-
-export function Searches({ workId }: { workId: string }) {
-  const { searches } = useListSearchesSuspense(workId).data;
-  return (
-    <Section title="Searches" count={searches.length}>
-      {searches.length === 0 ? (
-        <p className="text-ink-3">No searches yet. Search looks for a release on every Indexer.</p>
-      ) : (
-        <List label="Searches">
-          {searches.map((search) => (
-            <SearchRow key={search.id} search={search} />
-          ))}
-        </List>
-      )}
-    </Section>
-  );
-}
 
 function useWorkGrabs(workId: string) {
   return withoutRetriedFailures(

@@ -2,7 +2,9 @@ import type { ReactElement } from "react";
 
 import { LiveDot } from "./live-chip";
 
-export type CountDot = "live" | "warn" | "fail";
+export type AlertTone = "warn" | "fail";
+
+export type CountDot = "live" | AlertTone;
 
 const dots: { readonly [D in CountDot]: { word: string; dot: ReactElement } } = {
   live: { word: "live", dot: <LiveDot /> },
@@ -25,3 +27,16 @@ export function Count({ value, dot }: { value: number; dot?: CountDot }) {
     </span>
   );
 }
+
+export function AlertDot({ tone }: { tone: AlertTone }) {
+  return (
+    <span className="inline-flex items-center">
+      {dots[tone].dot}
+      <span className="sr-only"> {dots[tone].word}</span>
+    </span>
+  );
+}
+
+export const dotOf = (dot: CountDot): ReactElement => dots[dot].dot;
+
+export const dotWord = (dot: CountDot): string => dots[dot].word;

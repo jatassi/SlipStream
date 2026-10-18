@@ -1,11 +1,18 @@
 import { HttpResponse, http, sse } from "msw";
 
-import type { FilesCellList, GrabsGrab, GrabsSearchList } from "../api/gen/model";
+import type {
+  FilesCellList,
+  GrabsGrab,
+  GrabsSearchList,
+  IndexersIndexer,
+  IndexersWaiting,
+} from "../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../api/gen/query/files/files.msw";
 import {
   getListGrabsMockHandler,
   getListSearchesMockHandler,
 } from "../api/gen/query/grabs/grabs.msw";
+import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.msw";
 import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
@@ -13,6 +20,7 @@ import {
 import { downloading, grabId, imported } from "./grabs";
 import type { LiveMap } from "./handlers";
 import { cinema, orchard, orchardId, orchardItemId } from "./library";
+import { home, nodesAre, seedbox, seedboxId } from "./nodes";
 
 const hd = "1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d";
 const uhd = "7b9d1f3a-5c7e-4a9b-8d1f-3a5c7e9b1d2f";
@@ -81,10 +89,38 @@ export const grabbed: GrabsSearchList = {
   ],
 };
 
+export const unavailable: GrabsSearchList = {
+  searches: [
+    {
+      id: searchId,
+      itemId: orchardItemId,
+      indexerId: downloading.indexerId,
+      startedAt: "2026-10-12T09:00:58Z",
+      finishedAt: "2026-10-12T09:01:00Z",
+      outcome: "indexer_unavailable",
+      candidates: 0,
+      grabId: null,
+    },
+  ],
+};
+
+const fixtureSite: IndexersIndexer = {
+  id: downloading.indexerId,
+  name: "Fixture Site",
+  protocol: "torznab",
+  url: "http://indexer.test",
+  homeNodeId: seedboxId,
+  apiKeySet: true,
+  searchModes: [],
+  waiting: null,
+  createdAt: "2026-10-12T09:00:00Z",
+};
+
 export function workServer() {
   let cells = missing;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
+  let indexer = fixtureSite;
   const searched: string[] = [];
   const clients: Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"][] = [];
   const send: (typeof clients)[number]["send"] = (event) => {
@@ -96,6 +132,8 @@ export function workServer() {
     getGetWorkCellsMockHandler(() => cells),
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
+    getListIndexersMockHandler(() => ({ indexers: [indexer] })),
+    nodesAre(home, seedbox),
     http.post("*/api/v1/works/:workId/search", ({ params }) => {
       searched.push(String(params["workId"]));
       return HttpResponse.json({ searchIds: [searchId] }, { status: 202 });
@@ -115,6 +153,10 @@ export function workServer() {
     searchRuns(next: GrabsSearchList) {
       searches = next;
       send({ event: "grabs.search-changed", data: { searchId, workId: orchardId } });
+    },
+    indexerWaits(waiting: IndexersWaiting | null) {
+      indexer = { ...indexer, waiting };
+      send({ event: "nodes.changed", data: { nodeId: seedboxId } });
     },
     grabMoves(next: GrabsGrab, nextCells = cells) {
       grabs = [next, otherWork];
