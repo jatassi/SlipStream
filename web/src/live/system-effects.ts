@@ -8,6 +8,7 @@ import {
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
+import { everyJoinCodeQuery } from "../nodes/join-codes";
 import type { LiveEffects } from "./types";
 
 const everyTasksQuery = {
@@ -24,6 +25,7 @@ export const systemEffects = {
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListIndexersQueryKey() });
     refresh({ queryKey: getGetTopologyQueryKey() });
+    refresh(everyJoinCodeQuery);
   },
   // Samples feed the Diagram alone, so no query caches them.
   "nodes.traffic": () => {},

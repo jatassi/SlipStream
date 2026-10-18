@@ -5,7 +5,8 @@ import { ensureQuery } from "../../../api/query-client";
 import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/nodes/")({
-  loader: async ({ context }) => {
+  loaderDeps: ({ search }) => search,
+  loader: async ({ context, deps }) => {
     const { nodes } = await ensureQuery(context.queryClient, getListNodesSuspenseQueryOptions());
     const self = nodes.find((node) => node.self);
     if (self === undefined) {
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/_app/nodes/")({
     redirect({
       to: "/nodes/$nodeId",
       params: { nodeId: self.id },
+      search: deps,
       replace: true,
       throw: true,
     });

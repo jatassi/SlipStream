@@ -10,7 +10,7 @@ import { portOf } from "./-node";
 
 type Row = readonly [term: string, value: string];
 
-function KeyValues({ rows }: { rows: readonly Row[] }) {
+export function KeyValues({ rows }: { rows: readonly Row[] }) {
   return (
     <dl className="rounded-card bg-glass text-(length:--body-size) leading-(--body-line-height) ring-1 ring-hairline ring-inset">
       {rows.map(([term, value]) => (

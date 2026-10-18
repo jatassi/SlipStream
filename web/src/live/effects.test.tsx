@@ -13,8 +13,10 @@ import {
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import {
+  getGetJoinCodeQueryKey,
   getGetNodeQueryKey,
   getGetRoleBoardQueryKey,
+  getListJoinCodesQueryKey,
   getListNodesQueryKey,
 } from "../api/gen/query/nodes/nodes";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
@@ -26,12 +28,13 @@ const harvest = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 const grab = "7e9a1c3d-5f7b-4d9e-8a1c-5e7f9b1d3a4c";
 const otherGrab = "9a1c3e5f-7b9d-4f1a-8c3e-7a9b1d3f5c6e";
 
-test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts and the Indexers", async () => {
+test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts, the Indexers and the Join Codes", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/", handlers: server.handlers });
   await synced(app);
   const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
   const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
+  const code = "2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3c5e7a";
   const invalidated = seeded(app, {
     list: getListNodesQueryKey(),
     seedbox: getGetNodeQueryKey(seedbox),
@@ -39,6 +42,8 @@ test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts
     board: getGetRoleBoardQueryKey(),
     counts: getGetCountsQueryKey(),
     indexers: getListIndexersQueryKey(),
+    codes: getListJoinCodesQueryKey(),
+    code: getGetJoinCodeQueryKey(code),
   });
 
   server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedbox } });
@@ -49,6 +54,8 @@ test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts
     board: true,
     counts: true,
     indexers: true,
+    codes: true,
+    code: true,
   });
 });
 
