@@ -82,14 +82,20 @@ func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 		box := w.Node("seedbox")
 		box.Stop()
 		box.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_TORRENT_DOWNLOADS="+file) })
-		for seedbox(t, a).Link.State != "up" {
-			time.Sleep(time.Second)
-			synctest.Wait()
-		}
 		want := slices.Clone(fitting)
 		want[0] = worldtest.Probe{Probe: "engine-starts", Fit: "fails", Reason: "downloads_not_writable"}
-		if got := seedbox(t, a).Probes; !slices.Equal(got, want) {
-			t.Fatalf("listNodes has seedbox's probes %+v, want %+v", got, want)
+		// The probes reach home through sync after the link is up, so the
+		// listing can carry seedbox's earlier probes for a moment.
+		for deadline := time.Now().Add(time.Minute); ; {
+			r := seedbox(t, a)
+			if r.Link.State == "up" && slices.Equal(r.Probes, want) {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("listNodes has seedbox's link %s and probes %+v, want up and %+v", r.Link.State, r.Probes, want)
+			}
+			time.Sleep(time.Second)
+			synctest.Wait()
 		}
 		if got := topologyProbes(t, a, "seedbox"); !slices.Equal(got, want) {
 			t.Fatalf("the topology has seedbox's probes %+v, want %+v", got, want)
