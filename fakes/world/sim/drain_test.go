@@ -202,6 +202,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 		<-reached
 		a := w.API()
 		id := seedbox(t, a).ID
+		added := box.adds()
 		w.Node("seedbox").Stop()
 
 		writeOff(t, a, id)
@@ -219,9 +220,14 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 
 		w.Node("seedbox").Start()
 		a = w.API()
-		eventually(t, "seedbox is back and its engine holds no torrent", func() bool {
-			return seedbox(t, a).Link.State == "up" && box.torrents() == 0
+		eventually(t, "seedbox is back in step and its engine holds no torrent", func() bool {
+			row := seedbox(t, a)
+			return row.Link.State == "up" && row.Facts != nil && !slices.Contains(row.Facts.Assigned, "downloading") &&
+				!slices.Contains(row.Facts.Running, "downloading") && box.torrents() == 0
 		})
+		if n := box.adds() - added; n != 0 {
+			t.Errorf("back in step, seedbox's engine added %d torrents it was written off, want none", n)
+		}
 		expectDownloadKept(t, w)
 	})
 }

@@ -361,6 +361,37 @@ func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 	})
 }
 
+// TestAReturningWorkerStartsNoRoleItsControllerTookAway restarts a Worker
+// whose Controller unticked the probe while the Worker was cut off: back in
+// step, the probe never started from the cached intent that still assigned
+// it, so it was never released either.
+func TestAReturningWorkerStartsNoRoleItsControllerTookAway(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setIntent(t, c.workerID, "cached")
+		c.assign(c.workerID, roletest.Name)
+		local := storagetest.Local(t, role.LocalSchema())
+		w := c.startWorker(t, local)
+		c.pair.Connect(t)
+		synctest.Wait()
+
+		if _, err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(partitioned)
+		w.stop()
+		c.assign(c.workerID)
+		again := c.startWorker(t, local)
+		c.path().Clear("")
+		time.Sleep(redialed)
+		synctest.Wait()
+		check(t, "back in step, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
+		if starts, releases := again.probe.Starts(), again.probe.Releases(); starts != 0 || releases != 0 {
+			t.Errorf("back in step, the probe started %d times and was released %d times, want never", starts, releases)
+		}
+	})
+}
+
 // TestAResetWorkerForgetsItsCachedIntent resets a Worker cut off from its
 // Controller: the probe stops and is released, and a restart on the same
 // local.db holds nothing until a Controller sends it an intent.
