@@ -47,6 +47,7 @@ defaults:
 
 jobs:
   plan:
+    name: Plan CI lanes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -67,24 +68,29 @@ jobs:
       version: ${{ steps.tag.outputs.version }}
       prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Check out the repository
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - id: go
+      - name: Set up Go and restore the Go caches
+        id: go
         uses: ./.github/actions/go
         with:
           cache: go-plan
-      - id: scope
+      - name: Scope the change against the base branch
+        id: scope
         if: github.event_name == 'pull_request'
         run: go run ./cmd/release scope -explain -base "origin/$BASE" -head HEAD
         env:
           BASE: ${{ github.base_ref }}
-      - id: tag
+      - name: Read the release tag
+        id: tag
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
       # A pull request into another pull request's branch is stacked: it
       # runs linux-amd64 alone unless labelled ci: full.
-      - id: plan
+      - name: Plan the lanes and matrices
+        id: plan
         run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -targets "$TARGETS" -tier "$TIER"
         env:
           EVENT: >-
@@ -97,7 +103,8 @@ jobs:
           TIER: ${{ inputs.tier || 'all' }}
       # Every go and e2e shard splits its tier by the same timings, so each
       # restores the one entry this finds rather than the newest it sees.
-      - id: timings
+      - name: Find the Go test timings to split by
+        id: timings
         uses: actions/cache/restore@v6
         with:
           path: .timings
@@ -105,15 +112,18 @@ jobs:
           restore-keys: go-timings-
           lookup-only: true
           enableCrossOsArchive: true
-      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      - name: Check that shipped migrations are unchanged
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: go run ./cmd/release migrations-frozen -base "$BASE"
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^1' }}
-      - if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      - name: Check that shipped protos are unchanged
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: go run ./cmd/release proto-frozen -base "$BASE"
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^1' }}
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Save the plan job's Go caches
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -122,9 +132,9 @@ jobs:
           key: ${{ steps.go.outputs.cache-key }}
 
   build:
+    name: Build release binaries (${{ matrix.target }})
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['build']
-    name: build (${{ matrix.target }})
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -133,37 +143,46 @@ jobs:
     env:
       GOARCH: ${{ matrix.goarch }}
     steps:
-      - uses: actions/checkout@v5
-      - if: matrix.xcode
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Select Xcode
+        if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - id: go
+      - name: Set up Go and restore the Go caches
+        id: go
         uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      - uses: actions/setup-node@v7
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-      - uses: oven-sh/setup-bun@v2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
       # Bun installs faster on Windows than its cache restores there.
-      - if: runner.os != 'Windows'
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - uses: actions/cache@v6
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       # The e2e and browser jobs run fakeworld and the release tool from
       # dist/, so no job after this one builds anything.
-      - run: |
+      - name: Build the release binaries, fakeworld and the release tool
+        run: |
           go run ./cmd/release build
           eval "$(go run ./cmd/release deps env)"
           go build -o dist/ ./cmd/fakeworld ./cmd/release
       # The build test checks that the binary embeds web/dist/index.html.
-      - uses: actions/upload-artifact@v7
+      - name: Upload dist/ for the test jobs
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.target }}
           path: |
@@ -173,9 +192,11 @@ jobs:
           retention-days: 3
           if-no-files-found: error
       # The AppImage smoke mounts the image through FUSE.
-      - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
+      - name: Install FUSE for the AppImage smoke test
+        if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
         run: sudo apt-get install -y fuse3
-      - if: needs.plan.outputs.package == 'true'
+      - name: Build the release packages
+        if: needs.plan.outputs.package == 'true'
         run: |
           args=(-o out)
           if [ "$TAG" = true ]; then args+=(-tag "$GITHUB_REF_NAME"); fi
@@ -186,9 +207,11 @@ jobs:
           TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
           TARGET: ${{ matrix.target }}
           SIGNPATH: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-      - if: needs.plan.outputs.package == 'true'
+      - name: Smoke-test the release packages
+        if: needs.plan.outputs.package == 'true'
         run: go run ./cmd/release smoke -from out -disposable
-      - if: needs.plan.outputs.package == 'true'
+      - name: Upload the release packages
+        if: needs.plan.outputs.package == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: packages-${{ matrix.target }}
@@ -198,9 +221,11 @@ jobs:
           if-no-files-found: error
       # The context links ffmpeg to where the image's package installs it,
       # a link an artifact cannot hold, so it goes up as a tar.
-      - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
+      - name: Pack the Docker context as a tar
+        if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
         run: tar -C out -cf "$RUNNER_TEMP/docker-context.tar" docker
-      - if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
+      - name: Upload the Docker context
+        if: needs.plan.outputs.package == 'true' && runner.os == 'Linux'
         uses: actions/upload-artifact@v7
         with:
           name: docker-context-${{ matrix.target }}
@@ -211,14 +236,16 @@ jobs:
       # caches from the repo's 10 GB. So this job also compiles what the
       # lint, go and e2e jobs compile but do not save: the race builds of
       # the tests and the tools the lint jobs run.
-      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Precompile the race tests and lint tools for the cache
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           eval "$(go run ./cmd/release deps env)"
           go test -race -count=1 -run '^$' ./...
           go tool -modfile=tools/go.mod golangci-lint version
           go tool -modfile=tools/go.mod buf --version
           go tool -modfile=tools/go.mod sqlc version
-      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Save this target's Go caches
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -229,9 +256,9 @@ jobs:
   # Lint runs on every target so gofmt, line endings and the cgo type check
   # are proven on each OS.
   lint:
+    name: Lint Go (${{ matrix.target }})
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['lint']
-    name: lint (${{ matrix.target }})
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -240,60 +267,73 @@ jobs:
     env:
       GOARCH: ${{ matrix.goarch }}
     steps:
-      - uses: actions/checkout@v5
-      - if: matrix.xcode
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Select Xcode
+        if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - uses: ./.github/actions/go
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      - id: lint-cache
+      - name: Restore the golangci-lint cache
+        id: lint-cache
         uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/golangci-lint
           key: lint-${{ matrix.target }}-${{ github.sha }}
           restore-keys: lint-${{ matrix.target }}-
-      - uses: actions/cache@v6
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - run: go run ./cmd/release lint -part target
-      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Lint Go for this target
+        run: go run ./cmd/release lint -part target
+      - name: Save the golangci-lint cache
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v6
         with:
           path: ${{ runner.temp }}/golangci-lint
           key: ${{ steps.lint-cache.outputs.cache-primary-key }}
 
   lint-repo:
+    name: Lint repo-wide checks
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['lint-repo']
-    name: lint-repo (${{ matrix.target }})
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.lint-repo) }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/go
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      - uses: actions/setup-node@v7
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-      - uses: oven-sh/setup-bun@v2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      - if: runner.os != 'Windows'
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: go run ./cmd/release lint -part repo
+      - name: Run the repo-wide lint checks
+        run: go run ./cmd/release lint -part repo
 
   go:
+    name: Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['go']
-    name: go (${{ matrix.target }}, ${{ matrix.shard }}/${{ matrix.shards }})
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -305,17 +345,22 @@ jobs:
       FILTER: ${{ inputs.filter }}
       REPEAT: ${{ inputs.repeat || 1 }}
     steps:
-      - uses: actions/checkout@v5
-      - if: matrix.xcode
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Select Xcode
+        if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - uses: ./.github/actions/go
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      - uses: actions/cache@v6
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - if: needs.plan.outputs.timings != ''
+      - name: Restore the Go test timings
+        if: needs.plan.outputs.timings != ''
         uses: actions/cache/restore@v6
         with:
           path: .timings
@@ -324,12 +369,15 @@ jobs:
           fail-on-cache-miss: true
       # Windows runners keep TEMP on C:, which is far slower than D:, and the
       # tests' temp dirs live under TEMP.
-      - if: runner.os == 'Windows'
+      - name: Point TEMP at the fast drive
+        if: runner.os == 'Windows'
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json"
-      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Run Go test shard
+        run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json"
+      - name: Upload this shard's test timings
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v7
         with:
           name: timings-${{ matrix.target }}-go-${{ matrix.shard }}
@@ -338,9 +386,9 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
+    name: End-to-end Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     needs: [plan, build]
     if: fromJSON(needs.plan.outputs.planned)['e2e']
-    name: e2e (${{ matrix.target }}, ${{ matrix.shard }}/${{ matrix.shards }})
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -353,22 +401,29 @@ jobs:
       REPEAT: ${{ inputs.repeat || 1 }}
       EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
     steps:
-      - uses: actions/checkout@v5
-      - if: matrix.xcode
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Select Xcode
+        if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - uses: ./.github/actions/go
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-${{ matrix.target }}
-      - uses: actions/cache@v6
+      - name: Restore the native layers cache
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - uses: actions/download-artifact@v8
+      - name: Download dist/ from the build job
+        uses: actions/download-artifact@v8
         with:
           name: dist-${{ matrix.target }}
       # An artifact does not keep the executable bit.
-      - run: chmod +x dist/*
-      - if: needs.plan.outputs.timings != ''
+      - name: Restore the executable bits on dist/
+        run: chmod +x dist/*
+      - name: Restore the Go test timings
+        if: needs.plan.outputs.timings != ''
         uses: actions/cache/restore@v6
         with:
           path: .timings
@@ -377,17 +432,20 @@ jobs:
           fail-on-cache-miss: true
       # The tier's Nodes bind 127.0.0.2 and up, which macOS answers only
       # once aliased. The second run must change nothing.
-      - if: matrix.goos == 'darwin'
+      - name: Alias loopback addresses for the Nodes
+        if: matrix.goos == 'darwin'
         run: |
           sudo dist/fakeworld setup-loopback
           second="$(sudo dist/fakeworld setup-loopback)"
           echo "$second"
           test "$second" = "loopback aliases already set up"
-      - if: runner.os == 'Windows'
+      - name: Point TEMP at the fast drive
+        if: runner.os == 'Windows'
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - id: test
+      - name: Run end-to-end test shard
+        id: test
         run: go run ./cmd/release test -tier e2e -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-e2e-${{ matrix.shard }}.json"
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
@@ -397,7 +455,8 @@ jobs:
       # Each failed run dir is a replay bundle. The run's copies of the
       # binaries stay out of it; fakeworld replay --binary takes them from
       # the dist artifact.
-      - if: failure() && steps.test.outcome == 'failure'
+      - name: Upload fakeworld replay bundles on failure
+        if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: fakeworld-runs-e2e-${{ matrix.target }}-${{ matrix.shard }}
@@ -405,7 +464,8 @@ jobs:
             ${{ runner.temp }}/fakeworld-runs
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
-      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Upload this shard's test timings
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v7
         with:
           name: timings-${{ matrix.target }}-e2e-${{ matrix.shard }}
@@ -415,9 +475,9 @@ jobs:
 
   # The browser tier runs the build job's dist/ and needs no Go.
   browser:
+    name: Browser tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     needs: [plan, build]
     if: fromJSON(needs.plan.outputs.planned)['browser']
-    name: browser (${{ matrix.target }}, ${{ matrix.shard }}/${{ matrix.shards }})
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -429,49 +489,62 @@ jobs:
       REPEAT: ${{ inputs.repeat || 1 }}
       EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v8
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Download dist/ from the build job
+        uses: actions/download-artifact@v8
         with:
           name: dist-${{ matrix.target }}
-      - run: chmod +x dist/*
+      - name: Restore the executable bits on dist/
+        run: chmod +x dist/*
       # Playwright runs under Node through bun run.
-      - uses: actions/setup-node@v7
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-      - uses: oven-sh/setup-bun@v2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      - if: runner.os != 'Windows'
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
-      - uses: actions/cache@v6
+      - name: Keep Playwright browsers in the runner temp dir
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - name: Cache the Playwright browsers
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ms-playwright
           key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
-      - if: matrix.goos == 'darwin'
+      - name: Alias loopback addresses for the Nodes
+        if: matrix.goos == 'darwin'
         run: sudo dist/fakeworld setup-loopback
       # The browsers' system libraries are not in the cache, so Linux
       # installs them on every run.
-      - if: runner.os == 'Linux'
+      - name: Install the Playwright browsers and their system libraries
+        if: runner.os == 'Linux'
         working-directory: web
         run: |
           bun install --frozen-lockfile
           bun run e2e:install --with-deps
-      - if: runner.os == 'Windows'
+      - name: Point TEMP at the fast drive
+        if: runner.os == 'Windows'
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - id: test
+      - name: Run browser test shard
+        id: test
         run: |
           "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT"
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
           TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
-      - if: failure() && steps.test.outcome == 'failure'
+      - name: Upload fakeworld replay bundles on failure
+        if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: fakeworld-runs-browser-${{ matrix.target }}-${{ matrix.shard }}
@@ -481,60 +554,72 @@ jobs:
           if-no-files-found: ignore
 
   component:
+    name: Component tests (Vitest)
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['component']
-    name: component (${{ matrix.target }})
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.component) }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Check out the repository
+        uses: actions/checkout@v5
       # The tier builds no Go but the release tool, which plan's cache holds.
-      - uses: ./.github/actions/go
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-plan
       # Vitest runs under Node through bun run.
-      - uses: actions/setup-node@v7
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-      - uses: oven-sh/setup-bun@v2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      - if: runner.os != 'Windows'
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - name: Keep Playwright browsers in the runner temp dir
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
       # Chromium alone, so its own key: the browser jobs' cache holds every
       # engine their target runs.
-      - uses: actions/cache@v6
+      - name: Cache the Playwright Chromium
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ms-playwright
           key: playwright-chromium-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
-      - if: runner.os == 'Linux'
+      - name: Install Chromium and its system libraries
+        if: runner.os == 'Linux'
         working-directory: web
         run: |
           bun install --frozen-lockfile
           bun x playwright install --with-deps chromium
-      - run: go run ./cmd/release test -tier component
+      - name: Run the component tests
+        run: go run ./cmd/release test -tier component
 
   # Main's go and e2e shards each upload the timings of the packages they
   # ran, and the next run's shards split their tiers by them.
   timings:
+    name: Save Go test timings
     needs: [go, e2e]
     if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.go.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Download every shard's test timings
+        uses: actions/download-artifact@v8
         with:
           pattern: timings-*
           merge-multiple: true
           path: .timings
-      - uses: actions/cache/save@v6
+      - name: Save the merged test timings
+        uses: actions/cache/save@v6
         with:
           path: .timings
           key: go-timings-${{ github.sha }}
@@ -545,6 +630,7 @@ jobs:
   # It is not a required check. The table lands in the step summary and the
   # log; a nightly failure opens or comments on an issue.
   link-measure:
+    name: Measure link throughput
     needs: plan
     if: github.event_name == 'schedule' || (github.event_name == 'pull_request' && needs.plan.outputs.link == 'true')
     runs-on: ubuntu-24.04
@@ -553,17 +639,22 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/go
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-link-measure
       # netem ships in the extra modules on some runner kernels.
-      - run: sudo modprobe sch_netem || { sudo apt-get install -y "linux-modules-extra-$(uname -r)" && sudo modprobe sch_netem; }
-      - run: |
+      - name: Load the netem kernel module
+        run: sudo modprobe sch_netem || { sudo apt-get install -y "linux-modules-extra-$(uname -r)" && sudo modprobe sch_netem; }
+      - name: Measure link stream throughput
+        run: |
           go test -c -o "$RUNNER_TEMP/mux.test" ./internal/link/internal/mux
           sudo env TEST_LINK_MEASURE=1 GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" \
             "$RUNNER_TEMP/mux.test" -test.run '^TestMeasureStream$' -test.v -test.timeout 30m
-      - if: failure() && github.event_name == 'schedule'
+      - name: Open or comment on the failure issue
+        if: failure() && github.event_name == 'schedule'
         run: |
           title="link-measure failed"
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
@@ -583,6 +674,7 @@ jobs:
   # is not a required check. A fork's pull request gets no secrets, so it
   # never runs the job, and a run without the key fails rather than skips.
   online:
+    name: Online conformance suites
     needs: plan
     if: >-
       ${{ !cancelled() && (
@@ -592,14 +684,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/go
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-plan
-      - run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
+      - name: Run the online conformance suites
+        run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
-      - if: inputs.update-shapes
+      - name: Upload the updated shape.json files
+        if: inputs.update-shapes
         uses: actions/upload-artifact@v7
         with:
           name: shapes
@@ -608,12 +704,14 @@ jobs:
   # The required check: every lane the plan runs passes, and every lane it
   # leaves out is skipped.
   gate:
+    name: All required checks passed
     if: always()
     needs: [plan, build, lint, lint-repo, go, e2e, browser, component]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - run: |
+      - name: Check every planned lane passed and the rest skipped
+        run: |
           test "$PLAN" = success
           status=0
           for lane in $(jq -r 'keys[] | select(. != "plan")' <<< "$NEEDS"); do
@@ -630,6 +728,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
 
   image:
+    name: Build Docker image (${{ matrix.target }})
     needs: [plan, build]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     strategy:
@@ -643,35 +742,43 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Download the Docker context
+        uses: actions/download-artifact@v8
         with:
           name: docker-context-${{ matrix.target }}
           path: ${{ runner.temp }}
-      - run: tar -C "$RUNNER_TEMP" -xf "$RUNNER_TEMP/docker-context.tar"
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - name: Unpack the Docker context
+        run: tar -C "$RUNNER_TEMP" -xf "$RUNNER_TEMP/docker-context.tar"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - id: push
+      - name: Build and push the image by digest
+        id: push
         uses: docker/build-push-action@v7
         with:
           context: ${{ runner.temp }}/docker
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=${{ needs.plan.outputs.image }},push-by-digest=true,name-canonical=true,push=true
-      - run: |
+      - name: Record the image digest
+        run: |
           mkdir -p "$RUNNER_TEMP/digests"
           touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
-      - uses: actions/upload-artifact@v7
+      - name: Upload the image digest
+        uses: actions/upload-artifact@v7
         with:
           name: digest-${{ matrix.target }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
 
   docker-manifest:
+    name: Publish the multi-arch Docker manifest
     needs: [plan, image]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -679,18 +786,22 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Download the image digests
+        uses: actions/download-artifact@v8
         with:
           pattern: digest-*
           merge-multiple: true
           path: ${{ runner.temp }}/digests
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - working-directory: ${{ runner.temp }}/digests
+      - name: Create and inspect the multi-arch manifest
+        working-directory: ${{ runner.temp }}/digests
         run: |
           tags=()
           for t in $TAGS; do tags+=(-t "$t"); done
@@ -703,6 +814,7 @@ jobs:
           TAGS: ${{ needs.plan.outputs.image-tags }}
 
   sign-windows:
+    name: Sign the Windows packages
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && vars.SIGNPATH_PROJECT_SLUG != ''
     runs-on: ubuntu-24.04
@@ -711,17 +823,20 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Download the Windows packages
+        uses: actions/download-artifact@v8
         with:
           name: packages-windows-amd64
           path: out
-      - id: request
+      - name: Upload the signing request
+        id: request
         uses: actions/upload-artifact@v7
         with:
           name: signpath-request
           path: out/signpath
           if-no-files-found: error
-      - uses: signpath/github-action-submit-signing-request@v3
+      - name: Sign through SignPath
+        uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -730,7 +845,8 @@ jobs:
           github-artifact-id: ${{ steps.request.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: signed
-      - uses: actions/upload-artifact@v7
+      - name: Upload the signed Windows packages
+        uses: actions/upload-artifact@v7
         with:
           name: signed-windows
           path: signed
@@ -738,6 +854,7 @@ jobs:
 
   # A release publishes only from a run whose every lane passed.
   publish:
+    name: Publish the GitHub release
     needs: [plan, build, gate, docker-manifest, sign-windows]
     if: >-
       ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') &&
@@ -748,21 +865,27 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/go
+      - name: Check out the repository
+        uses: actions/checkout@v5
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
         with:
           cache: go-plan
-      - uses: actions/download-artifact@v8
+      - name: Download every target's packages
+        uses: actions/download-artifact@v8
         with:
           pattern: packages-*
           path: ${{ runner.temp }}/packages
-      - if: needs.sign-windows.result == 'success'
+      - name: Download the signed Windows packages
+        if: needs.sign-windows.result == 'success'
         uses: actions/download-artifact@v8
         with:
           name: signed-windows
           path: ${{ runner.temp }}/signed
-      - run: go run ./cmd/release tag -notes "$RUNNER_TEMP/notes.md" "$GITHUB_REF_NAME"
-      - run: |
+      - name: Write the release notes
+        run: go run ./cmd/release tag -notes "$RUNNER_TEMP/notes.md" "$GITHUB_REF_NAME"
+      - name: Create, upload and publish the release
+        run: |
           assets=()
           for manifest in "$RUNNER_TEMP"/packages/*/packages.json; do
             dir="$(dirname "$manifest")"
