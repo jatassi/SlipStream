@@ -876,6 +876,7 @@ export * from "./nodesNamed.ts";
 export * from "./nodesNode.ts";
 export * from "./nodesNodeDial.ts";
 export * from "./nodesNodeList.ts";
+export * from "./nodesNodeStanding.ts";
 export * from "./nodesNodeTraffic.ts";
 export * from "./nodesOpenCode.ts";
 export * from "./nodesOpenCodes.ts";

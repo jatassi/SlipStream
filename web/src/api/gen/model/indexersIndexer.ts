@@ -15,5 +15,5 @@ export interface IndexersIndexer {
   searchModes: IndexersSearchMode[];
   url: string;
   /** Why its calls wait for its home Node, null while they go through */
-  waiting: IndexersWaiting;
+  waiting: IndexersWaiting | null;
 }

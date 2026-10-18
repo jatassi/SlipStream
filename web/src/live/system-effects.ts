@@ -1,10 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import {
   getGetNodeQueryKey,
+  getGetRoleBoardQueryKey,
   getGetTopologyQueryKey,
   getListNodesQueryKey,
 } from "../api/gen/query/nodes/nodes";
+import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
 import type { LiveEffects } from "./types";
@@ -36,6 +39,9 @@ export const systemEffects = {
     void queryClient.invalidateQueries({ queryKey: getListNodesQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetNodeQueryKey(data.nodeId) });
     void queryClient.invalidateQueries({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
+    void queryClient.invalidateQueries({ queryKey: getGetRoleBoardQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetCountsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getListIndexersQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetTopologyQueryKey() });
   },
   // Samples feed the Diagram alone, so no query caches them.

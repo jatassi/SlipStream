@@ -59,15 +59,15 @@ type searchMode struct {
 }
 
 type indexer struct {
-	ID          string       `json:"id" format:"uuid"`
-	Name        string       `json:"name"`
-	Protocol    string       `json:"protocol" enum:"torznab"`
-	URL         string       `json:"url"`
-	HomeNodeID  string       `json:"homeNodeId" format:"uuid" doc:"The Node that reaches the Indexer"`
-	APIKeySet   bool         `json:"apiKeySet" doc:"False when the key was dropped and an Admin must enter it again"`
-	SearchModes []searchMode `json:"searchModes" nullable:"false" doc:"By mode"`
-	Waiting     *waiting     `json:"waiting" doc:"Why its calls wait for its home Node, null while they go through"`
-	CreatedAt   time.Time    `json:"createdAt"`
+	ID          string                `json:"id" format:"uuid"`
+	Name        string                `json:"name"`
+	Protocol    string                `json:"protocol" enum:"torznab"`
+	URL         string                `json:"url"`
+	HomeNodeID  string                `json:"homeNodeId" format:"uuid" doc:"The Node that reaches the Indexer"`
+	APIKeySet   bool                  `json:"apiKeySet" doc:"False when the key was dropped and an Admin must enter it again"`
+	SearchModes []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
+	Waiting     api.Nullable[waiting] `json:"waiting" doc:"Why its calls wait for its home Node, null while they go through"`
+	CreatedAt   time.Time             `json:"createdAt"`
 }
 
 type waiting struct {
@@ -81,7 +81,7 @@ func indexerOf(xs *indexers.Indexers, x indexers.Indexer) indexer {
 		out.SearchModes = append(out.SearchModes, searchMode{Mode: m, Params: x.Caps.Modes[m]})
 	}
 	if a, ok := xs.Waiting(x); ok {
-		out.Waiting = &waiting{Standing: a.Standing.String(), Since: a.Since}
+		out.Waiting = api.Some(waiting{Standing: a.Standing.String(), Since: a.Since})
 	}
 	return out
 }

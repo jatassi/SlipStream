@@ -56,7 +56,11 @@ test("More on a phone offers Restart SlipStream…", async () => {
 test("a Worker restarted from Nodes shows Restarting until its link is up again", async () => {
   const server = liveServer();
   const restart = restarts();
-  const seedboxUp = { ...seedbox, link: { state: "up", since: "2026-10-12T10:00:00Z" } } as const;
+  const seedboxUp = {
+    ...seedbox,
+    link: { state: "up", since: "2026-10-12T10:00:00Z" },
+    standing: "in-step",
+  } as const;
   const app = renderApp({
     path: `/nodes/${seedboxId}`,
     handlers: [
@@ -79,7 +83,9 @@ test("a Worker restarted from Nodes shows Restarting until its link is up again"
   await expect.element(page.getByRole("button", { name: "Restart", exact: true })).toBeDisabled();
 
   const back = new Date(Date.now() + 1000).toISOString();
-  worker.use(nodesAre(home, { ...seedbox, link: { state: "up", since: back } }));
+  worker.use(
+    nodesAre(home, { ...seedbox, link: { state: "up", since: back }, standing: "in-step" }),
+  );
   server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedboxId } });
   await expect.element(page.getByText("127.0.0.2:8080")).toBeVisible();
   await expect.element(page.getByText("seedbox is restarting…")).not.toBeInTheDocument();

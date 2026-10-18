@@ -32,12 +32,19 @@ export const ShellSlotsContext = createContext<ShellSlots>({
 
 export const useShellSlots = (): ShellSlots => use(ShellSlotsContext);
 
+/**
+ * `beside` sits on the title's line in the desktop shell, such as the tabs
+ * that switch the page's view. On phone it goes under the large title, or
+ * heads the content of a pushed page.
+ */
 export function Page({
   title,
+  beside,
   action,
   children,
 }: {
   title?: string;
+  beside?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -48,6 +55,7 @@ export function Page({
       <PageHead
         heading={slots.heading}
         title={title ?? routeTitle}
+        beside={beside}
         action={action}
         actionSlot={slots.action}
       />
@@ -59,11 +67,13 @@ export function Page({
 function PageHead({
   heading,
   title,
+  beside,
   action,
   actionSlot,
 }: {
   heading: Heading;
   title: string | undefined;
+  beside: ReactNode;
   action: ReactNode;
   actionSlot: HTMLElement | null;
 }) {
@@ -71,19 +81,33 @@ function PageHead({
     return (
       <>
         {action !== undefined && actionSlot !== null && createPortal(action, actionSlot)}
-        <h1 className="mb-6 text-sentence text-ink-1">{title}</h1>
+        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <h1 className="text-sentence text-ink-1">{title}</h1>
+          {beside}
+        </div>
       </>
     );
   }
   if (heading.kind === "large") {
     return (
-      <div className="mt-1 mb-4 flex items-center justify-between gap-3">
-        <LargeTitle title={title} onScrolledOut={heading.onScrolledOut} />
-        {action}
-      </div>
+      <>
+        <div className="mt-1 mb-4 flex items-center justify-between gap-3">
+          <LargeTitle title={title} onScrolledOut={heading.onScrolledOut} />
+          {action}
+        </div>
+        {beside !== undefined && <div className="mb-4">{beside}</div>}
+      </>
     );
   }
-  return action === undefined ? null : <div className="mb-4 flex justify-end">{action}</div>;
+  if (beside === undefined && action === undefined) {
+    return null;
+  }
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-3">
+      {beside}
+      {action !== undefined && <div className="ml-auto">{action}</div>}
+    </div>
+  );
 }
 
 // The large title hands its words to the nav bar once it scrolls under the

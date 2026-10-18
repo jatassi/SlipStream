@@ -36,7 +36,9 @@ const backLink = () => page.getByRole("banner").getByRole("link");
 function counting(first: number) {
   let activity = first;
   return {
-    handler: http.get("*/api/v1/counts", () => HttpResponse.json({ activity })),
+    handler: http.get("*/api/v1/counts", () =>
+      HttpResponse.json({ activity, alerts: { nodes: null } }),
+    ),
     set(next: number) {
       activity = next;
     },

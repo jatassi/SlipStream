@@ -78,6 +78,26 @@ const system = getGetSystemMockHandler({
   startedAt: "2026-10-12T09:00:00Z",
 });
 
+test("in More, the Nodes row carries the alert's dot", async () => {
+  await asPhone();
+  renderApp({
+    path: "/library",
+    handlers: [
+      getListContentTypesMockHandler({ contentTypes: [cinema] }),
+      http.get("*/api/v1/counts", () =>
+        HttpResponse.json({ activity: 0, alerts: { nodes: "warn" } }),
+      ),
+    ],
+  });
+  await userEvent.click(tabs().getByRole("button", { name: "More" }));
+  const sheet = page.getByRole("dialog", { name: "More" });
+  await expect
+    .element(sheet.getByRole("button", { name: /^Nodes/u }))
+    .toHaveTextContent("Nodes needs attention");
+  await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
+  await expect.element(sheet).not.toBeInTheDocument();
+});
+
 test("More opens a sheet with the rest of the nav and the version, and Cancel closes it", async () => {
   await asPhone();
   const { router } = renderApp({

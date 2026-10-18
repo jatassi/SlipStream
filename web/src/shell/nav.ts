@@ -16,7 +16,7 @@ import type { RegisteredRouter } from "@tanstack/react-router";
 
 import type { WorksContentType } from "../api/gen/model";
 import { getListContentTypesQueryKey, listContentTypes } from "../api/gen/query/works/works";
-import type { CountKey } from "./counts";
+import type { AlertKey, CountKey } from "./counts";
 import { contentTypeIcons } from "./icons";
 
 export type RoutePath = RegisteredRouter["routeTree"]["types"]["fileRouteTypes"]["to"];
@@ -46,6 +46,8 @@ export type NavRow = {
   place: "main" | "system";
   tab?: { order: number };
   count?: CountKey;
+  /** The alert in the shell's counts whose dot the row carries, with no number. */
+  alert?: AlertKey;
   children?: "content-types";
   /**
    * The page `to` redirects to, such as the browser's own Node under Nodes.
@@ -97,6 +99,7 @@ export const adminNav: NavTable = [
     icon: ServerStack01Icon,
     to: "/nodes",
     lands: "/nodes/$nodeId",
+    alert: "nodes",
     audience: "admin",
     place: "system",
   },
