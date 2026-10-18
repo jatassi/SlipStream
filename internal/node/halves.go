@@ -253,7 +253,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	side := n.pairing
 	controller := side.Controller()
 	front := serving.NewWorker(n.link, controller.Key, n.cfg.Timings.Serving, n.rootLog.With("subsystem", "serving"))
-	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key), []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
+	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
 	if err != nil {
 		return err
 	}

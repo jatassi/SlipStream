@@ -127,7 +127,7 @@ func (c *cluster) startWorker(t *testing.T, local *storage.DB[storage.Local], he
 	probe := roletest.NewProbe(local)
 	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
 		Local:    local,
-		Upstream: role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key),
+		Upstream: role.OverLink(c.pair.Worker.Link, c.pair.Controller.Key, linktest.Timings),
 		Held:     append([]role.Held{probe.Held()}, held...),
 		Timings:  timings,
 		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
@@ -337,6 +337,9 @@ func TestARoleWithNoIntentRunsWhileHeld(t *testing.T) {
 	})
 }
 
+// TestARestartedWorkerStartsFromItsCachedIntent restarts a Worker cut off
+// from its Controller: once the Controller had time to answer, the probe
+// runs from the cached intent, out of step, and its Reports commit.
 func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -353,6 +356,7 @@ func TestARestartedWorkerStartsFromItsCachedIntent(t *testing.T) {
 		time.Sleep(partitioned)
 		w.stop()
 		again := c.startWorker(t, local)
+		time.Sleep(linktest.Timings.RedialMax + linktest.Timings.Handshake)
 		synctest.Wait()
 		check(t, "restarted while partitioned, the probe", snapshot(t, again.probe), `"cached" unreachable may start false`)
 		if err := again.probe.Report(t.Context(), 7); err != nil {

@@ -42,6 +42,12 @@ type Holding struct {
 	epoch storage.UUID
 	// post wakes the session to send changed facts or queued results.
 	post chan struct{}
+	// settled closes once the supervisor may act on the cached intent: a
+	// session caught up, or the Controller is out of reach. Before then the
+	// cache may hold an intent the Controller superseded while the Node was
+	// away.
+	settled chan struct{}
+	settle  func()
 
 	mu       sync.Mutex
 	standing Standing
@@ -82,9 +88,12 @@ type cached struct {
 // NewHolding loads local.db's epoch and intent cache, so a Node that
 // starts out of reach of its Controller works from its last intent.
 func NewHolding(ctx context.Context, cfg HoldingConfig) (*Holding, error) {
+	settled := make(chan struct{})
 	h := &Holding{
 		cfg:     cfg,
 		post:    make(chan struct{}, 1),
+		settled: settled,
+		settle:  sync.OnceFunc(func() { close(settled) }),
 		cache:   map[string]cached{},
 		waits:   map[string]chan struct{}{},
 		changed: make(chan struct{}),
@@ -352,6 +361,7 @@ func (hs *holderSession) frame(ctx context.Context, d *nodev1.Down) error {
 	case *nodev1.Down_CaughtUp:
 		hs.caughtUp = true
 		hs.h.setStanding(Live)
+		hs.h.settle()
 		return nil
 	}
 	return fmt.Errorf("unexpected frame %T", d.GetFrame())
@@ -482,9 +492,15 @@ func InProcess(c *Controls) Upstream {
 }
 
 // OverLink is a Worker's holder half, in session with the Controller
-// holding controller whenever the link to it is live and in step.
-func OverLink(l *link.Link, controller link.Key) Upstream {
+// holding controller whenever the link to it is live and in step. The
+// Worker acts on its cached intent once a session caught up, or once the
+// Controller is out of reach: the link joins another version, or no
+// session caught up within the longest either side takes to dial under t,
+// the Controller's longest redial and one handshake.
+func OverLink(l *link.Link, controller link.Key, t link.Timings) Upstream {
 	return Upstream{run: func(ctx context.Context, h *Holding) {
+		reach := time.AfterFunc(t.RedialMax+t.Handshake, h.settle)
+		defer reach.Stop()
 		changes := l.Subscribe(ctx)
 		n := 0
 		for {
@@ -493,6 +509,7 @@ func OverLink(l *link.Link, controller link.Key) Upstream {
 			case link.Live:
 				if !st.Matched {
 					h.setStanding(Mismatched)
+					h.settle()
 					break
 				}
 				caughtUp := h.overLink(ctx, l, controller)
