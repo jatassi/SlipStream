@@ -8,7 +8,7 @@ export function ZoomControls({ zoom }: { zoom: Zoom }) {
   return (
     <fieldset
       aria-label="Zoom"
-      className="absolute top-3 right-3 flex items-center gap-0.5 rounded-capsule bg-popover p-1 shadow-float ring-1 ring-hairline backdrop-blur-[30px] backdrop-saturate-[1.7]"
+      className="absolute top-3 right-3 flex items-center gap-2 rounded-capsule bg-popover px-2 py-1.5 shadow-float ring-1 ring-hairline backdrop-blur-[30px] backdrop-saturate-[1.7]"
     >
       <IconButton
         icon={ZoomOutIcon}
@@ -26,6 +26,7 @@ export function ZoomControls({ zoom }: { zoom: Zoom }) {
           zoom.step(1);
         }}
       />
+      <span aria-hidden="true" className="h-5 w-px bg-hairline" />
       <IconButton icon={FitToScreenIcon} label="Fit" disabled={zoom.fitted} onClick={zoom.fit} />
     </fieldset>
   );
