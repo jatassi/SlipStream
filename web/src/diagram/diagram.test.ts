@@ -79,7 +79,7 @@ describe("machines", () => {
     const attic = landing.nodes.find(({ name }) => name === "attic");
     const garage = landing.nodes.find(({ name }) => name === "garage");
     expect(attic?.state).toBe("offline");
-    expect(attic?.plaque).toMatch(/^Offline since /u);
+    expect(attic?.plaque).toMatch(/^Last seen /u);
     expect(garage?.roles.find(({ role }) => role === "downloading")?.state).toBe("draining");
     const tiles = drawingOf(landing).tiles;
     expect(tiles.find(({ node }) => node.id === attic?.id)?.items.length).toBeGreaterThan(1);

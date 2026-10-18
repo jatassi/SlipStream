@@ -40,7 +40,7 @@ export type NodeRow = {
   readonly findings: readonly Finding[];
   /** It holds work for a Role, which can be written off. */
   readonly holds: boolean;
-  /** Its state as its tile reads it: "Online", or "Offline since 21:31" while away. */
+  /** Its state as its tile reads it: "Online", or "Last seen 21:31" while away, in the Roster's words. */
   readonly plaque: string;
   /** The torrents its Downloading keeps, when it holds Downloading. */
   readonly torrents: readonly NodesTorrentView[];
@@ -125,10 +125,6 @@ function rowOf(
 ): NodeRow {
   const seen =
     node.lastSeenAt === undefined ? [] : [`Last seen ${sinceWords(node.lastSeenAt, clock)}`];
-  const plaque =
-    node.lastSeenAt === undefined
-      ? capital(stateWords[state])
-      : `${capital(stateWords[state])} since ${sinceWords(node.lastSeenAt, clock)}`;
   return {
     id: node.id,
     name: node.name,
@@ -138,7 +134,7 @@ function rowOf(
     roles: roleChips(topology, board, node.roles, standingOf(node), clock),
     findings: findingsOf(node.probes),
     holds: node.roles.some(({ held }) => held !== undefined),
-    plaque,
+    plaque: seen[0] ?? capital(stateWords[state]),
     torrents: node.resources.downloading?.torrents ?? [],
   };
 }
