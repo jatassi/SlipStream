@@ -1,5 +1,5 @@
 import { type Plan, type Plane, type Point3, type Projection, iso, lineOnTop, onTop, sideArc } from "@anatomy/iso-kit";
-import { dotsOf, frameAlong, frameOf } from "@anatomy/lathe";
+import { dotsOf, fillet, frameAlong, frameOf } from "@anatomy/lathe";
 
 import {
   type Drawn,
@@ -9,6 +9,7 @@ import {
   faceY,
   group,
   halo,
+  owned,
   item,
   line,
   mark,
@@ -56,10 +57,23 @@ export function cellCentre(panel: Panel, index: number): { readonly u: number; r
 /** How far a panel's progress slider runs along its rail. */
 export const railOf = (panel: Panel): number => panelEnd(panel) - panel.x0;
 
-export const CHUTE_IN: readonly Point3[] = [
-  [RX.x + RX.w, RX.y + 4, RX.z + 6],
-  [HOPPER.x, HOPPER.y + 3, BEAM_Z + 12],
-];
+const HOPPER_TOP = BEAM_Z + 15;
+const INTO: Plane = [HOPPER.x + HOPPER.w / 2, HOPPER.y + HOPPER.d / 2];
+
+/** Where the shuttle rests, under the hopper; the live loop moves it along x from here. */
+export const SHUTTLE_HOME = INTO[0];
+
+/** The chute from the antenna's receiver over to the hopper, dropping into its open top. */
+export const CHUTE_IN: readonly Point3[] = fillet(
+  [
+    [RX.x + RX.w, RX.y + 7, RX.z + 8],
+    [INTO[0], RX.y + 7, RX.z + 8],
+    [INTO[0], INTO[1], RX.z + 8],
+    [INTO[0], INTO[1], HOPPER_TOP],
+  ],
+  5,
+  8,
+);
 export const CHUTE_R = 2.1;
 
 function antenna(P: Projection): Item {
@@ -87,7 +101,12 @@ function antenna(P: Projection): Item {
       crease: "none",
       inner: line([30, 60].map((z) => sideArc(x, y, 2.6, z, P, 12)).join(""), "faint").el,
     }),
-    ...[40, 70].map((z) => post(P, `downloading.antenna.band.${String(z)}`, ANT, 3.6, z - 1.5, 3, { steps: 20, bevel: 0.3 })),
+    ...[40, 70].map((z) =>
+      owned(
+        post(P, `downloading.antenna.band.${String(z)}`, ANT, 3.6, z - 1.5, 3, { steps: 20, bevel: 0.3 }),
+        "downloading.antenna.mast",
+      ),
+    ),
     box(P, "downloading.antenna.receiver", RX, RX.z, RX.h, { bevel: 0.6 }),
     mark(
       <g transform={faceY(P, RX.y + RX.d)}>
@@ -155,15 +174,21 @@ function loom(P: Projection): Item {
   const rails = PANELS.map((panel, index) => {
     const rail: Plan = { x: panel.x0, y: LOOM.y + LOOM.d - 5, w: panelEnd(panel) - panel.x0, d: 3, r: 0.8 };
     return [
-      box(P, `downloading.loom.rail.${String(index)}`, rail, 6, 0.6, { tone: "lo", steps: 2, bevel: 0, crease: "none" }),
-      group({ "data-progress": String(index), transform: "" }, [
-        box(
+      owned(
+        box(P, `downloading.loom.rail.${String(index)}`, rail, 6, 0.6, { tone: "lo", steps: 2, bevel: 0, crease: "none" }),
+        "downloading.loom.back",
+      ),
+      group({ "data-progress": String(index) }, [
+        owned(
+          box(
           P,
           `downloading.loom.slider.${String(index)}`,
           { x: panel.x0 - 1.4, y: rail.y - 0.6, w: 2.8, d: 4.2, r: 0.6 },
           6.6,
           1.6,
           { tone: "hi", steps: 2, bevel: 0, crease: "lo" },
+          ),
+          "downloading.loom.back",
         ),
       ]),
     ];
@@ -181,7 +206,10 @@ function loom(P: Projection): Item {
     ),
     box(P, "downloading.loom.back", { x: LOOM.x + 6, y: -104, w: LOOM.w - 12, d: 14, r: 1 }, 6, BEAM_Z - 6, { bevel: 0.4 }),
     ...[LOOM.x, LOOM.x + LOOM.w - 7].flatMap((px, index) => [
-      box(P, `downloading.loom.post.${String(index)}`, { x: px, y: -105, w: 7, d: 16, r: 1 }, 6, BEAM_Z - 6, { bevel: 0.5 }),
+      owned(
+        box(P, `downloading.loom.post.${String(index)}`, { x: px, y: -105, w: 7, d: 16, r: 1 }, 6, BEAM_Z - 6, { bevel: 0.5 }),
+        "downloading.loom.back",
+      ),
       dots([iso([px + 3.5, -89, 14], P), iso([px + 3.5, -89, BEAM_Z - 8], P)], 0.42),
     ]),
     mark(
@@ -230,13 +258,16 @@ function loom(P: Projection): Item {
       "lo",
     ),
     group({ "data-shuttle": "" }, [
-      box(P, "downloading.loom.shuttle", { x: -6, y: -95, w: 12, d: 6, r: 1 }, BEAM_Z - 6, 5, {
+      owned(
+      box(P, "downloading.loom.shuttle", { x: SHUTTLE_HOME - 6, y: -95, w: 12, d: 6, r: 1 }, BEAM_Z - 6, 5, {
         tone: "hi",
         steps: 2,
         bevel: 0.4,
         crease: "lo",
       }),
-      dots([iso([0, -89, BEAM_Z - 3.5], P)], 0.55, "hi"),
+        "downloading.loom.back",
+      ),
+      dots([iso([SHUTTLE_HOME, -89, BEAM_Z - 3.5], P)], 0.55, "hi"),
     ]),
     ...rails.flat(),
   ]);

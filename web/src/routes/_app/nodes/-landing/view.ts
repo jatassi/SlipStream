@@ -1,8 +1,11 @@
 import type {
   NodesRoleBoard,
   NodesRoleView,
+  NodesRoleViewState,
   NodesTopology,
+  NodesTopologyLinkState,
   NodesTopologyNode,
+  NodesTorrentView,
 } from "../../../../api/gen/model";
 import { type Clock, sinceWords } from "../../../../format";
 import { dialOf, reachedBy } from "../../../../nodes/dial";
@@ -16,7 +19,14 @@ import {
 import { type Finding, findingsOf } from "../-findings";
 import { type NodeState, stateWords } from "../-node";
 
-export type RoleChip = { readonly role: RoleName; readonly words: string };
+export type RoleChip = {
+  readonly role: RoleName;
+  readonly label: string;
+  readonly state: NodesRoleViewState;
+  /** What the Role is doing, when that says more than the Node's own state. */
+  readonly note: string;
+  readonly words: string;
+};
 
 /** One Node as the Roster lists it and the Diagram draws it. */
 export type NodeRow = {
@@ -30,6 +40,19 @@ export type NodeRow = {
   readonly findings: readonly Finding[];
   /** It holds work for a Role, which can be written off. */
   readonly holds: boolean;
+  /** Its state as its tile reads it: "Online", or "Offline since 21:31" while away. */
+  readonly plaque: string;
+  /** The torrents its Downloading keeps, when it holds Downloading. */
+  readonly torrents: readonly NodesTorrentView[];
+};
+
+/** The Node link between the Controller and one Worker. */
+export type LinkRow = {
+  readonly worker: string;
+  readonly state: NodesTopologyLinkState;
+  /** Which end dialed the live session; absent while the link is down. */
+  readonly dialer?: "controller" | "worker";
+  readonly rttMs?: number;
 };
 
 export type Landing = {
@@ -37,6 +60,7 @@ export type Landing = {
   readonly controller: string;
   /** The Controller, then the Workers in pairing order. */
   readonly nodes: readonly NodeRow[];
+  readonly links: readonly LinkRow[];
 };
 
 const capital = (words: string): string => words.charAt(0).toUpperCase() + words.slice(1);
@@ -63,9 +87,13 @@ export const roleChips = (
 ): RoleChip[] =>
   roles.map((view) => {
     const label = labelOf(board, view.role);
+    const note = quiet(view) ? "" : roleLine(cluster, view, standing, clock);
     return {
       role: view.role,
-      words: quiet(view) ? label : `${label} · ${roleLine(cluster, view, standing, clock)}`,
+      label,
+      state: view.state,
+      note,
+      words: note === "" ? label : `${label} · ${note}`,
     };
   });
 
@@ -93,6 +121,10 @@ function rowOf(
 ): NodeRow {
   const seen =
     node.lastSeenAt === undefined ? [] : [`Last seen ${sinceWords(node.lastSeenAt, clock)}`];
+  const plaque =
+    node.lastSeenAt === undefined
+      ? capital(stateWords[state])
+      : `${capital(stateWords[state])} since ${sinceWords(node.lastSeenAt, clock)}`;
   return {
     id: node.id,
     name: node.name,
@@ -102,6 +134,8 @@ function rowOf(
     roles: roleChips(topology, board, node.roles, standingOf(node), clock),
     findings: findingsOf(node.probes),
     holds: node.roles.some(({ held }) => held !== undefined),
+    plaque,
+    torrents: node.resources.downloading?.torrents ?? [],
   };
 }
 
@@ -130,5 +164,11 @@ export function landingOf(
         clock,
       ),
     ),
+    links: topology.links.map((link) => ({
+      worker: link.b,
+      state: link.state,
+      ...(link.dialer === undefined ? {} : { dialer: link.dialer === link.a ? "controller" : "worker" }),
+      ...(link.rttMs === undefined ? {} : { rttMs: link.rttMs }),
+    })),
   };
 }

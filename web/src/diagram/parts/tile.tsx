@@ -23,8 +23,8 @@ import {
   box,
   dots,
   group,
+  halo,
   item,
-  keyed,
   line,
   mark,
   post,
@@ -84,6 +84,7 @@ function vents(P: Projection): Drawn {
 export function base(P: Projection): Item {
   const seam = line(sideSeam(TILE, FEET + SLAB * 0.38, P, 8), "faint");
   return item("tile.base", [0, 0, FEET], [
+    halo(P, TILE, 0, TOP, 12),
     ...feet(P),
     box(P, "tile.slab", TILE, FEET, SLAB, { steps: 8, bevel: 1.6, inner: seam.el }),
     line(planOutline(insetPlan(TILE, 5), TOP, P), "lo"),
@@ -95,7 +96,7 @@ export function base(P: Projection): Item {
 }
 
 /** The plaque on the tile's front-right face: the Node's name, engraved, and what it is doing. */
-const PLAQUE = { from: -64, to: 64, z0: FEET + 1.4, z1: TOP - 1.4 };
+const PLAQUE = { from: -36, to: 110, z0: FEET + 1.4, z1: TOP - 1.4 };
 const PLAQUE_FACE = TILE.x + TILE.w;
 
 export function plaque(P: Projection, name: string, state: string): Item {
@@ -103,15 +104,20 @@ export function plaque(P: Projection, name: string, state: string): Item {
   const plan: Plan = { x: PLAQUE_FACE, y: PLAQUE.from, w: 1, d: PLAQUE.to - PLAQUE.from, r: 0.4 };
   const u0 = -PLAQUE.to;
   const u1 = -PLAQUE.from;
-  return item("tile.plaque", [PLAQUE_FACE, 0, FEET + SLAB / 2], [
+  return item("tile.plaque", [PLAQUE_FACE, (PLAQUE.from + PLAQUE.to) / 2, FEET + SLAB / 2], [
     box(P, "tile.plaque", plan, PLAQUE.z0, PLAQUE.z1 - PLAQUE.z0, { tone: "lo", crease: "none", bevel: 0 }),
     mark(
       <g transform={face}>
         <path className="iso-line" data-tone="faint" d={roundRect(u0 + 1.4, PLAQUE.z0 + 1, u1 - 1.4, PLAQUE.z1 - 1, 0.8)} />
-        <FaceText transform={`translate(${String(u0 + 4)} ${String(-(PLAQUE.z0 + 4.4))})`} size={6.4} tone="hi">
+        <FaceText transform={`translate(${String(u0 + 4)} ${String(-(PLAQUE.z0 + 2.8))})`} size={7.6} tone="hi">
           {name}
         </FaceText>
-        <FaceText transform={`translate(${String(u0 + 4)} ${String(-(PLAQUE.z0 + 1.7))})`} size={2.4} tone="mid">
+        <FaceText
+          transform={`translate(${String(u1 - 4)} ${String(-(PLAQUE.z0 + 2.8))})`}
+          size={2.8}
+          tone="mid"
+          anchor="end"
+        >
           {state.toUpperCase()}
         </FaceText>
       </g>,
@@ -139,8 +145,8 @@ export function lamp(P: Projection): Item {
       post(P, "tile.lamp.lens", LAMP, 2.2, TOP + 5, 3.2, { tone: "hi", steps: 20 }),
       mark(
         <g className="lamp-glow">
-          <circle className="gh" cx={glowAt[0]} cy={glowAt[1]} r={4.6} />
-          <circle className="gc" cx={glowAt[0]} cy={glowAt[1]} r={1.7} />
+          <circle className="gh" cx={glowAt[0]} cy={glowAt[1]} r={2.2 * P.scale} />
+          <circle className="gc" cx={glowAt[0]} cy={glowAt[1]} r={0.8 * P.scale} />
         </g>,
       ),
     ]),
@@ -188,6 +194,3 @@ export function chip(P: Projection, slot: number, label: string, note: string): 
     group({ "data-chip-led": "" }, [dots([iso([lit[0], lit[1], z], P)], 0.9, "hi")]),
   ]);
 }
-
-export const tileParts = { base, plaque, lamp, chip };
-export { keyed };

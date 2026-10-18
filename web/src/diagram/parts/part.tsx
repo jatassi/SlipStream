@@ -24,7 +24,11 @@ import { Fragment, type ReactNode } from "react";
  * The true shape of a drawn solid, in world units, for the anatomy audit.
  * The page never reads it.
  */
-export type Shape = { readonly name: string } & (
+export type Shape = {
+  readonly name: string;
+  /** The solid this one is set into on purpose, so the audit excuses their overlap. */
+  readonly owner?: string;
+} & (
   | { readonly kind: "slab"; readonly plan: Plan; readonly z: number; readonly h: number; readonly steps: number }
   | { readonly kind: "extruded"; readonly ring: readonly Plane[]; readonly z: number; readonly h: number }
   | {
@@ -159,6 +163,12 @@ export const dots = (
   size: number,
   tone: Tone = "mid",
 ): Drawn => ({ el: <Dots points={points} size={size} tone={tone} />, shapes: [] });
+
+/** Marks what is drawn as set into `owner` on purpose: a band on a mast, a rail in a slot. */
+export const owned = (drawn: Drawn, owner: string): Drawn => ({
+  ...drawn,
+  shapes: drawn.shapes.map((shape) => ({ ...shape, owner })),
+});
 
 /** Markup with no solid in it: a face's engraving, a clip, a live element. */
 export const mark = (el: ReactNode): Drawn => ({ el, shapes: [] });

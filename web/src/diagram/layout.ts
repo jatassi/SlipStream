@@ -10,6 +10,9 @@ export const SLAB = 14;
 export const TOP = FEET + SLAB;
 export const WORKER_SCALE = 0.72;
 
+/** The camera every Diagram is drawn from, as in the prototype. */
+export const AZIMUTH = 45;
+
 /** The glass conduit of a link: it lies on the floor and runs under each tile's slab to a riser. */
 export const CONDUIT = 2.6;
 export const RISER = 10;
