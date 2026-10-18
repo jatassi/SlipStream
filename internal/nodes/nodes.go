@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes/internal/db"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -92,6 +93,8 @@ type Config struct {
 	Served []role.Served
 	// Owners keeps each Role's work: exactly one per Role of the table.
 	Owners []Owner
+	// Reach runs a reach test from node to t.
+	Reach func(ctx context.Context, node ID, t nodesystem.Target) (nodesystem.Reached, error)
 	// Always is Roles every Node holds beyond its nodes_role rows: only a
 	// test's, as the simulation tier runs roletest's Probe.
 	Always  []role.Name
@@ -135,6 +138,8 @@ type Service struct {
 	// revisions is each Node's last settings revision. It outlives a
 	// session, so a Node that reconnects unchanged publishes nothing.
 	revisions map[ID]string
+	// probes is each Node's last probe verdicts, kept while it is away.
+	probes map[ID][]role.ProbeResult
 
 	reloading sync.Mutex
 	// rmu guards in and saved. board is derived from in, and replaced
@@ -167,6 +172,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		wake:    map[ID]chan struct{}{},
 
 		revisions: map[ID]string{},
+		probes:    map[ID][]role.ProbeResult{},
 		saved:     map[ID]time.Time{},
 		rearm:     make(chan struct{}, 1),
 		recount:   make(chan struct{}, 1),
@@ -455,11 +461,11 @@ func (s *Service) receives(node ID) bool {
 	return on && up.Matched
 }
 
-// Reach is how the Controller reaches node now and since when: Local for
+// linkOf is how the Controller reaches node now and since when: Local for
 // itself, Up while its Sync session is attached, Mismatched while its link
 // is live on another build, and Down otherwise, since its last Sync frame.
 // A Node that can start work is Local or Up.
-func (s *Service) Reach(node ID) (LinkState, time.Time) {
+func (s *Service) linkOf(node ID) (LinkState, time.Time) {
 	v, ok := s.Board().Node(node)
 	switch {
 	case !ok:
@@ -486,11 +492,15 @@ func (s *Service) awaitChange(node ID) <-chan struct{} {
 }
 
 // changed wakes whoever waits on node and tells Admins, of its settings
-// too when its facts carry a new revision. It never blocks.
+// too when its facts carry a new revision. It keeps the probe verdicts
+// facts carry. It never blocks.
 func (s *Service) changed(node ID) {
-	facts, _ := s.controls.NodeFacts(node)
+	facts, ok := s.controls.NodeFacts(node)
 	revision := facts.GetSettingsRevision()
 	s.mu.Lock()
+	if ok {
+		s.probes[node] = role.ProbesOf(facts)
+	}
 	ch := s.wake[node]
 	delete(s.wake, node)
 	settings := revision != "" && revision != s.revisions[node]
@@ -505,6 +515,14 @@ func (s *Service) changed(node ID) {
 	if settings {
 		s.cfg.SettingsChanged.Publish(context.Background(), SettingsChanged{NodeID: node.String()})
 	}
+}
+
+// probesOf is node's last probe verdicts, from facts it may have sent
+// before it went away.
+func (s *Service) probesOf(node ID) []role.ProbeResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.probes[node]
 }
 
 func (s *Service) recordAddresses(ctx context.Context, node ID, addrs []netip.AddrPort) error {
@@ -572,7 +590,9 @@ type Node struct {
 	// Build is the peer's, or this Node's own for Local; nil while Down.
 	Build *link.NodeInfo
 	Facts *nodev1.NodeFacts
-	Dial  Dial
+	// Probes is the Node's last probe verdicts, kept while it is away.
+	Probes []role.ProbeResult
+	Dial   Dial
 }
 
 type Named struct {
@@ -706,7 +726,8 @@ func (s *Service) view(ctx context.Context, row db.NodesNode, addrs link.Address
 		Version:   version,
 	}
 	n.Facts, _ = s.controls.NodeFacts(row.ID)
-	n.Link, n.Since = s.Reach(row.ID)
+	n.Probes = s.probesOf(row.ID)
+	n.Link, n.Since = s.linkOf(row.ID)
 	n.Standing, _ = s.Standing(row.ID)
 	if n.Self {
 		own := s.cfg.Node

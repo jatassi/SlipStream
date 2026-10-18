@@ -209,7 +209,9 @@ type Node struct {
 	// orders its reports to the holder half.
 	host   *nodeHost
 	hostMu sync.Mutex
-	// downloads is the Node's built-in torrent client.
+	// torrent is the Node's torrent engine, and downloads its built-in
+	// client.
+	torrent   engine.Engine
 	downloads *downloading.Client
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
@@ -462,6 +464,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
+	n.torrent = torrent
 	n.downloads = downloading.NewClient(downloading.Config{
 		Engine:  torrent,
 		Dir:     n.env.DataDir.Resolve(cfg.Torrent.Downloads),

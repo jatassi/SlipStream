@@ -2,10 +2,13 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/jatassi/slipstream/internal/nodes/internal/db"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -52,32 +55,101 @@ func (s *Service) RoleBoard(ctx context.Context) (RoleBoard, error) {
 	return RoleBoard{Situation: sit, Board: board, Gestures: Gestures(sit)}, nil
 }
 
-// Preview plans c on the rows now. It refuses what Apply refuses before
-// the guardrails: a Node with no live row and a stale Basis.
-func (s *Service) Preview(ctx context.Context, c Change) (Outcome, error) {
+// Preview plans c on the rows now, with reach tests when test is set. It
+// refuses what Apply refuses before the guardrails: a Node with no live
+// row and a stale Basis.
+func (s *Service) Preview(ctx context.Context, c Change, test bool) (Outcome, error) {
+	var reach map[NodeRole]ReachResult
+	if test {
+		var err error
+		if reach, err = s.tests(ctx, c); err != nil {
+			return Outcome{}, err
+		}
+	}
 	var out Outcome
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		_, out, err = s.plan(ctx, r, c)
+		_, out, err = s.plan(ctx, r, c, reach)
 		return err
 	})
 	return out, err
 }
 
-// Apply plans c again inside one Write and stores its Outcome: the Role
-// rows, the forfeits, the portable work each owner moves to its heir and
-// the tombstone of a removed Node. A stale Basis or a block refuses c, and
-// an Outcome that stores nothing new writes nothing. After the commit a
-// removed Node's key is refused and its session closed, the roster reads
-// the rows again, each other Node whose rows changed is sent its new
-// intent, and Apply waits until those in step apply it or ctx ends.
+// tests runs, at once, the reach test of each Role c adds to a Node in
+// step whose owner has a target, each for at most timings.nodes.reach.
+func (s *Service) tests(ctx context.Context, c Change) (map[NodeRole]ReachResult, error) {
+	type due struct {
+		at     NodeRole
+		target nodesystem.Target
+	}
+	var tests []due
+	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		_, out, err := s.plan(ctx, r, c, nil)
+		if err != nil {
+			return err
+		}
+		for _, at := range out.Untested {
+			t, _, err := s.owners[at.Role].Reach(ctx, r)
+			if err != nil {
+				return fmt.Errorf("read the %s target: %w", at.Role, err)
+			}
+			tests = append(tests, due{at, t})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	results := make([]ReachResult, len(tests))
+	var wg sync.WaitGroup
+	for i, d := range tests {
+		wg.Go(func() { results[i] = s.reach(ctx, d.at.Node, d.target) })
+	}
+	wg.Wait()
+	out := make(map[NodeRole]ReachResult, len(tests))
+	for i, d := range tests {
+		out[d.at] = results[i]
+	}
+	return out, nil
+}
+
+// reach is a reach test from node to t, for at most timings.nodes.reach.
+// A test the Node never answered fails with why.
+func (s *Service) reach(ctx context.Context, node ID, t nodesystem.Target) ReachResult {
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timings.Reach)
+	defer cancel()
+	res := ReachResult{Target: t.String()}
+	got, err := s.cfg.Reach(ctx, node, t)
+	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		res.Err = "timed out after " + s.cfg.Timings.Reach.String()
+	case err != nil:
+		res.Err = err.Error()
+	default:
+		res.OK, res.Millis, res.Err = got.OK, got.Took.Milliseconds(), got.Err
+	}
+	return res
+}
+
+// Apply runs the reach tests c needs, then plans c again inside one Write
+// and stores its Outcome: the Role rows, the forfeits, the portable work
+// each owner moves to its heir and the tombstone of a removed Node. A stale
+// Basis or a block refuses c, and an Outcome that stores nothing new writes
+// nothing. After the commit a removed Node's key is refused and its session
+// closed, the roster reads the rows again, each other Node whose rows
+// changed is sent its new intent, and Apply waits until those in step apply
+// it or ctx ends.
 func (s *Service) Apply(ctx context.Context, c Change) (Outcome, error) {
+	reach, err := s.tests(ctx, c)
+	if err != nil {
+		return Outcome{}, err
+	}
 	var (
 		out     Outcome
 		touched []ID
 	)
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		sit, planned, err := s.plan(ctx, tx, c)
+	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		sit, planned, err := s.plan(ctx, tx, c, reach)
 		out = planned
 		if err != nil {
 			return err
@@ -108,13 +180,14 @@ func (s *Service) Apply(ctx context.Context, c Change) (Outcome, error) {
 	return out, nil
 }
 
-// plan is c planned on r. It refuses a Node r has no live row for, and a
-// SetRoles planned on another Basis.
-func (s *Service) plan(ctx context.Context, r storage.Reader[file], c Change) (Situation, Outcome, error) {
+// plan is c planned on r with the reach tests run for it. It refuses a
+// Node r has no live row for, and a SetRoles planned on another Basis.
+func (s *Service) plan(ctx context.Context, r storage.Reader[file], c Change, reach map[NodeRole]ReachResult) (Situation, Outcome, error) {
 	sit, err := s.situation(ctx, r, s.Board())
 	if err != nil {
 		return Situation{}, Outcome{}, err
 	}
+	sit.Reach = reach
 	for _, id := range c.nodes() {
 		if !sit.has(id) {
 			return sit, Outcome{}, ErrNotFound

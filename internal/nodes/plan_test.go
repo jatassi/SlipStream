@@ -141,23 +141,26 @@ func TestProbesGuardAnAddedRole(t *testing.T) {
 	tick := nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching, role.Downloading)}}
 	for _, tc := range []struct {
 		name    string
-		fit     role.Fit
+		probe   role.ProbeResult
 		away    bool
 		verdict nodes.Verdict
 		reason  nodes.Reason
 		words   string
 	}{
-		{name: "fails", fit: role.Fails, verdict: nodes.Block, reason: nodes.ProbeFails,
-			words: "Downloading can't run on seedbox. Its torrent engine check failed."},
-		{name: "weak", fit: role.Weak, verdict: nodes.Warn, reason: nodes.ProbeWeak,
-			words: "Downloading may run poorly on seedbox. Its torrent engine check found problems."},
-		{name: "offline", fit: role.Fails, away: true, verdict: nodes.Warn, reason: nodes.OfflineUnchecked,
+		{name: "fails", probe: role.ProbeResult{Probe: role.EngineStarts, Fit: role.Fails, Reason: role.DownloadsNotWritable},
+			verdict: nodes.Block, reason: nodes.ProbeFails,
+			words: "Downloading can't run on seedbox. Its downloads folder can't be written to."},
+		{name: "weak", probe: role.ProbeResult{Probe: role.EngineStarts, Fit: role.Weak, Reason: role.DownloadsOnNetworkShare},
+			verdict: nodes.Warn, reason: nodes.ProbeWeak,
+			words: "Downloading may run poorly on seedbox. Its downloads folder is on a network share."},
+		{name: "offline", probe: role.ProbeResult{Probe: role.EngineStarts, Fit: role.Fails, Reason: role.EngineNotListening},
+			away: true, verdict: nodes.Warn, reason: nodes.OfflineUnchecked,
 			words: "Can't check Downloading while seedbox is offline."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sb := seat(seedbox, role.Of(role.Searching))
 			sb.Away = tc.away
-			sb.Probes = map[role.Probe]role.Fit{role.EngineStarts: tc.fit}
+			sb.Probes = map[role.Probe]role.ProbeResult{tc.probe.Probe: tc.probe}
 			out := nodes.Plan(situation(seat(home, homeRoles), sb), tick)
 			if len(out.Checks) != 1 || out.Checks[0].Verdict != tc.verdict || out.Checks[0].Reason != tc.reason {
 				t.Fatalf("checks = %+v", out.Checks)
@@ -167,9 +170,58 @@ func TestProbesGuardAnAddedRole(t *testing.T) {
 	}
 
 	sb := seat(seedbox, role.Of(role.Searching))
-	sb.Probes = map[role.Probe]role.Fit{role.EngineStarts: role.Fits}
+	sb.Probes = map[role.Probe]role.ProbeResult{role.EngineStarts: {Probe: role.EngineStarts, Fit: role.Fits}}
 	if out := nodes.Plan(situation(seat(home, homeRoles), sb), tick); len(out.Checks) != 0 {
 		t.Fatalf("a fitting probe checks %+v", out.Checks)
+	}
+}
+
+// TestEveryProbeReasonHasWords fails a probe for each reason on the Role
+// it guards and reads the words the Review shows.
+func TestEveryProbeReasonHasWords(t *testing.T) {
+	want := map[role.ProbeReason]string{
+		role.EngineNotListening:      "Downloading can't run on seedbox. Its torrent engine isn't listening for peers.",
+		role.DownloadsNotWritable:    "Downloading can't run on seedbox. Its downloads folder can't be written to.",
+		role.DownloadsOnNetworkShare: "Downloading can't run on seedbox. Its downloads folder is on a network share.",
+		role.DataNotWritable:         "Storage can't run on seedbox. Its data folder can't be written to.",
+		role.HTTPNotListening:        "Serving can't run on seedbox. Its web server isn't listening.",
+	}
+	for _, why := range role.ProbeReasons() {
+		i := slices.IndexFunc(role.Names(), func(r role.Name) bool { return r.Rule().Probe == why.Probe() })
+		if i < 0 {
+			t.Fatalf("no Role is guarded by %s, the probe that finds %s", why.Probe(), why)
+		}
+		r := role.Names()[i]
+		sb := seat(seedbox, 0)
+		sb.Probes = map[role.Probe]role.ProbeResult{why.Probe(): {Probe: why.Probe(), Fit: role.Fails, Reason: why}}
+		out := nodes.Plan(situation(seat(home, homeRoles), sb), nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(r)}})
+		if len(out.Checks) != 1 || out.Checks[0].Words != want[why] {
+			t.Errorf("%s: checks = %+v, want words %q", why, out.Checks, want[why])
+		}
+	}
+}
+
+// TestSuggestedTicksAcquireRolesWhoseProbesFit is the Roles step's first
+// ticks: Searching always, and Downloading only while its engine-starts
+// probe fits.
+func TestSuggestedTicksAcquireRolesWhoseProbesFit(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		probes map[role.Probe]role.ProbeResult
+		want   role.Set
+	}{
+		{name: "no probes yet", want: role.Of(role.Searching)},
+		{name: "engine fits", probes: map[role.Probe]role.ProbeResult{role.EngineStarts: {Fit: role.Fits}, role.DataWritable: {Fit: role.Fits}}, want: role.Of(role.Searching, role.Downloading)},
+		{name: "engine weak", probes: map[role.Probe]role.ProbeResult{role.EngineStarts: {Fit: role.Weak}}, want: role.Of(role.Searching)},
+		{name: "engine fails", probes: map[role.Probe]role.ProbeResult{role.EngineStarts: {Fit: role.Fails}}, want: role.Of(role.Searching)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := seat(seedbox, 0)
+			sb.Probes = tc.probes
+			if got := sb.Suggested(); got != tc.want {
+				t.Fatalf("Suggested() = %v, want %v", got.Names(), tc.want.Names())
+			}
+		})
 	}
 }
 

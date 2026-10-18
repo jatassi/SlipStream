@@ -114,6 +114,28 @@ export const getListNodesResponseMock = (
     },
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        at: faker.date.past().toISOString().slice(0, 19) + "Z",
+        fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+        probe: faker.helpers.arrayElement([
+          "engine-starts",
+          "data-writable",
+          "listener-up",
+        ] as const),
+        ...(faker.datatype.boolean()
+          ? {
+              reason: faker.helpers.arrayElement([
+                "engine_not_listening",
+                "downloads_not_writable",
+                "downloads_on_network_share",
+                "data_not_writable",
+                "http_not_listening",
+              ] as const),
+            }
+          : {}),
+      }),
+    ),
     roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         ...(faker.datatype.boolean()
@@ -203,6 +225,28 @@ export const getGetRoleBoardResponseMock = (
     controller: faker.datatype.boolean(),
     id: faker.string.uuid(),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        at: faker.date.past().toISOString().slice(0, 19) + "Z",
+        fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+        probe: faker.helpers.arrayElement([
+          "engine-starts",
+          "data-writable",
+          "listener-up",
+        ] as const),
+        ...(faker.datatype.boolean()
+          ? {
+              reason: faker.helpers.arrayElement([
+                "engine_not_listening",
+                "downloads_not_writable",
+                "downloads_on_network_share",
+                "data_not_writable",
+                "http_not_listening",
+              ] as const),
+            }
+          : {}),
+      }),
+    ),
     roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         ...(faker.datatype.boolean()
@@ -236,6 +280,18 @@ export const getGetRoleBoardResponseMock = (
         ] as const),
       }),
     ),
+    suggested: faker.helpers.arrayElements([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
   })),
   ...overrideResponse,
 });
@@ -988,6 +1044,24 @@ export const getGetNodeResponseMock = (
   },
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      at: faker.date.past().toISOString().slice(0, 19) + "Z",
+      fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            reason: faker.helpers.arrayElement([
+              "engine_not_listening",
+              "downloads_not_writable",
+              "downloads_on_network_share",
+              "data_not_writable",
+              "http_not_listening",
+            ] as const),
+          }
+        : {}),
+    }),
+  ),
   roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     ...(faker.datatype.boolean()
       ? {
@@ -1084,6 +1158,24 @@ export const getRenameNodeResponseMock = (
   },
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      at: faker.date.past().toISOString().slice(0, 19) + "Z",
+      fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            reason: faker.helpers.arrayElement([
+              "engine_not_listening",
+              "downloads_not_writable",
+              "downloads_on_network_share",
+              "data_not_writable",
+              "http_not_listening",
+            ] as const),
+          }
+        : {}),
+    }),
+  ),
   roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     ...(faker.datatype.boolean()
       ? {
@@ -1180,6 +1272,24 @@ export const getSetNodeDialResponseMock = (
   },
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   pairedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  probes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      at: faker.date.past().toISOString().slice(0, 19) + "Z",
+      fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
+      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            reason: faker.helpers.arrayElement([
+              "engine_not_listening",
+              "downloads_not_writable",
+              "downloads_on_network_share",
+              "data_not_writable",
+              "http_not_listening",
+            ] as const),
+          }
+        : {}),
+    }),
+  ),
   roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     ...(faker.datatype.boolean()
       ? {

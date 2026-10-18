@@ -1,6 +1,6 @@
 # Roles
 
-An Admin changes which Node holds which Role through one plan, and writes off the work a Node still holds for a Role, live or offline. The Role board shows every Node's Roles and the plan's verdict on every drag. A plan answers what a set would do in words, and a set stores it once the guardrails allow it. A Role that SlipStream always needs goes back to the Controller when its last holder lets it go. A set planned on rows that changed since, or one a guardrail blocks, answers 409 with the plan as it stands, and nothing is stored. A Node unticked from Downloading while it seeds keeps seeding, draining, until its torrents are written off; a write-off lets them go and keeps every file.
+An Admin changes which Node holds which Role through one plan, and writes off the work a Node still holds for a Role, live or offline. The Role board shows every Node's Roles and the plan's verdict on every drag. A plan answers what a set would do in words, and a set stores it once the guardrails allow it. A Role that SlipStream always needs goes back to the Controller when its last holder lets it go. A set planned on rows that changed since, or one a guardrail blocks, answers 409 with the plan as it stands, and nothing is stored. A Node unticked from Downloading while it seeds keeps seeding, draining, until its torrents are written off; a write-off lets them go and keeps every file. Each Node reports its probes, and a probe that fails blocks the Role it guards there. A Role with a target, such as Notifying and its mail server, is reach tested from the Node that gains it, and mail goes out through the Node that holds Notifying.
 
 ## Sub-features
 
@@ -9,6 +9,9 @@ An Admin changes which Node holds which Role through one plan, and writes off th
 - `roles-set` `PUT /api/v1/nodes/roles` stores the set and answers once the Nodes in step it changed hold their new Roles. Unticking seedbox's Downloading hands it to home: `home takes over Downloading, since SlipStream always needs a Node that downloads.`
 - `roles-stale` a plan or set on an old `basis` answers 409 `roles_stale` with `outcome`, the same change planned on the rows now.
 - `roles-blocked` adding Relaying to a second Node answers 409 `roles_blocked`, whose check reads `seedbox already relays. Drag Relaying to move it.`
+- `roles-probes` `GET /api/v1/nodes` lists each Node's `probes`, `engine-starts`, `data-writable` and `listener-up`, each `fits` with its time. The board's Nodes carry the same `probes` and `suggested`, `searching` and `downloading` while engine-starts fits.
+- `roles-reach` a plan with `"test": true` moving Notifying to seedbox checks `seedbox reached 127.0.0.1:<port> in 0 ms.`, the `smtp` front, and a plan without it checks nothing. With the front refused the set answers 409 `roles_blocked`, whose `reach_failed` check reads `seedbox can't reach 127.0.0.1:<port> (connect: connection refused).`
+- `roles-notifying` with Notifying on seedbox alone, `POST /api/v1/mail/test` answers `{"outcome":"sent"}` and the `mail` capture holds it. With seedbox stopped it answers `failed` with `seedbox is reconnecting, and no other Node sends mail`, and nothing reaches the capture.
 - `roles-roster` `GET /api/v1/nodes` lists each Node's `roles` as `{role, state}`, `holding` while it is in step.
 - `roles-drain` unticking Downloading on seedbox while it seeds an imported Grab answers a `drains` effect, `seedbox takes no new Downloading work. It keeps its 1 torrent (3.5 MB) until you move or write it off.`, and the roster lists seedbox `draining` in Downloading with `held`, its facts running `downloading` with only `searching` assigned.
 - `roles-write-off` `POST /api/v1/nodes/{id}/write-offs` answers the Outcome with a `writes-off` effect, `The 1 torrent (3.5 MB) seedbox holds for Downloading is written off. No files are deleted.` seedbox announces `stopped`, the roster lists no Downloading on it, and the downloaded file in seedbox's data dir still matches the release.
@@ -17,7 +20,7 @@ An Admin changes which Node holds which Role through one plan, and writes off th
 
 ## How to get to it (user POV)
 
-- API on the Controller (Admin): `GET /api/v1/nodes/roles`, `POST /api/v1/nodes/roles/plan` and `PUT /api/v1/nodes/roles` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}]}`, `POST /api/v1/nodes/{id}/write-offs` with `{"roles": […]}`, and `GET /api/v1/nodes`.
+- API on the Controller (Admin): `GET /api/v1/nodes/roles`, `POST /api/v1/nodes/roles/plan` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}], "test": true}` and `PUT /api/v1/nodes/roles` with `{"basis": …, "set": [{"nodeId": …, "roles": […]}]}`, `POST /api/v1/mail/test` in an Admin's session, `POST /api/v1/nodes/{id}/write-offs` with `{"roles": […]}`, and `GET /api/v1/nodes`.
 - Desktop shell: the sidebar's `Activity` shows a written-off Grab's failure. Phone shell: the `Activity` tab.
 - Desktop and phone: no Roles screen or write-off action yet. The Roles section and its Review come later in the Nodes, Pairing and Roles build.
 
@@ -61,6 +64,58 @@ Steps:
   $FW exec $RUN --proof roles/roles-blocked -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"{nodes.seedbox.nodeId}\",\"roles\":[\"searching\",\"relaying\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
   BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
   $FW exec $RUN --proof roles/roles-blocked -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":[{\"nodeId\":\"{nodes.home.nodeId}\",\"roles\":[\"downloading\",\"storage\",\"converting\",\"subtitles\",\"metadata\",\"media-server-link\",\"notifying\",\"relaying\",\"serving\"]}]}" '{nodes.home.url}/api/v1/nodes/roles'
+  ```
+
+### Probes, reach tests and Notifying
+
+Preconditions:
+
+- A fresh `home` run with doctor passing, used for nothing else: it moves Notifying to seedbox.
+
+Steps:
+
+- **Read the probes.** Each Node lists its three probes `fits`, and the board suggests `searching` and `downloading` for each.
+
+  ```sh
+  $FW exec $RUN --proof roles/roles-probes -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  $FW exec $RUN --proof roles/roles-probes -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles'
+  ```
+
+- **Plan Notifying on seedbox, with and without its reach test.** Without `test` the plan checks nothing. With it, the check reads `seedbox reached 127.0.0.1:<port> in 0 ms.`, home's `smtp` front from the Scenario's email setting.
+
+  ```sh
+  BASIS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/roles' | jq -r .basis)
+  SET='[{"nodeId":"{nodes.home.nodeId}","roles":["storage","converting","subtitles","metadata","media-server-link","serving"]},{"nodeId":"{nodes.seedbox.nodeId}","roles":["searching","downloading","notifying"]}]'
+  $FW exec $RUN --proof roles/roles-reach -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":$SET}" '{nodes.home.url}/api/v1/nodes/roles/plan'
+  $FW exec $RUN --proof roles/roles-reach -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":$SET,\"test\":true}" '{nodes.home.url}/api/v1/nodes/roles/plan'
+  ```
+
+- **Set it while the mail server refuses.** 409 `roles_blocked` with the `reach_failed` check, and nothing is stored.
+
+  ```sh
+  $FW fault set $RUN smtp-down smtp refuse
+  $FW exec $RUN --proof roles/roles-reach -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":$SET}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW fault clear $RUN smtp-down
+  ```
+
+- **Set it and send a test email.** The set answers with the passing check, and the roster's facts have seedbox holding Notifying. Sign in for a session, since the test email goes to the signed-in Admin, then send it: `{"outcome":"sent"}`, and `mail list` holds it.
+
+  ```sh
+  $FW exec $RUN --proof roles/roles-notifying -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"basis\":\"$BASIS\",\"set\":$SET}" '{nodes.home.url}/api/v1/nodes/roles'
+  $FW exec $RUN --proof roles/roles-notifying -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  $FW exec $RUN -- curl -sS -c {runDir}/admin.jar -X POST -H 'Content-Type: application/json' --data-binary '{"email":"{admin.email}","pin":"{admin.pin}"}' '{nodes.home.url}/api/v1/session'
+  $FW exec $RUN --proof roles/roles-notifying -- curl -sS -b {runDir}/admin.jar -X POST -H 'Origin: {nodes.home.url}' '{nodes.home.url}/api/v1/mail/test'
+  $FW mail list $RUN
+  ```
+
+- **Stop seedbox and send it again.** It answers `failed` with `seedbox is reconnecting, and no other Node sends mail`, and the capture holds no new message. Start seedbox and wait for its link: the next test email is `sent`.
+
+  ```sh
+  $FW node stop $RUN seedbox
+  $FW exec $RUN --proof roles/roles-notifying -- curl -sS -b {runDir}/admin.jar -X POST -H 'Origin: {nodes.home.url}' '{nodes.home.url}/api/v1/mail/test'
+  $FW node start $RUN seedbox
+  $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/nodes" | jq -e ".nodes[] | select(.name == \"seedbox\") | .link.state == \"up\"" >/dev/null && exit 0; sleep 1; done; exit 1'
+  $FW exec $RUN --proof roles/roles-notifying -- curl -sS -b {runDir}/admin.jar -X POST -H 'Origin: {nodes.home.url}' '{nodes.home.url}/api/v1/mail/test'
   ```
 
 ### Drain and write off
@@ -149,3 +204,6 @@ Steps:
 - A write-off unticks a Role still ticked on the Node, so the Always handback to home follows it; the drain recipe unticks first to show the draining state on its own.
 - After a write-off doctor's check 3 reports seedbox's Roles, since the Scenario gives it Downloading.
 - A Worker started while home is down runs none of its Roles until home had `timings.link.redial_max` plus `timings.link.handshake` (70 s by default) to answer; after that it works from its cached intent, out of step.
+- The `mail` capture attributes a message to the Node whose front it came through, and every Node dials the one `smtp` front the email setting names, home's. A message seedbox sent reads `node: home`; the stopped-seedbox step is what shows the route. The simulation tier's `TestMailGoesThroughTheNodeThatSendsIt` proves the sending address.
+- A cookie-session `POST` needs an `Origin` header naming the Node's own URL, or it answers 403 `cross_origin`.
+- A probe that fails, such as a downloads folder that can't be written, needs a Node started with other config, which no `fakeworld node` verb does; `TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere` covers it on the simulation tier.

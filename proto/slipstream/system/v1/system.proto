@@ -1,7 +1,7 @@
 // NodeSystemService is a Node's system as an Admin manages it from the
-// Controller: its facts, its config.yaml settings, its restart, its log
-// and the zip of its log folder. Every Node serves it, the Controller
-// included.
+// Controller: its facts, its config.yaml settings, its restart, its log,
+// the zip of its log folder and reach tests from it. Every Node serves it,
+// the Controller included.
 syntax = "proto3";
 
 package slipstream.system.v1;
@@ -26,6 +26,9 @@ service NodeSystemService {
   // deletes after its last chunk is read or timings.link.log_archive_ttl.
   rpc OpenLogArchive(OpenLogArchiveRequest) returns (OpenLogArchiveResponse);
   rpc ReadLogArchive(ReadLogArchiveRequest) returns (ReadLogArchiveResponse);
+  // Reach dials host and port from the Node, and with tls finishes a TLS
+  // handshake there. A failed dial is an answer, not an error.
+  rpc Reach(ReachRequest) returns (ReachResponse);
 }
 
 message GetFactsRequest {}
@@ -152,4 +155,17 @@ message ReadLogArchiveRequest {
 
 message ReadLogArchiveResponse {
   bytes data = 1;
+}
+
+message ReachRequest {
+  string host = 1;
+  uint32 port = 2;
+  bool tls = 3;
+}
+
+// ReachResponse is how the dial went: error is empty when ok.
+message ReachResponse {
+  bool ok = 1;
+  int64 millis = 2;
+  string error = 3;
 }
