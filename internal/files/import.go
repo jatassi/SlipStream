@@ -62,6 +62,10 @@ type Placement struct {
 	Kept  bool
 }
 
+// ErrRootChanged is a file whose Work moved to another root after its
+// Grab planned it.
+var ErrRootChanged = errors.New("the Work moved to another library root after the file was planned")
+
 // FillsNothingError is a probed file no cell would take.
 type FillsNothingError struct{ Quality release.Quality }
 
@@ -173,8 +177,16 @@ func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) 
 // queued to move from Holding to its name. A file that fills nothing is
 // doomed when its Grab's choice is Delete and lands Kept otherwise, as a
 // race leaves it; Import answers false for a doomed one. The disk queue
-// does the IO once tx commits; the caller pokes it.
+// does the IO once tx commits; the caller pokes it. A file planned into a
+// root its Work has since left is ErrRootChanged.
 func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (File, bool, error) {
+	root, err := roots.OfWork(ctx, tx, in.WorkID)
+	switch {
+	case errors.Is(err, roots.ErrNoRoot) || err == nil && root.ID != in.RootID:
+		return File{}, false, ErrRootChanged
+	case err != nil:
+		return File{}, false, err
+	}
 	p, err := f.place(ctx, tx, in)
 	if err != nil {
 		return File{}, false, err

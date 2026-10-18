@@ -11,4 +11,6 @@ export interface WorksNewWork {
   monitor?: boolean;
   /** The Profile of the Content Type a new Work wants from; left out, the type's default */
   profileId?: string;
+  /** The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root */
+  rootId?: string;
 }

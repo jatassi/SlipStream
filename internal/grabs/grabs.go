@@ -68,6 +68,7 @@ const (
 	TransferFailed     Code = "transfer_failed"
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
+	RootChanged        Code = "root_changed"
 )
 
 const (

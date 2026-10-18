@@ -32,7 +32,6 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 	}}
 	want := []string{
 		"scenario x: library is set, but no node is controller",
-		"scenario x: library has two roots for content type music",
 		`scenario x: library root folder "Music" does not match ^[a-z0-9][a-z0-9._-]*$`,
 		"scenario x: library has two roots in folder music",
 		"scenario x: library has two targets named 1080p",
