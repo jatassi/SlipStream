@@ -19,7 +19,7 @@ test("restarting SlipStream waits quietly through failed polls and reloads once 
     handlers: [...server.handlers, ...nodeSystems().handlers, restart.handler],
   });
   await expect.poll(() => app.live.getState()).toBe("open");
-  await userEvent.click(page.getByRole("button", { name: "Account" }));
+  await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await userEvent.click(page.getByRole("menuitem", { name: "Restart SlipStream…" }));
   worker.use(
     http.get("*/api/v1/system", () => {

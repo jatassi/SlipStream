@@ -17,9 +17,9 @@ export function AccountFoot({ collapsed }: { collapsed: boolean }) {
         trigger={
           <button
             type="button"
-            aria-label="Account"
             className={`flex w-full items-center gap-2.5 rounded-item p-1.5 text-left hover:bg-fill ${collapsed ? "justify-center" : ""}`}
           >
+            <span className="sr-only">Account</span>
             <Avatar name={account.displayName} />
             {!collapsed && <AccountName name={account.displayName} />}
           </button>

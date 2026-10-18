@@ -40,14 +40,15 @@ function PaletteCapsule() {
   return (
     <button
       type="button"
-      aria-label="Search Works or run a command"
       aria-keyshortcuts={paletteShortcut.keys}
       onClick={openPalette}
       className="flex h-8 w-full min-w-0 items-center gap-2.5 rounded-capsule bg-fill px-3.5 text-body text-ink-3 ring-1 ring-hairline ring-inset transition-colors duration-(--duration-control) hover:bg-fill-hover hover:text-ink-2"
     >
       <Icon icon={Search01Icon} className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate text-left">Search Works or run a command</span>
-      <kbd className="shrink-0 font-sans text-label text-ink-3">{paletteShortcut.label}</kbd>
+      <kbd aria-hidden="true" className="shrink-0 font-sans text-label text-ink-3">
+        {paletteShortcut.label}
+      </kbd>
     </button>
   );
 }

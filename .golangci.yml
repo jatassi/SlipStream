@@ -86,9 +86,22 @@ linters:
         - shadow
 
     # Errors from SlipStream's own packages already carry their context.
+    # ignore-sigs replaces wrapcheck's defaults, so they are listed.
     wrapcheck:
       ignore-package-globs:
         - github.com/jatassi/slipstream/*
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        - connect/v2.NewError(
+        - .WithRemote(
 
     misspell:
       locale: US

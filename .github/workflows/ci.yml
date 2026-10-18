@@ -69,7 +69,7 @@ jobs:
       prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Set up Go and restore the Go caches
@@ -144,7 +144,7 @@ jobs:
       GOARCH: ${{ matrix.goarch }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Select Xcode
         if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
@@ -268,7 +268,7 @@ jobs:
       GOARCH: ${{ matrix.goarch }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Select Xcode
         if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
@@ -308,7 +308,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up Go and restore the Go caches
         uses: ./.github/actions/go
         with:
@@ -346,7 +346,7 @@ jobs:
       REPEAT: ${{ inputs.repeat || 1 }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Select Xcode
         if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
@@ -402,7 +402,7 @@ jobs:
       EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Select Xcode
         if: matrix.xcode
         run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
@@ -490,7 +490,7 @@ jobs:
       EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Download dist/ from the build job
         uses: actions/download-artifact@v8
         with:
@@ -564,7 +564,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       # The tier builds no Go but the release tool, which plan's cache holds.
       - name: Set up Go and restore the Go caches
         uses: ./.github/actions/go
@@ -640,7 +640,7 @@ jobs:
       issues: write
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up Go and restore the Go caches
         uses: ./.github/actions/go
         with:
@@ -685,7 +685,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up Go and restore the Go caches
         uses: ./.github/actions/go
         with:
@@ -866,7 +866,7 @@ jobs:
       contents: write
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up Go and restore the Go caches
         uses: ./.github/actions/go
         with:
