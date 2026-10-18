@@ -119,3 +119,15 @@ test("under reduced motion the Diagram is one still frame: capsules spaced along
   });
   expect(document.querySelector(".diagram svg")?.innerHTML).toBe(frame);
 });
+
+test("a click on a Node's tile opens the Inspector headed for it, and Escape closes it", async () => {
+  renderApp({ path: "/nodes", handlers: dragServer().handlers });
+  await expect.element(diagram()).toBeVisible();
+  await userEvent.click(
+    page.elementLocator(document.querySelector(tile(ids.vps)) ?? document.body),
+  );
+  const inspector = page.getByRole("complementary", { name: "vps" });
+  await expect.element(inspector).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(inspector).not.toBeInTheDocument();
+});
