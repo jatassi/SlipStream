@@ -13,7 +13,7 @@ An Admin changes which Node holds which Role through one plan, and writes off th
 - `roles-drain` unticking Downloading on seedbox while it seeds an imported Grab answers a `drains` effect, `seedbox takes no new Downloading work. It keeps its 1 torrent (3.5 MB) until you move or write it off.`, and the roster lists seedbox `draining` in Downloading with `held`, its facts running `downloading` with only `searching` assigned.
 - `roles-write-off` `POST /api/v1/nodes/{id}/write-offs` answers the Outcome with a `writes-off` effect, `The 1 torrent (3.5 MB) seedbox holds for Downloading is written off. No files are deleted.` seedbox announces `stopped`, the roster lists no Downloading on it, and the downloaded file in seedbox's data dir still matches the release.
 - `roles-write-off-nothing` writing off a Role the Node holds no work for answers 409 `nothing_held` with `outcome`, whose check reads `seedbox holds nothing to write off for Downloading.`
-- `roles-write-off-offline` writing off Downloading on a stopped seedbox with a Grab mid-download answers at once and hands Downloading to home. The Grab fails at `downloading` with `node_written_off`, and Activity reads `What the Node downloading it held was written off. Its files are kept.` Once seedbox is back it runs no Downloading.
+- `roles-write-off-offline` writing off Downloading on a stopped seedbox with a Grab mid-download answers at once and hands Downloading to home. The Grab fails at `downloading` with `node_written_off`, and Activity reads `What the Node downloading it held was written off. Its files are kept.` Once seedbox is back it runs no Downloading, and the tracker's last announce from it is the `stopped` it sent as it stopped: it never resumes the written-off torrent.
 
 ## How to get to it (user POV)
 
@@ -132,12 +132,13 @@ Steps:
   $FW exec $RUN --proof roles/roles-write-off-offline -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/roles/roles-write-off-offline/activity.png
   ```
 
-- **Start seedbox again.** Once its link is `up`, its facts run no Downloading.
+- **Start seedbox again.** Once its link is `up`, its facts run no Downloading, and its last announce is still the `stopped` from when it stopped.
 
   ```sh
   $FW node start $RUN seedbox
   $FW exec $RUN -- bash -c 'for i in $(seq 30); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/nodes" | jq -e ".nodes[] | select(.name == \"seedbox\") | .link.state == \"up\" and .facts.running == []" >/dev/null && exit 0; sleep 1; done; exit 1'
   $FW exec $RUN --proof roles/roles-write-off-offline -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  $FW exec $RUN --proof roles/roles-write-off-offline -- bash -c "$FW announces list {runDir} --node seedbox | jq -s -e 'last.data.event == \"stopped\"'"
   ```
 
 ## Gotchas
@@ -146,5 +147,5 @@ Steps:
 - A Node the set doesn't name keeps its Roles. A Role SlipStream always needs comes back to home whenever no Node in the set holds it, and Serving stays on home whatever the set says.
 - A set naming a Node that is down answers at once; the Node gets its Roles when its Sync session attaches again.
 - A write-off unticks a Role still ticked on the Node, so the Always handback to home follows it; the drain recipe unticks first to show the draining state on its own.
-- A Node that comes back after an offline write-off resumes its cached torrents for a moment, out of step, and lets them go once its intent arrives: the tracker sees a second `started` and no `stopped`. Wait on the roster's facts, not on announces.
 - After a write-off doctor's check 3 reports seedbox's Roles, since the Scenario gives it Downloading.
+- A Worker started while home is down runs none of its Roles until home had `timings.link.redial_max` plus `timings.link.handshake` (70 s by default) to answer; after that it works from its cached intent, out of step.
