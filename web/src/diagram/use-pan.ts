@@ -10,12 +10,16 @@ export type Pan = {
   readonly follow: (event: PointerEvent) => boolean;
   /** Whether the last press moved the view, so its click selects nothing. */
   readonly moved: () => boolean;
+  /** Safari's trackpad pinch; a touch pinch, which iOS also reports this way, pinches through its pointers. */
+  readonly gesture: (event: GestureEvent) => void;
 };
 
 type Pressing = {
   readonly points: Map<number, Client>;
   start: Client;
   moved: boolean;
+  /** The scale of the WebKit gesture under way when last zoomed. */
+  scale: number;
 };
 
 const midpoint = ([ax, ay]: Client, [bx, by]: Client): Client => [(ax + bx) / 2, (ay + by) / 2];
@@ -69,7 +73,7 @@ function lift(pressing: Pressing, event: PointerEvent, figure: HTMLElement): boo
  * as they travel.
  */
 export function usePan(zoom: Zoom): Pan {
-  const pressing = useRef<Pressing>({ points: new Map(), start: [0, 0], moved: false });
+  const pressing = useRef<Pressing>({ points: new Map(), start: [0, 0], moved: false, scale: 1 });
   return {
     press: (event) => {
       const held = pressing.current;
@@ -96,5 +100,15 @@ export function usePan(zoom: Zoom): Pan {
         : false;
     },
     moved: () => pressing.current.moved,
+    gesture: (event) => {
+      const held = pressing.current;
+      event.preventDefault();
+      if (event.type === "gesturestart") {
+        held.scale = 1;
+      } else if (held.points.size === 0) {
+        zoom.zoomBy(event.scale / held.scale, [event.clientX, event.clientY]);
+        held.scale = event.scale;
+      }
+    },
   };
 }

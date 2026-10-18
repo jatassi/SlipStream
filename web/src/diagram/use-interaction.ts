@@ -38,7 +38,12 @@ const LISTENED = [
   "click",
   "keydown",
   "wheel",
+  "gesturestart",
+  "gesturechange",
 ];
+
+const isGesture = (event: Event): event is GestureEvent =>
+  event.type === "gesturestart" || event.type === "gesturechange";
 
 export type Interaction = {
   readonly preview: Part | undefined;
@@ -263,6 +268,9 @@ export function useInteraction(options: Options): Interaction {
       }
     } else if (event instanceof WheelEvent) {
       onWheel(event, handlers);
+    } else if (isGesture(event)) {
+      hold();
+      pan.gesture(event);
     } else if (event instanceof PointerEvent) {
       onPointer(event, handlers);
     } else if (event instanceof KeyboardEvent) {

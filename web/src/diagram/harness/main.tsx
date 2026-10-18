@@ -11,7 +11,7 @@ import { DiagramFigure } from "../figure";
 import { fixtureClock, fixtureOf } from "../fixtures";
 import type { Part } from "../parts-order";
 
-// The Diagram alone, drawn from a fixture (?fixture=1, 2, 5, 8 or 12), for
+// The Diagram alone, drawn from a fixture (?fixture=1 to 15), for
 // the anatomy line check, the frame budget and close-ups. Development only:
 // the app's build never includes it.
 

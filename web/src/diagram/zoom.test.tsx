@@ -100,6 +100,29 @@ test("the Diagram opens on the fitted view, and the wheel zooms about the pointe
   await expect.element(zoomButton("Fit")).toBeEnabled();
 });
 
+function gesture(type: string, scale: number, [clientX, clientY]: readonly [number, number]) {
+  const event = new UIEvent(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    scale: { value: scale },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+  });
+  document.querySelector(".diagram")?.dispatchEvent(event);
+  return event;
+}
+
+test("Safari's trackpad pinch zooms about the pointer and keeps the page from zooming", async () => {
+  await render();
+  await userEvent.hover(page.getByRole("figure", { name: "Diagram" }));
+  const at = centreOf(tile(right));
+  gesture("gesturestart", 1, at);
+  gesture("gesturechange", 1.5, at);
+  const last = gesture("gesturechange", 2, at);
+  expect(last.defaultPrevented).toBe(true);
+  await expect.poll(zoom).toBeCloseTo(2);
+  expect(nodeUnder(at)).toBe(right);
+});
+
 test("Zoom in steps up to five times the fitted view, and Fit goes back to it", async () => {
   await reducedMotion();
   await render();
@@ -121,7 +144,7 @@ test("Zoom in steps up to five times the fitted view, and Fit goes back to it", 
 test("+, - and 0 zoom while the figure has focus, and the arrow keys still walk its parts", async () => {
   await reducedMotion();
   const { selected } = await render();
-  (document.querySelector(".diagram") as HTMLElement | null)?.focus();
+  document.querySelector<HTMLElement>(".diagram")?.focus();
   await userEvent.keyboard("+");
   expect(zoom()).toBeCloseTo(1.5);
   await userEvent.keyboard("{ArrowRight}");
