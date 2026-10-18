@@ -1,3 +1,4 @@
+import { HttpResponse, delay, http } from "msw";
 import { expect, test } from "vitest";
 
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
@@ -48,6 +49,35 @@ test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts
     board: true,
     counts: true,
     indexers: true,
+  });
+});
+
+test("a lapse's burst of nodes.changed refetches the counts once and once more after it, not one per event", async () => {
+  const server = liveServer();
+  let asked = 0;
+  const counts = http.get("*/api/v1/counts", async () => {
+    asked += 1;
+    const answer = asked;
+    await delay(200);
+    return HttpResponse.json({ activity: answer, alerts: { nodes: "fail" } });
+  });
+  const app = renderApp({ path: "/", handlers: [...server.handlers, counts] });
+  const fetchStatus = () => app.queryClient.getQueryState(getGetCountsQueryKey())?.fetchStatus;
+  await expect.poll(() => app.live.getState()).toBe("open");
+  await expect.poll(() => asked > 0 && fetchStatus() === "idle").toBe(true);
+  const before = asked;
+  const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
+  const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
+
+  for (const nodeId of [home, seedbox, home]) {
+    server.clients[0]?.send({ event: "nodes.changed", data: { nodeId } });
+  }
+  await expect.poll(fetchStatus).toBe("fetching");
+  await expect.poll(fetchStatus).toBe("idle");
+  expect(asked - before).toBe(2);
+  expect(app.queryClient.getQueryData(getGetCountsQueryKey())).toEqual({
+    activity: asked,
+    alerts: { nodes: "fail" },
   });
 });
 
