@@ -4,6 +4,8 @@ import { page, userEvent } from "vitest/browser";
 
 import type { NodesBoardNode, NodesNode } from "../../../api/gen/model";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
+import { getGetRoleBoardQueryKey } from "../../../api/gen/query/nodes/nodes";
+import { refresh } from "../../../live/refresh";
 import { renderApp } from "../../../test/render-app";
 import {
   board,
@@ -16,6 +18,7 @@ import {
   writeOffServer,
 } from "../../../test/roles";
 import { asPhone } from "../../../test/viewport";
+import { worker } from "../../../test/worker";
 
 const onlineSeedbox: NodesNode = {
   ...seedbox,
@@ -74,6 +77,16 @@ test("a Role Group opens to its Roles only when one is ticked, hinted, draining 
 
   await userEvent.click(titled("Connect"));
   await expect.element(role("Notifying")).not.toBeChecked();
+});
+
+test("a Role Group opens once a refresh ticks one of its Roles", async () => {
+  const bare: NodesBoardNode = { ...seedboxSeat, assigned: [], roles: [] };
+  const app = rolesOf(bare);
+  await expect.element(titled("Acquire")).toHaveAttribute("aria-expanded", "false");
+
+  worker.use(boardIs(board(homeSeat, seedboxSeat)));
+  await refresh(app.queryClient, { queryKey: getGetRoleBoardQueryKey() });
+  await expect.element(role("Downloading")).toBeChecked();
 });
 
 test("the Controller keeps Serving ticked and says why", async () => {

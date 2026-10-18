@@ -81,12 +81,19 @@ function GroupCard({
   onRole: (row: Row, on: boolean) => void;
 }) {
   const [open, setOpen] = useState(() => noteworthy(rows));
+  const [closedByHand, setClosedByHand] = useState(false);
+  if (!open && !closedByHand && noteworthy(rows)) {
+    setOpen(true);
+  }
   const ticked = rows.filter((row) => row.ticked).length;
   return (
     <DisclosureCard
       title={group.label}
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setClosedByHand(!next);
+      }}
       aside={
         <>
           <span className="text-meta text-ink-3 tabular-nums">
@@ -97,6 +104,7 @@ function GroupCard({
             checked={ticked === rows.length}
             onCheckedChange={(on) => {
               setOpen(true);
+              setClosedByHand(false);
               onGroup(on);
             }}
           />
