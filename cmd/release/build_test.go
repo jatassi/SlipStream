@@ -11,15 +11,22 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
+	"github.com/jatassi/slipstream/fakes/testbin"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/worktree"
 )
 
+// TestBuildStampsTheWorktreeIntoDist checks the dist/ a release build of
+// this worktree wrote, which CI's build job hands the e2e tier.
 func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
-	if testing.Short() {
-		t.Skip("builds the web app and the release binary")
+	if _, ok := os.LookupEnv("TEST_SLIPSTREAM_BINARY"); !ok {
+		t.Skip("checks a release build: run go run ./cmd/release build, then set TEST_SLIPSTREAM_BINARY and TEST_SLIPSTREAM_E2E_BINARY to dist/slipstream and dist/slipstream-e2e")
 	}
-	root := cloneRepo(t)
+	bin, e2e := testbin.Slipstream(t), testbin.E2E(t)
+	root, err := repoRoot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
 	want, err := worktree.Stamp(t.Context(), root)
 	if err != nil {
 		t.Fatal(err)
@@ -36,15 +43,6 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		}
 	}
 
-	dist := t.TempDir()
-	if err := runBuild(t.Context(), []string{"-o", dist}); err != nil {
-		t.Fatal(err)
-	}
-
-	bin, e2e := filepath.Join(dist, "slipstream"), filepath.Join(dist, "slipstream-e2e")
-	if runtime.GOOS == "windows" {
-		bin, e2e = bin+".exe", e2e+".exe"
-	}
 	for _, b := range []string{bin, e2e} {
 		got, err := buildinfo.ReadFile(b)
 		if err != nil {
@@ -70,7 +68,7 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 		t.Errorf("slipstream version printed\n%s\nwant\n%s", printed, wantPrinted)
 	}
 
-	checkTools(t, dist)
+	checkTools(t, filepath.Dir(bin))
 
 	index, err := os.ReadFile(filepath.Join(root, "web", "dist", "index.html"))
 	if err != nil {
@@ -83,23 +81,6 @@ func TestBuildStampsTheWorktreeIntoDist(t *testing.T) {
 	if !bytes.Contains(binary, index) {
 		t.Errorf("%s does not embed web/dist/index.html", bin)
 	}
-}
-
-// cloneRepo gives the build its own checkout. The web build regenerates
-// web/src/api/gen in place, which would dirty the shared checkout for every
-// test running beside this one.
-func cloneRepo(t *testing.T) string {
-	t.Helper()
-	src, err := repoRoot(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	if _, err := gitOutput(t.Context(), dir, nil, "clone", "-q", src, "."); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(dir)
-	return dir
 }
 
 func checkTools(t *testing.T, dist string) {

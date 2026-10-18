@@ -14,11 +14,13 @@ runs:
     # it downloads into GOMODCACHE, so the Go cache restores the toolchain
     # faster than setup-go installs go.mod's version. The temp drive is the
     # fast one on Windows.
-    - uses: actions/setup-go@v6
+    - name: Install a Go to bootstrap go.mod's toolchain
+      uses: actions/setup-go@v6
       with:
         go-version: ">=1.21"
         cache: false
-    - shell: bash
+    - name: Point the Go toolchain and caches at the temp drive
+      shell: bash
       run: |
         echo "GOTOOLCHAIN=go$(sed -n 's/^go //p' go.mod)" >> "$GITHUB_ENV"
         echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
@@ -27,7 +29,8 @@ runs:
         echo "GOLANGCI_LINT_CACHE=$RUNNER_TEMP/golangci-lint" >> "$GITHUB_ENV"
     # Go's caches are content-addressed, so an older cache is never wrong,
     # only less complete.
-    - id: restore
+    - name: Restore the Go caches
+      id: restore
       uses: actions/cache/restore@v6
       with:
         path: |

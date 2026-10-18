@@ -92,6 +92,10 @@ var onlineRoots = []string{"fakes/tmdb/", "fakes/contenttypes/music/", "internal
 // online job checks.
 func Online(changes []nativetouch.Change) bool { return touches(changes, onlineRoots) }
 
+// Link reports whether a change touches, on either side, the link the
+// link-measure job measures.
+func Link(changes []nativetouch.Change) bool { return touches(changes, []string{"internal/link/"}) }
+
 var packagingRoots = []string{
 	"internal/install/", "internal/node/internal/desktop/", "cmd/slipstream-app/",
 	"cmd/release/internal/pack/", "cmd/release/internal/smoke/", "cmd/release/package.go", "cmd/release/smoke.go",

@@ -1,5 +1,6 @@
 .claude/worktrees/
 /dist/
+/.timings/
 /release
 /.verify/
 /.dev/

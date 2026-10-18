@@ -149,3 +149,19 @@ func TestPackaging(t *testing.T) {
 		}
 	}
 }
+
+func TestLink(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		changes []nativetouch.Change
+		want    bool
+	}{
+		{"elsewhere", []nativetouch.Change{modified("internal/linkage/linkage.go"), modified("docs/link.md")}, false},
+		{"the mux", []nativetouch.Change{modified("internal/link/internal/mux/mux.go")}, true},
+		{"a rename out of the link", []nativetouch.Change{{Old: nativetouch.Side{Path: "internal/link/x.go"}, New: nativetouch.Side{Path: "internal/x.go"}}}, true},
+	} {
+		if got := Link(c.changes); got != c.want {
+			t.Errorf("%s: Link = %t, want %t", c.name, got, c.want)
+		}
+	}
+}
