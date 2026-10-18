@@ -594,10 +594,10 @@ func Names(ctx context.Context, r storage.Reader[file]) ([]Named, error) {
 	return out, nil
 }
 
-// NamesOf is every Node's id and name, tombstones included, for history
+// Names is every Node's id and name, tombstones included, for history
 // that names a removed Node.
-func NamesOf(ctx context.Context, r storage.Reader[file]) (map[ID]Named, error) {
-	rows, err := db.New(r).ListNames(ctx)
+func (s *Service) Names(ctx context.Context) (map[ID]Named, error) {
+	rows, err := db.New(s.cfg.Library).ListNames(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the Nodes' names: %w", err)
 	}

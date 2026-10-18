@@ -196,6 +196,7 @@ export const getListTasksResponseMock = (
                     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
                     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
                     nodeId: faker.string.uuid(),
+                    nodeRemoved: faker.datatype.boolean(),
                     outcome: faker.helpers.arrayElement([
                       "succeeded",
                       "failed",
@@ -1078,6 +1079,7 @@ export const getGetTaskResponseMock = (
         label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         node: faker.string.alpha({ length: { min: 10, max: 20 } }),
         nodeId: faker.string.uuid(),
+        nodeRemoved: faker.datatype.boolean(),
         outcome: faker.helpers.arrayElement([
           "succeeded",
           "failed",
@@ -1178,6 +1180,7 @@ export const getGetTaskResponseMock = (
               label: faker.string.alpha({ length: { min: 10, max: 20 } }),
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
               nodeId: faker.string.uuid(),
+              nodeRemoved: faker.datatype.boolean(),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",
@@ -1250,6 +1253,7 @@ export const getGetTaskResponseMock = (
     ]),
     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
     nodeId: faker.string.uuid(),
+    nodeRemoved: faker.datatype.boolean(),
     outcome: faker.helpers.arrayElement([
       faker.helpers.arrayElement(["succeeded", "failed", "skipped", "canceled"] as const),
       null,
@@ -1389,6 +1393,7 @@ export const getUpdateTaskResponseMock = (
               label: faker.string.alpha({ length: { min: 10, max: 20 } }),
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
               nodeId: faker.string.uuid(),
+              nodeRemoved: faker.datatype.boolean(),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",

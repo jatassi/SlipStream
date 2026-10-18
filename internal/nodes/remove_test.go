@@ -114,12 +114,12 @@ func expectTombstone(t *testing.T, c *controller, box nodes.ID, key link.Key) {
 	if len(row) != 4 || string(row[0]) != "1" || string(row[1]) != "1" || !bytes.Equal(row[2], key[:]) || string(row[3]) != "0" {
 		t.Fatalf("box's row reads %q, want a tombstone holding its key and no Roles", row)
 	}
-	names, err := nodes.NamesOf(t.Context(), c.lib)
+	names, err := c.svc.Names(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n := names[box]; n.Name != "box" || !n.Removed {
-		t.Fatalf("NamesOf has box as %+v, want it named and removed", n)
+		t.Fatalf("Names has box as %+v, want it named and removed", n)
 	}
 	live, err := nodes.Names(t.Context(), c.lib)
 	if err != nil || len(live) != 1 {

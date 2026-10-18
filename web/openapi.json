@@ -4871,13 +4871,17 @@
             "type": "string"
           },
           "node": {
-            "description": "Empty when the Node is no longer paired",
+            "description": "The Node it ran on, still named once removed; empty when no Node has its id",
             "type": "string"
           },
           "nodeId": {
             "description": "The Node it ran on",
             "format": "uuid",
             "type": "string"
+          },
+          "nodeRemoved": {
+            "description": "The Node it ran on was removed since",
+            "type": "boolean"
           },
           "outcome": {
             "enum": [
@@ -4894,6 +4898,7 @@
           "label",
           "node",
           "nodeId",
+          "nodeRemoved",
           "outcome",
           "cause"
         ],
@@ -5198,6 +5203,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "nodeRemoved": {
+            "description": "The Node it runs on was removed",
+            "type": "boolean"
+          },
           "outcome": {
             "description": "Its last outcome, null before it has run",
             "enum": [
@@ -5217,6 +5226,7 @@
           "label",
           "node",
           "nodeId",
+          "nodeRemoved",
           "outcome",
           "cause",
           "endedAt",

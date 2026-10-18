@@ -2059,8 +2059,11 @@ export const TasksRunUnit = zod.object({
   cause: zod.string().nullable().describe("Why it failed or was skipped, null when it succeeded"),
   key: zod.string(),
   label: zod.string(),
-  node: zod.string().describe("Empty when the Node is no longer paired"),
+  node: zod
+    .string()
+    .describe("The Node it ran on, still named once removed; empty when no Node has its id"),
   nodeId: zod.uuid().describe("The Node it ran on"),
+  nodeRemoved: zod.boolean().describe("The Node it ran on was removed since"),
   outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
 });
 
@@ -2186,6 +2189,7 @@ export const TasksUnit = zod.object({
     .describe("Null before it has succeeded"),
   node: zod.string().describe("The Node it runs on"),
   nodeId: zod.uuid().describe("The Node it runs on now: where the roster routes portable work"),
+  nodeRemoved: zod.boolean().describe("The Node it runs on was removed"),
   outcome: zod
     .union([
       zod.literal("succeeded"),
