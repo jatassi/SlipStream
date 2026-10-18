@@ -101,12 +101,14 @@ async function pickReplacement(name: string) {
   const picker = picking.getByRole("combobox", { name: "Move its Works to" });
   await expect.element(picker).toHaveTextContent("Films");
   await userEvent.click(picker);
-  expect(
-    page
-      .getByRole("option")
-      .all()
-      .map((option) => option.element().textContent),
-  ).toEqual(["Films", "Other"]);
+  await expect
+    .poll(() =>
+      page
+        .getByRole("option")
+        .all()
+        .map((option) => option.element().textContent),
+    )
+    .toEqual(["Films", "Other"]);
   await userEvent.click(page.getByRole("option", { name }));
   await userEvent.click(picking.getByRole("button", { name: "Delete Ultra" }));
 }
