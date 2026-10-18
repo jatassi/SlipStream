@@ -4,11 +4,14 @@ import { page, userEvent } from "vitest/browser";
 
 import type { NodesBoardNode, NodesNode } from "../../../api/gen/model";
 import { problem } from "../../../test/handlers";
+import { getGetRoleBoardQueryKey } from "../../../api/gen/query/nodes/nodes";
+import { refresh } from "../../../live/refresh";
 import { codeText, joinCodeServer, nodesFrom } from "../../../test/join-codes";
 import { liveServer, synced } from "../../../test/live-server";
 import { home } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
 import { board, boardIs, homeSeat, outcome, rolesServer } from "../../../test/roles";
+import { worker } from "../../../test/worker";
 
 const vpsId = "7d9f1b3c-5e7a-4c9e-8b1d-3f5a7c9e1b2d";
 
@@ -154,6 +157,26 @@ test("once the code is used the dialog shows the new Node's key and who dials, t
   expect(roles.applied).toEqual([
     { basis: "basis-1", set: [{ nodeId: vpsId, roles: ["searching", "downloading"] }] },
   ]);
+});
+
+test("the new Node's Roles tick as its suggestions arrive", async () => {
+  const codes = joinCodeServer();
+  const { id } = codes.mint();
+  const { app, pair } = addNode({
+    path: `/nodes?add=${id}`,
+    codes,
+    handlers: [boardIs(board(homeSeat, { ...vpsSeat, suggested: ["searching"] }))],
+  });
+  await synced(app);
+  codes.use(id, vps);
+  pair(vps);
+  await userEvent.click(button("Choose its Roles"));
+  const downloading = dialog().getByRole("checkbox", { name: "Downloading", exact: true });
+  await expect.element(downloading).not.toBeChecked();
+
+  worker.use(boardIs(board(homeSeat, vpsSeat)));
+  await refresh(app.queryClient, { queryKey: getGetRoleBoardQueryKey() });
+  await expect.element(downloading).toBeChecked();
 });
 
 test("an expired code and a revoked one say so and offer a new code", async () => {
