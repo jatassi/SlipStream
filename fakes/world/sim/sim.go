@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -95,12 +96,12 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	net := fault.NewNetwork()
-	local := net.Host(netip.MustParseAddr("127.0.0.1"))
+	network := fault.NewNetwork()
+	local := network.Host(netip.MustParseAddr("127.0.0.1"))
 	w := &World{
 		t:        t,
 		scenario: s,
-		net:      net,
+		net:      network,
 		client:   &http.Client{Transport: &http.Transport{DialContext: local.DialContext, DisableKeepAlives: true}},
 		opts:     options{version: Version},
 	}
@@ -115,7 +116,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	listen := listenKeys(t)
 	for i, spec := range s.Nodes {
 		n := &Node{w: w, spec: spec, addr: setup.Address(i)}
-		n.host = net.Host(n.addr)
+		n.host = network.Host(n.addr)
 		n.dir = dataDir(t, s, i, listen, endpoints)
 		w.nodes = append(w.nodes, n)
 		n.Start()
@@ -227,6 +228,12 @@ func (w *World) Node(name string) *Node {
 // Path is the Plan of the path between the Nodes named a and b.
 func (w *World) Path(a, b string) *fault.Plan {
 	return w.net.Path(w.Node(a).addr, w.Node(b).addr)
+}
+
+// Listen listens at addr on the world's network, as a server beside the
+// Nodes would.
+func (w *World) Listen(addr netip.AddrPort) (net.Listener, error) {
+	return w.net.Host(addr.Addr()).Listen("tcp", addr.String())
 }
 
 // Client calls the world's Nodes from 127.0.0.1 on its network.

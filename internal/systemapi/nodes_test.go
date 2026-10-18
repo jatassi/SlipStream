@@ -74,6 +74,8 @@ func (h *host) ReadLogs(ctx context.Context, after uint64, _ time.Duration) (sys
 
 func (h *host) Archive() (nodesystem.Archive, error) { panic("unused") }
 
+func (h *host) Reach(context.Context, nodesystem.Target) nodesystem.Reached { panic("unused") }
+
 // self is a roster in which every id is this Node, called in process.
 type self struct{ key link.Key }
 

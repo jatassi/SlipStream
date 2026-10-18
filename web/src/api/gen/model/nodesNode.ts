@@ -1,6 +1,7 @@
 import type { NodesDialView } from "./nodesDialView.ts";
 import type { NodesFacts } from "./nodesFacts.ts";
 import type { NodesLink } from "./nodesLink.ts";
+import type { NodesProbe } from "./nodesProbe.ts";
 import type { NodesRoleView } from "./nodesRoleView.ts";
 
 export interface NodesNode {
@@ -16,6 +17,8 @@ export interface NodesNode {
   link: NodesLink;
   name: string;
   pairedAt: string;
+  /** The last verdict of each probe the Node ran, kept while it is away */
+  probes: NodesProbe[];
   /** Every Role the Node stands in, in table order */
   roles: NodesRoleView[];
   self: boolean;

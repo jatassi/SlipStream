@@ -18,9 +18,11 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/housekeeping/v1/housekeepingv1connect"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
@@ -89,6 +91,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
+	var systems *nodesystem.Nodes
 	side, err := nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -100,10 +103,13 @@ func (n *Node) startController(ctx context.Context) error {
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads}, n.env.Test.Served...),
 		Owners:          owners(),
-		Always:          n.env.Test.Always,
-		Timings:         n.cfg.Timings.Nodes,
-		Stall:           n.cfg.Timings.Role.Stall,
-		Log:             n.rootLog.With("subsystem", "nodes"),
+		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
+			return systems.Reach(ctx, id, t)
+		},
+		Always:  n.env.Test.Always,
+		Timings: n.cfg.Timings.Nodes,
+		Stall:   n.cfg.Timings.Role.Stall,
+		Log:     n.rootLog.With("subsystem", "nodes"),
 	})
 	if err != nil {
 		return err
@@ -118,8 +124,9 @@ func (n *Node) startController(ctx context.Context) error {
 	cluster := rpc.NewCluster(dispatch, side)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	n.serveSystem(dispatch)
-	systems := nodesystem.NewNodes(
+	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
 			return systemv1connect.NodeSystemService.On(cluster, id)
 		},
@@ -134,6 +141,7 @@ func (n *Node) startController(ctx context.Context) error {
 		n.systemRand,
 	)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
+	lib.mail.SetCourier(notifying.Courier{Roster: side, Self: side.Self(), Cluster: cluster})
 	n.lockstep.Handle(controls.Handler())
 	n.lockstep.Handle("/", dispatch)
 	types := n.env.Types.IDs()
@@ -260,6 +268,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
@@ -300,12 +309,13 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, own []r
 }
 
 // setHalf records the half that started and reports the Node's host
-// through it.
+// through it, then again at each probe.
 func (n *Node) setHalf(h *half) {
 	if !n.half.CompareAndSwap(nil, h) {
 		panic("node: a second half started; a Node starts one, once")
 	}
 	n.reportHost()
+	n.claimed.Go("probes", n.reprobe)
 }
 
 // serveSystem serves the Node's own system to its Controller, or to
@@ -327,7 +337,7 @@ func owners() []nodes.Owner {
 		nodes.Unowned(role.Subtitles),
 		nodes.Unowned(role.Metadata),
 		nodes.Unowned(role.MediaServerLink),
-		nodes.Unowned(role.Notifying),
+		notifying.Owner,
 		nodes.Unowned(role.Relaying),
 		nodes.Unowned(role.Serving),
 	}

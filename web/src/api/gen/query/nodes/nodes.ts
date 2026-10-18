@@ -62,6 +62,7 @@ import type {
   NodesNodeList,
   NodesOpenCodes,
   NodesOutcome,
+  NodesPlanChange,
   NodesRoleBoard,
   NodesRolesChange,
   NodesSettings,
@@ -1035,7 +1036,7 @@ export const getPlanRolesUrl = () => {
  * @summary Plan a change of Roles without applying it
  */
 export const planRoles = async (
-  nodesRolesChange: NodesRolesChange,
+  nodesPlanChange: NodesPlanChange,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<NodesOutcome> => {
   const getHeaders = (
@@ -1061,7 +1062,7 @@ export const planRoles = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(nodesRolesChange),
+    body: JSON.stringify(nodesPlanChange),
   });
 };
 
@@ -1106,11 +1107,11 @@ export const getPlanRolesMutationOptions = <
 };
 
 export type PlanRolesMutationResult = NonNullable<Awaited<ReturnType<typeof planRoles>>>;
-export type PlanRolesMutationBody = NodesRolesChange;
+export type PlanRolesMutationBody = NodesPlanChange;
 export type PlanRolesMutationError = ErrorType<
   PlanRoles401 | PlanRoles403 | PlanRoles404 | PlanRoles409 | PlanRoles422 | PlanRoles500
 >;
-export type PlanRolesMutationVariables = { data: NodesRolesChange };
+export type PlanRolesMutationVariables = { data: NodesPlanChange };
 
 /**
  * @summary Plan a change of Roles without applying it

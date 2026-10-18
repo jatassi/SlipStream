@@ -69,6 +69,32 @@ type node struct {
 	Link          link     `json:"link"`
 	Dial          dialView `json:"dial"`
 	Facts         *facts   `json:"facts,omitempty" doc:"Absent while the Node has no session"`
+	Probes        []probe  `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran, kept while it is away"`
+}
+
+type probe struct {
+	Probe  string    `json:"probe" enum:"engine-starts,data-writable,listener-up"`
+	Fit    string    `json:"fit" enum:"fits,weak,fails"`
+	Reason string    `json:"reason,omitempty" enum:"engine_not_listening,downloads_not_writable,downloads_on_network_share,data_not_writable,http_not_listening" doc:"Why it is weak or fails; absent when it fits"`
+	At     time.Time `json:"at"`
+}
+
+func inTableOrder(m map[role.Probe]role.ProbeResult) []role.ProbeResult {
+	var out []role.ProbeResult
+	for _, p := range role.Probes() {
+		if r, ok := m[p]; ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func probesOf(results []role.ProbeResult) []probe {
+	out := []probe{}
+	for _, p := range results {
+		out = append(out, probe{Probe: string(p.Probe), Fit: p.Fit.String(), Reason: string(p.Reason), At: p.At})
+	}
+	return out
 }
 
 type roleView struct {
@@ -136,6 +162,7 @@ func nodeOf(n nodes.Node) node {
 		IntentVersion: hex.EncodeToString(n.Version),
 		Link:          link{State: n.Link.String(), Since: n.Since},
 		Dial:          dialOf(n.Dial),
+		Probes:        probesOf(n.Probes),
 	}
 	for _, a := range n.Addresses.All() {
 		out.Addresses = append(out.Addresses, a.String())
@@ -180,6 +207,16 @@ type idInput struct {
 
 type rolesInput struct {
 	Body rolesChange
+}
+
+type planInput struct {
+	Body planChange
+}
+
+type planChange struct {
+	Basis string       `json:"basis" doc:"The basis of the board or Outcome the change was planned on"`
+	Set   []assignment `json:"set" nullable:"false" doc:"The Roles of each Node the change names. A Node it doesn't name keeps its own."`
+	Test  bool         `json:"test,omitempty" doc:"Run the reach test of each added Role whose target is set, from its Node; setRoles always runs them"`
 }
 
 type rolesChange struct {
@@ -401,6 +438,8 @@ type boardNode struct {
 	Away       bool       `json:"away" doc:"Out of step, so its checks can't run"`
 	Assigned   []string   `json:"assigned" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" nullable:"false" doc:"The Roles ticked on the Node, as a set sends them"`
 	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
+	Probes     []probe    `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran"`
+	Suggested  []string   `json:"suggested" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" nullable:"false" doc:"What a new Node's Roles step ticks first: each Acquire Role that has no probe or whose probe fits on the Node"`
 }
 
 type gesture struct {
@@ -418,6 +457,7 @@ func boardOf(b nodes.RoleBoard) roleBoard {
 		out.Nodes = append(out.Nodes, boardNode{
 			ID: seat.ID.String(), Name: seat.Name, Controller: seat.ID == b.Controller, Away: seat.Away,
 			Assigned: names(seat.Assigned), Roles: rolesOf(b.Board.Roles(seat.ID, seat.Held)),
+			Probes: probesOf(inTableOrder(seat.Probes)), Suggested: names(seat.Suggested()),
 		})
 	}
 	for _, g := range b.Gestures {
@@ -643,12 +683,12 @@ func (h handlers) getRoleBoard(ctx context.Context, _ identity.Admin, _ *struct{
 	return &roleBoardOutput{Body: boardOf(b)}, nil
 }
 
-func (h handlers) planRoles(ctx context.Context, _ identity.Admin, in *rolesInput) (*outcomeOutput, error) {
-	c, err := in.Body.change()
+func (h handlers) planRoles(ctx context.Context, _ identity.Admin, in *planInput) (*outcomeOutput, error) {
+	c, err := rolesChange{Basis: in.Body.Basis, Set: in.Body.Set}.change()
 	if err != nil {
 		return nil, err
 	}
-	out, err := open(h.roster).Preview(ctx, c)
+	out, err := open(h.roster).Preview(ctx, c, in.Body.Test)
 	if err != nil {
 		return nil, refusal(err)
 	}

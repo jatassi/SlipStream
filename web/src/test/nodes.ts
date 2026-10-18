@@ -20,6 +20,7 @@ export const home: NodesNode = {
     { role: "searching", state: "holding" },
     { role: "downloading", state: "holding" },
   ],
+  probes: [],
 };
 
 export const seedbox: NodesNode = {
@@ -33,6 +34,7 @@ export const seedbox: NodesNode = {
   dial: { controllerDials: [] },
   pairedAt: "2026-10-12T09:30:00Z",
   roles: [{ role: "downloading", state: "away" }],
+  probes: [],
 };
 
 export const nodesAre = (...nodes: NodesNode[]) => getListNodesMockHandler({ nodes });

@@ -1,0 +1,50 @@
+// The Notifying Role's wire calls: the Controller hands each email to the
+// Node that sends mail, with the SMTP server it goes through.
+syntax = "proto3";
+
+package slipstream.notify.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service NotifyingService {
+  option (slipstream.node.v1.served_by) = {role: "notifying"};
+  // Send sends one message through server. A mail server's refusal is an
+  // answer, not an error.
+  rpc Send(SendRequest) returns (SendResponse);
+}
+
+// Server is the SMTP server, with its password in plaintext inside the
+// link's TLS. A Worker keeps no settings, so every call carries it.
+message Server {
+  string host = 1;
+  uint32 port = 2;
+  // security is a mail.Security: none, starttls or tls.
+  string security = 3;
+  string username = 4;
+  string password = 5;
+  Address from = 6;
+}
+
+message Address {
+  string name = 1;
+  string email = 2;
+}
+
+message Message {
+  Address to = 1;
+  string subject = 2;
+  string html = 3;
+  string text = 4;
+}
+
+message SendRequest {
+  Server server = 1;
+  Message message = 2;
+}
+
+// SendResponse is the message's outcome: kind is a mail.OutcomeKind, and
+// reply the server's reply or why no server answered.
+message SendResponse {
+  string kind = 1;
+  string reply = 2;
+}

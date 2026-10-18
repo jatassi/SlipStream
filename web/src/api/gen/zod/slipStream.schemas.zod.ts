@@ -977,6 +977,25 @@ export const NodesAssignment = zod.object({
 export type NodesAssignment = zod.input<typeof NodesAssignment>;
 export type NodesAssignmentOutput = zod.output<typeof NodesAssignment>;
 
+export const NodesProbe = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  fit: zod.enum(["fits", "weak", "fails"]),
+  probe: zod.enum(["engine-starts", "data-writable", "listener-up"]),
+  reason: zod
+    .enum([
+      "engine_not_listening",
+      "downloads_not_writable",
+      "downloads_on_network_share",
+      "data_not_writable",
+      "http_not_listening",
+    ])
+    .exactOptional()
+    .describe("Why it is weak or fails; absent when it fits"),
+});
+
+export type NodesProbe = zod.input<typeof NodesProbe>;
+export type NodesProbeOutput = zod.output<typeof NodesProbe>;
+
 export const NodesHeld = zod.object({
   bytes: zod.int().describe("0 when sizes don't apply"),
   noun: zod.string().describe("The noun that fits units: torrent, torrents"),
@@ -1029,7 +1048,26 @@ export const NodesBoardNode = zod.object({
   controller: zod.boolean(),
   id: zod.uuid(),
   name: zod.string(),
+  probes: zod.array(NodesProbe).describe("The last verdict of each probe the Node ran"),
   roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
+  suggested: zod
+    .array(
+      zod.enum([
+        "searching",
+        "downloading",
+        "storage",
+        "converting",
+        "subtitles",
+        "metadata",
+        "media-server-link",
+        "notifying",
+        "relaying",
+        "serving",
+      ]),
+    )
+    .describe(
+      "What a new Node's Roles step ticks first: each Acquire Role that has no probe or whose probe fits on the Node",
+    ),
 });
 
 export type NodesBoardNode = zod.input<typeof NodesBoardNode>;
@@ -1368,6 +1406,9 @@ export const NodesNode = zod.object({
   link: NodesLink,
   name: zod.string(),
   pairedAt: zod.iso.datetime({ offset: true }),
+  probes: zod
+    .array(NodesProbe)
+    .describe("The last verdict of each probe the Node ran, kept while it is away"),
   roles: zod.array(NodesRoleView).describe("Every Role the Node stands in, in table order"),
   self: zod.boolean(),
 });
@@ -1427,6 +1468,22 @@ export const NodesOutcome = zod.object({
 
 export type NodesOutcome = zod.input<typeof NodesOutcome>;
 export type NodesOutcomeOutput = zod.output<typeof NodesOutcome>;
+
+export const NodesPlanChange = zod.object({
+  basis: zod.string().describe("The basis of the board or Outcome the change was planned on"),
+  set: zod
+    .array(NodesAssignment)
+    .describe("The Roles of each Node the change names. A Node it doesn't name keeps its own."),
+  test: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Run the reach test of each added Role whose target is set, from its Node; setRoles always runs them",
+    ),
+});
+
+export type NodesPlanChange = zod.input<typeof NodesPlanChange>;
+export type NodesPlanChangeOutput = zod.output<typeof NodesPlanChange>;
 
 export const NodesRoleBoard = zod.object({
   basis: zod.string(),

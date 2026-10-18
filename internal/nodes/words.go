@@ -148,10 +148,13 @@ func size(n int64) string {
 	return strconv.FormatFloat(v, 'f', digits, 64) + " " + sizeUnits[unit]
 }
 
-var probeSubjects = map[role.Probe]string{
-	role.EngineStarts: "torrent engine",
-	role.DataWritable: "data folder",
-	role.ListenerUp:   "HTTP listener",
+// probeWords is what each ProbeReason found, as a sentence.
+var probeWords = map[role.ProbeReason]string{
+	role.EngineNotListening:      "Its torrent engine isn't listening for peers.",
+	role.DownloadsNotWritable:    "Its downloads folder can't be written to.",
+	role.DownloadsOnNetworkShare: "Its downloads folder is on a network share.",
+	role.DataNotWritable:         "Its data folder can't be written to.",
+	role.HTTPNotListening:        "Its web server isn't listening.",
 }
 
 func newCheck(n Named, r role.Name, v Verdict, why Reason, words, word string) Check {
@@ -164,14 +167,13 @@ func roleTaken(added Named, r role.Name, holder Named) Check {
 		holder.Name+" already "+r.Purpose())
 }
 
-func probed(n Named, r role.Name, v Verdict) Check {
-	subject := probeSubjects[r.Rule().Probe]
+func probed(n Named, r role.Name, v Verdict, why role.ProbeReason) Check {
 	if v == Block {
 		return newCheck(n, r, v, ProbeFails,
-			fmt.Sprintf("%s can't run on %s. Its %s check failed.", r.Label(), n.Name, subject), "Can't run here")
+			fmt.Sprintf("%s can't run on %s. %s", r.Label(), n.Name, probeWords[why]), "Can't run here")
 	}
 	return newCheck(n, r, v, ProbeWeak,
-		fmt.Sprintf("%s may run poorly on %s. Its %s check found problems.", r.Label(), n.Name, subject), "Runs poorly here")
+		fmt.Sprintf("%s may run poorly on %s. %s", r.Label(), n.Name, probeWords[why]), "Runs poorly here")
 }
 
 func offline(n Named, r role.Name) Check {

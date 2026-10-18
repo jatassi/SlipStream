@@ -246,6 +246,14 @@ type Row struct {
 		Restarting     []string `json:"restarting"`
 		AppliedVersion string   `json:"appliedVersion"`
 	} `json:"facts"`
+	Probes []Probe `json:"probes"`
+}
+
+// Probe is a probe's last verdict on a listNodes row.
+type Probe struct {
+	Probe  string `json:"probe"`
+	Fit    string `json:"fit"`
+	Reason string `json:"reason"`
 }
 
 // Assigned is the Roles ticked on the Node.
@@ -283,6 +291,15 @@ func (o Outcome) Words() []string {
 // name, on the basis getRoleBoard reads first.
 func (a *API) SetRoles(name, id string, roles ...string) Outcome {
 	a.t.Helper()
+	var out Outcome
+	a.decode(a.Assign(name, nodeapi.Assignment{NodeID: id, Roles: append([]string{}, roles...)}), http.StatusOK, &out)
+	return out
+}
+
+// Assign sends set through setRoles on the Node named name, on the basis
+// getRoleBoard reads first, and returns the answer whatever it is.
+func (a *API) Assign(name string, set ...nodeapi.Assignment) Reply {
+	a.t.Helper()
 	var board struct {
 		Basis string `json:"basis"`
 	}
@@ -290,13 +307,11 @@ func (a *API) SetRoles(name, id string, roles ...string) Outcome {
 	body, err := json.Marshal(struct {
 		Basis string               `json:"basis"`
 		Set   []nodeapi.Assignment `json:"set"`
-	}{board.Basis, []nodeapi.Assignment{{NodeID: id, Roles: append([]string{}, roles...)}}})
+	}{board.Basis, set})
 	if err != nil {
 		a.t.Fatal(err)
 	}
-	var out Outcome
-	a.decode(a.Admin(name, http.MethodPut, "/api/v1/nodes/roles", string(body)), http.StatusOK, &out)
-	return out
+	return a.Admin(name, http.MethodPut, "/api/v1/nodes/roles", string(body))
 }
 
 // Join joins the Unclaimed Node named name as a Worker of the Controller

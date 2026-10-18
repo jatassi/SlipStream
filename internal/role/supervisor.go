@@ -94,6 +94,9 @@ func (h *Holding) nodeFacts() *nodev1.NodeFacts {
 	if h.host.HTTPAddress.IsValid() {
 		f.HttpAddress = h.host.HTTPAddress.String()
 	}
+	for _, p := range h.host.Probes {
+		f.Probes = append(f.Probes, p.fact())
+	}
 	for _, held := range h.cfg.Held {
 		switch r := h.runs[held.name]; {
 		case r == nil:
