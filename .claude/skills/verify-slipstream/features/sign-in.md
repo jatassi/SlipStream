@@ -50,7 +50,7 @@ Steps:
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-ada-desktop click 'getByRole("textbox", { name: "PIN", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-ada-desktop type 2468
-  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop run-code 'async page => { await page.getByRole("heading", { name: "home", level: 1 }).waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-ada-desktop run-code 'async page => { await page.getByRole("heading", { name: "Nodes", level: 1 }).waitFor({ timeout: 10000 }); return page.url(); }'
   $FW exec $RUN --proof sign-in/sign-in-redirect -- $PW cli -s={runId}-ada-desktop screenshot --filename={runDir}/proof/sign-in/sign-in-redirect/nodes.png
   ```
 

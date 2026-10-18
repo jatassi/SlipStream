@@ -8,6 +8,7 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 - `pairing-wipe` a stopped, wiped seedbox starts Unclaimed on its first address: `{"claim":"unclaimed"}`.
 - `pairing-join-code` the Controller issues a single-use Join Code, `SLP1-…`, over `POST /api/v1/join-codes`.
 - `pairing-join` `slipstream join` pairs the stopped Node and prints `joined home as seedbox-2 (node <id>); link up to <address>`.
+- `pairing-replace` after a wiped seedbox joins again as `seedbox-2`, `DELETE /api/v1/nodes/{id}` on the old `seedbox` row, down and holding nothing, answers 204 and hands Searching and Downloading back to home; `PATCH /api/v1/nodes/{id}` renames `seedbox-2` to `seedbox`, so the Roster reads home and `seedbox` `Online · seedbox dials home` with `No Roles yet`, and the Worker page's `Name` reads `seedbox`.
 - `pairing-join-codes` `GET /api/v1/join-codes` lists each open code's `id`, `createdAt` and `expiresAt`, never its text; `GET /api/v1/join-codes/{id}` reads it `open`, `used` with `nodeId`, or `expired`, with `dialing{address, addresses, since, unreachable}` once a Node address is pasted; `DELETE` answers 204, and the code then reads 404 `join_code_not_found`.
 - `pairing-reverse-dial` on `cgnat-home`, `slipstream join` prints `Can't reach the Controller at <address>.`, `Paste this Node address into the Add a Node dialog on the Controller:`, the indented `SLN1-…` and `Waiting for the Controller to dial until <HH:MM>. Ctrl-C stops.`; `POST /api/v1/join-codes/{id}/dial` with that `nodeAddress` answers 202, the command exits 0 with the joined line, and the roster lists `seedbox` `up` with `dial` `{"by":"controller","controllerDials":["<seedbox's link front>"]}`, also after both Nodes restart.
 - `pairing-setup-pending` on `cgnat-home`, `POST /api/v1/setup/worker` answers 202 with `state` `awaiting-dial`, `nodeAddress` and `until`; `POST /api/v1/setup/controller` then answers 409 `join_pending`; once the Controller dials, `GET /api/v1/setup/worker` reads `state` `joined` with `nodeId`.
@@ -35,7 +36,7 @@ An Admin issues a Join Code on the Controller, and an Unclaimed Node joins with 
 
 Preconditions:
 
-- A `home` run with doctor passing for the steps up to the Worker page. Run them last or on their own run: they replace the seedbox's Pairing, so the old row stays `down`.
+- A `home` run with doctor passing for the steps up to the Worker page. Run them last or on their own run: they replace the seedbox's Pairing and hand its Roles back to home.
 - A separate `cgnat-home` run (`--scenario cgnat-home`) for the steps from **Join behind CGNAT**: home's link front refuses every dial, and seedbox starts Unclaimed and running.
 
 Steps:
@@ -76,7 +77,16 @@ Steps:
 
   The status reads `{"claim":"worker"}`. The roster lists `seedbox` `down` with its old Roles and `seedbox-2` `up` with none.
 
-- **Open the Worker page.** The URL ends `/worker`, the heading reads `This Node is a Worker. Manage it from its Controller.`, and the rows read the Worker's `Name`, `Controller` `home` and its `Key`.
+- **Replace the old row.** Remove the old `seedbox` row: it holds no work, so it answers 204 with no write-off, and home holds Searching and Downloading again. Rename `seedbox-2` to `seedbox`: the roster lists home and `seedbox` `up` with no Roles.
+
+  ```sh
+  $FW exec $RUN --proof pairing/pairing-replace -- curl -sS -w '%{{http_code}\n' -X DELETE -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes/{nodes.seedbox.nodeId}'
+  NEW=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes' | jq -r '.nodes[] | select(.name == "seedbox-2") | .id')
+  $FW exec $RUN --proof pairing/pairing-replace -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"name":"seedbox"}' "{nodes.home.url}/api/v1/nodes/$NEW"
+  $FW exec $RUN --proof pairing/pairing-replace -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/nodes'
+  ```
+
+- **Open the Worker page.** The URL ends `/worker`, the heading reads `This Node is a Worker. Manage it from its Controller.`, and the rows read `Name` `seedbox`, `Controller` `home` and its `Key`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.seedbox.browserUrl}/'
@@ -247,8 +257,8 @@ Steps:
 
 ## Gotchas
 
-- A wiped Node has a new key, so the Controller pairs it as a new Node named `seedbox-2`, and the old row stays down with its Roles. Doctor's check 3 then fails with `node seedbox's link is down, not up`, which is expected after this recipe.
-- `slipstream join` needs the Node stopped: it writes the data dir the running Node holds.
+- A wiped Node has a new key, so the Controller pairs it as a new Node named `seedbox-2`, and the old row stays down with its Roles until **Replace the old row** removes it. The manifest still names the old id, so doctor's check 3 then fails with `node seedbox (<old id>) is not paired` and home holding Searching and Downloading, and check 5 with the Indexer's address no longer being a front for home. Both are expected after this recipe.
+- `slipstream join` takes a stopped or a running Node. A wipe needs the Node stopped, so this recipe joins it stopped and starts it after.
 - The Join Code is single-use and short-lived. Mint it right before the join.
 - A wiped Node logs a new Setup code in `nodes/seedbox.log`, which the API path `POST /api/v1/setup/worker` takes in `X-Setup-Code`.
 - `slipstream join` waits for the dial in the foreground until `timings.link.await_dial` (10 minutes) passes. Background it, as above, or the recipe blocks.

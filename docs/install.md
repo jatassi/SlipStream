@@ -141,6 +141,8 @@ docker exec -u 1000 slipstream slipstream admin reset <email>
 
 SlipStream refuses a `docker exec` run as root and prints this form.
 
+To make a new container a Worker, add `-e SLIPSTREAM_JOIN_CODE=<code>` to its first `docker run`. If it can't reach the Controller, `docker logs` prints its Node address every minute while it waits.
+
 Tags:
 
 | Tag | Follows |
@@ -164,10 +166,17 @@ Host commands act on the Node whose data dir is `--data-dir`, else `SLIPSTREAM_D
 | `slipstream config` | Prints the resolved configuration as JSON. |
 | `slipstream config set <key> <value>` | Saves a Node setting, such as `log.level`, in `config.yaml`. |
 | `slipstream config unset <key>` | Removes a Node setting from `config.yaml`, so its default applies. |
-| `slipstream join [--node-port <port>] <code>` | Joins an Unclaimed Node, stopped or running, to the Controller a Join Code names. `--node-port` sets the port of `link.listen` first. |
+| `slipstream join [--node-port <port>] <code>` | Joins an Unclaimed Node, stopped or running, to the Controller a Join Code names, and prints the Controller and the name it joined as. `--node-port` first saves `link.listen` at that port in `config.yaml`. |
 | `slipstream node-address` | Prints the Node address, `SLN1-…`, that a Controller dials this Node at. |
+| `slipstream admin reset [--address <origin>] <email>` | Prints a Reset link for the Account with that email and ends its sessions. `--address` sets the address links use when none is set. |
+| `slipstream service install --user` | Runs the Node as a `systemctl --user` service, for a tarball or AppImage install. `service uninstall --user` removes it. |
 | `slipstream version` | Prints the build stamp. |
+| `slipstream notices` | Prints the third-party notices. |
 
-A Node that can't reach the Controller a Join Code names prints its Node address and waits up to 10 minutes. Paste the address into the Add a Node dialog on the Controller, which then dials this Node and keeps dialing it. Forward the port `--node-port` sets to this machine, or the Controller can't reach it either. A running Node binds a new `--node-port` only after a restart.
+A Node that can't reach the Controller a Join Code names prints its Node address and waits up to 10 minutes. Paste the address into the Add a Node dialog on the Controller, which then dials this Node and keeps dialing it. Forward the port `--node-port` sets to this machine, or the Controller can't reach it either. Ctrl-C stops the wait.
+
+A running Node binds its link port only at start. If you give it a `--node-port` other than the port it listens on, `join` saves the port and stops. Restart the Node, then run `join` again.
+
+When a Worker that the Controller dials moves to another address, run `slipstream node-address` on it. On the Controller, open the Node's Overview, choose **Change** beside **Reached by**, and paste the address.
 
 `config set` and `config unset` print the key's value as the Node now resolves it. A running Node applies a live setting, such as `log.level`, at once. A setting such as `http.listen` waits for a restart, and the line ends `, applies after restart`. A setting an environment variable sets is refused.
