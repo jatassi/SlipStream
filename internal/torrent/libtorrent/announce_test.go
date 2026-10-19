@@ -1,7 +1,6 @@
 package libtorrent_test
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
@@ -55,11 +54,19 @@ func (a *announces) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if a.rules.FailWithoutInterval {
-		_, _ = w.Write([]byte("d14:failure reason12:unregisterede"))
+	reply := map[string]any{"interval": int64(a.rules.Interval / time.Second), "min interval": int64(a.rules.MinInterval / time.Second), "peers": ""}
+	switch {
+	case a.rules.Failure != "":
+		reply = map[string]any{"failure reason": a.rules.Failure}
+	case a.rules.Warning != "":
+		reply["warning message"] = a.rules.Warning
+	}
+	body, err := bencode.Encode(reply)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, _ = fmt.Fprintf(w, "d8:intervali%de12:min intervali%de5:peers0:e", int(a.rules.Interval/time.Second), int(a.rules.MinInterval/time.Second))
+	_, _ = w.Write(body)
 }
 
 func (a *announces) Answer() { a.once.Do(func() { close(a.answer) }) }

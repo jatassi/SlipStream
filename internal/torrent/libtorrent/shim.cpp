@@ -44,8 +44,10 @@ static_assert(sizeof(lts_status) == 368 && offsetof(lts_status, need_save) == 96
 	"lts_status layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_add_params) == 80 && offsetof(lts_add_params, seed_mode) == 40 && offsetof(lts_add_params, base_uploaded) == 48,
 	"lts_add_params layout: update TestTheShimStructsMatchGo");
-static_assert(sizeof(lts_alert) == 296 && offsetof(lts_alert, error) == 16 && offsetof(lts_alert, payload) == 280,
+static_assert(sizeof(lts_alert) == 320 && offsetof(lts_alert, error) == 16 && offsetof(lts_alert, payload) == 280 && offsetof(lts_alert, at_ms) == 312,
 	"lts_alert layout: update TestTheShimStructsMatchGo");
+static_assert(sizeof(lts_tracker) == 320 && offsetof(lts_tracker, last_error) == 32 && offsetof(lts_tracker, start_sent) == 312,
+	"lts_tracker layout: update TestTheShimStructsMatchGo");
 static_assert(sizeof(lts_file) == 24 && offsetof(lts_file, path) == 16, "lts_file layout: update TestTheShimStructsMatchGo");
 
 // parting_torrent is a torrent removed while a tracker had yet to answer its
@@ -239,6 +241,10 @@ int64_t unix_ms(lt::time_point t) {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(wall.time_since_epoch()).count();
 }
 
+int64_t unix_ms(lt::time_point32 t) {
+	return t == (lt::time_point32::min)() ? 0 : unix_ms(lt::time_point(t));
+}
+
 void fill(lts_status* out, int64_t id, lt::torrent_status const& st) {
 	*out = lts_status{};
 	out->torrent = id;
@@ -284,6 +290,77 @@ void remove_save_path(std::string const& save_path, lts_error* err) {
 	std::filesystem::path const dir = std::filesystem::u8path(save_path);
 	if (std::filesystem::exists(dir, ec) && std::filesystem::is_empty(dir, ec)) std::filesystem::remove(dir, ec);
 	if (ec) fill(err, LTS_CATEGORY_SYSTEM, ec.value(), ec.message());
+}
+
+// tracker_index is url's index in h's tracker list.
+int32_t tracker_index(lt::torrent_handle const& h, std::string const& url) {
+	std::vector<lt::announce_entry> const trackers = h.trackers();
+	for (std::size_t i = 0; i < trackers.size(); ++i) {
+		if (trackers[i].url == url) return int32_t(i);
+	}
+	throw std::logic_error("an alert's tracker is not in its torrent's list");
+}
+
+int32_t announce_event(lt::event_t e) {
+	switch (e) {
+	case lt::event_t::completed: return LTS_EVENT_COMPLETED;
+	case lt::event_t::started: return LTS_EVENT_STARTED;
+	case lt::event_t::stopped: return LTS_EVENT_STOPPED;
+	// paused is the regular announce of a torrent finished but not seeding.
+	case lt::event_t::none:
+	case lt::event_t::paused: return LTS_EVENT_NONE;
+	}
+	throw std::logic_error("unknown announce event");
+}
+
+// set_text makes text the alert's payload.
+void set_text(lts_alert* o, char const* text) {
+	std::size_t const n = std::strlen(text);
+	if (n == 0) return;
+	o->payload = std::malloc(n);
+	if (o->payload == nullptr) throw std::bad_alloc();
+	std::memcpy(o->payload, text, n);
+	o->payload_len = int64_t(n);
+}
+
+// tracker_list lays the lts_tracker array and the text it points to out in
+// one block, so lts_free_alert frees it whole.
+void tracker_list(lts_alert* o, std::vector<lt::announce_entry> const& trackers) {
+	auto const first = [](lt::announce_entry const& ae) -> lt::announce_infohash const* {
+		return ae.endpoints.empty() ? nullptr : &ae.endpoints.front().info_hashes[lt::protocol_version::V1];
+	};
+	std::size_t bytes = trackers.size() * sizeof(lts_tracker);
+	for (lt::announce_entry const& ae : trackers) {
+		lt::announce_infohash const* ih = first(ae);
+		bytes += ae.url.size() + 1 + (ih ? ih->message.size() : 0) + 1;
+	}
+	auto* block = static_cast<char*>(std::calloc(1, bytes + 1));
+	if (block == nullptr) throw std::bad_alloc();
+	auto* out = reinterpret_cast<lts_tracker*>(block);
+	char* text = block + trackers.size() * sizeof(lts_tracker);
+	auto const put = [&](std::string const& str) {
+		char* at = text;
+		std::memcpy(at, str.c_str(), str.size() + 1);
+		text += str.size() + 1;
+		return at;
+	};
+	for (std::size_t i = 0; i < trackers.size(); ++i) {
+		lt::announce_entry const& ae = trackers[i];
+		lt::announce_infohash const* ih = first(ae);
+		out[i].url = put(ae.url);
+		out[i].message = put(ih ? ih->message : std::string());
+		out[i].tier = ae.tier;
+		out[i].endpoints = int32_t(ae.endpoints.size());
+		if (ih == nullptr) continue;
+		out[i].next_announce_ms = unix_ms(ih->next_announce);
+		out[i].min_announce_ms = unix_ms(ih->min_announce);
+		if (ih->last_error) fill(&out[i].last_error, ih->last_error);
+		out[i].fails = ih->fails;
+		out[i].updating = ih->updating;
+		out[i].start_sent = ih->start_sent;
+	}
+	o->payload = block;
+	o->payload_len = int64_t(trackers.size());
 }
 
 int64_t id_of(lt::client_data_t const& userdata) {
@@ -352,17 +429,54 @@ void convert(lts_session* s, lt::alert* a) {
 		fill(&o.error, te->error);
 		break;
 	}
-	case lt::tracker_reply_alert::alert_type:
-		settle(s, static_cast<lt::torrent_alert*>(a)->handle);
-		o.kind = LTS_ALERT_TRACKER_REPLIED;
-		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
+	case lt::tracker_announce_alert::alert_type: {
+		auto* ta = static_cast<lt::tracker_announce_alert*>(a);
+		o.kind = LTS_ALERT_TRACKER_ANNOUNCED;
+		o.torrent = torrent(ta);
+		if (o.torrent == 0) return;
+		o.tracker = tracker_index(ta->handle, ta->tracker_url());
+		o.event = announce_event(ta->event);
+		o.at_ms = unix_ms(ta->timestamp());
 		break;
+	}
+	case lt::tracker_reply_alert::alert_type: {
+		auto* tr = static_cast<lt::tracker_reply_alert*>(a);
+		settle(s, tr->handle);
+		o.kind = LTS_ALERT_TRACKER_REPLIED;
+		o.torrent = torrent(tr);
+		if (o.torrent == 0) return;
+		o.tracker = tracker_index(tr->handle, tr->tracker_url());
+		o.at_ms = unix_ms(tr->timestamp());
+		break;
+	}
+	case lt::tracker_warning_alert::alert_type: {
+		auto* tw = static_cast<lt::tracker_warning_alert*>(a);
+		o.kind = LTS_ALERT_TRACKER_WARNED;
+		o.torrent = torrent(tw);
+		if (o.torrent == 0) return;
+		o.tracker = tracker_index(tw->handle, tw->tracker_url());
+		set_text(&o, tw->warning_message());
+		break;
+	}
 	case lt::tracker_error_alert::alert_type: {
 		auto* te = static_cast<lt::tracker_error_alert*>(a);
 		settle(s, te->handle);
 		o.kind = LTS_ALERT_TRACKER_FAILED;
 		o.torrent = torrent(te);
+		if (o.torrent == 0) return;
+		o.tracker = tracker_index(te->handle, te->tracker_url());
+		o.times = te->times_in_row;
+		o.at_ms = unix_ms(te->timestamp());
 		fill(&o.error, te->error);
+		set_text(&o, te->failure_reason());
+		break;
+	}
+	case lt::tracker_list_alert::alert_type: {
+		auto* tl = static_cast<lt::tracker_list_alert*>(a);
+		o.kind = LTS_ALERT_TRACKER_LIST;
+		o.torrent = torrent(tl);
+		if (o.torrent == 0) return;
+		tracker_list(&o, tl->trackers);
 		break;
 	}
 	case lt::listen_failed_alert::alert_type:
@@ -445,7 +559,7 @@ std::string listen_interface(lt::address const& addr, uint16_t port) {
 
 extern "C" {
 
-lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int outgoing_utp, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int outgoing_utp, int32_t announce_floor_s, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
 		lt::address addr = lt::make_address(address);
@@ -457,6 +571,7 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, in
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
 		p.set_bool(sp::enable_outgoing_utp, outgoing_utp != 0);
+		p.set_int(sp::min_announce_interval, announce_floor_s);
 		p.set_str(sp::listen_interfaces, listen_interface(addr, port));
 		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::tracker)));
 		lt::session_params params(std::move(p));
@@ -539,6 +654,17 @@ int lts_resume(lts_session* s, int64_t torrent, lts_error* err) {
 		s->pausing.erase(h);
 		h.resume();
 	});
+}
+
+int lts_reannounce(lts_session* s, int64_t torrent, int32_t tracker, int32_t delay_s, int32_t ignore_min_interval, lts_error* err) {
+	return guard(err, [&] {
+		lt::reannounce_flags_t const flags = ignore_min_interval != 0 ? lt::torrent_handle::ignore_min_interval : lt::reannounce_flags_t{};
+		find(s, torrent).force_reannounce(delay_s, tracker, flags);
+	});
+}
+
+int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err) {
+	return guard(err, [&] { find(s, torrent).post_trackers(); });
 }
 
 int lts_save_resume(lts_session* s, int64_t torrent, lts_error* err) {

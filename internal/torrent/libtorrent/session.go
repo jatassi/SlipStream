@@ -105,7 +105,7 @@ func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	addr := C.CString(ap.Addr().String())
 	defer C.free(unsafe.Pointer(addr))
 	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), cBool(cfg.OutgoingUTP), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), cBool(cfg.OutgoingUTP), C.int32_t(cfg.AnnounceFloor/time.Second), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}
@@ -210,6 +210,16 @@ func (s *Session) SaveResume(h engine.Handle) error {
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_save_resume(s.ses, C.int64_t(h), cerr) })
 }
 
+func (s *Session) Reannounce(h engine.Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error {
+	return s.call(func(cerr *C.lts_error) C.int {
+		return C.lts_reannounce(s.ses, C.int64_t(h), C.int32_t(tracker), C.int32_t(delay/time.Second), cBool(ignoreMinInterval), cerr)
+	})
+}
+
+func (s *Session) PostTrackers(h engine.Handle) error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_post_trackers(s.ses, C.int64_t(h), cerr) })
+}
+
 func (s *Session) PostUpdates() error {
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_post_updates(s.ses, cerr) })
 }
@@ -250,9 +260,7 @@ func goStatus(st *C.lts_status) engine.Status {
 		},
 		NeedSave: st.need_save != 0,
 	}
-	if st.last_download_ms != 0 {
-		out.LastPayload = time.UnixMilli(int64(st.last_download_ms))
-	}
+	out.LastPayload = unixMilli(st.last_download_ms)
 	if st.error.category != 0 {
 		out.Err = goError(&st.error)
 	}
@@ -389,10 +397,24 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.Removed{Torrent: h}
 	case C.LTS_ALERT_TORRENT_FAILED:
 		return engine.TorrentFailed{Torrent: h, Err: goError(&a.error)}
+	case C.LTS_ALERT_TRACKER_ANNOUNCED:
+		return engine.TrackerAnnounced{Torrent: h, Tracker: int(a.tracker), Event: announceEvents[a.event], At: time.UnixMilli(int64(a.at_ms))}
 	case C.LTS_ALERT_TRACKER_REPLIED:
-		return engine.TrackerReplied{Torrent: h}
+		return engine.TrackerReplied{Torrent: h, Tracker: int(a.tracker), At: time.UnixMilli(int64(a.at_ms))}
+	case C.LTS_ALERT_TRACKER_WARNED:
+		return engine.TrackerWarned{Torrent: h, Tracker: int(a.tracker), Message: payloadText(a)}
 	case C.LTS_ALERT_TRACKER_FAILED:
-		return engine.TrackerFailed{Torrent: h, Err: goError(&a.error)}
+		return engine.TrackerFailed{
+			Torrent: h, Tracker: int(a.tracker), Times: int(a.times), Reason: payloadText(a), Err: goError(&a.error),
+			At: time.UnixMilli(int64(a.at_ms)),
+		}
+	case C.LTS_ALERT_TRACKER_LIST:
+		trs := unsafe.Slice((*C.lts_tracker)(a.payload), int(a.payload_len))
+		out := make([]engine.Tracker, len(trs))
+		for i := range trs {
+			out[i] = goTracker(i, &trs[i])
+		}
+		return engine.TrackerList{Torrent: h, Trackers: out}
 	case C.LTS_ALERT_LISTEN_FAILED:
 		return engine.ListenFailed{Err: goError(&a.error)}
 	case C.LTS_ALERT_DROPPED:
@@ -420,6 +442,44 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.Updates{Statuses: out}
 	}
 	panic("libtorrent: shim sent unknown alert kind")
+}
+
+func payloadText(a *C.lts_alert) string {
+	return string(C.GoBytes(a.payload, C.int(a.payload_len)))
+}
+
+func goTracker(index int, t *C.lts_tracker) engine.Tracker {
+	out := engine.Tracker{
+		Index:        index,
+		URL:          C.GoString(t.url),
+		Tier:         int(t.tier),
+		Endpoints:    int(t.endpoints),
+		NextAnnounce: unixMilli(t.next_announce_ms),
+		MinAnnounce:  unixMilli(t.min_announce_ms),
+		Message:      C.GoString(t.message),
+		Fails:        int(t.fails),
+		Updating:     t.updating != 0,
+		StartSent:    t.start_sent != 0,
+	}
+	if t.last_error.category != 0 {
+		out.LastError = goError(&t.last_error)
+	}
+	return out
+}
+
+// unixMilli is the time ms Unix milliseconds name, zero for 0.
+func unixMilli(ms C.int64_t) time.Time {
+	if ms == 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(int64(ms))
+}
+
+var announceEvents = map[C.int32_t]engine.AnnounceEvent{
+	C.LTS_EVENT_NONE:      engine.AnnounceNone,
+	C.LTS_EVENT_COMPLETED: engine.AnnounceCompleted,
+	C.LTS_EVENT_STARTED:   engine.AnnounceStarted,
+	C.LTS_EVENT_STOPPED:   engine.AnnounceStopped,
 }
 
 var categories = map[C.int32_t]engine.Category{

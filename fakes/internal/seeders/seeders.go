@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -53,7 +54,11 @@ func open(caFile string) (engine.Engine, error) {
 	if err := os.Setenv("SSL_CERT_FILE", caFile); err != nil {
 		return nil, fmt.Errorf("trust the run CA: %w", err)
 	}
-	ses, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
+	ses, err := libtorrent.Open(engine.Config{
+		ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"),
+		AnnounceFloor:   5 * time.Minute,
+		Rand:            rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), //nolint:gosec // picks listen ports
+	})
 	restore := os.Unsetenv("SSL_CERT_FILE")
 	if set {
 		restore = os.Setenv("SSL_CERT_FILE", was)

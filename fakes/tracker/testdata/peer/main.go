@@ -15,6 +15,7 @@ import (
 	"math/rand/v2"
 	"net/netip"
 	"os"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -30,6 +31,7 @@ func main() {
 func run() error {
 	e, err := libtorrent.Open(engine.Config{
 		ListenInterface: netip.AddrPortFrom(netip.MustParseAddr(os.Args[1]), 0),
+		AnnounceFloor:   5 * time.Minute,
 		Rand:            rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), //nolint:gosec // picks listen ports
 	})
 	if err != nil {

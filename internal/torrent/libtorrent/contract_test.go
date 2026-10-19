@@ -17,7 +17,7 @@ type sessions struct{}
 
 func (sessions) Within(t *testing.T, f func(*testing.T)) { f(t) }
 
-func (sessions) Open(t *testing.T) engine.Engine { return open(t) }
+func (sessions) Open(t *testing.T, cfg engine.Config) engine.Engine { return openWith(t, cfg) }
 
 func (sessions) Tracker(t *testing.T, rules enginetest.TrackerRules) enginecontract.Tracker {
 	a, url := loopbackTracker(t, rules)
