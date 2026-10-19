@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 func TestValidateChecksTheLibrary(t *testing.T) {
@@ -70,5 +72,43 @@ func TestValidateRefusesTwoSearchingHoldersForIndexers(t *testing.T) {
 	want := "scenario home: library has indexers, and nodes home, seedbox all hold searching; exactly one does"
 	if err := s.Validate(); err == nil || err.Error() != want {
 		t.Fatalf("Validate = %v, want %s", err, want)
+	}
+}
+
+func TestALibraryRootNamesAStorageNode(t *testing.T) {
+	s, err := Load("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Library.Roots = []LibraryRoot{
+		{ContentType: "movie", Folder: "movies"},
+		{ContentType: "movie", Folder: "films", Node: "seedbox"},
+		{ContentType: "movie", Folder: "nas", Node: "nas"},
+		{ContentType: "movie", Folder: "full", Volume: &LibraryVolume{TotalGiB: 10, FreeGiB: 12}},
+	}
+	want := []string{
+		"scenario home: library root full's volume has 12 GiB free of 10; want free from 0 to a positive total",
+		"scenario home: library root films is on node seedbox, which does not hold storage",
+		"scenario home: library root nas is on node nas, which does not hold storage",
+	}
+	if err := s.Validate(); err == nil || err.Error() != strings.Join(want, "\n") {
+		t.Fatalf("Validate = %v\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+	if got := s.RootNode(s.Library.Roots[0]); got != "home" {
+		t.Fatalf("a root naming no Node is on %q, want the controller home", got)
+	}
+	s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
+	s.Library.Roots = s.Library.Roots[:2]
+	if err := s.Validate(); err != nil {
+		t.Fatalf("a root on seedbox holding storage: %v", err)
+	}
+	s.Nodes[0].Roles = []role.Name{"metadata"}
+	s.Library.Roots = s.Library.Roots[:1]
+	if err := s.Validate(); err == nil || !strings.Contains(err.Error(), "library root movies is on node home, which does not hold storage") {
+		t.Fatalf("a root on a controller that hands storage to seedbox: %v", err)
+	}
+	s.Nodes[1].Roles = []role.Name{"searching", "downloading"}
+	if err := s.Validate(); err != nil {
+		t.Fatalf("a root on a controller no Node takes storage from: %v", err)
 	}
 }
