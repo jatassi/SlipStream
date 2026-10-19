@@ -34,3 +34,59 @@ UPDATE downloadclients_settings SET
     fault_stall_seconds = sqlc.narg(fault_stall_seconds),
     unregistered_gap_seconds = sqlc.narg(unregistered_gap_seconds)
 WHERE id = 1;
+
+-- name: ListHeldOfHash :many
+SELECT id, node_id, removed_at FROM downloadclients_torrent
+WHERE info_hash = sqlc.arg(info_hash) AND parted_at IS NULL
+ORDER BY added_order;
+
+-- name: GetInheritedTotals :one
+SELECT uploaded, downloaded, active_seconds, seeding_seconds, totals_at FROM downloadclients_torrent
+WHERE info_hash = sqlc.arg(info_hash) AND removed_at IS NOT NULL
+ORDER BY removed_at DESC, added_order DESC
+LIMIT 1;
+
+-- name: NextOrder :one
+SELECT CAST(coalesce(max(added_order), 0) + 1 AS INTEGER) FROM downloadclients_torrent;
+
+-- name: InsertTorrent :exec
+INSERT INTO downloadclients_torrent (
+    id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, wanted, added_order, added_at,
+    uploaded, downloaded, active_seconds, seeding_seconds, totals_at
+) VALUES (
+    sqlc.arg(id), sqlc.arg(node_id), sqlc.arg(info_hash), sqlc.arg(metainfo), sqlc.arg(name), sqlc.arg(size),
+    sqlc.arg(private), sqlc.arg(trackers), sqlc.arg(content_type), 'started', sqlc.arg(added_order), sqlc.arg(added_at),
+    sqlc.arg(uploaded), sqlc.arg(downloaded), sqlc.arg(active_seconds), sqlc.arg(seeding_seconds), sqlc.arg(totals_at)
+);
+
+-- name: ListAttached :many
+SELECT id, info_hash, removed_reason, report, completion FROM downloadclients_torrent
+WHERE id IN (sqlc.slice(ids))
+ORDER BY id;
+
+-- name: ListIntent :many
+SELECT id, info_hash, metainfo FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL
+ORDER BY info_hash, id;
+
+-- name: CountHeld :one
+SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL;
+
+-- name: SetCompletion :exec
+UPDATE downloadclients_torrent SET completion = sqlc.arg(completion), completed_at = sqlc.arg(completed_at)
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND completion IS NULL;
+
+-- name: SetReport :exec
+UPDATE downloadclients_torrent SET report = sqlc.arg(report), reported_at = sqlc.arg(reported_at)
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: ListHoldingNodes :many
+SELECT DISTINCT node_id FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id;
+
+-- name: WriteOff :execrows
+UPDATE downloadclients_torrent SET
+    removed_at = coalesce(removed_at, sqlc.arg(at)),
+    removed_reason = 'node_written_off',
+    parted_at = sqlc.arg(at)
+WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;

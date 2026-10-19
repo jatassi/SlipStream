@@ -259,6 +259,7 @@ export const GrabsFailure = zod.object({
     "torrent_v2_only",
     "no_download_client",
     "download_failed",
+    "removed",
     "no_video_file",
     "probe_failed",
     "fills_nothing",

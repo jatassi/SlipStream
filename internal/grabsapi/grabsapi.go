@@ -134,7 +134,7 @@ func searchOf(s grabs.Search) search {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
+	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
 	Message string `json:"message"`
 }
 

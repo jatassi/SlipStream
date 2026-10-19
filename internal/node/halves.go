@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -94,7 +95,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
+	downloads := downloading.Def.Serve(downloadclients.Intent, downloadclients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	arrivals := roots.NewArrivals()
 	var (
@@ -415,7 +416,7 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 func owners() []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
-		grabs.DownloadingOwner,
+		downloadclients.DownloadingOwner,
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),

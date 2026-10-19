@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/media"
@@ -521,7 +522,7 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 		}
 		var intent []string
 		err := w.Node("home").Half().Library.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			in, err := grabs.DownloadIntent(ctx, r, nodeID(t, w, "seedbox"))
+			in, err := downloadclients.Intent(ctx, r, nodeID(t, w, "seedbox"))
 			for _, tor := range in.GetTorrents() {
 				intent = append(intent, bencode.InfoHash(tor.GetInfoHash()).String())
 			}
