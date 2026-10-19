@@ -1627,6 +1627,7 @@ export * from "./tasksState.ts";
 export * from "./tasksTask.ts";
 export * from "./tasksTaskGroup.ts";
 export * from "./tasksTaskPatch.ts";
+export * from "./tasksTaskPatchTuning.ts";
 export * from "./tasksUnit.ts";
 export * from "./tasksUnitOutcome.ts";
 export * from "./tasksWaitingState.ts";

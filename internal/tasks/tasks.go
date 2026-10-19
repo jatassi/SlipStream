@@ -181,6 +181,9 @@ func catalogByID(catalog []Task) map[TaskID]Task {
 		if err := t.Setting().Check(); err != nil {
 			panic(fmt.Sprintf("tasks: %s: %v", t.ID, err))
 		}
+		if t.Prepare != nil && t.Shown == nil {
+			panic(fmt.Sprintf("tasks: %s has Prepare and no Shown", t.ID))
+		}
 		byID[t.ID] = t
 	}
 	return byID

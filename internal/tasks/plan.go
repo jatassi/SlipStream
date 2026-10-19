@@ -1,9 +1,12 @@
 package tasks
 
 import (
+	"hash/fnv"
+	"math/rand/v2"
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
 )
 
@@ -14,6 +17,7 @@ type knobs struct {
 	jitterCap     time.Duration
 	overdue       Overdue
 	started       time.Time
+	install       role.NodeID
 }
 
 type state struct {
@@ -66,6 +70,9 @@ func plan(now time.Time, k knobs, states []state) Plan {
 		}
 		trigger, next, missed := k.decide(now, s)
 		trigger, windowBusy = serialize(s.task, trigger, windowBusy)
+		if trigger == "" && k.spreading(now, s.task, next) {
+			windowBusy = true
+		}
 		if missed != nil {
 			p.Pass = append(p.Pass, Passed{Task: s.task.ID, Slot: *missed})
 		}
@@ -111,7 +118,7 @@ func (k knobs) decide(now time.Time, s state) (trigger Trigger, next time.Time, 
 	switch {
 	case s.slot.IsZero():
 	case inWindow(s.task):
-		due = k.opening(s.slot, int(interval/day))
+		due = k.start(s.task, k.opening(s.slot, int(interval/day)))
 	default:
 		due = k.after(s, interval)
 	}
@@ -121,7 +128,7 @@ func (k knobs) decide(now time.Time, s state) (trigger Trigger, next time.Time, 
 	case s.slot.IsZero() || due.Before(k.started):
 		return k.missed(now, s, due, interval)
 	case inWindow(s.task) && !now.Before(k.closing(k.lastOpening(now))):
-		return "", k.opening(k.lastOpening(now), 1), nil
+		return "", k.start(s.task, k.opening(k.lastOpening(now), 1)), nil
 	}
 	return BySchedule, due, nil
 }
@@ -132,7 +139,7 @@ func (k knobs) missed(now time.Time, s state, due time.Time, interval time.Durat
 	}
 	if inWindow(s.task) {
 		missed := k.lastOpening(now)
-		return "", k.opening(missed, int(interval/day)), &missed
+		return "", k.start(s.task, k.opening(missed, int(interval/day))), &missed
 	}
 	missed := due.Add(now.Sub(due).Truncate(interval))
 	return "", missed.Add(interval + k.jitter(s, interval)), &missed
@@ -159,6 +166,25 @@ func (k knobs) jitter(s state, interval time.Duration) time.Duration {
 func (k knobs) opening(t time.Time, days int) time.Time {
 	y, m, d := t.In(k.zone).Date()
 	return time.Date(y, m, d+days, k.window.Start/60, k.window.Start%60, 0, 0, k.zone)
+}
+
+// start is when a window task starts in the window that opens at opening:
+// its spread's offset after, the same for the same date and install.
+func (k knobs) start(t Task, opening time.Time) time.Time {
+	w, _ := t.Cadence.(InWindow)
+	spread := min(w.Spread, k.closing(opening).Sub(opening)) / time.Second
+	if spread <= 0 {
+		return opening
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(opening.In(k.zone).Format(time.DateOnly) + k.install.String()))
+	return opening.Add(time.Duration(rand.New(rand.NewPCG(h.Sum64(), 0)).Int64N(int64(spread))) * time.Second) //nolint:gosec // G404: an offset fixed by the opening and install, not a secret
+}
+
+// spreading reports a window task waiting for its offset in the open
+// window, which holds the window for the tasks after it.
+func (k knobs) spreading(now time.Time, t Task, next time.Time) bool {
+	return inWindow(t) && next.After(now) && next.Before(k.closing(k.lastOpening(now)))
 }
 
 func (k knobs) closing(opening time.Time) time.Time {

@@ -2,6 +2,7 @@ package tasksapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -298,9 +299,10 @@ type overview struct {
 type overviewOutput struct{ Body overview }
 
 type detail struct {
-	Task  task   `json:"task"`
-	Units []unit `json:"units" nullable:"false" doc:"Each unit it lists now, in run order"`
-	Runs  []run  `json:"runs" nullable:"false" doc:"Its runs, newest first, up to the runs kept"`
+	Task   task                          `json:"task"`
+	Units  []unit                        `json:"units" nullable:"false" doc:"Each unit it lists now, in run order"`
+	Runs   []run                         `json:"runs" nullable:"false" doc:"Its runs, newest first, up to the runs kept"`
+	Tuning []api.OneOf[settingapi.Field] `json:"tuning" nullable:"false" doc:"Settings its owner stores that tune what it does; PATCH sets them under tuning by key"`
 }
 
 type detailOutput struct{ Body detail }
@@ -322,8 +324,9 @@ type runStarted struct {
 type runStartedOutput struct{ Body runStarted }
 
 type taskPatch struct {
-	Cadence api.Patch[int64]  `json:"cadence,omitempty" doc:"Seconds; null resets it to its default"`
-	Overdue api.Patch[string] `json:"overdue,omitempty" doc:"catch-up or wait; null resets it to its default"`
+	Cadence api.Patch[int64]           `json:"cadence,omitempty" doc:"Seconds; null resets it to its default"`
+	Overdue api.Patch[string]          `json:"overdue,omitempty" doc:"catch-up or wait; null resets it to its default"`
+	Tuning  map[string]json.RawMessage `json:"tuning,omitempty" doc:"Each tuning setting's new value by key, all or none; null resets one to its default"`
 }
 
 type taskPatchInput struct {
@@ -425,9 +428,9 @@ func Routes(r *api.Router, c Clock) {
 		ID:      "updateTask",
 		Method:  http.MethodPatch,
 		Path:    "/tasks/{taskId}",
-		Summary: "Change a task's cadence or overdue rule",
+		Summary: "Change a task's cadence, overdue rule or tuning",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{taskUnknown, settingapi.ErrOutOfRange},
+		Errors:  []*api.Code{taskUnknown, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateTask)
 
 	api.Register(o, api.Admin, api.Op{
@@ -460,7 +463,7 @@ func (h handlers) getTask(ctx context.Context, _ identity.Admin, in *taskInput) 
 	if err != nil {
 		return nil, answer(err)
 	}
-	out := detail{Task: taskOf(d.View), Units: []unit{}, Runs: []run{}}
+	out := detail{Task: taskOf(d.View), Units: []unit{}, Runs: []run{}, Tuning: settingapi.FieldsOf(d.Tuning)}
 	for _, u := range d.Units {
 		out.Units = append(out.Units, unitOf(u))
 	}
@@ -513,6 +516,9 @@ func (h handlers) updateTask(ctx context.Context, _ identity.Admin, in *taskPatc
 		if err := s.SetOverdue(ctx, id, v); err != nil {
 			return nil, answer(err)
 		}
+	}
+	if err := s.SetTuning(ctx, id, in.Body.Tuning); err != nil {
+		return nil, answer(err)
 	}
 	if d, err = s.Task(ctx, id); err != nil {
 		return nil, answer(err)

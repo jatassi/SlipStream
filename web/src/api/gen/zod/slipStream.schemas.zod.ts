@@ -3341,6 +3341,11 @@ export type TasksUnitOutput = zod.output<typeof TasksUnit>;
 export const TasksDetail = zod.object({
   runs: zod.array(TasksRun).describe("Its runs, newest first, up to the runs kept"),
   task: TasksTask,
+  tuning: zod
+    .array(SettingField)
+    .describe(
+      "Settings its owner stores that tune what it does; PATCH sets them under tuning by key",
+    ),
   units: zod.array(TasksUnit).describe("Each unit it lists now, in run order"),
 });
 
@@ -3482,6 +3487,12 @@ export type TasksSchedulePatchOutput = zod.output<typeof TasksSchedulePatch>;
 export const TasksTaskPatch = zod.object({
   cadence: zod.int().nullish().describe("Seconds; null resets it to its default"),
   overdue: zod.string().nullish().describe("catch-up or wait; null resets it to its default"),
+  tuning: zod
+    .record(zod.string(), zod.unknown())
+    .exactOptional()
+    .describe(
+      "Each tuning setting's new value by key, all or none; null resets one to its default",
+    ),
 });
 
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
