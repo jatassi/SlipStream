@@ -4,6 +4,7 @@ import {
   getListGrabsQueryKey,
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
+import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import {
   getGetWorkQueryKey,
@@ -23,6 +24,7 @@ export const libraryEffects = {
     refresh({ queryKey: getListWorksQueryKey() });
     refresh({ queryKey: getGetWorkQueryKey(data.workId) });
     refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    refresh({ queryKey: getListRootsQueryKey() });
     refresh(everyCatalogSearch);
   },
   "works.content-types-changed": (_data, { refresh }) => {
@@ -30,6 +32,7 @@ export const libraryEffects = {
   },
   "files.changed": (data, { refresh }) => {
     refresh({ queryKey: getGetWorkCellsQueryKey(data.workId) });
+    refresh({ queryKey: getListRootsQueryKey() });
   },
   "grabs.changed": (data, { refresh }) => {
     refresh({ queryKey: getListGrabsQueryKey() });
