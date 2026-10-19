@@ -42,6 +42,7 @@ The grammar of `<fault>`, one per rule:
 ```text
 refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
 status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+content-type=<media type>
 ```
 
 - The first six and `tls=` are connection faults; the rest are HTTP faults and need a fake that speaks HTTP. A rule the front can't play is refused when set, naming the layer.

@@ -329,6 +329,18 @@ func TestMalformedKeepsTheStatusAndType(t *testing.T) {
 	})
 }
 
+func TestContentTypeKeepsTheStatusAndBody(t *testing.T) {
+	httpTiers(t, faulted(t, fault.ContentType("text/html"), &genuine{}), func(t *testing.T, get func() (reply, error)) {
+		r, err := get()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := r.status + " " + r.header.Get("Content-Type"); got != "200 OK text/html" || r.body != genuineBody || r.bodyErr != nil {
+			t.Fatalf("answered %q with %d bytes and %v", got, len(r.body), r.bodyErr)
+		}
+	})
+}
+
 func TestHangNeverAnswers(t *testing.T) {
 	h := &genuine{}
 	httpTiers(t, faulted(t, fault.Hang{}, h), func(t *testing.T, get func() (reply, error)) {
