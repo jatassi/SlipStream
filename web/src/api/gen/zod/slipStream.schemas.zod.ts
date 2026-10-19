@@ -259,6 +259,7 @@ export const GrabsFailure = zod.object({
     "torrent_v2_only",
     "no_download_client",
     "download_failed",
+    "removed",
     "no_video_file",
     "probe_failed",
     "fills_nothing",
@@ -2679,7 +2680,7 @@ export type SystemBuildOutput = zod.output<typeof SystemBuild>;
 
 export const SystemConfigSection = zod.object({
   fields: zod.array(SettingField),
-  id: zod.enum(["web", "log"]),
+  id: zod.enum(["web", "log", "torrent"]),
 });
 
 export type SystemConfigSection = zod.input<typeof SystemConfigSection>;

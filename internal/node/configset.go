@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/op"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 type ConfigRequest struct {
@@ -55,8 +57,8 @@ func changesOf(cs []ConfigChange) []nodesystem.Change {
 // saved value now differs from the running one, then reports the new
 // settings revision. A restart row keeps its running value until the Node
 // restarts.
-func (n *Node) setConfig(changes []nodesystem.Change) ([]Key, error) {
-	keys, err := n.saveConfig(changes)
+func (n *Node) setConfig(ctx context.Context, changes []nodesystem.Change) ([]Key, error) {
+	keys, err := n.saveConfig(ctx, changes)
 	if err != nil {
 		return nil, err
 	}
@@ -64,10 +66,10 @@ func (n *Node) setConfig(changes []nodesystem.Change) ([]Key, error) {
 	return keys, nil
 }
 
-func (n *Node) saveConfig(changes []nodesystem.Change) ([]Key, error) {
+func (n *Node) saveConfig(ctx context.Context, changes []nodesystem.Change) ([]Key, error) {
 	n.cfgMu.Lock()
 	defer n.cfgMu.Unlock()
-	saved, keys, err := n.env.configFile().set(changes)
+	saved, keys, err := n.env.configFile().set(ctx, n.store, changes)
 	if err != nil {
 		return nil, err
 	}
@@ -93,12 +95,12 @@ func (n *Node) saveConfig(changes []nodesystem.Change) ([]Key, error) {
 	return keys, nil
 }
 
-func (n *Node) serveConfig(_ context.Context, body json.RawMessage, send func(any) error) error {
+func (n *Node) serveConfig(ctx context.Context, body json.RawMessage, send func(any) error) error {
 	var req ConfigRequest
 	if err := control.Decode(body, &req); err != nil {
 		return err
 	}
-	keys, err := n.setConfig(changesOf(req.Changes))
+	keys, err := n.setConfig(ctx, changesOf(req.Changes))
 	if refused, ok := errors.AsType[*nodesystem.Refusal](err); ok {
 		return send(ConfigReply{Refused: refused})
 	}
@@ -125,8 +127,24 @@ func SetConfig(ctx context.Context, env Env, changes []ConfigChange) (keys []Key
 	if err != nil {
 		return nil, false, err
 	}
-	_, keys, err = env.configFile().set(changesOf(changes))
+	keys, err = setOffline(ctx, env, changesOf(changes))
 	return keys, false, errors.Join(err, lk.Release())
+}
+
+// setOffline judges a folder by the Disk alone, since the roots it may
+// not overlap are the Controller's and the Node holds none while stopped.
+func setOffline(ctx context.Context, env Env, changes []nodesystem.Change) ([]Key, error) {
+	f := env.configFile()
+	saved, _, err := f.load()
+	if err != nil {
+		return nil, err
+	}
+	disk, err := env.Disk(env.DataDir.Path())
+	if err != nil {
+		return nil, fmt.Errorf("open the disk: %w", err)
+	}
+	_, keys, err := f.set(ctx, storing.NewStore(storing.Config{Disk: disk, Timings: saved.Timings.Storing}), changes)
+	return keys, err
 }
 
 // notReadyPoll is how often callWhenReady asks a starting Node again.

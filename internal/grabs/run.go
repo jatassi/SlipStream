@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/backoff"
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
@@ -35,14 +36,20 @@ import (
 type outcome interface{ outcome() }
 
 // advance moves a Grab to its next stage with what that stage needs: the
-// torrent and the Nodes that fetched and download it into downloading,
+// .torrent and the Nodes that fetched and download it into downloading,
 // the plan out of probing, the file into imported.
 type advance struct {
 	to      Stage
-	torrent *Torrent
+	torrent *dotTorrent
 	fetched *fetched
 	plan    *Plan
 	file    *files.Incoming
+}
+
+// dotTorrent is a fetched .torrent, decoded and as the Indexer sent it.
+type dotTorrent struct {
+	metainfo bencode.Metainfo
+	raw      []byte
 }
 
 // fetched is the Searching Node that fetched a Grab's .torrent and the
@@ -83,8 +90,12 @@ var steps = map[Stage]func(*Grabs, context.Context, Grab) outcome{
 }
 
 // due reports whether g has a step to run now. A downloading Grab waits
-// for the Downloading Role's result, which the progress tick reads.
-func (g Grab) due() bool { return !g.Done() && (g.Stage != Downloading || g.Download != nil) }
+// while its Torrent is Pending, which the progress tick reads again.
+func (g Grab) due() bool { return !g.Done() && !g.waitsOnTorrent() }
+
+func (g Grab) waitsOnTorrent() bool {
+	return g.Stage == Downloading && g.Torrent.Outcome == downloadclients.Outcome(downloadclients.Pending{})
+}
 
 // classify turns a remote or file step's error into its outcome: a link
 // that is down, mismatched or lost the call waits, and so do a Transfer's
@@ -153,18 +164,33 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	case g.Release.InfoHash != nil && *g.Release.InfoHash != m.InfoHash:
 		return fail{InfohashMismatch, fmt.Sprintf("the .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
 	}
-	return advance{to: Downloading, torrent: &Torrent{InfoHash: m.InfoHash, Metainfo: f.Torrent}, fetched: &fetched{by: f.Node, to: to}}
+	return advance{to: Downloading, torrent: &dotTorrent{metainfo: m, raw: f.Torrent}, fetched: &fetched{by: f.Node, to: to}}
 }
 
 func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
-	if g.Download.Error != "" {
-		return fail{DownloadFailed, g.Download.Error}
+	switch o := g.Torrent.Outcome.(type) {
+	case downloadclients.Completed:
+		return advance{to: Probing}
+	case downloadclients.Failed:
+		return fail{DownloadFailed, o.Error}
+	case downloadclients.Gone:
+		return failOfGone[o.Reason]
 	}
-	return advance{to: Probing}
+	panic("grabs: a Grab whose Torrent is Pending is never due")
+}
+
+const writtenOffWords = "the Admin wrote off what this Grab's Node downloads"
+
+// failOfGone is how a Grab at downloading fails when its Torrent is
+// removed, by why.
+var failOfGone = map[downloadclients.RemoveReason]fail{
+	downloadclients.ByAdmin:        {Removed, "the Admin removed this Grab's torrent"},
+	downloadclients.ByMarkFailed:   {DownloadFailed, "the Admin marked this Grab's download failed"},
+	downloadclients.NodeWrittenOff: {NodeWrittenOff, writtenOffWords},
 }
 
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
-	video, ok := largestVideo(g.Download.Files)
+	video, ok := largestVideo(g.Torrent.Files)
 	if !ok {
 		return fail{NoVideoFile, "the download holds no mkv, mp4, m4v, avi or ts file"}
 	}
@@ -375,55 +401,101 @@ func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ 
 	return release.File(g.Release.Title, known.For(typ), p.Resolution()), nil
 }
 
+// errLeft rolls back a commit whose Grab has left the stage it moves
+// from, along with any Torrent its attach added.
+var errLeft = errors.New("the Grab left the stage")
+
 // commit applies o to g in one Write that compares on g's stage, so a
 // repeated step converges, then publishes. It is the only code that moves
-// a Grab's stage.
+// a Grab's stage. A fetch's commit attaches the Grab to its Torrent, and
+// fails with downloadclients.ErrRemoving while that must wait.
 func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	now := storage.Now()
-	params, a, err := advanceParams(g, o, now)
-	if err != nil {
-		return err
-	}
-	won := false
-	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		var err error
-		won, err = gr.record(ctx, tx, g, params, a, now)
-		return err
+	var params db.AdvanceParams
+	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		o, err := confirm(ctx, tx, g, o)
+		if err != nil {
+			return err
+		}
+		p, a, err := advanceParams(g, o, now)
+		if err != nil {
+			return err
+		}
+		if a.torrent != nil {
+			if p.TorrentID, p.NodeID, err = gr.attach(ctx, tx, g, a, now); err != nil {
+				return err
+			}
+		}
+		params = p
+		return gr.record(ctx, tx, g, params, a, now)
 	})
-	if errors.Is(err, files.ErrRootChanged) {
+	switch {
+	case errors.Is(err, files.ErrRootChanged):
 		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
-	}
-	if err != nil || !won {
+	case errors.Is(err, errLeft):
+		return nil
+	case err != nil:
 		return err
 	}
-	if a.fetched != nil {
-		g.Node = a.fetched.to
+	if !params.NodeID.IsZero() {
+		g.Node = params.NodeID
 	}
 	gr.entered(ctx, g, params.Next)
 	return nil
 }
 
-// record writes g's move by params in tx, unless g has left the stage
-// params moves it from.
-func (gr *Grabs) record(ctx context.Context, tx *storage.Tx[file], g Grab, params db.AdvanceParams, a advance, now storage.Time) (advanced bool, err error) {
+// confirm re-reads a downloading Grab's Torrent in tx, so a removal that
+// committed after the step read it fails the Grab rather than advancing it.
+func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outcome, error) {
+	if g.Stage != Downloading {
+		return o, nil
+	}
+	now, err := downloadclients.Outcomes(ctx, tx, []downloadclients.ID{g.Torrent.ID})
+	if err != nil {
+		return nil, err
+	}
+	if gone, ok := now[g.Torrent.ID].Outcome.(downloadclients.Gone); ok {
+		return failOfGone[gone.Reason], nil
+	}
+	return o, nil
+}
+
+// attach binds g to the Torrent of a's .torrent, on the Node the fetch
+// picked unless another Node already holds it.
+func (gr *Grabs) attach(ctx context.Context, tx *storage.Tx[file], g Grab, a advance, now storage.Time) (downloadclients.ID, role.NodeID, error) {
+	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
+	if err != nil {
+		return downloadclients.ID{}, role.NodeID{}, err
+	}
+	return downloadclients.Attach(ctx, tx, downloadclients.Want{
+		Node: a.fetched.to, Metainfo: a.torrent.metainfo, Raw: a.torrent.raw, ContentType: tree.ContentType,
+		WrittenOff: func(node role.NodeID) bool { return gr.cfg.Roster.WrittenOff(role.Downloading, node) },
+	}, now)
+}
+
+// record writes g's move by params in tx, or fails with errLeft when g
+// has left the stage params moves it from.
+func (gr *Grabs) record(ctx context.Context, tx *storage.Tx[file], g Grab, params db.AdvanceParams, a advance, now storage.Time) error {
 	q := db.New(tx)
-	if n, err := q.Advance(ctx, params); err != nil || n == 0 {
-		return false, err
+	n, err := q.Advance(ctx, params)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return errLeft
 	}
 	if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
-		return false, err
+		return err
 	}
 	for i, t := range a.fills() {
 		if err := q.InsertFill(ctx, db.InsertFillParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
-			return false, err
+			return err
 		}
 	}
 	if a.file != nil {
-		if err := gr.land(ctx, tx, g, *a.file); err != nil {
-			return false, err
-		}
+		return gr.land(ctx, tx, g, *a.file)
 	}
-	return true, nil
+	return nil
 }
 
 // land imports g's file in tx, with its facts, under the choice a change
@@ -471,9 +543,6 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 	switch o := o.(type) {
 	case advance:
 		params.Next = o.to
-		if o.torrent != nil {
-			params.InfoHash, params.Metainfo = o.torrent.InfoHash[:], o.torrent.Metainfo
-		}
 		if o.fetched != nil {
 			params.FetchNodeID, params.NodeID = o.fetched.by, o.fetched.to
 		}
@@ -536,6 +605,10 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 	if err := gr.commit(ctx, g, o); err != nil {
 		if ctx.Err() != nil {
 			return halted
+		}
+		if errors.Is(err, downloadclients.ErrRemoving) {
+			gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", err.Error())
+			return waited
 		}
 		gr.cfg.Log.Error("commit a Grab's step", "grab", g.ID.String(), "stage", string(g.Stage), "err", err.Error())
 		return waited
@@ -663,7 +736,7 @@ func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 // a read failed.
 func (s *schedule) next(now time.Time, grabs []Grab, readFailed bool, t Timings) time.Duration {
 	wake := now.Add(time.Hour)
-	if readFailed || slices.ContainsFunc(grabs, func(g Grab) bool { return g.Stage == Downloading && g.Download == nil || g.Stage == Transferring }) {
+	if readFailed || slices.ContainsFunc(grabs, func(g Grab) bool { return g.waitsOnTorrent() || g.Stage == Transferring }) {
 		wake = now.Add(t.Progress)
 	}
 	for id, at := range s.retryAt {

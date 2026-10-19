@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
@@ -114,7 +115,7 @@ func expect(t *testing.T, s *ownertest.Owner, method, path string, status int, w
 func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},

@@ -15,7 +15,7 @@ import (
 
 func newOSDisk(t *testing.T) OSDisk {
 	t.Helper()
-	d, err := NewOSDisk("/data", "/downloads")
+	d, err := NewOSDisk("/data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func newOSDisk(t *testing.T) OSDisk {
 
 func TestOSDiskHost(t *testing.T) {
 	h := newOSDisk(t).Host()
-	if h.Style != nativeStyle || h.Account == "" || h.Service || h.Data != "/data" || h.Downloads != "/downloads" {
+	if h.Style != nativeStyle || h.Account == "" || h.Service || h.Data != "/data" {
 		t.Errorf("Host = %+v", h)
 	}
 }

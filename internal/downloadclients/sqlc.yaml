@@ -38,3 +38,27 @@ sql:
             go_type:
               type: int64
               pointer: true
+          - column: downloadclients_torrent.save_folder
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_torrent.removed_reason
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_torrent.freed
+            go_type:
+              type: int64
+              pointer: true
+          - column: downloadclients_torrent.report
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_torrent.completion
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_torrent.fault
+            go_type:
+              type: string
+              pointer: true

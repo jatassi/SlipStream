@@ -41,8 +41,8 @@ func (h *nodeHost) Facts() (system.Facts, error) {
 
 func (h *nodeHost) Config() (nodesystem.Config, error) { return h.n.configView() }
 
-func (h *nodeHost) SetConfig(changes []nodesystem.Change) (nodesystem.Config, error) {
-	if _, err := h.n.setConfig(changes); err != nil {
+func (h *nodeHost) SetConfig(ctx context.Context, changes []nodesystem.Change) (nodesystem.Config, error) {
+	if _, err := h.n.setConfig(ctx, changes); err != nil {
 		return nodesystem.Config{}, err
 	}
 	return h.n.configView()
@@ -93,10 +93,11 @@ func (h *nodeHost) Archive() (nodesystem.Archive, error) {
 }
 
 // sections names the Nodes section each config.yaml section's rows show in.
-var sections = map[string]nodesystem.SectionID{"http": nodesystem.Web, "log": nodesystem.Log}
+var sections = map[string]nodesystem.SectionID{"http": nodesystem.Web, "log": nodesystem.Log, "torrent": nodesystem.Torrent}
 
 // configView is the Node settings table as the Nodes sections show it:
-// config.yaml as saved now, beside the running values.
+// config.yaml as saved now, beside the running values. Only a claimed
+// Node serves it.
 func (n *Node) configView() (nodesystem.Config, error) {
 	saved, keys, err := n.env.configFile().load()
 	if err != nil {
@@ -106,7 +107,7 @@ func (n *Node) configView() (nodesystem.Config, error) {
 	running := n.cfg
 	n.cfgMu.Unlock()
 	defaults := Defaults(n.env.Types, n.env.Install)
-	v := view{saved: &saved, running: &running, defaults: &defaults, keys: keysByName(keys)}
+	v := view{saved: &saved, running: &running, defaults: &defaults, keys: keysByName(keys), dir: n.env.DataDir, self: n.half.Load().self}
 	if f := n.host.facts.Load(); f != nil {
 		v.boundHTTP = f.Listeners.HTTP.Port()
 	}

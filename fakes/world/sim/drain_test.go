@@ -245,11 +245,13 @@ func (p *failsOnce) Probe(ctx context.Context, path string) (media.Probe, error)
 	return p.Prober.Probe(ctx, path)
 }
 
-// TestANewGrabGoesHomeWhileSeedboxDrains fails seedbox's first Grab at
-// probing, so its torrent keeps seeding, then unticks Downloading on
-// seedbox: seedbox drains, and the next search's Grab is fetched through
-// seedbox, which still searches, and downloaded by home.
-func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
+// TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds fails seedbox's
+// first Grab at probing, so its torrent keeps seeding, then unticks
+// Downloading on seedbox: seedbox drains. The next search's Grab is
+// fetched through seedbox, which still searches, and though the router
+// picks home, it attaches to the Torrent seedbox already holds instead of
+// downloading the release again.
+func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
@@ -258,7 +260,8 @@ func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
 		}))
 		work := addOrchard(t, w)
 		search(t, w, work)
-		if first := await(t, w); first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
+		first := await(t, w)
+		if first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
 			t.Fatalf("seedbox's first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
 		}
 		a := w.API()
@@ -284,9 +287,9 @@ func TestANewGrabGoesHomeWhileSeedboxDrains(t *testing.T) {
 			}
 			return next.Stage == "imported"
 		})
-		if next.NodeID != home || next.FetchNodeID != box1.ID {
-			t.Fatalf("the second Grab was fetched by %s and downloaded by %s, want fetched by seedbox %s and downloaded by home %s",
-				next.FetchNodeID, next.NodeID, box1.ID, home)
+		if next.NodeID != box1.ID || next.FetchNodeID != box1.ID || next.InfoHash != first.InfoHash {
+			t.Fatalf("the second Grab was fetched by %s and downloaded by %s with %s, want both seedbox %s with the first Grab's torrent %s, not home %s",
+				next.FetchNodeID, next.NodeID, next.InfoHash, box1.ID, first.InfoHash, home)
 		}
 		if st := stateOf(seedbox(t, a), "downloading"); st != "draining" || box.torrents() != 1 {
 			t.Fatalf("after home's Grab, seedbox stands %s in Downloading with %d torrents, want still draining the 1 it seeds", st, box.torrents())

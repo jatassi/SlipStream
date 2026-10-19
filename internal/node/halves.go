@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -49,6 +50,8 @@ type peers interface {
 // half is the claimed part of a running Node. Each Node starts at most one,
 // from Unclaimed or at start, and never restarts it in process.
 type half struct {
+	// self is the Node's id in its Controller's library.
+	self     role.NodeID
 	peers    peers
 	dispatch *rpc.Dispatch
 	holding  *role.Holding
@@ -92,7 +95,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
+	downloads := downloading.Def.Serve(downloadclients.Intent, downloadclients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	arrivals := roots.NewArrivals()
 	var (
@@ -257,7 +260,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	n.setHalf(&half{
-		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
+		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   goals,
 		roots:     library,
 		files:     shelf,
@@ -339,7 +342,8 @@ func (n *Node) startWorker(ctx context.Context) error {
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
-	n.setHalf(&half{peers: side, dispatch: dispatch, holding: holding, serving: front, source: transfers.NewSource(transfers.SourceConfig{
+	rec, _ := side.Record()
+	n.setHalf(&half{self: rec.NodeID, peers: side, dispatch: dispatch, holding: holding, serving: front, source: transfers.NewSource(transfers.SourceConfig{
 		Payloads:   n.downloads,
 		Controller: controller.Key,
 		Hooks:      n.env.Test.Transfers,
@@ -412,7 +416,7 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 func owners() []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
-		grabs.DownloadingOwner,
+		downloadclients.DownloadingOwner,
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),

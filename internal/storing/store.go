@@ -27,7 +27,10 @@ type Payloads interface {
 type Config struct {
 	Disk     Disk
 	Payloads Payloads
-	Timings  Timings
+	// Downloads is the downloads folder and every save folder outside it,
+	// which no root may overlap.
+	Downloads func() []string
+	Timings   Timings
 }
 
 // resampleEvery is the least time between two samples a placement asks

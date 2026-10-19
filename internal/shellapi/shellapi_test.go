@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -52,10 +53,9 @@ func (unlinked) Stats(link.Key) (link.Stats, bool)            { return link.Stat
 // seed inserts one Grab in stage, with the columns the stage's CHECKs ask
 // for, against the one Item in the library.
 const seed = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, node_id,
-	release_title, release_size, release_link, stage, info_hash, metainfo, path, failure_code, created_at, updated_at)
+	release_title, release_size, release_link, stage, torrent_id, path, failure_code, created_at, updated_at)
 SELECT ?, work_id, id, 'standard', 'search', ?, ?, 'The.Attic.1080p.WEB', 4096, 'https://site.test/dl/1', ?,
-	CASE WHEN ? = 'fetching' THEN NULL ELSE randomblob(20) END,
-	CASE WHEN ? = 'fetching' THEN NULL ELSE x'00' END,
+	CASE WHEN ? = 'fetching' THEN NULL ELSE ? END,
 	CASE WHEN ? IN ('transferring', 'importing', 'imported') THEN 'The Attic.mkv' END,
 	CASE WHEN ? = 'failed' THEN 'download_failed' END,
 	0, 0
@@ -64,7 +64,7 @@ FROM works_item`
 func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(),
-		roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
+		roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
@@ -87,13 +87,18 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	s := ownertest.Serve(t, lib, func(r *api.Router) { shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster}) })
 
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"alerts":{"nodes":null}}`)
-	home, indexer := roster.Self(), storage.NewUUID()
+	home, indexer, torrent := roster.Self(), storage.NewUUID(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO indexers_indexer VALUES (?, 'Fixture Site', 'torznab', 'https://site.test/api', NULL, ?, '{}', 0)`, indexer, home); err != nil {
 			return err
 		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
+			content_type, wanted, added_order, added_at) VALUES (?, ?, randomblob(20), x'00', 'The.Attic.1080p.WEB', 4096, 1, '[]', 'fixture', 'started', 1, 0)`,
+			torrent, home); err != nil {
+			return err
+		}
 		for _, stage := range []string{"fetching", "fetching", "downloading", "probing", "transferring", "importing", "imported", "imported", "failed"} {
-			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), indexer, home, stage, stage, stage, stage, stage); err != nil {
+			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), indexer, home, stage, stage, torrent, stage, stage); err != nil {
 				return err
 			}
 		}

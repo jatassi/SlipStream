@@ -45,11 +45,11 @@ func (Unreported) Facts(role.NodeID) (*storagev1.Facts, bool) { return nil, fals
 // downloads.
 func Store(tb testing.TB, data, downloads string) *storing.Store {
 	tb.Helper()
-	disk, err := storing.NewOSDisk(data, downloads)
+	disk, err := storing.NewOSDisk(data)
 	if err != nil {
 		tb.Fatal(err)
 	}
-	return storing.NewStore(storing.Config{Disk: disk, Timings: storing.Timings{Stat: 10 * time.Second}})
+	return storing.NewStore(storing.Config{Disk: disk, Downloads: func() []string { return []string{downloads} }, Timings: storing.Timings{Stat: 10 * time.Second}})
 }
 
 // Everywhere reaches store on every Node, for its Storage and its folders.
@@ -110,11 +110,12 @@ func Draining(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID,
 
 func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, draining bool, types []works.TypeID) *roots.Roots {
 	tb.Helper()
-	disk, err := storing.NewOSDisk(tb.TempDir(), tb.TempDir())
+	disk, err := storing.NewOSDisk(tb.TempDir())
 	if err != nil {
 		tb.Fatal(err)
 	}
-	store := storing.NewStore(storing.Config{Disk: disk, Payloads: payloads, Timings: storing.Timings{Stat: 10 * time.Second}})
+	downloads := []string{tb.TempDir()}
+	store := storing.NewStore(storing.Config{Disk: disk, Payloads: payloads, Downloads: func() []string { return downloads }, Timings: storing.Timings{Stat: 10 * time.Second}})
 	var intent *storagev1.Intent
 	err = lib.Read(tb.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		intent, err = roots.StorageIntent(files.RootContents{})(ctx, r, node)

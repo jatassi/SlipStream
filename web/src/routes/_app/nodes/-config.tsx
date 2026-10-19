@@ -16,6 +16,7 @@ import { toast } from "../../../ui/toast";
 const savedToast: { readonly [S in SystemConfigSectionId]: string } = {
   web: "Web and API settings saved",
   log: "Log settings saved",
+  torrent: "Torrent client settings saved",
 };
 
 function fieldsOf(config: SystemNodeConfig, id: SystemConfigSectionId): readonly Field[] {

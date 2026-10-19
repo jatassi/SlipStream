@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
@@ -33,10 +34,7 @@ type GrabsGrab struct {
 	ReleaseLink     string
 	ReleaseInfoHash []byte
 	Stage           Stage
-	InfoHash        []byte
-	Metainfo        []byte
-	DownloadFiles   *string
-	DownloadError   *string
+	TorrentID       downloadclients.ID
 	FileIndex       *int64
 	Probe           *string
 	RootID          roots.ID
@@ -47,7 +45,6 @@ type GrabsGrab struct {
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
 	Unwanted        *files.Unwanted
-	SeedDroppedAt   storage.Time
 	FetchNodeID     role.NodeID
 }
 
