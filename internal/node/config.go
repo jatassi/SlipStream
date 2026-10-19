@@ -142,6 +142,7 @@ type TimingsBlock struct {
 	Serving     serving.Timings     `yaml:"serving"`
 	Storing     storing.Timings     `yaml:"storing"`
 	Metadata    metadata.Timings    `yaml:"metadata"`
+	TMDB        tmdb.Timings        `yaml:"tmdb"`
 }
 
 type Timings struct {
@@ -205,6 +206,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Serving:     serving.DefaultTimings(),
 			Storing:     storing.DefaultTimings(),
 			Metadata:    metadata.DefaultTimings(),
+			TMDB:        tmdb.DefaultTimings(),
 		},
 	}
 }

@@ -7,12 +7,14 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttypes/movie/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/release"
@@ -55,12 +57,12 @@ func (*Movie) Describe() works.Description { return Description }
 
 // Search answers TMDB's first page, whose 20 results fit works' 25.
 func (m *Movie) Search(ctx context.Context, query string) ([]works.Candidate, error) {
-	found, err := m.source.SearchMovies(ctx, query)
+	found, err := m.source.SearchMovies(ctx, metadata.Ask{}, query, 0, 1)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]works.Candidate, len(found))
-	for i, r := range found {
+	out := make([]works.Candidate, len(found.Results))
+	for i, r := range found.Results {
 		out[i] = works.Candidate{Key: works.Key(strconv.FormatInt(r.ID, 10)), Label: r.Title}
 		if y := year(r.ReleaseDate); y != nil {
 			out[i].Fields = []works.FieldValue{works.NumberField("year", float64(*y))}
@@ -80,7 +82,11 @@ type detail struct {
 
 // Fetch reads the movie whose TMDB id is key.
 func (m *Movie) Fetch(ctx context.Context, key works.Key) (works.Fetched, error) {
-	tm, err := m.source.Movie(ctx, string(key))
+	id, err := strconv.ParseInt(string(key), 10, 64)
+	if err != nil {
+		return works.Fetched{}, fmt.Errorf("movie %q: %w", key, works.ErrNotFound)
+	}
+	tm, err := m.source.Movie(ctx, metadata.Ask{}, id)
 	if err != nil {
 		return works.Fetched{}, err
 	}
@@ -89,7 +95,7 @@ func (m *Movie) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 		id := db.IMDbID(tm.ExternalIDs.IMDbID)
 		d.IMDbID = &id
 	}
-	if released := tm.Released(); released != "" {
+	if released := released(tm); released != "" {
 		d.Released = &released
 	}
 	if tm.Runtime > 0 {
@@ -100,6 +106,23 @@ func (m *Movie) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 		return works.Fetched{}, fmt.Errorf("encode movie %s: %w", key, err)
 	}
 	return f, nil
+}
+
+// released is the earliest cinema or digital date in any country, as
+// YYYY-MM-DD, or empty when TMDB lists none.
+func released(m tmdb.Movie) string {
+	var dates []string
+	for _, c := range m.ReleaseDates.Results {
+		for _, r := range c.Releases {
+			if (r.Type == tmdb.TheatricalLimited || r.Type == tmdb.Theatrical || r.Type == tmdb.Digital) && len(r.Date) >= len(time.DateOnly) {
+				dates = append(dates, r.Date[:len(time.DateOnly)])
+			}
+		}
+	}
+	if len(dates) == 0 {
+		return ""
+	}
+	return slices.Min(dates)
 }
 
 func year(date string) *int64 {

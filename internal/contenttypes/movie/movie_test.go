@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 	"testing/synctest"
@@ -16,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttypes/movie"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -42,8 +44,10 @@ func open(f faketest.Served) contenttype.Type {
 	return movie.Def.Open(contenttype.Deps{
 		HTTP:      f.Client,
 		UserAgent: "SlipStream/test ( github.com/jatassi/SlipStream )",
-		TMDB:      tmdb.New(f.Client, tmdb.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3"))}, "SlipStream/test"),
-		Log:       slog.New(slog.DiscardHandler),
+		TMDB: tmdb.New(
+			metadata.NewLines(f.Client, "SlipStream/test", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))), //nolint:gosec // a fixed draw the test replays
+			tmdb.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3"))}, tmdb.DefaultTimings()),
+		Log: slog.New(slog.DiscardHandler),
 	}, nil)
 }
 
@@ -84,7 +88,7 @@ func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
 			t.Fatalf("Fetch = %+v detail %s, %v; want %+v detail %s", got, got.Detail, err, want, want.Detail)
 		}
 		_, err = m.Fetch(t.Context(), "9000003")
-		if want := "GET /movie/9000003: 404 Not Found: the metadata source has no record with that key"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
+		if want := "GET /movie/9000003: TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
 			t.Fatalf("Fetch(9000003) = %v, want %s", err, want)
 		}
 	})

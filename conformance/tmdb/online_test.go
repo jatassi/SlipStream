@@ -13,7 +13,7 @@ import (
 	provider "github.com/jatassi/slipstream/internal/providers/tmdb"
 )
 
-var fightClub = conformance.Known{ID: 550, Title: "Fight Club", IMDbID: "tt0137523"}
+var fightClub = conformance.Known{ID: 550, Title: "Fight Club", IMDbID: "tt0137523", Year: 1999}
 
 func TestTMDBConforms(t *testing.T) {
 	key := os.Getenv("TEST_ONLINE_TMDB_KEY")
