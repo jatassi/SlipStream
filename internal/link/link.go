@@ -122,7 +122,8 @@ func New(cfg Config) (*Link, error) {
 	return l, nil
 }
 
-// Close ends every session and dial and waits for the link's goroutines.
+// Close ends every session and dial and waits for the link's goroutines
+// and in-flight handlers.
 func (l *Link) Close() error {
 	l.mu.Lock()
 	if l.closed {

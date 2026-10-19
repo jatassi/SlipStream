@@ -212,7 +212,25 @@ func (l *Link) routes() http.Handler {
 		}
 		l.cfg.Lockstep.ServeHTTP(w, r)
 	})
-	return m
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.enter() {
+			http.Error(w, "link closed", http.StatusServiceUnavailable)
+			return
+		}
+		defer l.wg.Done()
+		m.ServeHTTP(w, r)
+	})
+}
+
+// enter counts a handler Close waits for, unless the link is closed.
+func (l *Link) enter() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed {
+		return false
+	}
+	l.wg.Add(1)
+	return true
 }
 
 // admitted waits for s's Hello, then reports whether s is live with a peer
