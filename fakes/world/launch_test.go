@@ -115,6 +115,7 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := run.Manifest()
+	home := worldtest.Watch(t, m.Nodes[0].PID)
 	checkLaunched(t, m, runDir, bin)
 	if got := getFake(ctx, t, m); got != "echo to world\n" {
 		t.Fatalf("GET the echo fake = %q", got)
@@ -175,6 +176,9 @@ func TestLaunchAndStopOnTheStub(t *testing.T) {
 	}
 	if want := "{\n  \"nodes\": [\n    {\n      \"name\": \"home\",\n      \"exitCode\": 0,\n      \"exitedUnasked\": false\n    }\n  ]\n}\n"; string(stopped) != want {
 		t.Fatalf("stopped.json =\n%s\nwant\n%s", stopped, want)
+	}
+	if !home.Gone() {
+		t.Errorf("node home (PID %d) still runs", home.PID)
 	}
 	assertStopped(t, m)
 }
@@ -318,11 +322,6 @@ func get(ctx context.Context, t *testing.T, m world.Manifest, url string) string
 
 func assertStopped(t *testing.T, m world.Manifest) {
 	t.Helper()
-	for _, n := range m.Nodes {
-		if n.PID != 0 && !worldtest.ProcessGone(n.PID) {
-			t.Errorf("node %s (PID %d) still runs", n.Name, n.PID)
-		}
-	}
 	for _, path := range []string{m.ScratchDir, m.Supervisor.Control, filepath.Join(m.RunDir, "manifest.json")} {
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s after stop: %v, want it gone", path, err)
@@ -456,13 +455,19 @@ func assertNothingLeft(t *testing.T, runDir string, spawned bool) {
 	if spawned != (len(spawns) > 0) {
 		t.Fatalf("node.spawned records = %+v, want spawned %t", spawns, spawned)
 	}
+	exits, err := events.Select(runDir, events.Query{Kind: events.NodeExited})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// node.exited follows the harness reaping the Node, after which Windows
+	// can give its PID to another process.
+	reaped := map[int]bool{}
+	for _, e := range exits {
+		reaped[recordPID(t, e)] = true
+	}
 	for _, s := range spawns {
-		var d struct{ PID int }
-		if err := json.Unmarshal(s.Data, &d); err != nil {
-			t.Fatal(err)
-		}
-		if !worldtest.ProcessGone(d.PID) {
-			t.Errorf("node %s (PID %d) still runs", s.Node, d.PID)
+		if pid := recordPID(t, s); !reaped[pid] {
+			t.Errorf("node %s (PID %d) has no node.exited record", s.Node, pid)
 		}
 	}
 	launched, err := events.Select(runDir, events.Query{Kind: events.RunLaunched})
@@ -479,6 +484,15 @@ func assertNothingLeft(t *testing.T, runDir string, spawned bool) {
 			t.Errorf("%s after a failed launch: %v, want it absent", path, err)
 		}
 	}
+}
+
+func recordPID(t *testing.T, r events.Record) int {
+	t.Helper()
+	var d struct{ PID int }
+	if err := json.Unmarshal(r.Data, &d); err != nil {
+		t.Fatal(err)
+	}
+	return d.PID
 }
 
 func TestLaunchUnderAnExpiredContextLeavesNothing(t *testing.T) {

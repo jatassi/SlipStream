@@ -29,13 +29,14 @@ func TestNodeActionsRewriteTheManifest(t *testing.T) {
 	if launched.State != world.NodeRunning || launched.PID == 0 {
 		t.Fatalf("home launched %s with PID %d, want running with its PID", launched.State, launched.PID)
 	}
+	home := worldtest.Watch(t, launched.PID)
 
 	code, stdout, stderr := fakeworld(t, "node", "kill", runDir, "home")
 	var killed world.Node
 	if err := json.Unmarshal([]byte(stdout), &killed); code != 0 || err != nil || stderr != "" || killed.State != world.NodeKilled || killed.PID != 0 {
 		t.Fatalf("fakeworld node kill = %d %q %q, want home's entry, killed with PID 0", code, stdout, stderr)
 	}
-	if !worldtest.ProcessGone(launched.PID) {
+	if !home.Gone() {
 		t.Fatalf("home (PID %d) still runs after the kill", launched.PID)
 	}
 	restarted := actOnHome(t, run, world.StartNode, world.NodeRunning)
@@ -147,24 +148,27 @@ func followRestarts(t *testing.T, successor bool) {
 		t.Fatal(err)
 	}
 	launched := run.Manifest().Nodes[0]
+	first := worldtest.Watch(t, launched.PID)
 	restarted := actOnHome(t, run, world.RestartNode, world.NodeRunning)
+	second := worldtest.Watch(t, restarted.PID)
 	if successor == (restarted.PID == launched.PID) || !reflect.DeepEqual(restarted.Listeners, launched.Listeners) {
 		t.Fatalf("home restarted as PID %d on %v after PID %d on %v; want a new PID %t on the same listeners", restarted.PID, restarted.Listeners, launched.PID, launched.Listeners, successor)
 	}
 	if successor {
-		gone(t, launched.PID)
+		gone(t, first)
 	}
 	if killed := actOnHome(t, run, world.KillNode, world.NodeKilled); killed.PID != 0 {
 		t.Fatalf("after the kill home's entry has PID %d, want 0", killed.PID)
 	}
-	gone(t, restarted.PID)
+	gone(t, second)
 	started := actOnHome(t, run, world.StartNode, world.NodeRunning)
 	again := actOnHome(t, run, world.RestartNode, world.NodeRunning)
+	last := worldtest.Watch(t, again.PID)
 	report, err := run.Stop(ctx)
 	if want := []world.NodeStop{{Name: "home"}}; err != nil || !reflect.DeepEqual(report.Nodes, want) {
 		t.Fatalf("stop after the restart = %+v, %v; want %+v", report.Nodes, err, want)
 	}
-	gone(t, again.PID)
+	gone(t, last)
 
 	want := []string{
 		"node.spawned home", "node.ready home",
@@ -188,9 +192,9 @@ func followRestarts(t *testing.T, successor bool) {
 	}
 }
 
-// gone waits for pid to be reaped. A successor's parent has exited, so
+// gone waits for p to be reaped. A successor's parent has exited, so
 // init reaps it some time after its stderr closes.
-func gone(t *testing.T, pid int) {
+func gone(t *testing.T, p worldtest.Process) {
 	t.Helper()
-	worldtest.Until(t, fmt.Sprintf("PID %d is gone", pid), func() (bool, error) { return worldtest.ProcessGone(pid), nil })
+	worldtest.Until(t, fmt.Sprintf("PID %d is gone", p.PID), func() (bool, error) { return p.Gone(), nil })
 }

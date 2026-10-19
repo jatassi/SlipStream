@@ -38,18 +38,40 @@ func TestAProcessThatIsNotAliveReleasesItsExecutable(t *testing.T) {
 }
 
 // Windows hands a reaped process's PID to a later process, so a check
-// after stop must not mistake that process for the one that stopped.
-func TestAReapedProcessReadsAsGoneOnceItsPIDIsReused(t *testing.T) {
+// after stop must not mistake that process for the one that stopped. The
+// watch keeps its own PID from reuse, so an unwatched process's PID shows
+// that Windows reused freed PIDs meanwhile.
+func TestAWatchedProcessReadsAsGoneOnceItsPIDIsReaped(t *testing.T) {
 	t.Parallel()
-	cmd := exec.CommandContext(worldtest.Context(t), os.Args[0])
-	cmd.Env = append(os.Environ(), "PROC_TEST_EXIT=1")
-	if err := cmd.Run(); err != nil {
+	watched := start(t)
+	w, err := proc.Watch(watched.Process.Pid)
+	if err != nil {
 		t.Fatal(err)
 	}
-	pid := cmd.Process.Pid
-	parkUntilReused(t, pid)
-	if proc.Alive(pid) {
-		t.Fatalf("the reaped PID %d reads as running once another process has it", pid)
+	defer w.Close()
+	reap(t, watched)
+	unwatched := start(t)
+	reap(t, unwatched)
+	parkUntilReused(t, unwatched.Process.Pid)
+	if !w.Gone() {
+		t.Fatalf("the reaped PID %d reads as running once Windows has reused freed PIDs", watched.Process.Pid)
+	}
+}
+
+func start(t *testing.T) *exec.Cmd {
+	t.Helper()
+	cmd := exec.CommandContext(worldtest.Context(t), os.Args[0])
+	cmd.Env = append(os.Environ(), "PROC_TEST_EXIT=1")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	return cmd
+}
+
+func reap(t *testing.T, cmd *exec.Cmd) {
+	t.Helper()
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }
 
