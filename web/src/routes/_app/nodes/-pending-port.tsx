@@ -13,6 +13,7 @@ export function PendingPort({ node }: { node: NodesNode }) {
   }
   return (
     <WarningLine
+      signal="warn"
       chip="Restart needed"
       subject={`Restart to use port ${port.value}`}
       detail={

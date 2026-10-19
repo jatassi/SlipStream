@@ -7,6 +7,7 @@ import { WarningLine, type WarningLineProps } from "./warning-line";
 
 function relayWarning(fixed: string[]): WarningLineProps {
   return {
+    signal: "warn",
     chip: "Degraded",
     subject: "relay-fra",
     detail: "Half its probes time out.",
@@ -70,4 +71,18 @@ test("a warning attached to a failure card is the card's last strip", async () =
   expect(card.element().lastElementChild?.textContent).toBe(
     "Degradedrelay-fraHalf its probes time out.since 08:30Check relay",
   );
+});
+
+test("an error line draws its chip and action in the error colour, not the warning one", async () => {
+  renderKit(
+    <>
+      <WarningLine {...relayWarning([])} signal="fail" chip="Error" />
+      <span data-testid="fail" className="bg-fail" />
+    </>,
+  );
+  const action = page.getByRole("button", { name: "Check relay" });
+  await expect.element(action).toBeVisible();
+  const fail = getComputedStyle(page.getByTestId("fail").element()).backgroundColor;
+  expect(getComputedStyle(action.element()).backgroundColor).toBe(fail);
+  expect(getComputedStyle(page.getByText("Error").element()).backgroundColor).toBe(fail);
 });
