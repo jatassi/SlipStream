@@ -45,6 +45,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if err := e.Resume(h); err != nil {
+		return err
+	}
 	var announced, complete, completedAnswered, finished bool
 	for ev := range e.Events() {
 		switch ev := ev.(type) {

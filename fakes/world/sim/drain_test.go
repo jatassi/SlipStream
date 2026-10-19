@@ -68,8 +68,8 @@ func (f followed) Add(p engine.AddParams) (engine.Handle, error) {
 	return h, err
 }
 
-func (f followed) Remove(h engine.Handle) error {
-	err := f.Engine.Remove(h)
+func (f followed) Remove(h engine.Handle, deleteFiles bool) error {
+	err := f.Engine.Remove(h, deleteFiles)
 	if err == nil {
 		f.e.mu.Lock()
 		delete(f.e.held, h)

@@ -6,19 +6,42 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net/netip"
+	"time"
 )
 
+// Engine is a thin port over a torrent engine. Every policy (when to start,
+// pause, announce or check) is the caller's; an Engine only does what it is
+// told and reports what happened.
 type Engine interface {
+	// Add adds a torrent paused: nothing connects or announces until Resume.
+	// It takes Resume when the caller has resume data, else Metainfo, and sets
+	// each counter to the larger of the resume data's value and Baseline's.
 	Add(AddParams) (Handle, error)
+	// Pause stops the torrent gracefully. A tracker gets stopped only where it
+	// answered started, so until each started announce is answered the pause
+	// waits, as Remove does.
+	Pause(Handle) error
+	Resume(Handle) error
+	// SaveResume asks for resume data: ResumeSaved or ResumeFailed follows.
+	SaveResume(Handle) error
+	// PostUpdates sends Updates with the torrents whose status changed since
+	// the last call, or with every torrent once the engine sent Dropped.
+	PostUpdates() error
 	ConnectPeer(Handle, netip.AddrPort) error
 	Status(Handle) (Status, error)
-	Remove(Handle) error
+	// Remove leaves once no tracker awaits its answer to started, so stopped
+	// goes out wherever started was answered. deleteFiles deletes the
+	// torrent's files and then its save path when that is left empty, and
+	// FilesDeleted follows Removed.
+	Remove(h Handle, deleteFiles bool) error
 	// Files lists a torrent's files as they lie under its save path, after
 	// the engine sanitized the names the metainfo gives.
 	Files(Handle) ([]File, error)
+	// FileProgress is the bytes done of each file, in Files' order.
+	FileProgress(Handle) ([]int64, error)
 	ListenAddr() (netip.AddrPort, error)
-	// Events is closed by Close. A reader that falls behind gets Dropped and
-	// should re-read Status for the torrents it tracks.
+	// Events is closed by Close. A reader that falls behind gets Dropped,
+	// and the next PostUpdates carries every torrent.
 	Events() <-chan Event
 	Close() error
 }
@@ -54,10 +77,20 @@ type Discovery struct {
 }
 
 type AddParams struct {
+	// Metainfo is nil when Resume carries the info dictionary.
 	Metainfo []byte
+	// Resume is resume data from ResumeSaved, nil for none.
+	Resume   []byte
 	SavePath string
 	// SeedMode trusts the data under SavePath as complete without hashing it.
 	SeedMode bool
+	Baseline Totals
+}
+
+// Totals are a torrent's all-time counters.
+type Totals struct {
+	Uploaded, Downloaded int64
+	Active, Seeding      time.Duration
 }
 
 type Handle int64
@@ -93,13 +126,22 @@ var stateNames = [...]string{
 func (s State) String() string { return stateNames[s] }
 
 type Status struct {
-	State  State
-	Peers  int
-	Done   int64
-	Wanted int64
-	// Uploaded is the payload bytes sent to peers since the torrent was
-	// added.
-	Uploaded int64
+	Torrent Handle
+	State   State
+	Paused  bool
+	Done    int64
+	Wanted  int64
+	// DownBps and UpBps are payload rates in bytes a second.
+	DownBps, UpBps int64
+	Peers, Seeds   int
+	// Totals include the baseline the torrent was added with.
+	Totals Totals
+	// LastPayload is when the torrent last downloaded payload, zero for never.
+	LastPayload time.Time
+	// NeedSave is whether the torrent changed since its resume data was saved.
+	NeedSave bool
+	// Err is the torrent's error, nil for none.
+	Err *Error
 }
 
 type Event interface{ event() }
@@ -124,6 +166,23 @@ type (
 	}
 	ListenFailed struct{ Err *Error }
 	Dropped      struct{}
+	Paused       struct{ Torrent Handle }
+	Resumed      struct{ Torrent Handle }
+	ResumeSaved  struct {
+		Torrent Handle
+		Data    []byte
+	}
+	ResumeFailed struct {
+		Torrent Handle
+		Err     *Error
+	}
+	// FilesDeleted follows Removed when the removal deleted files. Err is
+	// nil when every file and folder went.
+	FilesDeleted struct {
+		Torrent Handle
+		Err     *Error
+	}
+	Updates struct{ Statuses []Status }
 )
 
 func (Added) event()          {}
@@ -135,6 +194,12 @@ func (TrackerReplied) event() {}
 func (TrackerFailed) event()  {}
 func (ListenFailed) event()   {}
 func (Dropped) event()        {}
+func (Paused) event()         {}
+func (Resumed) event()        {}
+func (ResumeSaved) event()    {}
+func (ResumeFailed) event()   {}
+func (FilesDeleted) event()   {}
+func (Updates) event()        {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
 // *Error in that category.
