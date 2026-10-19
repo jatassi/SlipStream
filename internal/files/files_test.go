@@ -72,6 +72,7 @@ func open(t testing.TB) *library {
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
+		Source:       fx.Source(),
 		Changed:      discard[works.WorkChanged]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
 	})

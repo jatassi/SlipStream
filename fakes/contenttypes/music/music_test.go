@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 	"testing/synctest"
@@ -17,6 +18,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -80,12 +83,35 @@ func prolificRevision() scenario.MusicRevision {
 	return rev
 }
 
-func open(f faketest.Served) contenttype.Type {
-	return music.Def.Open(contenttype.Deps{
-		HTTP:      f.Client,
-		UserAgent: "SlipStream/test ( github.com/jatassi/SlipStream )",
-		Log:       slog.New(slog.DiscardHandler),
-	}, &music.Endpoints{Metadata: endpoint.MustParseURL(f.Address.URL("/ws/2"))})
+func open(f faketest.Served) metadata.Source {
+	timings := metadata.DefaultTimings()
+	timings.Attempts = 1
+	lines := metadata.NewLines(f.Client, "SlipStream/test ( github.com/jatassi/SlipStream )", timings, rand.New(rand.NewPCG(1, 2))) //nolint:gosec // a fixed draw the test replays
+	return music.Def.OpenProvider(contenttype.ProviderDeps{Lines: lines, Log: slog.New(slog.DiscardHandler)},
+		&music.Endpoints{Metadata: endpoint.MustParseURL(f.Address.URL("/ws/2"))})
+}
+
+func library() contenttype.Library {
+	return music.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)})
+}
+
+func added(t *testing.T, s scenario.Scenario, artist works.Key) (contenttype.Library, *storage.DB[storage.Library], works.Tree) {
+	t.Helper()
+	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
+	m := library()
+	w, err := works.Open(t.Context(), works.Config{
+		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
+		Source:  metadatatest.Serve(map[works.TypeID]metadata.Source{music.Def.ID(): open(faketest.Loopback(t, musicmeta.Fake, s))}),
+		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), artist, works.Adding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m, lib, tree
 }
 
 type tier struct {
@@ -150,7 +176,7 @@ func TestFetchServesEachRevisionInTurn(t *testing.T) {
 	inEachTier(t, func(t *testing.T, f faketest.Served) {
 		m := open(f)
 		for i, want := range []works.Fetched{lanternsRevision(false), lanternsRevision(true), lanternsRevision(true)} {
-			got, err := m.Fetch(t.Context(), lanterns)
+			got, err := m.Fetch(t.Context(), metadata.Ask{}, lanterns)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -169,7 +195,7 @@ func TestSearchScoresNamesAndSortNames(t *testing.T) {
 			"o":        {{Key: missing, Label: "One Track"}, {Key: slow, Label: "One Track"}, {Key: marrowBay, Label: "Marrow Bay", Fields: []works.FieldValue{works.TextField("country", "NZ")}}, {Key: prolific, Label: "Prolific"}},
 			"nobody":   {},
 		} {
-			got, err := m.Search(t.Context(), query)
+			got, err := m.Search(t.Context(), metadata.Ask{}, query)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -188,17 +214,17 @@ func TestFaultsMapOntoTheSourceErrors(t *testing.T) {
 			want string
 			is   error
 		}{
-			{marrowBay, "GET /artist/a1000000-0000-4000-8000-000000000002: 503 Service Unavailable: the metadata source didn't answer", works.ErrUnavailable},
-			{missing, "GET /artist/a1000000-0000-4000-8000-000000000003: 404 Not Found: the metadata source has no record with that key", works.ErrNotFound},
-			{unknownArt, "GET /artist/ffffffff-0000-4000-8000-000000000000: 404 Not Found: the metadata source has no record with that key", works.ErrNotFound},
+			{marrowBay, "GET /artist/a1000000-0000-4000-8000-000000000002: MusicBrainz: answered 503 Service Unavailable", works.ErrUnavailable},
+			{missing, "GET /artist/a1000000-0000-4000-8000-000000000003: MusicBrainz: has no such record", works.ErrNotFound},
+			{unknownArt, "GET /artist/ffffffff-0000-4000-8000-000000000000: MusicBrainz: has no such record", works.ErrNotFound},
 		} {
-			_, err := m.Fetch(t.Context(), c.key)
+			_, err := m.Fetch(t.Context(), metadata.Ask{}, c.key)
 			if err == nil || err.Error() != c.want || !errors.Is(err, c.is) {
 				t.Errorf("Fetch(%s) = %v, want %s wrapping %v", c.key, err, c.want, c.is)
 			}
 		}
 		for _, key := range []works.Key{marrowBay, missing} {
-			got, err := m.Fetch(t.Context(), key)
+			got, err := m.Fetch(t.Context(), metadata.Ask{}, key)
 			if err != nil || got.Label == "" {
 				t.Errorf("Fetch(%s) once its fault is spent = %+v, %v", key, got, err)
 			}
@@ -206,27 +232,23 @@ func TestFaultsMapOntoTheSourceErrors(t *testing.T) {
 	})
 }
 
-func TestASlowSourceIsUnavailableAtTheFetchTiming(t *testing.T) {
+func TestASlowSourceGivesUpAtTheFetchTiming(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		m := open(faketest.InMemory(t, musicmeta.Fake, catalog(t)))
 		fetch := works.DefaultTimings().Fetch
 		ctx, cancel := context.WithTimeout(t.Context(), fetch)
 		defer cancel()
 		start := time.Now()
-		_, err := m.Fetch(ctx, slow)
-		want := "GET /artist/a1000000-0000-4000-8000-000000000004: context deadline exceeded: the metadata source didn't answer"
-		if err == nil || err.Error() != want || !errors.Is(err, works.ErrUnavailable) {
-			t.Fatalf("Fetch(slow) = %v, want %s", err, want)
-		}
-		if took := time.Since(start); took != fetch {
-			t.Fatalf("Fetch(slow) gave up after %s, want %s", took, fetch)
+		_, err := m.Fetch(ctx, metadata.Ask{}, slow)
+		if took := time.Since(start); err == nil || took != fetch {
+			t.Fatalf("Fetch(slow) = %v after %s, want it to give up at %s", err, took, fetch)
 		}
 	})
 }
 
 func TestFetchPagesReleaseGroupsAndNumbersTracksAcrossDiscs(t *testing.T) {
 	inEachTier(t, func(t *testing.T, f faketest.Served) {
-		got, err := open(f).Fetch(t.Context(), prolific)
+		got, err := open(f).Fetch(t.Context(), metadata.Ask{}, prolific)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -247,7 +269,7 @@ func TestAnAlbumDatedOffTheCalendarHasNoReleaseDate(t *testing.T) {
 		ID: "b6000000-0000-4000-8000-000000000001", Release: "c6000000-0000-4000-8000-000000000001", Title: "Thirteenth", Kind: "Album", FirstRelease: "2001-13",
 		Tracks: []scenario.MusicTrack{{Recording: "d6000000-0000-4000-8000-000000000001", Title: "Only", Disc: 1}},
 	}}}}})
-	got, err := open(faketest.Loopback(t, musicmeta.Fake, s)).Fetch(t.Context(), calendar)
+	got, err := open(faketest.Loopback(t, musicmeta.Fake, s)).Fetch(t.Context(), metadata.Ask{}, calendar)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,19 +285,7 @@ type discard[T any] struct{}
 func (discard[T]) Publish(context.Context, T) {}
 
 func TestStoreThenFields(t *testing.T) {
-	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
-	m := open(faketest.Loopback(t, musicmeta.Fake, catalog(t)))
-	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, works.Adding{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m, lib, tree := added(t, catalog(t), lanterns)
 	at := works.Placed{Work: tree.ID, Levels: map[works.Key]works.LevelID{}, Items: map[works.Key]works.ItemID{}}
 	for _, l := range tree.Levels {
 		at.Levels[l.Key] = l.ID
@@ -306,6 +316,7 @@ func TestStoreThenFields(t *testing.T) {
 		t.Helper()
 		var got works.FieldSet
 		if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			var err error
 			got, err = m.Fields(ctx, r, tree.ID)
 			return err
 		}); err != nil {
@@ -317,7 +328,7 @@ func TestStoreThenFields(t *testing.T) {
 	}
 	fields("after the add")
 
-	again, err := open(faketest.Loopback(t, musicmeta.Fake, catalog(t))).Fetch(t.Context(), lanterns)
+	again, err := open(faketest.Loopback(t, musicmeta.Fake, catalog(t))).Fetch(t.Context(), metadata.Ask{}, lanterns)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,21 +346,10 @@ func TestStoreThenFields(t *testing.T) {
 }
 
 func TestNamingTokensNameATrack(t *testing.T) {
-	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
-	m := open(faketest.Loopback(t, musicmeta.Fake, catalog(t)))
-	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), lanterns, works.Adding{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m, lib, tree := added(t, catalog(t), lanterns)
 	var tokens map[string]string
 	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
 		tokens, err = m.NamingTokens(ctx, r, tree.Items[1].ID)
 		return err
 	}); err != nil {
@@ -378,21 +378,10 @@ func TestNamingTokensNameATrack(t *testing.T) {
 
 func timings(t *testing.T, s scenario.Scenario, artist works.Key) map[works.Key]targets.Timing {
 	t.Helper()
-	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(music.Def))...)
-	m := open(faketest.Loopback(t, musicmeta.Fake, s))
-	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{music.Def.ID(): m}, Timings: works.DefaultTimings(),
-		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tree, _, err := w.Add(t.Context(), identity.Admin{}, music.Def.ID(), artist, works.Adding{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m, lib, tree := added(t, s, artist)
 	var byID map[works.ItemID]targets.Timing
 	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
 		byID, err = m.Timings(ctx, r, []works.WorkID{tree.ID})
 		return err
 	}); err != nil {
@@ -440,7 +429,7 @@ func TestAnUndatedAlbumAndAnUntimedTrackStayUnknown(t *testing.T) {
 }
 
 func TestDeluxeNamesItsCut(t *testing.T) {
-	cuts := append(release.BuiltIn(), open(faketest.Loopback(t, musicmeta.Fake, catalog(t))).Cuts()...)
+	cuts := append(release.BuiltIn(), library().Cuts()...)
 	for title, want := range map[string]release.CutKey{
 		"The Lanterns - Harbor Lights (Deluxe Edition) 2001 FLAC": "deluxe",
 		"The Lanterns - Harbor Lights (Deluxe) 2001 FLAC":         "deluxe",

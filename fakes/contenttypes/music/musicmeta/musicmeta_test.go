@@ -2,6 +2,7 @@ package musicmeta_test
 
 import (
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"testing"
 	"testing/synctest"
@@ -11,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/musicmeta"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
@@ -88,6 +90,7 @@ func TestTheFakeConforms(t *testing.T) {
 		conformance.Run(t, conformance.Target{
 			Endpoints: music.Endpoints{Metadata: endpoint.MustParseURL(f.Address.URL("/ws/2"))},
 			Client:    f.Client,
+			Lines:     lines,
 			Known:     conformance.Known{MBID: "a1000000-0000-4000-8000-000000000001", Name: "The Lanterns"},
 		})
 	}
@@ -95,4 +98,8 @@ func TestTheFakeConforms(t *testing.T) {
 	t.Run("in memory", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) { run(t, faketest.InMemory(t, musicmeta.Fake, s)) })
 	})
+}
+
+func lines(c *http.Client) *metadata.Lines {
+	return metadata.NewLines(c, "SlipStream/conformance ( github.com/jatassi/SlipStream )", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // jitter needs no secrecy
 }

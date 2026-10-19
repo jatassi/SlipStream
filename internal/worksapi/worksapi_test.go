@@ -91,6 +91,7 @@ func serve(t *testing.T) *server {
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
+		Source:       fx.Source(),
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      discard[works.WorkChanged]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
@@ -232,6 +233,8 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Remove its Works before turning this Content Type off"}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "Invalid API key", Err: works.ErrRefused})
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused SlipStream's key","detail":"TMDB refused SlipStream's key"}`)
+	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "is rate limited until 2026-10-19T21:04:00Z", Err: works.ErrUnavailable})
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't answer. Try again later.","detail":"TMDB: is rate limited until 2026-10-19T21:04:00Z"}`)
 }
 
 func TestRefreshByHandAnswersGoneUpstream409(t *testing.T) {

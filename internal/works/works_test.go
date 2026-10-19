@@ -51,12 +51,13 @@ type harness struct {
 	log     *bytes.Buffer
 }
 
-func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog) (*works.Works, *harness) {
+func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog, source works.Source) (*works.Works, *harness) {
 	t.Helper()
 	h := &harness{lib: lib, changed: &recorder[works.WorkChanged]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}}
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     catalogs,
+		Source:       source,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      h.changed,
 		TypesChanged: h.types,
@@ -79,7 +80,7 @@ func dropTime(_ []string, a slog.Attr) slog.Attr {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	fx := contenttypetest.New()
-	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, fx.Source())
 	h.fx = fx
 	return h
 }
@@ -552,7 +553,7 @@ func TestARestartReadsTheSameTree(t *testing.T) {
 	fx := contenttypetest.New()
 	fx.Put("w1", shelf())
 	lib := openAt(t, path)
-	w, _ := open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
+	w, _ := open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, fx.Source())
 	tree, _, err := w.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{})
 	if err != nil {
 		t.Fatal(err)
@@ -562,7 +563,7 @@ func TestARestartReadsTheSameTree(t *testing.T) {
 	}
 	lib = openAt(t, path)
 	t.Cleanup(func() { _ = lib.Close() })
-	w, _ = open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx})
+	w, _ = open(t, lib, map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, fx.Source())
 	again, err := w.Get(t.Context(), admin, tree.ID)
 	if err != nil || encode(t, again) != encode(t, tree) {
 		t.Fatalf("after a restart = %s, %v; want %s", encode(t, again), err, encode(t, tree))
@@ -573,7 +574,7 @@ func TestOpenRefusesWorksOfAnUnregisteredType(t *testing.T) {
 	lib := storagetest.Library(t, works.Schema())
 	fx := contenttypetest.New()
 	fx.Put("w1", shelf())
-	ghost, _ := open(t, lib, map[works.TypeID]works.Catalog{"ghost": fx})
+	ghost, _ := open(t, lib, map[works.TypeID]works.Catalog{"ghost": fx}, fx.SourceAs("ghost"))
 	if _, _, err := ghost.Add(t.Context(), admin, "ghost", "w1", works.Adding{}); err != nil {
 		t.Fatal(err)
 	}

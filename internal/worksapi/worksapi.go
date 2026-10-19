@@ -63,9 +63,13 @@ var codes = []struct {
 }
 
 func answer(err error) error {
-	var source *works.SourceError
-	if errors.Is(err, works.ErrRefused) && errors.As(err, &source) {
-		return metadataRefused.Because(source.Source + " refused SlipStream's key")
+	if source, ok := errors.AsType[*works.SourceError](err); ok {
+		switch {
+		case errors.Is(err, works.ErrRefused):
+			return metadataRefused.Because(source.Source + " refused SlipStream's key")
+		case errors.Is(err, works.ErrUnavailable):
+			return metadataUnavailable.Because(source.Error())
+		}
 	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {

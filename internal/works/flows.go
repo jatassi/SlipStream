@@ -145,7 +145,7 @@ func (w *Works) Search(ctx context.Context, _ identity.Admin, t TypeID, query st
 		return nil, err
 	}
 	fetchCtx, cancel := context.WithTimeout(ctx, w.cfg.Timings.Fetch)
-	found, err := reg.catalog.Search(fetchCtx, query)
+	found, err := w.cfg.Source.Search(fetchCtx, t, query)
 	cancel()
 	if err != nil {
 		return nil, sourced(t, "search", err)
@@ -202,7 +202,7 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 	if !errors.Is(err, storage.ErrNoRows) {
 		return Tree{}, false, err
 	}
-	p, err := w.fetch(ctx, t, reg, key)
+	p, err := w.fetch(ctx, t, reg, key, ForAdd)
 	if err != nil {
 		return Tree{}, false, err
 	}
@@ -280,7 +280,7 @@ func (w *Works) refresh(ctx context.Context, id WorkID) error {
 		return err
 	}
 	reg := w.types[row.ContentType]
-	p, err := w.fetch(ctx, row.ContentType, reg, row.Key)
+	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, ForRefresh)
 	if errors.Is(err, ErrNotFound) {
 		return w.goneUpstream(ctx, id)
 	}
@@ -360,10 +360,10 @@ func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
 	return reg, nil
 }
 
-func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key) (parsed, error) {
+func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key, purpose Purpose) (parsed, error) {
 	ctx, cancel := context.WithTimeout(ctx, w.cfg.Timings.Fetch)
 	defer cancel()
-	f, err := reg.catalog.Fetch(ctx, key)
+	f, err := w.cfg.Source.Fetch(ctx, t, key, Fetching{Purpose: purpose})
 	if err != nil {
 		return parsed{}, sourced(t, "fetch "+string(key), err)
 	}

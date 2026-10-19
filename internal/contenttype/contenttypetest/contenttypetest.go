@@ -14,7 +14,9 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -57,15 +59,19 @@ type Record struct {
 	ItemFields  map[works.Key][]works.FieldValue
 }
 
+// Fixture is the library half, and each provider half it opens reads its
+// records.
 type Fixture struct {
 	mu        sync.Mutex
 	records   map[works.Key]Record
 	fails     map[works.Key]error
 	searchErr error
 	fetches   map[works.Key]int
+	calls     []Call
 	stored    map[works.WorkID]works.FieldSet
 	hold      *hold
 	opened    []Opened
+	libraries []contenttype.LibraryDeps
 	timings   map[works.ItemID]targets.Timing
 	cuts      []release.Cut
 }
@@ -74,9 +80,19 @@ type Fixture struct {
 // otherwise.
 var Released = works.Date{Year: 2000, Month: 1, Day: 1}
 
+// Opened is one provider half a Node opened.
 type Opened struct {
-	Deps      contenttype.Deps
+	Deps      contenttype.ProviderDeps
 	Endpoints Endpoints
+}
+
+// Call is one Search or Fetch a provider half answered.
+type Call struct {
+	// Open is the provider half's index in Opens, -1 for Source's.
+	Open  int
+	Ask   metadata.Ask
+	Query string
+	Key   works.Key
 }
 
 type hold struct {
@@ -97,18 +113,54 @@ func New() *Fixture {
 func (f *Fixture) Def() contenttype.Def[Endpoints] {
 	return contenttype.Define(string(ID), nil, func() Endpoints {
 		return Endpoints{API: endpoint.MustParseURL("https://fixture.invalid/v1")}
-	}, func(d contenttype.Deps, e Endpoints) contenttype.Type {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		f.opened = append(f.opened, Opened{Deps: d, Endpoints: e})
-		return f
+	}, contenttype.Halves[Endpoints]{
+		Provider: func(d contenttype.ProviderDeps, e Endpoints) metadata.Source {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			f.opened = append(f.opened, Opened{Deps: d, Endpoints: e})
+			return &source{f: f, open: len(f.opened) - 1}
+		},
+		Library: func(d contenttype.LibraryDeps) contenttype.Library {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			f.libraries = append(f.libraries, d)
+			return f
+		},
 	})
 }
 
+// Opens is every provider half opened, in order.
 func (f *Fixture) Opens() []Opened {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.opened)
+}
+
+// Libraries is every library half opened, in order.
+func (f *Fixture) Libraries() []contenttype.LibraryDeps {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.libraries)
+}
+
+// Source is the Controller's metadata with a provider half of its own,
+// for a test that opens the library half without a Node.
+func (f *Fixture) Source() works.Source { return f.SourceAs(ID) }
+
+// SourceAs is Source serving the Fixture's records as each of ids.
+func (f *Fixture) SourceAs(ids ...works.TypeID) works.Source {
+	sources := map[works.TypeID]metadata.Source{}
+	for _, id := range ids {
+		sources[id] = &source{f: f, open: -1}
+	}
+	return metadatatest.Serve(sources)
+}
+
+// Calls is every Search and Fetch the provider halves answered, in order.
+func (f *Fixture) Calls() []Call {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.calls)
 }
 
 func (f *Fixture) Put(key works.Key, r Record) {
@@ -156,11 +208,18 @@ func (f *Fixture) Hold(n int) (letGo func()) {
 
 func (f *Fixture) Describe() works.Description { return Description }
 
+type source struct {
+	f    *Fixture
+	open int
+}
+
 // Search matches a case-folded substring of each Work's label, in key
 // order.
-func (f *Fixture) Search(_ context.Context, query string) ([]works.Candidate, error) {
+func (s *source) Search(_ context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
+	f := s.f
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Query: query})
 	if f.searchErr != nil {
 		return nil, f.searchErr
 	}
@@ -174,9 +233,11 @@ func (f *Fixture) Search(_ context.Context, query string) ([]works.Candidate, er
 	return out, nil
 }
 
-func (f *Fixture) Fetch(ctx context.Context, key works.Key) (works.Fetched, error) {
+func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+	f := s.f
 	f.mu.Lock()
 	f.fetches[key]++
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Key: key})
 	h := f.hold
 	f.mu.Unlock()
 	if h != nil {

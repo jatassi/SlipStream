@@ -34,6 +34,10 @@ func problem(status int, code, title string) worldtest.Reply {
 	return worldtest.Reply{Status: status, Body: fmt.Sprintf(`{"status":%d,"code":%q,"title":%q}`, status, code, title) + "\n"}
 }
 
+func problemBecause(status int, code, title, detail string) worldtest.Reply {
+	return worldtest.Reply{Status: status, Body: fmt.Sprintf(`{"status":%d,"code":%q,"title":%q,"detail":%q}`, status, code, title, detail) + "\n"}
+}
+
 type field struct {
 	Key    string  `json:"key"`
 	Kind   string  `json:"kind"`
@@ -189,7 +193,7 @@ func TestMusic(t *testing.T) {
 	}
 
 	addBay := `{"contentType":"music","key":"` + marrowBay + `"}`
-	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problem(502, "metadata_unavailable", "The metadata source didn't answer. Try again later."))
+	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't answer. Try again later.", "MusicBrainz: answered 503 Service Unavailable"))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree
 	if err := json.Unmarshal(bay.Work, &bayTree); err != nil || !bay.Created {
