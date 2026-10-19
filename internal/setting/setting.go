@@ -381,6 +381,14 @@ func (s Switch) Value(override *bool) bool {
 	return *override
 }
 
+// Parse accepts either value; nil resets.
+func (s Switch) Parse(v *bool) Stored[bool] {
+	if v == nil {
+		return Stored[bool]{}
+	}
+	return override(*v)
+}
+
 func (s Switch) Field(override *bool) SwitchField {
 	return SwitchField{
 		About:   about(s.Key, s.Label, override == nil),

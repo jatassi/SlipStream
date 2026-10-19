@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -31,6 +32,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		targets.Schema(),
 		roots.Schema(),
 		indexers.Schema(),
+		downloadclients.Schema(),
 		grabs.Schema(),
 		files.Schema(),
 		tasks.Schema(),

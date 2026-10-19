@@ -85,6 +85,7 @@ export const adminNav: NavTable = [
     place: "main",
     tab: { order: 2 },
     count: "activity",
+    within: true,
   },
   {
     id: "nodes",

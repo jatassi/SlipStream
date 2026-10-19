@@ -6,10 +6,15 @@ import { type Crumb, placeOf, useBreadcrumbs } from "../titles";
 
 export type PhonePlace = "top" | "push";
 
-/** A nav destination opens on a large title; any other page is pushed. */
+/** A nav destination and its views open on a large title; any other page is pushed. */
 export function usePhonePlace(): PhonePlace {
-  const fullPath = useMatches({ select: (matches) => matches.at(-1)?.fullPath ?? "/" });
-  return navPaths.has(placeOf(fullPath)) ? "top" : "push";
+  const top = useMatches({
+    select: (matches) => {
+      const last = matches.at(-1);
+      return last?.staticData.view === true || navPaths.has(placeOf(last?.fullPath ?? "/"));
+    },
+  });
+  return top ? "top" : "push";
 }
 
 const owns = (row: ShownRow, pathname: string) =>
