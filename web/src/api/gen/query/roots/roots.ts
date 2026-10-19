@@ -35,6 +35,13 @@ import type {
   CreateRoot409,
   CreateRoot422,
   CreateRoot500,
+  DeleteRoot401,
+  DeleteRoot403,
+  DeleteRoot404,
+  DeleteRoot409,
+  DeleteRoot422,
+  DeleteRoot500,
+  DeleteRootParams,
   ListRoots401,
   ListRoots403,
   ListRoots409,
@@ -52,6 +59,14 @@ import type {
   MakeFolder500,
   MakeFolder503,
   MakeFolderInputBody,
+  RehomeRoot401,
+  RehomeRoot403,
+  RehomeRoot404,
+  RehomeRoot409,
+  RehomeRoot422,
+  RehomeRoot500,
+  RehomeRoot503,
+  RehomeRootInputBody,
   RootsListing,
   RootsMadeFolder,
   RootsNewRoot,
@@ -896,6 +911,241 @@ export const useCheckRoot = <
   TContext
 > => {
   return useMutation(getCheckRootMutationOptions(options), queryClient);
+};
+export const getDeleteRootUrl = (rootId: string, params?: DeleteRootParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/roots/${rootId}?${stringifiedParams}`
+    : `/api/v1/roots/${rootId}`;
+};
+
+/**
+ * @summary Delete a root that holds no files, leaving its folder on disk
+ */
+export const deleteRoot = async (
+  rootId: string,
+  params?: DeleteRootParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getDeleteRootUrl(rootId, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteRootMutationKey = () => ["deleteRoot"] as const;
+
+export const getDeleteRootMutationOptions = <
+  TError = ErrorType<
+    DeleteRoot401 | DeleteRoot403 | DeleteRoot404 | DeleteRoot409 | DeleteRoot422 | DeleteRoot500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRoot>>,
+    TError,
+    DeleteRootMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRoot>>,
+  TError,
+  DeleteRootMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteRootMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRoot>>,
+    DeleteRootMutationVariables
+  > = (props) => {
+    const { rootId, params } = props ?? {};
+
+    return deleteRoot(rootId, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRootMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRoot>>>;
+
+export type DeleteRootMutationError = ErrorType<
+  DeleteRoot401 | DeleteRoot403 | DeleteRoot404 | DeleteRoot409 | DeleteRoot422 | DeleteRoot500
+>;
+export type DeleteRootMutationVariables = { rootId: string; params?: DeleteRootParams };
+
+/**
+ * @summary Delete a root that holds no files, leaving its folder on disk
+ */
+export const useDeleteRoot = <
+  TError = ErrorType<
+    DeleteRoot401 | DeleteRoot403 | DeleteRoot404 | DeleteRoot409 | DeleteRoot422 | DeleteRoot500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteRoot>>,
+      TError,
+      DeleteRootMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRoot>>,
+  TError,
+  DeleteRootMutationVariables,
+  TContext
+> => {
+  return useMutation(getDeleteRootMutationOptions(options), queryClient);
+};
+export const getRehomeRootUrl = (rootId: string) => {
+  return `/api/v1/roots/${rootId}`;
+};
+
+/**
+ * @summary Re-home a root onto another folder or Node once every file it records is there
+ */
+export const rehomeRoot = async (
+  rootId: string,
+  rehomeRootInputBody: RehomeRootInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsRoot> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<RootsRoot>(getRehomeRootUrl(rootId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(rehomeRootInputBody),
+  });
+};
+
+export const getRehomeRootMutationKey = () => ["rehomeRoot"] as const;
+
+export const getRehomeRootMutationOptions = <
+  TError = ErrorType<
+    | RehomeRoot401
+    | RehomeRoot403
+    | RehomeRoot404
+    | RehomeRoot409
+    | RehomeRoot422
+    | RehomeRoot500
+    | RehomeRoot503
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rehomeRoot>>,
+    TError,
+    RehomeRootMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rehomeRoot>>,
+  TError,
+  RehomeRootMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRehomeRootMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rehomeRoot>>,
+    RehomeRootMutationVariables
+  > = (props) => {
+    const { rootId, data } = props ?? {};
+
+    return rehomeRoot(rootId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RehomeRootMutationResult = NonNullable<Awaited<ReturnType<typeof rehomeRoot>>>;
+export type RehomeRootMutationBody = RehomeRootInputBody;
+export type RehomeRootMutationError = ErrorType<
+  | RehomeRoot401
+  | RehomeRoot403
+  | RehomeRoot404
+  | RehomeRoot409
+  | RehomeRoot422
+  | RehomeRoot500
+  | RehomeRoot503
+>;
+export type RehomeRootMutationVariables = { rootId: string; data: RehomeRootInputBody };
+
+/**
+ * @summary Re-home a root onto another folder or Node once every file it records is there
+ */
+export const useRehomeRoot = <
+  TError = ErrorType<
+    | RehomeRoot401
+    | RehomeRoot403
+    | RehomeRoot404
+    | RehomeRoot409
+    | RehomeRoot422
+    | RehomeRoot500
+    | RehomeRoot503
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof rehomeRoot>>,
+      TError,
+      RehomeRootMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof rehomeRoot>>,
+  TError,
+  RehomeRootMutationVariables,
+  TContext
+> => {
+  return useMutation(getRehomeRootMutationOptions(options), queryClient);
 };
 export const getMakeDefaultRootUrl = (rootId: string) => {
   return `/api/v1/roots/${rootId}/default`;

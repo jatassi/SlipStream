@@ -87,6 +87,9 @@ export const getListRootsResponseMock = (
     id: faker.string.uuid(),
     nodeId: faker.string.uuid(),
     path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { rehome: { checked: faker.number.int(), total: faker.number.int() } }
+      : {}),
     state: faker.helpers.arrayElement([
       "ready",
       "missing",
@@ -115,6 +118,9 @@ export const getCreateRootResponseMock = (
   id: faker.string.uuid(),
   nodeId: faker.string.uuid(),
   path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...(faker.datatype.boolean()
+    ? { rehome: { checked: faker.number.int(), total: faker.number.int() } }
+    : {}),
   state: faker.helpers.arrayElement([
     "ready",
     "missing",
@@ -172,6 +178,36 @@ export const getCheckRootResponseMock = (
         },
       }
     : {}),
+  ...overrideResponse,
+});
+
+export const getRehomeRootResponseMock = (
+  overrideResponse: Partial<Extract<RootsRoot, object>> = {},
+): RootsRoot => ({
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  default: faker.datatype.boolean(),
+  fileBytes: faker.number.int(),
+  id: faker.string.uuid(),
+  nodeId: faker.string.uuid(),
+  path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...(faker.datatype.boolean()
+    ? { rehome: { checked: faker.number.int(), total: faker.number.int() } }
+    : {}),
+  state: faker.helpers.arrayElement([
+    "ready",
+    "missing",
+    "unmounted",
+    "foreign",
+    "unwritable",
+    "unresponsive",
+    "checking",
+    "offline",
+    "written_off",
+  ] as const),
+  ...(faker.datatype.boolean()
+    ? { volumeId: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
+  works: faker.number.int(),
   ...overrideResponse,
 });
 
@@ -325,6 +361,47 @@ export const getCheckRootMockHandler = (
   );
 };
 
+export const getDeleteRootMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/roots/:rootId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getRehomeRootMockHandler = (
+  overrideResponse?:
+    | RootsRoot
+    | ((info: Parameters<Parameters<typeof http.patch>[1]>[0]) => Promise<RootsRoot> | RootsRoot),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/roots/:rootId",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRehomeRootResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getMakeDefaultRootMockHandler = (
   overrideResponse?:
     | void
@@ -374,6 +451,8 @@ export const getRootsMock = () => [
   getListRootsMockHandler(),
   getCreateRootMockHandler(),
   getCheckRootMockHandler(),
+  getDeleteRootMockHandler(),
+  getRehomeRootMockHandler(),
   getMakeDefaultRootMockHandler(),
   getSetWorkRootMockHandler(),
 ];

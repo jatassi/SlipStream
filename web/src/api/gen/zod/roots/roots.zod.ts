@@ -3,6 +3,7 @@ import * as zod from "zod";
 import {
   CheckRootInputBody,
   MakeFolderInputBody,
+  RehomeRootInputBody,
   RootsListing,
   RootsMadeFolder,
   RootsNewRoot,
@@ -82,6 +83,35 @@ export const CreateRootResponse = RootsRoot;
 export const CheckRootBody = CheckRootInputBody;
 
 export const CheckRootResponse = RootsVerdict;
+
+/**
+ * @summary Delete a root that holds no files, leaving its folder on disk
+ */
+export const DeleteRootParams = zod.object({
+  rootId: zod.uuid(),
+});
+
+export const DeleteRootQueryParams = zod.object({
+  worksTo: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The root of the same Content Type its Works go to; required while it has Works and another root of its Content Type exists",
+    ),
+});
+
+export const DeleteRootResponse = zod.void();
+
+/**
+ * @summary Re-home a root onto another folder or Node once every file it records is there
+ */
+export const RehomeRootParams = zod.object({
+  rootId: zod.uuid(),
+});
+
+export const RehomeRootBody = RehomeRootInputBody;
+
+export const RehomeRootResponse = RootsRoot;
 
 /**
  * @summary Make a root where its Content Type's new Works go
