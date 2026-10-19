@@ -120,6 +120,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
+		Probe:   func(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) { return systems.Probe(ctx, id) },
 		Always:  n.env.Test.Always,
 		Timings: n.cfg.Timings.Nodes,
 		Stall:   n.cfg.Timings.Role.Stall,

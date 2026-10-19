@@ -3,10 +3,12 @@ import { Input } from "@base-ui/react/input";
 import type { ReactNode } from "react";
 
 import type {
+  SettingAmount,
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
   SettingPortField,
+  SettingSpaceField,
   SettingSwitchField,
   SettingTimes,
   SettingWindowField,
@@ -20,6 +22,7 @@ export type Fields = {
   window: SettingWindowField;
   port: SettingPortField;
   switch: SettingSwitchField;
+  space: SettingSpaceField;
 };
 
 export type Values = {
@@ -29,6 +32,7 @@ export type Values = {
   window: SettingTimes;
   port: number;
   switch: boolean;
+  space: SettingAmount;
 };
 
 export type SettingKind = keyof Fields;

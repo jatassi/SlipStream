@@ -27,7 +27,7 @@ type Field interface {
 func (a About) about() About { return a }
 
 // Kinds is every kind of Field, once each.
-var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}}
+var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}, SpaceField{}}
 
 // DurationField is a Duration on the wire, in seconds.
 type DurationField struct {
@@ -100,4 +100,14 @@ type SwitchField struct {
 	Value   bool   `json:"value"`
 	Running bool   `json:"running"`
 	Default bool   `json:"default"`
+}
+
+// SpaceField is a Space on the wire.
+type SpaceField struct {
+	About
+	Kind     string `json:"kind" enum:"space"`
+	Value    Amount `json:"value"`
+	Running  Amount `json:"running"`
+	Default  Amount `json:"default"`
+	MaxBytes int64  `json:"maxBytes" doc:"The largest amount in bytes: 1 PB"`
 }

@@ -4884,6 +4884,28 @@
         ],
         "type": "object"
       },
+      "SettingAmount": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unit": {
+            "enum": [
+              "bytes",
+              "percent"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "unit"
+        ],
+        "type": "object"
+      },
       "SettingChoiceField": {
         "additionalProperties": false,
         "properties": {
@@ -5183,6 +5205,7 @@
             "count": "#/components/schemas/SettingCountField",
             "duration": "#/components/schemas/SettingDurationField",
             "port": "#/components/schemas/SettingPortField",
+            "space": "#/components/schemas/SettingSpaceField",
             "switch": "#/components/schemas/SettingSwitchField",
             "window": "#/components/schemas/SettingWindowField"
           },
@@ -5206,6 +5229,9 @@
           },
           {
             "$ref": "#/components/schemas/SettingSwitchField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingSpaceField"
           }
         ]
       },
@@ -5291,6 +5317,84 @@
           "value",
           "running",
           "default",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingSpaceField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "$ref": "#/components/schemas/SettingAmount"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "space"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "maxBytes": {
+            "description": "The largest amount in bytes: 1 PB",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "$ref": "#/components/schemas/SettingAmount"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/SettingAmount"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "maxBytes",
           "key",
           "label",
           "source",

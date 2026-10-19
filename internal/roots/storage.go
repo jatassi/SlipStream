@@ -208,6 +208,7 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 	if err != nil {
 		return err
 	}
+	r.recorded(node, time.UnixMilli(f.GetPassedAtUnixMs()))
 	if adopted {
 		r.cfg.Storage.Touch(node)
 	}
@@ -257,4 +258,41 @@ func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]p
 		adopted = adopted || fresh
 	}
 	return adopted, nil
+}
+
+func (r *Roots) recorded(node role.NodeID, passed time.Time) {
+	r.passed.Lock()
+	defer r.passed.Unlock()
+	if !passed.After(r.passed.at[node]) {
+		return
+	}
+	r.passed.at[node] = passed
+	close(r.passed.ch)
+	r.passed.ch = make(chan struct{})
+}
+
+// Sample has node's Storage judge every root and sample its volumes now,
+// and returns once the recorder has written that pass's facts or a later
+// one's. A Node out of step is ErrNodeAway.
+func (r *Roots) Sample(ctx context.Context, node role.NodeID) error {
+	if !r.cfg.Roster.InStep(node) {
+		return ErrNodeAway
+	}
+	at, err := r.cfg.Remote.Sample(ctx, node)
+	if err := reached(err); err != nil {
+		return err
+	}
+	for {
+		r.passed.Lock()
+		passed, ch := r.passed.at[node], r.passed.ch
+		r.passed.Unlock()
+		if !passed.Before(at) {
+			return nil
+		}
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			return fmt.Errorf("await node %s's sample: %w", node, ctx.Err())
+		}
+	}
 }

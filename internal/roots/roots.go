@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
@@ -227,6 +228,13 @@ type Roots struct {
 		sync.Mutex
 		ch chan struct{}
 	}
+	// passed is the stamp of each Node's newest pass the recorder wrote;
+	// ch is closed and replaced when one rises.
+	passed struct {
+		sync.Mutex
+		at map[role.NodeID]time.Time
+		ch chan struct{}
+	}
 	// rehoming is each running re-home's progress, under its own lock so a
 	// list never waits for a re-home.
 	rehoming struct {
@@ -253,6 +261,7 @@ func Open(ctx context.Context, cfg Config) (*Roots, error) {
 	}
 	r := &Roots{cfg: cfg, last: map[ID]placed{}}
 	r.watch.ch = make(chan struct{})
+	r.passed.at, r.passed.ch = map[role.NodeID]time.Time{}, make(chan struct{})
 	r.rehoming.of = map[ID]Progress{}
 	return r, nil
 }
