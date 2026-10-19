@@ -15,6 +15,7 @@ func layout() map[string][]uintptr {
 		a C.lts_alert
 		f C.lts_file
 		t C.lts_tracker
+		l C.lts_limits
 	)
 	return map[string][]uintptr{
 		"lts_error":      {unsafe.Sizeof(e)},
@@ -23,5 +24,6 @@ func layout() map[string][]uintptr {
 		"lts_alert":      {unsafe.Sizeof(a), unsafe.Offsetof(a.error), unsafe.Offsetof(a.payload), unsafe.Offsetof(a.at_ms)},
 		"lts_file":       {unsafe.Sizeof(f), unsafe.Offsetof(f.path)},
 		"lts_tracker":    {unsafe.Sizeof(t), unsafe.Offsetof(t.last_error), unsafe.Offsetof(t.start_sent)},
+		"lts_limits":     {unsafe.Sizeof(l), unsafe.Offsetof(l.connections), unsafe.Offsetof(l.watch_incoming)},
 	}
 }

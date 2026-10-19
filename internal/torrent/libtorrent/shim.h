@@ -25,7 +25,9 @@ enum {
 
 /* Shim codes mirror engine.Code* in internal/torrent/engine. */
 enum {
-	LTS_SHIM_UNKNOWN_TORRENT = 1
+	LTS_SHIM_UNKNOWN_TORRENT = 1,
+	/* Out of space, whatever the OS calls it. */
+	LTS_SHIM_DISK_FULL = 4
 };
 
 enum {
@@ -62,7 +64,11 @@ enum {
 	LTS_ALERT_UPDATES,
 	LTS_ALERT_TRACKER_ANNOUNCED,
 	LTS_ALERT_TRACKER_WARNED,
-	LTS_ALERT_TRACKER_LIST
+	LTS_ALERT_TRACKER_LIST,
+	LTS_ALERT_CHECKED,
+	LTS_ALERT_INCOMING_PEER,
+	LTS_ALERT_FILE_ERROR,
+	LTS_ALERT_STATS
 };
 
 enum {
@@ -136,10 +142,11 @@ typedef struct {
 } lts_tracker;
 
 /* payload is shim-owned until lts_free_alert: the bytes of RESUME_SAVED, the
-   text of TRACKER_FAILED's failure reason or TRACKER_WARNED's message,
-   payload_len lts_status of UPDATES, or payload_len lts_tracker of
-   TRACKER_LIST. tracker indexes the torrent's tracker list, and at_ms is the
-   Unix milliseconds the alert was posted at. */
+   text of TRACKER_FAILED's failure reason or TRACKER_WARNED's message, the
+   address of INCOMING_PEER as text, payload_len lts_status of UPDATES,
+   payload_len lts_tracker of TRACKER_LIST, or STATS' payload bytes sent and
+   received, two int64_t. tracker indexes the torrent's tracker list, and
+   at_ms is the Unix milliseconds the alert was posted at. */
 typedef struct {
 	int32_t kind;
 	int32_t state;
@@ -153,10 +160,22 @@ typedef struct {
 	int64_t at_ms;
 } lts_alert;
 
+typedef struct {
+	int64_t download_limit;
+	int64_t upload_limit;
+	int32_t connections;
+	int32_t utp;
+	int32_t watch_incoming;
+} lts_limits;
+
 /* Functions that return int return 0 on success and -1 with *err filled. */
 /* announce_floor_s is min_announce_interval, the least interval between two
    regular announces to a tracker. */
+/* A session binds the port it is given or none, and then posts LISTEN_FAILED. */
 lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int outgoing_utp, int32_t announce_floor_s, lts_error* err);
+int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
+/* The peer fingerprint and user agent the session announces with. */
+int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
@@ -165,6 +184,8 @@ int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* 
 /* Pauses gracefully once no tracker awaits its answer to started. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
 int lts_resume(lts_session* s, int64_t torrent, lts_error* err);
+/* Checks a paused torrent's files and pauses it again: CHECKED, then PAUSED. */
+int lts_recheck(lts_session* s, int64_t torrent, lts_error* err);
 /* force_reannounce of one tracker. */
 int lts_reannounce(lts_session* s, int64_t torrent, int32_t tracker, int32_t delay_s, int32_t ignore_min_interval, lts_error* err);
 int lts_save_resume(lts_session* s, int64_t torrent, lts_error* err);
@@ -173,6 +194,7 @@ int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err);
 /* Posts UPDATES with the torrents that changed, or with every torrent after
    DROPPED. */
 int lts_post_updates(lts_session* s, lts_error* err);
+int lts_post_stats(lts_session* s, lts_error* err);
 /* Removes once no tracker awaits its answer to started. With delete_files it
    deletes the torrent's files, then its save path if left empty, and posts
    FILES_DELETED after REMOVED. */

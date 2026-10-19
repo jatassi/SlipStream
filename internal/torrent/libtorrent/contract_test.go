@@ -1,6 +1,12 @@
 package libtorrent_test
 
 import (
+	"bytes"
+	"errors"
+	"io"
+	"net"
+	"net/netip"
+	"os"
 	"testing"
 	"time"
 
@@ -22,6 +28,54 @@ func (sessions) Open(t *testing.T, cfg engine.Config) engine.Engine { return ope
 func (sessions) Tracker(t *testing.T, rules enginetest.TrackerRules) enginecontract.Tracker {
 	a, url := loopbackTracker(t, rules)
 	return enginecontract.Tracker{URL: url, Announces: a.Announces, Answer: a.Answer}
+}
+
+// Seed has a session of its own seed the release.
+func (sessions) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine, engine.Handle) {
+	seeder := open(t)
+	started(t, seeder, engine.AddParams{Metainfo: meta, SavePath: dir, SeedMode: true})
+	addr, err := seeder.ListenAddr()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return func(e engine.Engine, h engine.Handle) {
+		if err := e.ConnectPeer(h, addr); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func (sessions) TakePort(t *testing.T) netip.AddrPort {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	return netip.MustParseAddrPort(l.Addr().String())
+}
+
+// Incoming connects and sends bytes that are no handshake, plain or
+// encrypted, so the session hangs up: once it has, it took the connection.
+func (sessions) Incoming(t *testing.T, e engine.Engine) netip.Addr {
+	to, err := e.ListenAddr()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := net.DialTimeout("tcp", to.String(), 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	if err := c.SetDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Write(bytes.Repeat([]byte{0xff}, 2048)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(io.Discard, c); errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("the session kept a connection that sent no handshake: %v", err)
+	}
+	return netip.MustParseAddrPort(c.LocalAddr().String()).Addr()
 }
 
 func (sessions) Until(t *testing.T, what string, cond func() bool) {

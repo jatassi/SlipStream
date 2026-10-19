@@ -8,10 +8,13 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,10 +28,19 @@ type Harness interface {
 	// Within runs f where the harness's clock rules: a synctest bubble for
 	// enginetest, as is for libtorrent.
 	Within(t *testing.T, f func(*testing.T))
-	// Open opens an engine on loopback, as cfg says otherwise, closed when t
-	// ends.
+	// Open opens an engine, on loopback's any port unless cfg names a listen
+	// interface, closed when t ends.
 	Open(t *testing.T, cfg engine.Config) engine.Engine
 	Tracker(t *testing.T, rules enginetest.TrackerRules) Tracker
+	// Seed has a peer serve the release whose metainfo is meta and whose
+	// files lie under dir, and returns what has a torrent on an engine
+	// reach that peer.
+	Seed(t *testing.T, meta []byte, dir string) (reach func(engine.Engine, engine.Handle))
+	// TakePort holds a port on loopback for as long as t runs.
+	TakePort(t *testing.T) netip.AddrPort
+	// Incoming has a peer connect to e's listener, waits until e took the
+	// connection, and returns the peer's address.
+	Incoming(t *testing.T, e engine.Engine) netip.Addr
 	// Until waits for cond on the harness's clock, failing t when it takes
 	// too long: what says what it waited for.
 	Until(t *testing.T, what string, cond func() bool)
@@ -63,6 +75,13 @@ func Run(t *testing.T, h Harness) {
 		{"AFailureWithoutIntervalWaits1800s", aFailureWithoutIntervalWaits1800s},
 		{"ReannounceMovesMinAnnounce", reannounceMovesMinAnnounce},
 		{"ReannounceIgnoringMinIntervalAnnouncesNow", reannounceIgnoringMinIntervalAnnouncesNow},
+		{"RecheckSendsNoAnnounceAndEndsPaused", recheckSendsNoAnnounceAndEndsPaused},
+		{"ATakenPortStaysTakenAndTheSessionRuns", aTakenPortStaysTakenAndTheSessionRuns},
+		{"ConfigureAppliesLive", configureAppliesLive},
+		{"StatsCountThePayload", statsCountThePayload},
+		{"AnIncomingPeerIsReportedWhileWatched", anIncomingPeerIsReportedWhileWatched},
+		{"TheAnnouncedPeerIDAndUserAgentAreTheVersions", theAnnouncedPeerIDAndUserAgentAreTheVersions},
+		{"CloseSendsStopped", closeSendsStopped},
 	} {
 		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
 	}
@@ -385,6 +404,194 @@ func reannounceIgnoringMinIntervalAnnouncesNow(t *testing.T, h Harness) {
 	}
 }
 
+func recheckSendsNoAnnounceAndEndsPaused(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Rechecked", tr.URL)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	if err := e.Pause(th); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(p engine.Paused) bool { return p.Torrent == th })
+	h.Until(t, "the tracker hears stopped", func() bool { return slices.Contains(events(tr.Announces()), "stopped") })
+	corrupt(t, filepath.Join(rel.dir, rel.files[0].path()))
+
+	if err := e.Recheck(th); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(c engine.Checked) bool { return c.Torrent == th })
+	await(t, h, r, func(p engine.Paused) bool { return p.Torrent == th })
+	s := awaitStatus(t, h, e, r, th, func(engine.Status) bool { return true })
+	if want := int64(len(rel.payload) - pieceLen); !s.Paused || s.Done != want {
+		t.Fatalf("rechecked with its first piece corrupt, the torrent reads %+v, want paused with %d bytes done", s, want)
+	}
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", "stopped"}) {
+		t.Fatalf("around a recheck of the paused torrent the tracker received %q, want only the started and stopped before it", got)
+	}
+}
+
+// corrupt flips the first byte of file.
+func corrupt(t *testing.T, file string) {
+	t.Helper()
+	f, err := os.OpenFile(file, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	b := make([]byte, 1)
+	if _, err := f.ReadAt(b, 0); err != nil {
+		t.Fatal(err)
+	}
+	b[0] ^= 0xff
+	if _, err := f.WriteAt(b, 0); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// aTakenPortStaysTakenAndTheSessionRuns: an engine that does not listen
+// checks and holds torrents, and announces nothing, having no endpoint to
+// announce from.
+func aTakenPortStaysTakenAndTheSessionRuns(t *testing.T, h Harness) {
+	taken := h.TakePort(t)
+	e := h.Open(t, engine.Config{ListenInterface: taken})
+	r := record(e)
+	await(t, h, r, func(engine.ListenFailed) bool { return true })
+	if ap, err := e.ListenAddr(); !errors.Is(err, engine.ErrNotListening) {
+		t.Fatalf("on the taken %s the engine listens on %s, %v; want %v", taken, ap, err, engine.ErrNotListening)
+	}
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	rel := release(t, "Unbound", tr.URL)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.State == engine.StateSeeding })
+	if got := onlyTracker(t, trackerList(t, h, e, r, th)); got.Endpoints != 0 || len(tr.Announces()) != 0 {
+		t.Fatalf("the engine that does not listen lists %+v, and its tracker received %+v; want no endpoint and nothing", got, tr.Announces())
+	}
+	if ap, err := e.ListenAddr(); !errors.Is(err, engine.ErrNotListening) {
+		t.Fatalf("once it ran a torrent, the engine whose %s was taken listens on %s, %v; want %v", taken, ap, err, engine.ErrNotListening)
+	}
+}
+
+func configureAppliesLive(t *testing.T, h Harness) {
+	const limit = 32 << 10
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Limited", "", file{[]string{"feature.mkv"}, 1 << 20})
+	reach := h.Seed(t, rel.meta, rel.dir)
+	if err := e.Configure(engine.Limits{DownloadLimit: limit, Connections: 50, UTP: true}); err != nil {
+		t.Fatal(err)
+	}
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: t.TempDir()})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	reach(e, th)
+	first := awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.Done > 0 })
+	began := time.Now()
+	h.Until(t, "three seconds pass", func() bool { return time.Since(began) >= 3*time.Second })
+	s := awaitStatus(t, h, e, r, th, func(engine.Status) bool { return true })
+	took := time.Since(began)
+	if most := int64(limit * (took.Seconds() + 2)); s.Done-first.Done > most || s.Done == s.Wanted {
+		t.Fatalf("under a %d B/s limit the torrent went from %d to %d of %d bytes in %s, want at most %d more", limit, first.Done, s.Done, s.Wanted, took, most)
+	}
+	if err := e.Configure(engine.Limits{Connections: 50, UTP: true}); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(f engine.Finished) bool { return f.Torrent == th })
+}
+
+func statsCountThePayload(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Counted", "", file{[]string{"feature.mkv"}, 256 << 10})
+	reach := h.Seed(t, rel.meta, rel.dir)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: t.TempDir()})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	reach(e, th)
+	await(t, h, r, func(f engine.Finished) bool { return f.Torrent == th })
+	asked := time.Now()
+	if err := e.PostStats(); err != nil {
+		t.Fatal(err)
+	}
+	st := await(t, h, r, func(engine.Stats) bool { return true })
+	if st.RecvPayload < int64(len(rel.payload)) || !near(st.At, asked) {
+		t.Fatalf("after a %d byte download the engine's stats asked at %s read %+v, want that much received", len(rel.payload), asked, st)
+	}
+}
+
+func anIncomingPeerIsReportedWhileWatched(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	running(t, e, "Watched", "")
+
+	h.Incoming(t, e)
+	if err := e.PostStats(); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(engine.Stats) bool { return true })
+	if i := slices.IndexFunc(r.seen, func(ev engine.Event) bool { _, ok := ev.(engine.IncomingPeer); return ok }); i >= 0 {
+		t.Fatalf("with incoming peers unwatched the engine reported %+v", r.seen[i])
+	}
+
+	if err := e.Configure(engine.Limits{Connections: 50, UTP: true, WatchIncoming: true}); err != nil {
+		t.Fatal(err)
+	}
+	from := h.Incoming(t, e)
+	if p := await(t, h, r, func(engine.IncomingPeer) bool { return true }); p.Addr != from {
+		t.Fatalf("a peer at %s connected and the engine reported %+v", from, p)
+	}
+}
+
+func theAnnouncedPeerIDAndUserAgentAreTheVersions(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	v := e.Version()
+	parts := strings.Split(v.Libtorrent, ".")
+	if len(parts) != 3 {
+		t.Fatalf("the engine's version %q is not major.minor.tiny", v.Libtorrent)
+	}
+	prefix := "-LT"
+	for _, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 || n >= 36 {
+			t.Fatalf("the engine's version %q has a part libtorrent's fingerprint cannot encode", v.Libtorrent)
+		}
+		prefix += string("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[n])
+	}
+	if want := prefix + "0-"; v.PeerIDPrefix != want || v.UserAgent != "libtorrent/"+v.Libtorrent+".0" {
+		t.Fatalf("version %+v, want peer ID prefix %s and user agent libtorrent/%s.0, libtorrent's own", v, want, v.Libtorrent)
+	}
+	running(t, e, "Identified", tr.URL)
+	h.Until(t, "the tracker hears from the torrent", func() bool { return len(tr.Announces()) > 0 })
+	if a := tr.Announces()[0]; len(a.PeerID) != 20 || !strings.HasPrefix(a.PeerID, v.PeerIDPrefix) || a.UserAgent != v.UserAgent {
+		t.Fatalf("the torrent announced as peer %q with user agent %q, want a 20-byte peer ID starting %s and %s", a.PeerID, a.UserAgent, v.PeerIDPrefix, v.UserAgent)
+	}
+}
+
+func closeSendsStopped(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Closed", tr.URL)
+	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	if err := e.Close(); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears stopped", func() bool { return slices.Contains(events(tr.Announces()), "stopped") })
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", "stopped"}) {
+		t.Fatalf("a torrent running when its engine closed announced %q, want started then stopped", got)
+	}
+}
+
 // errTrackerFailure is libtorrent's tracker_failure, a reply with a
 // failure reason.
 var errTrackerFailure = &engine.Error{Category: engine.CategoryLibtorrent, Code: 173}
@@ -617,9 +824,10 @@ type released struct {
 // release writes a release named name and returns its metainfo, which
 // announces to announce unless it is empty. With no files it is one file
 // named name.
+const pieceLen = 16 << 10
+
 func release(t *testing.T, name, announce string, files ...file) released {
 	t.Helper()
-	const pieceLen = 16 << 10
 	dir := filepath.Join(t.TempDir(), name)
 	single := len(files) == 0
 	if single {

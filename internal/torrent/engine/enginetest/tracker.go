@@ -28,6 +28,9 @@ type Announce struct {
 	InfoHash bencode.InfoHash
 	Event    string
 	At       time.Time
+	// PeerID is the peer_id the announce carried, and UserAgent its
+	// User-Agent header.
+	PeerID, UserAgent string
 }
 
 // libtorrent's defaults, which the engine keeps.
@@ -159,13 +162,15 @@ func (a *announcing) announce() {
 	}
 }
 
+// send announces event, as libtorrent does from each listen address: an
+// engine that does not listen has none.
 func (a *announcing) send(event string) {
 	tr := a.tracker()
-	if tr == nil {
+	if tr == nil || !a.t.e.listen.IsValid() {
 		return
 	}
 	now := time.Now()
-	tr.log = append(tr.log, Announce{InfoHash: a.t.meta.InfoHash, Event: event, At: now})
+	tr.log = append(tr.log, Announce{InfoHash: a.t.meta.InfoHash, Event: event, At: now, PeerID: a.t.peerID, UserAgent: version.UserAgent})
 	a.updating, a.next, a.min, a.endpoints = true, now, now, 1
 	if a.t.e.holds(a.t) {
 		a.t.e.emit(engine.TrackerAnnounced{Torrent: a.t.handle, Event: announceEvents[event], At: now})

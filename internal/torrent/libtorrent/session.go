@@ -33,11 +33,14 @@ var _ engine.Engine = (*Session)(nil)
 // alerts. mu guards closed: every call into the shim holds it for reading, so
 // Close, which holds it for writing, never frees the session under a call.
 type Session struct {
-	ses    *C.lts_session
-	listen netip.Addr
-	events chan engine.Event
-	stop   chan struct{}
-	done   chan struct{}
+	ses *C.lts_session
+	// version is the identity the session announces with, read from it
+	// once: nothing sets it.
+	version engine.Version
+	listen  netip.Addr
+	events  chan engine.Event
+	stop    chan struct{}
+	done    chan struct{}
 
 	mu     sync.RWMutex
 	closed bool
@@ -54,21 +57,23 @@ func Version() string {
 // ports refused, all of them fail with probability f^anyPortTries.
 const anyPortTries = 32
 
-// Open returns a session that listens, or the reason it could not. For port 0
-// it tries random dynamic ports until one takes both libtorrent's TCP
-// listener and its uTP socket, which libtorrent binds on the same port and
-// retries only on address-in-use. Windows refuses either bind with WSAEACCES
-// on a port in one of its excluded ranges, which span runs of adjacent
-// ports, so candidates from an allocator that walks ports in sequence fail
-// together.
+// Open returns a session on cfg's listen interface. A session given a port
+// binds that port or none, and then sends ListenFailed. For port 0 Open
+// tries random dynamic ports until one takes both libtorrent's TCP listener
+// and its uTP socket, or returns the reason the last one did not. Windows
+// refuses either bind with WSAEACCES on a port in one of its excluded
+// ranges, which span runs of adjacent ports, so candidates from an
+// allocator that walks ports in sequence fail together.
 func Open(cfg engine.Config) (*Session, error) {
-	ports := []uint16{cfg.ListenInterface.Port()}
-	if ports[0] == 0 {
-		ports = dynamicPorts(cfg.Rand, anyPortTries)
+	var s *Session
+	var err error
+	if cfg.ListenInterface.Port() != 0 {
+		s, err = open(cfg.ListenInterface, cfg)
+	} else {
+		s, err = firstListening(dynamicPorts(cfg.Rand, anyPortTries), func(port uint16) (*Session, error) {
+			return openListening(netip.AddrPortFrom(cfg.ListenInterface.Addr(), port), cfg)
+		})
 	}
-	s, err := firstListening(ports, func(port uint16) (*Session, error) {
-		return openListening(netip.AddrPortFrom(cfg.ListenInterface.Addr(), port), cfg)
-	})
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +104,7 @@ func dynamicPorts(r *rand.Rand, n int) []uint16 {
 	return ports
 }
 
-// openListening runs before the pump starts, so it reads the session's
-// alerts itself to say why a session that does not listen was refused.
-func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
+func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	addr := C.CString(ap.Addr().String())
 	defer C.free(unsafe.Pointer(addr))
 	var cerr C.lts_error
@@ -109,28 +112,44 @@ func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	if ses == nil {
 		return nil, goError(&cerr)
 	}
-	var port C.uint16_t
-	if C.lts_listen_port(ses, &port, &cerr) != 0 {
+	var fingerprint [32]C.char
+	var userAgent [128]C.char
+	if C.lts_identity(ses, &fingerprint[0], C.size_t(len(fingerprint)), &userAgent[0], C.size_t(len(userAgent)), &cerr) != 0 {
 		err := goError(&cerr)
 		C.lts_close(ses, &cerr)
 		return nil, err
 	}
-	if port == 0 {
-		err := fmt.Errorf("%w on %s", engine.ErrNotListening, ap)
-		reason := listenFailure(ses)
-		if reason != nil {
-			err = fmt.Errorf("%w: %w", err, reason)
-		}
-		C.lts_close(ses, &cerr)
+	return &Session{
+		ses:     ses,
+		version: engine.Version{Libtorrent: Version(), PeerIDPrefix: C.GoString(&fingerprint[0]), UserAgent: C.GoString(&userAgent[0])},
+		listen:  ap.Addr(),
+		events:  make(chan engine.Event, 64),
+		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
+	}, nil
+}
+
+// openListening opens a session that listens on ap, or closes it and says
+// why it does not. It runs before the pump starts, so it reads the
+// session's alerts itself.
+func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
+	s, err := open(ap, cfg)
+	if err != nil {
 		return nil, err
 	}
-	return &Session{
-		ses:    ses,
-		listen: ap.Addr(),
-		events: make(chan engine.Event, 64),
-		stop:   make(chan struct{}),
-		done:   make(chan struct{}),
-	}, nil
+	_, err = s.ListenAddr()
+	if err == nil {
+		return s, nil
+	}
+	if errors.Is(err, engine.ErrNotListening) {
+		err = fmt.Errorf("%w on %s", engine.ErrNotListening, ap)
+		if reason := listenFailure(s.ses); reason != nil {
+			err = fmt.Errorf("%w: %w", err, reason)
+		}
+	}
+	var cerr C.lts_error
+	C.lts_close(s.ses, &cerr)
+	return nil, err
 }
 
 // listenFailure finds the listen_failed alert libtorrent queued while it
@@ -210,6 +229,23 @@ func (s *Session) SaveResume(h engine.Handle) error {
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_save_resume(s.ses, C.int64_t(h), cerr) })
 }
 
+func (s *Session) Recheck(h engine.Handle) error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_recheck(s.ses, C.int64_t(h), cerr) })
+}
+
+func (s *Session) Configure(l engine.Limits) error {
+	limits := C.lts_limits{
+		download_limit: C.int64_t(l.DownloadLimit),
+		upload_limit:   C.int64_t(l.UploadLimit),
+		connections:    C.int32_t(l.Connections),
+		utp:            cBool32(l.UTP),
+		watch_incoming: cBool32(l.WatchIncoming),
+	}
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_configure(s.ses, &limits, cerr) })
+}
+
+func (s *Session) Version() engine.Version { return s.version }
+
 func (s *Session) Reannounce(h engine.Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error {
 	return s.call(func(cerr *C.lts_error) C.int {
 		return C.lts_reannounce(s.ses, C.int64_t(h), C.int32_t(tracker), C.int32_t(delay/time.Second), cBool(ignoreMinInterval), cerr)
@@ -222,6 +258,10 @@ func (s *Session) PostTrackers(h engine.Handle) error {
 
 func (s *Session) PostUpdates() error {
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_post_updates(s.ses, cerr) })
+}
+
+func (s *Session) PostStats() error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_post_stats(s.ses, cerr) })
 }
 
 func (s *Session) ConnectPeer(h engine.Handle, peer netip.AddrPort) error {
@@ -440,6 +480,15 @@ func goEvent(a *C.lts_alert) engine.Event {
 			out[i] = goStatus(&sts[i])
 		}
 		return engine.Updates{Statuses: out}
+	case C.LTS_ALERT_CHECKED:
+		return engine.Checked{Torrent: h}
+	case C.LTS_ALERT_INCOMING_PEER:
+		return engine.IncomingPeer{Addr: netip.MustParseAddr(payloadText(a)).Unmap()}
+	case C.LTS_ALERT_FILE_ERROR:
+		return engine.FileError{Torrent: h, Err: goError(&a.error)}
+	case C.LTS_ALERT_STATS:
+		counters := unsafe.Slice((*C.int64_t)(a.payload), 2)
+		return engine.Stats{SentPayload: int64(counters[0]), RecvPayload: int64(counters[1]), At: time.UnixMilli(int64(a.at_ms))}
 	}
 	panic("libtorrent: shim sent unknown alert kind")
 }
@@ -525,6 +574,8 @@ func discoveryBits(d engine.Discovery) C.uint32_t {
 	}
 	return bits
 }
+
+func cBool32(b bool) C.int32_t { return C.int32_t(cBool(b)) }
 
 func cBool(b bool) C.int {
 	if b {
