@@ -252,7 +252,7 @@ func (c *Client) keep(s role.Snapshot[*dlv1.Intent]) {
 		if _, err := os.Stat(c.savePath(h)); !s.MayStart() && err != nil {
 			continue
 		}
-		handle, err := c.cfg.Engine.Add(engine.AddParams{Metainfo: t.GetMetainfo(), SavePath: c.savePath(h)})
+		handle, err := c.start(t.GetMetainfo(), c.savePath(h))
 		if err != nil {
 			c.failed[h] = err.Error()
 			c.cfg.Log.Error("add a torrent", "info_hash", h.String(), "err", err.Error())
@@ -260,6 +260,15 @@ func (c *Client) keep(s role.Snapshot[*dlv1.Intent]) {
 		}
 		c.byHash[h], c.hashOf[handle] = handle, h
 	}
+}
+
+// start adds a torrent and resumes it, since the engine adds paused.
+func (c *Client) start(metainfo []byte, savePath string) (engine.Handle, error) {
+	handle, err := c.cfg.Engine.Add(engine.AddParams{Metainfo: metainfo, SavePath: savePath})
+	if err != nil {
+		return 0, err
+	}
+	return handle, c.cfg.Engine.Resume(handle)
 }
 
 // Release removes every torrent the client holds, keeping their files: the
@@ -278,7 +287,7 @@ func (c *Client) Release(context.Context) error {
 // lie. The caller holds c.mu.
 func (c *Client) remove(h bencode.InfoHash) {
 	handle := c.byHash[h]
-	if err := c.cfg.Engine.Remove(handle); err != nil {
+	if err := c.cfg.Engine.Remove(handle, false); err != nil {
 		c.cfg.Log.Error("remove a torrent", "info_hash", h.String(), "err", err.Error())
 	}
 	delete(c.byHash, h)
@@ -350,7 +359,7 @@ func (c *Client) facts(intent *dlv1.Intent) *dlv1.Facts {
 		if err != nil {
 			continue
 		}
-		out.Torrents = append(out.Torrents, &dlv1.TorrentFacts{InfoHash: h[:], State: s.State.String(), Done: s.Done, Wanted: s.Wanted, Peers: int32(s.Peers), Uploaded: s.Uploaded}) //nolint:gosec // a peer count fits
+		out.Torrents = append(out.Torrents, &dlv1.TorrentFacts{InfoHash: h[:], State: s.State.String(), Done: s.Done, Wanted: s.Wanted, Peers: int32(s.Peers), Uploaded: s.Totals.Uploaded}) //nolint:gosec // a peer count fits
 	}
 	return out
 }

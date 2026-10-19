@@ -50,7 +50,7 @@ func (u *uploading) Status(h engine.Handle) (engine.Status, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if at, ok := u.added[h]; ok {
-		st.Uploaded = int64(time.Since(at)/time.Second) * uploadRate
+		st.Totals.Uploaded = int64(time.Since(at)/time.Second) * uploadRate
 	}
 	return st, err
 }

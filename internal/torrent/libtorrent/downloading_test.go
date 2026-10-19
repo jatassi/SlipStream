@@ -91,9 +91,7 @@ func seed(t *testing.T, e engine.Engine, dir, name string) seeded {
 	if err := os.WriteFile(filepath.Join(dir, name), payload, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.Add(engine.AddParams{Metainfo: meta, SavePath: dir, SeedMode: true}); err != nil {
-		t.Fatalf("seed %s: %v", name, err)
-	}
+	started(t, e, engine.AddParams{Metainfo: meta, SavePath: dir, SeedMode: true})
 	return seeded{name: name, payload: payload, meta: meta, hash: m.InfoHash}
 }
 
