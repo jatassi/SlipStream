@@ -16,8 +16,10 @@ import (
 	"math/rand/v2"
 	"net/netip"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -136,16 +138,18 @@ func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 func listenFailure(ses *C.lts_session) error {
 	var buf [8]C.lts_alert
 	var cerr C.lts_error
-	n := int(C.lts_wait_alerts(ses, 0, &buf[0], C.int(len(buf)), &cerr))
+	n := int(C.lts_wait_alerts(ses, 0, &buf[0], C.int(len(buf)), &cerr)) //nolint:gocritic // cgo's pointer check repeats &buf[0]
 	if n < 0 {
 		return goError(&cerr)
 	}
+	var failed error
 	for i := range n {
-		if buf[i].kind == C.LTS_ALERT_LISTEN_FAILED {
-			return goError(&buf[i].error)
+		if buf[i].kind == C.LTS_ALERT_LISTEN_FAILED && failed == nil {
+			failed = goError(&buf[i].error)
 		}
+		C.lts_free_alert(&buf[i]) //nolint:gocritic // cgo's pointer check repeats &buf[i]
 	}
-	return nil
+	return failed
 }
 
 func (s *Session) Events() <-chan engine.Event { return s.events }
@@ -165,12 +169,49 @@ func (s *Session) ListenAddr() (netip.AddrPort, error) {
 func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {
 	savePath := C.CString(p.SavePath)
 	defer C.free(unsafe.Pointer(savePath))
-	meta := (*C.char)(unsafe.Pointer(unsafe.SliceData(p.Metainfo)))
+	var pins runtime.Pinner
+	defer pins.Unpin()
+	params := C.lts_add_params{
+		metainfo:        pinned(&pins, p.Metainfo),
+		metainfo_len:    C.size_t(len(p.Metainfo)),
+		resume:          pinned(&pins, p.Resume),
+		resume_len:      C.size_t(len(p.Resume)),
+		save_path:       savePath,
+		seed_mode:       cBool(p.SeedMode),
+		base_uploaded:   C.int64_t(p.Baseline.Uploaded),
+		base_downloaded: C.int64_t(p.Baseline.Downloaded),
+		base_active_s:   C.int64_t(p.Baseline.Active / time.Second),
+		base_seeding_s:  C.int64_t(p.Baseline.Seeding / time.Second),
+	}
 	var id C.int64_t
-	err := s.call(func(cerr *C.lts_error) C.int {
-		return C.lts_add(s.ses, meta, C.size_t(len(p.Metainfo)), savePath, cBool(p.SeedMode), &id, cerr)
-	})
+	err := s.call(func(cerr *C.lts_error) C.int { return C.lts_add(s.ses, &params, &id, cerr) }) //nolint:gocritic // cgo's pointer check repeats &params
 	return engine.Handle(id), err
+}
+
+// pinned is b for C to read through a Go struct, which cgo allows only for
+// pinned memory, and NULL for none.
+func pinned(pins *runtime.Pinner, b []byte) *C.char {
+	if len(b) == 0 {
+		return nil
+	}
+	pins.Pin(unsafe.SliceData(b))
+	return (*C.char)(unsafe.Pointer(unsafe.SliceData(b)))
+}
+
+func (s *Session) Pause(h engine.Handle) error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_pause(s.ses, C.int64_t(h), cerr) })
+}
+
+func (s *Session) Resume(h engine.Handle) error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_resume(s.ses, C.int64_t(h), cerr) })
+}
+
+func (s *Session) SaveResume(h engine.Handle) error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_save_resume(s.ses, C.int64_t(h), cerr) })
+}
+
+func (s *Session) PostUpdates() error {
+	return s.call(func(cerr *C.lts_error) C.int { return C.lts_post_updates(s.ses, cerr) })
 }
 
 func (s *Session) ConnectPeer(h engine.Handle, peer netip.AddrPort) error {
@@ -187,13 +228,35 @@ func (s *Session) Status(h engine.Handle) (engine.Status, error) {
 	if err != nil {
 		return engine.Status{}, err
 	}
-	return engine.Status{
-		State:    states[st.state],
-		Peers:    int(st.peers),
-		Done:     int64(st.done),
-		Wanted:   int64(st.wanted),
-		Uploaded: int64(st.uploaded),
-	}, nil
+	return goStatus(&st), nil
+}
+
+func goStatus(st *C.lts_status) engine.Status {
+	out := engine.Status{
+		Torrent: engine.Handle(st.torrent),
+		State:   states[st.state],
+		Paused:  st.paused != 0,
+		Done:    int64(st.done),
+		Wanted:  int64(st.wanted),
+		DownBps: int64(st.down_bps),
+		UpBps:   int64(st.up_bps),
+		Peers:   int(st.peers),
+		Seeds:   int(st.seeds),
+		Totals: engine.Totals{
+			Uploaded:   int64(st.uploaded),
+			Downloaded: int64(st.downloaded),
+			Active:     time.Duration(st.active_s) * time.Second,
+			Seeding:    time.Duration(st.seeding_s) * time.Second,
+		},
+		NeedSave: st.need_save != 0,
+	}
+	if st.last_download_ms != 0 {
+		out.LastPayload = time.UnixMilli(int64(st.last_download_ms))
+	}
+	if st.error.category != 0 {
+		out.Err = goError(&st.error)
+	}
+	return out
 }
 
 func (s *Session) Files(h engine.Handle) ([]engine.File, error) {
@@ -213,8 +276,27 @@ func (s *Session) Files(h engine.Handle) ([]engine.File, error) {
 	return out, nil
 }
 
-func (s *Session) Remove(h engine.Handle) error {
-	return s.call(func(cerr *C.lts_error) C.int { return C.lts_remove(s.ses, C.int64_t(h), cerr) })
+func (s *Session) FileProgress(h engine.Handle) ([]int64, error) {
+	var done *C.int64_t
+	var count C.int32_t
+	err := s.call(func(cerr *C.lts_error) C.int {
+		return C.lts_file_progress(s.ses, C.int64_t(h), &done, &count, cerr) //nolint:gocritic // cgo's pointer check repeats &done
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer C.lts_free(unsafe.Pointer(done))
+	out := make([]int64, int(count))
+	for i, d := range unsafe.Slice(done, int(count)) {
+		out[i] = int64(d)
+	}
+	return out, nil
+}
+
+func (s *Session) Remove(h engine.Handle, deleteFiles bool) error {
+	return s.call(func(cerr *C.lts_error) C.int {
+		return C.lts_remove(s.ses, C.int64_t(h), cBool(deleteFiles), cerr)
+	})
 }
 
 // Close stops and joins the alert pump before it closes the session, so no
@@ -250,10 +332,13 @@ func (s *Session) call(f func(*C.lts_error) C.int) error {
 }
 
 // pump blocks on a slow reader instead of buffering without bound. libtorrent
-// then fills its own alert queue and reports the overflow as Dropped.
+// then fills its own alert queue and reports the overflow as Dropped. Each
+// batch is converted, and its shim buffers freed, before any of it is sent,
+// so a stop mid-batch leaks nothing.
 func (s *Session) pump() {
 	defer close(s.done)
 	var buf [64]C.lts_alert
+	events := make([]engine.Event, 0, len(buf))
 	for {
 		select {
 		case <-s.stop:
@@ -261,7 +346,7 @@ func (s *Session) pump() {
 		default:
 		}
 		var cerr C.lts_error
-		n := int(C.lts_wait_alerts(s.ses, pollMillis, &buf[0], C.int(len(buf)), &cerr))
+		n := int(C.lts_wait_alerts(s.ses, pollMillis, &buf[0], C.int(len(buf)), &cerr)) //nolint:gocritic // cgo's pointer check repeats &buf[0]
 		if n < 0 {
 			// The shim lost the batch it was converting, which is a drop.
 			if !s.send(engine.Dropped{}) {
@@ -269,8 +354,13 @@ func (s *Session) pump() {
 			}
 			continue
 		}
+		events = events[:0]
 		for i := range n {
-			if !s.send(goEvent(&buf[i])) {
+			events = append(events, goEvent(&buf[i]))
+			C.lts_free_alert(&buf[i]) //nolint:gocritic // cgo's pointer check repeats &buf[i]
+		}
+		for _, ev := range events {
+			if !s.send(ev) {
 				return
 			}
 		}
@@ -307,6 +397,27 @@ func goEvent(a *C.lts_alert) engine.Event {
 		return engine.ListenFailed{Err: goError(&a.error)}
 	case C.LTS_ALERT_DROPPED:
 		return engine.Dropped{}
+	case C.LTS_ALERT_PAUSED:
+		return engine.Paused{Torrent: h}
+	case C.LTS_ALERT_RESUMED:
+		return engine.Resumed{Torrent: h}
+	case C.LTS_ALERT_RESUME_SAVED:
+		return engine.ResumeSaved{Torrent: h, Data: C.GoBytes(a.payload, C.int(a.payload_len))}
+	case C.LTS_ALERT_RESUME_FAILED:
+		return engine.ResumeFailed{Torrent: h, Err: goError(&a.error)}
+	case C.LTS_ALERT_FILES_DELETED:
+		deleted := engine.FilesDeleted{Torrent: h}
+		if a.error.category != 0 {
+			deleted.Err = goError(&a.error)
+		}
+		return deleted
+	case C.LTS_ALERT_UPDATES:
+		sts := unsafe.Slice((*C.lts_status)(a.payload), int(a.payload_len))
+		out := make([]engine.Status, len(sts))
+		for i := range sts {
+			out[i] = goStatus(&sts[i])
+		}
+		return engine.Updates{Statuses: out}
 	}
 	panic("libtorrent: shim sent unknown alert kind")
 }

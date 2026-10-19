@@ -8,6 +8,7 @@
 #include <libtorrent/error_code.hpp>
 #include <libtorrent/file_storage.hpp>
 #include <libtorrent/posix_disk_io.hpp>
+#include <libtorrent/read_resume_data.hpp>
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
 #include <libtorrent/settings_pack.hpp>
@@ -15,12 +16,19 @@
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/torrent_status.hpp>
 #include <libtorrent/version.hpp>
+#include <libtorrent/write_resume_data.hpp>
 
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <filesystem>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -31,18 +39,53 @@
 // pointer to this never-defined type.
 struct lts_id;
 
+static_assert(sizeof(lts_error) == 264, "lts_error layout: update TestTheShimStructsMatchGo");
+static_assert(sizeof(lts_status) == 368 && offsetof(lts_status, need_save) == 96 && offsetof(lts_status, error) == 100,
+	"lts_status layout: update TestTheShimStructsMatchGo");
+static_assert(sizeof(lts_add_params) == 80 && offsetof(lts_add_params, seed_mode) == 40 && offsetof(lts_add_params, base_uploaded) == 48,
+	"lts_add_params layout: update TestTheShimStructsMatchGo");
+static_assert(sizeof(lts_alert) == 296 && offsetof(lts_alert, error) == 16 && offsetof(lts_alert, payload) == 280,
+	"lts_alert layout: update TestTheShimStructsMatchGo");
+static_assert(sizeof(lts_file) == 24 && offsetof(lts_file, path) == 16, "lts_file layout: update TestTheShimStructsMatchGo");
+
+// parting_torrent is a torrent removed while a tracker had yet to answer its
+// started announce. libtorrent announces stopped only to a tracker that
+// answered started, so the removal waits for that answer.
+struct parting_torrent {
+	int64_t id;
+	bool delete_files;
+	std::string save_path;
+};
+
+// deleting_torrent is a torrent whose files libtorrent is deleting: its save
+// path goes too once they are gone, if nothing else is left in it.
+// libtorrent posts the deletion before the removal, so the deletion waits
+// in files_deleted until the removal is out.
+struct deleting_torrent {
+	int64_t id;
+	std::string save_path;
+	bool removed = false;
+	std::optional<lts_alert> files_deleted;
+};
+
 struct lts_session {
 	lt::session ses;
+	// popped is the alert pump's alone.
+	std::vector<lt::alert*> popped;
+	// mu guards everything below.
 	std::mutex mu;
 	std::unordered_map<int64_t, lt::torrent_handle> by_id;
 	std::unordered_map<lt::torrent_handle, int64_t> by_handle;
 	std::unordered_set<int64_t> finishing;
-	// parting holds each torrent removed while a tracker had yet to answer
-	// its started announce, by id. libtorrent announces stopped only to a
-	// tracker that answered started, so the removal waits for that answer.
-	std::unordered_map<lt::torrent_handle, int64_t> parting;
+	std::unordered_map<lt::torrent_handle, parting_torrent> parting;
+	// pausing holds each torrent paused while a tracker had yet to answer
+	// its started announce, for the reason parting waits.
+	std::unordered_set<lt::torrent_handle> pausing;
+	std::map<lt::info_hash_t, deleting_torrent> deleting;
+	// resync is set once alerts were dropped: the next post_updates sends
+	// every torrent, since the dropped ones may have carried changes.
+	bool resync = false;
 	int64_t next = 1;
-	std::vector<lt::alert*> popped;
 	std::deque<lts_alert> pending;
 	explicit lts_session(lt::session_params p) : ses(std::move(p)) {}
 };
@@ -157,12 +200,90 @@ bool awaits_started(lt::torrent_handle const& h) {
 	return false;
 }
 
-// part removes a parting torrent once no tracker awaits its started
-// announce. Called with s->mu held.
-void part(lts_session* s, lt::torrent_handle const& h) {
-	if (s->parting.count(h) == 0 || awaits_started(h)) return;
-	s->parting.erase(h);
-	s->ses.remove_torrent(h);
+void remove_now(lts_session* s, lt::torrent_handle const& h, parting_torrent const& p) {
+	lt::remove_flags_t flags{};
+	if (p.delete_files) {
+		flags = lt::session::delete_files;
+		s->deleting[h.info_hashes()] = deleting_torrent{p.id, p.save_path, false, std::nullopt};
+	}
+	s->ses.remove_torrent(h, flags);
+}
+
+// settle carries out the pause or removal of h that waited for its trackers
+// to answer started, once none awaits it. Called with s->mu held.
+void settle(lts_session* s, lt::torrent_handle const& h) {
+	auto p = s->parting.find(h);
+	bool const pausing = s->pausing.count(h) != 0;
+	if ((p == s->parting.end() && !pausing) || awaits_started(h)) return;
+	if (pausing) {
+		s->pausing.erase(h);
+		h.pause(lt::torrent_handle::graceful_pause);
+	}
+	if (p != s->parting.end()) {
+		parting_torrent const gone = p->second;
+		s->parting.erase(p);
+		remove_now(s, h, gone);
+	}
+}
+
+// pause pauses h now, or once no tracker awaits its answer to started.
+// Called with s->mu held.
+void pause(lts_session* s, lt::torrent_handle const& h) {
+	s->pausing.insert(h);
+	settle(s, h);
+}
+
+int64_t unix_ms(lt::time_point t) {
+	if (t.time_since_epoch().count() == 0) return 0;
+	auto const wall = std::chrono::system_clock::now() + std::chrono::duration_cast<std::chrono::system_clock::duration>(t - lt::clock_type::now());
+	return std::chrono::duration_cast<std::chrono::milliseconds>(wall.time_since_epoch()).count();
+}
+
+void fill(lts_status* out, int64_t id, lt::torrent_status const& st) {
+	*out = lts_status{};
+	out->torrent = id;
+	out->state = state(st.state);
+	out->paused = bool(st.flags & lt::torrent_flags::paused);
+	out->done = st.total_done;
+	out->wanted = st.total_wanted;
+	out->down_bps = st.download_payload_rate;
+	out->up_bps = st.upload_payload_rate;
+	out->peers = st.num_peers;
+	out->seeds = st.num_seeds;
+	out->uploaded = st.all_time_upload;
+	out->downloaded = st.all_time_download;
+	out->active_s = st.active_duration.count();
+	out->seeding_s = st.seeding_duration.count();
+	out->last_download_ms = unix_ms(st.last_download);
+	out->need_save = st.need_save_resume;
+	if (st.errc) fill(&out->error, st.errc);
+}
+
+// updates is an UPDATES alert of the statuses of the torrents the caller
+// holds. Called with s->mu held.
+lts_alert updates(lts_session* s, std::vector<lt::torrent_status> const& sts) {
+	lts_alert o{};
+	o.kind = LTS_ALERT_UPDATES;
+	auto* out = static_cast<lts_status*>(std::calloc(sts.size() + 1, sizeof(lts_status)));
+	if (out == nullptr) throw std::bad_alloc();
+	int64_t n = 0;
+	for (lt::torrent_status const& st : sts) {
+		auto it = s->by_handle.find(st.handle);
+		if (it == s->by_handle.end()) continue;
+		fill(&out[n++], it->second, st);
+	}
+	o.payload = out;
+	o.payload_len = n;
+	return o;
+}
+
+// remove_save_path removes the save path a deletion emptied, and leaves it
+// when anything else is in it.
+void remove_save_path(std::string const& save_path, lts_error* err) {
+	std::error_code ec;
+	std::filesystem::path const dir = std::filesystem::u8path(save_path);
+	if (std::filesystem::exists(dir, ec) && std::filesystem::is_empty(dir, ec)) std::filesystem::remove(dir, ec);
+	if (ec) fill(err, LTS_CATEGORY_SYSTEM, ec.value(), ec.message());
 }
 
 int64_t id_of(lt::client_data_t const& userdata) {
@@ -208,11 +329,22 @@ void convert(lts_session* s, lt::alert* a) {
 		o.torrent = id;
 		break;
 	}
-	case lt::torrent_removed_alert::alert_type:
+	case lt::torrent_removed_alert::alert_type: {
+		auto* ra = static_cast<lt::torrent_removed_alert*>(a);
 		o.kind = LTS_ALERT_REMOVED;
-		o.torrent = id_of(static_cast<lt::torrent_removed_alert*>(a)->userdata);
+		o.torrent = id_of(ra->userdata);
 		s->finishing.erase(o.torrent);
-		break;
+		s->pending.push_back(o);
+		auto it = s->deleting.find(ra->info_hashes);
+		if (it == s->deleting.end()) return;
+		if (!it->second.files_deleted) {
+			it->second.removed = true;
+			return;
+		}
+		s->pending.push_back(*it->second.files_deleted);
+		s->deleting.erase(it);
+		return;
+	}
 	case lt::torrent_error_alert::alert_type: {
 		auto* te = static_cast<lt::torrent_error_alert*>(a);
 		o.kind = LTS_ALERT_TORRENT_FAILED;
@@ -221,13 +353,13 @@ void convert(lts_session* s, lt::alert* a) {
 		break;
 	}
 	case lt::tracker_reply_alert::alert_type:
-		part(s, static_cast<lt::torrent_alert*>(a)->handle);
+		settle(s, static_cast<lt::torrent_alert*>(a)->handle);
 		o.kind = LTS_ALERT_TRACKER_REPLIED;
 		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
 		break;
 	case lt::tracker_error_alert::alert_type: {
 		auto* te = static_cast<lt::tracker_error_alert*>(a);
-		part(s, te->handle);
+		settle(s, te->handle);
 		o.kind = LTS_ALERT_TRACKER_FAILED;
 		o.torrent = torrent(te);
 		fill(&o.error, te->error);
@@ -240,7 +372,62 @@ void convert(lts_session* s, lt::alert* a) {
 		return;
 	case lt::alerts_dropped_alert::alert_type:
 		o.kind = LTS_ALERT_DROPPED;
+		s->resync = true;
 		s->pending.push_back(o);
+		return;
+	case lt::torrent_paused_alert::alert_type:
+		o.kind = LTS_ALERT_PAUSED;
+		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
+		break;
+	case lt::torrent_resumed_alert::alert_type:
+		o.kind = LTS_ALERT_RESUMED;
+		o.torrent = torrent(static_cast<lt::torrent_alert*>(a));
+		break;
+	case lt::save_resume_data_alert::alert_type: {
+		auto* sr = static_cast<lt::save_resume_data_alert*>(a);
+		o.kind = LTS_ALERT_RESUME_SAVED;
+		o.torrent = torrent(sr);
+		if (o.torrent == 0) return;
+		std::vector<char> const buf = lt::write_resume_data_buf(sr->params);
+		o.payload = std::malloc(buf.size());
+		if (o.payload == nullptr) throw std::bad_alloc();
+		std::memcpy(o.payload, buf.data(), buf.size());
+		o.payload_len = int64_t(buf.size());
+		break;
+	}
+	case lt::save_resume_data_failed_alert::alert_type: {
+		auto* sf = static_cast<lt::save_resume_data_failed_alert*>(a);
+		o.kind = LTS_ALERT_RESUME_FAILED;
+		o.torrent = torrent(sf);
+		fill(&o.error, sf->error);
+		break;
+	}
+	case lt::torrent_deleted_alert::alert_type:
+	case lt::torrent_delete_failed_alert::alert_type: {
+		lt::info_hash_t ih;
+		lt::error_code failed;
+		if (a->type() == lt::torrent_deleted_alert::alert_type) {
+			ih = static_cast<lt::torrent_deleted_alert*>(a)->info_hashes;
+		} else {
+			auto* df = static_cast<lt::torrent_delete_failed_alert*>(a);
+			ih = df->info_hashes;
+			failed = df->error;
+		}
+		auto it = s->deleting.find(ih);
+		if (it == s->deleting.end()) return;
+		o.kind = LTS_ALERT_FILES_DELETED;
+		o.torrent = it->second.id;
+		if (failed) fill(&o.error, failed);
+		else remove_save_path(it->second.save_path, &o.error);
+		if (!it->second.removed) {
+			it->second.files_deleted = o;
+			return;
+		}
+		s->deleting.erase(it);
+		break;
+	}
+	case lt::state_update_alert::alert_type:
+		s->pending.push_back(updates(s, static_cast<lt::state_update_alert*>(a)->status));
 		return;
 	default:
 		return;
@@ -287,26 +474,36 @@ int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err) {
 	return guard(err, [&] { *port = s->ses.listen_port(); });
 }
 
-int lts_add(lts_session* s, char const* metainfo, size_t len, char const* save_path, int seed_mode, int64_t* torrent, lts_error* err) {
+int lts_add(lts_session* s, lts_add_params const* p, int64_t* torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::error_code ec;
-		auto ti = std::make_shared<lt::torrent_info>(lt::span<char const>(metainfo, std::ptrdiff_t(len)), ec, lt::from_span);
-		check(ec);
 		lt::add_torrent_params atp;
-		atp.ti = std::move(ti);
-		atp.save_path = save_path;
-		atp.flags &= ~(lt::torrent_flags::auto_managed | lt::torrent_flags::paused);
-		if (seed_mode) atp.flags |= lt::torrent_flags::seed_mode;
+		if (p->resume != nullptr) {
+			atp = lt::read_resume_data(lt::span<char const>(p->resume, std::ptrdiff_t(p->resume_len)), ec);
+			check(ec);
+		} else {
+			atp.ti = std::make_shared<lt::torrent_info>(lt::span<char const>(p->metainfo, std::ptrdiff_t(p->metainfo_len)), ec, lt::from_span);
+			check(ec);
+		}
+		atp.save_path = p->save_path;
+		atp.flags &= ~lt::torrent_flags::auto_managed;
+		atp.flags |= lt::torrent_flags::paused;
+		if (p->seed_mode) atp.flags |= lt::torrent_flags::seed_mode;
+		atp.total_uploaded = std::max(atp.total_uploaded, p->base_uploaded);
+		atp.total_downloaded = std::max(atp.total_downloaded, p->base_downloaded);
+		atp.active_time = std::max(atp.active_time, int(p->base_active_s));
+		atp.seeding_time = std::max(atp.seeding_time, int(p->base_seeding_s));
 		std::lock_guard<std::mutex> l(s->mu);
 		int64_t id = s->next++;
 		atp.userdata = lt::client_data_t(reinterpret_cast<lts_id*>(intptr_t(id)));
 		lt::torrent_handle h = s->ses.add_torrent(std::move(atp), ec);
 		check(ec);
 		// Adding a parting torrent again returns its handle: it stays, under
-		// the id it had.
-		if (auto p = s->parting.find(h); p != s->parting.end()) {
-			id = p->second;
-			s->parting.erase(p);
+		// the id it had, and pauses as any add does.
+		if (auto pt = s->parting.find(h); pt != s->parting.end()) {
+			id = pt->second.id;
+			s->parting.erase(pt);
+			pause(s, h);
 		}
 		s->by_id[id] = h;
 		s->by_handle[h] = id;
@@ -324,25 +521,78 @@ int lts_connect_peer(lts_session* s, int64_t torrent, char const* address, uint1
 }
 
 int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* err) {
-	return guard(err, [&] {
-		lt::torrent_status st = find(s, torrent).status();
-		out->state = state(st.state);
-		out->peers = st.num_peers;
-		out->done = st.total_done;
-		out->wanted = st.total_wanted;
-		out->uploaded = st.all_time_upload;
-	});
+	return guard(err, [&] { fill(out, torrent, find(s, torrent).status()); });
 }
 
-int lts_remove(lts_session* s, int64_t torrent, lts_error* err) {
+int lts_pause(lts_session* s, int64_t torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);
 		std::lock_guard<std::mutex> l(s->mu);
+		pause(s, h);
+	});
+}
+
+int lts_resume(lts_session* s, int64_t torrent, lts_error* err) {
+	return guard(err, [&] {
+		lt::torrent_handle h = find(s, torrent);
+		std::lock_guard<std::mutex> l(s->mu);
+		s->pausing.erase(h);
+		h.resume();
+	});
+}
+
+int lts_save_resume(lts_session* s, int64_t torrent, lts_error* err) {
+	return guard(err, [&] {
+		find(s, torrent).save_resume_data(lt::torrent_handle::flush_disk_cache | lt::torrent_handle::save_info_dict);
+	});
+}
+
+int lts_post_updates(lts_session* s, lts_error* err) {
+	return guard(err, [&] {
+		std::unique_lock<std::mutex> l(s->mu);
+		if (!s->resync) {
+			l.unlock();
+			s->ses.post_torrent_updates();
+			return;
+		}
+		s->resync = false;
+		s->pending.push_back(updates(s, s->ses.get_torrent_status([](lt::torrent_status const&) { return true; })));
+	});
+}
+
+int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error* err) {
+	return guard(err, [&] {
+		lt::torrent_handle h = find(s, torrent);
+		std::string save_path;
+		if (delete_files) save_path = h.status(lt::torrent_handle::query_save_path).save_path;
+		std::lock_guard<std::mutex> l(s->mu);
 		s->by_handle.erase(h);
 		s->by_id.erase(torrent);
-		s->parting[h] = torrent;
-		part(s, h);
+		s->pausing.erase(h);
+		s->parting[h] = parting_torrent{torrent, delete_files != 0, save_path};
+		settle(s, h);
 	});
+}
+
+int lts_file_progress(lts_session* s, int64_t torrent, int64_t** done, int32_t* count, lts_error* err) {
+	return guard(err, [&] {
+		lt::torrent_handle h = find(s, torrent);
+		std::shared_ptr<lt::torrent_info const> ti = h.torrent_file();
+		lt::file_storage const& fs = ti->files();
+		std::vector<std::int64_t> progress = h.file_progress();
+		auto* out = static_cast<int64_t*>(std::calloc(std::size_t(fs.num_files()) + 1, sizeof(int64_t)));
+		if (out == nullptr) throw std::bad_alloc();
+		int32_t n = 0;
+		for (lt::file_index_t i : fs.file_range()) {
+			if (!fs.pad_file_at(i)) out[n++] = progress[std::size_t(static_cast<int>(i))];
+		}
+		*done = out;
+		*count = n;
+	});
+}
+
+void lts_free(void* p) {
+	std::free(p);
 }
 
 int lts_torrent_files(lts_session* s, int64_t torrent, lts_file** files, int32_t* count, lts_error* err) {
@@ -381,21 +631,39 @@ void lts_free_files(lts_file* files, int32_t count) {
 int lts_wait_alerts(lts_session* s, int timeout_ms, lts_alert* out, int max, lts_error* err) {
 	int n = 0;
 	int rc = guard(err, [&] {
-		if (s->pending.empty() && s->ses.wait_for_alert(lt::milliseconds(timeout_ms))) {
+		bool empty;
+		{
+			std::lock_guard<std::mutex> l(s->mu);
+			empty = s->pending.empty();
+		}
+		if (empty && s->ses.wait_for_alert(lt::milliseconds(timeout_ms))) {
 			s->ses.pop_alerts(&s->popped);
 			std::lock_guard<std::mutex> l(s->mu);
 			for (lt::alert* a : s->popped) convert(s, a);
 		}
+		std::lock_guard<std::mutex> l(s->mu);
 		for (; n < max && !s->pending.empty(); ++n) {
 			out[n] = s->pending.front();
 			s->pending.pop_front();
 		}
 	});
-	return rc < 0 ? -1 : n;
+	if (rc < 0) {
+		// The batch being converted is lost, which the caller reports as a drop.
+		std::lock_guard<std::mutex> l(s->mu);
+		s->resync = true;
+		return -1;
+	}
+	return n;
+}
+
+void lts_free_alert(lts_alert* a) {
+	std::free(a->payload);
+	a->payload = nullptr;
 }
 
 int lts_close(lts_session* s, lts_error* err) {
 	int rc = guard(err, [&] { lt::session_proxy proxy = s->ses.abort(); });
+	for (lts_alert& a : s->pending) lts_free_alert(&a);
 	delete s;
 	return rc;
 }

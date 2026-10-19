@@ -1,19 +1,28 @@
 // Package enginetest is an in-memory torrent engine behind the engine
-// interface. It starts no goroutine and no thread, so a testing/synctest
-// bubble can hold it, which libtorrent's threads cannot (ADR 0014). A
-// torrent added in seed mode seeds. Any other finishes at once when the
-// engine holds its payload, and else downloads and never finishes. It
-// reads the files a torrent lists from its metainfo.
+// interface. Its engines share a World: the payloads its swarm holds and
+// the trackers it runs. It starts no goroutine and no thread, only timers,
+// so a testing/synctest bubble can hold it, which libtorrent's threads
+// cannot (ADR 0014). It adds torrents paused, as libtorrent does for the
+// engine. A torrent added in seed mode seeds, and one added from resume
+// data holds what that says. Any other checks the files it finds under its
+// save path once resumed, then finishes at once when the World holds its
+// payload, and else downloads and never finishes.
 package enginetest
 
 import (
+	"cmp"
+	"crypto/sha1" //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
+	"errors"
 	"fmt"
+	"io"
+	"maps"
 	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -26,115 +35,415 @@ const events = 64
 // defaultPort is the port a listen interface with port 0 reports.
 const defaultPort = 6881
 
-type Engine struct {
-	listen   netip.AddrPort
-	events   chan engine.Event
-	payloads map[bencode.InfoHash][]byte
-
+// World is the swarm and the trackers every engine it opens shares.
+type World struct {
+	// mu guards the World and every engine it opened.
 	mu       sync.Mutex
-	closed   bool
-	dropped  bool
-	next     engine.Handle
-	torrents map[engine.Handle]torrent
+	payloads map[bencode.InfoHash][]byte
+	trackers map[string]*tracker
 }
 
-type torrent struct {
-	status engine.Status
-	files  []engine.File
+func NewWorld() *World {
+	return &World{payloads: map[bencode.InfoHash][]byte{}, trackers: map[string]*tracker{}}
 }
 
 // Open builds an engine listening on cfg's interface, or on port 6881 of
 // its address when it asks for any port.
-func Open(cfg engine.Config) (engine.Engine, error) { return Payloads(nil)(cfg) }
+func (w *World) Open(cfg engine.Config) (engine.Engine, error) {
+	listen := cfg.ListenInterface
+	if listen.Port() == 0 {
+		listen = netip.AddrPortFrom(listen.Addr(), defaultPort)
+	}
+	return &Engine{
+		w:        w,
+		listen:   listen,
+		events:   make(chan engine.Event, events),
+		torrents: map[engine.Handle]*torrent{},
+		parting:  map[bencode.InfoHash]*torrent{},
+		posted:   map[engine.Handle]engine.Status{},
+	}, nil
+}
 
-// Payloads opens engines that finish a download of a single-file torrent
-// whose info hash payloads holds: Add writes the payload as the file
-// under the save path and sends Finished.
+// Payload has a single-file torrent with hash finish at once with payload:
+// a download of it writes the payload as its file.
+func (w *World) Payload(h bencode.InfoHash, payload []byte) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.payloads[h] = payload
+}
+
+// Open opens an engine in a World of its own.
+func Open(cfg engine.Config) (engine.Engine, error) { return NewWorld().Open(cfg) }
+
+// Payloads opens engines, each in a World of its own holding payloads.
 func Payloads(payloads map[bencode.InfoHash][]byte) func(engine.Config) (engine.Engine, error) {
 	return func(cfg engine.Config) (engine.Engine, error) {
-		listen := cfg.ListenInterface
-		if listen.Port() == 0 {
-			listen = netip.AddrPortFrom(listen.Addr(), defaultPort)
-		}
-		return &Engine{listen: listen, events: make(chan engine.Event, events), payloads: payloads, torrents: map[engine.Handle]torrent{}}, nil
+		w := NewWorld()
+		maps.Copy(w.payloads, payloads)
+		return w.Open(cfg)
 	}
+}
+
+type Engine struct {
+	w      *World
+	listen netip.AddrPort
+	events chan engine.Event
+
+	closed  bool
+	dropped bool
+	// resync is set once events were dropped: the next PostUpdates carries
+	// every torrent.
+	resync   bool
+	next     engine.Handle
+	torrents map[engine.Handle]*torrent
+	// parting holds the torrents removed while a tracker awaits their
+	// started announce's answer, by info hash.
+	parting map[bencode.InfoHash]*torrent
+	// posted is each torrent's status as PostUpdates last sent it, its
+	// clocks zeroed: libtorrent counts a torrent changed by what moved, not
+	// by time passing.
+	posted map[engine.Handle]engine.Status
+}
+
+type torrent struct {
+	e        *Engine
+	handle   engine.Handle
+	meta     bencode.Metainfo
+	raw      []byte
+	savePath string
+	files    []engine.File
+	state    engine.State
+	paused   bool
+	// pausing is a pause waiting for a tracker's answer to started.
+	pausing bool
+	// removing is a removal waiting likewise, deleting files when
+	// deleteFiles.
+	removing, deleteFiles bool
+	done, wanted          int64
+	// totals hold the clocks up to since, which now extends.
+	totals   engine.Totals
+	since    time.Time
+	needSave bool
+	trackers *announcing
 }
 
 func (e *Engine) Add(p engine.AddParams) (engine.Handle, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
 	if e.closed {
 		return 0, engine.ErrClosed
 	}
-	m, err := bencode.DecodeMetainfo(p.Metainfo)
+	t, err := e.torrent(p)
 	if err != nil {
-		return 0, &engine.Error{Category: engine.CategoryBdecode, Text: err.Error()}
+		return 0, err
+	}
+	if was, ok := e.parting[t.meta.InfoHash]; ok {
+		// libtorrent hands back a torrent whose removal waits, and it stays.
+		delete(e.parting, was.meta.InfoHash)
+		was.removing = false
+		e.torrents[was.handle] = was
+		was.pause()
+		return was.handle, nil
 	}
 	e.next++
-	t := torrent{engine.Status{State: engine.StateDownloading}, files(m.Info)}
-	payload, finishes := e.payloads[m.InfoHash]
-	switch {
-	case p.SeedMode:
-		t.status.State = engine.StateSeeding
-	case finishes:
-		if err := write(p.SavePath, t.files, payload); err != nil {
-			return 0, err
-		}
-		size := int64(len(payload))
-		t.status = engine.Status{State: engine.StateSeeding, Done: size, Wanted: size}
-	}
-	e.torrents[e.next] = t
-	e.emit(engine.Added{Torrent: e.next})
-	e.emit(engine.StateChanged{Torrent: e.next, State: t.status.State})
-	if finishes && !p.SeedMode {
-		e.emit(engine.Finished{Torrent: e.next})
-	}
-	return e.next, nil
+	t.handle = e.next
+	e.torrents[t.handle] = t
+	e.emit(engine.Added{Torrent: t.handle})
+	e.emit(engine.StateChanged{Torrent: t.handle, State: t.state})
+	return t.handle, nil
 }
 
-func write(savePath string, files []engine.File, payload []byte) error {
-	if len(files) != 1 {
-		return &engine.Error{Category: engine.CategoryOther, Text: fmt.Sprintf("a payload fills one file, and the torrent has %d", len(files))}
+// torrent is the paused torrent p adds.
+func (e *Engine) torrent(p engine.AddParams) (*torrent, error) {
+	r := resume{Metainfo: p.Metainfo}
+	if p.Resume != nil {
+		var err error
+		if r, err = decodeResume(p.Resume); err != nil {
+			return nil, err
+		}
 	}
-	file := filepath.Join(savePath, filepath.FromSlash(files[0].Path))
+	m, err := bencode.DecodeMetainfo(r.Metainfo)
+	if err != nil {
+		return nil, &engine.Error{Category: engine.CategoryBdecode, Text: err.Error()}
+	}
+	t := &torrent{
+		e: e, meta: m, raw: r.Metainfo, savePath: p.SavePath, files: files(m.Info), paused: true, needSave: true,
+		totals: engine.Totals{
+			Uploaded:   max(r.Totals.Uploaded, p.Baseline.Uploaded),
+			Downloaded: max(r.Totals.Downloaded, p.Baseline.Downloaded),
+			Active:     max(r.Totals.Active, p.Baseline.Active),
+			Seeding:    max(r.Totals.Seeding, p.Baseline.Seeding),
+		},
+		since: time.Now(),
+	}
+	for _, f := range t.files {
+		t.wanted += f.Size
+	}
+	t.trackers = &announcing{t: t}
+	switch {
+	case p.SeedMode:
+		t.done, t.state = t.wanted, engine.StateSeeding
+	case p.Resume != nil:
+		t.done, t.state = r.Done, engine.StateDownloading
+		if t.done == t.wanted {
+			t.state = engine.StateSeeding
+		}
+	case t.anyFile():
+		t.state = engine.StateCheckingFiles
+	default:
+		t.state = engine.StateDownloading
+	}
+	// libtorrent takes a torrent added or checked complete to have sent
+	// completed when it finished.
+	t.trackers.completeSent = t.state == engine.StateSeeding
+	return t, nil
+}
+
+func (t *torrent) anyFile() bool {
+	return slices.ContainsFunc(t.files, func(f engine.File) bool {
+		_, err := os.Stat(t.path(f))
+		return err == nil
+	})
+}
+
+func (t *torrent) path(f engine.File) string {
+	return filepath.Join(t.savePath, filepath.FromSlash(f.Path))
+}
+
+func (e *Engine) Pause(h engine.Handle) error {
+	return e.with(h, func(t *torrent) error {
+		t.pause()
+		return nil
+	})
+}
+
+// pause pauses t now, or once no tracker awaits its answer to started.
+func (t *torrent) pause() {
+	t.pausing = true
+	t.settle()
+}
+
+// settle carries out the pause or removal of t that waited for its
+// trackers to answer started, once none awaits it.
+func (t *torrent) settle() {
+	if t.trackers.awaitsStarted() {
+		return
+	}
+	if t.pausing {
+		t.pausing = false
+		if !t.paused {
+			t.setPaused(true)
+			t.trackers.stop()
+			t.e.emit(engine.Paused{Torrent: t.handle})
+		}
+	}
+	if t.removing {
+		t.removing = false
+		delete(t.e.parting, t.meta.InfoHash)
+		t.remove()
+	}
+}
+
+// holds is whether t is the engine's to report on: libtorrent's shim drops
+// the alerts of a torrent it removed.
+func (e *Engine) holds(t *torrent) bool {
+	return e.torrents[t.handle] == t || e.parting[t.meta.InfoHash] == t
+}
+
+func (e *Engine) Resume(h engine.Handle) error {
+	return e.with(h, func(t *torrent) error {
+		t.pausing = false
+		if !t.paused {
+			return nil
+		}
+		t.setPaused(false)
+		t.e.emit(engine.Resumed{Torrent: t.handle})
+		if t.state == engine.StateCheckingFiles {
+			t.check()
+		}
+		t.trackers.start()
+		if payload, ok := t.e.w.payloads[t.meta.InfoHash]; ok && t.state == engine.StateDownloading {
+			return t.finish(payload)
+		}
+		return nil
+	})
+}
+
+// setPaused folds the clocks up to now before t stops or starts them.
+func (t *torrent) setPaused(paused bool) {
+	t.fold()
+	t.paused, t.needSave = paused, true
+}
+
+func (t *torrent) setState(s engine.State) {
+	t.fold()
+	t.state, t.needSave = s, true
+	t.e.emit(engine.StateChanged{Torrent: t.handle, State: s})
+}
+
+func (t *torrent) fold() {
+	now := time.Now()
+	if !t.paused {
+		t.totals.Active += now.Sub(t.since)
+		if t.state == engine.StateSeeding {
+			t.totals.Seeding += now.Sub(t.since)
+		}
+	}
+	t.since = now
+}
+
+// check hashes the files under t's save path, as libtorrent checks a
+// torrent added without resume data once it runs.
+func (t *torrent) check() {
+	t.done = t.verified()
+	if t.done < t.wanted {
+		t.setState(engine.StateDownloading)
+		return
+	}
+	t.setState(engine.StateSeeding)
+	t.trackers.completeSent = true
+	t.e.emit(engine.Finished{Torrent: t.handle})
+}
+
+// verified is the bytes of the pieces whose data under the save path
+// matches their hash. A missing or short file reads as zeros.
+func (t *torrent) verified() int64 {
+	readers := make([]io.Reader, 0, len(t.files))
+	var opened []*os.File
+	defer func() {
+		for _, fh := range opened {
+			_ = fh.Close()
+		}
+	}()
+	for _, f := range t.files {
+		r := io.Reader(zeros{})
+		if fh, err := os.Open(t.path(f)); err == nil {
+			opened = append(opened, fh)
+			r = io.MultiReader(fh, zeros{})
+		}
+		readers = append(readers, io.LimitReader(r, f.Size))
+	}
+	all := io.MultiReader(readers...)
+	piece := make([]byte, t.meta.Info.PieceLength)
+	var done int64
+	for i := 0; ; i++ {
+		n, err := io.ReadFull(all, piece)
+		if n == 0 {
+			return done
+		}
+		if sha1.Sum(piece[:n]) == [sha1.Size]byte(t.meta.Info.Pieces[i*sha1.Size:]) { //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
+			done += int64(n)
+		}
+		if err != nil {
+			return done
+		}
+	}
+}
+
+type zeros struct{}
+
+func (zeros) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
+}
+
+// finish downloads payload as t's one file.
+func (t *torrent) finish(payload []byte) error {
+	if len(t.files) != 1 {
+		return &engine.Error{Category: engine.CategoryOther, Text: fmt.Sprintf("a payload fills one file, and the torrent has %d", len(t.files))}
+	}
+	file := t.path(t.files[0])
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it
 		return &engine.Error{Category: engine.CategorySystem, Text: err.Error()}
 	}
 	if err := os.WriteFile(file, payload, 0o644); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it
 		return &engine.Error{Category: engine.CategorySystem, Text: err.Error()}
 	}
+	t.totals.Downloaded += t.wanted - t.done
+	t.done = t.wanted
+	t.setState(engine.StateSeeding)
+	t.e.emit(engine.Finished{Torrent: t.handle})
+	t.trackers.completed()
 	return nil
 }
 
+func (e *Engine) SaveResume(h engine.Handle) error {
+	return e.with(h, func(t *torrent) error {
+		t.fold()
+		data, err := resume{Metainfo: t.raw, Done: t.done, Totals: t.totals}.encode()
+		if err != nil {
+			return err
+		}
+		t.needSave = false
+		e.emit(engine.ResumeSaved{Torrent: h, Data: data})
+		return nil
+	})
+}
+
+func (e *Engine) PostUpdates() error {
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
+	if e.closed {
+		return engine.ErrClosed
+	}
+	var changed []engine.Status
+	for _, h := range slices.Sorted(maps.Keys(e.torrents)) {
+		s := e.torrents[h].status()
+		moved := s
+		moved.Totals.Active, moved.Totals.Seeding = 0, 0
+		if last, ok := e.posted[h]; e.resync || !ok || last != moved {
+			changed = append(changed, s)
+			e.posted[h] = moved
+		}
+	}
+	e.resync = false
+	e.emit(engine.Updates{Statuses: changed})
+	return nil
+}
+
+func (t *torrent) status() engine.Status {
+	t.fold()
+	return engine.Status{
+		Torrent: t.handle, State: t.state, Paused: t.paused, Done: t.done, Wanted: t.wanted,
+		Totals: t.totals, NeedSave: t.needSave,
+	}
+}
+
 func (e *Engine) ConnectPeer(h engine.Handle, _ netip.AddrPort) error {
-	_, err := e.Status(h)
-	return err
+	return e.with(h, func(*torrent) error { return nil })
 }
 
 func (e *Engine) Status(h engine.Handle) (engine.Status, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.closed {
-		return engine.Status{}, engine.ErrClosed
-	}
-	t, ok := e.torrents[h]
-	if !ok {
-		return engine.Status{}, engine.ErrUnknownTorrent
-	}
-	return t.status, nil
+	var s engine.Status
+	err := e.with(h, func(t *torrent) error {
+		s = t.status()
+		return nil
+	})
+	return s, err
 }
 
 func (e *Engine) Files(h engine.Handle) ([]engine.File, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.closed {
-		return nil, engine.ErrClosed
-	}
-	t, ok := e.torrents[h]
-	if !ok {
-		return nil, engine.ErrUnknownTorrent
-	}
-	return slices.Clone(t.files), nil
+	var out []engine.File
+	err := e.with(h, func(t *torrent) error {
+		out = slices.Clone(t.files)
+		return nil
+	})
+	return out, err
+}
+
+// FileProgress spreads the bytes done over the files in order.
+func (e *Engine) FileProgress(h engine.Handle) ([]int64, error) {
+	var out []int64
+	err := e.with(h, func(t *torrent) error {
+		left := t.done
+		for _, f := range t.files {
+			done := min(left, f.Size)
+			out = append(out, done)
+			left -= done
+		}
+		return nil
+	})
+	return out, err
 }
 
 // files lists the metainfo's files as given: unlike libtorrent, the
@@ -147,17 +456,56 @@ func files(info bencode.Info) []engine.File {
 	return out
 }
 
-func (e *Engine) Remove(h engine.Handle) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.closed {
-		return engine.ErrClosed
+func (e *Engine) Remove(h engine.Handle, deleteFiles bool) error {
+	return e.with(h, func(t *torrent) error {
+		delete(e.torrents, h)
+		delete(e.posted, h)
+		t.pausing, t.removing, t.deleteFiles = false, true, deleteFiles
+		e.parting[t.meta.InfoHash] = t
+		t.settle()
+		return nil
+	})
+}
+
+func (t *torrent) remove() {
+	t.trackers.stop()
+	t.e.emit(engine.Removed{Torrent: t.handle})
+	if t.deleteFiles {
+		deleted := engine.FilesDeleted{Torrent: t.handle}
+		if err := t.deleteData(); err != nil {
+			deleted.Err = &engine.Error{Category: engine.CategorySystem, Text: err.Error()}
+		}
+		t.e.emit(deleted)
 	}
-	if _, ok := e.torrents[h]; !ok {
-		return engine.ErrUnknownTorrent
+}
+
+// deleteData deletes t's files and the folders its file paths name, as
+// libtorrent's delete_files does, then its save path if that is left
+// empty.
+func (t *torrent) deleteData() error {
+	var errs []error
+	dirs := map[string]bool{}
+	for _, f := range t.files {
+		if err := os.Remove(t.path(f)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, err)
+		}
+		for d := path.Dir(f.Path); d != "."; d = path.Dir(d) {
+			dirs[d] = true
+		}
 	}
-	delete(e.torrents, h)
-	e.emit(engine.Removed{Torrent: h})
+	for _, d := range slices.SortedFunc(maps.Keys(dirs), func(a, b string) int { return cmp.Compare(len(b), len(a)) }) {
+		if err := os.Remove(filepath.Join(t.savePath, filepath.FromSlash(d))); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, err)
+		}
+	}
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+	if left, err := os.ReadDir(t.savePath); err == nil && len(left) == 0 {
+		if err := os.Remove(t.savePath); err != nil {
+			return fmt.Errorf("remove the emptied save path: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -165,30 +513,89 @@ func (e *Engine) ListenAddr() (netip.AddrPort, error) { return e.listen, nil }
 
 func (e *Engine) Events() <-chan engine.Event { return e.events }
 
+// Close stops every torrent's announcing, as libtorrent's session abort
+// sends stopped where started was answered.
 func (e *Engine) Close() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if !e.closed {
-		e.closed = true
-		close(e.events)
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
+	if e.closed {
+		return nil
 	}
+	for _, t := range e.torrents {
+		t.trackers.stop()
+	}
+	for _, t := range e.parting {
+		t.trackers.stop()
+	}
+	e.closed = true
+	close(e.events)
 	return nil
+}
+
+func (e *Engine) with(h engine.Handle, f func(*torrent) error) error {
+	e.w.mu.Lock()
+	defer e.w.mu.Unlock()
+	if e.closed {
+		return engine.ErrClosed
+	}
+	t, ok := e.torrents[h]
+	if !ok {
+		return engine.ErrUnknownTorrent
+	}
+	return f(t)
 }
 
 // emit queues ev without blocking. Once a reader falls behind it drops
 // events, and the next one it can queue is Dropped.
 func (e *Engine) emit(ev engine.Event) {
+	if e.closed {
+		return
+	}
 	if e.dropped {
 		select {
 		case e.events <- engine.Dropped{}:
 			e.dropped = false
 		default:
+			e.resync = true
 			return
 		}
 	}
 	select {
 	case e.events <- ev:
 	default:
-		e.dropped = true
+		e.dropped, e.resync = true, true
 	}
+}
+
+// resume is the in-memory engine's resume data.
+type resume struct {
+	Metainfo []byte
+	Done     int64
+	Totals   engine.Totals
+}
+
+func (r resume) encode() ([]byte, error) {
+	return bencode.Encode(map[string]any{
+		"metainfo": r.Metainfo, "done": r.Done,
+		"uploaded": r.Totals.Uploaded, "downloaded": r.Totals.Downloaded,
+		"active": int64(r.Totals.Active), "seeding": int64(r.Totals.Seeding),
+	})
+}
+
+func decodeResume(data []byte) (resume, error) {
+	v, err := bencode.Decode(data)
+	d, ok := v.(map[string]any)
+	if err != nil || !ok {
+		return resume{}, &engine.Error{Category: engine.CategoryBdecode, Text: fmt.Sprintf("resume data: %v", cmp.Or(err, errors.New("not a dictionary")))}
+	}
+	meta, _ := d["metainfo"].(string)
+	num := func(k string) int64 { n, _ := d[k].(int64); return n }
+	return resume{
+		Metainfo: []byte(meta),
+		Done:     num("done"),
+		Totals: engine.Totals{
+			Uploaded: num("uploaded"), Downloaded: num("downloaded"),
+			Active: time.Duration(num("active")), Seeding: time.Duration(num("seeding")),
+		},
+	}, nil
 }
