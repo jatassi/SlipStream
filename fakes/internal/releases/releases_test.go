@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/internal/releases"
@@ -65,6 +66,28 @@ func TestBuildMakesTheSameBytesFromOneInput(t *testing.T) {
 	data, err := os.ReadFile(first.File)
 	if err != nil || int64(len(data)) != first.Size || string(data[:4]) != "\x1a\x45\xdf\xa3" {
 		t.Fatalf("payload is %d bytes starting %x, %v; want %d bytes of Matroska", len(data), data[:min(4, len(data))], err, first.Size)
+	}
+}
+
+// TestWorldsSharingACacheAllPlaceTheirPayload runs worlds at once on one
+// empty cache, as parallel browser workers do: each encodes the same
+// payload, and none may fail to read the one another published.
+func TestWorldsSharingACacheAllPlaceTheirPayload(t *testing.T) {
+	s := scenario.Scenario{Seed: "shared", Releases: []scenario.Release{
+		{Name: "The.Quiet.Orchard.2021.360p", TMDBID: 9000001, Video: scenario.Video{Width: 320, Height: 180, Seconds: 1}, Seeded: true},
+	}}
+	tracker := netip.MustParseAddrPort("127.0.0.1:8443")
+	for range 4 {
+		cache := t.TempDir()
+		var worlds sync.WaitGroup
+		for range 12 {
+			worlds.Go(func() {
+				if _, err := releases.Build(t.Context(), s, releases.Config{FFmpeg: ffmpeg(t), Cache: cache, Dir: t.TempDir(), Tracker: tracker}); err != nil {
+					t.Error(err)
+				}
+			})
+		}
+		worlds.Wait()
 	}
 }
 
