@@ -1,0 +1,518 @@
+// Package enginecontract is the one suite every engine.Engine passes: the
+// libtorrent session over real sockets and enginetest's in-memory World
+// inside a synctest bubble.
+package enginecontract
+
+import (
+	"crypto/sha1" //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"math/rand/v2"
+	"os"
+	"path/filepath"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/torrent/engine"
+	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
+)
+
+// Harness is an engine's world as the suite needs it.
+type Harness interface {
+	// Within runs f where the harness's clock rules: a synctest bubble for
+	// enginetest, as is for libtorrent.
+	Within(t *testing.T, f func(*testing.T))
+	// Open opens an engine, closed when t ends.
+	Open(t *testing.T) engine.Engine
+	Tracker(t *testing.T, rules enginetest.TrackerRules) Tracker
+	// Until waits for cond on the harness's clock, failing t when it takes
+	// too long: what says what it waited for.
+	Until(t *testing.T, what string, cond func() bool)
+}
+
+type Tracker struct {
+	// URL ends in /announce, which libtorrent requires of a loopback tracker.
+	URL string
+	// Announces lists the announces the tracker received, oldest first.
+	Announces func() []enginetest.Announce
+	// Answer answers the started announces the tracker holds, and every
+	// later one at once.
+	Answer func()
+}
+
+func Run(t *testing.T, h Harness) {
+	for _, tc := range []struct {
+		name string
+		test func(*testing.T, Harness)
+	}{
+		{"AddWaitsPausedUntilResume", addWaitsPausedUntilResume},
+		{"AnAddFromResumeDataSkipsTheCheck", anAddFromResumeDataSkipsTheCheck},
+		{"TheBaselineRaisesCounters", theBaselineRaisesCounters},
+		{"PauseSendsStoppedOnlyAfterStartedWasAnswered", pauseSendsStoppedOnlyAfterStartedWasAnswered},
+		{"RemoveKeepsTheFiles", removeKeepsTheFiles},
+		{"RemoveWithFilesDeletesTheDownloadCopyAndItsFolder", removeWithFilesDeletesTheDownloadCopyAndItsFolder},
+		{"UpdatesCarryOnlyChangedTorrents", updatesCarryOnlyChangedTorrents},
+		{"UpdatesCarryEveryTorrentAfterDropped", updatesCarryEveryTorrentAfterDropped},
+	} {
+		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
+	}
+}
+
+func addWaitsPausedUntilResume(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t)
+	r := record(e)
+	rel := release(t, "Waits", tr.URL)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+	if s := awaitStatus(t, h, e, r, th, func(engine.Status) bool { return true }); !s.Paused {
+		t.Fatalf("the added torrent reads %+v, want paused", s)
+	}
+	if got := tr.Announces(); len(got) != 0 {
+		t.Fatalf("before Resume the tracker received %+v, want nothing", got)
+	}
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears from the resumed torrent", func() bool { return len(tr.Announces()) > 0 })
+	if got := tr.Announces()[0]; got.Event != "started" || got.InfoHash != rel.hash {
+		t.Fatalf("after Resume the tracker first received %+v, want started for %s", got, rel.hash)
+	}
+}
+
+func anAddFromResumeDataSkipsTheCheck(t *testing.T, h Harness) {
+	e := h.Open(t)
+	r := record(e)
+	baseline := engine.Totals{Uploaded: 1000, Downloaded: 2000, Active: time.Hour, Seeding: 30 * time.Minute}
+	rel, data := resumeData(t, h, e, r, baseline)
+
+	th := add(t, e, engine.AddParams{Resume: data, SavePath: rel.dir})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	s := awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.State == engine.StateSeeding })
+	if checked(r.seen, th) {
+		t.Fatalf("the torrent added from resume data checked its files: events %+v", r.seen)
+	}
+	if s.Done != int64(len(rel.payload)) || s.Wanted != s.Done {
+		t.Fatalf("the torrent added from resume data reads %d of %d bytes done, want all %d", s.Done, s.Wanted, len(rel.payload))
+	}
+	if !atLeast(s.Totals, baseline) || s.Totals.Uploaded != baseline.Uploaded || s.Totals.Downloaded != baseline.Downloaded {
+		t.Fatalf("the torrent added from resume data counts %+v, want the %+v its resume data holds", s.Totals, baseline)
+	}
+}
+
+func theBaselineRaisesCounters(t *testing.T, h Harness) {
+	e := h.Open(t)
+	r := record(e)
+	saved := engine.Totals{Uploaded: 1000, Downloaded: 2000, Active: time.Hour, Seeding: 30 * time.Minute}
+	rel, data := resumeData(t, h, e, r, saved)
+
+	baseline := engine.Totals{Uploaded: 5000, Downloaded: 100, Active: 2 * time.Hour}
+	th := add(t, e, engine.AddParams{Resume: data, SavePath: rel.dir, Baseline: baseline})
+	s := awaitStatus(t, h, e, r, th, func(engine.Status) bool { return true })
+	want := engine.Totals{Uploaded: 5000, Downloaded: 2000, Active: 2 * time.Hour, Seeding: 30 * time.Minute}
+	if !atLeast(s.Totals, want) || s.Totals.Uploaded != want.Uploaded || s.Totals.Downloaded != want.Downloaded {
+		t.Fatalf("resume data counting %+v added with baseline %+v counts %+v, want the larger of each: %+v", saved, baseline, s.Totals, want)
+	}
+}
+
+func pauseSendsStoppedOnlyAfterStartedWasAnswered(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
+	e := h.Open(t)
+	r := record(e)
+	rel := release(t, "Pausing", tr.URL)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears from the resumed torrent", func() bool { return len(tr.Announces()) > 0 })
+	if err := e.Pause(th); err != nil {
+		t.Fatal(err)
+	}
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started"}) {
+		t.Fatalf("paused while the tracker holds its answer to started, the torrent announced %q, want only started", got)
+	}
+	tr.Answer()
+	h.Until(t, "the tracker hears stopped", func() bool { return slices.Contains(events(tr.Announces()), "stopped") })
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", "stopped"}) {
+		t.Fatalf("once started was answered the paused torrent announced %q, want started then stopped", got)
+	}
+	await(t, h, r, func(p engine.Paused) bool { return p.Torrent == th })
+}
+
+func removeKeepsTheFiles(t *testing.T, h Harness) {
+	e := h.Open(t)
+	r := record(e)
+	rel := release(t, "Kept", "")
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Remove(th, false); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == th })
+	if got, err := os.ReadFile(filepath.Join(rel.dir, rel.files[0].path())); err != nil || len(got) != len(rel.files[0].data) {
+		t.Fatalf("the removed torrent's file holds %d bytes, %v; want its %d", len(got), err, len(rel.files[0].data))
+	}
+}
+
+func removeWithFilesDeletesTheDownloadCopyAndItsFolder(t *testing.T, h Harness) {
+	e := h.Open(t)
+	r := record(e)
+	remove := func(rel released) {
+		t.Helper()
+		th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+		if err := e.Resume(th); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Remove(th, true); err != nil {
+			t.Fatal(err)
+		}
+		deleted := await(t, h, r, func(d engine.FilesDeleted) bool { return d.Torrent == th })
+		if deleted.Err != nil {
+			t.Fatalf("deleting the torrent's files: %v", deleted.Err)
+		}
+		if i, j := index(r.seen, engine.Removed{Torrent: th}), index(r.seen, engine.Event(deleted)); i < 0 || i > j {
+			t.Fatalf("events %+v, want Removed before FilesDeleted", r.seen)
+		}
+		for _, f := range rel.files {
+			if _, err := os.Stat(filepath.Join(rel.dir, f.path())); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("after the delete %s is %v, want gone", f.path(), err)
+			}
+		}
+	}
+
+	rel := release(t, "Deleted", "", file{[]string{"feature.mkv"}, 40 << 10}, file{[]string{"Extras", "trailer.mkv"}, 20 << 10})
+	sibling := filepath.Join(filepath.Dir(rel.dir), "sibling.mkv")
+	if err := os.WriteFile(sibling, []byte("not the torrent's"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	remove(rel)
+	if _, err := os.Stat(rel.dir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("after the delete the save folder is %v, want gone", err)
+	}
+	if _, err := os.Stat(sibling); err != nil {
+		t.Fatalf("the delete took a file beside the save folder: %v", err)
+	}
+
+	shared := release(t, "Shared", "")
+	stranger := filepath.Join(shared.dir, "notes.txt")
+	if err := os.WriteFile(stranger, []byte("not the torrent's"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	remove(shared)
+	if _, err := os.Stat(stranger); err != nil {
+		t.Fatalf("the delete took a file in the save folder the torrent does not list: %v", err)
+	}
+}
+
+func updatesCarryOnlyChangedTorrents(t *testing.T, h Harness) {
+	e := h.Open(t)
+	r := record(e)
+	a, b := settled(t, h, e, r)
+	if err := e.Resume(a); err != nil {
+		t.Fatal(err)
+	}
+	from := r.next
+	posting(t, h, e, r, func(u engine.Updates) bool { _, ok := statusOf(u, a); return ok })
+	for _, ev := range r.seen[from:r.next] {
+		if u, ok := ev.(engine.Updates); ok {
+			if s, ok := statusOf(u, b); ok {
+				t.Fatalf("after only %d resumed, Updates carried the untouched %d: %+v", a, b, s)
+			}
+		}
+	}
+}
+
+func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
+	e := h.Open(t)
+	r := record(e)
+	a, b := settled(t, h, e, r)
+	// More than libtorrent's alert queue holds: high_performance_seed's 10000,
+	// doubled for state_update's priority, with every buffer after it full.
+	for range 50000 {
+		if err := e.PostUpdates(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	from := r.next
+	h.Until(t, "Updates carry both torrents after Dropped", func() bool {
+		r.poll()
+		dropped := false
+		for _, ev := range r.seen[from:] {
+			switch ev := ev.(type) {
+			case engine.Dropped:
+				dropped = true
+			case engine.Updates:
+				_, hasA := statusOf(ev, a)
+				_, hasB := statusOf(ev, b)
+				if hasA && hasB {
+					if !dropped {
+						t.Fatalf("Updates carried the unchanged %d and %d before any Dropped", a, b)
+					}
+					return true
+				}
+			}
+		}
+		if err := e.PostUpdates(); err != nil {
+			t.Fatal(err)
+		}
+		return false
+	})
+}
+
+// settled adds two torrents and posts updates until, once both came, one
+// carries neither.
+func settled(t *testing.T, h Harness, e engine.Engine, r *recorder) (a, b engine.Handle) {
+	t.Helper()
+	ra, rb := release(t, "Alpha", ""), release(t, "Bravo", "")
+	a = add(t, e, engine.AddParams{Metainfo: ra.meta, SavePath: ra.dir, SeedMode: true})
+	b = add(t, e, engine.AddParams{Metainfo: rb.meta, SavePath: rb.dir, SeedMode: true})
+	var cameA, cameB bool
+	posting(t, h, e, r, func(u engine.Updates) bool {
+		_, hasA := statusOf(u, a)
+		_, hasB := statusOf(u, b)
+		cameA, cameB = cameA || hasA, cameB || hasB
+		return cameA && cameB && len(u.Statuses) == 0
+	})
+	return a, b
+}
+
+// resumeData has e check a release it was added without resume data for,
+// and returns the resume data it then saves.
+func resumeData(t *testing.T, h Harness, e engine.Engine, r *recorder, baseline engine.Totals) (rel released, data []byte) {
+	t.Helper()
+	rel = release(t, "Resumed", "")
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, Baseline: baseline})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.State == engine.StateSeeding })
+	if !checked(r.seen, th) {
+		t.Fatalf("the torrent added without resume data never checked its files: events %+v", r.seen)
+	}
+	if err := e.SaveResume(th); err != nil {
+		t.Fatal(err)
+	}
+	saved := await(t, h, r, func(s engine.ResumeSaved) bool { return s.Torrent == th })
+	if err := e.Remove(th, false); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(rm engine.Removed) bool { return rm.Torrent == th })
+	return rel, saved.Data
+}
+
+func add(t *testing.T, e engine.Engine, p engine.AddParams) engine.Handle {
+	t.Helper()
+	th, err := e.Add(p)
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	return th
+}
+
+// checked is whether events show torrent th checking its files.
+func checked(events []engine.Event, th engine.Handle) bool {
+	for _, ev := range events {
+		switch ev := ev.(type) {
+		case engine.StateChanged:
+			if ev.Torrent == th && ev.State == engine.StateCheckingFiles {
+				return true
+			}
+		case engine.Updates:
+			if s, ok := statusOf(ev, th); ok && s.State == engine.StateCheckingFiles {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func atLeast(got, want engine.Totals) bool {
+	return got.Uploaded >= want.Uploaded && got.Downloaded >= want.Downloaded && got.Active >= want.Active && got.Seeding >= want.Seeding
+}
+
+func statusOf(u engine.Updates, th engine.Handle) (engine.Status, bool) {
+	i := slices.IndexFunc(u.Statuses, func(s engine.Status) bool { return s.Torrent == th })
+	if i < 0 {
+		return engine.Status{}, false
+	}
+	return u.Statuses[i], true
+}
+
+func events(announces []enginetest.Announce) []string {
+	out := make([]string, len(announces))
+	for i, a := range announces {
+		out[i] = a.Event
+	}
+	return out
+}
+
+func index(events []engine.Event, ev engine.Event) int {
+	return slices.IndexFunc(events, func(e engine.Event) bool { return e == ev })
+}
+
+// recorder keeps every event an engine sent, read without blocking so a
+// synctest bubble's clock moves while the suite waits.
+type recorder struct {
+	events <-chan engine.Event
+	seen   []engine.Event
+	// next is where the next await looks from.
+	next int
+}
+
+func record(e engine.Engine) *recorder { return &recorder{events: e.Events()} }
+
+func (r *recorder) poll() {
+	for {
+		select {
+		case ev, ok := <-r.events:
+			if !ok {
+				return
+			}
+			r.seen = append(r.seen, ev)
+		default:
+			return
+		}
+	}
+}
+
+// await waits for the first event of type E after the last one an await
+// returned that matches.
+func await[E engine.Event](t *testing.T, h Harness, r *recorder, match func(E) bool) E {
+	t.Helper()
+	var got E
+	h.Until(t, fmt.Sprintf("the engine sends the %T awaited", got), func() bool {
+		r.poll()
+		for ; r.next < len(r.seen); r.next++ {
+			if ev, ok := r.seen[r.next].(E); ok && match(ev) {
+				got = ev
+				r.next++
+				return true
+			}
+		}
+		return false
+	})
+	return got
+}
+
+// awaitStatus posts updates until one carries th in a status that matches.
+func awaitStatus(t *testing.T, h Harness, e engine.Engine, r *recorder, th engine.Handle, match func(engine.Status) bool) engine.Status {
+	t.Helper()
+	u := posting(t, h, e, r, func(u engine.Updates) bool {
+		s, ok := statusOf(u, th)
+		return ok && match(s)
+	})
+	s, _ := statusOf(u, th)
+	return s
+}
+
+// posting posts updates on each poll until Updates that match arrive,
+// after the last event an await returned.
+func posting(t *testing.T, h Harness, e engine.Engine, r *recorder, match func(engine.Updates) bool) engine.Updates {
+	t.Helper()
+	var got engine.Updates
+	h.Until(t, "posted Updates carry what is awaited", func() bool {
+		r.poll()
+		for ; r.next < len(r.seen); r.next++ {
+			if u, ok := r.seen[r.next].(engine.Updates); ok && match(u) {
+				got = u
+				r.next++
+				return true
+			}
+		}
+		if err := e.PostUpdates(); err != nil {
+			t.Fatal(err)
+		}
+		return false
+	})
+	return got
+}
+
+type file struct {
+	path []string
+	size int
+}
+
+type releaseFile struct {
+	name []string
+	data []byte
+}
+
+func (f releaseFile) path() string { return filepath.Join(f.name...) }
+
+// released is a release's files written under dir, its save folder, which
+// is a folder of its own inside the test's temporary folder.
+type released struct {
+	dir     string
+	meta    []byte
+	hash    bencode.InfoHash
+	files   []releaseFile
+	payload []byte
+}
+
+// release writes a release named name and returns its metainfo, which
+// announces to announce unless it is empty. With no files it is one file
+// named name.
+func release(t *testing.T, name, announce string, files ...file) released {
+	t.Helper()
+	const pieceLen = 16 << 10
+	dir := filepath.Join(t.TempDir(), name)
+	single := len(files) == 0
+	if single {
+		files = []file{{nil, 48<<10 + 123}}
+	}
+	rel := released{dir: dir}
+	var list []any
+	for i, f := range files {
+		data := make([]byte, f.size)
+		_, _ = rand.NewChaCha8(sha256.Sum256(fmt.Appendf(nil, "%s/%d", name, i))).Read(data)
+		rf := releaseFile{name: append([]string{name}, f.path...), data: data}
+		if single {
+			rf.name = []string{name}
+		}
+		rel.files = append(rel.files, rf)
+		rel.payload = append(rel.payload, data...)
+		p := make([]any, len(f.path))
+		for j, s := range f.path {
+			p[j] = s
+		}
+		list = append(list, map[string]any{"length": f.size, "path": p})
+		full := filepath.Join(dir, rf.path())
+		if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var pieces []byte
+	for off := 0; off < len(rel.payload); off += pieceLen {
+		sum := sha1.Sum(rel.payload[off:min(off+pieceLen, len(rel.payload))]) //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
+		pieces = append(pieces, sum[:]...)
+	}
+	info := map[string]any{"name": name, "piece length": pieceLen, "pieces": pieces}
+	if single {
+		info["length"] = len(rel.payload)
+	} else {
+		info["files"] = list
+	}
+	top := map[string]any{"info": info}
+	if announce != "" {
+		top["announce"] = announce
+	}
+	meta, err := bencode.Encode(top)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := bencode.DecodeMetainfo(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel.meta, rel.hash = meta, m.InfoHash
+	return rel
+}
