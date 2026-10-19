@@ -70,6 +70,8 @@ var (
 	away = role.NodeID{UUID: storage.NewUUID()}
 	// bare doesn't hold Storage.
 	bare = role.NodeID{UUID: storage.NewUUID()}
+	// stranger is no Node the roster knows.
+	stranger = role.NodeID{UUID: storage.NewUUID()}
 )
 
 type roster struct{}
@@ -79,6 +81,7 @@ func (roster) InStep(n role.NodeID) bool             { return n != away }
 
 type unreached struct {
 	storagev1connect.UnimplementedStorageServiceHandler
+	storagev1connect.UnimplementedFolderServiceHandler
 	err error
 }
 
@@ -137,16 +140,26 @@ func serve(t *testing.T) *server {
 	}
 	s := &server{lib: lib, fx: fx, changed: &published{}, data: t.TempDir(), downloads: t.TempDir()}
 	cfg := rootstest.Config(t, lib, contenttypetest.ID, "other")
-	local := rootstest.Remote(t, s.data, s.downloads)
+	local := rootstest.Store(t, s.data, s.downloads)
 	cfg.Roster, cfg.Changed = roster{}, s.changed
+	offline := unreached{err: fmt.Errorf("call: %w", link.ErrDisconnected)}
 	cfg.Remote = func(n role.NodeID) storagev1connect.StorageServiceHandler {
 		switch n {
 		case away:
-			return unreached{err: fmt.Errorf("call: %w", link.ErrDisconnected)}
+			return offline
 		case bare:
 			return unreached{err: rpc.ErrorWith(rpc.CodeFailedPrecondition, &nodev1.NotHolder{Role: string(role.Storage)}, "not a holder")}
 		}
-		return gated{local(n), s}
+		return gated{local, s}
+	}
+	cfg.Folders = func(n role.NodeID) storagev1connect.FolderServiceHandler {
+		switch n {
+		case away:
+			return offline
+		case stranger:
+			return unreached{err: rpc.ErrorWith(rpc.CodeFailedPrecondition, &nodev1.NotHolder{}, "not in the roster")}
+		}
+		return local
 	}
 	svc, err := roots.Open(t.Context(), cfg)
 	if err != nil {
@@ -319,11 +332,17 @@ func TestRootsNeverOverlapAcrossTypes(t *testing.T) {
 	s.create(t, body("other", stray))
 }
 
+func checkPath(nodeID string) string { return "/api/v1/nodes/" + nodeID + "/folders/check" }
+
+func checkBody(purpose, path, extra string) string {
+	return `{"purpose":"` + purpose + `","path":` + strconv.Quote(path) + extra + `}`
+}
+
 func TestCheckRootJudgesWithoutSaving(t *testing.T) {
 	s := serve(t)
 	dir := t.TempDir()
 	check := func(nodeID, path, extra string) (int, string) {
-		return s.Call(t, http.MethodPost, "/api/v1/roots/check", `{"nodeId":"`+nodeID+`","path":`+strconv.Quote(path)+extra+`}`)
+		return s.Call(t, http.MethodPost, checkPath(nodeID), checkBody("root", path, extra))
 	}
 	code, reply := check(self.String(), dir+string(filepath.Separator), "")
 	var v struct {
@@ -347,10 +366,32 @@ func TestCheckRootJudgesWithoutSaving(t *testing.T) {
 	if code, reply := check(self.String(), dir, `,"rootId":"`+id+`"`); code != http.StatusOK || !strings.HasPrefix(reply, `{"usable":true,`) {
 		t.Errorf("checkRoot on the root being re-homed = %d %s, want usable", code, reply)
 	}
-	s.Expect(t, http.MethodPost, "/api/v1/roots/check", `{"nodeId":"`+away.String()+`","path":`+strconv.Quote(dir)+`}`, http.StatusOK,
+	s.Expect(t, http.MethodPost, checkPath(away.String()), checkBody("root", dir, ""), http.StatusOK,
 		`{"usable":false,"path":`+strconv.Quote(dir)+`,"refusal":{"reason":"node_offline"}}`)
-	s.Expect(t, http.MethodPost, "/api/v1/roots/check", `{"nodeId":"`+bare.String()+`","path":`+strconv.Quote(dir)+`}`, http.StatusConflict,
+	s.Expect(t, http.MethodPost, checkPath(bare.String()), checkBody("root", dir, ""), http.StatusConflict,
 		`{"status":409,"code":"node_not_storage","title":"The Node doesn't hold Storage"}`)
+}
+
+func TestCheckFolderForDownloadsOnAnyNode(t *testing.T) {
+	s := serve(t)
+	dir := t.TempDir()
+	code, reply := s.Call(t, http.MethodPost, checkPath(bare.String()), checkBody("downloads", dir, ""))
+	if code != http.StatusOK || !strings.HasPrefix(reply, `{"usable":true,"path":`+strconv.Quote(dir)+`,`) {
+		t.Fatalf("checkFolder downloads on a Node without Storage = %d %s, want usable", code, reply)
+	}
+	inData := filepath.Join(s.data, "downloads")
+	if err := os.Mkdir(inData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if code, reply := s.Call(t, http.MethodPost, checkPath(self.String()), checkBody("downloads", inData, "")); code != http.StatusOK || !strings.HasPrefix(reply, `{"usable":true,`) {
+		t.Errorf("checkFolder downloads inside the data folder = %d %s, want usable", code, reply)
+	}
+	s.Expect(t, http.MethodPost, checkPath(self.String()), checkBody("downloads", "media", ""), http.StatusOK,
+		`{"usable":false,"path":"media","refusal":{"reason":"not_absolute"}}`)
+	s.Expect(t, http.MethodPost, checkPath(away.String()), checkBody("downloads", dir, ""), http.StatusOK,
+		`{"usable":false,"path":`+strconv.Quote(dir)+`,"refusal":{"reason":"node_offline"}}`)
+	s.Expect(t, http.MethodPost, checkPath(stranger.String()), checkBody("downloads", dir, ""), http.StatusNotFound,
+		`{"status":404,"code":"node_not_found","title":"No Node has this id"}`)
 }
 
 // volumeOf is the volume member of a verdict, masked as Expect masks it.
@@ -365,7 +406,7 @@ func volumeOf(t *testing.T, reply string) string {
 	return ownertest.Masked(string(v.Volume))
 }
 
-func TestFoldersOnAStorageNode(t *testing.T) {
+func TestFoldersOnANode(t *testing.T) {
 	s := serve(t)
 	dir := t.TempDir()
 	names, hidden := []string{"Season 10", "Season 2"}, 0
@@ -412,8 +453,27 @@ func TestFoldersOnAStorageNode(t *testing.T) {
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/nodes/"+away.String()+"/folders", "", http.StatusServiceUnavailable,
 		`{"status":503,"code":"node_offline","title":"The Node is offline"}`)
-	s.Expect(t, http.MethodGet, "/api/v1/nodes/"+bare.String()+"/folders", "", http.StatusConflict,
-		`{"status":409,"code":"node_not_storage","title":"The Node doesn't hold Storage"}`)
+	s.Expect(t, http.MethodGet, "/api/v1/nodes/"+stranger.String()+"/folders", "", http.StatusNotFound,
+		`{"status":404,"code":"node_not_found","title":"No Node has this id"}`)
+}
+
+func TestBrowseOnANodeWithoutStorage(t *testing.T) {
+	s := serve(t)
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "Downloads"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	folders := "/api/v1/nodes/" + bare.String() + "/folders"
+	code, reply := s.Call(t, http.MethodGet, folders+"?path="+url.QueryEscape(dir), "")
+	if code != http.StatusOK || !strings.Contains(reply, `"folders":[{"name":"Downloads",`) {
+		t.Fatalf("browseFolders on a Node without Storage = %d %s, want its folders", code, reply)
+	}
+	code, reply = s.Call(t, http.MethodGet, folders+"/suggest?text="+url.QueryEscape(filepath.Join(dir, "Do")), "")
+	if code != http.StatusOK || reply != `{"suggestions":[`+strconv.Quote(filepath.Join(dir, "Downloads"))+`]}`+"\n" {
+		t.Fatalf("suggestFolders on a Node without Storage = %d %s", code, reply)
+	}
+	s.Expect(t, http.MethodPost, folders, `{"parent":`+strconv.Quote(dir)+`,"name":"Torrents"}`, http.StatusCreated,
+		`{"path":`+strconv.Quote(filepath.Join(dir, "Torrents"))+`}`)
 }
 
 func TestSeveralRootsPerType(t *testing.T) {

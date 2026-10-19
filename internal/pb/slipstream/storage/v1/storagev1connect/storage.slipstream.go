@@ -17,3 +17,10 @@ var StorageService = rpc.NewRoleService(
 	func(c *connect.Client) StorageServiceHandler { return NewStorageServiceClient(c) },
 	RegisterStorageServiceHandler,
 )
+
+// FolderService is the rpc descriptor of slipstream.storage.v1.FolderService.
+var FolderService = rpc.NewNodeService(
+	FolderServiceName,
+	func(c *connect.Client) FolderServiceHandler { return NewFolderServiceClient(c) },
+	RegisterFolderServiceHandler,
+)

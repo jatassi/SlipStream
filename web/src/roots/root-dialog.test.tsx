@@ -152,6 +152,7 @@ test("Edit re-homes a root: it shows the check's progress, the missing files, an
   expect(sent.checked.at(-1)).toEqual({
     nodeId: media.id,
     path: "/srv/new/films",
+    purpose: "root",
     rootId: filmsRoot.id,
   });
 });

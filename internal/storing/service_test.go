@@ -27,6 +27,10 @@ func remoteOf(s *Store) Remote {
 	return func(role.NodeID) storagev1connect.StorageServiceHandler { return s }
 }
 
+func foldersOf(s *Store) Folders {
+	return func(role.NodeID) storagev1connect.FolderServiceHandler { return s }
+}
+
 func folderErr(t *testing.T, err error) *FolderError {
 	t.Helper()
 	fe, ok := errors.AsType[*FolderError](err)
@@ -48,7 +52,7 @@ func notReady(t *testing.T, err error) *NotReady {
 func TestBrowseTypesEveryError(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := newTestDisk(t)
-		remote := remoteOf(newStore(d))
+		remote := foldersOf(newStore(d))
 		base := t.TempDir()
 		denied, hung, broken := dir(t, base, "denied"), dir(t, base, "hung"), dir(t, base, "broken")
 		d.flag(d.denied, denied)
@@ -101,7 +105,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	} else {
 		t.Logf("no symlink on this runner: %v", err)
 	}
-	remote := remoteOf(newStore(d))
+	remote := foldersOf(newStore(d))
 
 	l, err := remote.Browse(t.Context(), node, base, false)
 	if err != nil {
@@ -143,7 +147,7 @@ func TestBrowsePlacesListTheRootsFirst(t *testing.T) {
 		s := newStore(d)
 		running(t, s, intentOf(rootAt(id, folder, false))).next(t)
 
-		l, err := remoteOf(s).Browse(t.Context(), node, "", false)
+		l, err := foldersOf(s).Browse(t.Context(), node, "", false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -190,17 +194,17 @@ func TestSuggestKeepsTheTypedSeparators(t *testing.T) {
 	for i := range 30 {
 		many = append(many, fmt.Sprintf("Show %d", i))
 	}
-	windows := remoteOf(NewStore(Config{Disk: listing{style: Windows, folders: map[string][]string{
+	windows := foldersOf(NewStore(Config{Disk: listing{style: Windows, folders: map[string][]string{
 		`D:\`:       {"Media", "meetings", "Maps", "$RECYCLE.BIN"},
 		`D:\Media`:  {"Movies", "Mixes", "TV"},
 		`D:\Shows`:  many,
 		`\\nas\tv\`: {"Anime", "Archive"},
 	}}, Timings: Timings{Stat: time.Second}}))
-	unix := remoteOf(NewStore(Config{Disk: listing{style: Unix, folders: map[string][]string{
+	unix := foldersOf(NewStore(Config{Disk: listing{style: Unix, folders: map[string][]string{
 		"/srv": {"media", "Media2", ".snapshots"},
 	}}, Timings: Timings{Stat: time.Second}}))
 	for _, c := range []struct {
-		remote Remote
+		remote Folders
 		typed  string
 		want   []string
 	}{
@@ -240,7 +244,7 @@ func prefixed(prefix string, names []string) []string {
 
 func TestMakeFolderMakesOneNamedFolder(t *testing.T) {
 	d := newTestDisk(t)
-	remote := remoteOf(newStore(d))
+	remote := foldersOf(newStore(d))
 	parent := t.TempDir()
 
 	got, err := remote.MakeFolder(t.Context(), node, parent, "Movies")
@@ -278,7 +282,7 @@ func TestCheckReasons(t *testing.T) {
 	readOnly := dir(t, base, "read-only")
 	d.flag(d.readOnly, readOnly)
 	others := []Other{{movies, moviesAt}}
-	remote := remoteOf(newStore(d))
+	remote := foldersOf(newStore(d))
 	for _, c := range []struct {
 		name   string
 		path   string
@@ -295,7 +299,7 @@ func TestCheckReasons(t *testing.T) {
 		{"containing downloads", downloads, ReasonContainsDownloads, storage.UUID{}},
 		{"read-only", readOnly, ReasonUnwritable, storage.UUID{}},
 	} {
-		got, err := remote.Check(t.Context(), node, c.path, others)
+		got, err := remote.Check(t.Context(), node, c.path, PurposeRoot, others)
 		if err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
@@ -306,7 +310,7 @@ func TestCheckReasons(t *testing.T) {
 
 	tvAt := dir(t, base, "tv")
 	write(t, filepath.Join(tvAt, MarkerName), tv.String())
-	got, err := remote.Check(t.Context(), node, tvAt+string(filepath.Separator), others)
+	got, err := remote.Check(t.Context(), node, tvAt+string(filepath.Separator), PurposeRoot, others)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,6 +319,53 @@ func TestCheckReasons(t *testing.T) {
 	}
 	if es, _ := os.ReadDir(tvAt); len(es) != 1 {
 		t.Errorf("Check left %d entries in the folder, want only the marker", len(es))
+	}
+}
+
+func TestCheckForDownloads(t *testing.T) {
+	d := newTestDisk(t)
+	base := t.TempDir()
+	d.volumes[base] = Volume{ID: "fs-1", Kind: Local}
+	share := dir(t, base, "share")
+	d.volumes[share] = Volume{ID: "nas", Kind: Network}
+	held := storage.NewUUID()
+	heldAt := marked(t, held)
+	d.volumes[heldAt] = Volume{ID: "fs-2", Kind: Local}
+	readOnly := dir(t, base, "read-only")
+	d.flag(d.readOnly, readOnly)
+	s := newStore(d)
+	running(t, s, intentOf(rootAt(held, heldAt, false))).next(t)
+	sent := storage.NewUUID()
+	others := []Other{{sent, dir(t, base, "sent")}}
+	folders := foldersOf(s)
+	for _, c := range []struct {
+		name   string
+		path   string
+		reason Reason
+		root   storage.UUID
+	}{
+		{"inside a root the Node holds", dir(t, heldAt, "incoming"), ReasonInsideRoot, held},
+		{"containing a root the Node holds", filepath.Dir(heldAt), ReasonContainsRoot, held},
+		{"on a network share", dir(t, share, "torrents"), ReasonNetworkShare, storage.UUID{}},
+		{"read-only", readOnly, ReasonUnwritable, storage.UUID{}},
+	} {
+		got, err := folders.Check(t.Context(), node, c.path, PurposeDownloads, others)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if got.Refusal == nil || got.Refusal.Reason != c.reason || got.Refusal.Root != c.root {
+			t.Errorf("%s: refusal = %+v, want %v naming %v", c.name, got.Refusal, c.reason, c.root)
+		}
+	}
+	for name, path := range map[string]string{
+		"inside the data folder":      dir(t, d.host.Data, "downloads"),
+		"the downloads folder":        d.host.Downloads,
+		"a root the Controller named": others[0].Path,
+	} {
+		got, err := folders.Check(t.Context(), node, path, PurposeDownloads, others)
+		if err != nil || got.Refusal != nil {
+			t.Errorf("%s: Check = %+v, %v, want usable", name, got, err)
+		}
 	}
 }
 

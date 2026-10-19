@@ -140,6 +140,7 @@ func (n *Node) startController(ctx context.Context) error {
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
+	storagev1connect.FolderService.Mount(dispatch, n.store)
 	n.serveSystem(dispatch)
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
@@ -185,6 +186,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Storage: stored,
 		Remote: func(id role.NodeID) storagev1connect.StorageServiceHandler {
 			return storagev1connect.StorageService.On(cluster, id)
+		},
+		Folders: func(id role.NodeID) storagev1connect.FolderServiceHandler {
+			return storagev1connect.FolderService.On(cluster, id)
 		},
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
@@ -331,6 +335,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
+	storagev1connect.FolderService.Mount(dispatch, n.store)
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)

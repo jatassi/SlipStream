@@ -36,6 +36,25 @@ func TestValidateChecksTheReleases(t *testing.T) {
 	}
 }
 
+func TestValidateChecksTheTracker(t *testing.T) {
+	for tracker, want := range map[*Tracker]string{
+		{Interval: time.Minute, MinInterval: -time.Second}:    "tracker min_interval -1s is negative",
+		{Interval: time.Minute, MinInterval: 2 * time.Minute}: "tracker min_interval 2m0s is above its interval 1m0s",
+		{Mode: "ocelot"}: `tracker mode "ocelot" is not plain, unit3d or gazelle`,
+		{Mode: UNIT3D, AllowPeerIDs: []string{"-qB"}}:      `tracker allow_peer_ids is for gazelle mode, not "unit3d"`,
+		{Mode: Gazelle, AllowPeerIDs: []string{"-LT", ""}}: "tracker allow_peer_ids lists an empty prefix, which allows every peer ID",
+	} {
+		s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Tracker: *tracker}
+		if err := s.Validate(); err == nil || err.Error() != "scenario x: "+want {
+			t.Errorf("Validate(%+v) = %v, want %q", *tracker, err, want)
+		}
+	}
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Tracker: Tracker{Interval: time.Hour, MinInterval: 30 * time.Minute, Mode: Gazelle, AllowPeerIDs: []string{"-LT", "-qB"}, FailWithoutInterval: true}}
+	if err := s.Validate(); err != nil {
+		t.Errorf("Validate(%+v) = %v", s.Tracker, err)
+	}
+}
+
 func TestBytesReadBackAsWritten(t *testing.T) {
 	for _, written := range []string{"0B", "512B", "1.5KiB", "700MiB", "8.2GiB", "4.4GiB", "2TiB"} {
 		var b Bytes

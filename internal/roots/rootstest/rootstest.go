@@ -41,16 +41,21 @@ type Unreported struct{}
 func (Unreported) Touch(...role.NodeID)                       {}
 func (Unreported) Facts(role.NodeID) (*storagev1.Facts, bool) { return nil, false }
 
-// Remote reaches, on every Node, one Store on this machine whose roots may
-// not overlap data and downloads.
-func Remote(tb testing.TB, data, downloads string) storing.Remote {
+// Store is one Store on this machine whose roots may not overlap data and
+// downloads.
+func Store(tb testing.TB, data, downloads string) *storing.Store {
 	tb.Helper()
 	disk, err := storing.NewOSDisk(data, downloads)
 	if err != nil {
 		tb.Fatal(err)
 	}
-	store := storing.NewStore(storing.Config{Disk: disk, Timings: storing.Timings{Stat: 10 * time.Second}})
-	return func(role.NodeID) storagev1connect.StorageServiceHandler { return store }
+	return storing.NewStore(storing.Config{Disk: disk, Timings: storing.Timings{Stat: 10 * time.Second}})
+}
+
+// Everywhere reaches store on every Node, for its Storage and its folders.
+func Everywhere(cfg *roots.Config, store *storing.Store) {
+	cfg.Remote = func(role.NodeID) storagev1connect.StorageServiceHandler { return store }
+	cfg.Folders = func(role.NodeID) storagev1connect.FolderServiceHandler { return store }
 }
 
 // Config is the roots over lib for types: every Node holds Storage, none
@@ -58,12 +63,11 @@ func Remote(tb testing.TB, data, downloads string) storing.Remote {
 // downloads folders are fresh temp folders.
 func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.TypeID) roots.Config {
 	tb.Helper()
-	return roots.Config{
+	cfg := roots.Config{
 		Library:  lib,
 		Types:    types,
 		Roster:   Roster{},
 		Storage:  Unreported{},
-		Remote:   Remote(tb, tb.TempDir(), tb.TempDir()),
 		Arrivals: roots.NewArrivals(),
 		Contents: files.RootContents{},
 		Inflight: grabs.RootGrabs{},
@@ -71,6 +75,8 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Volumes:  discardVolumes{},
 		Log:      slog.New(slog.DiscardHandler),
 	}
+	Everywhere(&cfg, Store(tb, tb.TempDir(), tb.TempDir()))
+	return cfg
 }
 
 // Root makes path a root of t on node, the way an Admin does, so it homes
@@ -133,7 +139,7 @@ func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, pay
 		}
 	}
 	cfg := Config(tb, lib, types...)
-	cfg.Remote = func(role.NodeID) storagev1connect.StorageServiceHandler { return store }
+	Everywhere(&cfg, store)
 	svc, err := roots.Open(tb.Context(), cfg)
 	if err != nil {
 		tb.Fatal(err)

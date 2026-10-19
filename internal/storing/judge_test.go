@@ -44,7 +44,7 @@ func TestJudgeOverlapByIdentity(t *testing.T) {
 		{"an unreadable root holds nothing", "/srv/gone", nil},
 		{"apart from all", "/srv/other", nil},
 	} {
-		got := judge(Unix, c.folder, others, "/var/lib/slipstream", "/dl", ids.same)
+		got := judge(Unix, c.folder, append(apartFrom(others), forRoot("/var/lib/slipstream", "/dl")...), ids.same)
 		if (got == nil) != (c.want == nil) || got != nil && *got != *c.want {
 			t.Errorf("%s: judge(%q) = %+v, want %+v", c.name, c.folder, got, c.want)
 		}
@@ -53,13 +53,13 @@ func TestJudgeOverlapByIdentity(t *testing.T) {
 
 func TestJudgeDownloadsWithoutRoots(t *testing.T) {
 	ids := identities{`C:\`: "c", `C:\Downloads`: "dl", `c:\downloads`: "dl", `C:\Media`: "media"}
-	if got := judge(Windows, `C:\`, nil, "", `c:\downloads`, ids.same); got == nil || got.Reason != ReasonContainsDownloads {
+	if got := judge(Windows, `C:\`, forRoot("", `c:\downloads`), ids.same); got == nil || got.Reason != ReasonContainsDownloads {
 		t.Errorf("judge(C:\\) = %+v, want contains_downloads", got)
 	}
-	if got := judge(Windows, `C:\Downloads`, nil, "", `c:\downloads`, ids.same); got == nil || got.Reason != ReasonInsideDownloads {
+	if got := judge(Windows, `C:\Downloads`, forRoot("", `c:\downloads`), ids.same); got == nil || got.Reason != ReasonInsideDownloads {
 		t.Errorf("judge(C:\\Downloads) = %+v, want inside_downloads", got)
 	}
-	if got := judge(Windows, `C:\Media`, nil, "", `c:\downloads`, ids.same); got != nil {
+	if got := judge(Windows, `C:\Media`, forRoot("", `c:\downloads`), ids.same); got != nil {
 		t.Errorf("judge(C:\\Media) = %+v, want usable", got)
 	}
 }

@@ -50,6 +50,7 @@ func TestEveryEnumValueMapsBothWays(t *testing.T) {
 	walkEnum(t, rootStates)
 	walkEnum(t, kinds)
 	walkEnum(t, reasons)
+	walkEnum(t, purposes)
 	walkEnum(t, folderErrorKinds)
 	walkEnum(t, missingReasons)
 	walkEnum(t, heldFolders)

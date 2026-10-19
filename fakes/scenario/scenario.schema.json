@@ -600,6 +600,9 @@
           },
           "unlisted": {
             "type": "boolean"
+          },
+          "unregistered": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false,
@@ -617,6 +620,27 @@
         "interval": {
           "type": "string",
           "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        },
+        "min_interval": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "plain",
+            "unit3d",
+            "gazelle"
+          ]
+        },
+        "allow_peer_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fail_without_interval": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

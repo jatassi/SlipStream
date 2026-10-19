@@ -19,6 +19,8 @@ import (
 const (
 	// StorageServiceName is the fully-qualified name of the StorageService service.
 	StorageServiceName = "slipstream.storage.v1.StorageService"
+	// FolderServiceName is the fully-qualified name of the FolderService service.
+	FolderServiceName = "slipstream.storage.v1.FolderService"
 )
 
 // These constants are the procedure names of the RPCs defined in this package. They're exposed at
@@ -29,14 +31,6 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// StorageServiceBrowseProcedure is the procedure name of the StorageService's Browse RPC.
-	StorageServiceBrowseProcedure = "/slipstream.storage.v1.StorageService/Browse"
-	// StorageServiceSuggestProcedure is the procedure name of the StorageService's Suggest RPC.
-	StorageServiceSuggestProcedure = "/slipstream.storage.v1.StorageService/Suggest"
-	// StorageServiceMakeFolderProcedure is the procedure name of the StorageService's MakeFolder RPC.
-	StorageServiceMakeFolderProcedure = "/slipstream.storage.v1.StorageService/MakeFolder"
-	// StorageServiceCheckProcedure is the procedure name of the StorageService's Check RPC.
-	StorageServiceCheckProcedure = "/slipstream.storage.v1.StorageService/Check"
 	// StorageServiceVerifyProcedure is the procedure name of the StorageService's Verify RPC.
 	StorageServiceVerifyProcedure = "/slipstream.storage.v1.StorageService/Verify"
 	// StorageServicePlaceProcedure is the procedure name of the StorageService's Place RPC.
@@ -47,37 +41,17 @@ const (
 	StorageServiceRemoveProcedure = "/slipstream.storage.v1.StorageService/Remove"
 	// StorageServiceListProcedure is the procedure name of the StorageService's List RPC.
 	StorageServiceListProcedure = "/slipstream.storage.v1.StorageService/List"
+	// FolderServiceBrowseProcedure is the procedure name of the FolderService's Browse RPC.
+	FolderServiceBrowseProcedure = "/slipstream.storage.v1.FolderService/Browse"
+	// FolderServiceSuggestProcedure is the procedure name of the FolderService's Suggest RPC.
+	FolderServiceSuggestProcedure = "/slipstream.storage.v1.FolderService/Suggest"
+	// FolderServiceMakeFolderProcedure is the procedure name of the FolderService's MakeFolder RPC.
+	FolderServiceMakeFolderProcedure = "/slipstream.storage.v1.FolderService/MakeFolder"
+	// FolderServiceCheckProcedure is the procedure name of the FolderService's Check RPC.
+	FolderServiceCheckProcedure = "/slipstream.storage.v1.FolderService/Check"
 )
 
 var (
-	storageServiceBrowseSpec = sync.OnceValue(func() connect.Spec {
-		return connect.Spec{
-			StreamType: connect.StreamTypeUnary,
-			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Browse"),
-			Procedure:  StorageServiceBrowseProcedure,
-		}
-	})
-	storageServiceSuggestSpec = sync.OnceValue(func() connect.Spec {
-		return connect.Spec{
-			StreamType: connect.StreamTypeUnary,
-			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Suggest"),
-			Procedure:  StorageServiceSuggestProcedure,
-		}
-	})
-	storageServiceMakeFolderSpec = sync.OnceValue(func() connect.Spec {
-		return connect.Spec{
-			StreamType: connect.StreamTypeUnary,
-			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("MakeFolder"),
-			Procedure:  StorageServiceMakeFolderProcedure,
-		}
-	})
-	storageServiceCheckSpec = sync.OnceValue(func() connect.Spec {
-		return connect.Spec{
-			StreamType: connect.StreamTypeUnary,
-			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Check"),
-			Procedure:  StorageServiceCheckProcedure,
-		}
-	})
 	storageServiceVerifySpec = sync.OnceValue(func() connect.Spec {
 		return connect.Spec{
 			StreamType: connect.StreamTypeUnary,
@@ -117,14 +91,6 @@ var (
 
 // StorageServiceClient is a client for the slipstream.storage.v1.StorageService service.
 type StorageServiceClient interface {
-	// Browse lists a folder, or the Node's places for an empty path.
-	Browse(context.Context, *v1.BrowseRequest) (*v1.BrowseResponse, error)
-	// Suggest lists up to 25 folders completing typed text, in its separators.
-	Suggest(context.Context, *v1.SuggestRequest) (*v1.SuggestResponse, error)
-	// MakeFolder makes name in an existing parent, joined by the Node.
-	MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error)
-	// Check judges a folder as a root against the given roots on this Node.
-	Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error)
 	// Verify checks one batch of recorded files at a proposed folder.
 	Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error)
 	// Place puts a finished download's file at a root-relative holding path.
@@ -146,14 +112,6 @@ func NewStorageServiceClient(client *connect.Client) StorageServiceClient {
 
 // StorageServiceHandler is an implementation of the slipstream.storage.v1.StorageService service.
 type StorageServiceHandler interface {
-	// Browse lists a folder, or the Node's places for an empty path.
-	Browse(context.Context, *v1.BrowseRequest) (*v1.BrowseResponse, error)
-	// Suggest lists up to 25 folders completing typed text, in its separators.
-	Suggest(context.Context, *v1.SuggestRequest) (*v1.SuggestResponse, error)
-	// MakeFolder makes name in an existing parent, joined by the Node.
-	MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error)
-	// Check judges a folder as a root against the given roots on this Node.
-	Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error)
 	// Verify checks one batch of recorded files at a proposed folder.
 	Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error)
 	// Place puts a finished download's file at a root-relative holding path.
@@ -172,10 +130,6 @@ type StorageServiceHandler interface {
 func RegisterStorageServiceHandler(server *connect.Server, svc StorageServiceHandler) {
 	adapter := storageServiceHandler{svc: svc}
 	server.Register(
-		connect.Method{Spec: storageServiceBrowseSpec(), Handler: adapter.browse},
-		connect.Method{Spec: storageServiceSuggestSpec(), Handler: adapter.suggest},
-		connect.Method{Spec: storageServiceMakeFolderSpec(), Handler: adapter.makeFolder},
-		connect.Method{Spec: storageServiceCheckSpec(), Handler: adapter.check},
 		connect.Method{Spec: storageServiceVerifySpec(), Handler: adapter.verify},
 		connect.Method{Spec: storageServicePlaceSpec(), Handler: adapter.place},
 		connect.Method{Spec: storageServiceMoveSpec(), Handler: adapter.move},
@@ -186,22 +140,6 @@ func RegisterStorageServiceHandler(server *connect.Server, svc StorageServiceHan
 
 // UnimplementedStorageServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedStorageServiceHandler struct{}
-
-func (UnimplementedStorageServiceHandler) Browse(context.Context, *v1.BrowseRequest) (*v1.BrowseResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Browse is not implemented")
-}
-
-func (UnimplementedStorageServiceHandler) Suggest(context.Context, *v1.SuggestRequest) (*v1.SuggestResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Suggest is not implemented")
-}
-
-func (UnimplementedStorageServiceHandler) MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.MakeFolder is not implemented")
-}
-
-func (UnimplementedStorageServiceHandler) Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Check is not implemented")
-}
 
 func (UnimplementedStorageServiceHandler) Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Verify is not implemented")
@@ -225,38 +163,6 @@ func (UnimplementedStorageServiceHandler) List(context.Context, *v1.ListRequest)
 
 type storageServiceClient struct {
 	client *connect.Client
-}
-
-func (c *storageServiceClient) Browse(ctx context.Context, req *v1.BrowseRequest) (*v1.BrowseResponse, error) {
-	var res v1.BrowseResponse
-	if err := c.client.CallUnary(ctx, storageServiceBrowseSpec(), req, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-func (c *storageServiceClient) Suggest(ctx context.Context, req *v1.SuggestRequest) (*v1.SuggestResponse, error) {
-	var res v1.SuggestResponse
-	if err := c.client.CallUnary(ctx, storageServiceSuggestSpec(), req, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-func (c *storageServiceClient) MakeFolder(ctx context.Context, req *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error) {
-	var res v1.MakeFolderResponse
-	if err := c.client.CallUnary(ctx, storageServiceMakeFolderSpec(), req, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-func (c *storageServiceClient) Check(ctx context.Context, req *v1.CheckRequest) (*v1.CheckResponse, error) {
-	var res v1.CheckResponse
-	if err := c.client.CallUnary(ctx, storageServiceCheckSpec(), req, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
 }
 
 func (c *storageServiceClient) Verify(ctx context.Context, req *v1.VerifyRequest) (*v1.VerifyResponse, error) {
@@ -300,54 +206,6 @@ func (c *storageServiceClient) List(ctx context.Context, req *v1.ListRequest) (*
 }
 
 type storageServiceHandler struct{ svc StorageServiceHandler }
-
-func (h storageServiceHandler) browse(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
-	var req v1.BrowseRequest
-	if err := stream.Receive(&req); err != nil {
-		return err
-	}
-	res, err := h.svc.Browse(ctx, &req)
-	if err != nil {
-		return err
-	}
-	return stream.Send(res)
-}
-
-func (h storageServiceHandler) suggest(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
-	var req v1.SuggestRequest
-	if err := stream.Receive(&req); err != nil {
-		return err
-	}
-	res, err := h.svc.Suggest(ctx, &req)
-	if err != nil {
-		return err
-	}
-	return stream.Send(res)
-}
-
-func (h storageServiceHandler) makeFolder(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
-	var req v1.MakeFolderRequest
-	if err := stream.Receive(&req); err != nil {
-		return err
-	}
-	res, err := h.svc.MakeFolder(ctx, &req)
-	if err != nil {
-		return err
-	}
-	return stream.Send(res)
-}
-
-func (h storageServiceHandler) check(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
-	var req v1.CheckRequest
-	if err := stream.Receive(&req); err != nil {
-		return err
-	}
-	res, err := h.svc.Check(ctx, &req)
-	if err != nil {
-		return err
-	}
-	return stream.Send(res)
-}
 
 func (h storageServiceHandler) verify(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
 	var req v1.VerifyRequest
@@ -403,6 +261,184 @@ func (h storageServiceHandler) list(ctx context.Context, _ connect.Spec, stream 
 		return err
 	}
 	res, err := h.svc.List(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+var (
+	folderServiceBrowseSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("FolderService").Methods().ByName("Browse"),
+			Procedure:  FolderServiceBrowseProcedure,
+		}
+	})
+	folderServiceSuggestSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("FolderService").Methods().ByName("Suggest"),
+			Procedure:  FolderServiceSuggestProcedure,
+		}
+	})
+	folderServiceMakeFolderSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("FolderService").Methods().ByName("MakeFolder"),
+			Procedure:  FolderServiceMakeFolderProcedure,
+		}
+	})
+	folderServiceCheckSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("FolderService").Methods().ByName("Check"),
+			Procedure:  FolderServiceCheckProcedure,
+		}
+	})
+)
+
+// FolderServiceClient is a client for the slipstream.storage.v1.FolderService service.
+type FolderServiceClient interface {
+	// Browse lists a folder, or the Node's places for an empty path.
+	Browse(context.Context, *v1.BrowseRequest) (*v1.BrowseResponse, error)
+	// Suggest lists up to 25 folders completing typed text, in its separators.
+	Suggest(context.Context, *v1.SuggestRequest) (*v1.SuggestResponse, error)
+	// MakeFolder makes name in an existing parent, joined by the Node.
+	MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error)
+	// Check judges a folder for a purpose on this Node.
+	Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error)
+}
+
+// NewFolderServiceClient constructs a client for the slipstream.storage.v1.FolderService service.
+// Multiple service clients may share a single connect.Client.
+func NewFolderServiceClient(client *connect.Client) FolderServiceClient {
+	return &folderServiceClient{client: client}
+}
+
+// FolderServiceHandler is an implementation of the slipstream.storage.v1.FolderService service.
+type FolderServiceHandler interface {
+	// Browse lists a folder, or the Node's places for an empty path.
+	Browse(context.Context, *v1.BrowseRequest) (*v1.BrowseResponse, error)
+	// Suggest lists up to 25 folders completing typed text, in its separators.
+	Suggest(context.Context, *v1.SuggestRequest) (*v1.SuggestResponse, error)
+	// MakeFolder makes name in an existing parent, joined by the Node.
+	MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error)
+	// Check judges a folder for a purpose on this Node.
+	Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error)
+}
+
+// RegisterFolderServiceHandler registers svc as the slipstream.storage.v1.FolderService
+// implementation on server.
+func RegisterFolderServiceHandler(server *connect.Server, svc FolderServiceHandler) {
+	adapter := folderServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: folderServiceBrowseSpec(), Handler: adapter.browse},
+		connect.Method{Spec: folderServiceSuggestSpec(), Handler: adapter.suggest},
+		connect.Method{Spec: folderServiceMakeFolderSpec(), Handler: adapter.makeFolder},
+		connect.Method{Spec: folderServiceCheckSpec(), Handler: adapter.check},
+	)
+}
+
+// UnimplementedFolderServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedFolderServiceHandler struct{}
+
+func (UnimplementedFolderServiceHandler) Browse(context.Context, *v1.BrowseRequest) (*v1.BrowseResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.Browse is not implemented")
+}
+
+func (UnimplementedFolderServiceHandler) Suggest(context.Context, *v1.SuggestRequest) (*v1.SuggestResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.Suggest is not implemented")
+}
+
+func (UnimplementedFolderServiceHandler) MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.MakeFolder is not implemented")
+}
+
+func (UnimplementedFolderServiceHandler) Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.Check is not implemented")
+}
+
+type folderServiceClient struct {
+	client *connect.Client
+}
+
+func (c *folderServiceClient) Browse(ctx context.Context, req *v1.BrowseRequest) (*v1.BrowseResponse, error) {
+	var res v1.BrowseResponse
+	if err := c.client.CallUnary(ctx, folderServiceBrowseSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *folderServiceClient) Suggest(ctx context.Context, req *v1.SuggestRequest) (*v1.SuggestResponse, error) {
+	var res v1.SuggestResponse
+	if err := c.client.CallUnary(ctx, folderServiceSuggestSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *folderServiceClient) MakeFolder(ctx context.Context, req *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error) {
+	var res v1.MakeFolderResponse
+	if err := c.client.CallUnary(ctx, folderServiceMakeFolderSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *folderServiceClient) Check(ctx context.Context, req *v1.CheckRequest) (*v1.CheckResponse, error) {
+	var res v1.CheckResponse
+	if err := c.client.CallUnary(ctx, folderServiceCheckSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type folderServiceHandler struct{ svc FolderServiceHandler }
+
+func (h folderServiceHandler) browse(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.BrowseRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Browse(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h folderServiceHandler) suggest(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SuggestRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Suggest(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h folderServiceHandler) makeFolder(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.MakeFolderRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.MakeFolder(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h folderServiceHandler) check(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.CheckRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Check(ctx, &req)
 	if err != nil {
 		return err
 	}

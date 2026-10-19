@@ -25,27 +25,31 @@
         },
         "type": "object"
       },
-      "CheckRootInputBody": {
+      "CheckFolderInputBody": {
         "additionalProperties": false,
         "properties": {
-          "nodeId": {
-            "format": "uuid",
-            "type": "string"
-          },
           "path": {
             "maxLength": 4096,
             "minLength": 1,
             "type": "string"
           },
+          "purpose": {
+            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node",
+            "enum": [
+              "root",
+              "downloads"
+            ],
+            "type": "string"
+          },
           "rootId": {
-            "description": "The root being re-homed, which the folder may overlap",
+            "description": "For root: the root being re-homed, which the folder may overlap",
             "format": "uuid",
             "type": "string"
           }
         },
         "required": [
-          "nodeId",
-          "path"
+          "path",
+          "purpose"
         ],
         "type": "object"
       },
@@ -4489,7 +4493,7 @@
         "additionalProperties": false,
         "properties": {
           "reason": {
-            "description": "Why the folder can't be a root",
+            "description": "Why the folder can't serve its purpose",
             "enum": [
               "not_absolute",
               "not_found",
@@ -4502,6 +4506,7 @@
               "inside_downloads",
               "contains_downloads",
               "unresponsive",
+              "network_share",
               "node_offline"
             ],
             "type": "string"
@@ -4712,7 +4717,7 @@
           },
           "refusal": {
             "$ref": "#/components/schemas/RootsRefusal",
-            "description": "Why it can't be a root; absent when usable"
+            "description": "Why it can't serve its purpose; absent when usable"
           },
           "usable": {
             "type": "boolean"
@@ -4881,6 +4886,78 @@
         },
         "required": [
           "rootId"
+        ],
+        "type": "object"
+      },
+      "SettingAddressField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "address"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
         ],
         "type": "object"
       },
@@ -5179,10 +5256,13 @@
       "SettingField": {
         "discriminator": {
           "mapping": {
+            "address": "#/components/schemas/SettingAddressField",
             "choice": "#/components/schemas/SettingChoiceField",
             "count": "#/components/schemas/SettingCountField",
             "duration": "#/components/schemas/SettingDurationField",
+            "folder": "#/components/schemas/SettingFolderField",
             "port": "#/components/schemas/SettingPortField",
+            "rate": "#/components/schemas/SettingRateField",
             "switch": "#/components/schemas/SettingSwitchField",
             "window": "#/components/schemas/SettingWindowField"
           },
@@ -5206,8 +5286,103 @@
           },
           {
             "$ref": "#/components/schemas/SettingSwitchField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingRateField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingAddressField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingFolderField"
           }
         ]
+      },
+      "SettingFolderField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "folder"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node the path is on, which browses and judges it",
+            "format": "uuid",
+            "type": "string"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "purpose": {
+            "description": "The rules the Node judges the folder by, as checkFolder names them",
+            "enum": [
+              "downloads"
+            ],
+            "type": "string"
+          },
+          "running": {
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "nodeId",
+          "purpose",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
       },
       "SettingNoun": {
         "additionalProperties": false,
@@ -5291,6 +5466,94 @@
           "value",
           "running",
           "default",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingRateField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "description": "Bytes a second",
+            "format": "int64",
+            "type": "integer"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "rate"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "max": {
+            "description": "Bytes a second",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "Bytes a second",
+            "format": "int64",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "Bytes a second",
+            "format": "int64",
+            "type": "integer"
+          },
+          "zero": {
+            "description": "The words for 0, such as No limit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "max",
           "key",
           "label",
           "source",
@@ -18294,6 +18557,31 @@
             },
             "description": "Forbidden"
           },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "409": {
             "content": {
               "application/problem+json": {
@@ -18306,7 +18594,6 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "node_not_storage",
                             "worker_node"
                           ],
                           "type": "string"
@@ -18411,7 +18698,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List a folder on a Storage Node, or its places",
+        "summary": "List a folder on a Node, or its places",
         "tags": [
           "roots"
         ],
@@ -18503,6 +18790,31 @@
             },
             "description": "Forbidden"
           },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "409": {
             "content": {
               "application/problem+json": {
@@ -18516,7 +18828,6 @@
                         "code": {
                           "enum": [
                             "folder_exists",
-                            "node_not_storage",
                             "worker_node"
                           ],
                           "type": "string"
@@ -18621,7 +18932,217 @@
             "apiKey": []
           }
         ],
-        "summary": "Make a folder in an existing folder on a Storage Node",
+        "summary": "Make a folder in an existing folder on a Node",
+        "tags": [
+          "roots"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/nodes/{id}/folders/check": {
+      "post": {
+        "operationId": "checkFolder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckFolderInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootsVerdict"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_storage",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "folder_unreadable",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        },
+                        "problem": {
+                          "$ref": "#/components/schemas/RootsFolderProblem"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Judge a folder on a Node for a purpose without saving it",
         "tags": [
           "roots"
         ],
@@ -18716,6 +19237,31 @@
             },
             "description": "Forbidden"
           },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
           "409": {
             "content": {
               "application/problem+json": {
@@ -18728,7 +19274,6 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "node_not_storage",
                             "worker_node"
                           ],
                           "type": "string"
@@ -18832,7 +19377,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the folders on a Storage Node that complete a typed path",
+        "summary": "List the folders on a Node that complete a typed path",
         "tags": [
           "roots"
         ],
@@ -23047,180 +23592,6 @@
           }
         ],
         "summary": "Make a folder on a Storage Node a library root of a Content Type",
-        "tags": [
-          "roots"
-        ],
-        "x-slipstream-access": "admin"
-      }
-    },
-    "/roots/check": {
-      "post": {
-        "operationId": "checkRoot",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckRootInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RootsVerdict"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "api_key_wrong",
-                            "signed_out"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "needs_admin",
-                            "pin_required"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "node_not_storage",
-                            "worker_node"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "folder_unreadable",
-                            "invalid"
-                          ],
-                          "type": "string"
-                        },
-                        "problem": {
-                          "$ref": "#/components/schemas/RootsFolderProblem"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Unprocessable Entity"
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "internal"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Internal Server Error"
-          }
-        },
-        "security": [
-          {
-            "session": [
-              "admin"
-            ]
-          },
-          {
-            "apiKey": []
-          }
-        ],
-        "summary": "Judge a folder on a Storage Node as a library root without saving it",
         "tags": [
           "roots"
         ],
