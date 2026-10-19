@@ -34,6 +34,7 @@ func TestARootWithAnImportedFileIsRehomedThenDeleted(t *testing.T) {
 		t.Fatalf("listRoots = %+v, want the movies root alone", roots)
 	}
 	root := roots[0]
+	holdsOnly(t, w.m, placed)
 	rel := strings.TrimPrefix(placed, "movies/")
 	bytes, err := os.ReadFile(filepath.Join(w.m.MediaDir, filepath.FromSlash(placed)))
 	if err != nil {
