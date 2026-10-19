@@ -105,7 +105,8 @@ func TestAppliedReportsReachTheirReadersOnceCommitted(t *testing.T) {
 // of the link does.
 type callers map[link.Key]role.NodeID
 
-func (c callers) NodeOf(k link.Key) (role.NodeID, bool) {
+func (c callers) Caller(ctx context.Context) (role.NodeID, bool) {
+	k, _ := rpc.CallerOf(ctx)
 	n, ok := c[k]
 	return n, ok
 }

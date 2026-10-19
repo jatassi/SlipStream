@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
-	"github.com/jatassi/slipstream/internal/link"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -18,7 +17,7 @@ import (
 type TorrentService struct {
 	Library *storage.DB[file]
 	Nodes   interface {
-		NodeOf(key link.Key) (role.NodeID, bool)
+		Caller(ctx context.Context) (role.NodeID, bool)
 	}
 	Types interface {
 		Describe(t works.TypeID) (works.Description, bool)
@@ -32,8 +31,7 @@ func (s TorrentService) Torrent(ctx context.Context, req *dlv1.TorrentRequest) (
 	if err != nil {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
 	}
-	key, _ := rpc.CallerOf(ctx)
-	caller, known := s.Nodes.NodeOf(key)
+	caller, known := s.Nodes.Caller(ctx)
 	row, err := db.New(s.Library).GetFetched(ctx, id)
 	switch {
 	case errors.Is(err, storage.ErrNoRows), err == nil && (!known || row.NodeID != caller || !row.RemovedAt.IsZero()):

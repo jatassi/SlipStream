@@ -25,6 +25,7 @@ import (
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -298,6 +299,16 @@ func (s *Service) NodeOf(key link.Key) (ID, bool) {
 	defer s.mu.Unlock()
 	id, ok := s.byKey[key]
 	return id, ok
+}
+
+// Caller is the Node whose call ctx serves, false for one the roster
+// doesn't know.
+func (s *Service) Caller(ctx context.Context) (ID, bool) {
+	key, ok := rpc.CallerOf(ctx)
+	if !ok {
+		return ID{}, false
+	}
+	return s.NodeOf(key)
 }
 
 func (s *Service) Key(node ID) (link.Key, bool) {
