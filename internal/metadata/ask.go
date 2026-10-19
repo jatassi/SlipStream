@@ -5,7 +5,11 @@
 // keeps nothing durable.
 package metadata
 
-import "maps"
+import (
+	"maps"
+	"sync"
+	"time"
+)
 
 // ProviderID names one metadata provider, such as TMDB or OMDb. The core
 // never names one; each provider package declares its own.
@@ -25,6 +29,28 @@ type Ask struct {
 
 	keys  map[ProviderID]string
 	fresh bool
+	// cacheFor is how old a cached answer may be; zero serves none.
+	cacheFor time.Duration
+	// generation is the cache generation in effect; a holder whose cache
+	// holds another drops it.
+	generation uint64
+	// tally collects the outcome of every call made for this Ask; nil
+	// records nothing.
+	tally *tally
+}
+
+type tally struct {
+	mu       sync.Mutex
+	outcomes []Outcome
+}
+
+func (t *tally) record(o Outcome) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.outcomes = append(t.outcomes, o)
 }
 
 type AskOptions struct {
