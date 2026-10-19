@@ -247,6 +247,13 @@ func checkOptions(opts Options, fakes []fake.Spec) error {
 	if err := opts.Scenario.Validate(); err != nil {
 		return err
 	}
+	if lib := opts.Scenario.Library; lib != nil {
+		for _, r := range lib.Roots {
+			if r.Volume != nil {
+				return fmt.Errorf("scenario %s: library root %s: volume figures play only in the simulation tier", opts.Scenario.Name, r.Folder)
+			}
+		}
+	}
 	if opts.Origin.Kind != FromSteps && opts.Origin.Kind != FromTest {
 		return fmt.Errorf("launch %s: the options name no origin", opts.Scenario.Name)
 	}
@@ -643,7 +650,7 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 	for _, f := range r.fakes {
 		sites[f.spec.Name], _ = r.table.Find(fault.Target(f.spec.Name), r.scenario.Searching())
 	}
-	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims.APIKey, r.mediaDir(), sites); err != nil {
+	if err := setup.Library(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), sites); err != nil {
 		return err
 	}
 	r.log.Info("library seeded")

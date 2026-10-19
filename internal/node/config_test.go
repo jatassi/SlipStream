@@ -38,6 +38,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.link.join_dial", "timings.link.await_dial",
 		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
 		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
+		"timings.storing.stat",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)

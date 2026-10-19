@@ -150,6 +150,7 @@ export const getListNodesResponseMock = (
           ? {
               held: {
                 bytes: faker.number.int(),
+                endless: faker.datatype.boolean(),
                 noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
                 units: faker.number.int(),
               },
@@ -303,6 +304,7 @@ export const getGetRoleBoardResponseMock = (
           ? {
               held: {
                 bytes: faker.number.int(),
+                endless: faker.datatype.boolean(),
                 noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
                 units: faker.number.int(),
               },
@@ -398,6 +400,7 @@ export const getSetRolesResponseNodesDrainsMock = (
   ...{
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -479,6 +482,7 @@ export const getSetRolesResponseNodesMovesMock = (
     from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -507,6 +511,7 @@ export const getSetRolesResponseNodesWritesOffMock = (
   ...{
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -679,6 +684,7 @@ export const getPlanRolesResponseNodesDrainsMock = (
   ...{
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -760,6 +766,7 @@ export const getPlanRolesResponseNodesMovesMock = (
     from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -788,6 +795,7 @@ export const getPlanRolesResponseNodesWritesOffMock = (
   ...{
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -1100,6 +1108,46 @@ export const getGetTopologyResponseMock = (
             },
           }
         : {}),
+      ...(faker.datatype.boolean()
+        ? {
+            storage: {
+              roots: Array.from(
+                { length: faker.number.int({ min: 1, max: 10 }) },
+                (_, i) => i + 1,
+              ).map(() => ({
+                contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+                id: faker.string.uuid(),
+                path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                state: faker.helpers.arrayElement([
+                  "ready",
+                  "missing",
+                  "unmounted",
+                  "foreign",
+                  "unwritable",
+                  "unresponsive",
+                  "checking",
+                  "offline",
+                  "written_off",
+                ] as const),
+                ...(faker.datatype.boolean()
+                  ? { volumeId: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+              })),
+              volumes: Array.from(
+                { length: faker.number.int({ min: 1, max: 10 }) },
+                (_, i) => i + 1,
+              ).map(() => ({
+                free: faker.number.int(),
+                id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                kind: faker.helpers.arrayElement(["local", "removable", "network"] as const),
+                mount: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                sampledAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+                total: faker.number.int(),
+              })),
+            },
+          }
+        : {}),
     },
     roles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -1107,6 +1155,7 @@ export const getGetTopologyResponseMock = (
           ? {
               held: {
                 bytes: faker.number.int(),
+                endless: faker.datatype.boolean(),
                 noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
                 units: faker.number.int(),
               },
@@ -1228,6 +1277,7 @@ export const getGetNodeResponseMock = (
       ? {
           held: {
             bytes: faker.number.int(),
+            endless: faker.datatype.boolean(),
             noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
             units: faker.number.int(),
           },
@@ -1345,6 +1395,7 @@ export const getRenameNodeResponseMock = (
       ? {
           held: {
             bytes: faker.number.int(),
+            endless: faker.datatype.boolean(),
             noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
             units: faker.number.int(),
           },
@@ -1462,6 +1513,7 @@ export const getSetNodeDialResponseMock = (
       ? {
           held: {
             bytes: faker.number.int(),
+            endless: faker.datatype.boolean(),
             noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
             units: faker.number.int(),
           },
@@ -1551,6 +1603,7 @@ export const getWriteOffResponseNodesDrainsMock = (
   ...{
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -1632,6 +1685,7 @@ export const getWriteOffResponseNodesMovesMock = (
     from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },
@@ -1660,6 +1714,7 @@ export const getWriteOffResponseNodesWritesOffMock = (
   ...{
     held: {
       bytes: faker.number.int(),
+      endless: faker.datatype.boolean(),
       noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
       units: faker.number.int(),
     },

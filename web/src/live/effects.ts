@@ -8,7 +8,8 @@ import {
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
-import { getListRootsQueryKey } from "../api/gen/query/roots/roots";
+import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
+import { getListRootsQueryKey, getListVolumesQueryKey } from "../api/gen/query/roots/roots";
 import {
   getListCutsQueryKey,
   getListProfilesQueryKey,
@@ -59,6 +60,12 @@ export const effects = {
   },
   "roots.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListRootsQueryKey() });
+    refresh({ queryKey: getListVolumesQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
+  },
+  "volumes.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListVolumesQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
   },
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });

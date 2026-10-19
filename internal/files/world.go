@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -23,6 +24,7 @@ type world struct {
 	files  []File // oldest first: ids are UUIDv7
 	fills  map[CellKey]ID
 	grabs  map[CellKey]GrabState
+	lost   map[roots.ID]bool
 	timing map[works.ItemID]targets.Timing
 	// seen is each Item's sighted cuts and its files' cuts; cuts is every
 	// cut, which names files.
@@ -94,10 +96,14 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
+	lost, err := roots.LostIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]world, len(trees))
 	at := make(map[works.WorkID]*world, len(trees))
 	for i, t := range trees {
-		out[i] = world{tree: t, goals: goals[t.ID], fills: map[CellKey]ID{}, grabs: grabs, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
+		out[i] = world{tree: t, goals: goals[t.ID], fills: map[CellKey]ID{}, grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: f.cfg.Today()}
 		at[t.ID] = &out[i]
 	}
 	q := db.New(r)
@@ -171,8 +177,9 @@ func (w world) byID() map[ID]*File {
 // cells crosses each Item with each Edition it wants, in list order, and
 // the Profile's Targets in order. A filled cell is met at or past the
 // Target's cutoff, else upgradable. An empty one is downloading or failed
-// from its latest Grab, unreleased until the Item is out, else missing.
-// A cut not seen for the Item makes no cell, so it never counts.
+// from its latest Grab, unreleased until the Item is out, else missing; a
+// file in a lost root leaves its cell empty. A cut not seen for the Item
+// makes no cell, so it never counts.
 func cells(w world) []Cell {
 	files := w.byID()
 	var out []Cell
@@ -183,7 +190,7 @@ func cells(w world) []Cell {
 			for _, t := range w.goals.Targets {
 				key := CellKey{Item: it.ID, Edition: e, Target: t.ID}
 				c := Cell{Item: it, Edition: e, Target: t, State: Missing, Timing: timing, Released: released}
-				if id, ok := w.fills[key]; ok {
+				if id, ok := w.fills[key]; ok && !w.lost[files[id].RootID] {
 					c.File = files[id]
 				}
 				switch {

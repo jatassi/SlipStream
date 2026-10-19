@@ -532,6 +532,23 @@ func TestLaunchRefusesAFakeWithoutAnOnlineStance(t *testing.T) {
 	}
 }
 
+func TestLaunchRefusesVolumeFigures(t *testing.T) {
+	t.Parallel()
+	s, err := scenario.Load("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Library.Roots[0].Volume = &scenario.LibraryVolume{TotalGiB: 10, FreeGiB: 1}
+	runDir := filepath.Join(t.TempDir(), "run")
+	_, err = world.Launch(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)})
+	if want := "scenario home: library root movies: volume figures play only in the simulation tier"; err == nil || err.Error() != want {
+		t.Fatalf("Launch = %v\nwant %s", err, want)
+	}
+	if _, err := os.Stat(runDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("run dir after a refused launch: %v, want it absent", err)
+	}
+}
+
 func TestLaunchRefusesATimingTheLoaderRefuses(t *testing.T) {
 	t.Parallel()
 	s := stubScenario()

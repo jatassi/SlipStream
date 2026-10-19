@@ -8,12 +8,18 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -111,10 +117,16 @@ func (l *library) onDisk(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	err := filepath.WalkDir(l.root.Path, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}
 		data, err := os.ReadFile(p)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		if err != nil {
 			return err //nolint:wrapcheck // the test reports it as is
 		}
@@ -211,6 +223,27 @@ func TestAnUpgradeTakesThePathOfTheFileItLeavesFillingNothing(t *testing.T) {
 	}
 }
 
+func TestAFilePlannedIntoARootItsWorkLeftIsRefused(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	other := rootstest.Root(t, l.lib, l.root.Node, contenttypetest.ID, t.TempDir())
+	svc := l.files(files.NoGrabs{})
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, _, err := svc.Import(ctx, tx, files.Incoming{
+			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: other.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
+			Size: 5, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
+		})
+		return err
+	})
+	if !errors.Is(err, files.ErrRootChanged) {
+		t.Fatalf("Import into a root the Work isn't in = %v, want ErrRootChanged", err)
+	}
+	if n := l.queued(t); n != 0 {
+		t.Fatalf("the refused import queued %d moves, want none", n)
+	}
+	l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
+}
+
 func TestAFileThatFillsNothingLandsKept(t *testing.T) {
 	l := open(t)
 	web := l.target(t, "Web", []release.Quality{release.WEBDL1080p, release.WEBRip1080p})
@@ -262,12 +295,18 @@ func (d *crashing) at(do func() error) error {
 	return errCrashed
 }
 
-func (d *crashing) Move(from, to string) error {
-	return d.at(func() error { return d.Disk.Move(from, to) })
+func (d *crashing) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error) {
+	var size int64
+	err := d.at(func() error {
+		var err error
+		size, err = d.Disk.Move(ctx, root, from, to)
+		return err
+	})
+	return size, err
 }
 
-func (d *crashing) Remove(p string) error {
-	return d.at(func() error { return d.Disk.Remove(p) })
+func (d *crashing) Remove(ctx context.Context, root roots.ID, rel storing.Rel) error {
+	return d.at(func() error { return d.Disk.Remove(ctx, root, rel) })
 }
 
 // crashWorld is a library whose disk queue holds a same-path upgrade of
@@ -347,7 +386,7 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 				c := newCrashWorld(t)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
-				disk := &crashing{Disk: files.OSDisk{}, n: n, after: after, crash: cancel}
+				disk := &crashing{Disk: c.l.held, n: n, after: after, crash: cancel}
 				c.l.drain(ctx, t, c.l.on(files.NoGrabs{}, disk), cancel)
 				reached = disk.seen >= n
 				c.later(t)
@@ -365,19 +404,77 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 	}
 }
 
-func TestTheQueueSweepsHoldingFilesNoFileOrGrabNames(t *testing.T) {
+func TestTheQueueSweepsHeldFilesNoFileOrGrabNames(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
 	svc := l.files(files.NoGrabs{})
 	live := l.download(t, svc, tree, 0, release.WEBDL1080p, "live")
 	grab := storage.NewUUID()
+	staged := storing.StagingDir + "/" + grab.String() + ".part"
 	l.put(t, files.HoldingOf(grab, ".mkv"), "a Grab's download")
+	l.put(t, staged, "a Grab's Transfer")
 	l.put(t, files.HoldingOf(storage.NewUUID(), ".mkv.part"), "a failed Grab's copy")
-	l.put(t, ".slipstream-incoming/stray.txt", "not SlipStream's")
-	l.settle(t, l.on(unfinished{grab}, files.OSDisk{}))
-	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download"}
-	if got := l.onDisk(t); !maps.Equal(got, want) {
-		t.Fatalf("after the sweep the root holds %v, want %v", got, want)
+	l.put(t, storing.StagingDir+"/"+storage.NewUUID().String()+".part", "a failed Grab's Transfer")
+	l.put(t, storing.HoldingDir+"/stray.txt", "not SlipStream's")
+	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Grab's Transfer"}
+	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed files", func() bool { return maps.Equal(l.onDisk(t), want) })
+}
+
+func TestASweepWaitsForTheRootsNode(t *testing.T) {
+	l := open(t)
+	orphan := files.HoldingOf(storage.NewUUID(), ".mkv")
+	l.put(t, orphan, "a failed Grab's download")
+	disk := &unanswering{Disk: l.held, refusals: 3}
+	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return len(l.onDisk(t)) == 0 })
+	if disk.refused() != 3 {
+		t.Fatalf("the Node refused %d lists, want 3 before the sweep", disk.refused())
+	}
+}
+
+// unanswering refuses its first lists as a Node that doesn't hold the
+// root yet.
+type unanswering struct {
+	files.Disk
+	mu       sync.Mutex
+	refusals int
+	seen     int
+}
+
+func (d *unanswering) ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error) {
+	d.mu.Lock()
+	d.seen++
+	refuse := d.seen <= d.refusals
+	d.mu.Unlock()
+	if refuse {
+		return nil, &storing.NotReady{Unknown: true}
+	}
+	return d.Disk.ListHeld(ctx, root, folder)
+}
+
+func (d *unanswering) refused() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return min(d.seen, d.refusals)
+}
+
+func (l *library) runUntil(t *testing.T, svc *files.Files, what string, done func() bool) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	ran := make(chan error, 1)
+	go func() { ran <- svc.Run(ctx) }()
+	defer func() {
+		cancel()
+		if err := <-ran; err != nil {
+			t.Error(err)
+		}
+	}()
+	deadline := time.After(10 * time.Second)
+	for !done() {
+		select {
+		case <-deadline:
+			t.Fatalf("%s: not within 10s; the root holds %v", what, l.onDisk(t))
+		case <-time.After(time.Millisecond):
+		}
 	}
 }
 
@@ -393,4 +490,110 @@ func (u unfinished) Unfinished(context.Context, storage.Reader[storage.Library])
 
 func (unfinished) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
 	return 0, nil
+}
+
+type watching struct {
+	files.Disk
+	mu    sync.Mutex
+	ch    chan struct{}
+	moves int
+}
+
+func (d *watching) Watch() <-chan struct{} {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.ch
+}
+
+func (d *watching) moved() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	close(d.ch)
+	d.ch = make(chan struct{})
+}
+
+func (d *watching) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error) {
+	d.mu.Lock()
+	d.moves++
+	d.mu.Unlock()
+	return d.Disk.Move(ctx, root, from, to)
+}
+
+func (d *watching) movesSeen() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.moves
+}
+
+func (l *library) writeOff(t *testing.T) {
+	t.Helper()
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)", l.root.Node); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, "INSERT INTO nodes_forfeit (node_id, role, declared_at) VALUES (?, ?, 0)", l.root.Node, role.Storage)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAFileInALostRootFillsNoCellAndItsQueueWaits(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	svc := l.files(files.NoGrabs{})
+	f := l.download(t, svc, tree, 0, release.WEBDL1080p, "scarf")
+	l.writeOff(t)
+	_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "Scarf any 1080p missing wanted=true\nMittens any 1080p missing wanted=true\n"; lines(cells) != want {
+		t.Fatalf("cells with the root lost =\n%swant\n%s", lines(cells), want)
+	}
+
+	disk := &watching{Disk: l.held, ch: make(chan struct{})}
+	queue := l.on(files.NoGrabs{}, disk)
+	ctx, cancel := context.WithCancel(t.Context())
+	ran := make(chan error, 1)
+	go func() { ran <- queue.Run(ctx) }()
+	defer func() {
+		cancel()
+		if err := <-ran; err != nil {
+			t.Error(err)
+		}
+	}()
+	queue.Poke()
+	time.Sleep(50 * time.Millisecond)
+	if disk.movesSeen() != 0 || l.queued(t) != 1 {
+		t.Fatalf("the queue moved %d times and holds %d rows with the root lost, want none moved and the move kept", disk.movesSeen(), l.queued(t))
+	}
+
+	err = l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM nodes_forfeit")
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	disk.moved()
+	deadline := time.After(10 * time.Second)
+	for l.queued(t) > 0 {
+		select {
+		case <-deadline:
+			t.Fatal("the move never ran after the root's report changed")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	if got := l.onDisk(t); got[f.Path] != "scarf" {
+		t.Fatalf("the root holds %v, want the file at %s", got, f.Path)
+	}
+	_, cells, err = svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cells[0].File == nil || cells[0].File.ID != f.ID {
+		t.Fatalf("the Scarf cell once the root is back = %s, want filled by the file", lines(cells[:1]))
+	}
 }

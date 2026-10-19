@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"regexp"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -66,6 +68,11 @@ func (alone) WrittenOff(role.Name, role.NodeID) bool              { return false
 func (alone) Changed() <-chan struct{}                            { return nil }
 func (alone) Touch(...role.NodeID)                                {}
 func (alone) Facts(role.NodeID) (*dlv1.Facts, bool)               { return nil, false }
+
+type lapsing struct{ lapsed atomic.Bool }
+
+func (*lapsing) Holds(role.Name, role.NodeID) bool { return true }
+func (l *lapsing) InStep(role.NodeID) bool         { return !l.lapsed.Load() }
 
 // site answers every search with a 1080p and a 720p release, and every
 // .torrent fetch with bytes that aren't bencode.
@@ -113,7 +120,6 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
-	types := []works.TypeID{contenttypetest.ID}
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
@@ -123,7 +129,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}))
 	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, standard.ID))
 	assign := func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-		return targets.Assign(ctx, tx, w, nil)
+		if err := targets.Assign(ctx, tx, w, nil); err != nil {
+			return err
+		}
+		return roots.Assign(ctx, tx, w, nil)
 	}
 	attic := works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
@@ -143,13 +152,20 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	sealer := secrettest.Sealer(t)
 	home, indexer := storage.NewUUID(), storage.NewUUID()
 	roster := alone{role.NodeID{UUID: home}}
+	storageNodes := &lapsing{}
+	shelves := rootstest.Config(t, lib, contenttypetest.ID)
+	shelves.Roster = storageNodes
+	library, err := roots.Open(ctx, shelves)
+	if err != nil {
+		t.Fatal(err)
+	}
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Works: w, Targets: goals, Grabs: grabs.GrabCells{}, Today: time.Now}),
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: roster, Searching: func(role.NodeID) searchv1connect.SearchingServiceHandler { return site{} },
 			Changed: discard[indexers.Changed]{},
 		}),
-		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster,
+		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
 		Transfers: transfers.NewReceiver(transfers.Config{Local: storagetest.Local(t, transfers.Schema())}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
@@ -184,8 +200,11 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_root","title":"The Work's Content Type has no library root"}`)
-	must[roots.Root](t)(roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: home}, Changed: discard[roots.Changed]{}}).
-		Create(ctx, admin, contenttypetest.ID, t.TempDir()))
+	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
+	storageNodes.lapsed.Store(true)
+	expect(t, s, http.MethodPost, search, http.StatusConflict,
+		`{"status":409,"code":"root_unreachable","title":"The Work's library root is on a Node that takes no new files now","detail":"home is offline, so the library root there takes no new files."}`)
+	storageNodes.lapsed.Store(false)
 	expect(t, s, http.MethodPost, "/api/v1/works/"+unmonitored.ID.String()+"/search", http.StatusConflict,
 		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
 

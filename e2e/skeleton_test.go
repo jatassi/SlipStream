@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 const (
@@ -69,7 +70,11 @@ type walked struct {
 // stages until it is imported.
 func walk(t *testing.T, name string) walked {
 	t.Helper()
-	w := begin(t, name)
+	return walkFrom(t, begin(t, name))
+}
+
+func walkFrom(t *testing.T, w walked) walked {
+	t.Helper()
 	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
 	search := w.search(t)
 	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
@@ -117,7 +122,11 @@ func begin(t *testing.T, name string) walked {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := worldtest.Launch(t, name)
+	return beginIn(t, s, worldtest.Launch(t, name))
+}
+
+func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
+	t.Helper()
 	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
 
 	worldtest.Expect(t, "searchCatalog", w.a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", ""), worldtest.Reply{
@@ -180,6 +189,7 @@ type cellList struct {
 	Cells []struct {
 		ItemID   string `json:"itemId"`
 		TargetID string `json:"targetId"`
+		State    string `json:"state"`
 		File     *struct {
 			ID   string `json:"id"`
 			Size int64  `json:"size"`
@@ -332,7 +342,7 @@ func filesUnder(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}
 		rel, err := filepath.Rel(dir, path)

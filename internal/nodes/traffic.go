@@ -178,14 +178,14 @@ func (m *meter) forget(node ID) {
 func perSecond(bytes int64, d time.Duration) int64 { return int64(float64(bytes) / d.Seconds()) }
 
 // factsIn notes the time Downloading facts arrived from node, so its
-// client's rate spans the facts' own interval.
+// client's rate spans the facts' own interval, and passes every arrival on.
 func (s *Service) factsIn(node ID, scope string) {
-	if scope != string(role.Downloading) {
-		return
+	if scope == string(role.Downloading) {
+		if f, ok := s.cfg.Downloads.Facts(node); ok {
+			s.meter.arrive(node, time.Now(), f)
+		}
 	}
-	if f, ok := s.cfg.Downloads.Facts(node); ok {
-		s.meter.arrive(node, time.Now(), f)
-	}
+	s.cfg.Facts(node, scope)
 }
 
 // sample reads every link's counters, and while an Admin listens, every

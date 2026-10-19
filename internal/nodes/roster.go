@@ -96,6 +96,30 @@ func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick
 
 func (s *Service) WrittenOff(r role.Name, node ID) bool { return s.Who(r).WrittenOff(node) }
 
+// WrittenOffIn is every Node in r whose work for Role name the Admin wrote off,
+// or that the Admin removed, as the library reads in the caller's snapshot.
+func WrittenOffIn(ctx context.Context, r storage.Reader[file], name role.Name) (map[ID]bool, error) {
+	q := db.New(r)
+	forfeits, err := q.ListForfeits(ctx)
+	if err != nil {
+		return nil, err
+	}
+	removed, err := q.ListRemovedNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[ID]bool{}
+	for _, f := range forfeits {
+		if f.Role == name {
+			out[f.NodeID] = true
+		}
+	}
+	for _, n := range removed {
+		out[n.ID] = true
+	}
+	return out, nil
+}
+
 func (s *Service) Route(r role.Name, home ID) (ID, error) { return s.Who(r).Route(home) }
 
 func (s *Service) Away(r role.Name, node ID) (Absence, bool) { return s.Who(r).Away(node) }

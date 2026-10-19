@@ -572,6 +572,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_PROBE"},
 			{Key: "timings.mail.send", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MAIL_SEND"},
 			{Key: "timings.serving.drain", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SERVING_DRAIN"},
+			{Key: "timings.storing.stat", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORING_STAT"},
 		},
 		Census:       []string{"endpoints.tmdb.api"},
 		ContentTypes: []string{"movie"},

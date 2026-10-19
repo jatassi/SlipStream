@@ -2,6 +2,7 @@ package works
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works/internal/db"
@@ -53,4 +54,14 @@ func Summaries(ctx context.Context, r storage.Reader[file]) ([]Summary, error) {
 
 func bare(it db.WorksItem) Item {
 	return Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Monitored: it.Monitored}
+}
+
+// SummaryOf reads Work id's summary inside a caller's read, ErrNoWork
+// when no Work has it.
+func SummaryOf(ctx context.Context, r storage.Reader[file], id WorkID) (Summary, error) {
+	w, err := db.New(r).GetWork(ctx, id)
+	if errors.Is(err, storage.ErrNoRows) {
+		return Summary{}, ErrNoWork
+	}
+	return Summary(w), err
 }

@@ -228,6 +228,10 @@
   opacity: 0.2;
 }
 
+.diagram [data-used] .led circle {
+  opacity: 1;
+}
+
 .diagram .capsule {
   fill: none;
   stroke-linecap: round;

@@ -8,7 +8,7 @@ import { draftOf, hintOf, refusedOutcome, roleLine, withGroup, lockedOf } from "
 const clock = { now: new Date("2026-10-12T22:00:00Z"), zone: "UTC" };
 const online = { standing: "in-step", since: "2026-10-12T09:00:00Z" } as const;
 const offline = { standing: "offline", since: "2026-10-12T21:31:00Z" } as const;
-const torrents = { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3 };
+const torrents = { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endless: true };
 
 const entry = (role: string) => {
   const found = groups.flatMap(({ roles }) => roles).find((candidate) => candidate.role === role);
@@ -31,8 +31,29 @@ test("each Role's state reads as a line", () => {
     "Holding 3 torrents (41 GB)",
   );
   expect(line({ role: "downloading", state: "draining", held: torrents })).toBe(
-    "Draining · 3 torrents (41 GB) left",
+    "Draining, 3 torrents (41 GB) stay",
   );
+  expect(
+    line({
+      role: "storage",
+      state: "draining",
+      held: { units: 2, noun: "roots", bytes: 0, endless: true },
+    }),
+  ).toBe("Draining, 2 roots stay");
+  expect(
+    line({
+      role: "storage",
+      state: "draining",
+      held: { units: 1, noun: "root", bytes: 12 * 1024 ** 3, endless: true },
+    }),
+  ).toBe("Draining, 1 root (12 GB) stays");
+  expect(
+    line({
+      role: "searching",
+      state: "draining",
+      held: { units: 3, noun: "Indexers", bytes: 0, endless: false },
+    }),
+  ).toBe("Draining · 3 Indexers left");
   expect(line({ role: "downloading", state: "writing-off", held: torrents })).toBe(
     "Writing off 3 torrents (41 GB)",
   );

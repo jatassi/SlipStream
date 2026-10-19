@@ -49,6 +49,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog: logs.Open,
 		Media:   mediatest.Prober{},
+		Disk:    OSDisk,
 	}, stderr
 }
 

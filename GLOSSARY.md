@@ -178,6 +178,10 @@ _Avoid_: Sync, mirror, push; target for the destination
 A folder on one Storage Node that holds Works of one Content Type, recorded on the Controller. A Work's folder is stored relative to its root, so editing the root's Node and path re-homes every Work in it.
 _Avoid_: Root folder, library folder
 
+**Volume**:
+The filesystem a library root sits on, as its Node sees it, such as a drive, a partition, a network share or a dataset. Two roots on one volume share its free space.
+_Avoid_: Disk, drive, mount (when the volume is meant)
+
 **Move**:
 An admin-started job that relocates one Work's files to another library root, or one torrent to another Download Client, then deletes the source. Files that cross Nodes go as Transfers, and the whole Work or torrent switches over at once before the source is deleted.
 _Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover

@@ -6,6 +6,7 @@ package db
 
 import (
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -14,4 +15,33 @@ type RootsRoot struct {
 	ContentType works.TypeID
 	NodeID      role.NodeID
 	Path        string
+	IsDefault   bool
+	Place       int64
+}
+
+type RootsSeen struct {
+	RootID   RootID
+	Place    int64
+	VolumeID VolumeID
+}
+
+type RootsSetting struct {
+	ID          Singleton
+	SampleEvery *int64
+}
+
+type RootsVolume struct {
+	NodeID    role.NodeID
+	ID        VolumeID
+	Name      string
+	Mount     string
+	Kind      string
+	Total     int64
+	Free      int64
+	SampledAt storage.Time
+}
+
+type RootsWork struct {
+	WorkID works.WorkID
+	RootID RootID
 }

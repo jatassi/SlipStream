@@ -39,6 +39,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/serving"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -67,6 +68,10 @@ type Env struct {
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
 	Media media.Prober
+	// Disk opens every filesystem call the Storage Role makes, with data
+	// and downloads the folders no root may overlap: the OS's own for a
+	// process.
+	Disk func(data, downloads string) (storing.Disk, error)
 	// Restart starts the process that follows this one once it has stopped
 	// and released the data dir: an exec in place on Unix, a new process on
 	// Windows. Nil for a Node that cannot restart itself.
@@ -132,6 +137,7 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		Net:       osNetwork{},
 		Engine:    func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog:   logs.Open,
+		Disk:      OSDisk,
 		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
 		RestartOf: follows,
 	}, nil
@@ -214,6 +220,7 @@ type Node struct {
 	// client.
 	torrent   engine.Engine
 	downloads *downloading.Client
+	store     *storing.Store
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
 	claimed *Stack
@@ -403,6 +410,9 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
 		return 0, "", err
 	}
+	if err := n.startStorage(cfg); err != nil {
+		return 0, "", err
+	}
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
@@ -478,6 +488,18 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 	if l.Torrent, err = torrent.ListenAddr(); err != nil {
 		return fmt.Errorf("torrent listen address: %w", err)
 	}
+	return nil
+}
+
+func OSDisk(data, downloads string) (storing.Disk, error) { return storing.NewOSDisk(data, downloads) }
+
+// startStorage opens the Node's Storage over its Disk, claimed or not.
+func (n *Node) startStorage(cfg Config) error {
+	disk, err := n.env.Disk(n.env.DataDir.Path(), n.env.DataDir.Resolve(cfg.Torrent.Downloads))
+	if err != nil {
+		return fmt.Errorf("open the disk: %w", err)
+	}
+	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Timings: cfg.Timings.Storing})
 	return nil
 }
 

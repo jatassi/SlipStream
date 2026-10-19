@@ -13,9 +13,11 @@ import (
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -45,13 +47,12 @@ func must[T any](t *testing.T) func(T, error) T {
 
 func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Changed: discard[works.WorkChanged]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	}))
-	types := []works.TypeID{contenttypetest.ID}
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
@@ -64,15 +65,17 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		{Target: hd.ID, Sourcing: targets.Download}, {Target: uhd.ID, Sourcing: targets.Download}, {Target: small.ID, Sourcing: targets.Download},
 	}}))
 	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, standard.ID))
-	root := must[roots.Root](t)(roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
-		Create(ctx, admin, contenttypetest.ID, t.TempDir()))
+	root := rootstest.Root(t, lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
 	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
 		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}, {Key: "c2", Label: "Mittens"}}},
 	}}})
 	tree, _, err := w.Add(ctx, admin, contenttypetest.ID, "w1", works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			return targets.Assign(ctx, tx, w, nil)
+			if err := targets.Assign(ctx, tx, w, nil); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
 		},
 	})
 	if err != nil {
@@ -113,7 +116,10 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})
 	bare, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", works.Adding{
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			return targets.Assign(ctx, tx, w, &empty.ID)
+			if err := targets.Assign(ctx, tx, w, &empty.ID); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
 		},
 	})
 	if err != nil {

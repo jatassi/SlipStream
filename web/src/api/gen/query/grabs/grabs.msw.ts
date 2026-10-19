@@ -28,6 +28,8 @@ export const getListGrabsResponseMock = (
               "transfer_failed",
               "import_failed",
               "node_written_off",
+              "root_changed",
+              "needs_transfer",
             ] as const),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             stage: faker.helpers.arrayElement([
@@ -107,6 +109,8 @@ export const getGetGrabResponseMock = (
             "transfer_failed",
             "import_failed",
             "node_written_off",
+            "root_changed",
+            "needs_transfer",
           ] as const),
           message: faker.string.alpha({ length: { min: 10, max: 20 } }),
           stage: faker.helpers.arrayElement([

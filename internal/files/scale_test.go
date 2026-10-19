@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -42,7 +43,10 @@ func longWork(b *testing.B) (*library, works.Tree) {
 	tree, _, err := l.works.Add(b.Context(), admin, contenttypetest.ID, "long", works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			return targets.Assign(ctx, tx, w, &profile)
+			if err := targets.Assign(ctx, tx, w, &profile); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
 		},
 	})
 	if err != nil {

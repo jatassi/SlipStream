@@ -45,6 +45,8 @@ func TestAWriteOffForfeitsUntilTheOwnerHoldsNothing(t *testing.T) {
 		t.Fatalf("after the write-off seedbox stands %v in Downloading, want writing-off and written off", st)
 	}
 	drains("writing off", role.Downloading)
+	writtenOffIn(t, lib, role.Downloading, seedbox)
+	writtenOffIn(t, lib, role.Storage)
 
 	again, err := s.Apply(t.Context(), writeOff)
 	if err != nil || !again.Same(mustSituation(t, s)) {
@@ -72,7 +74,7 @@ func TestAWriteOffForfeitsUntilTheOwnerHoldsNothing(t *testing.T) {
 func TestRemovingANodeThatHoldsWorkNeedsAWriteOff(t *testing.T) {
 	var torrents atomic.Int64
 	torrents.Store(3)
-	s, _, seedbox := downloadingSeedbox(t, &torrents)
+	s, lib, seedbox := downloadingSeedbox(t, &torrents)
 	_, err := s.Apply(t.Context(), Remove{Node: seedbox})
 	if blocked, ok := errors.AsType[*BlockedError](err); !ok || len(blocked.Outcome.Checks) != 1 || blocked.Outcome.Checks[0].Reason != HoldsWork {
 		t.Fatalf("removing seedbox while it seeds = %v, want blocked with node_holds_work", err)
@@ -98,9 +100,26 @@ func TestRemovingANodeThatHoldsWorkNeedsAWriteOff(t *testing.T) {
 	if !s.WrittenOff(role.Downloading, seedbox) {
 		t.Fatal("seedbox's torrents read as kept once it is removed with a write-off")
 	}
+	writtenOffIn(t, lib, role.Storage, seedbox)
 	_, err = s.Apply(t.Context(), Remove{Node: s.Self(), WriteOff: true})
 	if blocked, ok := errors.AsType[*BlockedError](err); !ok || len(blocked.Outcome.Checks) != 1 || blocked.Outcome.Checks[0].Reason != IsController {
 		t.Fatalf("removing the Controller = %v, want blocked with node_is_controller", err)
+	}
+}
+
+func writtenOffIn(t *testing.T, lib *storage.DB[storage.Library], name role.Name, want ...ID) {
+	t.Helper()
+	got, err := WrittenOffIn(t.Context(), lib, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("the library reads %v written off in %s, want %v", got, name, want)
+	}
+	for _, id := range want {
+		if !got[id] {
+			t.Fatalf("the library reads %v written off in %s, want %v", got, name, want)
+		}
 	}
 }
 
