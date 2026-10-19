@@ -33,7 +33,7 @@ func TestTestRefusesFlagsTheTierDoesNotTake(t *testing.T) {
 	}{
 		{[]string{"-run", "Foo"}, `go test arguments ["-run" "Foo"] need -tier go, e2e or online`},
 		{[]string{"-tier", "component", "./..."}, `go test arguments ["./..."] need -tier go, e2e or online`},
-		{[]string{"-tier", "lint"}, `-tier "lint" is not one of go, e2e, component, browser, online, all`},
+		{[]string{"-tier", "lint"}, `-tier "lint" is not one of go, e2e, component, diagram, browser, online, all`},
 		{[]string{"-shard", "1/2"}, "-shard, -filter and -repeat need -tier go, e2e or browser"},
 		{[]string{"-tier", "component", "-filter", "Foo"}, "-shard, -filter and -repeat need -tier go, e2e or browser"},
 		{[]string{"-tier", "browser", "-timings", "t"}, "-timings and -record need -tier go or e2e"},
