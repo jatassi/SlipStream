@@ -22,7 +22,7 @@ type DownloadclientsNode struct {
 }
 
 type DownloadclientsSetting struct {
-	ID                     int64
+	ID                     Singleton
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
 }
