@@ -45,6 +45,7 @@ beforeEach(() => {
   writePref("sidebarCollapsed", false);
   writePref("startupOff", false);
   writePref("lastEmail", "");
+  writePref("showHiddenFolders", false);
   onTestFinished(() => {
     worker.resetHandlers();
   });
