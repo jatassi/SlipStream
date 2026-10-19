@@ -19,7 +19,7 @@ type HealthItem struct {
 }
 
 type HealthSetting struct {
-	ID          int64
+	ID          Singleton
 	WarnAmount  *int64
 	WarnUnit    *setting.Unit
 	ErrorAmount *int64

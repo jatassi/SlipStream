@@ -60,7 +60,7 @@ type Says struct {
 	Subject string
 	// Text is what to do first, as a sentence that stands alone.
 	Text string
-	// Detail is the labelled facts under Details, in order.
+	// Detail is the labeled facts under Details, in order.
 	Detail []Fact
 	// Action is the item's one action; the zero Action is none.
 	Action Action
@@ -73,7 +73,7 @@ type Item struct {
 	Says
 }
 
-// Fact is one labelled fact. Exactly one of Text, Bytes and At is set, so
+// Fact is one labeled fact. Exactly one of Text, Bytes and At is set, so
 // the web formats sizes and times in the viewer's locale.
 type Fact struct {
 	Label string

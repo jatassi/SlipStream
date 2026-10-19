@@ -25,51 +25,42 @@ func registered(all []Category) {
 // counts it as a failed answer, so it never clears anything.
 func valid(c Category, a Answer) error {
 	seen := map[Key]bool{}
-	key := func(k Key) error {
-		if k == "" {
-			return errors.New("an item has no key")
-		}
-		if seen[k] {
-			return fmt.Errorf("key %s is answered twice", k)
-		}
-		seen[k] = true
-		return nil
-	}
-	says := func(k Key, s Says) error {
-		if s.Subject == "" || s.Text == "" {
-			return fmt.Errorf("item %s needs a subject and a text", k)
-		}
-		for _, f := range s.Detail {
-			if f.Label == "" || f.set() != 1 {
-				return fmt.Errorf("item %s: fact %q needs a label and exactly one of text, bytes and time", k, f.Label)
-			}
-		}
-		switch a := s.Action; {
-		case a.kind == ActionCheck && c.Check == nil:
-			return fmt.Errorf("item %s offers Check now, but %s has no Check", k, c.ID)
-		case a.kind == ActionRun && a.task == "", a.kind == ActionLink && (a.href == "" || a.label == ""):
-			return fmt.Errorf("item %s: its action is incomplete", k)
-		}
-		return nil
-	}
 	for _, it := range a.Items {
-		if err := key(it.Key); err != nil {
-			return err
-		}
 		if it.Level != Warn && it.Level != Fail {
 			return fmt.Errorf("item %s has level %d, not warn or fail", it.Key, it.Level)
 		}
-		if err := says(it.Key, it.Says); err != nil {
+		if err := validSays(c, seen, it.Key, it.Says); err != nil {
 			return err
 		}
 	}
 	for _, u := range a.Unsure {
-		if err := key(u.Key); err != nil {
+		if err := validSays(c, seen, u.Key, u.Says); err != nil {
 			return err
 		}
-		if err := says(u.Key, u.Says); err != nil {
-			return err
+	}
+	return nil
+}
+
+func validSays(c Category, seen map[Key]bool, k Key, s Says) error {
+	switch {
+	case k == "":
+		return errors.New("an item has no key")
+	case seen[k]:
+		return fmt.Errorf("key %s is answered twice", k)
+	case s.Subject == "" || s.Text == "":
+		return fmt.Errorf("item %s needs a subject and a text", k)
+	}
+	seen[k] = true
+	for _, f := range s.Detail {
+		if f.Label == "" || f.set() != 1 {
+			return fmt.Errorf("item %s: fact %q needs a label and exactly one of text, bytes and time", k, f.Label)
 		}
+	}
+	switch a := s.Action; {
+	case a.kind == ActionCheck && c.Check == nil:
+		return fmt.Errorf("item %s offers Check now, but %s has no Check", k, c.ID)
+	case a.kind == ActionRun && a.task == "", a.kind == ActionLink && (a.href == "" || a.label == ""):
+		return fmt.Errorf("item %s: its action is incomplete", k)
 	}
 	return nil
 }

@@ -16,6 +16,9 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: health_settings.id
+            go_type:
+              type: Singleton
           - column: health_volume.node_id
             go_type:
               import: github.com/jatassi/slipstream/internal/role
