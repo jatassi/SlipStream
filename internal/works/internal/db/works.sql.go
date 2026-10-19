@@ -63,7 +63,7 @@ func (q *Queries) GetItem(ctx context.Context, id ItemID) (WorksItem, error) {
 }
 
 const getWork = `-- name: GetWork :one
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at FROM works_work WHERE id = ?1
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE id = ?1
 `
 
 func (q *Queries) GetWork(ctx context.Context, id WorkID) (WorksWork, error) {
@@ -77,12 +77,14 @@ func (q *Queries) GetWork(ctx context.Context, id WorkID) (WorksWork, error) {
 		&i.SortLabel,
 		&i.AddedAt,
 		&i.RefreshedAt,
+		&i.GoneUpstreamAt,
+		&i.RatingsReadAt,
 	)
 	return i, err
 }
 
 const getWorkByKey = `-- name: GetWorkByKey :one
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at FROM works_work WHERE content_type = ?1 AND key = ?2
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE content_type = ?1 AND key = ?2
 `
 
 type GetWorkByKeyParams struct {
@@ -101,6 +103,8 @@ func (q *Queries) GetWorkByKey(ctx context.Context, arg GetWorkByKeyParams) (Wor
 		&i.SortLabel,
 		&i.AddedAt,
 		&i.RefreshedAt,
+		&i.GoneUpstreamAt,
+		&i.RatingsReadAt,
 	)
 	return i, err
 }
@@ -141,6 +145,30 @@ func (q *Queries) HoldsType(ctx context.Context, contentType TypeID) (bool, erro
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const insertArtwork = `-- name: InsertArtwork :exec
+INSERT INTO works_artwork (work_id, item_id, kind, source, path)
+VALUES (?1, ?2, ?3, ?4, ?5)
+`
+
+type InsertArtworkParams struct {
+	WorkID WorkID
+	ItemID ItemID
+	Kind   string
+	Source string
+	Path   string
+}
+
+func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) error {
+	_, err := q.db.ExecContext(ctx, insertArtwork,
+		arg.WorkID,
+		arg.ItemID,
+		arg.Kind,
+		arg.Source,
+		arg.Path,
+	)
+	return err
 }
 
 const insertItem = `-- name: InsertItem :exec
@@ -201,6 +229,34 @@ func (q *Queries) InsertLevel(ctx context.Context, arg InsertLevelParams) error 
 	return err
 }
 
+const insertRating = `-- name: InsertRating :exec
+INSERT INTO works_rating (work_id, item_id, source, value, scale, votes, fetched_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+`
+
+type InsertRatingParams struct {
+	WorkID    WorkID
+	ItemID    ItemID
+	Source    string
+	Value     float64
+	Scale     float64
+	Votes     *int64
+	FetchedAt storage.Time
+}
+
+func (q *Queries) InsertRating(ctx context.Context, arg InsertRatingParams) error {
+	_, err := q.db.ExecContext(ctx, insertRating,
+		arg.WorkID,
+		arg.ItemID,
+		arg.Source,
+		arg.Value,
+		arg.Scale,
+		arg.Votes,
+		arg.FetchedAt,
+	)
+	return err
+}
+
 const insertWork = `-- name: InsertWork :exec
 INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -238,6 +294,39 @@ func (q *Queries) IsDisabled(ctx context.Context, contentType TypeID) (bool, err
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const listArtwork = `-- name: ListArtwork :many
+SELECT work_id, item_id, kind, source, path FROM works_artwork WHERE work_id = ?1 ORDER BY item_id, kind
+`
+
+func (q *Queries) ListArtwork(ctx context.Context, workID WorkID) ([]WorksArtwork, error) {
+	rows, err := q.db.QueryContext(ctx, listArtwork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorksArtwork
+	for rows.Next() {
+		var i WorksArtwork
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.ItemID,
+			&i.Kind,
+			&i.Source,
+			&i.Path,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDisabledTypes = `-- name: ListDisabledTypes :many
@@ -385,8 +474,43 @@ func (q *Queries) ListLevels(ctx context.Context, workID WorkID) ([]WorksLevel, 
 	return items, nil
 }
 
+const listRatings = `-- name: ListRatings :many
+SELECT work_id, item_id, source, value, scale, votes, fetched_at FROM works_rating WHERE work_id = ?1 ORDER BY item_id, source
+`
+
+func (q *Queries) ListRatings(ctx context.Context, workID WorkID) ([]WorksRating, error) {
+	rows, err := q.db.QueryContext(ctx, listRatings, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorksRating
+	for rows.Next() {
+		var i WorksRating
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.ItemID,
+			&i.Source,
+			&i.Value,
+			&i.Scale,
+			&i.Votes,
+			&i.FetchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorks = `-- name: ListWorks :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at FROM works_work ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
@@ -406,6 +530,8 @@ func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
 			&i.SortLabel,
 			&i.AddedAt,
 			&i.RefreshedAt,
+			&i.GoneUpstreamAt,
+			&i.RatingsReadAt,
 		); err != nil {
 			return nil, err
 		}
@@ -421,7 +547,7 @@ func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
 }
 
 const listWorksOfType = `-- name: ListWorksOfType :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at FROM works_work WHERE content_type = ?1 ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at FROM works_work WHERE content_type = ?1 ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]WorksWork, error) {
@@ -441,6 +567,8 @@ func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]Wo
 			&i.SortLabel,
 			&i.AddedAt,
 			&i.RefreshedAt,
+			&i.GoneUpstreamAt,
+			&i.RatingsReadAt,
 		); err != nil {
 			return nil, err
 		}
@@ -455,12 +583,89 @@ func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]Wo
 	return items, nil
 }
 
+const markGoneUpstream = `-- name: MarkGoneUpstream :exec
+UPDATE works_work SET gone_upstream_at = ?1 WHERE id = ?2
+`
+
+type MarkGoneUpstreamParams struct {
+	GoneUpstreamAt storage.Time
+	ID             WorkID
+}
+
+func (q *Queries) MarkGoneUpstream(ctx context.Context, arg MarkGoneUpstreamParams) error {
+	_, err := q.db.ExecContext(ctx, markGoneUpstream, arg.GoneUpstreamAt, arg.ID)
+	return err
+}
+
 const monitorItems = `-- name: MonitorItems :exec
 UPDATE works_item SET monitored = 1 WHERE work_id = ?1
 `
 
 func (q *Queries) MonitorItems(ctx context.Context, workID WorkID) error {
 	_, err := q.db.ExecContext(ctx, monitorItems, workID)
+	return err
+}
+
+const setMonitored = `-- name: SetMonitored :exec
+UPDATE works_item SET monitored = ?1 WHERE id IN (/*SLICE:item_ids*/?)
+`
+
+type SetMonitoredParams struct {
+	Monitored bool
+	ItemIds   []ItemID
+}
+
+func (q *Queries) SetMonitored(ctx context.Context, arg SetMonitoredParams) error {
+	query := setMonitored
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Monitored)
+	if len(arg.ItemIds) > 0 {
+		for _, v := range arg.ItemIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(arg.ItemIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const setRatingsRead = `-- name: SetRatingsRead :exec
+UPDATE works_work SET ratings_read_at = ?1 WHERE id = ?2
+`
+
+type SetRatingsReadParams struct {
+	RatingsReadAt storage.Time
+	ID            WorkID
+}
+
+func (q *Queries) SetRatingsRead(ctx context.Context, arg SetRatingsReadParams) error {
+	_, err := q.db.ExecContext(ctx, setRatingsRead, arg.RatingsReadAt, arg.ID)
+	return err
+}
+
+const updateArtwork = `-- name: UpdateArtwork :exec
+UPDATE works_artwork SET source = ?1, path = ?2
+WHERE work_id = ?3 AND item_id IS ?4 AND kind = ?5
+`
+
+type UpdateArtworkParams struct {
+	Source string
+	Path   string
+	WorkID WorkID
+	ItemID ItemID
+	Kind   string
+}
+
+func (q *Queries) UpdateArtwork(ctx context.Context, arg UpdateArtworkParams) error {
+	_, err := q.db.ExecContext(ctx, updateArtwork,
+		arg.Source,
+		arg.Path,
+		arg.WorkID,
+		arg.ItemID,
+		arg.Kind,
+	)
 	return err
 }
 
@@ -516,8 +721,37 @@ func (q *Queries) UpdateLevel(ctx context.Context, arg UpdateLevelParams) error 
 	return err
 }
 
+const updateRating = `-- name: UpdateRating :exec
+UPDATE works_rating SET value = ?1, scale = ?2, votes = ?3, fetched_at = ?4
+WHERE work_id = ?5 AND item_id IS ?6 AND source = ?7
+`
+
+type UpdateRatingParams struct {
+	Value     float64
+	Scale     float64
+	Votes     *int64
+	FetchedAt storage.Time
+	WorkID    WorkID
+	ItemID    ItemID
+	Source    string
+}
+
+func (q *Queries) UpdateRating(ctx context.Context, arg UpdateRatingParams) error {
+	_, err := q.db.ExecContext(ctx, updateRating,
+		arg.Value,
+		arg.Scale,
+		arg.Votes,
+		arg.FetchedAt,
+		arg.WorkID,
+		arg.ItemID,
+		arg.Source,
+	)
+	return err
+}
+
 const updateWork = `-- name: UpdateWork :exec
-UPDATE works_work SET label = ?1, sort_label = ?2, refreshed_at = ?3
+UPDATE works_work SET label = ?1, sort_label = ?2, refreshed_at = ?3,
+    gone_upstream_at = NULL
 WHERE id = ?4
 `
 
@@ -536,4 +770,49 @@ func (q *Queries) UpdateWork(ctx context.Context, arg UpdateWorkParams) error {
 		arg.ID,
 	)
 	return err
+}
+
+const worksToMonitor = `-- name: WorksToMonitor :many
+SELECT DISTINCT work_id FROM works_item
+WHERE monitored <> ?1 AND id IN (/*SLICE:item_ids*/?)
+ORDER BY work_id
+`
+
+type WorksToMonitorParams struct {
+	Monitored bool
+	ItemIds   []ItemID
+}
+
+func (q *Queries) WorksToMonitor(ctx context.Context, arg WorksToMonitorParams) ([]WorkID, error) {
+	query := worksToMonitor
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Monitored)
+	if len(arg.ItemIds) > 0 {
+		for _, v := range arg.ItemIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(arg.ItemIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkID
+	for rows.Next() {
+		var work_id WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

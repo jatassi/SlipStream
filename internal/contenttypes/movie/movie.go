@@ -134,14 +134,15 @@ func year(date string) *int64 {
 	return &y
 }
 
-func (*Movie) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, raw []byte) error {
+func (*Movie) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, raw []byte) (bool, error) {
 	var d detail
 	if err := json.Unmarshal(raw, &d); err != nil {
-		return fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
+		return false, fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
 	}
-	return db.New(tx).UpsertMovie(ctx, db.UpsertMovieParams{
+	n, err := db.New(tx).UpsertMovie(ctx, db.UpsertMovieParams{
 		WorkID: at.Work, TmdbID: d.TMDBID, ImdbID: d.IMDbID, Title: d.Title, Year: d.Year, Released: d.Released, RuntimeMinutes: d.RuntimeMinutes,
 	})
+	return n > 0, err
 }
 
 func (*Movie) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID) (works.FieldSet, error) {

@@ -2,8 +2,11 @@ package works
 
 import (
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -31,7 +34,10 @@ type parsed struct {
 	Label     string
 	SortLabel string
 	nodes
-	Detail []byte
+	Detail      []byte
+	Ratings     []Rating
+	RatingsRead bool
+	Artwork     []Art
 }
 
 func parseFetched(d Description, key Key, f Fetched) (parsed, error) {
@@ -43,11 +49,20 @@ func parseFetched(d Description, key Key, f Fetched) (parsed, error) {
 	if err := p.entries(work, "", 1, f.Children); err != nil {
 		return parsed{}, err
 	}
+	if err := p.ratings(work, f.Ratings); err != nil {
+		return parsed{}, err
+	}
+	if err := p.artwork(work, f.Artwork); err != nil {
+		return parsed{}, err
+	}
 	sortLabel := f.SortLabel
 	if sortLabel == "" {
 		sortLabel = f.Label
 	}
-	return parsed{Label: f.Label, SortLabel: sortLabel, nodes: p.out, Detail: f.Detail}, nil
+	return parsed{
+		Label: f.Label, SortLabel: sortLabel, nodes: p.out, Detail: f.Detail,
+		Ratings: f.Ratings, RatingsRead: f.RatingsRead, Artwork: f.Artwork,
+	}, nil
 }
 
 type parser struct {
@@ -86,6 +101,70 @@ func (p *parser) entries(parentName string, parent Key, depth int, es []Entry) e
 		if err := p.entries(name, e.Key, depth+1, e.Children); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (p *parser) owner(work string, item Key) (string, error) {
+	if item == "" {
+		return work, nil
+	}
+	if !p.items[item] {
+		return "", invalid("%s: it names %s %s, which it does not list", work, strings.ToLower(p.d.Item.One), item)
+	}
+	return strings.ToLower(p.d.Item.One) + " " + string(item), nil
+}
+
+func (p *parser) ratings(work string, rs []Rating) error {
+	type slot struct {
+		item   Key
+		source RatingSource
+	}
+	seen := map[slot]bool{}
+	for _, r := range rs {
+		name, err := p.owner(work, r.Item)
+		if err != nil {
+			return err
+		}
+		scale, ok := RatingSources[r.Source]
+		switch {
+		case !ok:
+			return invalid("%s: it has a rating from %q, which is no ratings source", name, r.Source)
+		case math.IsNaN(r.Value) || r.Value < 0 || r.Value > scale.Scale:
+			return invalid("%s: its %s rating %v is outside 0 to %v", name, scale.Label, r.Value, scale.Scale)
+		case r.Votes != nil && *r.Votes < 0:
+			return invalid("%s: its %s rating has %d votes", name, scale.Label, *r.Votes)
+		case seen[slot{r.Item, r.Source}]:
+			return invalid("%s: it has two %s ratings", name, scale.Label)
+		}
+		seen[slot{r.Item, r.Source}] = true
+	}
+	return nil
+}
+
+func (p *parser) artwork(work string, as []Art) error {
+	type slot struct {
+		item Key
+		kind string
+	}
+	seen := map[slot]bool{}
+	for _, a := range as {
+		name, err := p.owner(work, a.Item)
+		if err != nil {
+			return err
+		}
+		i := slices.IndexFunc(p.d.Artwork, func(k artwork.Kind) bool { return k.Key == a.Kind && k.Item == (a.Item != "") })
+		switch {
+		case i < 0:
+			return invalid("%s: it has %q artwork, a kind it can't have", name, a.Kind)
+		case a.Ref.Source == "" || a.Ref.Path == "":
+			return invalid("%s: its %s artwork names no source or no path", name, a.Kind)
+		case a.Ref.Shape != p.d.Artwork[i].Shape:
+			return invalid("%s: its %s artwork is a %s, not a %s", name, a.Kind, a.Ref.Shape, p.d.Artwork[i].Shape)
+		case seen[slot{a.Item, a.Kind}]:
+			return invalid("%s: it has two %s artworks", name, a.Kind)
+		}
+		seen[slot{a.Item, a.Kind}] = true
 	}
 	return nil
 }

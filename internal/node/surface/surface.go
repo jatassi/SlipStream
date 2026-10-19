@@ -48,6 +48,7 @@ var Events = []live.Event{
 	nodes.TrafficEvent,
 	works.ChangedEvent,
 	works.ContentTypesChangedEvent,
+	works.TypeChangedEvent,
 	targets.ChangedEvent,
 	roots.ChangedEvent,
 	roots.VolumesChangedEvent,

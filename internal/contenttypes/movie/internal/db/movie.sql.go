@@ -76,11 +76,13 @@ func (q *Queries) ListMovies(ctx context.Context, workIds []works.WorkID) ([]Mov
 	return items, nil
 }
 
-const upsertMovie = `-- name: UpsertMovie :exec
+const upsertMovie = `-- name: UpsertMovie :execrows
 INSERT INTO movie_movie (work_id, tmdb_id, imdb_id, title, year, released, runtime_minutes)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 ON CONFLICT (work_id) DO UPDATE SET imdb_id = excluded.imdb_id, title = excluded.title, year = excluded.year,
     released = excluded.released, runtime_minutes = excluded.runtime_minutes
+WHERE imdb_id IS NOT excluded.imdb_id OR title IS NOT excluded.title OR year IS NOT excluded.year
+    OR released IS NOT excluded.released OR runtime_minutes IS NOT excluded.runtime_minutes
 `
 
 type UpsertMovieParams struct {
@@ -93,8 +95,8 @@ type UpsertMovieParams struct {
 	RuntimeMinutes *int64
 }
 
-func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) error {
-	_, err := q.db.ExecContext(ctx, upsertMovie,
+func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upsertMovie,
 		arg.WorkID,
 		arg.TmdbID,
 		arg.ImdbID,
@@ -103,5 +105,8 @@ func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) error 
 		arg.Released,
 		arg.RuntimeMinutes,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

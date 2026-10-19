@@ -21,7 +21,8 @@ INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refr
 VALUES (sqlc.arg(id), sqlc.arg(content_type), sqlc.arg(key), sqlc.arg(label), sqlc.arg(sort_label), sqlc.arg(added_at), sqlc.arg(refreshed_at));
 
 -- name: UpdateWork :exec
-UPDATE works_work SET label = sqlc.arg(label), sort_label = sqlc.arg(sort_label), refreshed_at = sqlc.arg(refreshed_at)
+UPDATE works_work SET label = sqlc.arg(label), sort_label = sqlc.arg(sort_label), refreshed_at = sqlc.arg(refreshed_at),
+    gone_upstream_at = NULL
 WHERE id = sqlc.arg(id);
 
 -- name: ListLevels :many
@@ -69,3 +70,39 @@ DELETE FROM works_disabled_type WHERE content_type = sqlc.arg(content_type);
 
 -- name: MonitorItems :exec
 UPDATE works_item SET monitored = 1 WHERE work_id = sqlc.arg(work_id);
+
+-- name: MarkGoneUpstream :exec
+UPDATE works_work SET gone_upstream_at = sqlc.arg(gone_upstream_at) WHERE id = sqlc.arg(id);
+
+-- name: SetRatingsRead :exec
+UPDATE works_work SET ratings_read_at = sqlc.arg(ratings_read_at) WHERE id = sqlc.arg(id);
+
+-- name: WorksToMonitor :many
+SELECT DISTINCT work_id FROM works_item
+WHERE monitored <> sqlc.arg(monitored) AND id IN (sqlc.slice(item_ids))
+ORDER BY work_id;
+
+-- name: SetMonitored :exec
+UPDATE works_item SET monitored = sqlc.arg(monitored) WHERE id IN (sqlc.slice(item_ids));
+
+-- name: ListRatings :many
+SELECT * FROM works_rating WHERE work_id = sqlc.arg(work_id) ORDER BY item_id, source;
+
+-- name: InsertRating :exec
+INSERT INTO works_rating (work_id, item_id, source, value, scale, votes, fetched_at)
+VALUES (sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(source), sqlc.arg(value), sqlc.arg(scale), sqlc.arg(votes), sqlc.arg(fetched_at));
+
+-- name: UpdateRating :exec
+UPDATE works_rating SET value = sqlc.arg(value), scale = sqlc.arg(scale), votes = sqlc.arg(votes), fetched_at = sqlc.arg(fetched_at)
+WHERE work_id = sqlc.arg(work_id) AND item_id IS sqlc.arg(item_id) AND source = sqlc.arg(source);
+
+-- name: ListArtwork :many
+SELECT * FROM works_artwork WHERE work_id = sqlc.arg(work_id) ORDER BY item_id, kind;
+
+-- name: InsertArtwork :exec
+INSERT INTO works_artwork (work_id, item_id, kind, source, path)
+VALUES (sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(path));
+
+-- name: UpdateArtwork :exec
+UPDATE works_artwork SET source = sqlc.arg(source), path = sqlc.arg(path)
+WHERE work_id = sqlc.arg(work_id) AND item_id IS sqlc.arg(item_id) AND kind = sqlc.arg(kind);

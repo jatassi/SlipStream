@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -34,6 +36,13 @@ var Description = works.Description{
 		{Key: "packed", Label: "Packed", Tier: works.TierLevel(1), Kind: works.KindDate},
 		{Key: "count", Label: "Count", Tier: works.TierItem, Kind: works.KindNumber},
 		{Key: "runtime", Label: "Runtime", Tier: works.TierItem, Kind: works.KindDuration},
+		{Key: "tags", Label: "Tags", Tier: works.TierWork, Kind: works.KindTexts},
+		{Key: "makers", Label: "Makers", Tier: works.TierWork, Kind: works.KindPeople},
+		{Key: "page", Label: "Page", Tier: works.TierWork, Kind: works.KindLink},
+	},
+	Artwork: []artwork.Kind{
+		{Key: "photo", Label: "Photo", Shape: artwork.ShapePoster, Prefetch: artwork.SizeMedium},
+		{Key: "snap", Label: "Snap", Item: true, Shape: artwork.ShapeBackdrop},
 	},
 }
 
@@ -197,27 +206,30 @@ func (f *Fixture) Fetch(ctx context.Context, key works.Key) (works.Fetched, erro
 }
 
 // Store keeps the fields of every placed node in memory, beside the
-// fields of nodes stored earlier.
-func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at works.Placed, detail []byte) error {
+// fields of nodes stored earlier, and reports whether any differed.
+func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at works.Placed, detail []byte) (bool, error) {
 	var r Record
 	if err := json.Unmarshal(detail, &r); err != nil {
-		return fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
+		return false, fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	fs := f.stored[at.Work]
-	if fs.Levels == nil {
+	fs, ok := f.stored[at.Work]
+	if !ok {
 		fs = works.FieldSet{Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
 	}
+	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields)
 	fs.Work = r.WorkFields
 	for key, id := range at.Levels {
+		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key])
 		fs.Levels[id] = r.LevelFields[key]
 	}
 	for key, id := range at.Items {
+		changed = changed || !reflect.DeepEqual(fs.Items[id], r.ItemFields[key])
 		fs.Items[id] = r.ItemFields[key]
 	}
 	f.stored[at.Work] = fs
-	return nil
+	return changed, nil
 }
 
 func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) (works.FieldSet, error) {

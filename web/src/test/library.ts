@@ -26,11 +26,13 @@ export const orchard: WorksTree = {
   sortLabel: "Quiet Orchard",
   addedAt: "2026-10-12T09:00:00Z",
   refreshedAt: "2026-10-12T09:00:00Z",
+  goneUpstreamAt: null,
   fields: [
     { key: "year", kind: "number", number: 2021 },
     { key: "released", kind: "date", date: "2021-04-09" },
     { key: "runtime", kind: "duration", ms: 6_720_000 },
   ],
+  ratings: [],
   levels: [],
   items: [
     {
@@ -42,6 +44,7 @@ export const orchard: WorksTree = {
       withdrawnAt: null,
       monitored: true,
       fields: [],
+      ratings: [],
     },
   ],
 };

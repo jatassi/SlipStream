@@ -1,1 +1,1 @@
-export type SearchCatalog502Code = "metadata_unavailable";
+export type SearchCatalog502Code = "metadata_refused" | "metadata_unavailable";
