@@ -29,7 +29,7 @@ sql:
               pointer: true
           - column: downloadclients_settings.id
             go_type:
-              type: int64
+              type: Singleton
           - column: "downloadclients_node.*"
             go_type:
               type: int64
