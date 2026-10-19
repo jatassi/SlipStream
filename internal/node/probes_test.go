@@ -21,7 +21,7 @@ func TestEveryProbeHasACheck(t *testing.T) {
 // torrent port something else holds: the Node runs, with no torrent
 // listener, and its engine-starts probe fails.
 func TestATakenTorrentPortFailsTheEngineProbeAndNotTheNode(t *testing.T) {
-	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	taken, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}

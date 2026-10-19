@@ -46,7 +46,7 @@ func (sessions) Seed(t *testing.T, meta []byte, dir string) func(engine.Engine, 
 }
 
 func (sessions) TakePort(t *testing.T) netip.AddrPort {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func (sessions) Incoming(t *testing.T, e engine.Engine) netip.Addr {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := net.DialTimeout("tcp", to.String(), 10*time.Second)
+	c, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(t.Context(), "tcp", to.String())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -469,14 +469,19 @@ func (t *torrent) reschedule() {
 	t.transfer = time.AfterFunc(left, func() {
 		t.e.w.mu.Lock()
 		defer t.e.w.mu.Unlock()
-		if t.e.closed || !t.e.holds(t) {
-			return
-		}
-		t.fold()
-		if !t.paused && t.state == engine.StateDownloading {
-			t.finish(payload)
+		if !t.e.closed && t.e.holds(t) {
+			t.catchUp()
 		}
 	})
+}
+
+// catchUp folds t up to now and finishes a paced download that got all its
+// payload, whether its timer or a reader came first.
+func (t *torrent) catchUp() {
+	t.fold()
+	if t.state == engine.StateDownloading && t.done == t.wanted && !t.paused {
+		t.finish(t.e.w.payloads[t.meta.InfoHash])
+	}
 }
 
 func (t *torrent) stopTransfer() {
@@ -601,9 +606,12 @@ func (t *torrent) finish(payload []byte) {
 
 func write(file string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it
-		return err
+		return fmt.Errorf("make the folder of %s: %w", file, err)
 	}
-	return os.WriteFile(file, data, 0o644) //nolint:gosec // a download is as readable as libtorrent leaves it
+	if err := os.WriteFile(file, data, 0o644); err != nil { //nolint:gosec // a download is as readable as libtorrent leaves it
+		return fmt.Errorf("write %s: %w", file, err)
+	}
+	return nil
 }
 
 func (e *Engine) Reannounce(h engine.Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error {
@@ -655,7 +663,7 @@ func (e *Engine) PostUpdates() error {
 }
 
 func (t *torrent) status() engine.Status {
-	t.fold()
+	t.catchUp()
 	r := t.rates()
 	return engine.Status{
 		Torrent: t.handle, State: t.state, Paused: t.paused, Done: t.done, Wanted: t.wanted,

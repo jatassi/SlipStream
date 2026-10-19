@@ -143,7 +143,8 @@ func openListening(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	}
 	if errors.Is(err, engine.ErrNotListening) {
 		err = fmt.Errorf("%w on %s", engine.ErrNotListening, ap)
-		if reason := listenFailure(s.ses); reason != nil {
+		reason := listenFailure(s.ses)
+		if reason != nil {
 			err = fmt.Errorf("%w: %w", err, reason)
 		}
 	}
@@ -238,8 +239,8 @@ func (s *Session) Configure(l engine.Limits) error {
 		download_limit: C.int64_t(l.DownloadLimit),
 		upload_limit:   C.int64_t(l.UploadLimit),
 		connections:    C.int32_t(l.Connections),
-		utp:            cBool32(l.UTP),
-		watch_incoming: cBool32(l.WatchIncoming),
+		utp:            cBool(l.UTP),
+		watch_incoming: cBool(l.WatchIncoming),
 	}
 	return s.call(func(cerr *C.lts_error) C.int { return C.lts_configure(s.ses, &limits, cerr) })
 }
@@ -574,8 +575,6 @@ func discoveryBits(d engine.Discovery) C.uint32_t {
 	}
 	return bits
 }
-
-func cBool32(b bool) C.int32_t { return C.int32_t(cBool(b)) }
 
 func cBool(b bool) C.int {
 	if b {

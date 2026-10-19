@@ -178,20 +178,26 @@ func TestAPacedDownloadThatFindsTheDiskFullPausesUntilResumed(t *testing.T) {
 		if s, err := e.Status(h); err != nil || s.State != engine.StateSeeding || s.Done != 5 {
 			t.Fatalf("resumed with room again, Status = %+v, %v; want seeding 5 of 5", s, err)
 		}
-		_ = e.Close()
-		var got []engine.Event
-		for ev := range e.Events() {
-			switch ev.(type) {
-			case engine.FileError, engine.Paused, engine.Resumed, engine.Finished:
-				got = append(got, ev)
-			}
-		}
 		want := []engine.Event{
 			engine.Resumed{Torrent: h}, engine.FileError{Torrent: h, Err: engine.ErrDiskFull}, engine.Paused{Torrent: h},
 			engine.Resumed{Torrent: h}, engine.Finished{Torrent: h},
 		}
-		if !reflect.DeepEqual(got, want) {
+		if got := runEvents(e); !reflect.DeepEqual(got, want) {
 			t.Fatalf("events = %#v, want %#v", got, want)
 		}
 	})
+}
+
+// runEvents closes e and lists its events that start, pause, fail or
+// finish a torrent.
+func runEvents(e engine.Engine) []engine.Event {
+	_ = e.Close()
+	var got []engine.Event
+	for ev := range e.Events() {
+		switch ev.(type) {
+		case engine.FileError, engine.Paused, engine.Resumed, engine.Finished:
+			got = append(got, ev)
+		}
+	}
+	return got
 }

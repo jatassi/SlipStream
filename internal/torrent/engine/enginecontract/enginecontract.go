@@ -438,7 +438,7 @@ func recheckSendsNoAnnounceAndEndsPaused(t *testing.T, h Harness) {
 // corrupt flips the first byte of file.
 func corrupt(t *testing.T, file string) {
 	t.Helper()
-	f, err := os.OpenFile(file, os.O_RDWR, 0)
+	f, err := os.OpenFile(file, os.O_RDWR, 0) //nolint:gosec // a file of a release the test wrote
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -559,15 +559,15 @@ func theAnnouncedPeerIDAndUserAgentAreTheVersions(t *testing.T, h Harness) {
 	if len(parts) != 3 {
 		t.Fatalf("the engine's version %q is not major.minor.tiny", v.Libtorrent)
 	}
-	prefix := "-LT"
+	prefix := []byte("-LT")
 	for _, p := range parts {
 		n, err := strconv.Atoi(p)
 		if err != nil || n < 0 || n >= 36 {
 			t.Fatalf("the engine's version %q has a part libtorrent's fingerprint cannot encode", v.Libtorrent)
 		}
-		prefix += string("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[n])
+		prefix = append(prefix, "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[n])
 	}
-	if want := prefix + "0-"; v.PeerIDPrefix != want || v.UserAgent != "libtorrent/"+v.Libtorrent+".0" {
+	if want := string(prefix) + "0-"; v.PeerIDPrefix != want || v.UserAgent != "libtorrent/"+v.Libtorrent+".0" {
 		t.Fatalf("version %+v, want peer ID prefix %s and user agent libtorrent/%s.0, libtorrent's own", v, want, v.Libtorrent)
 	}
 	running(t, e, "Identified", tr.URL)

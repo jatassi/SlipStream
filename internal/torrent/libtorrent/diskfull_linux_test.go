@@ -50,7 +50,7 @@ func TestADownloadThatFillsTheDiskPausesUntilResumed(t *testing.T) {
 	}
 	waitFor(t, leecher.Events(), func(p engine.Paused) bool { return p.Torrent == h })
 
-	if out, err := exec.Command("mount", "-o", "remount,size=4m", volume).CombinedOutput(); err != nil {
+	if out, err := exec.CommandContext(t.Context(), "mount", "-o", "remount,size=4m", volume).CombinedOutput(); err != nil {
 		t.Fatalf("grow the volume: %v: %s", err, out)
 	}
 	if err := leecher.Resume(h); err != nil {
@@ -71,7 +71,7 @@ func inMountNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("unshare", "--user", "--map-root-user", "--mount", "sh", "-c",
+	cmd := exec.CommandContext(t.Context(), "unshare", "--user", "--map-root-user", "--mount", "sh", "-c",
 		`mount -t tmpfs -o size=256k tmpfs "$0" || exit 99; exec "$@"`,
 		volume, self, "-test.run=^"+t.Name()+"$", "-test.v", "-test.timeout=5m")
 	cmd.Env = append(os.Environ(), fullVolume+"="+volume)
