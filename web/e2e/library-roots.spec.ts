@@ -37,7 +37,15 @@ async function moviesRoot(world: World) {
   if (movies === undefined) {
     throw new Error("the home Scenario has no Movies root");
   }
-  return { ...movies, media: movies.path.slice(0, movies.path.lastIndexOf("/")) };
+  const sep = movies.path.includes("\\") ? "\\" : "/";
+  return { ...movies, sep, media: movies.path.slice(0, movies.path.lastIndexOf(sep)) };
+}
+
+// A Place is named for its volume: "/" on Linux and macOS, "D:" or
+// "D: (Label)" on Windows. Its row reads the name, then the free space.
+function placeOf(path: string): RegExp {
+  const drive = /^[A-Za-z]:/u.exec(path)?.[0];
+  return drive === undefined ? /^\/\d/u : new RegExp(`^${drive}(?: \\(|\\d)`, "u");
 }
 
 function homeId(world: World): string {
@@ -77,8 +85,8 @@ type Movies = Awaited<ReturnType<typeof moviesRoot>>;
 
 async function browseToFilms(page: Page, movies: Movies): Promise<void> {
   await expect(folders(page).getByRole("option").first()).toContainText(movies.path);
-  await folders(page).getByRole("option").filter({ hasText: /^\/\d/u }).click();
-  for (const name of movies.media.split("/").slice(1)) {
+  await folders(page).getByRole("option").filter({ hasText: placeOf(movies.path) }).click();
+  for (const name of movies.media.split(movies.sep).slice(1)) {
     // oxlint-disable-next-line no-await-in-loop -- each folder opens before the next, as a person's does
     await drillInto(page, name);
   }
@@ -95,7 +103,7 @@ async function browseToFilms(page: Page, movies: Movies): Promise<void> {
   await expect(useButton(page, "media")).toBeDisabled();
   await newFolder(page, "films");
   await expect(useButton(page, "films")).toBeEnabled();
-  await expect(browser(page)).toContainText(/This folder is on \/, .+ free\./u);
+  await expect(browser(page)).toContainText(/This folder is on .+, .+ free\./u);
   await useButton(page, "films").click();
 }
 
@@ -145,7 +153,7 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
   world,
 }) => {
   const movies = await moviesRoot(world);
-  const films = `${movies.media}/films`;
+  const films = `${movies.media}${movies.sep}films`;
   await page.goto("/settings/library-roots");
   await expect(rootRow(page, movies.path)).toContainText("Default");
 
@@ -154,7 +162,7 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
   await adding.getByRole("button", { name: "Browse" }).click();
   await browseToFilms(page, movies);
   await expect(adding.getByRole("textbox", { name: "Folder" })).toHaveValue(films);
-  await expect(adding).toContainText(/This folder is on \/, .+ free\./u);
+  await expect(adding).toContainText(/This folder is on .+, .+ free\./u);
   await adding.getByRole("checkbox", { name: "Make this the default for Movies" }).check();
   await adding.getByRole("button", { name: "Add", exact: true }).click();
   await expect(toasts(page)).toContainText(`Added ${films}. New Movies go there.`);
@@ -234,7 +242,7 @@ async function rehomeForgetting(page: Page, movies: Movies): Promise<string> {
   await upTo(page, "media");
   await newFolder(page, "moved");
   await useButton(page, "moved").click();
-  const moved = `${movies.media}/moved`;
+  const moved = `${movies.media}${movies.sep}moved`;
   await expect(editing.getByRole("textbox", { name: "Folder" })).toHaveValue(moved);
   await editing.getByRole("button", { name: "Save", exact: true }).click();
   await expect(editing).toContainText("1 file isn't at the new place.");

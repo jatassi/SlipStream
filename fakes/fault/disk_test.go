@@ -161,9 +161,9 @@ func playsVolumeAndFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.cue(fault.Volume{Total: 10 << 30, Free: 2 << 30})
-	v, err := c.d.Volume(c.ctx, c.marker)
+	v, err := c.d.Volume(c.ctx, c.folder)
 	if err != nil || v.ID != "sim:"+c.folder || v.Mount != c.folder || v.Total != 10<<30 || v.Free != 2<<30 {
-		t.Fatalf("Volume under the folder = %+v, %v; want a volume of its own, 2 GiB free of 10", v, err)
+		t.Fatalf("Volume of the folder = %+v, %v; want a volume of its own, 2 GiB free of 10", v, err)
 	}
 	if v, err := c.d.Volume(c.ctx, c.sibling); err != nil || v.ID != own.ID {
 		t.Fatalf("Volume of a sibling = %+v, %v; want the real %s", v, err, own.ID)
