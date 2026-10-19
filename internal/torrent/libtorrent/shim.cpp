@@ -7,6 +7,7 @@
 #include <libtorrent/bdecode.hpp>
 #include <libtorrent/error_code.hpp>
 #include <libtorrent/file_storage.hpp>
+#include <libtorrent/posix_disk_io.hpp>
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
 #include <libtorrent/settings_pack.hpp>
@@ -271,7 +272,13 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, in
 		p.set_bool(sp::enable_outgoing_utp, outgoing_utp != 0);
 		p.set_str(sp::listen_interfaces, listen_interface(addr, port));
 		p.set_int(sp::alert_mask, int(static_cast<std::uint32_t>(lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::tracker)));
-		s = new lts_session(lt::session_params(std::move(p)));
+		lt::session_params params(std::move(p));
+#ifdef _WIN32
+		// mmap_disk_io flushes each mapped file as it closes it on Windows, so
+		// a session took seconds to close, and it wrote a sixth as fast.
+		params.disk_io_constructor = lt::posix_disk_io_constructor;
+#endif
+		s = new lts_session(std::move(params));
 	});
 	return s;
 }
