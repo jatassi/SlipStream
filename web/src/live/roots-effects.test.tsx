@@ -48,3 +48,17 @@ test("nodes.changed invalidates the roots and volumes, whose states follow their
     .poll(invalidated)
     .toEqual({ roots: true, volumes: true, topology: true, settings: false });
 });
+
+test("works.changed and files.changed invalidate the roots, whose rows count Works and file bytes", async () => {
+  const { send, invalidated } = await opened();
+  send?.({ event: "works.changed", data: { workId: films } });
+  await expect
+    .poll(invalidated)
+    .toEqual({ roots: true, volumes: false, topology: false, settings: false });
+
+  const again = await opened();
+  again.send?.({ event: "files.changed", data: { workId: films } });
+  await expect
+    .poll(again.invalidated)
+    .toEqual({ roots: true, volumes: false, topology: false, settings: false });
+});
