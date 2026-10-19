@@ -31,10 +31,14 @@ var Def = contenttype.Define("music", schemaFiles, DefaultEndpoints, New)
 
 type Endpoints struct {
 	Metadata endpoint.URL `yaml:"metadata"`
+	CoverArt endpoint.URL `yaml:"coverart"`
 }
 
 func DefaultEndpoints() Endpoints {
-	return Endpoints{Metadata: endpoint.MustParseURL("https://musicbrainz.invalid/ws/2")}
+	return Endpoints{
+		Metadata: endpoint.MustParseURL("https://musicbrainz.invalid/ws/2"),
+		CoverArt: endpoint.MustParseURL("https://coverart.invalid"),
+	}
 }
 
 var Description = works.Description{
