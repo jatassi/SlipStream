@@ -371,7 +371,11 @@ func volumeOf(t *testing.T, reply string) string {
 func TestFoldersOnAStorageNode(t *testing.T) {
 	s := serve(t)
 	dir := t.TempDir()
-	for _, name := range []string{"Season 10", "Season 2", ".hidden"} {
+	names, hidden := []string{"Season 10", "Season 2"}, 0
+	if runtime.GOOS != "windows" {
+		names, hidden = append(names, ".hidden"), 1
+	}
+	for _, name := range names {
 		if err := os.Mkdir(filepath.Join(dir, name), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -386,7 +390,7 @@ func TestFoldersOnAStorageNode(t *testing.T) {
 		} `json:"folders"`
 		Hidden int `json:"hidden"`
 	}
-	if err := json.Unmarshal([]byte(reply), &l); code != http.StatusOK || err != nil || l.Path != dir || l.Hidden != 1 ||
+	if err := json.Unmarshal([]byte(reply), &l); code != http.StatusOK || err != nil || l.Path != dir || l.Hidden != hidden ||
 		fmt.Sprint(l.Folders) != "[{Season 2 true} {Season 10 true}]" {
 		t.Fatalf("browseFolders %s = %d %s", dir, code, reply)
 	}
