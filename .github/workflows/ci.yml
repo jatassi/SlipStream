@@ -722,11 +722,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  # The conformance suites against the real TMDB and MusicBrainz (spec #135,
-  # Online runs): nightly, by hand, on a release tag, and on pull
-  # requests whose scope touches a fake, client or suite the job checks. It
-  # is not a required check. A fork's pull request gets no secrets, so it
-  # never runs the job, and a run without the key fails rather than skips.
+  # The conformance suites against the real TMDB, OMDb, TMDB's image host
+  # and MusicBrainz (spec #135, Online runs): nightly, by hand, on a release
+  # tag, and on pull requests whose scope touches a fake, client or suite
+  # the job checks. It is not a required check. A fork's pull request gets
+  # no secrets, so it never runs the job. A run without the TMDB key fails
+  # rather than skips; the OMDb suite skips until the OMDB_API_KEY secret
+  # exists.
   online:
     name: Online conformance suites
     needs: plan
@@ -748,6 +750,7 @@ jobs:
         run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+          TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
       - name: Upload the updated shape.json files
         if: inputs.update-shapes
         uses: actions/upload-artifact@v7

@@ -532,6 +532,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "log.viewer_lines", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_LOG_VIEWER_LINES"},
 			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
 			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
+			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
@@ -582,8 +583,10 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.metadata.cache_entries", Value: "4096", Default: "4096", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_CACHE_ENTRIES"},
 			{Key: "timings.tmdb.interval", Value: "50ms", Default: "50ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_INTERVAL"},
 			{Key: "timings.tmdb.burst", Value: "20", Default: "20", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_BURST"},
+			{Key: "timings.omdb.interval", Value: "500ms", Default: "500ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_INTERVAL"},
+			{Key: "timings.omdb.burst", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_BURST"},
 		},
-		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images"},
+		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.omdb.api"},
 		ContentTypes: []string{"movie"},
 	}
 	if !reflect.DeepEqual(got, want) {

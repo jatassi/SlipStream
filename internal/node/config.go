@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/serving"
@@ -55,6 +56,7 @@ type Config struct {
 
 type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
+	OMDb         omdb.Endpoints       `yaml:"omdb"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
 
@@ -143,6 +145,7 @@ type TimingsBlock struct {
 	Storing     storing.Timings     `yaml:"storing"`
 	Metadata    metadata.Timings    `yaml:"metadata"`
 	TMDB        tmdb.Timings        `yaml:"tmdb"`
+	OMDb        omdb.Timings        `yaml:"omdb"`
 }
 
 type Timings struct {
@@ -170,6 +173,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 		Log:     logs.DefaultSettings(),
 		Endpoints: EndpointsBlock{
 			TMDB:         tmdb.DefaultEndpoints(),
+			OMDb:         omdb.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
 		},
 		Link: link.Settings{
@@ -207,6 +211,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Storing:     storing.DefaultTimings(),
 			Metadata:    metadata.DefaultTimings(),
 			TMDB:        tmdb.DefaultTimings(),
+			OMDb:        omdb.DefaultTimings(),
 		},
 	}
 }

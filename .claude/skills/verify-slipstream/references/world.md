@@ -20,6 +20,7 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 | Target | What crosses it |
 |---|---|
 | `tmdb` | metadata lookups (routes `search`, `movie`) |
+| `omdb` | ratings and awards lookups (route `title`) |
 | `fixture-site` | the Torznab Indexer (routes `torznab`, `download`) |
 | `tracker` | announces (route `announce`) |
 | `smtp` | the SMTP server an Admin saves, plaintext with STARTTLS or implicit TLS on one front |
@@ -57,6 +58,8 @@ content-type=<media type>
 ## Cues
 
 `fakeworld cue <run> <name> [<json args>]` plays a cue a fake declares; the manifest's `fakes[].cues` lists them. A cue changes only the world outside every Node. The `smtp` fake's cues each turn a play on, and `{"off": true}` turns it off: `smtp-auth-failure` (535), `smtp-defer` (451 to RCPT), `smtp-reject` (550 to RCPT), `smtp-tls-required` (530 to MAIL without TLS), `smtp-refused` (closed on accept) and `smtp-slow` (silent for `{"delay": "30s"}` before the greeting).
+
+The `omdb` fake's `omdb-revoke-key` refuses `{"key": "…"}`, or every key it has seen, with OMDb's bad-key answer. `omdb-cap` spends the rest of today's allowance of `{"key": "…"}`, or of every key, so OMDb answers "Request limit reached!" until the next UTC midnight.
 
 `fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported.
 

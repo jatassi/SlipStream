@@ -86,7 +86,7 @@ func NotInert(changes []nativetouch.Change) []string {
 
 // onlineRoots hold the fakes, the clients and the suites the online job
 // checks against the real services.
-var onlineRoots = []string{"fakes/tmdb/", "fakes/contenttypes/music/", "internal/providers/tmdb/", "conformance/"}
+var onlineRoots = []string{"fakes/tmdb/", "fakes/omdb/", "fakes/imagecdn/", "fakes/contenttypes/music/", "internal/providers/tmdb/", "internal/providers/omdb/", "conformance/"}
 
 // Online reports whether a change touches, on either side, anything the
 // online job checks.

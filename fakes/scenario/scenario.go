@@ -43,6 +43,8 @@ type Scenario struct {
 	Music *Music `yaml:"music,omitempty"`
 	// TMDB is the catalog fake-tmdb serves; nil serves an empty one.
 	TMDB *TMDB `yaml:"tmdb,omitempty"`
+	// OMDb is what fake-omdb serves; nil knows no title and has no cap.
+	OMDb *OMDb `yaml:"omdb,omitempty"`
 	// Releases are the releases the fakes offer, and Tracker how
 	// fake-tracker answers their announces.
 	Releases []Release `yaml:"releases,omitempty"`
@@ -156,6 +158,9 @@ func (s Scenario) Validate() error {
 	}
 	if s.TMDB != nil {
 		s.TMDB.check(add)
+	}
+	if s.OMDb != nil {
+		s.OMDb.check(add)
 	}
 	checkReleases(add, s.Releases, s.TMDB)
 	s.Tracker.check(add)
