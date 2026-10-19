@@ -32,7 +32,11 @@ func wildcardTracker(t *testing.T) *startedFrom {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &startedFrom{port: uint16(ln.Addr().(*net.TCPAddr).Port), from: map[bencode.InfoHash][]netip.Addr{}} //nolint:gosec // a TCP port fits 16 bits
+	at, err := netip.ParseAddrPort(ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &startedFrom{port: at.Port(), from: map[bencode.InfoHash][]netip.Addr{}}
 	srv := httptest.NewUnstartedServer(s)
 	srv.Listener = ln
 	srv.Start()
