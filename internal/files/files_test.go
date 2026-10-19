@@ -62,8 +62,7 @@ type library struct {
 	works   *works.Works
 	targets *targets.Targets
 	root    roots.Root
-	// held is the roots, whose one Store holds root.
-	held *roots.Roots
+	held    *roots.Roots
 }
 
 func open(t testing.TB) *library {

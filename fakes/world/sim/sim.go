@@ -82,7 +82,6 @@ type Node struct {
 	addr netip.Addr
 	host *fault.Host
 	dir  node.DataDir
-	// disk plays the Node's disk rules on every Disk it starts with.
 	disk *fault.Plan
 
 	running      *node.Node
@@ -254,8 +253,6 @@ func (w *World) Disk(name, folder string, f fault.Fault) (lift func()) {
 	return func() { plan.Clear(id) }
 }
 
-// standVolumes plays each library root's volume figures on its Node for
-// the world's life.
 func (w *World) standVolumes() {
 	for _, r := range w.scenario.Library.Roots {
 		if v := r.Volume; v != nil {

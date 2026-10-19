@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
@@ -57,7 +58,7 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 	root := roots.Roots[0]
 	worldtest.Expect(t, "listRoots", reply, worldtest.Reply{Status: 200, Body: `{"roots":[{"id":"` + root.ID + `","contentType":"music","nodeId":"` + m.Nodes[0].NodeID + `","path":` + strconv.Quote(folder) +
 		`,"default":true,"state":"ready","volumeId":` + strconv.Quote(root.VolumeID) + `,"works":0,"fileBytes":0}]}` + "\n"})
-	if marker, err := os.ReadFile(filepath.Join(folder, ".slipstream-root")); err != nil || strings.TrimSpace(string(marker)) != root.ID || root.VolumeID == "" {
+	if marker, err := os.ReadFile(filepath.Join(folder, storing.MarkerName)); err != nil || strings.TrimSpace(string(marker)) != root.ID || root.VolumeID == "" {
 		t.Fatalf("the ready root's marker reads %q, %v on volume %q; want its id on a volume", marker, err, root.VolumeID)
 	}
 

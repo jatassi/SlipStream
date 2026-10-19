@@ -118,7 +118,7 @@ message BrowseResponse {
   Volume volume = 4;
   // folders are in natural, case-insensitive order.
   repeated Folder folders = 5;
-  int32 hidden = 6;
+  int64 hidden = 6;
   // places are only for an empty path.
   repeated Place places = 7;
   // service: SlipStream runs as a Windows service.
@@ -218,7 +218,7 @@ message VerifyResponse {
 
 message Missing {
   // index is into the request's files.
-  int32 index = 1;
+  int64 index = 1;
   MissingReason reason = 2;
 }
 
@@ -231,7 +231,7 @@ enum MissingReason {
 message PlaceRequest {
   bytes root_id = 1;
   bytes info_hash = 2;
-  int32 file_index = 3;
+  int64 file_index = 3;
   string to = 4;
 }
 

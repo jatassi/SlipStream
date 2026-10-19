@@ -70,9 +70,7 @@ const (
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
 	RootChanged        Code = "root_changed"
-	// NeedsTransfer is a file downloaded on one Node for a root on a
-	// Worker: S31 (Transfers between Nodes) brings it there.
-	NeedsTransfer Code = "needs_transfer"
+	NeedsTransfer      Code = "needs_transfer"
 )
 
 const needsTransferWords = "the Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
@@ -126,8 +124,6 @@ var (
 	ErrNoGrab        = errors.New("no Grab has that id")
 )
 
-// RootUnreachableError is a Work whose root is on a Node that is offline,
-// or whose Storage was written off: it doesn't search.
 type RootUnreachableError = roots.UnreachableError
 
 // Roster is the Nodes and the Roles they hold.
@@ -178,11 +174,10 @@ type Config struct {
 	Terms    map[works.TypeID]indexers.Facet
 	Roster   Roster
 	// Downloads is the Downloading Role's *role.Control.
-	Downloads Downloads
-	Media     media.Remote
-	Roots     Roots
-	Staging   Staging
-	// Controller is this Node, where a Transfer brings a file.
+	Downloads  Downloads
+	Media      media.Remote
+	Roots      Roots
+	Staging    Staging
 	Controller role.NodeID
 	// Transfers receives a file from the Node that downloaded it.
 	Transfers     *transfers.Receiver

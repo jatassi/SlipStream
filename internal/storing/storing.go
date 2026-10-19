@@ -13,7 +13,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Def is the Storage Role.
 var Def = role.Def[*storagev1.Intent, *storagev1.Facts, *storagev1.Result]{Name: role.Storage, Notable: statesOrVolumesDiffer}
 
 type Holder = role.Holder[*storagev1.Intent, *storagev1.Facts, *storagev1.Result]
@@ -52,7 +51,6 @@ type Timings struct {
 
 func DefaultTimings() Timings { return Timings{Stat: 10 * time.Second} }
 
-// At addresses a root through the Storage service.
 type At struct {
 	Node role.NodeID
 	Root storage.UUID

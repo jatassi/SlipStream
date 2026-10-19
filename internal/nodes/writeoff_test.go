@@ -107,8 +107,6 @@ func TestRemovingANodeThatHoldsWorkNeedsAWriteOff(t *testing.T) {
 	}
 }
 
-// writtenOffIn checks the library reads exactly want as written off in
-// the Role named name.
 func writtenOffIn(t *testing.T, lib *storage.DB[storage.Library], name role.Name, want ...ID) {
 	t.Helper()
 	got, err := WrittenOffIn(t.Context(), lib, name)

@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// ErrWorksToType is a root's Works sent to a root of another Content Type.
 var ErrWorksToType = errors.New("the root's Works can go only to a root of their Content Type")
 
 // InUseError is a root that can't go while it holds files, doomed ones
@@ -77,8 +76,6 @@ func (r *Roots) homeAll(ctx context.Context, tx *storage.Tx[file], ws []works.Wo
 	return nil
 }
 
-// inUse is an *InUseError while root id holds files or a Grab of homed,
-// its Works, or into it is in flight.
 func (r *Roots) inUse(ctx context.Context, tx *storage.Tx[file], id ID, homed []works.WorkID) error {
 	use, err := r.cfg.Contents.Use(ctx, tx, []ID{id})
 	if err != nil {
@@ -94,8 +91,6 @@ func (r *Roots) inUse(ctx context.Context, tx *storage.Tx[file], id ID, homed []
 	return nil
 }
 
-// destination is where root's Works go when it's deleted: worksTo, which
-// must be another root of its type, or nowhere while it's its type's last.
 func destination(ctx context.Context, tx *storage.Tx[file], root Root, hasWorks bool, worksTo *ID) (*ID, error) {
 	of, err := db.New(tx).CountRootsOf(ctx, root.ContentType)
 	if err != nil {

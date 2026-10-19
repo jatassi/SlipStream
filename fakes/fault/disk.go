@@ -66,7 +66,6 @@ func volume(v string) (Fault, error) {
 // beneath it.
 var diskFront = Front{Layers: Disk}
 
-// NewDiskPlan is a Plan for one Node's disk rules, which its Disk method plays.
 func NewDiskPlan() *Plan { return NewPlan([]Front{diskFront}, nil) }
 
 func checkDisk(r Rule, fronts []Front) error {
@@ -81,8 +80,6 @@ func checkDisk(r Rule, fronts []Front) error {
 	return nil
 }
 
-// beneath reports whether path is folder or lies beneath it, in either
-// path style.
 func beneath(folder, path string) bool {
 	if !strings.HasPrefix(path, folder) {
 		return false
@@ -92,7 +89,6 @@ func beneath(folder, path string) bool {
 
 func isSep(c byte) bool { return c == '/' || c == '\\' }
 
-// played is what the armed disk rules make of one path.
 type played struct {
 	// absent: the path lies beneath an unmounted folder.
 	absent bool
@@ -106,8 +102,6 @@ type played struct {
 	mount  string
 }
 
-// diskPlay reads what the rules covering path make of it, first waiting
-// while a Hung one holds it.
 func (p *Plan) diskPlay(ctx context.Context, op, path string) (played, error) {
 	for {
 		p.mu.Lock()
@@ -151,7 +145,6 @@ func (p *Plan) playedLocked(path string) (out played, hung bool) {
 	return out, hung
 }
 
-// Disk is base with p's disk rules played on it.
 func (p *Plan) Disk(base storing.Disk) storing.Disk { return &disk{base: base, plan: p} }
 
 type disk struct {
@@ -161,7 +154,6 @@ type disk struct {
 
 func failed(op, path string, err error) error { return &fs.PathError{Op: op, Path: path, Err: err} }
 
-// read plays the rules on a call that reads path.
 func (d *disk) read(ctx context.Context, op, path string) (played, error) {
 	pl, err := d.plan.diskPlay(ctx, op, path)
 	if err == nil && pl.absent {
@@ -170,7 +162,6 @@ func (d *disk) read(ctx context.Context, op, path string) (played, error) {
 	return pl, err
 }
 
-// write plays the rules on a call that writes at each of paths.
 func (d *disk) write(ctx context.Context, op string, paths ...string) (played, error) {
 	var all played
 	for _, path := range paths {
@@ -231,7 +222,6 @@ func (d *disk) Create(ctx context.Context, path string) (storing.File, error) {
 	return fullFile{File: f, path: path}, nil
 }
 
-// fullFile is a file on a full volume: it opened, and no byte fits.
 type fullFile struct {
 	storing.File
 	path string

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 type rootView struct {
@@ -56,7 +57,7 @@ func TestARootWithAnImportedFileIsRehomedThenDeleted(t *testing.T) {
 		r := listRoots()[0]
 		return r.Path == moved && r.State == "ready", nil
 	})
-	if marker, err := os.ReadFile(filepath.Join(moved, ".slipstream-root")); err != nil || strings.TrimSpace(string(marker)) != root.ID {
+	if marker, err := os.ReadFile(filepath.Join(moved, storing.MarkerName)); err != nil || strings.TrimSpace(string(marker)) != root.ID {
 		t.Fatalf("the new folder's marker reads %q, %v; want the root's id", marker, err)
 	}
 	c := cells(t, w.a, w.work).Cells[0]

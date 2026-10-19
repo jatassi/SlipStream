@@ -62,8 +62,6 @@ type Placement struct {
 	Kept  bool
 }
 
-// ErrRootChanged is a file whose Work moved to another root after its
-// Grab planned it.
 var ErrRootChanged = errors.New("the Work moved to another library root after the file was planned")
 
 // FillsNothingError is a probed file no cell would take.

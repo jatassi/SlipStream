@@ -29,7 +29,6 @@ func listRoots(t *testing.T, a *worldtest.API) []storageRoot {
 	return out.Roots
 }
 
-// storageState is how the Node with id stands in Storage on home's board.
 func storageState(a *worldtest.API, id string) string {
 	for _, row := range a.Nodes("home") {
 		if row.ID != id {
@@ -44,7 +43,6 @@ func storageState(a *worldtest.API, id string) string {
 	return "none"
 }
 
-// rootOn waits until the one root reads state on the Node with id.
 func rootOn(t *testing.T, a *worldtest.API, id, state string) storageRoot {
 	t.Helper()
 	var root storageRoot
@@ -59,8 +57,6 @@ func rootOn(t *testing.T, a *worldtest.API, id, state string) storageRoot {
 	return root
 }
 
-// untickStorage leaves seedbox Searching and Downloading, and checks it
-// drains its one root.
 func untickStorage(t *testing.T, w walked) string {
 	t.Helper()
 	seedbox := w.m.Nodes[1].NodeID
@@ -74,8 +70,6 @@ func untickStorage(t *testing.T, w walked) string {
 	return seedbox
 }
 
-// rehomeOntoHome re-homes the root onto home at the same folder, which
-// holds its file.
 func rehomeOntoHome(t *testing.T, w walked, root storageRoot) {
 	t.Helper()
 	home := w.m.Nodes[0].NodeID
@@ -86,10 +80,6 @@ func rehomeOntoHome(t *testing.T, w walked, root storageRoot) {
 	rootOn(t, w.a, home, "ready")
 }
 
-// TestADrainingStorageNodeKeepsServingItsRoot unticks Storage on seedbox,
-// which holds the movies root with an imported file: seedbox drains,
-// keeping the root ready and its file in its cell. Once the root is
-// re-homed onto home, the drain ends.
 func TestADrainingStorageNodeKeepsServingItsRoot(t *testing.T) {
 	t.Parallel()
 	s := workerRoot(t, role.Searching, role.Downloading, role.Storage)
@@ -104,11 +94,6 @@ func TestADrainingStorageNodeKeepsServingItsRoot(t *testing.T) {
 	checkPlaced(t, w.m, 2)
 }
 
-// TestWriteOffMakesCellsMissingAndARehomeRestoresThem writes off
-// seedbox's Storage while it drains the movies root: the root reads
-// written off, its file's cell reads missing and the Work doesn't search.
-// Re-homing the root onto home, where its folder is, fills the cell again
-// and settles the write-off.
 func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	t.Parallel()
 	s := workerRoot(t, role.Searching, role.Downloading, role.Storage)
@@ -137,9 +122,6 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	checkPlaced(t, w.m, 2)
 }
 
-// TestTheLastStorageNodeHandsBackToTheController puts Storage on seedbox
-// alone, with the movies root, and unticks it: home takes Storage over,
-// and seedbox drains its root.
 func TestTheLastStorageNodeHandsBackToTheController(t *testing.T) {
 	t.Parallel()
 	s := workerRoot(t, role.Searching, role.Downloading, role.Storage)
@@ -158,8 +140,6 @@ func TestTheLastStorageNodeHandsBackToTheController(t *testing.T) {
 	}
 }
 
-// TestTwoRootsOnOneVolumeListedOnce puts two movie roots in one media
-// folder's filesystem: listVolumes names its volume once, holding both.
 func TestTwoRootsOnOneVolumeListedOnce(t *testing.T) {
 	t.Parallel()
 	s, err := scenario.Load("single-machine")

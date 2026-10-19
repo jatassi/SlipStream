@@ -420,9 +420,6 @@ func TestTheQueueSweepsHeldFilesNoFileOrGrabNames(t *testing.T) {
 	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed files", func() bool { return maps.Equal(l.onDisk(t), want) })
 }
 
-// TestASweepWaitsForTheRootsNode sweeps a root whose Node doesn't answer
-// the first lists, as at a start before the Node holds its roots: the
-// queue sweeps it once the Node answers.
 func TestASweepWaitsForTheRootsNode(t *testing.T) {
 	l := open(t)
 	orphan := files.HoldingOf(storage.NewUUID(), ".mkv")
@@ -460,7 +457,6 @@ func (d *unanswering) refused() int {
 	return min(d.seen, d.refusals)
 }
 
-// runUntil runs svc's disk queue until done holds.
 func (l *library) runUntil(t *testing.T, svc *files.Files, what string, done func() bool) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
@@ -496,7 +492,6 @@ func (unfinished) Settle(context.Context, *storage.Tx[storage.Library], works.Wo
 	return 0, nil
 }
 
-// watching is a Disk whose Watch the test closes.
 type watching struct {
 	files.Disk
 	mu    sync.Mutex
@@ -544,11 +539,6 @@ func (l *library) writeOff(t *testing.T) {
 	}
 }
 
-// TestAFileInALostRootFillsNoCellAndItsQueueWaits writes off the Storage
-// of the root's Node with a file's move queued: the file fills no cell,
-// and the queue leaves its move alone without retrying it. Once the root
-// is no longer lost, the next change of a root's report runs the move and
-// the file fills its cell again.
 func TestAFileInALostRootFillsNoCellAndItsQueueWaits(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)

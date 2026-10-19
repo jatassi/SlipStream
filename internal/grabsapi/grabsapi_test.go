@@ -69,8 +69,6 @@ func (alone) Changed() <-chan struct{}                            { return nil }
 func (alone) Touch(...role.NodeID)                                {}
 func (alone) Facts(role.NodeID) (*dlv1.Facts, bool)               { return nil, false }
 
-// lapsing is a roster where every Node holds Storage, in step until it
-// lapses.
 type lapsing struct{ lapsed atomic.Bool }
 
 func (*lapsing) Holds(role.Name, role.NodeID) bool { return true }

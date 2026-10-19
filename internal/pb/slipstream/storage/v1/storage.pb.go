@@ -836,7 +836,7 @@ type BrowseResponse struct {
 	Volume   *Volume    `protobuf:"bytes,4,opt,name=volume,proto3" json:"volume,omitempty"`
 	// folders are in natural, case-insensitive order.
 	Folders []*Folder `protobuf:"bytes,5,rep,name=folders,proto3" json:"folders,omitempty"`
-	Hidden  int32     `protobuf:"varint,6,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	Hidden  int64     `protobuf:"varint,6,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// places are only for an empty path.
 	Places []*Place `protobuf:"bytes,7,rep,name=places,proto3" json:"places,omitempty"`
 	// service: SlipStream runs as a Windows service.
@@ -910,7 +910,7 @@ func (x *BrowseResponse) GetFolders() []*Folder {
 	return nil
 }
 
-func (x *BrowseResponse) GetHidden() int32 {
+func (x *BrowseResponse) GetHidden() int64 {
 	if x != nil {
 		return x.Hidden
 	}
@@ -1649,7 +1649,7 @@ func (x *VerifyResponse) GetMissing() []*Missing {
 type Missing struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// index is into the request's files.
-	Index         int32         `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Index         int64         `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	Reason        MissingReason `protobuf:"varint,2,opt,name=reason,proto3,enum=slipstream.storage.v1.MissingReason" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1685,7 +1685,7 @@ func (*Missing) Descriptor() ([]byte, []int) {
 	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{21}
 }
 
-func (x *Missing) GetIndex() int32 {
+func (x *Missing) GetIndex() int64 {
 	if x != nil {
 		return x.Index
 	}
@@ -1703,7 +1703,7 @@ type PlaceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RootId        []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
 	InfoHash      []byte                 `protobuf:"bytes,2,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
-	FileIndex     int32                  `protobuf:"varint,3,opt,name=file_index,json=fileIndex,proto3" json:"file_index,omitempty"`
+	FileIndex     int64                  `protobuf:"varint,3,opt,name=file_index,json=fileIndex,proto3" json:"file_index,omitempty"`
 	To            string                 `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1753,7 +1753,7 @@ func (x *PlaceRequest) GetInfoHash() []byte {
 	return nil
 }
 
-func (x *PlaceRequest) GetFileIndex() int32 {
+func (x *PlaceRequest) GetFileIndex() int64 {
 	if x != nil {
 		return x.FileIndex
 	}
@@ -2275,7 +2275,7 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\bsegments\x18\x03 \x03(\v2\x1e.slipstream.storage.v1.SegmentR\bsegments\x125\n" +
 	"\x06volume\x18\x04 \x01(\v2\x1d.slipstream.storage.v1.VolumeR\x06volume\x127\n" +
 	"\afolders\x18\x05 \x03(\v2\x1d.slipstream.storage.v1.FolderR\afolders\x12\x16\n" +
-	"\x06hidden\x18\x06 \x01(\x05R\x06hidden\x124\n" +
+	"\x06hidden\x18\x06 \x01(\x03R\x06hidden\x124\n" +
 	"\x06places\x18\a \x03(\v2\x1c.slipstream.storage.v1.PlaceR\x06places\x12\x18\n" +
 	"\aservice\x18\b \x01(\bR\aservice\"1\n" +
 	"\aSegment\x12\x12\n" +
@@ -2322,13 +2322,13 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x0eVerifyResponse\x128\n" +
 	"\amissing\x18\x01 \x03(\v2\x1e.slipstream.storage.v1.MissingR\amissing\"]\n" +
 	"\aMissing\x12\x14\n" +
-	"\x05index\x18\x01 \x01(\x05R\x05index\x12<\n" +
+	"\x05index\x18\x01 \x01(\x03R\x05index\x12<\n" +
 	"\x06reason\x18\x02 \x01(\x0e2$.slipstream.storage.v1.MissingReasonR\x06reason\"s\n" +
 	"\fPlaceRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x12\x1d\n" +
 	"\n" +
-	"file_index\x18\x03 \x01(\x05R\tfileIndex\x12\x0e\n" +
+	"file_index\x18\x03 \x01(\x03R\tfileIndex\x12\x0e\n" +
 	"\x02to\x18\x04 \x01(\tR\x02to\";\n" +
 	"\rPlaceResponse\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x03R\x04size\x12\x16\n" +

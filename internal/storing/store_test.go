@@ -16,8 +16,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// holder is the Storage Role's holder half as a test drives it: it hands
-// Run each snapshot sent and keeps each facts set.
 type holder struct {
 	snaps chan role.Snapshot[*storagev1.Intent]
 	facts chan *storagev1.Facts
@@ -44,7 +42,6 @@ func (h *holder) Report(context.Context, *storage.Tx[storage.Local], *storagev1.
 	return errors.New("storage reports by facts")
 }
 
-// running runs s with intent as its first snapshot.
 func running(t *testing.T, s *Store, intent *storagev1.Intent) *holder {
 	t.Helper()
 	h := &holder{snaps: make(chan role.Snapshot[*storagev1.Intent], 1), facts: make(chan *storagev1.Facts, 16)}
@@ -117,7 +114,6 @@ func markerOf(t *testing.T, folder string) string {
 	return string(b)
 }
 
-// marked is a new folder whose marker names id.
 func marked(t *testing.T, id storage.UUID) string {
 	t.Helper()
 	folder := t.TempDir()
@@ -125,7 +121,6 @@ func marked(t *testing.T, id storage.UUID) string {
 	return folder
 }
 
-// states is each root's state in f, by id.
 func states(t *testing.T, f *storagev1.Facts) map[storage.UUID]RootState {
 	t.Helper()
 	out := map[storage.UUID]RootState{}
@@ -153,7 +148,6 @@ func checkStates(t *testing.T, f *storagev1.Facts, want map[storage.UUID]RootSta
 	}
 }
 
-// payloads finds a torrent's files where a test put them.
 type payloads map[bencode.InfoHash]string
 
 func (p payloads) Path(h bencode.InfoHash, index int) (string, error) {

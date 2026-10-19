@@ -11,7 +11,7 @@ const folders = Array.from({ length: 5000 }, (_, index) => `Folder ${index + 1}`
 
 function Window({ active }: { active: number }) {
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
-  // oxlint-disable-next-line react/incompatible-library -- the spike's leaf holds the virtualizer
+  // oxlint-disable-next-line react/incompatible-library -- Window is the leaf that holds the virtualizer
   const virtualizer = useVirtualizer({
     count: folders.length,
     getScrollElement: () => scroller,
@@ -49,7 +49,7 @@ function Window({ active }: { active: number }) {
 // its own highlight and has no prop that sets it, so the browser uses
 // VirtualListbox's plain listbox instead. If this file starts failing, Base UI
 // may have learned a controlled highlight worth revisiting.
-function Spike() {
+function VirtualAutocomplete() {
   const [active, setActive] = useState(-1);
   return (
     <Autocomplete.Root
@@ -85,7 +85,7 @@ const described = () => {
 };
 
 test("Base UI's own arrows walk the highlight through a 5,000-row virtual window", async () => {
-  renderKit(<Spike />);
+  renderKit(<VirtualAutocomplete />);
   await userEvent.click(field());
   for (let press = 0; press < 30; press += 1) {
     // oxlint-disable-next-line no-await-in-loop -- one key after another
@@ -96,7 +96,7 @@ test("Base UI's own arrows walk the highlight through a 5,000-row virtual window
 });
 
 test("a highlight set from outside never reaches Base UI's aria-activedescendant", async () => {
-  renderKit(<Spike />);
+  renderKit(<VirtualAutocomplete />);
   await userEvent.click(field());
   await userEvent.keyboard("{ArrowDown}{PageDown}");
   await expect.element(page.getByRole("status")).toHaveTextContent("100");

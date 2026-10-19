@@ -40,7 +40,6 @@ export type KeyContext = {
   /** The viewer's platform, never the Node's. */
   readonly mac: boolean;
   readonly state: BrowserState;
-  /** How many rows are on show. */
   readonly rows: number;
   /** How many rows fit in the list's view. */
   readonly page: number;

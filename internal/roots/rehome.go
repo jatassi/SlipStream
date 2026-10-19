@@ -22,8 +22,6 @@ type Rehome struct {
 	Forget *int
 }
 
-// Absent is a recorded file a re-home didn't find, as recorded, at the
-// new place.
 type Absent struct {
 	Path   storing.Rel
 	Reason storing.MissingReason
@@ -42,7 +40,6 @@ func (e *MissingError) Error() string {
 
 const firstMissing = 20
 
-// errStale is a re-home whose root recorded a file its check hasn't seen.
 var errStale = errors.New("the root recorded a file the re-home hasn't checked")
 
 // Rehome moves root id to a new place: a folder its Node judges usable
@@ -187,8 +184,6 @@ func (r *Roots) move(ctx context.Context, to Root, forget *int, checked map[stor
 	return view, err
 }
 
-// absentOf is the files of recorded checked found missing, errStale when
-// checked lacks one.
 func absentOf(recorded []storing.Recorded, checked map[storing.Recorded]storing.MissingReason) ([]Absent, error) {
 	var out []Absent
 	for _, f := range recorded {

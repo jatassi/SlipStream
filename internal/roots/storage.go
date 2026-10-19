@@ -88,20 +88,16 @@ func stateOf(writtenOff, inStep bool, reported storing.RootState) State {
 	return State(reported.String())
 }
 
-// report is what a Node said of one root.
 type report struct {
 	state  storing.RootState
 	volume string
 }
 
-// placed is a report and the place of the root it judged.
 type placed struct {
 	report
 	place int64
 }
 
-// reportedOn is what node's Storage facts say of each root they name,
-// none while it has sent none.
 func (r *Roots) reportedOn(node role.NodeID) (map[ID]placed, error) {
 	f, ok := r.cfg.Storage.Facts(node)
 	if !ok {
@@ -138,7 +134,6 @@ func NewArrivals() *Arrivals {
 	return &Arrivals{nodes: map[role.NodeID]bool{}, wake: make(chan struct{}, 1)}
 }
 
-// Note records that node's facts for the Role named scope arrived.
 func (a *Arrivals) Note(node role.NodeID, scope string) {
 	if scope != string(role.Storage) {
 		return
@@ -235,10 +230,9 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 	return nil
 }
 
-// see records each root of on its Node reports ready at its place, and
-// reports whether one was seen there for the first time: its adoption is
-// done.
-func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]placed) (bool, error) {
+// see records each root of on its Node reports ready at its place,
+// adopting one seen there for the first time.
+func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]placed) (adopted bool, err error) {
 	rows, err := q.ListSeen(ctx)
 	if err != nil {
 		return false, err
@@ -247,7 +241,6 @@ func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]p
 	for _, row := range rows {
 		seen[row.RootID] = row
 	}
-	adopted := false
 	for _, root := range on {
 		p, ok := reports[root.ID]
 		if !ok || p.place != root.Place || p.state != storing.Ready {

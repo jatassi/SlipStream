@@ -220,9 +220,7 @@ type Node struct {
 	// client.
 	torrent   engine.Engine
 	downloads *downloading.Client
-	// store is the Node's Storage, which holds and serves the roots its
-	// intent lists.
-	store *storing.Store
+	store     *storing.Store
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start.
 	claimed *Stack
@@ -493,7 +491,6 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 	return nil
 }
 
-// OSDisk is this machine's Disk.
 func OSDisk(data, downloads string) (storing.Disk, error) { return storing.NewOSDisk(data, downloads) }
 
 // startStorage opens the Node's Storage over its Disk, claimed or not.

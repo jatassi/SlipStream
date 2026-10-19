@@ -7,7 +7,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// rootSample is one root's volume as its last sample read it.
 type rootSample struct {
 	root   storage.UUID
 	volume Volume

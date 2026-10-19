@@ -148,9 +148,6 @@ func fileRows(t *testing.T, w *sim.World) int64 {
 	return n
 }
 
-// expectPlaced checks the media dir holds only its root's marker and the
-// imported file, with the release payload's bytes, and an empty staging
-// folder, once the disk queue has moved it to its name.
 func expectPlaced(t *testing.T, w *sim.World) {
 	t.Helper()
 	synctest.Wait()

@@ -123,7 +123,6 @@ func (d OSDisk) Places(ctx context.Context) ([]Place, error) {
 	return placesAt(ctx, d, paths), nil
 }
 
-// KindOf is local, removable or network for the volume holding path.
 func KindOf(path string) (Kind, error) {
 	if isUNC(path) {
 		return Network, nil
@@ -160,11 +159,11 @@ func volumeRoot(path string) (string, error) {
 	if err != nil {
 		return "", &fs.PathError{Op: "GetVolumePathName", Path: path, Err: err}
 	}
-	buf := make([]uint16, len(p)+windows.MAX_PATH)
-	if err := windows.GetVolumePathName(&p[0], &buf[0], uint32(len(buf))); err != nil { //nolint:gosec // the buffer is a path's length
+	var buf [windows.MAX_LONG_PATH]uint16
+	if err := windows.GetVolumePathName(&p[0], &buf[0], uint32(len(buf))); err != nil {
 		return "", &fs.PathError{Op: "GetVolumePathName", Path: path, Err: err}
 	}
-	return windows.UTF16ToString(buf), nil
+	return windows.UTF16ToString(buf[:]), nil
 }
 
 func volumeInfo(root string) (label string, serial, flags uint32, err error) {
