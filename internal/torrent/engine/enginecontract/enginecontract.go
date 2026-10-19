@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"slices"
@@ -469,8 +468,7 @@ func release(t *testing.T, name, announce string, files ...file) released {
 	rel := released{dir: dir}
 	var list []any
 	for i, f := range files {
-		data := make([]byte, f.size)
-		_, _ = rand.NewChaCha8(sha256.Sum256(fmt.Appendf(nil, "%s/%d", name, i))).Read(data)
+		data := fill(f.size, fmt.Sprintf("%s/%d", name, i))
 		rf := releaseFile{name: append([]string{name}, f.path...), data: data}
 		if single {
 			rf.name = []string{name}
@@ -515,4 +513,15 @@ func release(t *testing.T, name, announce string, files ...file) released {
 	}
 	rel.meta, rel.hash = meta, m.InfoHash
 	return rel
+}
+
+// fill is size bytes that depend only on seed: SHA-256 blocks of the seed and
+// a counter, so every run writes the same release.
+func fill(size int, seed string) []byte {
+	data := make([]byte, 0, size+sha256.Size)
+	for n := 0; len(data) < size; n++ {
+		sum := sha256.Sum256(fmt.Appendf(nil, "%s/%d", seed, n))
+		data = append(data, sum[:]...)
+	}
+	return data[:size]
 }
