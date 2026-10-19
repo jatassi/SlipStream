@@ -9,26 +9,30 @@ import { Spinner } from "../ui/spinner";
 export type FolderVerdict = { readonly usable: boolean; readonly sentence: string };
 
 /** A purpose's rules for a folder on a Node, such as a library root's. */
-export type FolderCheck = (args: {
-  readonly nodeId: string;
-  readonly path: string;
-  readonly signal: AbortSignal;
-}) => Promise<FolderVerdict>;
+export type FolderCheck<V extends FolderVerdict = FolderVerdict> = {
+  /** What the verdict turns on besides the Node and path: the purpose, and the root a re-home moves. */
+  readonly rules: readonly string[];
+  readonly judge: (args: {
+    readonly nodeId: string;
+    readonly path: string;
+    readonly signal: AbortSignal;
+  }) => Promise<V>;
+};
 
 export type Judging =
   | { readonly kind: "idle" }
   | { readonly kind: "checking" }
   | { readonly kind: "judged"; readonly verdict: FolderVerdict };
 
-/** One folder's verdict, cached once for every reader of the same Node and path. */
-export const verdictKey = (nodeId: string, path: string) =>
-  ["folder-verdict", nodeId, path] as const;
+/** One folder's verdict, cached once for every reader of the same rules, Node and path. */
+export const verdictKey = (check: FolderCheck, nodeId: string, path: string) =>
+  ["folder-verdict", check.rules, nodeId, path] as const;
 
 /** The check's verdict on a folder; "" asks nothing. */
 export function useVerdict(check: FolderCheck, nodeId: string, path: string): Judging {
   const query = useQuery({
-    queryKey: verdictKey(nodeId, path),
-    queryFn: ({ signal }) => check({ nodeId, path, signal }),
+    queryKey: verdictKey(check, nodeId, path),
+    queryFn: ({ signal }) => check.judge({ nodeId, path, signal }),
     enabled: path !== "",
     staleTime: 0,
   });
