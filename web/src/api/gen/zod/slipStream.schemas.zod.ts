@@ -2400,6 +2400,16 @@ export const SetWorkRootInputBody = zod.object({
 export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
 export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
+export const settingAmountAmountMin = 0;
+
+export const SettingAmount = zod.object({
+  amount: zod.int().min(settingAmountAmountMin),
+  unit: zod.enum(["bytes", "percent"]),
+});
+
+export type SettingAmount = zod.input<typeof SettingAmount>;
+export type SettingAmountOutput = zod.output<typeof SettingAmount>;
+
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
   value: zod.string(),
@@ -2530,6 +2540,35 @@ export const SettingSwitchField = zod.object({
 export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
 export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
 
+export const SettingSpaceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingAmount,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["space"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  maxBytes: zod.int().describe("The largest amount in bytes: 1 PB"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingAmount,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingAmount,
+});
+
+export type SettingSpaceField = zod.input<typeof SettingSpaceField>;
+export type SettingSpaceFieldOutput = zod.output<typeof SettingSpaceField>;
+
 export const SettingField = zod.discriminatedUnion("kind", [
   SettingDurationField,
   SettingCountField,
@@ -2537,6 +2576,7 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingWindowField,
   SettingPortField,
   SettingSwitchField,
+  SettingSpaceField,
 ]);
 
 export type SettingField = zod.input<typeof SettingField>;

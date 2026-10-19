@@ -8,6 +8,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingPortField,
+  SettingSpaceField,
   SettingSwitchField,
   SettingWindowField,
   SystemHealth,
@@ -235,6 +236,46 @@ export const getGetNodeConfigResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeConfigResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -249,6 +290,7 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingWindowFieldMock() },
             { ...getGetNodeConfigResponseSettingPortFieldMock() },
             { ...getGetNodeConfigResponseSettingSwitchFieldMock() },
+            { ...getGetNodeConfigResponseSettingSpaceFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log"] as const),
@@ -471,6 +513,46 @@ export const getUpdateNodeConfigResponseSettingSwitchFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateNodeConfigResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -485,6 +567,7 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingWindowFieldMock() },
             { ...getUpdateNodeConfigResponseSettingPortFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSwitchFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingSpaceFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log"] as const),
