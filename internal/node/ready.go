@@ -11,7 +11,9 @@ import (
 )
 
 // Listeners holds every address the Node bound, one field per listener. Start
-// fails while any field is zero, so a new listener cannot go unreported.
+// fails while any field but Torrent is zero, so a new listener cannot go
+// unreported. Torrent is zero while the torrent engine's port is taken: the
+// engine runs without a listener, and its probe fails.
 type Listeners struct {
 	Control string         `json:"control"`
 	Torrent netip.AddrPort `json:"torrent"`
@@ -23,7 +25,7 @@ func (l Listeners) unbound() []string {
 	var names []string
 	v := reflect.ValueOf(l)
 	for i := range v.NumField() {
-		if v.Field(i).IsZero() {
+		if v.Field(i).IsZero() && v.Type().Field(i).Name != "Torrent" {
 			names = append(names, v.Type().Field(i).Name)
 		}
 	}
