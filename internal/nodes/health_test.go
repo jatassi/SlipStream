@@ -109,19 +109,8 @@ func TestTheNodesItemsFollowTheBoardAndTheProbes(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			a := itemsOf(c.board, c.probes)
-			items := map[health.Key]health.Level{}
-			for _, it := range a.Items {
-				items[it.Key] = it.Level
-			}
-			var unsure []health.Key
-			for _, u := range a.Unsure {
-				unsure = append(unsure, u.Key)
-			}
-			if !maps.Equal(items, c.items) {
-				t.Errorf("items %v, want %v", items, c.items)
-			}
-			if !slices.Equal(unsure, c.unsure) {
-				t.Errorf("unsure %v, want %v", unsure, c.unsure)
+			if items, unsure := keysOf(a); !maps.Equal(items, c.items) || !slices.Equal(unsure, c.unsure) {
+				t.Errorf("items %v and unsure %v, want %v and %v", items, unsure, c.items, c.unsure)
 			}
 			for _, s := range says(a) {
 				if strings.Contains(s.Subject+s.Text, box.String()) || strings.Contains(s.Subject+s.Text, home.String()) {
@@ -130,6 +119,17 @@ func TestTheNodesItemsFollowTheBoardAndTheProbes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func keysOf(a health.Answer) (items map[health.Key]health.Level, unsure []health.Key) {
+	items = map[health.Key]health.Level{}
+	for _, it := range a.Items {
+		items[it.Key] = it.Level
+	}
+	for _, u := range a.Unsure {
+		unsure = append(unsure, u.Key)
+	}
+	return items, unsure
 }
 
 func says(a health.Answer) []health.Says {
