@@ -2728,6 +2728,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "endless": {
+            "description": "The Node can't finish it on its own, so it stays until it is moved or written off",
+            "type": "boolean"
+          },
           "noun": {
             "description": "The noun that fits units: torrent, torrents",
             "type": "string"
@@ -2740,7 +2744,8 @@
         "required": [
           "units",
           "noun",
-          "bytes"
+          "bytes",
+          "endless"
         ],
         "type": "object"
       },

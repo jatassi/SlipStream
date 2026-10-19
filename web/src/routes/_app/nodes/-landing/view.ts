@@ -2,6 +2,7 @@ import type {
   NodesRoleBoard,
   NodesRoleView,
   NodesRoleViewState,
+  NodesStorageResource,
   NodesTopology,
   NodesTopologyLinkState,
   NodesTopologyNode,
@@ -44,6 +45,8 @@ export type NodeRow = {
   readonly plaque: string;
   /** The torrents its Downloading keeps, when it holds Downloading. */
   readonly torrents: readonly NodesTorrentView[];
+  /** Its library roots and their volumes while it stands in Storage, as last reported while away. */
+  readonly storage: NodesStorageResource | undefined;
   /** Its listener for browsers is up, as far as its last probe found. */
   readonly listening: boolean;
 };
@@ -138,6 +141,7 @@ function rowOf(
     holds: node.roles.some(({ held }) => held !== undefined),
     plaque: seen[0] ?? capital(stateWords[state]),
     torrents: node.resources.downloading?.torrents ?? [],
+    storage: node.resources.storage,
     listening: !node.probes.some(({ probe, fit }) => probe === "listener-up" && fit === "fails"),
   };
 }

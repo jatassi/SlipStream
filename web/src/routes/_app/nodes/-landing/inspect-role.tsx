@@ -1,10 +1,42 @@
 import { Link } from "@tanstack/react-router";
 
+import type { NodesStorageResource } from "../../../../api/gen/model";
 import { movesWithWork } from "../../../../diagram/machines";
-import { bytes } from "../../../../format";
+import { bytes, countWords } from "../../../../format";
 import { Details } from "../../../../ui/details";
 import { InspectorSection } from "../../../../ui/inspector";
 import { type NodeRow, type RoleChip, shareDone } from "./view";
+
+const roots = { one: "root", many: "roots" } as const;
+const volumes = { one: "volume", many: "volumes" } as const;
+
+/** "3 roots on 2 volumes, 1.2 TB free", or what the Node's roots lack. */
+function storageWords(storage: NodesStorageResource | undefined): string {
+  if (storage === undefined || storage.roots.length === 0) {
+    return "No library roots yet";
+  }
+  const held = countWords(storage.roots.length, roots);
+  if (storage.volumes.length === 0) {
+    return `${held}, not checked yet`;
+  }
+  const free = storage.volumes.reduce((sum, volume) => sum + volume.free, 0);
+  return `${held} on ${countWords(storage.volumes.length, volumes)}, ${bytes(free)} free`;
+}
+
+function StorageFigures({ storage }: { storage: NodesStorageResource | undefined }) {
+  return (
+    <p className="mt-2">
+      {storageWords(storage)}.{" "}
+      <Link
+        to="/settings/$section"
+        params={{ section: "library-roots" }}
+        className="text-ink-1 underline"
+      >
+        Library roots
+      </Link>
+    </p>
+  );
+}
 
 /** A Role on a Node in the Inspector: what it is doing, and what its machine shows. */
 export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
@@ -16,6 +48,7 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
           {chip.note === "" ? `${node.name} holds ${chip.label}.` : `${chip.label}: ${chip.note}.`}
         </p>
         {!movesWithWork(chip.role) && <p className="mt-2 text-ink-3">No live figures yet</p>}
+        {chip.role === "storage" && <StorageFigures storage={node.storage} />}
         {live && node.torrents.length === 0 && (
           <p className="mt-2 text-ink-3">No torrents right now.</p>
         )}
