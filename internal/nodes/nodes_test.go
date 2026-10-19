@@ -136,6 +136,7 @@ func (c *controller) open(t *testing.T, s *side) {
 		Owners:    nodestest.Unowned(),
 		Downloads: noClients{},
 		Kept:      keptNothing,
+		Facts:     func(nodes.ID, string) {},
 		Timings:   nodes.DefaultTimings(),
 		Stall:     45 * time.Second,
 		Log:       discard,

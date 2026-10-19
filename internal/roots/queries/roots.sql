@@ -32,3 +32,25 @@ ON CONFLICT (work_id) DO UPDATE SET root_id = excluded.root_id;
 
 -- name: CountWorksByRoot :many
 SELECT root_id, count(*) AS works FROM roots_work GROUP BY root_id ORDER BY root_id;
+
+-- name: ListRootsOnNode :many
+SELECT * FROM roots_root WHERE node_id = sqlc.arg(node_id) ORDER BY id;
+
+-- name: ListIntentRoots :many
+SELECT r.id, r.path, r.place, s.place AS seen_place
+FROM roots_root r LEFT JOIN roots_seen s ON s.root_id = r.id
+WHERE r.node_id = sqlc.arg(node_id) ORDER BY r.id;
+
+-- name: ListSeen :many
+SELECT * FROM roots_seen ORDER BY root_id;
+
+-- name: SeeRoot :exec
+INSERT INTO roots_seen (root_id, place, volume_id) VALUES (sqlc.arg(root_id), sqlc.arg(place), sqlc.arg(volume_id))
+ON CONFLICT (root_id) DO UPDATE SET place = excluded.place, volume_id = excluded.volume_id;
+
+-- name: DeleteVolumesOf :exec
+DELETE FROM roots_volume WHERE node_id = sqlc.arg(node_id);
+
+-- name: InsertVolume :exec
+INSERT INTO roots_volume (node_id, id, name, mount, kind, total, free, sampled_at)
+VALUES (sqlc.arg(node_id), sqlc.arg(id), sqlc.arg(name), sqlc.arg(mount), sqlc.arg(kind), sqlc.arg(total), sqlc.arg(free), sqlc.arg(sampled_at));

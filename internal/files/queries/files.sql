@@ -80,3 +80,8 @@ WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id ORDER BY root_id;
 -- name: DoomedOfRoots :many
 SELECT root_id, count(*) AS files FROM files_doomed
 WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id ORDER BY root_id;
+
+-- name: ProofOfRoot :many
+SELECT CAST(coalesce(m.sits, f.path) AS TEXT) AS path
+FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = sqlc.arg(root_id) ORDER BY f.id LIMIT 3;

@@ -284,6 +284,7 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
+		Disk:    node.OSDisk,
 		Restart: func() error {
 			n.restartAsked.Store(true)
 			return nil

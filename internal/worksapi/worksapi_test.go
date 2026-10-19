@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -61,7 +62,7 @@ func serve(t *testing.T) *server {
 		}
 		return a
 	}}))
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), targets.Schema(), roots.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema())
 	keys, err := secret.Open(t.Context(), lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)

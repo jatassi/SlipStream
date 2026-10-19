@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -46,7 +47,7 @@ func must[T any](t *testing.T) func(T, error) T {
 
 func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},

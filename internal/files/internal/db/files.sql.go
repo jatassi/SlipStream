@@ -559,6 +559,35 @@ func (q *Queries) MoveReached(ctx context.Context, arg MoveReachedParams) (int64
 	return result.RowsAffected()
 }
 
+const proofOfRoot = `-- name: ProofOfRoot :many
+SELECT CAST(coalesce(m.sits, f.path) AS TEXT) AS path
+FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = ?1 ORDER BY f.id LIMIT 3
+`
+
+func (q *Queries) ProofOfRoot(ctx context.Context, rootID roots.ID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, proofOfRoot, rootID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const renameFile = `-- name: RenameFile :exec
 UPDATE files_file SET path = ?1, label = ?2, extra = ?3 WHERE id = ?4
 `

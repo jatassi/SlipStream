@@ -37,3 +37,7 @@ func (RootContents) Use(ctx context.Context, r storage.Reader[file], ids []roots
 func (RootContents) HasFiles(ctx context.Context, r storage.Reader[file], work works.WorkID) (bool, error) {
 	return db.New(r).HasFiles(ctx, work)
 }
+
+func (RootContents) Proof(ctx context.Context, r storage.Reader[file], root roots.ID) ([]string, error) {
+	return db.New(r).ProofOfRoot(ctx, root)
+}

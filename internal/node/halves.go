@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -31,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -91,6 +93,8 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
+	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
+	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
 	side, err := nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
@@ -102,10 +106,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored}, n.env.Test.Served...),
 		Owners:          owners(),
 		Downloads:       downloads,
 		Kept:            grabs.Kept,
+		Facts:           arrivals.Note,
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
@@ -128,6 +133,7 @@ func (n *Node) startController(ctx context.Context) error {
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
+	storagev1connect.StorageService.Mount(dispatch, n.store)
 	n.serveSystem(dispatch)
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
@@ -167,7 +173,17 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	library, err := roots.Open(ctx, roots.Config{
-		Library: lib.db, Types: types, Self: side.Self(), Contents: files.RootContents{}, Changed: roots.ChangedEvent.Bind(n.hub),
+		Library: lib.db,
+		Types:   types,
+		Roster:  side,
+		Storage: stored,
+		Remote: func(id role.NodeID) storagev1connect.StorageServiceHandler {
+			return storagev1connect.StorageService.On(cluster, id)
+		},
+		Arrivals: arrivals,
+		Contents: files.RootContents{},
+		Changed:  roots.ChangedEvent.Bind(n.hub),
+		Log:      n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {
 		return err
@@ -237,6 +253,7 @@ func (n *Node) startController(ctx context.Context) error {
 		transfers: receiver,
 	})
 	n.claimed.Go("nodes", side.Run)
+	n.claimed.Go("roots", library.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
@@ -304,6 +321,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
+	storagev1connect.StorageService.Mount(dispatch, n.store)
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
@@ -381,7 +399,7 @@ func owners() []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
 		grabs.DownloadingOwner,
-		nodes.Unowned(role.Storage),
+		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),
 		nodes.Unowned(role.Metadata),
@@ -394,7 +412,10 @@ func owners() []nodes.Owner {
 
 // heldRoles is every Role this binary runs, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local]) []role.Held {
-	return []role.Held{downloading.Def.Hold(n.downloads.Run(local), n.downloads.Release)}
+	return []role.Held{
+		downloading.Def.Hold(n.downloads.Run(local), n.downloads.Release),
+		storing.Def.Hold(n.store.Run, n.store.Release),
+	}
 }
 
 // claimPeers is how the link treats peers: as the half that started does,

@@ -42,11 +42,24 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 		t.Fatalf("the media dir holds no folder music: %v", err)
 	}
 	var roots struct {
-		Roots []struct{ ID string } `json:"roots"`
+		Roots []struct {
+			ID       string `json:"id"`
+			State    string `json:"state"`
+			VolumeID string `json:"volumeId"`
+		} `json:"roots"`
 	}
-	reply := a.Admin("home", http.MethodGet, "/api/v1/roots", "")
-	decode(t, "listRoots", reply, &roots)
-	worldtest.Expect(t, "listRoots", reply, worldtest.Reply{Status: 200, Body: `{"roots":[{"id":"` + roots.Roots[0].ID + `","contentType":"music","nodeId":"` + m.Nodes[0].NodeID + `","path":` + strconv.Quote(folder) + `,"default":true,"works":0,"fileBytes":0}]}` + "\n"})
+	var reply worldtest.Reply
+	worldtest.Until(t, "the music root is ready", func() (bool, error) {
+		reply = a.Admin("home", http.MethodGet, "/api/v1/roots", "")
+		decode(t, "listRoots", reply, &roots)
+		return len(roots.Roots) == 1 && roots.Roots[0].State == "ready", nil
+	})
+	root := roots.Roots[0]
+	worldtest.Expect(t, "listRoots", reply, worldtest.Reply{Status: 200, Body: `{"roots":[{"id":"` + root.ID + `","contentType":"music","nodeId":"` + m.Nodes[0].NodeID + `","path":` + strconv.Quote(folder) +
+		`,"default":true,"state":"ready","volumeId":` + strconv.Quote(root.VolumeID) + `,"works":0,"fileBytes":0}]}` + "\n"})
+	if marker, err := os.ReadFile(filepath.Join(folder, ".slipstream-root")); err != nil || strings.TrimSpace(string(marker)) != root.ID || root.VolumeID == "" {
+		t.Fatalf("the ready root's marker reads %q, %v on volume %q; want its id on a volume", marker, err, root.VolumeID)
+	}
 
 	var targets struct {
 		Targets []struct {
