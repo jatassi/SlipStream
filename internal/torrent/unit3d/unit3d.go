@@ -51,7 +51,6 @@ func NewWindows(minInterval time.Duration, r *rand.Rand) *Windows {
 	return &Windows{interval: minInterval, rand: r, windows: map[peer]window{}, last: map[peerEvent]time.Time{}}
 }
 
-<<<<<<< HEAD
 // Rule is the rule a rejected announce broke. UNIT3D answers both with one
 // failure reason, so only the fakes tell them apart.
 type Rule string
@@ -68,12 +67,6 @@ const (
 // answers, both empty when it accepts. An event other than started,
 // completed or stopped is a regular announce.
 func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, event string, now time.Time) (broke Rule, reason string) {
-=======
-// Admit is whether the tracker accepts event at now, and its failure reason
-// when not. An event other than started, completed or stopped is a regular
-// announce.
-func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, event string, now time.Time) (ok bool, reason string) {
->>>>>>> origin/feature/built-in-torrent-client
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	switch event {
@@ -84,11 +77,7 @@ func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, eve
 	p := peer{passkey: passkey, hash: h, id: peerID}
 	pe := peerEvent{peer: p, event: event}
 	if last, ok := w.last[pe]; ok && now.Sub(last) < Duplicate {
-<<<<<<< HEAD
 		return Repeat, rejected(now.Sub(last))
-=======
-		return false, rejected(now.Sub(last))
->>>>>>> origin/feature/built-in-torrent-client
 	}
 	w.last[pe] = now
 
@@ -101,15 +90,9 @@ func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, eve
 	case event == "stopped" && (!open || now.Sub(win.opened) > ClearAfter):
 		delete(w.windows, p)
 	case open && event != "completed" && event != "stopped":
-<<<<<<< HEAD
 		return Window, rejected(now.Sub(win.opened))
 	}
 	return "", ""
-=======
-		return false, rejected(now.Sub(win.opened))
-	}
-	return true, ""
->>>>>>> origin/feature/built-in-torrent-client
 }
 
 func (w *Windows) draw() time.Duration {
