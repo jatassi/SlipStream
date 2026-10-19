@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 )
@@ -17,6 +18,7 @@ import (
 type Shell interface {
 	Grabs() (*grabs.Grabs, bool)
 	Nodes() (*nodes.Service, bool)
+	Health() (*health.Health, bool)
 }
 
 type counts struct {
@@ -25,14 +27,24 @@ type counts struct {
 }
 
 type alerts struct {
-	Nodes *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise"`
+	Nodes  *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise"`
+	Health *string `json:"health" enum:"warn,fail" doc:"The worst level across every Health category, null while nothing is wrong"`
+	Tasks  *string `json:"tasks" enum:"warn,fail" doc:"The worst level in the Scheduled tasks Health category, null while nothing is wrong"`
 }
 
-func alertsOf(a nodes.Alert) alerts {
-	if a == nodes.NoAlert {
-		return alerts{}
+func alertsOf(a nodes.Alert, h *health.Health) alerts {
+	out := alerts{Health: level(h.Worst()), Tasks: level(h.Worst(health.ScheduledTasksID))}
+	if a != nodes.NoAlert {
+		out.Nodes = new(a.String())
 	}
-	return alerts{Nodes: new(a.String())}
+	return out
+}
+
+func level(l health.Level) *string {
+	if l == health.None {
+		return nil
+	}
+	return new(l.String())
 }
 
 type countsOutput struct{ Body counts }
@@ -49,13 +61,14 @@ func Routes(r *api.Router, sh Shell) {
 	}, func(ctx context.Context, by identity.Admin, _ *struct{}) (*countsOutput, error) {
 		g, ok := sh.Grabs()
 		roster, alsoOK := sh.Nodes()
-		if !ok || !alsoOK {
+		watch, healthOK := sh.Health()
+		if !ok || !alsoOK || !healthOK {
 			panic("shellapi: getCounts ran on a Node that is no Controller")
 		}
 		n, err := g.Moving(ctx, by)
 		if err != nil {
 			return nil, err
 		}
-		return &countsOutput{Body: counts{Activity: n, Alerts: alertsOf(roster.Board().Alert())}}, nil
+		return &countsOutput{Body: counts{Activity: n, Alerts: alertsOf(roster.Board().Alert(), watch)}}, nil
 	})
 }

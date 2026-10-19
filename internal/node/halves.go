@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
@@ -64,6 +65,7 @@ type half struct {
 	files    *files.Files
 	grabs    *grabs.Grabs
 	tasks    *tasks.Scheduler
+	health   *health.Health
 	// transfers receives files on the Controller, and source serves them
 	// on a Worker.
 	transfers *transfers.Receiver
@@ -253,7 +255,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	n.setHalf(&half{
+	h := &half{
 		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
 		targets:   goals,
 		roots:     library,
@@ -261,12 +263,17 @@ func (n *Node) startController(ctx context.Context) error {
 		grabs:     pipeline,
 		tasks:     scheduler,
 		transfers: receiver,
-	})
+	}
+	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
+		return err
+	}
+	n.setHalf(h)
 	n.claimed.Go("nodes", side.Run)
 	n.claimed.Go("roots", library.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
+	n.claimed.Go("health", h.health.Run)
 	n.env.Test.started(started)
 	return nil
 }
