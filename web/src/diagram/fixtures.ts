@@ -2,6 +2,7 @@ import type {
   NodesRoleBoard,
   NodesRoleGroup,
   NodesRoleView,
+  NodesStorageResource,
   NodesTopology,
   NodesTopologyNode,
   NodesTorrentView,
@@ -112,12 +113,48 @@ const torrentsOf = (index: number): NodesTorrentView[] =>
     peers: 14 - at * 5,
   }));
 
+const TB = 1024 ** 4;
+
+const VOLUMES = [
+  { name: "/mnt/media", total: 8 * TB, used: 0.82 },
+  { name: "/mnt/archive", total: 12 * TB, used: 0.47 },
+  { name: "/mnt/scratch", total: 2 * TB, used: 0.94 },
+  { name: "/mnt/backup", total: 4 * TB, used: 0.18 },
+] as const;
+
+// Each Node holding Storage has one more volume than the last, up to four.
+function storageOf(index: number): NodesStorageResource {
+  const volumes = VOLUMES.slice(0, (index % VOLUMES.length) + 1).map(({ name, total, used }) => ({
+    id: `${String(index)}${name}`,
+    name,
+    mount: name,
+    kind: "local" as const,
+    total,
+    free: Math.round(total * (1 - used)),
+    sampledAt: AT,
+  }));
+  return {
+    roots: volumes.map(({ id, mount }, at) => ({
+      id: `root-${String(index)}-${String(at)}`,
+      contentType: at % 2 === 0 ? "cinema" : "zine",
+      path: `${mount}/library`,
+      state: "ready",
+      volumeId: id,
+    })),
+    volumes,
+  };
+}
+
 function viewOf(seat: Seat, role: RoleName): NodesRoleView {
   if (seat.away === true) {
     return { role, state: "away" };
   }
   if (seat.draining === role) {
-    return { role, state: "draining", held: { units: 2, noun: "torrents", bytes: 9.5e9 } };
+    return {
+      role,
+      state: "draining",
+      held: { units: 2, noun: "torrents", bytes: 9.5e9, endless: true },
+    };
   }
   return { role, state: "holding" };
 }
@@ -125,6 +162,7 @@ function viewOf(seat: Seat, role: RoleName): NodesRoleView {
 function nodeOf(seat: Seat, index: number): NodesTopologyNode {
   const roles = tableOrder.filter((role) => seat.roles.includes(role));
   const downloading = roles.includes("downloading") && seat.away !== true;
+  const storage = roles.includes("storage");
   return {
     id: idOf(index),
     name: seat.name,
@@ -135,7 +173,10 @@ function nodeOf(seat: Seat, index: number): NodesTopologyNode {
     ...(seat.away === true ? { lastSeenAt: AWAY_SINCE } : {}),
     probes: [],
     roles: roles.map((role) => viewOf(seat, role)),
-    resources: downloading ? { downloading: { torrents: torrentsOf(index) } } : {},
+    resources: {
+      ...(downloading ? { downloading: { torrents: torrentsOf(index) } } : {}),
+      ...(storage ? { storage: storageOf(index) } : {}),
+    },
   };
 }
 

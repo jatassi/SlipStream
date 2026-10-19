@@ -13,7 +13,7 @@ export const drainingSeedbox: NodesNode = {
     {
       role: "downloading",
       state: "draining",
-      held: { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3 },
+      held: { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endless: true },
     },
   ],
   probes: [

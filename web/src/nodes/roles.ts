@@ -103,7 +103,15 @@ const lines: {
   away: (_view, standing, _covered, clock) => awayWords(standing, clock),
   lapsed: (_view, standing, _covered, clock) =>
     `${awayWords(standing, clock)} · past the offline grace`,
-  draining: ({ held }) => (held === undefined ? "Draining" : `Draining · ${heldWords(held)} left`),
+  draining: ({ held }) => {
+    if (held === undefined) {
+      return "Draining";
+    }
+    if (held.endless) {
+      return `Draining, ${heldWords(held)} ${held.units === 1 ? "stays" : "stay"}`;
+    }
+    return `Draining · ${heldWords(held)} left`;
+  },
   "writing-off": ({ held }) =>
     held === undefined ? "Writing off" : `Writing off ${heldWords(held)}`,
   covering: (_view, _standing, covered) =>
@@ -121,7 +129,7 @@ export const coveredFor = (cluster: Cluster, role: RoleName): string[] =>
     .filter(({ roles }) => roles.some((view) => view.role === role && view.state === "lapsed"))
     .map(({ name }) => name);
 
-/** What a Role is doing on its Node: "Draining · 3 torrents left", "Offline since 21:31". */
+/** What a Role is doing on its Node: "Draining, 2 roots stay", "Offline since 21:31". */
 export const roleLine = (
   cluster: Cluster,
   view: NodesRoleView,

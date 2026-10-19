@@ -13,19 +13,21 @@ import {
 import { hullOf } from "@anatomy/lathe";
 import { useId } from "react";
 
+import { DRAWERS } from "../storage-figures";
 import { box, dots, group, halo, item, line, mark, screws, type Drawn, type Item } from "./part";
 import { faceY, roundRect } from "./face";
 import { wiring } from "./lead";
 
-// Storage's machine: a steel cabinet of four drawers. It stands still until
-// S16 (Library roots) gives it live figures. Its cable leaves under the
-// bottom drawer's lip, so the cabinet draws it between its body and drawers.
+// Storage's machine: a steel cabinet of four drawers, one for each volume
+// the Node's roots sit on, fullest at the top. A drawer's gauge reads the
+// share of its volume in use and its lamp is lit; a drawer with no volume
+// rests at 0, dark. Its cable leaves under the bottom drawer's lip, so the
+// cabinet draws it between its body and drawers.
 
 const CAB: Plan = { x: 40, y: -114, w: 84, d: 50, r: 3 };
 const FRONT = CAB.y + CAB.d;
 const TOP = 100;
 const DRAWER_H = 21;
-const DRAWERS = 4;
 
 const drawerZ = (index: number): number => 7 + index * 23;
 
@@ -54,9 +56,9 @@ function hullOfDrawer(P: Projection, z0: number): string {
 
 const GAUGE = { from: CAB.x + 50, to: CAB.x + CAB.w - 10 };
 
-function drawerFace(P: Projection, z0: number, fy: number): Drawn {
+function drawerFace(P: Projection, z0: number, fy: number, used: number): Drawn {
   const { from, to } = GAUGE;
-  const needle = from + (to - from) * 0.9;
+  const needle = from + (to - from) * used;
   return mark(
     <g transform={faceY(P, fy)}>
       <path
@@ -75,29 +77,9 @@ function drawerFace(P: Projection, z0: number, fy: number): Drawn {
   );
 }
 
-function drawer(P: Projection, index: number): Drawn {
-  const z0 = drawerZ(index);
-  const fy = FRONT + 2.2;
+function pull(P: Projection, name: string, z0: number, fy: number): Drawn[] {
   const px = CAB.x + 36;
-  const name = `storage.drawer.${String(index)}`;
-  const parts: Drawn[] = [
-    box(
-      P,
-      `${name}.front`,
-      { x: CAB.x + 3.5, y: FRONT, w: CAB.w - 7, d: 2.2, r: 0.8 },
-      z0,
-      DRAWER_H,
-      {
-        tone: "hi",
-        crease: "lo",
-        bevel: 0.5,
-      },
-    ),
-    drawerFace(P, z0, fy),
-    group({ "data-drive-led": String(index), className: "led" }, [
-      dots([iso([CAB.x + CAB.w - 7, fy, z0 + 15], P)], 0.9, "hi"),
-    ]),
-    dots([iso([CAB.x + 6, fy, z0 + 3], P), iso([CAB.x + CAB.w - 6, fy, z0 + 3], P)], 0.38),
+  return [
     box(P, `${name}.post.0`, { x: px - 7, y: fy, w: 2.4, d: 3, r: 0.6 }, z0 + 11, 2.4, {
       steps: 2,
       bevel: 0,
@@ -115,17 +97,52 @@ function drawer(P: Projection, index: number): Drawn {
       crease: "lo",
     }),
   ];
+}
+
+function drawer(P: Projection, index: number, used: number | undefined): Drawn {
+  const z0 = drawerZ(index);
+  const fy = FRONT + 2.2;
+  const name = `storage.drawer.${String(index)}`;
+  const parts: Drawn[] = [
+    box(
+      P,
+      `${name}.front`,
+      { x: CAB.x + 3.5, y: FRONT, w: CAB.w - 7, d: 2.2, r: 0.8 },
+      z0,
+      DRAWER_H,
+      {
+        tone: "hi",
+        crease: "lo",
+        bevel: 0.5,
+      },
+    ),
+    drawerFace(P, z0, fy, used ?? 0),
+    group({ "data-drive-led": String(index), className: "led" }, [
+      dots([iso([CAB.x + CAB.w - 7, fy, z0 + 15], P)], 0.9, "hi"),
+    ]),
+    dots([iso([CAB.x + 6, fy, z0 + 3], P), iso([CAB.x + CAB.w - 6, fy, z0 + 3], P)], 0.38),
+    ...pull(P, name, z0, fy),
+  ];
   return {
     el: (
       <ClippedDrawer hull={hullOfDrawer(P, z0)}>
-        {group({ "data-drawer": String(index) }, parts).el}
+        {
+          group(
+            {
+              "data-drawer": String(index),
+              ...(used === undefined ? {} : { "data-used": used.toFixed(2) }),
+            },
+            parts,
+          ).el
+        }
       </ClippedDrawer>
     ),
     shapes: parts.flatMap(({ shapes }) => shapes),
   };
 }
 
-export function cabinet(P: Projection): Item {
+/** Storage's cabinet; drawers are the used shares of its volumes, fullest first. */
+export function cabinet(P: Projection, drawers: readonly number[]): Item {
   const lead = wiring(P, "storage.lead", {
     from: [CAB.x + 12, FRONT, 5],
     toward: [0, 1],
@@ -167,7 +184,9 @@ export function cabinet(P: Projection): Item {
         </g>,
       ),
       ...lead.parts,
-      ...Array.from({ length: DRAWERS }, (_, index) => drawer(P, index)),
+      ...Array.from({ length: DRAWERS }, (_, index) =>
+        drawer(P, index, drawers[DRAWERS - 1 - index]),
+      ),
     ],
     [lead.pipe],
   );

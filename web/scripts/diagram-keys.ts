@@ -44,6 +44,7 @@ const canonical: NodeRow = {
   holds: false,
   plaque: "Online",
   torrents: [],
+  storage: undefined,
   listening: true,
 };
 
