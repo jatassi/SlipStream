@@ -18,19 +18,23 @@ export const AccountPatchInputBody = zod.object({
 export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
 export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
 
-export const checkRootInputBodyPathMax = 4096;
+export const checkFolderInputBodyPathMax = 4096;
 
-export const CheckRootInputBody = zod.object({
-  nodeId: zod.uuid(),
-  path: zod.string().min(1).max(checkRootInputBodyPathMax),
+export const CheckFolderInputBody = zod.object({
+  path: zod.string().min(1).max(checkFolderInputBodyPathMax),
+  purpose: zod
+    .enum(["root", "downloads"])
+    .describe(
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node",
+    ),
   rootId: zod
     .uuid()
     .exactOptional()
-    .describe("The root being re-homed, which the folder may overlap"),
+    .describe("For root: the root being re-homed, which the folder may overlap"),
 });
 
-export type CheckRootInputBody = zod.input<typeof CheckRootInputBody>;
-export type CheckRootInputBodyOutput = zod.output<typeof CheckRootInputBody>;
+export type CheckFolderInputBody = zod.input<typeof CheckFolderInputBody>;
+export type CheckFolderInputBodyOutput = zod.output<typeof CheckFolderInputBody>;
 
 export const DialInputBody = zod.object({
   nodeAddress: zod.string().describe("The SLN1 text the waiting Node printed"),
@@ -2269,9 +2273,10 @@ export const RootsRefusal = zod.object({
       "inside_downloads",
       "contains_downloads",
       "unresponsive",
+      "network_share",
       "node_offline",
     ])
-    .describe("Why the folder can't be a root"),
+    .describe("Why the folder can't serve its purpose"),
   rootId: zod
     .uuid()
     .exactOptional()
@@ -2343,7 +2348,9 @@ export type RootsSuggestionsOutput = zod.output<typeof RootsSuggestions>;
 
 export const RootsVerdict = zod.object({
   path: zod.string().describe("The folder as its Node cleaned it"),
-  refusal: RootsRefusal.exactOptional().describe("Why it can't be a root; absent when usable"),
+  refusal: RootsRefusal.exactOptional().describe(
+    "Why it can't serve its purpose; absent when usable",
+  ),
   usable: zod.boolean(),
   volume: RootsVolume.exactOptional().describe("The volume it sits on, when the Node read it"),
 });

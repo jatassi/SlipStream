@@ -1,7 +1,7 @@
 // Package storing is the Storage Role on every Node: the roots it holds,
 // judged in its own path dialect, and every filesystem act on them. The
-// Controller reaches it only through the StorageService and names files by
-// root-relative Rel paths.
+// Controller reaches it only through the StorageService and FolderService,
+// and names files by root-relative Rel paths.
 package storing
 
 import (

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { checkRoot } from "../api/gen/query/roots/roots";
+import { checkFolder } from "../api/gen/query/roots/roots";
 import { type FolderCheck, type FolderVerdict, verdictKey } from "../folders/verdict";
 import { type Namer, verdictOf } from "./words";
 
@@ -12,8 +12,9 @@ export type RootCheck = (...args: Parameters<FolderCheck>) => Promise<RootVerdic
 export const rootCheck =
   (namer: Namer, rootId?: string): RootCheck =>
   async ({ nodeId, path, signal }) => {
-    const verdict = await checkRoot(
-      { nodeId, path, ...(rootId !== undefined && { rootId }) },
+    const verdict = await checkFolder(
+      nodeId,
+      { path, purpose: "root", ...(rootId !== undefined && { rootId }) },
       { signal },
     );
     return { ...verdictOf(verdict, namer), network: verdict.volume?.kind === "network" };

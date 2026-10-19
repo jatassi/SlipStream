@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -174,5 +176,32 @@ func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
 			Body: `{"status":409,"code":"root_unreachable","title":"The Work's library root is on a Node that takes no new files now",` +
 				`"detail":"seedbox is offline, so the library root there takes no new files."}` + "\n",
 		})
+	})
+}
+
+// TestASeedboxWithoutStorageBrowsesItsFolders browses seedbox, which holds
+// no Storage, and has it judge a downloads folder but refuse to judge a
+// root.
+func TestASeedboxWithoutStorageBrowsesItsFolders(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, home(t))
+		synctest.Wait()
+		a := w.API()
+		seedbox := a.Node("seedbox").NodeID
+		data := w.Node("seedbox").DataDir().Path()
+		reply := a.Admin("home", http.MethodGet, "/api/v1/nodes/"+seedbox+"/folders?path="+url.QueryEscape(data), "")
+		var listing struct{ Path string }
+		if err := json.Unmarshal([]byte(reply.Body), &listing); reply.Status != http.StatusOK || err != nil || listing.Path != data {
+			t.Fatalf("browse seedbox's data folder = %d %s, %v", reply.Status, reply.Body, err)
+		}
+		check := "/api/v1/nodes/" + seedbox + "/folders/check"
+		reply = a.Admin("home", http.MethodPost, check, `{"purpose":"downloads","path":`+strconv.Quote(data)+`}`)
+		if reply.Status != http.StatusOK || !strings.HasPrefix(reply.Body, `{"usable":true,`) {
+			t.Fatalf("check seedbox's data folder for downloads = %d %s, want usable", reply.Status, reply.Body)
+		}
+		reply = a.Admin("home", http.MethodPost, check, `{"purpose":"root","path":`+strconv.Quote(data)+`}`)
+		if reply.Status != http.StatusConflict || !strings.Contains(reply.Body, `"code":"node_not_storage"`) {
+			t.Fatalf("check seedbox's data folder as a root = %d %s, want node_not_storage", reply.Status, reply.Body)
+		}
 	})
 }

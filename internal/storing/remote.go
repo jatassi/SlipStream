@@ -21,12 +21,16 @@ import (
 // rpc.Lost to read.
 type Remote func(role.NodeID) storagev1connect.StorageServiceHandler
 
+// Folders is FolderService as the Controller reaches it on any Node, in
+// process for its own folders, parsing answers as Remote does.
+type Folders func(role.NodeID) storagev1connect.FolderServiceHandler
+
 // ErrInvalid is a path or folder name the Node can't use: a path that isn't
 // absolute, or a name that isn't one folder's.
 var ErrInvalid = errors.New("the Node can't use that path or name")
 
-func (r Remote) Browse(ctx context.Context, node role.NodeID, path string, showHidden bool) (Listing, error) {
-	res, err := r(node).Browse(ctx, &storagev1.BrowseRequest{Path: path, ShowHidden: showHidden})
+func (f Folders) Browse(ctx context.Context, node role.NodeID, path string, showHidden bool) (Listing, error) {
+	res, err := f(node).Browse(ctx, &storagev1.BrowseRequest{Path: path, ShowHidden: showHidden})
 	if err != nil {
 		return Listing{}, folderAnswer(err)
 	}
@@ -57,28 +61,30 @@ func (r Remote) Browse(ctx context.Context, node role.NodeID, path string, showH
 	return l, nil
 }
 
-func (r Remote) Suggest(ctx context.Context, node role.NodeID, text string) ([]string, error) {
-	res, err := r(node).Suggest(ctx, &storagev1.SuggestRequest{Text: text})
+func (f Folders) Suggest(ctx context.Context, node role.NodeID, text string) ([]string, error) {
+	res, err := f(node).Suggest(ctx, &storagev1.SuggestRequest{Text: text})
 	if err != nil {
 		return nil, folderAnswer(err)
 	}
 	return res.GetPaths(), nil
 }
 
-func (r Remote) MakeFolder(ctx context.Context, node role.NodeID, parent, name string) (string, error) {
-	res, err := r(node).MakeFolder(ctx, &storagev1.MakeFolderRequest{Parent: parent, Name: name})
+func (f Folders) MakeFolder(ctx context.Context, node role.NodeID, parent, name string) (string, error) {
+	res, err := f(node).MakeFolder(ctx, &storagev1.MakeFolderRequest{Parent: parent, Name: name})
 	if err != nil {
 		return "", folderAnswer(err)
 	}
 	return res.GetPath(), nil
 }
 
-func (r Remote) Check(ctx context.Context, node role.NodeID, path string, others []Other) (CheckResult, error) {
-	req := &storagev1.CheckRequest{Path: path}
+// Check judges path on node for purpose; others are the roots a root may
+// not overlap.
+func (f Folders) Check(ctx context.Context, node role.NodeID, path string, purpose Purpose, others []Other) (CheckResult, error) {
+	req := &storagev1.CheckRequest{Path: path, Purpose: purpose.Wire()}
 	for _, o := range others {
 		req.Others = append(req.Others, &storagev1.Other{Id: o.ID.Bytes(), Path: o.Path})
 	}
-	res, err := r(node).Check(ctx, req)
+	res, err := f(node).Check(ctx, req)
 	if err != nil {
 		return CheckResult{}, answer(err)
 	}
