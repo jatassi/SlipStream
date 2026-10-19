@@ -1,0 +1,31 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: health_item.since
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: health_volume.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.*_amount"
+            go_type:
+              type: int64
+              pointer: true
+          - column: "*.*_unit"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/setting
+              type: Unit
+              pointer: true
