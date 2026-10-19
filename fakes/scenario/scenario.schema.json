@@ -374,6 +374,34 @@
           },
           "additionalProperties": false,
           "type": "object"
+        },
+        "metadata": {
+          "properties": {
+            "attempts": {
+              "type": "integer"
+            },
+            "try": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retry_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "wait": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "cache_entries": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         }
       },
       "additionalProperties": false,
