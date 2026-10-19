@@ -7,7 +7,7 @@ import { FolderBrowser, type FolderBrowserProps } from "./folder-browser";
 import { useSettled } from "./use-settled";
 import { VerdictLine, useVerdict } from "./verdict";
 
-const checkAfter = 400;
+export const checkAfter = 400;
 
 export type FolderFieldProps = Omit<
   FolderBrowserProps,

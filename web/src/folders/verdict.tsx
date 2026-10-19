@@ -20,10 +20,14 @@ export type Judging =
   | { readonly kind: "checking" }
   | { readonly kind: "judged"; readonly verdict: FolderVerdict };
 
+/** One folder's verdict, cached once for every reader of the same Node and path. */
+export const verdictKey = (nodeId: string, path: string) =>
+  ["folder-verdict", nodeId, path] as const;
+
 /** The check's verdict on a folder; "" asks nothing. */
 export function useVerdict(check: FolderCheck, nodeId: string, path: string): Judging {
   const query = useQuery({
-    queryKey: ["folder-verdict", nodeId, path],
+    queryKey: verdictKey(nodeId, path),
     queryFn: ({ signal }) => check({ nodeId, path, signal }),
     enabled: path !== "",
     staleTime: 0,

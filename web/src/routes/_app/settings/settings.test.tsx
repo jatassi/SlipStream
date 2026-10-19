@@ -14,6 +14,7 @@ import {
 } from "../../../api/gen/query/mail/mail.msw";
 import { problem } from "../../../test/handlers";
 import { renderApp } from "../../../test/render-app";
+import { settingsSectionLabels } from "../../../test/settings";
 
 const noAddress: IdentityAddress = { address: "", suggestedAddress: "http://media-pc:8484" };
 
@@ -89,7 +90,7 @@ test("/settings opens on Address, which suggests the address in use while none i
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Address", "Email", "Sign-in", "Nodes", "API key", "Targets", "Profiles", "Editions"]);
+  ).toEqual(settingsSectionLabels);
   await expect
     .element(tabs.getByRole("link", { name: "Address" }))
     .toHaveAttribute("aria-current", "page");
