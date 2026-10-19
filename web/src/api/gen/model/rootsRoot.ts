@@ -1,3 +1,4 @@
+import type { RootsProgress } from "./rootsProgress.ts";
 import type { RootsRootState } from "./rootsRootState.ts";
 
 export interface RootsRoot {
@@ -12,6 +13,8 @@ export interface RootsRoot {
   nodeId: string;
   /** The folder as its Node cleaned it */
   path: string;
+  /** The re-home checking its files at the new place now; absent while none is */
+  rehome?: RootsProgress;
   /** Only ready takes imports. checking: its Node hasn't reported it yet; offline and written_off come from its Node's standing */
   state: RootsRootState;
   /** The volume its Node last found it ready on; absent before it did */

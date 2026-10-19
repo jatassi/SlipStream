@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/nodes"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
@@ -89,19 +90,33 @@ func (u unreached) Browse(context.Context, *storagev1.BrowseRequest) (*storagev1
 	return nil, u.err
 }
 
+// gated is self's Store, calling verifying first, when set, on each Verify.
+type gated struct {
+	storagev1connect.StorageServiceHandler
+	s *server
+}
+
+func (g gated) Verify(ctx context.Context, req *storagev1.VerifyRequest) (*storagev1.VerifyResponse, error) {
+	if g.s.verifying != nil {
+		g.s.verifying()
+	}
+	return g.StorageServiceHandler.Verify(ctx, req)
+}
+
 type server struct {
 	*ownertest.Owner
 	lib             *storage.DB[storage.Library]
 	fx              *contenttypetest.Fixture
 	changed         *published
 	data, downloads string
+	verifying       func()
 }
 
 // serve serves the roots' operations and addWork over a library with two
 // Content Types. self's Storage is a Store on this machine.
 func serve(t *testing.T) *server {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
@@ -131,7 +146,7 @@ func serve(t *testing.T) *server {
 		case bare:
 			return unreached{err: rpc.ErrorWith(rpc.CodeFailedPrecondition, &nodev1.NotHolder{Role: string(role.Storage)}, "not a holder")}
 		}
-		return local(n)
+		return gated{local(n), s}
 	}
 	svc, err := roots.Open(t.Context(), cfg)
 	if err != nil {

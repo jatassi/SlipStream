@@ -182,6 +182,7 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
+		Inflight: grabs.RootGrabs{},
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Log:      n.rootLog.With("subsystem", "roots"),
 	})

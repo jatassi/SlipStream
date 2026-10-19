@@ -66,6 +66,15 @@ func (q *Queries) CountWorksByRoot(ctx context.Context) ([]CountWorksByRootRow, 
 	return items, nil
 }
 
+const deleteRoot = `-- name: DeleteRoot :exec
+DELETE FROM roots_root WHERE id = ?1
+`
+
+func (q *Queries) DeleteRoot(ctx context.Context, id RootID) error {
+	_, err := q.db.ExecContext(ctx, deleteRoot, id)
+	return err
+}
+
 const deleteVolumesOf = `-- name: DeleteVolumesOf :exec
 DELETE FROM roots_volume WHERE node_id = ?1
 `
@@ -359,6 +368,48 @@ func (q *Queries) ListSeen(ctx context.Context) ([]RootsSeen, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const listWorksOfRoot = `-- name: ListWorksOfRoot :many
+SELECT work_id FROM roots_work WHERE root_id = ?1 ORDER BY work_id
+`
+
+func (q *Queries) ListWorksOfRoot(ctx context.Context, rootID RootID) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksOfRoot, rootID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const moveRoot = `-- name: MoveRoot :exec
+UPDATE roots_root SET node_id = ?1, path = ?2, place = place + 1 WHERE id = ?3
+`
+
+type MoveRootParams struct {
+	NodeID role.NodeID
+	Path   string
+	ID     RootID
+}
+
+func (q *Queries) MoveRoot(ctx context.Context, arg MoveRootParams) error {
+	_, err := q.db.ExecContext(ctx, moveRoot, arg.NodeID, arg.Path, arg.ID)
+	return err
 }
 
 const seeRoot = `-- name: SeeRoot :exec

@@ -233,7 +233,8 @@ type Download struct {
 type Plan struct {
 	FileIndex int
 	Probe     media.Probe
-	Root      roots.Root
+	// Root is zero once a finished Grab's root is deleted.
+	Root roots.Root
 	// Path is relative to the root, '/' separated.
 	Path  string
 	Fills []targets.TargetID
@@ -335,11 +336,14 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		g.Download = &Download{Error: *row.DownloadError}
 	}
 	if row.Path != nil {
-		root, err := roots.Get(ctx, r, row.RootID)
-		if err != nil {
-			return Grab{}, err
+		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Path: *row.Path, Fills: rel.fills[row.ID]}
+		if !row.RootID.IsZero() {
+			root, err := roots.Get(ctx, r, row.RootID)
+			if err != nil {
+				return Grab{}, err
+			}
+			g.Plan.Root = root
 		}
-		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Root: root, Path: *row.Path, Fills: rel.fills[row.ID]}
 		if err := json.Unmarshal([]byte(*row.Probe), &g.Plan.Probe); err != nil {
 			return Grab{}, fmt.Errorf("grab %s: probe: %w", row.ID, err)
 		}

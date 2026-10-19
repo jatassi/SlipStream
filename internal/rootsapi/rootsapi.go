@@ -41,6 +41,11 @@ var (
 	folderExists        = api.NewCode(http.StatusConflict, "folder_exists", "A folder of that name is already there")
 	rootWrongType       = api.NewCode(http.StatusUnprocessableEntity, "root_wrong_type", "The root holds another Content Type's Works")
 	workHasFiles        = api.NewCode(http.StatusConflict, "work_has_files", "The Work has files, so its root can't change")
+	rehomeMissing       = api.NewCarrying[missingFiles](http.StatusConflict, "rehome_missing", "Recorded files aren't at the new place", "missing")
+	rootInUse           = api.NewCarrying[inUse](http.StatusConflict, "root_in_use", "The root holds files or has a Grab in flight", "use")
+	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is its Content Type's default while another root exists")
+	worksToRequired     = api.NewCode(http.StatusUnprocessableEntity, "works_to_required", "The root's Works need another root of their Content Type to go to")
+	worksToWrongType    = api.NewCode(http.StatusUnprocessableEntity, "works_to_wrong_type", "The root's Works can go only to a root of their Content Type")
 )
 
 var codes = []struct {
@@ -54,12 +59,21 @@ var codes = []struct {
 	{roots.ErrNodeAway, nodeOffline},
 	{roots.ErrWrongType, rootWrongType},
 	{roots.ErrHasFiles, workHasFiles},
+	{roots.ErrIsDefault, rootIsDefault},
+	{roots.ErrWorksTo, worksToRequired},
+	{roots.ErrWorksToType, worksToWrongType},
 	{fs.ErrExist, folderExists},
 }
 
 func answer(err error) error {
 	if unusable, ok := errors.AsType[*roots.UnusableError](err); ok {
 		return rootUnusable.With(refusalOf(unusable.Refusal))
+	}
+	if missing, ok := errors.AsType[*roots.MissingError](err); ok {
+		return rehomeMissing.With(missingOf(missing))
+	}
+	if use, ok := errors.AsType[*roots.InUseError](err); ok {
+		return rootInUse.With(inUse{Files: use.Files, Grabs: use.Grabs})
 	}
 	if fe, ok := errors.AsType[*storing.FolderError](err); ok {
 		return folderUnreadable.With(folderProblem{Kind: fe.Kind.String(), OSText: fe.Text, Account: fe.Account})
@@ -76,22 +90,55 @@ func answer(err error) error {
 }
 
 type root struct {
-	ID          string `json:"id" format:"uuid"`
-	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	NodeID      string `json:"nodeId" format:"uuid" doc:"The Storage Node whose disk holds it"`
-	Path        string `json:"path" doc:"The folder as its Node cleaned it"`
-	Default     bool   `json:"default" doc:"Where its Content Type's new Works go"`
-	State       string `json:"state" enum:"ready,missing,unmounted,foreign,unwritable,unresponsive,checking,offline,written_off" doc:"Only ready takes imports. checking: its Node hasn't reported it yet; offline and written_off come from its Node's standing"`
-	VolumeID    string `json:"volumeId,omitempty" doc:"The volume its Node last found it ready on; absent before it did"`
-	Works       int64  `json:"works" doc:"The Works that live in it"`
-	FileBytes   int64  `json:"fileBytes" doc:"The bytes of its files"`
+	ID          string    `json:"id" format:"uuid"`
+	ContentType string    `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	NodeID      string    `json:"nodeId" format:"uuid" doc:"The Storage Node whose disk holds it"`
+	Path        string    `json:"path" doc:"The folder as its Node cleaned it"`
+	Default     bool      `json:"default" doc:"Where its Content Type's new Works go"`
+	State       string    `json:"state" enum:"ready,missing,unmounted,foreign,unwritable,unresponsive,checking,offline,written_off" doc:"Only ready takes imports. checking: its Node hasn't reported it yet; offline and written_off come from its Node's standing"`
+	VolumeID    string    `json:"volumeId,omitempty" doc:"The volume its Node last found it ready on; absent before it did"`
+	Works       int64     `json:"works" doc:"The Works that live in it"`
+	FileBytes   int64     `json:"fileBytes" doc:"The bytes of its files"`
+	Rehome      *progress `json:"rehome,omitempty" doc:"The re-home checking its files at the new place now; absent while none is"`
+}
+
+type progress struct {
+	Checked int64 `json:"checked" doc:"The recorded files checked so far"`
+	Total   int64 `json:"total" doc:"The recorded files to check"`
 }
 
 func rootOf(v roots.View) root {
-	return root{
+	out := root{
 		ID: v.ID.String(), ContentType: string(v.ContentType), NodeID: v.Node.String(), Path: v.Path,
 		Default: v.Default, State: string(v.State), VolumeID: v.VolumeID, Works: v.Works, FileBytes: v.Use.Bytes,
 	}
+	if v.Rehome != nil {
+		out.Rehome = &progress{Checked: v.Rehome.Checked, Total: v.Rehome.Total}
+	}
+	return out
+}
+
+type missingFiles struct {
+	Count int           `json:"count" doc:"The recorded files not at the new place"`
+	First []missingFile `json:"first" nullable:"false" doc:"Up to the first 20 of them, in file order"`
+}
+
+type missingFile struct {
+	Path   string `json:"path" doc:"Where the file records its bytes, relative to the root and / separated"`
+	Reason string `json:"reason" enum:"missing,size_differs" doc:"missing: nothing is at that path; size_differs: a file is there at another size"`
+}
+
+func missingOf(e *roots.MissingError) missingFiles {
+	out := missingFiles{Count: e.Count, First: []missingFile{}}
+	for _, a := range e.First {
+		out.First = append(out.First, missingFile{Path: a.Path.String(), Reason: a.Reason.String()})
+	}
+	return out
+}
+
+type inUse struct {
+	Files int64 `json:"files" doc:"The files it holds, those waiting to be deleted counted"`
+	Grabs int64 `json:"grabs" doc:"The Grabs in flight for its Works or into it"`
 }
 
 type refusal struct {
@@ -167,6 +214,20 @@ type verdict struct {
 }
 
 type verdictOutput struct{ Body verdict }
+
+type rehomeRootInput struct {
+	RootID string `path:"rootId" format:"uuid"`
+	Body   struct {
+		NodeID string `json:"nodeId,omitempty" format:"uuid" doc:"The Storage Node whose disk holds it now; left out, its Node"`
+		Path   string `json:"path,omitempty" maxLength:"4096" doc:"The folder that holds it now, in its Node's path style; left out, its folder"`
+		Forget *int   `json:"forget,omitempty" minimum:"0" doc:"The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again"`
+	}
+}
+
+type deleteRootInput struct {
+	RootID  string `path:"rootId" format:"uuid"`
+	WorksTo string `query:"worksTo" format:"uuid" doc:"The root of the same Content Type its Works go to; required while it has Works and another root of its Content Type exists"`
+}
 
 type workRoot struct {
 	WorkID string `json:"workId" format:"uuid"`
@@ -310,6 +371,24 @@ func Routes(r *api.Router, folders Folders) {
 	}, h.makeDefaultRoot)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "rehomeRoot",
+		Method:  http.MethodPatch,
+		Path:    "/roots/{rootId}",
+		Summary: "Re-home a root onto another folder or Node once every file it records is there",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{rootNotFound, nodeNotStorage, nodeOffline, rootUnusable.Code, rehomeMissing.Code, folderUnreadable.Code},
+	}, h.rehomeRoot)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "deleteRoot",
+		Method:  http.MethodDelete,
+		Path:    "/roots/{rootId}",
+		Summary: "Delete a root that holds no files, leaving its folder on disk",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{rootNotFound, rootInUse.Code, rootIsDefault, worksToRequired, worksToWrongType},
+	}, h.deleteRoot)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "setWorkRoot",
 		Method:  http.MethodPatch,
 		Path:    "/works/{workId}",
@@ -405,6 +484,45 @@ func (h handlers) makeDefaultRoot(ctx context.Context, by identity.Admin, in *ro
 		return nil, err
 	}
 	return nil, answer(open(h.folders).MakeDefault(ctx, by, id))
+}
+
+func (h handlers) rehomeRoot(ctx context.Context, by identity.Admin, in *rehomeRootInput) (*rootOutput, error) {
+	id, err := rootID(in.RootID)
+	if err != nil {
+		return nil, err
+	}
+	move := roots.Rehome{Forget: in.Body.Forget}
+	if in.Body.NodeID != "" {
+		node, err := nodeID(in.Body.NodeID)
+		if err != nil {
+			return nil, err
+		}
+		move.Node = &node
+	}
+	if in.Body.Path != "" {
+		move.Path = &in.Body.Path
+	}
+	v, err := open(h.folders).Rehome(ctx, by, id, move)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &rootOutput{Body: rootOf(v)}, nil
+}
+
+func (h handlers) deleteRoot(ctx context.Context, by identity.Admin, in *deleteRootInput) (*struct{}, error) {
+	id, err := rootID(in.RootID)
+	if err != nil {
+		return nil, err
+	}
+	var to *roots.ID
+	if in.WorksTo != "" {
+		dest, err := rootID(in.WorksTo)
+		if err != nil {
+			return nil, err
+		}
+		to = &dest
+	}
+	return nil, answer(open(h.folders).Delete(ctx, by, id, to))
 }
 
 func (h handlers) setWorkRoot(ctx context.Context, by identity.Admin, in *setWorkRootInput) (*workRootOutput, error) {

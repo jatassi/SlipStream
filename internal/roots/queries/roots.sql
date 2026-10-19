@@ -54,3 +54,12 @@ DELETE FROM roots_volume WHERE node_id = sqlc.arg(node_id);
 -- name: InsertVolume :exec
 INSERT INTO roots_volume (node_id, id, name, mount, kind, total, free, sampled_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(id), sqlc.arg(name), sqlc.arg(mount), sqlc.arg(kind), sqlc.arg(total), sqlc.arg(free), sqlc.arg(sampled_at));
+
+-- name: MoveRoot :exec
+UPDATE roots_root SET node_id = sqlc.arg(node_id), path = sqlc.arg(path), place = place + 1 WHERE id = sqlc.arg(id);
+
+-- name: DeleteRoot :exec
+DELETE FROM roots_root WHERE id = sqlc.arg(id);
+
+-- name: ListWorksOfRoot :many
+SELECT work_id FROM roots_work WHERE root_id = sqlc.arg(root_id) ORDER BY work_id;

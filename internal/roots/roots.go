@@ -80,7 +80,12 @@ type View struct {
 	VolumeID string
 	Works    int64
 	Use      Use
+	// Rehome is the re-home checking its files now, nil while none is.
+	Rehome *Progress
 }
+
+// Progress is how many of a re-home's recorded files it has checked.
+type Progress struct{ Checked, Total int64 }
 
 // Use is the files a root holds, doomed ones counted, and the bytes of the
 // live ones.
@@ -122,6 +127,8 @@ var (
 	ErrNodeAway   = errors.New("the Node is offline")
 	ErrWrongType  = errors.New("the root holds another Content Type's Works")
 	ErrHasFiles   = errors.New("the Work has files, so changing its root is a Move")
+	ErrIsDefault  = errors.New("the root is its Content Type's default while another root exists")
+	ErrWorksTo    = errors.New("the root's Works need another root of their Content Type to go to")
 )
 
 // Reason is why a folder can't be a root: one of storing's reasons, or
@@ -171,6 +178,21 @@ type Contents interface {
 	// Proof is up to three root-relative paths where root's files record
 	// their bytes, none while it has no files.
 	Proof(ctx context.Context, r storage.Reader[file], root ID) ([]string, error)
+	// Recorded is where each file of root records its bytes, and their
+	// size: its move's place while a move is pending, else its path.
+	Recorded(ctx context.Context, r storage.Reader[file], root ID) ([]storing.Recorded, error)
+	// Forget deletes root's files recorded at paths, so their cells read
+	// missing and wanted. It does no IO.
+	Forget(ctx context.Context, tx *storage.Tx[file], root ID, paths []storing.Rel) error
+}
+
+// Inflight is what grabs knows about roots. grabs.RootGrabs implements it.
+type Inflight interface {
+	// Into counts the unfinished Grabs of ws, or planned into root.
+	Into(ctx context.Context, r storage.Reader[file], root ID, ws []works.WorkID) (int64, error)
+	// Release unties root's finished Grabs from it, so it can go and they
+	// stay.
+	Release(ctx context.Context, tx *storage.Tx[file], root ID) error
 }
 
 // Roster is the roster as roots reads it.
@@ -194,6 +216,7 @@ type Config struct {
 	Remote   storing.Remote
 	Arrivals *Arrivals
 	Contents Contents
+	Inflight Inflight
 	Changed  Publisher
 	Log      *slog.Logger
 }
@@ -210,6 +233,12 @@ type Roots struct {
 	watch struct {
 		sync.Mutex
 		ch chan struct{}
+	}
+	// rehoming is each running re-home's progress, under its own lock so a
+	// list never waits for a re-home.
+	rehoming struct {
+		sync.Mutex
+		of map[ID]Progress
 	}
 }
 
@@ -231,6 +260,7 @@ func Open(ctx context.Context, cfg Config) (*Roots, error) {
 	}
 	r := &Roots{cfg: cfg, last: map[ID]placed{}}
 	r.watch.ch = make(chan struct{})
+	r.rehoming.of = map[ID]Progress{}
 	return r, nil
 }
 
@@ -459,6 +489,7 @@ func (r *Roots) views(ctx context.Context, rd storage.Reader[file], roots []Root
 		if s, ok := seen[root.ID]; ok && s.Place == root.Place {
 			v.VolumeID = string(s.VolumeID)
 		}
+		v.Rehome = r.progressOf(root.ID)
 		out[i] = v
 	}
 	return out, nil

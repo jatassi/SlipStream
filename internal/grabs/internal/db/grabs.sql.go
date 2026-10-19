@@ -78,6 +78,34 @@ func (q *Queries) Advance(ctx context.Context, arg AdvanceParams) (int64, error)
 	return result.RowsAffected()
 }
 
+const countGrabsInto = `-- name: CountGrabsInto :one
+SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
+    AND (root_id = ?1 OR work_id IN (/*SLICE:work_ids*/?))
+`
+
+type CountGrabsIntoParams struct {
+	RootID  roots.ID
+	WorkIds []works.WorkID
+}
+
+func (q *Queries) CountGrabsInto(ctx context.Context, arg CountGrabsIntoParams) (int64, error) {
+	query := countGrabsInto
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.WorkIds) > 0 {
+		for _, v := range arg.WorkIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(arg.WorkIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	row := q.db.QueryRowContext(ctx, query, queryParams...)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMoving = `-- name: CountMoving :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
 `
@@ -853,6 +881,15 @@ func (q *Queries) RecordDownload(ctx context.Context, arg RecordDownloadParams) 
 		arg.ID,
 		arg.NodeID,
 	)
+	return err
+}
+
+const releaseRoot = `-- name: ReleaseRoot :exec
+UPDATE grabs_grab SET root_id = NULL WHERE root_id = ?1 AND stage IN ('imported', 'failed')
+`
+
+func (q *Queries) ReleaseRoot(ctx context.Context, rootID roots.ID) error {
+	_, err := q.db.ExecContext(ctx, releaseRoot, rootID)
 	return err
 }
 

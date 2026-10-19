@@ -1976,6 +1976,32 @@ export const Problem = zod.object({
 export type Problem = zod.input<typeof Problem>;
 export type ProblemOutput = zod.output<typeof Problem>;
 
+export const rehomeRootInputBodyForgetMin = 0;
+
+export const rehomeRootInputBodyPathMax = 4096;
+
+export const RehomeRootInputBody = zod.object({
+  forget: zod
+    .int()
+    .min(rehomeRootInputBodyForgetMin)
+    .exactOptional()
+    .describe(
+      "The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
+    ),
+  nodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Storage Node whose disk holds it now; left out, its Node"),
+  path: zod
+    .string()
+    .max(rehomeRootInputBodyPathMax)
+    .exactOptional()
+    .describe("The folder that holds it now, in its Node's path style; left out, its folder"),
+});
+
+export type RehomeRootInputBody = zod.input<typeof RehomeRootInputBody>;
+export type RehomeRootInputBodyOutput = zod.output<typeof RehomeRootInputBody>;
+
 export const ResetLinkInputBody = zod.object({
   removePasskeys: zod
     .boolean()
@@ -2013,6 +2039,14 @@ export const RootsFolderProblem = zod.object({
 
 export type RootsFolderProblem = zod.input<typeof RootsFolderProblem>;
 export type RootsFolderProblemOutput = zod.output<typeof RootsFolderProblem>;
+
+export const RootsInUse = zod.object({
+  files: zod.int().describe("The files it holds, those waiting to be deleted counted"),
+  grabs: zod.int().describe("The Grabs in flight for its Works or into it"),
+});
+
+export type RootsInUse = zod.input<typeof RootsInUse>;
+export type RootsInUseOutput = zod.output<typeof RootsInUse>;
 
 export const RootsPlace = zod.object({
   free: zod.int(),
@@ -2079,6 +2113,26 @@ export const RootsMadeFolder = zod.object({
 export type RootsMadeFolder = zod.input<typeof RootsMadeFolder>;
 export type RootsMadeFolderOutput = zod.output<typeof RootsMadeFolder>;
 
+export const RootsMissingFile = zod.object({
+  path: zod
+    .string()
+    .describe("Where the file records its bytes, relative to the root and / separated"),
+  reason: zod
+    .enum(["missing", "size_differs"])
+    .describe("missing: nothing is at that path; size_differs: a file is there at another size"),
+});
+
+export type RootsMissingFile = zod.input<typeof RootsMissingFile>;
+export type RootsMissingFileOutput = zod.output<typeof RootsMissingFile>;
+
+export const RootsMissingFiles = zod.object({
+  count: zod.int().describe("The recorded files not at the new place"),
+  first: zod.array(RootsMissingFile).describe("Up to the first 20 of them, in file order"),
+});
+
+export type RootsMissingFiles = zod.input<typeof RootsMissingFiles>;
+export type RootsMissingFilesOutput = zod.output<typeof RootsMissingFiles>;
+
 export const rootsNewRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const rootsNewRootPathMax = 4096;
 
@@ -2100,6 +2154,14 @@ export const RootsNewRoot = zod.object({
 
 export type RootsNewRoot = zod.input<typeof RootsNewRoot>;
 export type RootsNewRootOutput = zod.output<typeof RootsNewRoot>;
+
+export const RootsProgress = zod.object({
+  checked: zod.int().describe("The recorded files checked so far"),
+  total: zod.int().describe("The recorded files to check"),
+});
+
+export type RootsProgress = zod.input<typeof RootsProgress>;
+export type RootsProgressOutput = zod.output<typeof RootsProgress>;
 
 export const RootsRefusal = zod.object({
   reason: zod
@@ -2136,6 +2198,9 @@ export const RootsRoot = zod.object({
   id: zod.uuid(),
   nodeId: zod.uuid().describe("The Storage Node whose disk holds it"),
   path: zod.string().describe("The folder as its Node cleaned it"),
+  rehome: RootsProgress.exactOptional().describe(
+    "The re-home checking its files at the new place now; absent while none is",
+  ),
   state: zod
     .enum([
       "ready",
