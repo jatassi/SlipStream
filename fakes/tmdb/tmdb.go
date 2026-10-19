@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -113,14 +114,9 @@ type revoked struct {
 func (s *server) revoke(_ context.Context, a Key) (any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	keys := []string{}
+	keys := slices.Collect(maps.Keys(s.seen))
 	if a.Key != nil {
-		keys = append(keys, *a.Key)
-	}
-	if a.Key == nil {
-		for k := range s.seen {
-			keys = append(keys, k)
-		}
+		keys = []string{*a.Key}
 	}
 	for _, k := range keys {
 		s.revoked[k] = true

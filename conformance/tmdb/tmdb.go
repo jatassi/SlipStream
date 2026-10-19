@@ -6,7 +6,6 @@ package tmdb
 import (
 	_ "embed"
 	"errors"
-	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strconv"
@@ -22,8 +21,6 @@ import (
 
 //go:embed shape.json
 var shapeJSON []byte
-
-const userAgent = "SlipStream/conformance ( github.com/jatassi/SlipStream )"
 
 // unknownID is an id neither TMDB nor any Scenario holds.
 const unknownID = 999999999
@@ -48,6 +45,9 @@ type Target struct {
 	// key or none.
 	Key   string
 	Known Known
+	// Lines builds a call layer over a client, as a Node does.
+	Lines   func(*http.Client) *metadata.Lines
+	Timings provider.Timings
 	// Record, when set, takes every body in place of the check against
 	// shape.json; the online suite's -update sets it to rewrite the file.
 	Record func(key string, body []byte)
@@ -68,7 +68,7 @@ func Run(t *testing.T, tgt Target) {
 	client := func() *provider.Client {
 		c := *tgt.Client
 		c.Transport = rec
-		return provider.New(metadata.NewLines(&c, userAgent, metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))), tgt.Endpoints, provider.DefaultTimings()) //nolint:gosec // jitter needs no secrecy
+		return provider.New(tgt.Lines(&c), tgt.Endpoints, tgt.Timings)
 	}
 	ask := func(key string) metadata.Ask {
 		return metadata.NewAsk(metadata.AskOptions{Language: "en-US", Region: "US", Keys: map[metadata.ProviderID]string{provider.ID: key}})

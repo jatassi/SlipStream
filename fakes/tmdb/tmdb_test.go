@@ -2,6 +2,7 @@ package tmdb_test
 
 import (
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tmdb"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	provider "github.com/jatassi/slipstream/internal/providers/tmdb"
 )
@@ -261,7 +263,7 @@ func rich(s scenario.Scenario) scenario.Scenario {
 	m.Studio = &scenario.TMDBNamed{ID: 90001, Name: "Lantern Field Pictures"}
 	m.Titles = []scenario.TMDBTitle{{Country: "GB", Title: "Quiet Orchard"}}
 	m.Credits = scenario.TMDBCredits{
-		Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Vell", Character: "June"}},
+		Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Venn", Character: "June"}},
 		Crew: []scenario.TMDBCrew{{ID: 91002, Name: "Osei Brandt", Department: "Directing", Job: "Director"}},
 	}
 	m.Trailer = "qOrchard01"
@@ -274,6 +276,12 @@ func TestTheFakeConforms(t *testing.T) {
 			Endpoints: provider.Endpoints{API: endpoint.MustParseURL(f.Address.URL("/3")), Images: endpoint.MustParseURL(f.Address.URL("/t/p"))},
 			Client:    f.Client,
 			Known:     conformance.Known{ID: 9000001, Title: "The Quiet Orchard", IMDbID: "tt9000001", Year: 2021},
+			Lines:     lines,
+			Timings:   provider.DefaultTimings(),
 		})
 	})
+}
+
+func lines(c *http.Client) *metadata.Lines {
+	return metadata.NewLines(c, "SlipStream/conformance ( github.com/jatassi/SlipStream )", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // jitter needs no secrecy
 }

@@ -63,7 +63,7 @@ func TestTMDBMovieDecodesEveryAppendedBlock(t *testing.T) {
 		Titles:           []scenario.TMDBTitle{{Country: "GB", Title: "Quiet Orchard", Kind: "short title"}},
 		Translations:     []scenario.TMDBTranslation{{Language: "fr-FR", Title: "Le Verger tranquille", Overview: "Deux sœurs."}},
 		Credits: scenario.TMDBCredits{
-			Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Vell", Character: "June"}},
+			Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Venn", Character: "June"}},
 			Crew: []scenario.TMDBCrew{{ID: 91002, Name: "Osei Brandt", Department: "Directing", Job: "Director"}},
 		},
 		Trailer:     "qOrchard01",
@@ -106,7 +106,7 @@ func TestTMDBMovieDecodesEveryAppendedBlock(t *testing.T) {
 			}}}},
 			AlternativeTitles: tmdb.AlternativeTitles{Titles: []tmdb.AlternativeTitle{{Country: "GB", Title: "Quiet Orchard", Type: "short title"}}},
 			Credits: tmdb.Credits{
-				Cast: []tmdb.Cast{{ID: 91001, Name: "Mara Vell", Character: "June"}},
+				Cast: []tmdb.Cast{{ID: 91001, Name: "Mara Venn", Character: "June"}},
 				Crew: []tmdb.Crew{{ID: 91002, Name: "Osei Brandt", Department: "Directing", Job: "Director"}},
 			},
 			Videos: tmdb.Videos{Results: []tmdb.Video{{Name: "Official Trailer", Key: "qOrchard01", Site: "YouTube", Type: "Trailer", Official: true, Language: "en", Country: "US"}}},
