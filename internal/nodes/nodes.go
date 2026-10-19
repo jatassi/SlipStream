@@ -104,6 +104,9 @@ type Config struct {
 	// Facts is called after a holder's Role facts are stored, with the
 	// Role's name, as role.ControlsConfig.Facts is. It must not block.
 	Facts func(node ID, scope string)
+	// Applied is called after a batch of a holder's results commits, as
+	// role.ControlsConfig.Applied is. It must not block.
+	Applied func(node ID, scope string)
 	// Reach runs a reach test from node to t.
 	Reach func(ctx context.Context, node ID, t nodesystem.Target) (nodesystem.Reached, error)
 	// Always is Roles every Node holds beyond its nodes_role rows: only a
@@ -248,6 +251,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		Scope:   s.scope,
 		Changed: s.changed,
 		Facts:   s.factsIn,
+		Applied: cfg.Applied,
 		Touched: s.touched,
 		InStep:  s.inStep,
 		Seen:    s.seen,

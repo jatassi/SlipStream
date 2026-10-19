@@ -57,6 +57,9 @@ type ControlsConfig struct {
 	// Facts is called after a holder's Role facts are stored, with the
 	// Role's name. It must not block.
 	Facts func(node NodeID, scope string)
+	// Applied is called after a batch of node's results commits, once for
+	// each Role whose results it applied. It must not block.
+	Applied func(node NodeID, scope string)
 	// Touched is called after a Role's Control.Touch, with the Role's name
 	// and the Nodes touched. It must not block.
 	Touched func(scope string, nodes []NodeID)
@@ -357,12 +360,14 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 		return nil
 	}
 	var top uint64
+	var scopes []string
 	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		if top, err = watermark.Get(ctx, tx, sess.node.UUID, epoch); err != nil {
 			return err
 		}
 		applied := top
+		scopes = scopes[:0]
 		for _, r := range results {
 			if r.GetSeq() <= top {
 				continue
@@ -374,6 +379,9 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 			if err := srv.applyAny(ctx, tx, sess.node, r.GetPayload()); err != nil {
 				return fmt.Errorf("apply %s result %d: %w", r.GetScope(), r.GetSeq(), err)
 			}
+			if !slices.Contains(scopes, r.GetScope()) {
+				scopes = append(scopes, r.GetScope())
+			}
 			top = r.GetSeq()
 		}
 		if top == applied {
@@ -383,6 +391,11 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 	})
 	if err != nil {
 		return err
+	}
+	if c.cfg.Applied != nil {
+		for _, scope := range scopes {
+			c.cfg.Applied(sess.node, scope)
+		}
 	}
 	return s.Send(&nodev1.Down{Frame: &nodev1.Down_Ack{Ack: &nodev1.Ack{Seq: top}}})
 }
