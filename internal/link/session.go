@@ -214,7 +214,7 @@ func (l *Link) routes() http.Handler {
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !l.enter() {
-			http.Error(w, "link closed", http.StatusServiceUnavailable)
+			_ = errorWriter.Write(w, r, rpcError(connect.CodeUnavailable, errClosed))
 			return
 		}
 		defer l.wg.Done()
