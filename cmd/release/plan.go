@@ -23,11 +23,21 @@ type lane struct {
 	// shards holds how many jobs the lane splits into on each target; a
 	// target it leaves out does not run the lane.
 	shards map[string]int
+	// onlyWhen, when set, keeps the lane off an event that does not run
+	// every target unless the change touches what the lane checks.
+	onlyWhen func(touched) bool
+}
+
+// touched says what the change touches that a lane or the packages
+// depend on, as the scope command's outputs say.
+type touched struct {
+	packages bool
+	diagram  bool
 }
 
 // lanes is the source of truth for what CI runs where. Gofmt, go vet,
-// golangci-lint and every test tier but component run on each target,
-// since cgo and the OS change what they prove; everything else runs once.
+// golangci-lint and the go, e2e and browser tiers run on each target, since
+// cgo and the OS change what they prove; everything else runs once.
 // The browser tier's shard counts follow its runtime on each runner, which
 // is CPU-bound, so it scales out across jobs rather than Playwright workers.
 var lanes = []lane{
@@ -38,6 +48,7 @@ var lanes = []lane{
 	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 4, "linux-arm64": 1, "windows-amd64": 2, "darwin-arm64": 3}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
+	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
 }
 
 // lanesOnBuild run against the build job's dist/.
@@ -84,7 +95,7 @@ type Matrix struct {
 }
 
 func init() {
-	register("plan", "print the CI matrix of each lane for an event: build, lint, lint-repo, go, e2e, browser and component", runPlan)
+	register("plan", "print the CI matrix of each lane for an event: build, lint, lint-repo, go, e2e, browser, component and diagram", runPlan)
 }
 
 func runPlan(_ context.Context, args []string) error {
@@ -93,7 +104,9 @@ func runPlan(_ context.Context, args []string) error {
 	eventName := fs.String("event", "", "CI event: "+strings.Join(names, ", "))
 	scope := changescope.PR
 	fs.TextVar(&scope, "scope", scope, "change scope from the scope command: docs, pr, native")
-	touched := fs.Bool("package", false, "the change touches what the packages are built from, as the scope command's package output says")
+	var t touched
+	fs.BoolVar(&t.packages, "package", false, "the change touches what the packages are built from, as the scope command's package output says")
+	fs.BoolVar(&t.diagram, "diagram", false, "the change touches what the Diagram check reads, as the scope command's diagram output says")
 	targets := fs.String("targets", "", "comma-separated targets to keep; empty keeps every target the event runs")
 	tier := fs.String("tier", "all", "lanes to run: all, "+strings.Join(laneTiers(), ", "))
 	if err := fs.Parse(args); err != nil {
@@ -111,7 +124,7 @@ func runPlan(_ context.Context, args []string) error {
 	if *targets != "" {
 		keep = strings.Split(*targets, ",")
 	}
-	p, err := plan(in, e, scope, *touched, keep, *tier)
+	p, err := plan(in, e, scope, t, keep, *tier)
 	if err != nil {
 		return err
 	}
@@ -162,11 +175,11 @@ func (p Plan) Planned() map[string]bool {
 	return planned
 }
 
-func plan(in native.Inputs, e event, scope changescope.Scope, touched bool, keep []string, tier string) (Plan, error) {
+func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []string, tier string) (Plan, error) {
 	if tier != "all" && !slices.Contains(laneTiers(), tier) {
 		return Plan{}, fmt.Errorf("-tier %q is not one of all, %s", tier, strings.Join(laneTiers(), ", "))
 	}
-	packaging := e.packages || touched
+	packaging := e.packages || t.packages
 	if e.everyTarget || packaging {
 		scope = changescope.Native
 	}
@@ -177,9 +190,9 @@ func plan(in native.Inputs, e event, scope changescope.Scope, touched bool, keep
 	p := Plan{Lanes: map[string]Matrix{}, Package: packaging}
 	for _, l := range lanes {
 		m := Matrix{Include: []MatrixEntry{}}
-		if l.selected(tier, packaging) {
-			for _, t := range targets {
-				m.Include = append(m.Include, l.entries(t)...)
+		if l.selected(tier, packaging) && (e.everyTarget || l.onlyWhen == nil || l.onlyWhen(t)) {
+			for _, target := range targets {
+				m.Include = append(m.Include, l.entries(target)...)
 			}
 		}
 		p.Lanes[l.kind] = m
