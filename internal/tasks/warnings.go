@@ -37,7 +37,7 @@ type unitSince struct {
 	at    time.Time
 }
 
-func warn(t Task, run latest, units []unitSince, interval time.Duration, intervals int64, now time.Time, zone *time.Location) (Warning, bool) {
+func warn(t Task, run latest, units []unitSince, after time.Duration, now time.Time, zone *time.Location) (Warning, bool) {
 	w := Warning{Task: t.ID, Category: categoryOf(t), Name: t.Name, Cause: run.cause}
 	switch run.result {
 	case RunFailed:
@@ -46,7 +46,7 @@ func warn(t Task, run latest, units []unitSince, interval time.Duration, interva
 		return w, true
 	case RunPartial:
 		for _, u := range units {
-			if now.Sub(u.at) > time.Duration(intervals)*interval {
+			if !now.Before(u.at.Add(after)) {
 				w.At, w.Unit = u.at, u.label
 				w.Text = fmt.Sprintf("%s has not finished %s since %s", t.Name, u.label, u.at.In(zone).Format("Jan 2 15:04"))
 				return w, true
@@ -54,6 +54,21 @@ func warn(t Task, run latest, units []unitSince, interval time.Duration, interva
 		}
 	}
 	return Warning{}, false
+}
+
+// nextOverdue is the earliest instant after now at which a unit of a
+// partial run goes overdue, zero when none will.
+func nextOverdue(result Result, units []unitSince, after time.Duration, now time.Time) time.Time {
+	var next time.Time
+	if result != RunPartial {
+		return next
+	}
+	for _, u := range units {
+		if due := u.at.Add(after); due.After(now) && (next.IsZero() || due.Before(next)) {
+			next = due
+		}
+	}
+	return next
 }
 
 func categoryOf(t Task) string {

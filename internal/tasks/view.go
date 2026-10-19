@@ -429,8 +429,23 @@ func (s *Scheduler) warning(l look, v View, now time.Time) (Warning, bool) {
 		return Warning{}, false
 	}
 	l2 := latest{result: v.Last.Result, ended: v.Last.Ended, cause: v.Last.Cause}
+	return warn(v.Task, l2, sinceOf(l.rows[v.Task.ID]), s.overdueAfter(l, v), now, s.cfg.Zone)
+}
+
+// nextWarning is the earliest instant after now at which v's warning may
+// change with time alone, zero when none.
+func (s *Scheduler) nextWarning(l look, v View, now time.Time) time.Time {
+	if v.Last == nil {
+		return time.Time{}
+	}
+	return nextOverdue(v.Last.Result, sinceOf(l.rows[v.Task.ID]), s.overdueAfter(l, v), now)
+}
+
+// overdueAfter is how long a unit of v's partial run may go without
+// success before v warns.
+func (s *Scheduler) overdueAfter(l look, v View) time.Duration {
 	intervals := PartialWarnAfter.Value(l.snap.settings.PartialWarnIntervals)
-	return warn(v.Task, l2, sinceOf(l.rows[v.Task.ID]), v.Task.Setting().Value(v.Every), intervals, now, s.cfg.Zone)
+	return time.Duration(intervals) * v.Task.Setting().Value(v.Every)
 }
 
 func (s *Scheduler) Warnings(ctx context.Context) ([]Warning, error) {

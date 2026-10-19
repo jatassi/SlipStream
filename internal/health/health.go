@@ -137,6 +137,10 @@ type Answer struct {
 	// facts aren't in since a restart. An open item under one keeps its
 	// level and since and shows these words; none is raised or cleared.
 	Unsure []Unsure
+	// Next is the earliest instant at which Answer may differ with none of
+	// the category's Events published, such as a task unit going overdue;
+	// zero when only an event changes it. Health asks again then.
+	Next time.Time
 }
 
 type Unsure struct {

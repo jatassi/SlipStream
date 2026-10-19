@@ -121,7 +121,7 @@ func TestWarn(t *testing.T) {
 			"backups|Housekeeping|failed|2026-10-16T04:12:00Z|no space||Housekeeping failed at 04:12: no space"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w, ok := warn(tc.task, tc.run, units, day, 3, at(tc.now), time.UTC)
+			w, ok := warn(tc.task, tc.run, units, 3*day, at(tc.now), time.UTC)
 			got := ""
 			if ok {
 				kind := "overdue"

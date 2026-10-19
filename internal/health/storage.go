@@ -129,6 +129,7 @@ func (h *Health) storageAnswer(ctx context.Context) (Answer, error) {
 		}
 		a.Items = append(a.Items, roots.Items...)
 		a.Unsure = append(a.Unsure, roots.Unsure...)
+		a.Next = roots.Next
 	}
 	return a, nil
 }

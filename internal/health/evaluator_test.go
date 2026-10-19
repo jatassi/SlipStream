@@ -321,6 +321,26 @@ func TestAFailingSourceLeavesItsRows(t *testing.T) {
 	})
 }
 
+func TestAFailedAnswerIsAskedAgainAfterTheRetry(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		w.nodes.set(health.Answer{}, errors.New("the board is closed"))
+		h := w.open(t)
+		run(t, h)
+		synctest.Wait()
+		w.nodes.set(health.Answer{Items: []health.Item{node(health.Fail, "Media server is offline.")}}, nil)
+		time.Sleep(health.DefaultTimings().Retry)
+		synctest.Wait()
+		r, err := h.Report(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c := r.Categories[1]; c.Unread != "" || len(c.Items) != 1 {
+			t.Fatalf("a retry after a failed answer shows %+v, want the source read and its item raised", c)
+		}
+	})
+}
+
 func TestAnUnsureKeyKeepsItsRowAndSince(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWorld(t)
@@ -655,7 +675,6 @@ func TestAnEvaluationThatChangesNothingReadsNoStorage(t *testing.T) {
 		if err := w.lib.Close(); err != nil {
 			t.Fatal(err)
 		}
-		time.Sleep(health.DefaultTimings().Reevaluate)
 		for _, c := range evaluate(t, h, health.StorageID, health.NodesID, health.ScheduledTasksID).Categories {
 			if c.Unread != "" {
 				t.Fatalf("an evaluation that changes nothing left %s unread with the library closed: %s", c.ID, c.Unread)

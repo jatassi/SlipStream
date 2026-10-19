@@ -20,9 +20,10 @@ var HealthAbout = health.About{
 
 // HealthSource answers category's items from the tasks whose Health names
 // it: one Warn per task whose latest run failed or whose unit went without
-// success past tasks.partialWarnIntervals, with Run now as its action. A
-// task waiting for its Node is unsure, so its item stands until the Node
-// returns. No Check now: Run now is the task's own retry.
+// success past tasks.partialWarnIntervals, with Run now as its action, and
+// as Next the instant the next unit goes overdue. A task waiting for its
+// Node is unsure, so its item stands until the Node returns. No Check now:
+// Run now is the task's own retry.
 func (s *Scheduler) HealthSource(category health.ID) health.Source {
 	return health.Source{Answer: func(ctx context.Context) (health.Answer, error) {
 		l, err := s.look(ctx)
@@ -46,6 +47,9 @@ func (s *Scheduler) HealthSource(category health.ID) health.Source {
 			}
 			if w, ok := s.warning(l, v, now); ok {
 				a.Items = append(a.Items, health.Item{Key: key, Level: health.Warn, Says: saysOf(w)})
+			}
+			if next := s.nextWarning(l, v, now); !next.IsZero() && (a.Next.IsZero() || next.Before(a.Next)) {
+				a.Next = next
 			}
 		}
 		return a, nil

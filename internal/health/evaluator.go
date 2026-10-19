@@ -83,6 +83,10 @@ type Health struct {
 	last map[ID]map[Key]Says
 	// rows is health_item as Run last committed it. Only Run touches it.
 	rows map[ID]map[Key]row
+	// next is when Run asks each category again with nothing published:
+	// its answer's Next, or Timings.Retry after a failure. Only Run
+	// touches it.
+	next map[ID]time.Time
 
 	// levelsMu holds each levels Write until levels keeps what it
 	// committed, so levels is always the stored levels.
@@ -104,6 +108,7 @@ func Open(ctx context.Context, cfg Config) (*Health, error) {
 		ready: make(chan struct{}),
 		dirty: map[ID]bool{},
 		last:  map[ID]map[Key]Says{},
+		next:  map[ID]time.Time{},
 	}
 	h.all = append([]Category{h.storage()}, cfg.Categories...)
 	registered(h.all)
@@ -145,8 +150,9 @@ func Open(ctx context.Context, cfg Config) (*Health, error) {
 }
 
 // Run is the only writer of health_item. It evaluates every category at
-// start and every Timings.Reevaluate, a category after its Events, and
-// whatever Evaluate asks, until ctx ends.
+// start, a category after its Events or at its answer's Next, one that
+// failed again after Timings.Retry, and whatever Evaluate asks, until ctx
+// ends.
 func (h *Health) Run(ctx context.Context) error {
 	var follows sync.WaitGroup
 	defer follows.Wait()
@@ -169,18 +175,24 @@ func (h *Health) Run(ctx context.Context) error {
 	for _, c := range h.all {
 		follow(c.Events, func() { h.mark(c.ID) })
 	}
-	follow(h.cfg.NameEvents, func() { h.mayPrune.Store(true) })
+	follow(h.cfg.NameEvents, func() {
+		h.mayPrune.Store(true)
+		h.mark(StorageID)
+	})
 	h.evaluate(ctx, h.ids(), false)
 	close(h.ready)
-	tick := time.NewTicker(h.cfg.Timings.Reevaluate)
-	defer tick.Stop()
+	due := time.NewTimer(0)
+	defer due.Stop()
 	for {
+		due.Stop()
+		if at := h.earliest(); !at.IsZero() {
+			due.Reset(time.Until(at))
+		}
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-tick.C:
-			h.take()
-			h.evaluate(ctx, h.ids(), false)
+		case now := <-due.C:
+			h.evaluate(ctx, append(h.take(), h.due(now)...), false)
 		case <-h.wake:
 			h.evaluate(ctx, h.take(), false)
 		case a := <-h.asks:
@@ -194,6 +206,28 @@ func (h *Health) ids() []ID {
 	ids := make([]ID, len(h.all))
 	for i, c := range h.all {
 		ids[i] = c.ID
+	}
+	return ids
+}
+
+// earliest is the soonest next, zero when none is set.
+func (h *Health) earliest() time.Time {
+	var at time.Time
+	for _, t := range h.next {
+		if !t.IsZero() && (at.IsZero() || t.Before(at)) {
+			at = t
+		}
+	}
+	return at
+}
+
+// due is the categories whose next has come by now.
+func (h *Health) due(now time.Time) []ID {
+	var ids []ID
+	for id, t := range h.next {
+		if !t.IsZero() && !t.After(now) {
+			ids = append(ids, id)
+		}
 	}
 	return ids
 }
@@ -340,8 +374,18 @@ func (h *Health) evaluate(ctx context.Context, ids []ID, publish bool) {
 		}
 	}
 	defer func() { h.publish(ctx, changed) }()
+	retry := time.Now().Add(h.cfg.Timings.Retry)
+	for i, id := range ids {
+		h.next[id] = answers[i].Next
+		if failed[i] != nil {
+			h.next[id] = retry
+		}
+	}
 	pruned, err := h.record(ctx, ids, answers, failed)
 	if err != nil {
+		for _, id := range ids {
+			h.next[id] = retry
+		}
 		h.unread(ids, err)
 		return
 	}
