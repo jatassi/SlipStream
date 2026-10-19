@@ -106,6 +106,22 @@ var packagingRoots = []string{
 // the packages are built from.
 func Packaging(changes []nativetouch.Change) bool { return touches(changes, packagingRoots) }
 
+// diagramRoots hold what the Diagram check reads: the harness and the
+// modules it imports, the scripts, the vendored anatomy kit and skill, and
+// the Vite server and packages it runs on. The diagram roots lint holds them
+// to the check's imports.
+var diagramRoots = []string{
+	"web/src/diagram/", "web/src/routes/_app/nodes/", "web/src/nodes/", "web/src/live/",
+	"web/src/ui/", "web/src/api/", "web/src/shell/",
+	"web/src/format.ts", "web/src/styles.css", "web/src/theme.gen.css",
+	"web/scripts/", "web/vendor/anatomy/", ".claude/skills/anatomy/",
+	"web/vite.config.ts", "web/package.json", "web/bun.lock", "web/tsconfig.json",
+}
+
+// Diagram reports whether a change touches, on either side, anything the
+// Diagram check reads.
+func Diagram(changes []nativetouch.Change) bool { return touches(changes, diagramRoots) }
+
 func touches(changes []nativetouch.Change, roots []string) bool {
 	return slices.ContainsFunc(changes, func(c nativetouch.Change) bool {
 		return slices.ContainsFunc(roots, func(root string) bool {
