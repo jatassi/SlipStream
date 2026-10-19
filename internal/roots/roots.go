@@ -15,6 +15,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/nodes"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots/internal/db"
@@ -212,6 +213,10 @@ type Config struct {
 	Inflight Inflight
 	Changed  Publisher
 	Volumes  VolumesPublisher
+	// Names is every Node's name, a removed one's too, and Describe each
+	// Content Type's nouns: the words of Health's items.
+	Names    func(ctx context.Context) (map[role.NodeID]nodes.Named, error)
+	Describe func(works.TypeID) (works.Description, bool)
 	Log      *slog.Logger
 }
 
@@ -457,7 +462,6 @@ func (r *Roots) views(ctx context.Context, rd storage.Reader[file], roots []Root
 	for _, row := range seenRows {
 		seen[row.RootID] = row
 	}
-	facts := map[role.NodeID]map[ID]placed{}
 	homed := make(map[ID]int64, len(counts))
 	for _, c := range counts {
 		homed[c.RootID] = c.Works
@@ -470,21 +474,13 @@ func (r *Roots) views(ctx context.Context, rd storage.Reader[file], roots []Root
 	if err != nil {
 		return nil, err
 	}
+	states, err := r.judge(roots, lost)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]View, len(roots))
 	for i, root := range roots {
-		of, ok := facts[root.Node]
-		if !ok {
-			if of, err = r.reportedOn(root.Node); err != nil {
-				return nil, err
-			}
-			facts[root.Node] = of
-		}
-		v := View{Root: root, Works: homed[root.ID], Use: use[root.ID]}
-		var rep report
-		if p, ok := of[root.ID]; ok && p.place == root.Place {
-			rep = p.report
-		}
-		v.State = stateOf(lost[root.ID], r.cfg.Roster.InStep(root.Node), rep.state)
+		v := View{Root: root, State: states[i].state, Works: homed[root.ID], Use: use[root.ID]}
 		if s, ok := seen[root.ID]; ok && s.Place == root.Place {
 			v.VolumeID = string(s.VolumeID)
 		}
