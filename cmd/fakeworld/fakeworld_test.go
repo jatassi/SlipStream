@@ -55,12 +55,12 @@ func startWorld(t *testing.T) (string, world.Manifest) {
 	return runDir, m
 }
 
-// untilGone waits for pid to vanish. A supervisor that exited is a zombie
+// untilGone waits for p to vanish. A supervisor that exited is a zombie
 // until init reaps it, since start, its parent, has already exited.
-func untilGone(t *testing.T, what string, pid int) {
+func untilGone(t *testing.T, what string, p worldtest.Process) {
 	t.Helper()
-	worldtest.Until(t, fmt.Sprintf("%s (PID %d) is gone", what, pid), func() (bool, error) {
-		return worldtest.ProcessGone(pid), nil
+	worldtest.Until(t, fmt.Sprintf("%s (PID %d) is gone", what, p.PID), func() (bool, error) {
+		return p.Gone(), nil
 	})
 }
 
@@ -98,20 +98,20 @@ const cleanReport = `{
 func TestStartStop(t *testing.T) {
 	t.Parallel()
 	runDir, m := startWorld(t)
-	home := m.Nodes[0]
-	for what, pid := range map[string]int{"the supervisor": m.Supervisor.PID, "node home": home.PID} {
-		if worldtest.ProcessGone(pid) {
-			t.Fatalf("%s (PID %d) is not running after start", what, pid)
+	supervisor, home := worldtest.Watch(t, m.Supervisor.PID), worldtest.Watch(t, m.Nodes[0].PID)
+	for what, p := range map[string]worldtest.Process{"the supervisor": supervisor, "node home": home} {
+		if p.Gone() {
+			t.Fatalf("%s (PID %d) is not running after start", what, p.PID)
 		}
 	}
 
 	if got, want := fakeworld(t, "stop", runDir), (result{0, cleanReport, ""}); got != want {
 		t.Fatalf("stop = %+v, want %+v", got, want)
 	}
-	if !worldtest.ProcessGone(home.PID) {
+	if !home.Gone() {
 		t.Errorf("node home (PID %d) is still running after stop", home.PID)
 	}
-	untilGone(t, "the supervisor", m.Supervisor.PID)
+	untilGone(t, "the supervisor", supervisor)
 	assertGone(t, m.ScratchDir)
 	assertGone(t, m.Supervisor.Control)
 	stopped, err := os.ReadFile(filepath.Join(runDir, "stopped.json"))
@@ -193,6 +193,7 @@ func TestStopWithoutSupervisor(t *testing.T) {
 	runDir, m := startWorld(t)
 	home := m.Nodes[0]
 	t.Cleanup(func() { stopByHand(t, m) })
+	watched := worldtest.Watch(t, m.Supervisor.PID)
 	supervisor, err := os.FindProcess(m.Supervisor.PID)
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +201,7 @@ func TestStopWithoutSupervisor(t *testing.T) {
 	if err := supervisor.Kill(); err != nil {
 		t.Fatal(err)
 	}
-	untilGone(t, "the supervisor", m.Supervisor.PID)
+	untilGone(t, "the supervisor", watched)
 
 	want := result{1, "", fmt.Sprintf("fakeworld stop: the supervisor (PID %d) is not running; stop each Node with:\n  slipstream stop --data-dir %s\n", m.Supervisor.PID, home.DataDir)}
 	if got := fakeworld(t, "stop", runDir); got != want {
@@ -211,8 +212,9 @@ func TestStopWithoutSupervisor(t *testing.T) {
 func stopByHand(t *testing.T, m world.Manifest) {
 	t.Helper()
 	for _, n := range m.Nodes {
+		p := worldtest.Watch(t, n.PID)
 		_ = exec.CommandContext(worldtest.Context(t), m.Binary.Path, "stop", "--data-dir", n.DataDir).Run()
-		untilGone(t, "node "+n.Name, n.PID)
+		untilGone(t, "node "+n.Name, p)
 	}
 	for _, path := range []string{m.ScratchDir, m.Supervisor.Control} {
 		if err := os.RemoveAll(path); err != nil {

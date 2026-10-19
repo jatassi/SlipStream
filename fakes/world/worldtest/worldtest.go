@@ -140,11 +140,17 @@ func stopBudget(s scenario.Scenario) time.Duration {
 func checkStop(t *testing.T, run *world.Run) {
 	t.Helper()
 	m := run.Manifest()
+	nodes := make([]Process, len(m.Nodes))
+	for i, n := range m.Nodes {
+		if n.PID != 0 {
+			nodes[i] = Watch(t, n.PID)
+		}
+	}
 	if _, err := run.Stop(Context(t)); err != nil {
 		t.Errorf("the run did not stop cleanly:\n%v", err)
 	}
-	for _, n := range m.Nodes {
-		if n.PID != 0 && !ProcessGone(n.PID) {
+	for i, n := range m.Nodes {
+		if n.PID != 0 && !nodes[i].Gone() {
 			t.Errorf("node %s (PID %d) is still running after stop", n.Name, n.PID)
 		}
 	}
@@ -229,5 +235,24 @@ func SetupCode(t *testing.T, run *world.Run, name string) string {
 	return ready
 }
 
-// ProcessGone reports whether no process with pid exists.
+// ProcessGone reports whether no process with pid exists. Once a process
+// is reaped, Windows can give its PID to another: Watch it while it runs.
 func ProcessGone(pid int) bool { return !proc.Alive(pid) }
+
+// Process is a process watched until a test ends.
+type Process struct {
+	PID int
+	*proc.Watched
+}
+
+// Watch watches the process pid until t ends. Take it while pid still
+// names that process.
+func Watch(t *testing.T, pid int) Process {
+	t.Helper()
+	w, err := proc.Watch(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(w.Close)
+	return Process{pid, w}
+}

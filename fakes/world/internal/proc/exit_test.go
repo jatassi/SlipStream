@@ -59,8 +59,14 @@ func TestKillingAProcessThatHasExitedSucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := proc.WaitExit(worldtest.Context(t), p.PID); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Kill(); err != nil {
+		t.Fatalf("Kill once the process exited = %v", err)
+	}
 	<-p.Exited()
 	if err := p.Kill(); err != nil {
-		t.Fatalf("Kill after the process exited = %v", err)
+		t.Fatalf("Kill once the process is reaped = %v", err)
 	}
 }

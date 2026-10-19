@@ -94,7 +94,10 @@ func TestUnwindPastTheDeadlineNamesTheStopStillRunning(t *testing.T) {
 	s.OnStop("lock", r.stop("lock"))
 	s.OnStop("log", r.stop("log"))
 	s.OnStop("torrent", func(context.Context) error { <-hung; return nil })
-	s.OnStop("control", r.stop("control"))
+	s.OnStop("control", func(ctx context.Context) error {
+		time.Sleep(10 * time.Millisecond)
+		return r.stop("control")(ctx)
+	})
 
 	err := s.unwind(50 * time.Millisecond)
 	if !errors.Is(err, ErrStopDeadline) || err.Error() != "stop deadline passed after 50ms, torrent still running" {
@@ -110,6 +113,14 @@ func TestUnwindPastTheDeadlineNamesTheStopStillRunning(t *testing.T) {
 	}
 	if want := `{"msg":"stop deadline passed","not_run":["log","lock"],"running":"torrent"}`; string(got) != want {
 		t.Fatalf("deadline record = %s, want %s", got, want)
+	}
+	var controlTook time.Duration
+	if took, _ := rec["took"].([]any); len(took) == 1 {
+		controlTook, _ = time.ParseDuration(strings.TrimPrefix(fmt.Sprint(took[0]), "control "))
+	}
+	runningFor, _ := time.ParseDuration(fmt.Sprint(rec["running_for"]))
+	if controlTook < 10*time.Millisecond || controlTook+runningFor < 50*time.Millisecond {
+		t.Fatalf("deadline record took %v and ran torrent for %v, want control's 10ms or more and the two to fill the 50ms deadline", rec["took"], rec["running_for"])
 	}
 }
 

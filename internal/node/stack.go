@@ -144,9 +144,10 @@ func (s *Stack) Err() error {
 	}
 }
 
-// unwind runs the stop functions in reverse. Past the deadline it logs the
-// one still running and those it never reached, and returns ErrStopDeadline
-// without waiting further.
+// unwind runs the stop functions in reverse. Past the deadline it logs how
+// long each finished one took, the one still running and for how long, and
+// those it never reached, and returns ErrStopDeadline without waiting
+// further.
 func (s *Stack) unwind(deadline time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
@@ -163,12 +164,15 @@ func (s *Stack) unwindUnder(ctx context.Context, limit time.Duration) error {
 	s.mu.Unlock()
 
 	var errs []error
+	took := make([]string, 0, len(entries))
 	for i := len(entries) - 1; i >= 0; i-- {
 		e := entries[i]
+		start := time.Now()
 		res := make(chan error, 1)
 		go func() { res <- e.stop(ctx) }()
 		select {
 		case err := <-res:
+			took = append(took, e.name+" "+time.Since(start).String())
 			if err != nil {
 				s.log.Error("stop failed", "stop", e.name, "err", err.Error())
 				errs = append(errs, fmt.Errorf("stop %s: %w", e.name, err))
@@ -178,7 +182,7 @@ func (s *Stack) unwindUnder(ctx context.Context, limit time.Duration) error {
 			for j := i - 1; j >= 0; j-- {
 				pending = append(pending, entries[j].name)
 			}
-			s.log.Error("stop deadline passed", "deadline", limit.String(), "running", e.name, "not_run", pending)
+			s.log.Error("stop deadline passed", "deadline", limit.String(), "took", took, "running", e.name, "running_for", time.Since(start).String(), "not_run", pending)
 			return fmt.Errorf("%w after %s, %s still running", ErrStopDeadline, limit, e.name)
 		}
 	}

@@ -11,8 +11,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -158,12 +160,9 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ffmpeg: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
 	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		// Concurrent worlds encode the same bytes. On Windows a rename onto a
-		// payload another process has open fails, and that payload is this one.
-		if _, statErr := os.Stat(path); statErr == nil {
-			return path, nil
-		}
+	// A link never replaces a payload another world published, so no open
+	// of the cached path races a rename onto it. That payload is this one.
+	if err := os.Link(tmp.Name(), path); err != nil && !errors.Is(err, fs.ErrExist) {
 		return "", fmt.Errorf("cache the payload: %w", err)
 	}
 	return path, nil
