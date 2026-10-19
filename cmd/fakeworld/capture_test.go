@@ -22,11 +22,11 @@ func TestReadersWorkOnAStoppedRun(t *testing.T) {
 	if err := json.Unmarshal([]byte(wait.stdout), &rec); wait.code != 0 || err != nil {
 		t.Fatalf("announces wait = %+v, want the announce", wait)
 	}
-	const data = `{"passkey":"nope","infoHash":"6161616161616161616161616161616161616161","peerId":"","port":6881,"event":"started","uploaded":0,"downloaded":0,"left":5,"failure":"passkey not recognized"}`
+	const data = `{"passkey":"nope","infoHash":"6161616161616161616161616161616161616161","peerId":"","port":6881,"event":"started","uploaded":0,"downloaded":0,"left":5,"accepted":false,"rule":"passkey","failure":"passkey not recognized"}`
 	if rec.Kind != "tracker.announce" || rec.Node != "world" || string(rec.Data) != data {
 		t.Fatalf("announces wait = %s %s %s, want tracker.announce world %s", rec.Kind, rec.Node, rec.Data, data)
 	}
-	list := fakeworld(t, "announces", "list", runDir, "--node", "world", "--where", "left=5")
+	list := fakeworld(t, "announces", "list", runDir, "--node", "world", "--where", "accepted=false", "--where", "rule=passkey")
 	if list != (result{0, wait.stdout, ""}) {
 		t.Fatalf("announces list = %+v, want the announce wait printed", list)
 	}
