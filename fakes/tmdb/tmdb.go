@@ -360,6 +360,7 @@ type imagesJSON struct {
 type imageJSON struct {
 	AspectRatio float64 `json:"aspect_ratio"`
 	Height      int     `json:"height"`
+	Country     *string `json:"iso_3166_1"`
 	Language    *string `json:"iso_639_1"`
 	FilePath    string  `json:"file_path"`
 	VoteAverage float64 `json:"vote_average"`
@@ -590,8 +591,14 @@ func imagePath(m scenario.TMDBMovie, i int) *string {
 	return file("image", fmt.Sprintf("%d/%d", m.ID, i), ext)
 }
 
+// translations lists English first. TMDB keeps the title of the original
+// language on the record, so that translation's title is empty.
 func translations(m scenario.TMDBMovie, rev int) *translationsJSON {
-	out := &translationsJSON{Translations: []translationJSON{{Country: "US", Language: "en", Data: text(m, rev, "en-US")}}}
+	english := text(m, rev, "en-US")
+	if originalLanguage(m) == "en" {
+		english.Title = ""
+	}
+	out := &translationsJSON{Translations: []translationJSON{{Country: "US", Language: "en", Data: english}}}
 	for _, t := range m.Translations {
 		iso, country, _ := strings.Cut(t.Language, "-")
 		out.Translations = append(out.Translations, translationJSON{Country: country, Language: iso, Data: translationDataJSON{Title: t.Title, Overview: overview(t.Overview, rev), Tagline: t.Tagline}})
@@ -613,8 +620,9 @@ func languagesParam(v, lang string, null bool) []string {
 }
 
 type changeJSON struct {
-	ID    int64 `json:"id"`
-	Adult bool  `json:"adult"`
+	ID       int64 `json:"id"`
+	Adult    bool  `json:"adult"`
+	Softcore bool  `json:"softcore"`
 }
 
 type changesJSON struct {

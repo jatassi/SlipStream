@@ -165,7 +165,7 @@ func TestTheFakeAnswersInTheAskedLanguage(t *testing.T) {
 			"/3/movie/9000001?language=fr-CA":             `"overview":"Deux sœurs gardent un verger.",`,
 			"/3/movie/9000001?language=de-DE":             `"overview":"","poster_path"`,
 			"/3/movie/9000001?language=en-GB":             `"overview":"Two sisters keep an orchard.",`,
-			"/3/movie/9000001?append_to_response=translations": `"translations":{"translations":[{"iso_3166_1":"US","iso_639_1":"en","data":{"title":"The Quiet Orchard","overview":"Two sisters keep an orchard.","tagline":""}},` +
+			"/3/movie/9000001?append_to_response=translations": `"translations":{"translations":[{"iso_3166_1":"US","iso_639_1":"en","data":{"title":"","overview":"Two sisters keep an orchard.","tagline":""}},` +
 				`{"iso_3166_1":"FR","iso_639_1":"fr","data":{"title":"Le Verger tranquille","overview":"Deux sœurs gardent un verger.","tagline":""}}]}`,
 		} {
 			if got := get(t, f, path); !strings.Contains(got, want) {
@@ -224,7 +224,7 @@ func TestDeleteAnswers404Status34(t *testing.T) {
 		check(t, f, []exchange{
 			{"/3/movie/9000001", notFound},
 			{"/3/search/movie?query=orchard", none},
-			{"/3/movie/changes?start_date=" + today + "&end_date=" + today, `200 OK {"results":[{"id":9000001,"adult":false}],"page":1,"total_pages":1,"total_results":1}` + "\n"},
+			{"/3/movie/changes?start_date=" + today + "&end_date=" + today, `200 OK {"results":[{"id":9000001,"adult":false,"softcore":false}],"page":1,"total_pages":1,"total_results":1}` + "\n"},
 		})
 	})
 }
@@ -240,7 +240,7 @@ func TestChangeAltersTheRecordAndListsIt(t *testing.T) {
 		day := time.Now().UTC()
 		yesterday := day.Add(-24 * time.Hour).Format(time.DateOnly)
 		check(t, f, []exchange{
-			{"/3/movie/changes?start_date=" + day.Format(time.DateOnly), `200 OK {"results":[{"id":9000001,"adult":false}],"page":1,"total_pages":1,"total_results":1}` + "\n"},
+			{"/3/movie/changes?start_date=" + day.Format(time.DateOnly), `200 OK {"results":[{"id":9000001,"adult":false,"softcore":false}],"page":1,"total_pages":1,"total_results":1}` + "\n"},
 			{"/3/movie/changes?start_date=" + yesterday + "&end_date=" + yesterday, `200 OK {"results":[],"page":1,"total_pages":0,"total_results":0}` + "\n"},
 		})
 	})

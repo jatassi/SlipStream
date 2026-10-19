@@ -144,9 +144,10 @@ func movie(t *testing.T, c *provider.Client, ask metadata.Ask, known Known) {
 	if m.ID != known.ID || m.Title != known.Title || m.IMDbID != known.IMDbID || m.ExternalIDs.IMDbID != known.IMDbID || !strings.HasPrefix(m.ReleaseDate, strconv.Itoa(known.Year)+"-") {
 		t.Errorf("Movie(%d) = %d %q %q %q released %q, want %d %q %q in %d", known.ID, m.ID, m.Title, m.IMDbID, m.ExternalIDs.IMDbID, m.ReleaseDate, known.ID, known.Title, known.IMDbID, known.Year)
 	}
-	english := slices.IndexFunc(m.Translations.Translations, func(tr provider.Translation) bool {
-		return tr.Language == "en" && tr.Country == "US" && tr.Data.Title == known.Title
-	})
+	english := slices.IndexFunc(m.Translations.Translations, func(tr provider.Translation) bool { return tr.Language == "en" && tr.Country == "US" })
+	if english >= 0 {
+		t.Logf("the en-US translation of %d is %+v", known.ID, m.Translations.Translations[english].Data)
+	}
 	trailer := slices.IndexFunc(m.Videos.Results, func(v provider.Video) bool { return v.Type == "Trailer" && v.Site == "YouTube" && v.Key != "" })
 	for block, filled := range map[string]bool{
 		"overview":             m.Overview != "",
@@ -165,7 +166,7 @@ func movie(t *testing.T, c *provider.Client, ask metadata.Ask, known Known) {
 		"translations en-US":   english >= 0,
 	} {
 		if !filled {
-			t.Errorf("Movie(%d) has no %s", known.ID, block)
+			t.Errorf("Movie(%d) has no %s; translations %+v", known.ID, block, m.Translations.Translations)
 		}
 	}
 	for _, img := range m.Images.Posters {
