@@ -186,3 +186,19 @@ func notHolder(held role.Name, message string) *connect.Error {
 	}
 	return connect.NewError(connect.CodeFailedPrecondition, message).WithDetail(detail)
 }
+
+// Alone is the Cluster of self as the only Node, holding each Role holds
+// reports: every call is Local.
+func Alone(self role.NodeID, holds func(role.Name) bool) (*Dispatch, *Cluster) {
+	d := NewDispatch(nil, link.Key{}, link.Key{}, holds)
+	return d, NewCluster(d, alone{self: self, holds: holds})
+}
+
+type alone struct {
+	self  role.NodeID
+	holds func(role.Name) bool
+}
+
+func (a alone) Key(node role.NodeID) (link.Key, bool) { return link.Key{}, node == a.self }
+
+func (a alone) Serves(r role.Name, node role.NodeID) bool { return node == a.self && a.holds(r) }

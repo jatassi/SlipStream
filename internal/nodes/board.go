@@ -253,6 +253,22 @@ func (h Holders) Pick(prefer ID) (ID, bool) {
 	return ID{}, false
 }
 
+// PickOther is Pick for a call besides couldn't take: the Controller when
+// it may and isn't besides, else the first other Node by id that may.
+func (h Holders) PickOther(besides ID) (ID, bool) {
+	for _, n := range h.b.nodes {
+		if n.Controller && n.ID != besides && h.May(n.ID) {
+			return n.ID, true
+		}
+	}
+	for _, n := range h.b.nodes {
+		if n.ID != besides && h.May(n.ID) {
+			return n.ID, true
+		}
+	}
+	return ID{}, false
+}
+
 func (h Holders) Lapsed(n ID) bool { return h.State(n) == Lapsed }
 
 // Absence is how a Node assigned a Role stands while it is out of step.
