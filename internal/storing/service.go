@@ -67,6 +67,10 @@ func (s *Store) MakeFolder(ctx context.Context, req *storagev1.MakeFolderRequest
 }
 
 func (s *Store) Check(ctx context.Context, req *storagev1.CheckRequest) (*storagev1.CheckResponse, error) {
+	purpose, err := purposes.parse(req.GetPurpose())
+	if err != nil {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
+	}
 	others := make([]Other, 0, len(req.GetOthers()))
 	for _, o := range req.GetOthers() {
 		id, err := storage.UUIDFromBytes(o.GetId())
@@ -75,7 +79,7 @@ func (s *Store) Check(ctx context.Context, req *storagev1.CheckRequest) (*storag
 		}
 		others = append(others, Other{ID: id, Path: o.GetPath()})
 	}
-	c, err := s.check(ctx, req.GetPath(), others)
+	c, err := s.check(ctx, req.GetPath(), purpose, others)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -389,10 +393,10 @@ var reasonOf = map[FolderErrorKind]Reason{
 	FolderUnresponsive: ReasonUnresponsive,
 }
 
-// check judges path as a root's folder: absolute, there, a folder, apart
-// from others and the Node's data and downloads folders, and writable by
-// a temp file.
-func (s *Store) check(ctx context.Context, path string, others []Other) (CheckResult, error) {
+// check judges path as a folder for purpose: absolute, there, a folder,
+// apart from the folders purpose reserves, on no network share for
+// downloads, and writable by a temp file.
+func (s *Store) check(ctx context.Context, path string, purpose Purpose, others []Other) (CheckResult, error) {
 	dir, err := s.host.Style.Clean(path)
 	switch {
 	case errors.Is(err, ErrNotAbsolute):
@@ -414,8 +418,12 @@ func (s *Store) check(ctx context.Context, path string, others []Other) (CheckRe
 	if v, err := timed(ctx, s, dir, func(ctx context.Context) (Volume, error) { return s.cfg.Disk.Volume(ctx, dir) }); err == nil {
 		c.Volume = &v
 	}
-	if r := judge(s.host.Style, dir, others, s.host.Data, s.host.Downloads, s.identity(ctx)); r != nil {
+	if r := judge(s.host.Style, dir, s.reserved(purpose, others), s.identity(ctx)); r != nil {
 		c.Refusal = r
+		return c, nil
+	}
+	if purpose == PurposeDownloads && c.Volume != nil && c.Volume.Kind == Network {
+		c.Refusal = &Refusal{Reason: ReasonNetworkShare}
 		return c, nil
 	}
 	if _, err := timed(ctx, s, dir, func(ctx context.Context) (struct{}, error) { return struct{}{}, s.tryWrite(ctx, dir) }); err != nil {
@@ -426,6 +434,25 @@ func (s *Store) check(ctx context.Context, path string, others []Other) (CheckRe
 		c.Refusal = &Refusal{Reason: reason}
 	}
 	return c, nil
+}
+
+// reserved is every folder a folder for purpose may not overlap: for a
+// root, others and the Node's data and downloads folders; for downloads,
+// every root the Node holds.
+func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
+	switch purpose {
+	case PurposeRoot:
+		return append(apartFrom(others), forRoot(s.host.Data, s.host.Downloads)...)
+	case PurposeDownloads:
+		s.mu.Lock()
+		held := make([]Other, len(s.roots))
+		for i, r := range s.roots {
+			held[i] = Other{ID: r.id, Path: r.path}
+		}
+		s.mu.Unlock()
+		return apartFrom(held)
+	}
+	panic(fmt.Sprintf("storing: purpose %d has no rules", purpose))
 }
 
 // identity compares two folders by file identity, each stat once under

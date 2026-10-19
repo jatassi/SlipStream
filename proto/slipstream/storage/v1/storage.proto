@@ -82,14 +82,6 @@ message Result {}
 
 service StorageService {
   option (slipstream.node.v1.served_by) = {role: "storage"};
-  // Browse lists a folder, or the Node's places for an empty path.
-  rpc Browse(BrowseRequest) returns (BrowseResponse);
-  // Suggest lists up to 25 folders completing typed text, in its separators.
-  rpc Suggest(SuggestRequest) returns (SuggestResponse);
-  // MakeFolder makes name in an existing parent, joined by the Node.
-  rpc MakeFolder(MakeFolderRequest) returns (MakeFolderResponse);
-  // Check judges a folder as a root against the given roots on this Node.
-  rpc Check(CheckRequest) returns (CheckResponse);
   // Verify checks one batch of recorded files at a proposed folder.
   rpc Verify(VerifyRequest) returns (VerifyResponse);
   // Place puts a finished download's file at a root-relative holding path.
@@ -101,6 +93,20 @@ service StorageService {
   rpc Remove(RemoveRequest) returns (RemoveResponse);
   // List names the files in a root's holding or staging folder.
   rpc List(ListRequest) returns (ListResponse);
+}
+
+// FolderService is the folder ops every Node serves, Storage or not, so an
+// Admin can choose a folder on any Node.
+service FolderService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  // Browse lists a folder, or the Node's places for an empty path.
+  rpc Browse(BrowseRequest) returns (BrowseResponse);
+  // Suggest lists up to 25 folders completing typed text, in its separators.
+  rpc Suggest(SuggestRequest) returns (SuggestResponse);
+  // MakeFolder makes name in an existing parent, joined by the Node.
+  rpc MakeFolder(MakeFolderRequest) returns (MakeFolderResponse);
+  // Check judges a folder for a purpose on this Node.
+  rpc Check(CheckRequest) returns (CheckResponse);
 }
 
 message BrowseRequest {
@@ -165,10 +171,23 @@ message MakeFolderResponse {
 
 message CheckRequest {
   string path = 1;
-  // others is every root on this Node the folder must not overlap. The
-  // Controller sends them, so a root it just saved counts before the
-  // Node's intent catches up, and a re-homing root leaves itself out.
+  // others is, for PURPOSE_ROOT, every root on this Node the folder must
+  // not overlap. The Controller sends them, so a root it just saved counts
+  // before the Node's intent catches up, and a re-homing root leaves itself
+  // out. PURPOSE_DOWNLOADS reads the roots the Node holds instead.
   repeated Other others = 2;
+  Purpose purpose = 3;
+}
+
+// Purpose is what a folder is for, which decides the rules it is judged by.
+enum Purpose {
+  PURPOSE_UNSPECIFIED = 0;
+  // ROOT: a library root, apart from other roots and the Node's data and
+  // downloads folders.
+  PURPOSE_ROOT = 1;
+  // DOWNLOADS: where the Node downloads, writable, on no network share,
+  // and apart from every root it holds.
+  PURPOSE_DOWNLOADS = 2;
 }
 
 message Other {
@@ -200,6 +219,7 @@ enum Reason {
   REASON_INSIDE_DOWNLOADS = 9;
   REASON_CONTAINS_DOWNLOADS = 10;
   REASON_UNRESPONSIVE = 11;
+  REASON_NETWORK_SHARE = 12;
 }
 
 message VerifyRequest {

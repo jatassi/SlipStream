@@ -120,6 +120,7 @@ var (
 	ErrNoRoot     = errors.New("the Work has no root")
 	ErrNotFound   = errors.New("no root has that id")
 	ErrNotStorage = errors.New("the Node doesn't hold Storage")
+	ErrNoNode     = errors.New("no Node has that id")
 	ErrNodeAway   = errors.New("the Node is offline")
 	ErrWrongType  = errors.New("the root holds another Content Type's Works")
 	ErrHasFiles   = errors.New("the Work has files, so changing its root is a Move")
@@ -127,14 +128,14 @@ var (
 	ErrWorksTo    = errors.New("the root's Works need another root of their Content Type to go to")
 )
 
-// Reason is why a folder can't be a root: one of storing's reasons, or
-// NodeOffline.
+// Reason is why a folder can't serve its purpose: one of storing's
+// reasons, or NodeOffline.
 type Reason string
 
 const NodeOffline Reason = "node_offline"
 
-// Refusal is why a folder can't be a root, and the root it is inside,
-// contains or carries the marker of.
+// Refusal is why a folder can't serve its purpose, and the root it is
+// inside, contains or carries the marker of.
 type Refusal struct {
 	Reason Reason
 	Root   *ID
@@ -155,8 +156,8 @@ func (e *UnusableError) Error() string {
 	return "the folder can't be a root: " + string(e.Refusal.Reason)
 }
 
-// Verdict is a folder's fitness as a root, judged on its Node. Refusal is
-// nil when it can be one.
+// Verdict is a folder's fitness for a purpose, judged on its Node. Refusal
+// is nil when it serves.
 type Verdict struct {
 	// Path is the folder as its Node cleaned it.
 	Path    string
@@ -206,6 +207,7 @@ type Config struct {
 	Roster   Roster
 	Storage  Storage
 	Remote   storing.Remote
+	Folders  storing.Folders
 	Arrivals *Arrivals
 	Contents Contents
 	Inflight Inflight
@@ -322,13 +324,21 @@ func insert(ctx context.Context, tx *storage.Tx[file], root Root, makeDefault bo
 	return err
 }
 
-// Check judges path on node, which must hold Storage, as a root's folder
-// apart from every other root but except, without saving anything.
-func (r *Roots) Check(ctx context.Context, _ identity.Admin, node role.NodeID, path string, except *ID) (Verdict, error) {
-	if !r.cfg.Roster.Holds(role.Storage, node) {
-		return Verdict{}, ErrNotStorage
+// Check judges path on node as a folder for purpose without saving
+// anything. A root's folder needs node to hold Storage and stays apart from
+// every other root but except, which a downloads folder ignores.
+func (r *Roots) Check(ctx context.Context, _ identity.Admin, node role.NodeID, path string, purpose storing.Purpose, except *ID) (Verdict, error) {
+	switch purpose {
+	case storing.PurposeRoot:
+		if !r.cfg.Roster.Holds(role.Storage, node) {
+			return Verdict{}, ErrNotStorage
+		}
+		return r.check(ctx, node, path, except)
+	case storing.PurposeDownloads:
+		v, _, err := r.judged(ctx, node, path, purpose, nil)
+		return v, err
 	}
-	return r.check(ctx, node, path, except)
+	panic(fmt.Sprintf("roots: purpose %s has no check", purpose))
 }
 
 // check asks node to judge path apart from node's roots but except. A
@@ -356,29 +366,39 @@ func (r *Roots) check(ctx context.Context, node role.NodeID, path string, except
 	if err != nil {
 		return Verdict{}, err
 	}
-	c, err := r.cfg.Remote.Check(ctx, node, path, others)
-	switch err := reached(err); {
-	case errors.Is(err, ErrNodeAway):
-		return Verdict{Path: path, Refusal: &Refusal{Reason: NodeOffline}}, nil
-	case err != nil:
-		return Verdict{}, err
+	v, marker, err := r.judged(ctx, node, path, storing.PurposeRoot, others)
+	if err == nil && v.Refusal == nil && known[marker] {
+		v.Refusal = refusalOf(storing.Refusal{Reason: storing.ReasonInsideRoot, Root: marker})
 	}
-	v := Verdict{Path: c.Path, Volume: c.Volume}
-	switch {
-	case c.Refusal != nil:
-		v.Refusal = refusalOf(*c.Refusal)
-	case known[c.Marker]:
-		v.Refusal = refusalOf(storing.Refusal{Reason: storing.ReasonInsideRoot, Root: c.Marker})
-	}
-	return v, nil
+	return v, err
 }
 
-// reached is a Storage call's error as roots reads it: a Node that doesn't
-// hold Storage is ErrNotStorage, and one the call never reached, or lost on
-// the way, ErrNodeAway.
+// judged is node's verdict on path for purpose, and the root id its marker
+// names; an offline Node's verdict is NodeOffline.
+func (r *Roots) judged(ctx context.Context, node role.NodeID, path string, purpose storing.Purpose, others []storing.Other) (Verdict, storage.UUID, error) {
+	c, err := r.cfg.Folders.Check(ctx, node, path, purpose, others)
+	switch err := reached(err); {
+	case errors.Is(err, ErrNodeAway):
+		return Verdict{Path: path, Refusal: &Refusal{Reason: NodeOffline}}, storage.UUID{}, nil
+	case err != nil:
+		return Verdict{}, storage.UUID{}, err
+	}
+	v := Verdict{Path: c.Path, Volume: c.Volume}
+	if c.Refusal != nil {
+		v.Refusal = refusalOf(*c.Refusal)
+	}
+	return v, c.Marker, nil
+}
+
+// reached is a Node call's error as roots reads it: a Node the roster
+// doesn't know is ErrNoNode, one that doesn't hold Storage ErrNotStorage,
+// and one the call never reached, or lost on the way, ErrNodeAway.
 func reached(err error) error {
 	if why, ok := rpc.NotSent(err); ok {
-		if why == rpc.NotHolder {
+		switch {
+		case why == rpc.NotHolder && rpc.Unheld(err) == "":
+			return fmt.Errorf("%w: %w", ErrNoNode, err)
+		case why == rpc.NotHolder:
 			return fmt.Errorf("%w: %w", ErrNotStorage, err)
 		}
 		return fmt.Errorf("%w: %w", ErrNodeAway, err)

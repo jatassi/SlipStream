@@ -27,7 +27,7 @@ type Field interface {
 func (a About) about() About { return a }
 
 // Kinds is every kind of Field, once each.
-var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}}
+var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}, RateField{}, AddressField{}, FolderField{}}
 
 // DurationField is a Duration on the wire, in seconds.
 type DurationField struct {
@@ -100,4 +100,35 @@ type SwitchField struct {
 	Value   bool   `json:"value"`
 	Running bool   `json:"running"`
 	Default bool   `json:"default"`
+}
+
+// RateField is a Rate on the wire, in bytes a second.
+type RateField struct {
+	About
+	Kind    string `json:"kind" enum:"rate"`
+	Value   int64  `json:"value" doc:"Bytes a second"`
+	Running int64  `json:"running" doc:"Bytes a second"`
+	Default int64  `json:"default" doc:"Bytes a second"`
+	Max     int64  `json:"max" doc:"Bytes a second"`
+	Zero    string `json:"zero,omitempty" doc:"The words for 0, such as No limit"`
+}
+
+// AddressField is an Address on the wire, as text such as 0.0.0.0:6881.
+type AddressField struct {
+	About
+	Kind    string `json:"kind" enum:"address"`
+	Value   string `json:"value"`
+	Running string `json:"running"`
+	Default string `json:"default"`
+}
+
+// FolderField is a Folder on the wire: a path in its Node's own style.
+type FolderField struct {
+	About
+	Kind    string `json:"kind" enum:"folder"`
+	Value   string `json:"value"`
+	Running string `json:"running"`
+	Default string `json:"default"`
+	NodeID  string `json:"nodeId" format:"uuid" doc:"The Node the path is on, which browses and judges it"`
+	Purpose string `json:"purpose" enum:"downloads" doc:"The rules the Node judges the folder by, as checkFolder names them"`
 }
