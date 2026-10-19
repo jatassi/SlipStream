@@ -39,6 +39,9 @@ func (u URL) Hostname() string { return u.u.Hostname() }
 
 func (u URL) String() string { return u.u.String() }
 
+// JoinPath is a copy of u with elem joined onto its path.
+func (u URL) JoinPath(elem ...string) *url.URL { return u.u.JoinPath(elem...) }
+
 func (u URL) MarshalText() ([]byte, error) { return []byte(u.String()), nil }
 
 func (u *URL) UnmarshalText(b []byte) error {

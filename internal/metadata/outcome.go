@@ -1,6 +1,9 @@
 package metadata
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // OutcomeKind is how one provider call ended. Provider status reads it.
 type OutcomeKind uint8
@@ -27,3 +30,8 @@ type Outcome struct {
 	Words string
 	At    time.Time
 }
+
+// ErrNoChanges answers a changes list asked from further back than the
+// source lists, or from a source that keeps none. The caller relies on its
+// other refresh tiers instead.
+var ErrNoChanges = errors.New("the metadata source lists no changes that far back")

@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -303,7 +304,8 @@ func (n *Node) httpClient() *http.Client {
 
 func (n *Node) openTypes(client *http.Client) map[works.TypeID]contenttype.Type {
 	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
-	source := tmdb.New(client, n.cfg.Endpoints.TMDB, userAgent)
+	lines := metadata.NewLines(client, userAgent, n.cfg.Timings.Metadata, n.metadataRand)
+	source := tmdb.New(lines, n.cfg.Endpoints.TMDB, n.cfg.Timings.TMDB)
 	types := map[works.TypeID]contenttype.Type{}
 	for _, t := range n.env.Types.All() {
 		types[t.ID()] = t.Open(contenttype.Deps{

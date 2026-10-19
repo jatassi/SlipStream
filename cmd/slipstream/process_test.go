@@ -531,6 +531,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "log.compress", Value: "true", Default: "true", Source: "default", Env: "SLIPSTREAM_LOG_COMPRESS"},
 			{Key: "log.viewer_lines", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_LOG_VIEWER_LINES"},
 			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
+			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
 			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
 			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
 			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
@@ -579,8 +580,10 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.metadata.retry_max", Value: "8s", Default: "8s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETRY_MAX"},
 			{Key: "timings.metadata.wait", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_WAIT"},
 			{Key: "timings.metadata.cache_entries", Value: "4096", Default: "4096", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_CACHE_ENTRIES"},
+			{Key: "timings.tmdb.interval", Value: "50ms", Default: "50ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_INTERVAL"},
+			{Key: "timings.tmdb.burst", Value: "20", Default: "20", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_BURST"},
 		},
-		Census:       []string{"endpoints.tmdb.api"},
+		Census:       []string{"endpoints.tmdb.api", "endpoints.tmdb.images"},
 		ContentTypes: []string{"movie"},
 	}
 	if !reflect.DeepEqual(got, want) {

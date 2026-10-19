@@ -11,14 +11,17 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/images"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
 var Fake = fake.Spec{
-	Name:      "image-cdn",
-	TLS:       fake.FrontTLS,
-	New:       newServer,
-	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
-	Online:    fake.OnlineSuite("imagecdn"),
+	Name: "image-cdn",
+	TLS:  fake.FrontTLS,
+	New:  newServer,
+	Endpoints: func(e *node.EndpointsBlock, at fake.Address) {
+		e.TMDB.Images = endpoint.MustParseURL(at.URL(Root))
+	},
+	Online: fake.OnlineSuite("imagecdn"),
 }
 
 // Root is the path TMDB's image host serves under.
