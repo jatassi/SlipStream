@@ -164,7 +164,7 @@ func TestARemovalWaitsForTheAnswerToStarted(t *testing.T) {
 		if err := e.Remove(h, false); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := e.Status(h); err == nil {
+		if _, err := statusOf(t, e, h); err == nil {
 			t.Fatal("a torrent whose removal waits still reads a status, want unknown")
 		}
 		time.Sleep(time.Minute)

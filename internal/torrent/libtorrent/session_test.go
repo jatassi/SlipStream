@@ -71,6 +71,21 @@ func waitFor[E engine.Event](t *testing.T, events <-chan engine.Event, match fun
 	}
 }
 
+// updated is h's status from the Updates that a PostUpdates sends, false
+// when h didn't change since the last. It skips the events before.
+func updated(t *testing.T, e engine.Engine, h engine.Handle) (engine.Status, bool) {
+	t.Helper()
+	if err := e.PostUpdates(); err != nil {
+		t.Fatalf("post updates: %v", err)
+	}
+	for _, s := range waitFor(t, e.Events(), func(engine.Updates) bool { return true }).Statuses {
+		if s.Torrent == h {
+			return s, true
+		}
+	}
+	return engine.Status{}, false
+}
+
 func TestEngineRoundTrip(t *testing.T) {
 	payload := make([]byte, payloadSize)
 	_, _ = rand.NewChaCha8([32]byte{'s', 'l', 'i', 'p'}).Read(payload)
@@ -103,10 +118,7 @@ func TestEngineRoundTrip(t *testing.T) {
 	if sha256.Sum256(got) != sha256.Sum256(payload) {
 		t.Fatal("downloaded payload differs from the seeded payload")
 	}
-	st, err := leecher.Status(leechHandle)
-	if err != nil {
-		t.Fatalf("status: %v", err)
-	}
+	st, _ := updated(t, leecher, leechHandle)
 	if st.State != engine.StateSeeding || st.Done != payloadSize || st.Wanted != payloadSize {
 		t.Fatalf("status = %+v, want seeding with %d of %d bytes done", st, payloadSize, payloadSize)
 	}
@@ -130,10 +142,10 @@ func TestEngineRoundTrip(t *testing.T) {
 // awaitUploaded waits until torrent h on e has uploaded at least n bytes.
 func awaitUploaded(t *testing.T, e engine.Engine, h engine.Handle, n int64) {
 	t.Helper()
+	var st engine.Status
 	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(100 * time.Millisecond) {
-		st, err := e.Status(h)
-		if err != nil {
-			t.Fatalf("status: %v", err)
+		if s, ok := updated(t, e, h); ok {
+			st = s
 		}
 		if st.Totals.Uploaded >= n {
 			return
@@ -164,8 +176,8 @@ func TestEngineRejectsBadInput(t *testing.T) {
 	}
 
 	unknown := engine.Handle(4242)
-	if _, err := e.Status(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
-		t.Fatalf("status of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
+	if _, err := e.Files(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
+		t.Fatalf("files of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
 	}
 	if err := e.Remove(unknown, false); !errors.Is(err, engine.ErrUnknownTorrent) {
 		t.Fatalf("remove of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
@@ -183,8 +195,8 @@ func TestEngineRejectsBadInput(t *testing.T) {
 	if err := e.Close(); !errors.Is(err, engine.ErrClosed) {
 		t.Fatalf("second close: err = %v, want %v", err, engine.ErrClosed)
 	}
-	if _, err := e.Status(unknown); !errors.Is(err, engine.ErrClosed) {
-		t.Fatalf("status after close: err = %v, want %v", err, engine.ErrClosed)
+	if _, err := e.Files(unknown); !errors.Is(err, engine.ErrClosed) {
+		t.Fatalf("files after close: err = %v, want %v", err, engine.ErrClosed)
 	}
 	drained := make(chan struct{})
 	go func() {

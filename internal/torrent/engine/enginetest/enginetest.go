@@ -675,6 +675,8 @@ func (e *Engine) ConnectPeer(h engine.Handle, _ netip.AddrPort) error {
 	return e.with(h, func(*torrent) error { return nil })
 }
 
+// Status is h's status now, for a test to look into the fake: the port
+// reads status only through PostUpdates.
 func (e *Engine) Status(h engine.Handle) (engine.Status, error) {
 	var s engine.Status
 	err := e.with(h, func(t *torrent) error {
