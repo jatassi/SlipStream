@@ -21,7 +21,7 @@ type announce struct {
 	hash    byte
 	peer    byte
 	event   string
-	ok      bool
+	broke   unit3d.Rule
 }
 
 func run(t *testing.T, steps []announce) {
@@ -32,12 +32,12 @@ func run(t *testing.T, steps []announce) {
 		if passkey == "" {
 			passkey = "pk"
 		}
-		ok, reason := w.Admit(passkey, bencode.InfoHash{s.hash}, [20]byte{s.peer}, s.event, t0.Add(s.at))
-		if ok != s.ok {
-			t.Fatalf("step %d: %q at +%v admitted %v (%q), want %v", i, s.event, s.at, ok, reason, s.ok)
+		broke, reason := w.Admit(passkey, bencode.InfoHash{s.hash}, [20]byte{s.peer}, s.event, t0.Add(s.at))
+		if broke != s.broke {
+			t.Fatalf("step %d: %q at +%v broke %q (%q), want %q", i, s.event, s.at, broke, reason, s.broke)
 		}
-		if ok != (reason == "") {
-			t.Fatalf("step %d: admitted %v with reason %q", i, ok, reason)
+		if (broke == "") != (reason == "") {
+			t.Fatalf("step %d: broke %q with reason %q", i, broke, reason)
 		}
 	}
 }
@@ -45,25 +45,25 @@ func run(t *testing.T, steps []announce) {
 func TestWindowsRejectAStartedInsideTheWindow(t *testing.T) {
 	for name, steps := range map[string][]announce{
 		"a quick pause and resume": {
-			{at: 0, event: "started", ok: true},
-			{at: time.Minute, event: "stopped", ok: true},
-			{at: 2 * time.Minute, event: "started", ok: false},
+			{at: 0, event: "started"},
+			{at: time.Minute, event: "stopped"},
+			{at: 2 * time.Minute, event: "started", broke: unit3d.Window},
 		},
 		"a regular announce": {
-			{at: 0, event: "started", ok: true},
-			{at: 25*time.Minute + 29*time.Second, event: "", ok: false},
+			{at: 0, event: "started"},
+			{at: 25*time.Minute + 29*time.Second, event: "", broke: unit3d.Window},
 		},
 		"a window lasts at most 95% of the min interval": {
-			{at: 0, event: "started", ok: true},
-			{at: 28*time.Minute + 30*time.Second, event: "", ok: true},
+			{at: 0, event: "started"},
+			{at: 28*time.Minute + 30*time.Second, event: ""},
 		},
 		"a completed opens a window when none is open": {
-			{at: 0, event: "completed", ok: true},
-			{at: time.Minute, event: "started", ok: false},
+			{at: 0, event: "completed"},
+			{at: time.Minute, event: "started", broke: unit3d.Window},
 		},
 		"an unknown event is a regular announce": {
-			{at: 0, event: "started", ok: true},
-			{at: time.Minute, event: "paused", ok: false},
+			{at: 0, event: "started"},
+			{at: time.Minute, event: "paused", broke: unit3d.Window},
 		},
 	} {
 		t.Run(name, func(t *testing.T) { run(t, steps) })
@@ -72,27 +72,27 @@ func TestWindowsRejectAStartedInsideTheWindow(t *testing.T) {
 
 func TestWindowsAdmitCompletedAndStopped(t *testing.T) {
 	run(t, []announce{
-		{at: 0, event: "started", ok: true},
-		{at: 10 * time.Minute, event: "completed", ok: true},
-		{at: 11 * time.Minute, event: "stopped", ok: true},
+		{at: 0, event: "started"},
+		{at: 10 * time.Minute, event: "completed"},
+		{at: 11 * time.Minute, event: "stopped"},
 	})
 }
 
 func TestWindowsClearOnAStoppedAfterFiveMinutes(t *testing.T) {
 	for name, steps := range map[string][]announce{
 		"more than five minutes clears": {
-			{at: 0, event: "started", ok: true},
-			{at: 5*time.Minute + time.Second, event: "stopped", ok: true},
-			{at: 6 * time.Minute, event: "started", ok: true},
+			{at: 0, event: "started"},
+			{at: 5*time.Minute + time.Second, event: "stopped"},
+			{at: 6 * time.Minute, event: "started"},
 		},
 		"exactly five minutes does not": {
-			{at: 0, event: "started", ok: true},
-			{at: 5 * time.Minute, event: "stopped", ok: true},
-			{at: 6 * time.Minute, event: "started", ok: false},
+			{at: 0, event: "started"},
+			{at: 5 * time.Minute, event: "stopped"},
+			{at: 6 * time.Minute, event: "started", broke: unit3d.Window},
 		},
 		"a stopped with no window opens none": {
-			{at: 0, event: "stopped", ok: true},
-			{at: time.Minute, event: "started", ok: true},
+			{at: 0, event: "stopped"},
+			{at: time.Minute, event: "started"},
 		},
 	} {
 		t.Run(name, func(t *testing.T) { run(t, steps) })
@@ -102,20 +102,20 @@ func TestWindowsClearOnAStoppedAfterFiveMinutes(t *testing.T) {
 func TestWindowsRejectTheSameEventWithin30s(t *testing.T) {
 	for name, steps := range map[string][]announce{
 		"a second stopped": {
-			{at: 0, event: "stopped", ok: true},
-			{at: 29 * time.Second, event: "stopped", ok: false},
-			{at: 30 * time.Second, event: "stopped", ok: true},
+			{at: 0, event: "stopped"},
+			{at: 29 * time.Second, event: "stopped", broke: unit3d.Repeat},
+			{at: 30 * time.Second, event: "stopped"},
 		},
 		"a completed then a stopped": {
-			{at: 0, event: "started", ok: true},
-			{at: time.Minute, event: "completed", ok: true},
-			{at: time.Minute + time.Second, event: "stopped", ok: true},
+			{at: 0, event: "started"},
+			{at: time.Minute, event: "completed"},
+			{at: time.Minute + time.Second, event: "stopped"},
 		},
 		"a rejected duplicate changes nothing": {
-			{at: 0, event: "started", ok: true},
-			{at: 6 * time.Minute, event: "stopped", ok: true},
-			{at: 6*time.Minute + 10*time.Second, event: "stopped", ok: false},
-			{at: 6*time.Minute + 20*time.Second, event: "started", ok: true},
+			{at: 0, event: "started"},
+			{at: 6 * time.Minute, event: "stopped"},
+			{at: 6*time.Minute + 10*time.Second, event: "stopped", broke: unit3d.Repeat},
+			{at: 6*time.Minute + 20*time.Second, event: "started"},
 		},
 	} {
 		t.Run(name, func(t *testing.T) { run(t, steps) })
@@ -124,11 +124,11 @@ func TestWindowsRejectTheSameEventWithin30s(t *testing.T) {
 
 func TestWindowsKeyOnPeerID(t *testing.T) {
 	run(t, []announce{
-		{at: 0, peer: 1, event: "started", ok: true},
-		{at: time.Minute, peer: 2, event: "started", ok: true},
-		{at: time.Minute, peer: 1, hash: 1, event: "started", ok: true},
-		{at: time.Minute, peer: 1, passkey: "other", event: "started", ok: true},
-		{at: 2 * time.Minute, peer: 1, event: "started", ok: false},
+		{at: 0, peer: 1, event: "started"},
+		{at: time.Minute, peer: 2, event: "started"},
+		{at: time.Minute, peer: 1, hash: 1, event: "started"},
+		{at: time.Minute, peer: 1, passkey: "other", event: "started"},
+		{at: 2 * time.Minute, peer: 1, event: "started", broke: unit3d.Window},
 	})
 }
 
@@ -137,12 +137,12 @@ func TestWindowsLastBetween85And95PercentOfTheMinInterval(t *testing.T) {
 	var shortest, longest time.Duration
 	for p := range 200 {
 		peer := [20]byte{byte(p)}
-		if ok, _ := w.Admit("pk", bencode.InfoHash{}, peer, "started", t0); !ok {
+		if broke, _ := w.Admit("pk", bencode.InfoHash{}, peer, "started", t0); broke != "" {
 			t.Fatalf("peer %d: the opening started was rejected", p)
 		}
 		closes := t0.Add(25*time.Minute + 30*time.Second)
 		for {
-			if ok, _ := w.Admit("pk", bencode.InfoHash{}, peer, "", closes); ok {
+			if broke, _ := w.Admit("pk", bencode.InfoHash{}, peer, "", closes); broke == "" {
 				break
 			}
 			closes = closes.Add(30 * time.Second)

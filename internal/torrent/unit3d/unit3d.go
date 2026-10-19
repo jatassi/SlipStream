@@ -51,10 +51,22 @@ func NewWindows(minInterval time.Duration, r *rand.Rand) *Windows {
 	return &Windows{interval: minInterval, rand: r, windows: map[peer]window{}, last: map[peerEvent]time.Time{}}
 }
 
-// Admit is whether the tracker accepts event at now, and its failure reason
-// when not. An event other than started, completed or stopped is a regular
-// announce.
-func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, event string, now time.Time) (ok bool, reason string) {
+// Rule is the rule a rejected announce broke. UNIT3D answers both with one
+// failure reason, so only the fakes tell them apart.
+type Rule string
+
+const (
+	// Window rejects an announce other than completed or stopped inside an
+	// open window.
+	Window Rule = "unit3d-window"
+	// Repeat rejects the same event from the same peer within Duplicate.
+	Repeat Rule = "unit3d-duplicate"
+)
+
+// Admit is the rule event at now breaks and the failure reason the tracker
+// answers, both empty when it accepts. An event other than started,
+// completed or stopped is a regular announce.
+func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, event string, now time.Time) (broke Rule, reason string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	switch event {
@@ -65,7 +77,7 @@ func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, eve
 	p := peer{passkey: passkey, hash: h, id: peerID}
 	pe := peerEvent{peer: p, event: event}
 	if last, ok := w.last[pe]; ok && now.Sub(last) < Duplicate {
-		return false, rejected(now.Sub(last))
+		return Repeat, rejected(now.Sub(last))
 	}
 	w.last[pe] = now
 
@@ -78,9 +90,9 @@ func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, eve
 	case event == "stopped" && (!open || now.Sub(win.opened) > ClearAfter):
 		delete(w.windows, p)
 	case open && event != "completed" && event != "stopped":
-		return false, rejected(now.Sub(win.opened))
+		return Window, rejected(now.Sub(win.opened))
 	}
-	return true, ""
+	return "", ""
 }
 
 func (w *Windows) draw() time.Duration {
