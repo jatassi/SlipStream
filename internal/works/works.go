@@ -75,6 +75,7 @@ var (
 	ErrNotFound    = errors.New("the metadata source has no record with that key")
 	ErrUnavailable = errors.New("the metadata source didn't answer")
 	ErrInvalid     = errors.New("the metadata source sent a record SlipStream can't use")
+	ErrRefused     = errors.New("the metadata source refused SlipStream's key")
 
 	ErrNoType       = errors.New("no Content Type has that id")
 	ErrTypeOff      = errors.New("that Content Type is turned off")
@@ -82,6 +83,26 @@ var (
 	ErrNoWork       = errors.New("no Work has that id")
 	ErrGoneUpstream = errors.New("the metadata source no longer has this Work")
 )
+
+// SourceError is a metadata call that failed at its source. Err is
+// ErrNotFound, ErrRefused, ErrUnavailable or ErrInvalid.
+type SourceError struct {
+	// Source names the provider in words, such as "TMDB".
+	Source string
+	// Until is when a rate-limited source takes calls again.
+	Until time.Time
+	Words string
+	Err   error
+}
+
+func (e *SourceError) Error() string {
+	if e.Words == "" {
+		return e.Source + ": " + e.Err.Error()
+	}
+	return e.Source + ": " + e.Words
+}
+
+func (e *SourceError) Unwrap() error { return e.Err }
 
 type Config struct {
 	Library      *storage.DB[file]
