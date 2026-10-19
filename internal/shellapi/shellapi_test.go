@@ -110,7 +110,6 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"alerts":{"nodes":null,"health":null,"tasks":null}}`)
 }
 
-// failedTask is a Scheduled tasks category with one failed task.
 var failedTask = health.Category{
 	About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"},
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) {

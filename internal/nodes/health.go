@@ -172,8 +172,7 @@ func awayWords(v NodeView) string {
 }
 
 // healthCheck re-runs the probes of the Node item names, or of every Node
-// when item is "". A Node out of step, or gone by the time it is asked,
-// is unreached.
+// when item is "". A Node out of step is unreached.
 func (s *Service) healthCheck(ctx context.Context, item health.Key) ([]health.Unreached, error) {
 	b := s.Board()
 	views := b.nodes
