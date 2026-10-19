@@ -5811,7 +5811,8 @@
           "id": {
             "enum": [
               "web",
-              "log"
+              "log",
+              "torrent"
             ],
             "type": "string"
           }

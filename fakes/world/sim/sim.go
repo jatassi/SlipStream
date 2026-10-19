@@ -315,8 +315,8 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
-		Disk: func(data, downloads string) (storing.Disk, error) {
-			d, err := node.OSDisk(data, downloads)
+		Disk: func(data string) (storing.Disk, error) {
+			d, err := node.OSDisk(data)
 			if err != nil {
 				return nil, err
 			}

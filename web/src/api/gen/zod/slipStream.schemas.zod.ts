@@ -2679,7 +2679,7 @@ export type SystemBuildOutput = zod.output<typeof SystemBuild>;
 
 export const SystemConfigSection = zod.object({
   fields: zod.array(SettingField),
-  id: zod.enum(["web", "log"]),
+  id: zod.enum(["web", "log", "torrent"]),
 });
 
 export type SystemConfigSection = zod.input<typeof SystemConfigSection>;

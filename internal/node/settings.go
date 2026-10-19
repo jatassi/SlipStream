@@ -1,9 +1,12 @@
 package node
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/netip"
+	"slices"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -11,7 +14,9 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // nodeSettings is the Node settings table: one row per config.yaml key an
@@ -49,6 +54,14 @@ var nodeSettings = []settingRow{
 		desc:  setting.Count{Key: "log.viewer_lines", Label: "Lines kept for the viewer", Min: 100, Max: 50000, Unit: setting.Noun{One: "line", Many: "lines"}},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.Log.ViewerLines }, applies: applyLog},
 	},
+	addressRow{
+		desc:  setting.Address{Key: "torrent.listen", Label: "Listen address"},
+		rowOf: rowOf[netip.AddrPort]{at: func(c *Config) *netip.AddrPort { return &c.Torrent.Listen }},
+	},
+	folderRow{
+		desc:  setting.Folder{Key: "torrent.downloads", Label: "Downloads folder", Purpose: setting.FolderDownloads},
+		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Torrent.Downloads }},
+	},
 }
 
 var logLevels = []setting.Option[logs.Level]{
@@ -82,8 +95,8 @@ type settingRow interface {
 	// field is the row's wire form in v.
 	field(v view) setting.Field
 	// text is v as config.yaml spells it, nil for a reset, or a
-	// *setting.RangeError. saved is the Config the change applies to.
-	text(v nodesystem.Value, saved *Config) (*string, error)
+	// *setting.RangeError.
+	text(ctx context.Context, v nodesystem.Value, e edit) (*string, error)
 	// check is the row's range on a loaded Config, which CheckConfig runs
 	// so a hand edit is held to it too.
 	check(c *Config) error
@@ -95,12 +108,35 @@ type settingRow interface {
 }
 
 // view is what a row's field is drawn from: the saved and running Configs,
-// the defaults, each key's source and the port the web listener bound, 0
-// before it binds.
+// the defaults, each key's source, the port the web listener bound, 0
+// before it binds, the data dir relative paths are in and the Node's id.
 type view struct {
 	saved, running, defaults *Config
 	keys                     map[string]Key
 	boundHTTP                uint16
+	dir                      DataDir
+	self                     role.NodeID
+}
+
+// edit is what a row's text reads besides the value: the saved Config the
+// change applies to, the defaults and the Node's judge of a folder.
+type edit struct {
+	saved, defaults *Config
+	folders         folderJudge
+}
+
+// folderJudge is the Node's Storage judging a folder for a purpose, apart
+// from the roots it holds.
+type folderJudge interface {
+	Judge(ctx context.Context, path string, purpose storing.Purpose) (storing.CheckResult, error)
+}
+
+// textOf is a value sent as text: a word from the API, text from the CLI.
+func textOf(v nodesystem.Value) (string, bool) {
+	if s, ok := v.Word(); ok {
+		return s, true
+	}
+	return v.Text()
 }
 
 func keysByName(keys []Key) map[string]Key {
@@ -181,11 +217,11 @@ func (r portRow) field(v view) setting.Field {
 	return f
 }
 
-func (r portRow) text(v nodesystem.Value, saved *Config) (*string, error) {
+func (r portRow) text(_ context.Context, v nodesystem.Value, e edit) (*string, error) {
 	if v.IsReset() {
 		return nil, nil
 	}
-	addr := *r.at(saved)
+	addr := *r.at(e.saved)
 	port, ok := v.Number()
 	if s, isText := v.Text(); isText {
 		parsed, err := netip.ParseAddrPort(s)
@@ -226,7 +262,7 @@ func (r countRow) field(v view) setting.Field {
 	return f
 }
 
-func (r countRow) text(v nodesystem.Value, _ *Config) (*string, error) {
+func (r countRow) text(_ context.Context, v nodesystem.Value, _ edit) (*string, error) {
 	if v.IsReset() {
 		return nil, nil
 	}
@@ -269,7 +305,7 @@ func (r choiceRow) field(v view) setting.Field {
 
 // text takes a Word or Text naming an option. Any other value is the empty
 // word, which the Choice refuses with its options' names.
-func (r choiceRow) text(v nodesystem.Value, _ *Config) (*string, error) {
+func (r choiceRow) text(_ context.Context, v nodesystem.Value, _ edit) (*string, error) {
 	if v.IsReset() {
 		return nil, nil
 	}
@@ -305,7 +341,7 @@ func (r switchRow) field(v view) setting.Field {
 	return f
 }
 
-func (r switchRow) text(v nodesystem.Value, _ *Config) (*string, error) {
+func (r switchRow) text(_ context.Context, v nodesystem.Value, _ edit) (*string, error) {
 	if v.IsReset() {
 		return nil, nil
 	}
@@ -322,6 +358,109 @@ func (r switchRow) text(v nodesystem.Value, _ *Config) (*string, error) {
 }
 
 func (r switchRow) check(*Config) error { return nil }
+
+type addressRow struct {
+	rowOf[netip.AddrPort]
+	desc setting.Address
+}
+
+func (r addressRow) key() string { return r.desc.Key }
+
+func (r addressRow) field(v view) setting.Field {
+	d := r.desc
+	d.Default = *r.at(v.defaults)
+	f := d.Field(r.at(v.saved))
+	f.Running = r.at(v.running).String()
+	f.About = r.about(v, f.About)
+	return f
+}
+
+func (r addressRow) text(_ context.Context, v nodesystem.Value, e edit) (*string, error) {
+	if v.IsReset() {
+		return nil, nil
+	}
+	d := r.desc
+	d.Default = *r.at(e.defaults)
+	s, ok := textOf(v)
+	if !ok {
+		return nil, wrongForm(r.key(), fmt.Sprintf("An address and port, such as %s.", d.Default))
+	}
+	stored, err := d.Parse(&s)
+	if err != nil {
+		return nil, err
+	}
+	s = stored.Override().String()
+	return &s, nil
+}
+
+// check passes port 0, which binds any free port, since only a hand edit
+// or the environment can set it.
+func (r addressRow) check(*Config) error { return nil }
+
+// folderRow is a folder on the Node, shown as a full path though
+// config.yaml may name it relative to the data dir.
+type folderRow struct {
+	rowOf[string]
+	desc setting.Folder
+}
+
+func (r folderRow) key() string { return r.desc.Key }
+
+func (r folderRow) field(v view) setting.Field {
+	d := r.desc
+	d.Default = v.dir.Resolve(*r.at(v.defaults))
+	saved := v.dir.Resolve(*r.at(v.saved))
+	f := d.Field(&saved, v.self.String())
+	f.Running = v.dir.Resolve(*r.at(v.running))
+	f.About = r.about(v, f.About)
+	return f
+}
+
+// text takes the folder its Node's Storage judges usable for the row's
+// purpose, cleaned as the judge cleans it.
+func (r folderRow) text(ctx context.Context, v nodesystem.Value, e edit) (*string, error) {
+	if v.IsReset() {
+		return nil, nil
+	}
+	path, ok := textOf(v)
+	if !ok {
+		return nil, wrongForm(r.key(), "A folder's full path.")
+	}
+	if _, err := r.desc.Parse(&path); err != nil {
+		return nil, err
+	}
+	purpose, err := storing.ParsePurposeWord(string(r.desc.Purpose))
+	if err != nil {
+		return nil, err
+	}
+	judged, err := e.folders.Judge(ctx, path, purpose)
+	if err != nil {
+		return nil, err
+	}
+	if judged.Refusal != nil {
+		return nil, wrongForm(r.key(), "Can't use this folder because "+because[judged.Refusal.Reason]+".")
+	}
+	return &judged.Path, nil
+}
+
+func (r folderRow) check(*Config) error { return nil }
+
+// because is why the Node's Storage refused a folder. A Node knows its
+// roots by id alone, so it names none.
+var because = map[storing.Reason]string{
+	storing.ReasonNotAbsolute:       "it isn't a full path",
+	storing.ReasonNotFound:          "it doesn't exist",
+	storing.ReasonNotAFolder:        "it isn't a folder",
+	storing.ReasonUnwritable:        "SlipStream can't write there",
+	storing.ReasonInsideRoot:        "it's inside a library root",
+	storing.ReasonContainsRoot:      "it contains a library root",
+	storing.ReasonInsideData:        "it's inside SlipStream's data folder",
+	storing.ReasonContainsData:      "it contains SlipStream's data folder",
+	storing.ReasonInsideDownloads:   "it's inside the downloads folder",
+	storing.ReasonContainsDownloads: "it contains the downloads folder",
+	storing.ReasonUnresponsive:      "the Node didn't answer in time",
+	storing.ReasonNetworkShare:      "it's on a network share",
+}
 
 // configFile is a Node's config.yaml, loaded and written under the table.
 // The host CLI uses it while it holds the data dir lock, and a running
@@ -342,12 +481,15 @@ func (f configFile) load() (Config, []Key, error) {
 }
 
 // set applies every change or none, and returns the saved Config after. A
-// change is refused with a *nodesystem.Refusal.
-func (f configFile) set(changes []nodesystem.Change) (Config, []Key, error) {
+// change is refused with a *nodesystem.Refusal. folders judges a folder
+// row's new value.
+func (f configFile) set(ctx context.Context, folders folderJudge, changes []nodesystem.Change) (Config, []Key, error) {
 	saved, keys, err := f.load()
 	if err != nil || len(changes) == 0 {
 		return saved, keys, err
 	}
+	defaults := Defaults(f.types, f.kind)
+	e := edit{saved: &saved, defaults: &defaults, folders: folders}
 	sources := keysByName(keys)
 	edits := make([]config.Change, len(changes))
 	for i, c := range changes {
@@ -358,7 +500,7 @@ func (f configFile) set(changes []nodesystem.Change) (Config, []Key, error) {
 		if k := sources[c.Key]; k.Source == config.SourceDotEnv || k.Source == config.SourceEnv {
 			return Config{}, nil, &nodesystem.Refusal{Key: c.Key, Reason: nodesystem.SetByEnvironment, Sentence: "Set by " + k.Env + ".", Variable: k.Env}
 		}
-		text, err := r.text(c.Value, &saved)
+		text, err := r.text(ctx, c.Value, e)
 		if err != nil {
 			return Config{}, nil, outOfRange(c.Key, err)
 		}
@@ -369,9 +511,17 @@ func (f configFile) set(changes []nodesystem.Change) (Config, []Key, error) {
 		return err
 	})
 	if err != nil {
-		return Config{}, nil, refusal(err)
+		return Config{}, nil, refusal(err, keysOf(changes)...)
 	}
 	return f.load()
+}
+
+func keysOf(changes []nodesystem.Change) []string {
+	keys := make([]string, len(changes))
+	for i, c := range changes {
+		keys[i] = c.Key
+	}
+	return keys
 }
 
 func outOfRange(key string, err error) error {
@@ -381,8 +531,9 @@ func outOfRange(key string, err error) error {
 	return err
 }
 
-// refusal is why config.Edit refused, as a Refusal where it names one.
-func refusal(err error) error {
+// refusal is why config.Edit refused, as a Refusal where it names one:
+// the first problem with a changed key, else the first.
+func refusal(err error, changed ...string) error {
 	if errors.Is(err, config.ErrNotRegular) {
 		return &nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "SlipStream can't rewrite config.yaml, a link or a mounted file. Edit it by hand."}
 	}
@@ -391,6 +542,9 @@ func refusal(err error) error {
 		return err
 	}
 	p := loadErr.Problems[0]
+	if i := slices.IndexFunc(loadErr.Problems, func(p config.Problem) bool { return slices.Contains(changed, p.Key) }); i >= 0 {
+		p = loadErr.Problems[i]
+	}
 	if used, ok := errors.AsType[*PortUsedError](p.Err); ok {
 		return &nodesystem.Refusal{Key: p.Key, Reason: nodesystem.PortUsedByNode, Sentence: used.Sentence()}
 	}

@@ -69,9 +69,8 @@ type Env struct {
 	// Run finds beside the executable.
 	Media media.Prober
 	// Disk opens every filesystem call the Storage Role makes, with data
-	// and downloads the folders no root may overlap: the OS's own for a
-	// process.
-	Disk func(data, downloads string) (storing.Disk, error)
+	// the folder no root may overlap: the OS's own for a process.
+	Disk func(data string) (storing.Disk, error)
 	// Restart starts the process that follows this one once it has stopped
 	// and released the data dir: an exec in place on Unix, a new process on
 	// Windows. Nil for a Node that cannot restart itself.
@@ -496,15 +495,15 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 	return nil
 }
 
-func OSDisk(data, downloads string) (storing.Disk, error) { return storing.NewOSDisk(data, downloads) }
+func OSDisk(data string) (storing.Disk, error) { return storing.NewOSDisk(data) }
 
 // startStorage opens the Node's Storage over its Disk, claimed or not.
 func (n *Node) startStorage(cfg Config) error {
-	disk, err := n.env.Disk(n.env.DataDir.Path(), n.env.DataDir.Resolve(cfg.Torrent.Downloads))
+	disk, err := n.env.Disk(n.env.DataDir.Path())
 	if err != nil {
 		return fmt.Errorf("open the disk: %w", err)
 	}
-	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Timings: cfg.Timings.Storing})
+	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Downloads: n.downloads.Folders, Timings: cfg.Timings.Storing})
 	return nil
 }
 
