@@ -117,10 +117,16 @@ func (l *library) onDisk(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	err := filepath.WalkDir(l.root.Path, func(p string, d fs.DirEntry, err error) error {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}
 		data, err := os.ReadFile(p)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		if err != nil {
 			return err //nolint:wrapcheck // the test reports it as is
 		}
