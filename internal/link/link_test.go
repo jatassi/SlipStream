@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"net/netip"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -97,6 +99,39 @@ func TestLockstepCallsRunBothWays(t *testing.T) {
 		}
 		if caller := <-atWorker; caller != p.Controller.Key {
 			t.Fatalf("the Worker saw the call from %s, want the Controller", caller.Fingerprint())
+		}
+	})
+}
+
+// slowSyncer is a lockstep SyncService whose handler outlasts the call
+// that started it.
+type slowSyncer struct {
+	started chan struct{}
+	done    *atomic.Bool
+}
+
+func (s slowSyncer) Sync(context.Context, nodev1connect.SyncServiceSyncServerStream) error {
+	close(s.started)
+	time.Sleep(time.Minute)
+	s.done.Store(true)
+	return nil
+}
+
+func TestCloseWaitsForAnInFlightCall(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		started, done := make(chan struct{}), &atomic.Bool{}
+		srv := connect.NewServer()
+		nodev1connect.RegisterSyncServiceHandler(srv, slowSyncer{started, done})
+		m := http.NewServeMux()
+		connecthttp.Mount(m, srv)
+		p := linktest.New(t, linktest.Side{Lockstep: m}, linktest.Side{})
+		p.Connect(t)
+
+		go func() { _, _ = syncOnce(t.Context(), p.Worker.Link, p.Controller.Key) }()
+		<-started
+		_ = p.Controller.Close()
+		if !done.Load() {
+			t.Fatal("Close returned while a call's handler still ran")
 		}
 	})
 }
