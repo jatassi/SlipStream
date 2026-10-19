@@ -32,7 +32,6 @@ type Disk interface {
 	Host() Host
 }
 
-// Info is a stat result.
 type Info interface {
 	Dir() bool
 	Size() int64
@@ -49,16 +48,14 @@ type File interface {
 type Entry struct {
 	Name string
 	// Dir is a folder, or a link or junction to one.
-	Dir bool
-	// Hidden is the hidden rule's verdict.
+	Dir    bool
 	Hidden bool
 	// Readable is a folder SlipStream can list; a file is always Readable.
 	Readable bool
 }
 
 type Host struct {
-	Style PathStyle
-	// Account is the account SlipStream runs as.
+	Style   PathStyle
 	Account string
 	// Service is a Windows service, which sees no mapped drive letters.
 	Service bool
@@ -109,7 +106,6 @@ type Listing struct {
 	Folders []Folder
 	Hidden  int
 	Places  []Place
-	// Service: SlipStream runs as a Windows service.
 	Service bool
 }
 

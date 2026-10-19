@@ -29,7 +29,7 @@ func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*stor
 		return nil, wireError(err)
 	}
 	res := &storagev1.BrowseResponse{
-		Path: l.Path, Parent: l.Parent, Hidden: int32(l.Hidden), Service: l.Service, //nolint:gosec // a folder's count of hidden folders fits
+		Path: l.Path, Parent: l.Parent, Hidden: int64(l.Hidden), Service: l.Service,
 	}
 	if l.Volume != nil {
 		res.Volume = volumeWire(*l.Volume)
@@ -113,7 +113,7 @@ func (s *Store) Verify(ctx context.Context, req *storagev1.VerifyRequest) (*stor
 	}
 	res := &storagev1.VerifyResponse{}
 	for _, m := range missing {
-		res.Missing = append(res.Missing, &storagev1.Missing{Index: int32(m.Index), Reason: m.Reason.Wire()}) //nolint:gosec // an index into one batch fits
+		res.Missing = append(res.Missing, &storagev1.Missing{Index: int64(m.Index), Reason: m.Reason.Wire()})
 	}
 	return res, nil
 }
@@ -382,7 +382,6 @@ func (s *Store) makeFolder(ctx context.Context, parent, name string) (string, er
 	return p, nil
 }
 
-// reasonOf is the refusal a failed read of a folder Check judges means.
 var reasonOf = map[FolderErrorKind]Reason{
 	FolderNotFound:     ReasonNotFound,
 	FolderNotAFolder:   ReasonNotAFolder,
@@ -584,8 +583,6 @@ func kindWire(k Kind) storagev1.VolumeKind {
 	return k.Wire()
 }
 
-// name reports whether n names one entry in a folder: no separator, no
-// NUL, and not "." or "..".
 func (s PathStyle) name(n string) bool {
 	seps := "/\x00"
 	if s == Windows {

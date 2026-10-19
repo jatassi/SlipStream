@@ -8,9 +8,6 @@ import (
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 )
 
-// walkEnum checks that every wire value but UNSPECIFIED parses to a Go
-// value that maps back to it with a distinct word, and that UNSPECIFIED and
-// a value past the end don't parse.
 func walkEnum[G ~uint8, W interface {
 	~int32
 	Descriptor() protoreflect.EnumDescriptor

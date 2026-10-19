@@ -171,15 +171,12 @@ func (s *Store) Release(context.Context) error {
 	return nil
 }
 
-// verdict is what judging a root's folder found.
 type verdict struct {
 	state RootState
 	// detail is the OS error text behind the state, if any.
 	detail string
 }
 
-// pass judges every root and samples the volume of each whose folder
-// answered, into facts.
 func (s *Store) pass(ctx context.Context) *storagev1.Facts {
 	s.mu.Lock()
 	roots := s.roots
@@ -316,7 +313,6 @@ func (s *Store) mark(ctx context.Context, r intentRoot) error {
 	return nil
 }
 
-// marking is what a folder's marker says.
 type marking struct {
 	present bool
 	// id is the root the marker names, zero when it names none.
@@ -373,7 +369,6 @@ func folderErrorOf(err error) FolderErrorKind {
 	return FolderIO
 }
 
-// stateOf is the root state a failed read of its folder means.
 var stateOf = map[FolderErrorKind]RootState{
 	FolderNotFound:     Missing,
 	FolderNotAFolder:   Missing,
@@ -389,7 +384,7 @@ func verdictOf(err error) verdict { return verdict{stateOf[folderErrorOf(err)], 
 // and a poke so the facts follow at once.
 func (s *Store) resolve(ctx context.Context, root storage.UUID, place bool) (string, error) {
 	s.mu.Lock()
-	r, known := s.root(root)
+	r, known := s.rootLocked(root)
 	draining := s.draining
 	s.mu.Unlock()
 	switch {
@@ -413,8 +408,7 @@ func (s *Store) resolve(ctx context.Context, root storage.UUID, place bool) (str
 	return "", &NotReady{State: state}
 }
 
-// The caller holds s.mu.
-func (s *Store) root(id storage.UUID) (intentRoot, bool) {
+func (s *Store) rootLocked(id storage.UUID) (intentRoot, bool) {
 	for _, r := range s.roots {
 		if r.id == id {
 			return r, true

@@ -5,7 +5,7 @@ import { AddRootForm } from "./add-root";
 import { RehomeForm } from "./rehome";
 import { typeLabel } from "./words";
 
-/** Add a library root, or edit one's place (its Content Type stays). S25 (First-run setup) reuses it. */
+/** Add a library root, or edit one's place (its Content Type stays). */
 export function LibraryRootDialog({
   open,
   onOpenChange,

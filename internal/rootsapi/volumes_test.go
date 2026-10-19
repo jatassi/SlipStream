@@ -9,9 +9,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// TestVolumesListEachVolumeThatHoldsARoot records two roots on one volume
-// of self and a volume with no root: listVolumes names the one volume
-// once, with both roots, and leaves the other out.
 func TestVolumesListEachVolumeThatHoldsARoot(t *testing.T) {
 	s := serve(t)
 	s.Expect(t, http.MethodGet, "/api/v1/volumes", "", http.StatusOK, `{"nodes":[]}`)

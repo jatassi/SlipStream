@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// Mount is one line of a Unix mount table.
 type Mount struct {
 	// Device is the filesystem's device, "8:1" in /proc/self/mountinfo.
 	Device string
@@ -62,7 +61,6 @@ func realMounts(ms []Mount) []Mount {
 	return kept
 }
 
-// underUnix is a Unix path equal to or under dir.
 func underUnix(path, dir string) bool {
 	return dir == "/" || path == dir || strings.HasPrefix(path, dir+"/")
 }

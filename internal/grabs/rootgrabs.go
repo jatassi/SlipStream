@@ -9,7 +9,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// RootGrabs is roots.Inflight over the Grabs.
 type RootGrabs struct{}
 
 func (RootGrabs) Into(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, ws []works.WorkID) (int64, error) {

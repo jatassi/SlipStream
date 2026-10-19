@@ -136,7 +136,7 @@ func (r Remote) Verify(ctx context.Context, node role.NodeID, path string, files
 // Another file there is ErrOccupied.
 func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel) (int64, error) {
 	res, err := r(at.Node).Place(ctx, &storagev1.PlaceRequest{
-		RootId: at.Root.Bytes(), InfoHash: p.InfoHash[:], FileIndex: int32(p.FileIndex), To: to.String(), //nolint:gosec // a torrent's file index fits
+		RootId: at.Root.Bytes(), InfoHash: p.InfoHash[:], FileIndex: int64(p.FileIndex), To: to.String(),
 	})
 	if err != nil {
 		return 0, occupied(err)

@@ -348,7 +348,6 @@ func (s Scenario) searching() []string {
 	return holders
 }
 
-// RootNode is the Node r is on: the one it names, or the controller Node.
 func (s Scenario) RootNode(r LibraryRoot) string {
 	if r.Node != "" {
 		return r.Node

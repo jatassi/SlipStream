@@ -122,7 +122,6 @@ const VOLUMES = [
   { name: "/mnt/backup", total: 4 * TB, used: 0.18 },
 ] as const;
 
-// Each Node holding Storage has one more volume than the last, up to four.
 function storageOf(index: number): NodesStorageResource {
   const volumes = VOLUMES.slice(0, (index % VOLUMES.length) + 1).map(({ name, total, used }) => ({
     id: `${String(index)}${name}`,

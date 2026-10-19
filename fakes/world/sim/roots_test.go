@@ -19,6 +19,8 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 type rootRow struct {
@@ -90,7 +92,7 @@ func TestAHungShareReadsUnresponsive(t *testing.T) {
 		if root := rootAt(t, a, folder); root.State != "ready" {
 			t.Fatalf("the movies root is %+v before the fault, want ready", root)
 		}
-		const sample = 5*time.Minute + 10*time.Second + time.Second // a sampling interval, then the stat deadline
+		sample := roots.SampleEvery.Default + storing.DefaultTimings().Stat + time.Second
 		lift := w.Disk("home", folder, fault.Hung{})
 		time.Sleep(sample)
 		synctest.Wait()

@@ -44,7 +44,6 @@ type WaitingError struct {
 func (e *WaitingError) Error() string { return e.Why }
 func (e *WaitingError) Unwrap() error { return e.Err }
 
-// waiting gives a refusal by node's Store its words.
 func (r *Roots) waiting(ctx context.Context, node role.NodeID, err error) error {
 	refused, ok := errors.AsType[*storing.NotReady](err)
 	if !ok {
@@ -70,7 +69,6 @@ func (r *Roots) waiting(ctx context.Context, node role.NodeID, err error) error 
 	return &WaitingError{Why: why, Err: refused}
 }
 
-// nameOf is node's name in rd, "Its Node" when no Node has its id.
 func nameOf(ctx context.Context, rd storage.Reader[file], node role.NodeID) (string, error) {
 	named, err := nodes.Names(ctx, rd)
 	if err != nil {
@@ -94,7 +92,6 @@ func (r *Roots) Remove(ctx context.Context, root ID, rel storing.Rel) error {
 	return r.cfg.Remote.Remove(ctx, at, rel)
 }
 
-// ListHeld names what folder holds in root on its Node.
 func (r *Roots) ListHeld(ctx context.Context, root ID, folder storing.HeldFolder) ([]string, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
@@ -103,7 +100,6 @@ func (r *Roots) ListHeld(ctx context.Context, root ID, folder storing.HeldFolder
 	return r.cfg.Remote.List(ctx, at, folder)
 }
 
-// at is where the Storage service reaches root now.
 func (r *Roots) at(ctx context.Context, id ID) (storing.At, error) {
 	var root Root
 	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {

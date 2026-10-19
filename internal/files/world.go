@@ -19,13 +19,11 @@ import (
 // in one Read or Write. The pure functions take it, so nothing in it is
 // read twice.
 type world struct {
-	tree  works.Tree
-	goals targets.Goals
-	files []File // oldest first: ids are UUIDv7
-	fills map[CellKey]ID
-	grabs map[CellKey]GrabState
-	// lost is each root whose Node's Storage is written off: a file there
-	// fills no cell.
+	tree   works.Tree
+	goals  targets.Goals
+	files  []File // oldest first: ids are UUIDv7
+	fills  map[CellKey]ID
+	grabs  map[CellKey]GrabState
 	lost   map[roots.ID]bool
 	timing map[works.ItemID]targets.Timing
 	// seen is each Item's sighted cuts and its files' cuts; cuts is every

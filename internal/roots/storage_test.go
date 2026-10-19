@@ -23,8 +23,6 @@ import (
 
 const alpha works.TypeID = "alpha"
 
-// control is Storage's control half: the facts each Node last sent, and
-// every Node it was touched for.
 type control struct {
 	mu      sync.Mutex
 	facts   map[role.NodeID]*storagev1.Facts
@@ -80,9 +78,6 @@ type storageRig struct {
 	root         roots.Root
 }
 
-// rig is a roots service whose Storage facts the test sends, with one
-// root of alpha on node that its create already published and touched,
-// out of step when offline.
 func rig(t *testing.T, offline bool) *storageRig {
 	t.Helper()
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
@@ -136,8 +131,6 @@ func (r *storageRig) report(state storagev1.RootState, place int64) *storagev1.F
 	}
 }
 
-// arrive sends facts from the rig's Node and waits for the recorder to
-// publish the rig's root.
 func (r *storageRig) arrive(t *testing.T, f *storagev1.Facts) {
 	t.Helper()
 	r.storage.send(r.node, f)
@@ -184,11 +177,6 @@ func (r *storageRig) volumes(t *testing.T) int {
 	return n
 }
 
-// TestARootIsAdoptedOnceItsNodeFindsItReady creates a root, which reads
-// checking and is adopted until its Node reports it. An unwritable report
-// is published but leaves it adopting; a ready report at its place records
-// it seen, which ends the adoption, touches the Node and gives the root its
-// volume.
 func TestARootIsAdoptedOnceItsNodeFindsItReady(t *testing.T) {
 	r := rig(t, false)
 	r.run(t)
@@ -210,8 +198,6 @@ func TestARootIsAdoptedOnceItsNodeFindsItReady(t *testing.T) {
 	}
 }
 
-// TestAReportAtAnotherPlaceIsNotTheRoots reports the root ready at a place
-// it no longer has: it still reads checking.
 func TestAReportAtAnotherPlaceIsNotTheRoots(t *testing.T) {
 	r := rig(t, false)
 	r.storage.send(r.node, r.report(storagev1.RootState_ROOT_STATE_READY, r.root.Place+1))
@@ -220,8 +206,6 @@ func TestAReportAtAnotherPlaceIsNotTheRoots(t *testing.T) {
 	}
 }
 
-// TestARootOnAnOfflineNodeIsOffline reads the root offline while its Node
-// is out of step, whatever it last reported.
 func TestARootOnAnOfflineNodeIsOffline(t *testing.T) {
 	r := rig(t, true)
 	r.storage.send(r.node, r.report(storagev1.RootState_ROOT_STATE_READY, r.root.Place))
@@ -230,8 +214,6 @@ func TestARootOnAnOfflineNodeIsOffline(t *testing.T) {
 	}
 }
 
-// TestStorageOwnsANodesRootsForever counts the Node's root as Storage's,
-// held until a re-home or a delete takes it off.
 func TestStorageOwnsANodesRootsForever(t *testing.T) {
 	r := rig(t, false)
 	owner := roots.StorageOwner(files.RootContents{})

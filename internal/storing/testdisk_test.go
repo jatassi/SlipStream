@@ -52,7 +52,6 @@ func newTestDisk(t *testing.T) *testDisk {
 	}
 }
 
-// hang makes every call on path wait until the returned release runs.
 func (d *testDisk) hang(path string) (release func()) {
 	ch := make(chan struct{})
 	d.mu.Lock()
@@ -66,7 +65,6 @@ func (d *testDisk) hang(path string) (release func()) {
 	}
 }
 
-// flag sets one of the disk's faults on path.
 func (d *testDisk) flag(m map[string]bool, path string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

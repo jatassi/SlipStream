@@ -164,7 +164,6 @@ func body(contentType, path string) string {
 	return `{"contentType":"` + contentType + `","nodeId":"` + self.String() + `","path":` + strconv.Quote(path) + `}`
 }
 
-// create makes a root and answers its id.
 func (s *server) create(t *testing.T, reqBody string) string {
 	t.Helper()
 	code, reply := s.Call(t, http.MethodPost, "/api/v1/roots", reqBody)
@@ -181,8 +180,6 @@ func (s *server) makeDefault(t *testing.T, id string) {
 	}
 }
 
-// add adds Work key of the fixture type with extra fields in addWork's
-// body and answers its id.
 func (s *server) add(t *testing.T, key, extra string) string {
 	t.Helper()
 	s.fx.Put(works.Key(key), contenttypetest.Record{Tree: works.Fetched{Label: key, Children: []works.Entry{

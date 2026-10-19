@@ -141,8 +141,6 @@ func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, pay
 	return svc
 }
 
-// holder hands a Store one intent, draining or not, and keeps its latest
-// facts.
 type holder struct {
 	intent   *storagev1.Intent
 	draining bool
