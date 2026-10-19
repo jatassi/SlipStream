@@ -46,7 +46,7 @@ Steps:
   $FW exec $RUN --proof health/health-check-now -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/system/health/indexers/check'
   ```
 
-- **Set the levels in bytes and percent.** The warning saves as 50 GB and the error as 5%. A same-unit error above the warning, 15% over 10%, answers 422 `No more than the warning level, 10%.` and the read still shows 50 GB and 5%. Reset both with `null`, then an error of 200 GB over the default 100 GB answers 422 `No more than the warning level, 100 GB.`. The stream carries `health.changed` naming `storage` for the two saves.
+- **Set the levels in bytes and percent.** The warning saves as 50 GB and the error as 5%. A same-unit error above the warning, 15% over 10%, answers 422 `No more than the warning level, 10%.` and the read still shows 50 GB and 5%. Reset both with `null`, then an error of 200 GB over the default 100 GB answers 422 `No more than the warning level, 100 GB.`. The stream carries `health.changed` naming `storage` for the two saves. Set both back to 0B after: the defaults judge the host's disk and may raise a Storage item that holds `alerts.health` through the offline steps.
 
   ```sh
   $FW exec $RUN --proof health/health-levels-api -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/system/health/settings'
@@ -56,6 +56,7 @@ Steps:
   $FW exec $RUN --proof health/health-levels-api -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"warnBelow":null,"errorBelow":null}' '{nodes.home.url}/api/v1/system/health/settings'
   $FW exec $RUN --proof health/health-levels-api -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"errorBelow":{"amount":214748364800,"unit":"bytes"}}' '{nodes.home.url}/api/v1/system/health/settings'
   $FW exec $RUN --proof health/health-levels-api -- $FW sse list {runDir} --as admin --event health.changed
+  $FW exec $RUN -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"warnBelow":{"amount":0,"unit":"bytes"},"errorBelow":{"amount":0,"unit":"bytes"}}' '{nodes.home.url}/api/v1/system/health/settings'
   ```
 
 - **Stop seedbox and wait past the grace.** Set the grace to its 60 s floor and stop seedbox. About a minute later `/counts` reads `alerts.health` and `alerts.nodes` `fail`, the report holds seedbox's `fail` item with its link and home's `covering.searching` warning, and the stream's newest `health.changed` reads `{"categories":["nodes"]}`.
@@ -185,5 +186,5 @@ Steps:
 - A process world's Nodes report the host's own disk, so a catalog Scenario sets both Storage levels to 0B (`library.storage_levels`), which never fires. A level in bytes saved on `home` judges the host's disk and may or may not fire; use 100% to raise a warning on any host, and `low-space`, whose levels are 1024 TB, for an error. The disk faults (`volume=…`, `full`, `unmounted`) play only in the simulation tier.
 - Each levels save sends `health.changed` naming `storage`, so wait on `nodes` by reading the event's data, not by its name alone.
 - A section with an item replaces its quiet line, so a Storage warning raised from the Details folds them again; open Details again to keep editing.
-- The Health page keeps rows in the order it first showed them while it is open; a reload sorts them errors first, then oldest.
+- The Health page keeps sections and rows in the order it first showed them while it is open, so Nodes moves first only on a reload; a reload sorts them errors first, then oldest.
 - The 422 for an inverted pair compares levels only in one unit. Mixed units such as 50 GB over 5% save, because they can't be compared without a volume.
