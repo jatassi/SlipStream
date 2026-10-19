@@ -1,6 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import type { SystemNodeConfig, TasksOverview, TasksSchedule } from "../api/gen/model";
+import type {
+  HealthReport,
+  SystemNodeConfig,
+  TasksOverview,
+  TasksSchedule,
+} from "../api/gen/model";
+import { getGetSystemHealthQueryKey } from "../api/gen/query/health/health";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
 
@@ -20,4 +26,8 @@ export function adoptTaskSettings(queryClient: QueryClient, settings: TasksSched
     getListTasksQueryKey(),
     (overview) => overview && { ...overview, settings },
   );
+}
+
+export function adoptHealthReport(queryClient: QueryClient, report: HealthReport) {
+  queryClient.setQueryData(getGetSystemHealthQueryKey(), report);
 }
