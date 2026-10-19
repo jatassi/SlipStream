@@ -321,10 +321,15 @@ func TestStoreThenFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var changed bool
 	if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return m.Store(ctx, tx, at, again.Detail)
+		changed, err = m.Store(ctx, tx, at, again.Detail)
+		return err
 	}); err != nil {
 		t.Fatal(err)
+	}
+	if changed {
+		t.Fatal("a second Store of the same record reported a change")
 	}
 	fields("after a second Store")
 }

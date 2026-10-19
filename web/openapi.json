@@ -7860,7 +7860,10 @@
               "text",
               "number",
               "date",
-              "duration"
+              "duration",
+              "texts",
+              "people",
+              "link"
             ],
             "type": "string"
           },
@@ -7889,8 +7892,11 @@
           "mapping": {
             "date": "#/components/schemas/WorksDateValue",
             "duration": "#/components/schemas/WorksDurationValue",
+            "link": "#/components/schemas/WorksLinkValue",
             "number": "#/components/schemas/WorksNumberValue",
-            "text": "#/components/schemas/WorksTextValue"
+            "people": "#/components/schemas/WorksPeopleValue",
+            "text": "#/components/schemas/WorksTextValue",
+            "texts": "#/components/schemas/WorksTextsValue"
           },
           "propertyName": "kind"
         },
@@ -7906,6 +7912,15 @@
           },
           {
             "$ref": "#/components/schemas/WorksDurationValue"
+          },
+          {
+            "$ref": "#/components/schemas/WorksTextsValue"
+          },
+          {
+            "$ref": "#/components/schemas/WorksPeopleValue"
+          },
+          {
+            "$ref": "#/components/schemas/WorksLinkValue"
           }
         ]
       },
@@ -7944,6 +7959,13 @@
             "minimum": 1,
             "type": "integer"
           },
+          "ratings": {
+            "description": "By source",
+            "items": {
+              "$ref": "#/components/schemas/WorksRating"
+            },
+            "type": "array"
+          },
           "withdrawnAt": {
             "description": "When the source stopped listing it; null while it lists it",
             "format": "date-time",
@@ -7961,7 +7983,8 @@
           "position",
           "withdrawnAt",
           "monitored",
-          "fields"
+          "fields",
+          "ratings"
         ],
         "type": "object"
       },
@@ -8023,6 +8046,34 @@
         ],
         "type": "object"
       },
+      "WorksLinkValue": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "link"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "label",
+          "url"
+        ],
+        "type": "object"
+      },
       "WorksListedWork": {
         "additionalProperties": false,
         "properties": {
@@ -8040,6 +8091,14 @@
               "$ref": "#/components/schemas/WorksFieldValue"
             },
             "type": "array"
+          },
+          "goneUpstreamAt": {
+            "description": "When the metadata source last answered that it no longer has this Work; null while it has it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "format": "uuid",
@@ -8067,7 +8126,8 @@
           "label",
           "sortLabel",
           "addedAt",
-          "refreshedAt"
+          "refreshedAt",
+          "goneUpstreamAt"
         ],
         "type": "object"
       },
@@ -8145,6 +8205,101 @@
         ],
         "type": "object"
       },
+      "WorksPeopleValue": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "people"
+            ],
+            "type": "string"
+          },
+          "people": {
+            "description": "In the source's order",
+            "items": {
+              "$ref": "#/components/schemas/WorksPerson"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "people"
+        ],
+        "type": "object"
+      },
+      "WorksPerson": {
+        "additionalProperties": false,
+        "properties": {
+          "department": {
+            "description": "Empty when the source names none",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "description": "The character played or the job done; empty when the source names none",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "department"
+        ],
+        "type": "object"
+      },
+      "WorksRating": {
+        "additionalProperties": false,
+        "properties": {
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "label": {
+            "description": "The source's name as a person reads it",
+            "type": "string"
+          },
+          "scale": {
+            "description": "The value's maximum",
+            "exclusiveMinimum": 0,
+            "format": "double",
+            "type": "number"
+          },
+          "source": {
+            "description": "The ratings source, such as imdb",
+            "type": "string"
+          },
+          "value": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "votes": {
+            "description": "Null when the source counts none",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "label",
+          "value",
+          "scale",
+          "votes",
+          "fetchedAt"
+        ],
+        "type": "object"
+      },
       "WorksTextValue": {
         "additionalProperties": false,
         "properties": {
@@ -8168,6 +8323,33 @@
         ],
         "type": "object"
       },
+      "WorksTextsValue": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "texts"
+            ],
+            "type": "string"
+          },
+          "texts": {
+            "description": "In the source's order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "texts"
+        ],
+        "type": "object"
+      },
       "WorksTree": {
         "additionalProperties": false,
         "properties": {
@@ -8184,6 +8366,14 @@
               "$ref": "#/components/schemas/WorksFieldValue"
             },
             "type": "array"
+          },
+          "goneUpstreamAt": {
+            "description": "When the metadata source last answered that it no longer has this Work; null while it has it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "format": "uuid",
@@ -8209,6 +8399,13 @@
             },
             "type": "array"
           },
+          "ratings": {
+            "description": "The Work's own, by source",
+            "items": {
+              "$ref": "#/components/schemas/WorksRating"
+            },
+            "type": "array"
+          },
           "refreshedAt": {
             "format": "date-time",
             "type": "string"
@@ -8219,6 +8416,7 @@
         },
         "required": [
           "fields",
+          "ratings",
           "levels",
           "items",
           "id",
@@ -8227,7 +8425,21 @@
           "label",
           "sortLabel",
           "addedAt",
-          "refreshedAt"
+          "refreshedAt",
+          "goneUpstreamAt"
+        ],
+        "type": "object"
+      },
+      "WorksTypeChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentType"
         ],
         "type": "object"
       },
@@ -10916,6 +11128,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "metadata_refused",
                             "metadata_unavailable"
                           ],
                           "type": "string"
@@ -12824,6 +13037,32 @@
                           "event"
                         ],
                         "title": "Event works.content-types-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/WorksTypeChanged"
+                          },
+                          "event": {
+                            "const": "works.type-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event works.type-changed",
                         "type": "object"
                       }
                     ]
@@ -30490,6 +30729,7 @@
                         "code": {
                           "enum": [
                             "metadata_invalid",
+                            "metadata_refused",
                             "metadata_unavailable"
                           ],
                           "type": "string"
@@ -31308,6 +31548,7 @@
                         "code": {
                           "enum": [
                             "metadata_invalid",
+                            "metadata_refused",
                             "metadata_unavailable"
                           ],
                           "type": "string"

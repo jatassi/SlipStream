@@ -20,6 +20,7 @@ const harvest: WorksListedWork = {
   sortLabel: "Orchard Harvest",
   addedAt: "2026-10-11T09:00:00Z",
   refreshedAt: "2026-10-11T09:00:00Z",
+  goneUpstreamAt: null,
   fields: [],
 };
 
@@ -55,6 +56,7 @@ function activityServer() {
           sortLabel: orchard.sortLabel,
           addedAt: orchard.addedAt,
           refreshedAt: orchard.refreshedAt,
+          goneUpstreamAt: null,
           fields: orchard.fields,
         },
       ],

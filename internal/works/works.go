@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
@@ -60,9 +61,17 @@ type ContentTypesChanged struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 }
 
+type TypeChanged struct {
+	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+}
+
 var (
 	ChangedEvent             = live.AdminEvent[WorkChanged]("works.changed")
 	ContentTypesChangedEvent = live.EveryoneEvent[ContentTypesChanged]("works.content-types-changed")
+	// TypeChangedEvent means every Work of the type may read differently,
+	// so a page refetches the type's Works instead of hearing one
+	// works.changed per Work.
+	TypeChangedEvent = live.AdminEvent[TypeChanged]("works.type-changed")
 )
 
 type Publisher[T any] interface {
@@ -182,6 +191,30 @@ func validate(d Description) error {
 			seen[f.Tier] = map[string]bool{}
 		}
 		seen[f.Tier][f.Key] = true
+	}
+	return validateArtwork(d.Artwork)
+}
+
+func validateArtwork(kinds []artwork.Kind) error {
+	seen := map[bool]map[string]bool{false: {}, true: {}}
+	for _, k := range kinds {
+		_, shapeErr := artwork.ParseShape(string(k.Shape))
+		switch {
+		case !fieldKey.MatchString(k.Key):
+			return fmt.Errorf("artwork kind %s is not %s", k.Key, fieldKey)
+		case k.Label == "":
+			return fmt.Errorf("artwork kind %s has no label", k.Key)
+		case shapeErr != nil:
+			return fmt.Errorf("artwork kind %s: %w", k.Key, shapeErr)
+		case seen[k.Item][k.Key]:
+			return fmt.Errorf("artwork kind %s is declared twice", k.Key)
+		}
+		if k.Prefetch != "" {
+			if _, err := artwork.ParseSize(string(k.Prefetch)); err != nil {
+				return fmt.Errorf("artwork kind %s: %w", k.Key, err)
+			}
+		}
+		seen[k.Item][k.Key] = true
 	}
 	return nil
 }

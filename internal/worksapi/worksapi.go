@@ -36,6 +36,7 @@ var (
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't answer. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
+	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused SlipStream's key")
 	profileNotFound     = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
 	profileWrongType    = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
@@ -54,6 +55,7 @@ var codes = []struct {
 	{works.ErrNotFound, metadataNotFound},
 	{works.ErrUnavailable, metadataUnavailable},
 	{works.ErrInvalid, metadataInvalid},
+	{works.ErrRefused, metadataRefused},
 	{targets.ErrNoProfile, profileNotFound},
 	{targets.ErrProfileWrongType, profileWrongType},
 	{roots.ErrNotFound, rootNotFound},
@@ -61,6 +63,10 @@ var codes = []struct {
 }
 
 func answer(err error) error {
+	var source *works.SourceError
+	if errors.Is(err, works.ErrRefused) && errors.As(err, &source) {
+		return metadataRefused.Because(source.Source + " refused SlipStream's key")
+	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {
 			return c.code
@@ -79,7 +85,7 @@ type fieldSpec struct {
 	Label string `json:"label"`
 	Tier  string `json:"tier" enum:"work,level,item"`
 	Depth *int   `json:"depth,omitempty" minimum:"1" doc:"The level's depth, 1 for the outermost; present only on tier level"`
-	Kind  string `json:"kind" enum:"text,number,date,duration"`
+	Kind  string `json:"kind" enum:"text,number,date,duration,texts,people,link"`
 }
 
 type contentType struct {
@@ -120,7 +126,7 @@ func contentTypeOf(t works.ContentType) contentType {
 type fieldValue struct{}
 
 func (fieldValue) Variants() (discriminator string, variants []any) {
-	return "kind", []any{textValue{}, numberValue{}, dateValue{}, durationValue{}}
+	return "kind", []any{textValue{}, numberValue{}, dateValue{}, durationValue{}, textsValue{}, peopleValue{}, linkValue{}}
 }
 
 type textValue struct {
@@ -147,6 +153,31 @@ type durationValue struct {
 	Ms   int64  `json:"ms" minimum:"0"`
 }
 
+type textsValue struct {
+	Key   string   `json:"key"`
+	Kind  string   `json:"kind" enum:"texts"`
+	Texts []string `json:"texts" nullable:"false" doc:"In the source's order"`
+}
+
+type peopleValue struct {
+	Key    string   `json:"key"`
+	Kind   string   `json:"kind" enum:"people"`
+	People []person `json:"people" nullable:"false" doc:"In the source's order"`
+}
+
+type person struct {
+	Name       string `json:"name"`
+	Role       string `json:"role" doc:"The character played or the job done; empty when the source names none"`
+	Department string `json:"department" doc:"Empty when the source names none"`
+}
+
+type linkValue struct {
+	Key   string `json:"key"`
+	Kind  string `json:"kind" enum:"link"`
+	Label string `json:"label"`
+	URL   string `json:"url" format:"uri"`
+}
+
 var valueOf = map[works.FieldKind]func(works.FieldValue) any{
 	works.KindText:   func(v works.FieldValue) any { return textValue{Key: v.Key, Kind: v.Kind.String(), Text: v.Text} },
 	works.KindNumber: func(v works.FieldValue) any { return numberValue{Key: v.Key, Kind: v.Kind.String(), Number: v.Number} },
@@ -155,6 +186,19 @@ var valueOf = map[works.FieldKind]func(works.FieldValue) any{
 	},
 	works.KindDuration: func(v works.FieldValue) any {
 		return durationValue{Key: v.Key, Kind: v.Kind.String(), Ms: v.Duration.Milliseconds()}
+	},
+	works.KindTexts: func(v works.FieldValue) any {
+		return textsValue{Key: v.Key, Kind: v.Kind.String(), Texts: append([]string{}, v.Texts...)}
+	},
+	works.KindPeople: func(v works.FieldValue) any {
+		people := make([]person, len(v.People))
+		for i, p := range v.People {
+			people[i] = person{Name: p.Name, Role: p.Role, Department: p.Department}
+		}
+		return peopleValue{Key: v.Key, Kind: v.Kind.String(), People: people}
+	},
+	works.KindLink: func(v works.FieldValue) any {
+		return linkValue{Key: v.Key, Kind: v.Kind.String(), Label: v.Link.Label, URL: v.Link.URL}
 	},
 }
 
@@ -168,27 +212,47 @@ func fieldsOf(vs []works.FieldValue) []api.OneOf[fieldValue] {
 
 // Work is exported so the document carries the fields tree embeds.
 type Work struct {
-	ID          string    `json:"id" format:"uuid"`
-	ContentType string    `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Key         string    `json:"key"`
-	Label       string    `json:"label"`
-	SortLabel   string    `json:"sortLabel"`
-	AddedAt     time.Time `json:"addedAt"`
-	RefreshedAt time.Time `json:"refreshedAt"`
+	ID             string     `json:"id" format:"uuid"`
+	ContentType    string     `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Key            string     `json:"key"`
+	Label          string     `json:"label"`
+	SortLabel      string     `json:"sortLabel"`
+	AddedAt        time.Time  `json:"addedAt"`
+	RefreshedAt    time.Time  `json:"refreshedAt"`
+	GoneUpstreamAt *time.Time `json:"goneUpstreamAt" doc:"When the metadata source last answered that it no longer has this Work; null while it has it"`
 }
 
 func workOf(s works.Summary) Work {
 	return Work{
 		ID: s.ID.String(), ContentType: string(s.ContentType), Key: string(s.Key), Label: s.Label, SortLabel: s.SortLabel,
-		AddedAt: s.AddedAt.Time(), RefreshedAt: s.RefreshedAt.Time(),
+		AddedAt: s.AddedAt.Time(), RefreshedAt: s.RefreshedAt.Time(), GoneUpstreamAt: timeOrNull(s.GoneUpstreamAt),
 	}
+}
+
+type rating struct {
+	Source    string    `json:"source" doc:"The ratings source, such as imdb"`
+	Label     string    `json:"label" doc:"The source's name as a person reads it"`
+	Value     float64   `json:"value" minimum:"0"`
+	Scale     float64   `json:"scale" exclusiveMinimum:"0" doc:"The value's maximum"`
+	Votes     *int64    `json:"votes" minimum:"0" doc:"Null when the source counts none"`
+	FetchedAt time.Time `json:"fetchedAt"`
+}
+
+func ratingsOf(rs []works.StoredRating) []rating {
+	out := make([]rating, len(rs))
+	for i, r := range rs {
+		s := works.RatingSources[r.Source]
+		out[i] = rating{Source: string(r.Source), Label: s.Label, Value: r.Value, Scale: s.Scale, Votes: r.Votes, FetchedAt: r.FetchedAt.Time()}
+	}
+	return out
 }
 
 type tree struct {
 	Work
-	Fields []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
-	Levels []level                 `json:"levels" nullable:"false" doc:"By depth, then their parent's order, live before withdrawn, then position"`
-	Items  []item                  `json:"items" nullable:"false" doc:"By their level's order, live before withdrawn, then position"`
+	Fields  []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
+	Ratings []rating                `json:"ratings" nullable:"false" doc:"The Work's own, by source"`
+	Levels  []level                 `json:"levels" nullable:"false" doc:"By depth, then their parent's order, live before withdrawn, then position"`
+	Items   []item                  `json:"items" nullable:"false" doc:"By their level's order, live before withdrawn, then position"`
 }
 
 type level struct {
@@ -211,10 +275,11 @@ type item struct {
 	WithdrawnAt *time.Time              `json:"withdrawnAt" doc:"When the source stopped listing it; null while it lists it"`
 	Monitored   bool                    `json:"monitored"`
 	Fields      []api.OneOf[fieldValue] `json:"fields" nullable:"false"`
+	Ratings     []rating                `json:"ratings" nullable:"false" doc:"By source"`
 }
 
 func treeOf(t works.Tree) tree {
-	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(t.Fields), Levels: []level{}, Items: []item{}}
+	out := tree{Work: workOf(t.Summary), Fields: fieldsOf(t.Fields), Ratings: ratingsOf(t.Ratings), Levels: []level{}, Items: []item{}}
 	for _, l := range t.Levels {
 		out.Levels = append(out.Levels, level{
 			ID: l.ID.String(), ParentID: idOrNull(l.ParentID.UUID), Depth: l.Depth, Key: string(l.Key), Label: l.Label,
@@ -225,6 +290,7 @@ func treeOf(t works.Tree) tree {
 		out.Items = append(out.Items, item{
 			ID: it.ID.String(), LevelID: idOrNull(it.LevelID.UUID), Key: string(it.Key), Label: it.Label,
 			Position: it.Position, WithdrawnAt: timeOrNull(it.WithdrawnAt), Monitored: it.Monitored, Fields: fieldsOf(it.Fields),
+			Ratings: ratingsOf(it.Ratings),
 		})
 	}
 	return out
@@ -356,7 +422,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/content-types/{contentType}/catalog",
 		Summary: "Search a Content Type's metadata source",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataUnavailable},
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataUnavailable, metadataRefused},
 	}, h.searchCatalog)
 
 	api.Register(o, api.Admin, api.Op{
@@ -365,7 +431,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works",
 		Summary: "Add a Work by its key with its whole tree, or get the Work already added",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, profileNotFound, profileWrongType, rootNotFound, rootWrongType, metadataNotFound, metadataUnavailable, metadataInvalid},
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, profileNotFound, profileWrongType, rootNotFound, rootWrongType, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused},
 	}, h.addWork)
 
 	api.Register(o, api.Admin, api.Op{
@@ -392,7 +458,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/{workId}/refresh",
 		Summary: "Refresh a Work from its metadata source, keeping every id",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, workGoneUpstream, metadataUnavailable, metadataInvalid},
+		Errors:  []*api.Code{workNotFound, workGoneUpstream, metadataUnavailable, metadataInvalid, metadataRefused},
 	}, h.refreshWork)
 }
 
