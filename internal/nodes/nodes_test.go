@@ -772,3 +772,42 @@ func TestANodesLinkIsItsSyncSessionSinceItWasLastSeen(t *testing.T) {
 		reach(id, nodes.Down, lastBeat)
 	})
 }
+
+// box answers a reprobe at once while the facts that carry its verdicts
+// land a second later: Probe returns once the roster keeps them.
+func TestProbeWaitsForFreshVerdicts(t *testing.T) {
+	const lag = time.Second
+	synctest.Test(t, func(t *testing.T) {
+		var box *role.Holding
+		c := startController(t, func(cfg *nodes.Config) {
+			cfg.Probe = func(context.Context, nodes.ID) ([]role.ProbeResult, error) {
+				fresh := []role.ProbeResult{{Probe: role.EngineStarts, Fit: role.Fails, Reason: role.EngineNotListening, At: time.Now()}}
+				go func() {
+					time.Sleep(lag)
+					box.SetHost(role.Host{Probes: fresh})
+				}()
+				return fresh, nil
+			}
+		})
+		w := c.worker(t, "box", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "box")
+		box = named(t, role.OverLink(w.Link, c.node.Key, linktest.Timings))
+		box.SetHost(role.Host{Probes: []role.ProbeResult{{Probe: role.EngineStarts, Fit: role.Fits, At: time.Now()}}})
+		synctest.Wait()
+		if n, err := c.svc.Get(t.Context(), id); err != nil || len(n.Probes) != 1 || n.Probes[0].Fit != role.Fits {
+			t.Fatalf("box's probes before the reprobe = %+v, %v; want its engine fitting", n.Probes, err)
+		}
+		time.Sleep(time.Minute)
+
+		start := time.Now()
+		if err := c.svc.Probe(t.Context(), id); err != nil {
+			t.Fatal(err)
+		}
+		if took := time.Since(start); took < lag {
+			t.Fatalf("Probe returned after %s, before box's facts landed at %s", took, lag)
+		}
+		if n, err := c.svc.Get(t.Context(), id); err != nil || len(n.Probes) != 1 || n.Probes[0].Reason != role.EngineNotListening {
+			t.Fatalf("box's probes after the reprobe = %+v, %v; want its engine not listening", n.Probes, err)
+		}
+	})
+}

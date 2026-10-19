@@ -56,14 +56,19 @@ type ProbeResult struct {
 	At     time.Time
 }
 
-func (p ProbeResult) fact() *nodev1.ProbeFact {
-	return &nodev1.ProbeFact{Probe: string(p.Probe), Fit: int32(p.Fit), Reason: string(p.Reason), AtUnixMs: p.At.UnixMilli()}
+// ProbeFacts is results as the wire carries them.
+func ProbeFacts(results []ProbeResult) []*nodev1.ProbeFact {
+	out := make([]*nodev1.ProbeFact, len(results))
+	for i, p := range results {
+		out[i] = &nodev1.ProbeFact{Probe: string(p.Probe), Fit: int32(p.Fit), Reason: string(p.Reason), AtUnixMs: p.At.UnixMilli()}
+	}
+	return out
 }
 
-// ProbesOf is the probe verdicts f carries.
-func ProbesOf(f *nodev1.NodeFacts) []ProbeResult {
+// ProbesOf is the probe verdicts facts carry.
+func ProbesOf(facts []*nodev1.ProbeFact) []ProbeResult {
 	var out []ProbeResult
-	for _, p := range f.GetProbes() {
+	for _, p := range facts {
 		out = append(out, ProbeResult{
 			Probe: Probe(p.GetProbe()), Fit: Fit(p.GetFit()), //nolint:gosec // a Fit the Node's own build sent
 			Reason: ProbeReason(p.GetReason()), At: time.UnixMilli(p.GetAtUnixMs()),

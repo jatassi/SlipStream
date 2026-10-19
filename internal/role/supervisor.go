@@ -96,12 +96,9 @@ func (h *Holding) release(ctx context.Context, held Held) {
 
 // nodeFacts is the node scope's facts. The caller holds h.mu.
 func (h *Holding) nodeFacts() *nodev1.NodeFacts {
-	f := &nodev1.NodeFacts{Assigned: roleStrings(h.assigned), AppliedVersion: h.cache[nodeScope].version, SettingsRevision: h.host.SettingsRevision}
+	f := &nodev1.NodeFacts{Assigned: roleStrings(h.assigned), AppliedVersion: h.cache[nodeScope].version, SettingsRevision: h.host.SettingsRevision, Probes: ProbeFacts(h.host.Probes)}
 	if h.host.HTTPAddress.IsValid() {
 		f.HttpAddress = h.host.HTTPAddress.String()
-	}
-	for _, p := range h.host.Probes {
-		f.Probes = append(f.Probes, p.fact())
 	}
 	for _, held := range h.cfg.Held {
 		switch r := h.runs[held.name]; {

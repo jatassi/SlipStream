@@ -167,16 +167,27 @@ func reachError(err error) string {
 	return err.Error()
 }
 
-// reportHost tells the Controller, through the holder half's node facts,
-// where the Node serves HTTP, which settings revision it shows and what
-// its probes find now.
-// hostMu keeps a stale report from landing after a fresh one.
+// Probe runs every probe now and reports the verdicts, as each
+// timings.role.probe does.
+func (h *nodeHost) Probe() ([]role.ProbeResult, error) { return h.n.report() }
+
+// reportHost reports the Node's host, if a half has started.
 func (n *Node) reportHost() {
+	if _, err := n.report(); err != nil && !errors.Is(err, errStarting) {
+		n.log.Warn("settings revision not reported", "err", err.Error())
+	}
+}
+
+// report tells the Controller, through the holder half's node facts,
+// where the Node serves HTTP, which settings revision it shows and what
+// its probes find now, and answers those verdicts.
+// hostMu keeps a stale report from landing after a fresh one.
+func (n *Node) report() ([]role.ProbeResult, error) {
 	n.hostMu.Lock()
 	defer n.hostMu.Unlock()
 	h := n.half.Load()
 	if h == nil {
-		return
+		return nil, errStarting
 	}
 	var addr netip.AddrPort
 	if f := n.host.facts.Load(); f != nil {
@@ -184,8 +195,9 @@ func (n *Node) reportHost() {
 	}
 	c, err := n.configView()
 	if err != nil {
-		n.log.Warn("settings revision not reported", "err", err.Error())
-		return
+		return nil, err
 	}
-	h.holding.SetHost(role.Host{HTTPAddress: addr, SettingsRevision: c.Revision(), Probes: n.probe()})
+	probes := n.probe()
+	h.holding.SetHost(role.Host{HTTPAddress: addr, SettingsRevision: c.Revision(), Probes: probes})
+	return probes, nil
 }

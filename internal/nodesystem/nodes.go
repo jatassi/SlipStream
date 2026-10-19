@@ -132,6 +132,16 @@ func (n *Nodes) Reach(ctx context.Context, id role.NodeID, t Target) (Reached, e
 	return Reached{OK: res.GetOk(), Took: time.Duration(res.GetMillis()) * time.Millisecond, Err: res.GetError()}, nil
 }
 
+// Probe has id run every probe now, and answers the verdicts it reported
+// in its facts.
+func (n *Nodes) Probe(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) {
+	res, err := n.on(id).Probe(ctx, &systemv1.ProbeRequest{})
+	if err != nil {
+		return nil, fail(err)
+	}
+	return role.ProbesOf(res.GetProbes()), nil
+}
+
 // Follow sends id's log after after until ctx ends: the ring first, then
 // each record as it comes, a reset when after was lapped or came from an
 // earlier process, and an empty batch whenever the Node's poll passes
