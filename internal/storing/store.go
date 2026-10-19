@@ -197,7 +197,7 @@ func (s *Store) pass(ctx context.Context) *storagev1.Facts {
 		}
 		v, err := timed(ctx, s, r.path, func(ctx context.Context) (Volume, error) { return s.cfg.Disk.Volume(ctx, r.path) })
 		switch {
-		case errors.Is(err, errHung), errors.Is(err, errUnresponsive):
+		case errors.Is(err, errUnresponsive):
 			verdicts[i] = verdict{Unresponsive, err.Error()}
 		case err == nil:
 			samples = append(samples, rootSample{root: r.id, volume: v})
@@ -361,7 +361,7 @@ func (s *Store) read(ctx context.Context, folder string) (marking, error) {
 // through it.
 func folderErrorOf(err error) FolderErrorKind {
 	switch {
-	case errors.Is(err, errHung), errors.Is(err, errUnresponsive):
+	case errors.Is(err, errUnresponsive):
 		return FolderUnresponsive
 	case errors.Is(err, fs.ErrNotExist):
 		return FolderNotFound
@@ -459,18 +459,22 @@ func (s *Store) resample(root storage.UUID) {
 	}
 }
 
-var errHung = errors.New("unresponsive")
+// errUnresponsive is a Disk call that missed the stat deadline. The call
+// goes on in its goroutine until the kernel answers.
+var errUnresponsive = errors.New("the disk did not answer in time")
 
-// timed runs fn under the stat deadline. While an earlier call on key is
-// still in the kernel past its deadline, it answers errHung at once rather
-// than stack another call behind it.
+// timed runs fn under the stat deadline and answers errUnresponsive once it
+// passes, or ctx's error when ctx ends first. A filesystem call can't be
+// interrupted, so a miss leaves it running: while an earlier call on key is
+// still in the kernel, timed answers errUnresponsive at once rather than
+// stack another call behind it.
 func timed[T any](ctx context.Context, s *Store, key string, fn func(context.Context) (T, error)) (T, error) {
 	var none T
 	s.mu.Lock()
 	stuck := s.stuck[key] > 0
 	s.mu.Unlock()
 	if stuck {
-		return none, fmt.Errorf("%s is still not answering: %w", key, errHung)
+		return none, fmt.Errorf("%s is still not answering: %w", key, errUnresponsive)
 	}
 	type answer struct {
 		v   T
@@ -502,5 +506,5 @@ func timed[T any](ctx context.Context, s *Store, key string, fn func(context.Con
 			delete(s.stuck, key)
 		}
 	}()
-	return none, fmt.Errorf("%s hasn't answered within %s: %w", key, s.cfg.Timings.Stat, errHung)
+	return none, fmt.Errorf("%s hasn't answered within %s: %w", key, s.cfg.Timings.Stat, errUnresponsive)
 }

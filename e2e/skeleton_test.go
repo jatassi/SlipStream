@@ -328,11 +328,13 @@ func announce(t *testing.T, r events.Record) tracker.Announce {
 	return an
 }
 
+// filesUnder is every file under dir but the markers its Storage Node
+// writes into each root it adopts.
 func filesUnder(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil || d.IsDir() || d.Name() == ".slipstream-root" {
 			return err
 		}
 		rel, err := filepath.Rel(dir, path)

@@ -13,6 +13,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+// Def is the Storage Role.
+var Def = role.Def[*storagev1.Intent, *storagev1.Facts, *storagev1.Result]{Name: role.Storage, Notable: statesOrVolumesDiffer}
+
 type Holder = role.Holder[*storagev1.Intent, *storagev1.Facts, *storagev1.Result]
 
 // statesOrVolumesDiffer is the Storage Role's notability: a change in any
@@ -46,6 +49,8 @@ type Timings struct {
 	// the roots behind it unresponsive and never blocks the loop.
 	Stat time.Duration `yaml:"stat"`
 }
+
+func DefaultTimings() Timings { return Timings{Stat: 10 * time.Second} }
 
 // At addresses a root through the Storage service.
 type At struct {

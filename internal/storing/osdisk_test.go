@@ -144,29 +144,33 @@ func (d stuckDisk) Stat(ctx context.Context, path string) (Info, error) {
 	return d.OSDisk.Stat(ctx, path)
 }
 
-func TestBoundedStatIsUnresponsive(t *testing.T) {
+func TestAStuckStatIsUnresponsive(t *testing.T) {
 	d, dir := newOSDisk(t), t.TempDir()
 	synctest.Test(t, func(t *testing.T) {
 		stuck := stuckDisk{d, make(chan struct{})}
+		s := NewStore(Config{Disk: stuck, Timings: Timings{Stat: 10 * time.Second}})
 		start := time.Now()
-		_, err := bounded(t.Context(), 10*time.Second, func(ctx context.Context) (Info, error) { return stuck.Stat(ctx, dir) })
+		_, err := timed(t.Context(), s, dir, func(ctx context.Context) (Info, error) { return stuck.Stat(ctx, dir) })
 		if !errors.Is(err, errUnresponsive) || time.Since(start) != 10*time.Second {
 			t.Errorf("stuck stat: %v after %v, want unresponsive after 10s", err, time.Since(start))
 		}
 		close(stuck.release)
 	})
-	info, err := bounded(t.Context(), 10*time.Second, func(ctx context.Context) (Info, error) { return d.Stat(ctx, dir) })
+	s := NewStore(Config{Disk: d, Timings: Timings{Stat: 10 * time.Second}})
+	info, err := timed(t.Context(), s, dir, func(ctx context.Context) (Info, error) { return d.Stat(ctx, dir) })
 	if err != nil || !info.Dir() {
 		t.Errorf("a stat that answers: %v, %v", info, err)
 	}
 }
 
-func TestBoundedAnswersTheCallersEnd(t *testing.T) {
+func TestTimedAnswersTheCallersEnd(t *testing.T) {
+	d := newOSDisk(t)
 	synctest.Test(t, func(t *testing.T) {
 		release := make(chan struct{})
+		s := NewStore(Config{Disk: d, Timings: Timings{Stat: 10 * time.Second}})
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
-		_, err := bounded(ctx, 10*time.Second, func(context.Context) (int, error) { <-release; return 0, nil })
+		_, err := timed(ctx, s, "key", func(context.Context) (int, error) { <-release; return 0, nil })
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Errorf("caller's deadline first: %v", err)
 		}

@@ -421,7 +421,7 @@ func (s *Store) check(ctx context.Context, path string, others []Other) (CheckRe
 	}
 	if _, err := timed(ctx, s, dir, func(ctx context.Context) (struct{}, error) { return struct{}{}, s.tryWrite(ctx, dir) }); err != nil {
 		reason := ReasonUnwritable
-		if errors.Is(err, errHung) {
+		if errors.Is(err, errUnresponsive) {
 			reason = ReasonUnresponsive
 		}
 		c.Refusal = &Refusal{Reason: reason}

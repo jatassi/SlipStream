@@ -3,6 +3,7 @@ package roots
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/roots/internal/db"
@@ -41,13 +42,21 @@ func (r *Roots) Home(ctx context.Context, tx *storage.Tx[file], work works.WorkI
 
 // SetWorkRoot moves work, which has no files, into root.
 func (r *Roots) SetWorkRoot(ctx context.Context, _ identity.Admin, work works.WorkID, root ID) error {
+	changed := []ID{root}
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		changed = changed[:1]
+		switch was, err := OfWork(ctx, tx, work); {
+		case err == nil && was.ID != root:
+			changed = append(changed, was.ID)
+		case err != nil && !errors.Is(err, ErrNoRoot):
+			return err
+		}
 		return r.Home(ctx, tx, work, root)
 	})
 	if err != nil {
 		return err
 	}
-	r.cfg.Changed.Publish(ctx, Changed{})
+	r.cfg.Changed.Publish(ctx, changedOf(changed))
 	return nil
 }
 
@@ -75,11 +84,11 @@ func Assign(ctx context.Context, tx *storage.Tx[file], w works.Summary, root *ID
 }
 
 // homeRootless homes every rootless Work whose type has a default root in
-// that root, and reports whether it homed one.
-func homeRootless(ctx context.Context, tx *storage.Tx[file]) (bool, error) {
+// that root, and answers the roots it homed a Work in.
+func homeRootless(ctx context.Context, tx *storage.Tx[file]) ([]ID, error) {
 	all, err := All(ctx, tx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defaults := map[works.TypeID]ID{}
 	for _, root := range all {
@@ -88,12 +97,12 @@ func homeRootless(ctx context.Context, tx *storage.Tx[file]) (bool, error) {
 		}
 	}
 	if len(defaults) == 0 {
-		return false, nil
+		return nil, nil
 	}
 	q := db.New(tx)
 	homed, err := q.ListHomedWorks(ctx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	has := make(map[works.WorkID]bool, len(homed))
 	for _, id := range homed {
@@ -101,18 +110,20 @@ func homeRootless(ctx context.Context, tx *storage.Tx[file]) (bool, error) {
 	}
 	summaries, err := works.Summaries(ctx, tx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	made := false
+	var into []ID
 	for _, w := range summaries {
 		root, ok := defaults[w.ContentType]
 		if has[w.ID] || !ok {
 			continue
 		}
 		if err := q.HomeWork(ctx, db.HomeWorkParams{WorkID: w.ID, RootID: root}); err != nil {
-			return false, err
+			return nil, err
 		}
-		made = true
+		if !slices.Contains(into, root) {
+			into = append(into, root)
+		}
 	}
-	return made, nil
+	return into, nil
 }

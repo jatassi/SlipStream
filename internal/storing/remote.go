@@ -21,10 +21,14 @@ import (
 // rpc.Lost to read.
 type Remote func(role.NodeID) storagev1connect.StorageServiceHandler
 
+// ErrInvalid is a path or folder name the Node can't use: a path that isn't
+// absolute, or a name that isn't one folder's.
+var ErrInvalid = errors.New("the Node can't use that path or name")
+
 func (r Remote) Browse(ctx context.Context, node role.NodeID, path string, showHidden bool) (Listing, error) {
 	res, err := r(node).Browse(ctx, &storagev1.BrowseRequest{Path: path, ShowHidden: showHidden})
 	if err != nil {
-		return Listing{}, answer(err)
+		return Listing{}, folderAnswer(err)
 	}
 	l := Listing{Path: res.GetPath(), Parent: res.GetParent(), Hidden: int(res.GetHidden()), Service: res.GetService()}
 	if l.Volume, err = parseVolume(res.GetVolume()); err != nil {
@@ -56,7 +60,7 @@ func (r Remote) Browse(ctx context.Context, node role.NodeID, path string, showH
 func (r Remote) Suggest(ctx context.Context, node role.NodeID, text string) ([]string, error) {
 	res, err := r(node).Suggest(ctx, &storagev1.SuggestRequest{Text: text})
 	if err != nil {
-		return nil, answer(err)
+		return nil, folderAnswer(err)
 	}
 	return res.GetPaths(), nil
 }
@@ -64,7 +68,7 @@ func (r Remote) Suggest(ctx context.Context, node role.NodeID, text string) ([]s
 func (r Remote) MakeFolder(ctx context.Context, node role.NodeID, parent, name string) (string, error) {
 	res, err := r(node).MakeFolder(ctx, &storagev1.MakeFolderRequest{Parent: parent, Name: name})
 	if err != nil {
-		return "", answer(err)
+		return "", folderAnswer(err)
 	}
 	return res.GetPath(), nil
 }
@@ -194,6 +198,17 @@ func answer(err error) error {
 		return nr
 	}
 	return err
+}
+
+// folderAnswer is a folder op's error as the domain reads it: a path or
+// name refused is ErrInvalid, and a folder already there fs.ErrExist.
+func folderAnswer(err error) error {
+	if code := rpc.CodeOf(err); code == rpc.CodeInvalidArgument {
+		return fmt.Errorf("%w: %w", ErrInvalid, err)
+	} else if code == rpc.CodeAlreadyExists {
+		return fmt.Errorf("%w: %w", fs.ErrExist, err)
+	}
+	return answer(err)
 }
 
 func occupied(err error) error {

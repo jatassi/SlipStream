@@ -250,13 +250,16 @@ func TestMakeFolderMakesOneNamedFolder(t *testing.T) {
 	if fi, err := os.Stat(got); err != nil || !fi.IsDir() {
 		t.Fatalf("no folder at %s: %v", got, err)
 	}
-	if _, err := remote.MakeFolder(t.Context(), node, parent, "Movies"); rpc.CodeOf(err) != rpc.CodeAlreadyExists {
-		t.Errorf("making it again = %v, want already exists", err)
+	if _, err := remote.MakeFolder(t.Context(), node, parent, "Movies"); !errors.Is(err, fs.ErrExist) {
+		t.Errorf("making it again = %v, want it exists", err)
 	}
 	for _, name := range []string{"", "..", "a/b"} {
-		if _, err := remote.MakeFolder(t.Context(), node, parent, name); rpc.CodeOf(err) != rpc.CodeInvalidArgument {
-			t.Errorf("MakeFolder(%q) = %v, want invalid argument", name, err)
+		if _, err := remote.MakeFolder(t.Context(), node, parent, name); !errors.Is(err, ErrInvalid) {
+			t.Errorf("MakeFolder(%q) = %v, want invalid", name, err)
 		}
+	}
+	if _, err := remote.Browse(t.Context(), node, "Movies", false); !errors.Is(err, ErrInvalid) {
+		t.Errorf("Browse of a relative path = %v, want invalid", err)
 	}
 	_, err = remote.MakeFolder(t.Context(), node, filepath.Join(parent, "gone"), "Movies")
 	if fe := folderErr(t, err); fe.Kind != FolderNotFound {
