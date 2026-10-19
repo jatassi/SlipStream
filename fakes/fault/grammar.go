@@ -3,6 +3,7 @@ package fault
 import (
 	"errors"
 	"fmt"
+	"mime"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 //
 //	refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
 //	status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+//	content-type=<media type>
 //	full | unmounted | hung | readonly | volume=<total>,free=<free>
 func Parse(s string) (Fault, error) {
 	name, value, hasValue := strings.Cut(s, "=")
@@ -67,6 +69,12 @@ var valued = map[string]func(string) (Fault, error){
 	"slow-body": func(v string) (Fault, error) {
 		r, err := rate(v)
 		return SlowBody(r), err
+	},
+	"content-type": func(v string) (Fault, error) {
+		if t, _, err := mime.ParseMediaType(v); err != nil || !strings.Contains(t, "/") {
+			return nil, fmt.Errorf("%q is not a media type such as text/html", v)
+		}
+		return ContentType(v), nil
 	},
 }
 
