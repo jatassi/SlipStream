@@ -235,7 +235,7 @@ var folderCodes = map[FolderErrorKind]rpc.Code{
 }
 
 func (s *Store) folderError(err error) *FolderError {
-	fe := &FolderError{Kind: kindOf(err), Text: err.Error()}
+	fe := &FolderError{Kind: folderErrorOf(err), Text: err.Error()}
 	if fe.Kind == FolderDenied {
 		fe.Account = s.host.Account
 	}
@@ -333,7 +333,7 @@ func (s *Store) suggest(ctx context.Context, typed string) ([]string, error) {
 	}
 	es, err := s.entries(ctx, dir)
 	if err != nil {
-		if k := kindOf(err); k == FolderNotFound || k == FolderNotAFolder {
+		if k := folderErrorOf(err); k == FolderNotFound || k == FolderNotAFolder {
 			return nil, nil
 		}
 		return nil, s.folderError(err)
@@ -404,7 +404,7 @@ func (s *Store) check(ctx context.Context, path string, others []Other) (CheckRe
 	c := CheckResult{Path: dir}
 	m, err := s.read(ctx, dir)
 	if err != nil {
-		reason, ok := reasonOf[kindOf(err)]
+		reason, ok := reasonOf[folderErrorOf(err)]
 		if !ok {
 			return CheckResult{}, s.folderError(err)
 		}
