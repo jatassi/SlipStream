@@ -32,6 +32,19 @@ func open(t *testing.T) engine.Engine {
 	return e
 }
 
+// started adds a torrent and resumes it.
+func started(t *testing.T, e engine.Engine, p engine.AddParams) engine.Handle {
+	t.Helper()
+	h, err := e.Add(p)
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if err := e.Resume(h); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	return h
+}
+
 func waitFor[E engine.Event](t *testing.T, events <-chan engine.Event, match func(E) bool) E {
 	t.Helper()
 	timeout := time.After(60 * time.Second)
@@ -61,14 +74,8 @@ func TestEngineRoundTrip(t *testing.T) {
 	seeder := open(t)
 	leecher := open(t)
 
-	seedHandle, err := seeder.Add(engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
-	if err != nil {
-		t.Fatalf("seeder add: %v", err)
-	}
-	leechHandle, err := leecher.Add(engine.AddParams{Metainfo: meta, SavePath: leechDir})
-	if err != nil {
-		t.Fatalf("leecher add: %v", err)
-	}
+	seedHandle := started(t, seeder, engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
+	leechHandle := started(t, leecher, engine.AddParams{Metainfo: meta, SavePath: leechDir})
 	seederAddr, err := seeder.ListenAddr()
 	if err != nil {
 		t.Fatalf("seeder listen addr: %v", err)
@@ -100,7 +107,7 @@ func TestEngineRoundTrip(t *testing.T) {
 		e    engine.Engine
 		h    engine.Handle
 	}{{"leecher", leecher, leechHandle}, {"seeder", seeder, seedHandle}} {
-		if err := side.e.Remove(side.h); err != nil {
+		if err := side.e.Remove(side.h, false); err != nil {
 			t.Fatalf("%s remove: %v", side.name, err)
 		}
 		waitFor(t, side.e.Events(), func(e engine.Removed) bool { return e.Torrent == side.h })
@@ -118,7 +125,7 @@ func awaitUploaded(t *testing.T, e engine.Engine, h engine.Handle, n int64) {
 		if err != nil {
 			t.Fatalf("status: %v", err)
 		}
-		if st.Uploaded >= n {
+		if st.Totals.Uploaded >= n {
 			return
 		}
 		if time.Now().After(deadline) {
@@ -147,7 +154,7 @@ func TestEngineRejectsBadInput(t *testing.T) {
 	if _, err := e.Status(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
 		t.Fatalf("status of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
 	}
-	if err := e.Remove(unknown); !errors.Is(err, engine.ErrUnknownTorrent) {
+	if err := e.Remove(unknown, false); !errors.Is(err, engine.ErrUnknownTorrent) {
 		t.Fatalf("remove of unknown handle: err = %v, want %v", err, engine.ErrUnknownTorrent)
 	}
 	if err := e.ConnectPeer(unknown, netip.MustParseAddrPort("127.0.0.1:1")); !errors.Is(err, engine.ErrUnknownTorrent) {

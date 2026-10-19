@@ -74,6 +74,9 @@ func seed(ctx context.Context, ses engine.Engine, r releases.Release) error {
 	if err != nil {
 		return fmt.Errorf("add the torrent: %w", err)
 	}
+	if err := ses.Resume(h); err != nil {
+		return fmt.Errorf("start the torrent: %w", err)
+	}
 	for {
 		select {
 		case ev, ok := <-ses.Events():

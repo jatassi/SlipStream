@@ -34,7 +34,7 @@ func TestAnAddedTorrentIsTrackedUntilRemoved(t *testing.T) {
 			t.Fatalf("Status(%d) = %+v, %v; want %s", h, s, err, want)
 		}
 	}
-	if err := e.Remove(seeding); err != nil {
+	if err := e.Remove(seeding, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.Status(seeding); !errors.Is(err, engine.ErrUnknownTorrent) {
@@ -102,7 +102,7 @@ func TestFilesListTheMetainfosFiles(t *testing.T) {
 	}
 }
 
-func TestADownloadWithAPayloadFinishesIntoItsSavePath(t *testing.T) {
+func TestADownloadWithAPayloadFinishesIntoItsSavePathOnceResumed(t *testing.T) {
 	m, err := bencode.DecodeMetainfo([]byte(single))
 	if err != nil {
 		t.Fatal(err)
@@ -116,8 +116,14 @@ func TestADownloadWithAPayloadFinishesIntoItsSavePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s, err := e.Status(h); err != nil || s != (engine.Status{State: engine.StateSeeding, Done: 5, Wanted: 5}) {
-		t.Fatalf("Status = %+v, %v; want seeding 5 of 5", s, err)
+	if s, err := e.Status(h); err != nil || s.State != engine.StateDownloading || !s.Paused || s.Done != 0 {
+		t.Fatalf("added, Status = %+v, %v; want paused downloading with nothing done", s, err)
+	}
+	if err := e.Resume(h); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := e.Status(h); err != nil || s.State != engine.StateSeeding || s.Done != 5 || s.Wanted != 5 || s.Totals.Downloaded != 5 {
+		t.Fatalf("resumed, Status = %+v, %v; want seeding 5 of 5, all downloaded", s, err)
 	}
 	if got, err := os.ReadFile(filepath.Join(dir, "a.mkv")); err != nil || string(got) != "hello" {
 		t.Fatalf("a.mkv holds %q, %v; want hello", got, err)
@@ -127,7 +133,10 @@ func TestADownloadWithAPayloadFinishesIntoItsSavePath(t *testing.T) {
 	for ev := range e.Events() {
 		got = append(got, ev)
 	}
-	want := []engine.Event{engine.Added{Torrent: h}, engine.StateChanged{Torrent: h, State: engine.StateSeeding}, engine.Finished{Torrent: h}}
+	want := []engine.Event{
+		engine.Added{Torrent: h}, engine.StateChanged{Torrent: h, State: engine.StateDownloading},
+		engine.Resumed{Torrent: h}, engine.StateChanged{Torrent: h, State: engine.StateSeeding}, engine.Finished{Torrent: h},
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("events = %#v, want %#v", got, want)
 	}

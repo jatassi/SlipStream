@@ -47,13 +47,8 @@ func partlyDownloaded(t *testing.T, meta, payload []byte) (engine.Engine, engine
 		t.Fatal(err)
 	}
 	seeder, leecher := open(t), open(t)
-	if _, err := seeder.Add(engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true}); err != nil {
-		t.Fatalf("seeder add: %v", err)
-	}
-	h, err := leecher.Add(engine.AddParams{Metainfo: meta, SavePath: leechDir})
-	if err != nil {
-		t.Fatalf("leecher add: %v", err)
-	}
+	started(t, seeder, engine.AddParams{Metainfo: meta, SavePath: seedDir, SeedMode: true})
+	h := started(t, leecher, engine.AddParams{Metainfo: meta, SavePath: leechDir})
 	seederAddr, err := seeder.ListenAddr()
 	if err != nil {
 		t.Fatal(err)
