@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,26 +100,35 @@ func TestRollUp(t *testing.T) {
 
 func TestWarn(t *testing.T) {
 	units := []unitSince{{label: "Join Codes", at: at("2026-10-15T04:00:00Z")}, {label: "seedbox", at: at("2026-10-12T04:00:00Z")}}
+	backup := housekeeping
+	backup.Health = "backups"
 	for _, tc := range []struct {
 		name string
+		task Task
 		run  latest
 		now  string
 		want string
 	}{
-		{"Failed raises one", latest{result: RunFailed, ended: at("2026-10-16T04:12:00Z"), cause: "database is locked"}, "2026-10-16T05:00:00Z",
-			"scheduled-tasks: Housekeeping failed at 04:12: database is locked"},
-		{"the next Succeeded clears it", latest{result: RunSucceeded, ended: at("2026-10-17T04:01:00Z")}, "2026-10-17T05:00:00Z", ""},
-		{"Partial within the interval multiple raises none", latest{result: RunPartial, ended: at("2026-10-15T03:59:00Z")}, "2026-10-15T03:59:00Z", ""},
-		{"Partial past it raises one naming the unit", latest{result: RunPartial, ended: at("2026-10-15T04:01:00Z")}, "2026-10-15T04:01:00Z",
-			"scheduled-tasks: Housekeeping has not finished seedbox since Oct 12 04:00"},
-		{"Skipped raises nothing", latest{result: RunSkipped}, "2026-10-20T00:00:00Z", ""},
-		{"Canceled raises nothing", latest{result: RunCanceled}, "2026-10-20T00:00:00Z", ""},
+		{"Failed raises one", housekeeping, latest{result: RunFailed, ended: at("2026-10-16T04:12:00Z"), cause: "database is locked"}, "2026-10-16T05:00:00Z",
+			"scheduled-tasks|Housekeeping|failed|2026-10-16T04:12:00Z|database is locked||Housekeeping failed at 04:12: database is locked"},
+		{"the next Succeeded clears it", housekeeping, latest{result: RunSucceeded, ended: at("2026-10-17T04:01:00Z")}, "2026-10-17T05:00:00Z", ""},
+		{"Partial within the interval multiple raises none", housekeeping, latest{result: RunPartial, ended: at("2026-10-15T03:59:00Z")}, "2026-10-15T03:59:00Z", ""},
+		{"Partial past it raises one naming the unit", housekeeping, latest{result: RunPartial, ended: at("2026-10-15T04:01:00Z"), cause: "disk is full"}, "2026-10-15T04:01:00Z",
+			"scheduled-tasks|Housekeeping|overdue|2026-10-12T04:00:00Z|disk is full|seedbox|Housekeeping has not finished seedbox since Oct 12 04:00"},
+		{"Skipped raises nothing", housekeeping, latest{result: RunSkipped}, "2026-10-20T00:00:00Z", ""},
+		{"Canceled raises nothing", housekeeping, latest{result: RunCanceled}, "2026-10-20T00:00:00Z", ""},
+		{"a task's own Health is its category", backup, latest{result: RunFailed, ended: at("2026-10-16T04:12:00Z"), cause: "no space"}, "2026-10-16T05:00:00Z",
+			"backups|Housekeeping|failed|2026-10-16T04:12:00Z|no space||Housekeeping failed at 04:12: no space"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w, ok := warn(housekeeping, tc.run, units, day, 3, at(tc.now), time.UTC)
+			w, ok := warn(tc.task, tc.run, units, day, 3, at(tc.now), time.UTC)
 			got := ""
 			if ok {
-				got = w.Category + ": " + w.Text
+				kind := "overdue"
+				if w.Failed {
+					kind = "failed"
+				}
+				got = strings.Join([]string{w.Category, w.Name, kind, w.At.UTC().Format(time.RFC3339), w.Cause, w.Unit, w.Text}, "|")
 			}
 			if got != tc.want {
 				t.Fatalf("warn = %q, want %q", got, tc.want)
