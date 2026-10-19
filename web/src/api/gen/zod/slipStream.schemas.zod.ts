@@ -43,6 +43,13 @@ export const DialInputBody = zod.object({
 export type DialInputBody = zod.input<typeof DialInputBody>;
 export type DialInputBodyOutput = zod.output<typeof DialInputBody>;
 
+export const DownloadclientsChanged = zod.object({
+  ids: zod.array(zod.string()).describe("The Torrents whose record changed"),
+});
+
+export type DownloadclientsChanged = zod.input<typeof DownloadclientsChanged>;
+export type DownloadclientsChangedOutput = zod.output<typeof DownloadclientsChanged>;
+
 export const emailChangeInputBodyEmailMax = 254;
 
 export const EmailChangeInputBody = zod.object({
@@ -3992,6 +3999,14 @@ export const LiveEventTasksProgress = zod.object({
 export type LiveEventTasksProgress = zod.input<typeof LiveEventTasksProgress>;
 export type LiveEventTasksProgressOutput = zod.output<typeof LiveEventTasksProgress>;
 
+export const LiveEventTorrentsChanged = zod.object({
+  event: zod.enum(["torrents.changed"]),
+  data: DownloadclientsChanged,
+});
+
+export type LiveEventTorrentsChanged = zod.input<typeof LiveEventTorrentsChanged>;
+export type LiveEventTorrentsChangedOutput = zod.output<typeof LiveEventTorrentsChanged>;
+
 export const LiveEventVolumesChanged = zod.object({
   event: zod.enum(["volumes.changed"]),
   data: RootsVolumesChanged,
@@ -4037,6 +4052,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTargetsChanged,
   LiveEventTasksChanged,
   LiveEventTasksProgress,
+  LiveEventTorrentsChanged,
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,

@@ -31,6 +31,41 @@ func (q *Queries) CountHeld(ctx context.Context, nodeID role.NodeID) (CountHeldR
 	return i, err
 }
 
+const getFetched = `-- name: GetFetched :one
+SELECT node_id, metainfo, content_type, save_folder, removed_at,
+       uploaded, downloaded, active_seconds, seeding_seconds
+FROM downloadclients_torrent WHERE id = ?1
+`
+
+type GetFetchedRow struct {
+	NodeID         role.NodeID
+	Metainfo       []byte
+	ContentType    works.TypeID
+	SaveFolder     *string
+	RemovedAt      storage.Time
+	Uploaded       int64
+	Downloaded     int64
+	ActiveSeconds  int64
+	SeedingSeconds int64
+}
+
+func (q *Queries) GetFetched(ctx context.Context, id TorrentID) (GetFetchedRow, error) {
+	row := q.db.QueryRowContext(ctx, getFetched, id)
+	var i GetFetchedRow
+	err := row.Scan(
+		&i.NodeID,
+		&i.Metainfo,
+		&i.ContentType,
+		&i.SaveFolder,
+		&i.RemovedAt,
+		&i.Uploaded,
+		&i.Downloaded,
+		&i.ActiveSeconds,
+		&i.SeedingSeconds,
+	)
+	return i, err
+}
+
 const getInheritedTotals = `-- name: GetInheritedTotals :one
 SELECT uploaded, downloaded, active_seconds, seeding_seconds, totals_at FROM downloadclients_torrent
 WHERE info_hash = ?1 AND removed_at IS NOT NULL
@@ -148,7 +183,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 }
 
 const listAttached = `-- name: ListAttached :many
-SELECT id, info_hash, removed_reason, report, completion FROM downloadclients_torrent
+SELECT id, info_hash, size, removed_reason, report, completion FROM downloadclients_torrent
 WHERE id IN (/*SLICE:ids*/?)
 ORDER BY id
 `
@@ -156,6 +191,7 @@ ORDER BY id
 type ListAttachedRow struct {
 	ID            TorrentID
 	InfoHash      []byte
+	Size          int64
 	RemovedReason *string
 	Report        *string
 	Completion    *string
@@ -183,6 +219,7 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 		if err := rows.Scan(
 			&i.ID,
 			&i.InfoHash,
+			&i.Size,
 			&i.RemovedReason,
 			&i.Report,
 			&i.Completion,
@@ -263,15 +300,18 @@ func (q *Queries) ListHoldingNodes(ctx context.Context) ([]role.NodeID, error) {
 }
 
 const listIntent = `-- name: ListIntent :many
-SELECT id, info_hash, metainfo FROM downloadclients_torrent
-WHERE node_id = ?1 AND removed_at IS NULL
-ORDER BY info_hash, id
+SELECT id, info_hash, wanted, added_order, removed_at, delete_files FROM downloadclients_torrent
+WHERE node_id = ?1 AND parted_at IS NULL
+ORDER BY added_order
 `
 
 type ListIntentRow struct {
-	ID       TorrentID
-	InfoHash []byte
-	Metainfo []byte
+	ID          TorrentID
+	InfoHash    []byte
+	Wanted      string
+	AddedOrder  int64
+	RemovedAt   storage.Time
+	DeleteFiles int64
 }
 
 func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListIntentRow, error) {
@@ -283,7 +323,55 @@ func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListInt
 	var items []ListIntentRow
 	for rows.Next() {
 		var i ListIntentRow
-		if err := rows.Scan(&i.ID, &i.InfoHash, &i.Metainfo); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.InfoHash,
+			&i.Wanted,
+			&i.AddedOrder,
+			&i.RemovedAt,
+			&i.DeleteFiles,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKept = `-- name: ListKept :many
+SELECT id, info_hash, size, report FROM downloadclients_torrent
+WHERE node_id = ?1 AND removed_at IS NULL
+ORDER BY added_order
+`
+
+type ListKeptRow struct {
+	ID       TorrentID
+	InfoHash []byte
+	Size     int64
+	Report   *string
+}
+
+func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptRow, error) {
+	rows, err := q.db.QueryContext(ctx, listKept, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKeptRow
+	for rows.Next() {
+		var i ListKeptRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InfoHash,
+			&i.Size,
+			&i.Report,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -363,6 +451,22 @@ func (q *Queries) SetCompletion(ctx context.Context, arg SetCompletionParams) er
 	return err
 }
 
+const setDone = `-- name: SetDone :exec
+UPDATE downloadclients_torrent SET report = json_set(report, '$.done', CAST(?1 AS INTEGER))
+WHERE id = ?2 AND node_id = ?3 AND report IS NOT NULL
+`
+
+type SetDoneParams struct {
+	Done   int64
+	ID     TorrentID
+	NodeID role.NodeID
+}
+
+func (q *Queries) SetDone(ctx context.Context, arg SetDoneParams) error {
+	_, err := q.db.ExecContext(ctx, setDone, arg.Done, arg.ID, arg.NodeID)
+	return err
+}
+
 const setNodeSettings = `-- name: SetNodeSettings :exec
 INSERT INTO downloadclients_node (
     node_id, download_limit, upload_limit, active_downloads, active_checks, connections, utp, stalled_after_seconds
@@ -405,7 +509,32 @@ func (q *Queries) SetNodeSettings(ctx context.Context, arg SetNodeSettingsParams
 	return err
 }
 
-const setReport = `-- name: SetReport :exec
+const setParted = `-- name: SetParted :execrows
+UPDATE downloadclients_torrent SET parted_at = ?1, freed = ?2
+WHERE id = ?3 AND node_id = ?4 AND removed_at IS NOT NULL AND parted_at IS NULL
+`
+
+type SetPartedParams struct {
+	PartedAt storage.Time
+	Freed    *int64
+	ID       TorrentID
+	NodeID   role.NodeID
+}
+
+func (q *Queries) SetParted(ctx context.Context, arg SetPartedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setParted,
+		arg.PartedAt,
+		arg.Freed,
+		arg.ID,
+		arg.NodeID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setReport = `-- name: SetReport :execrows
 UPDATE downloadclients_torrent SET report = ?1, reported_at = ?2
 WHERE id = ?3 AND node_id = ?4
 `
@@ -417,13 +546,32 @@ type SetReportParams struct {
 	NodeID     role.NodeID
 }
 
-func (q *Queries) SetReport(ctx context.Context, arg SetReportParams) error {
-	_, err := q.db.ExecContext(ctx, setReport,
+func (q *Queries) SetReport(ctx context.Context, arg SetReportParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setReport,
 		arg.Report,
 		arg.ReportedAt,
 		arg.ID,
 		arg.NodeID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setSaveFolder = `-- name: SetSaveFolder :exec
+UPDATE downloadclients_torrent SET save_folder = ?1
+WHERE id = ?2 AND node_id = ?3 AND save_folder IS NULL
+`
+
+type SetSaveFolderParams struct {
+	SaveFolder *string
+	ID         TorrentID
+	NodeID     role.NodeID
+}
+
+func (q *Queries) SetSaveFolder(ctx context.Context, arg SetSaveFolderParams) error {
+	_, err := q.db.ExecContext(ctx, setSaveFolder, arg.SaveFolder, arg.ID, arg.NodeID)
 	return err
 }
 

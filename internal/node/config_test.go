@@ -37,7 +37,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
 		"timings.link.join_dial", "timings.link.await_dial",
 		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
-		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
+		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.downloading.resume_save", "timings.downloading.shutdown_save", "timings.downloading.start_spread", "timings.downloading.announce_jitter", "timings.downloading.totals_report", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 		"timings.storing.stat",
 	}
 	if !slices.Equal(paths, want) {

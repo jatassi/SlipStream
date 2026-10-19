@@ -646,7 +646,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	for {
-		changed := gr.cfg.Roster.Changed()
+		changed, moved := gr.cfg.Roster.Changed(), gr.cfg.Downloads.Moved()
 		searches, grabs, err := gr.settled(ctx)
 		now := time.Now()
 		if err == nil {
@@ -669,6 +669,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			s.record(r, time.Now(), gr.cfg.Timings, gr.cfg.Rand)
 		case <-gr.poke:
 		case <-changed:
+		case <-moved:
 		case <-timer.C:
 		case <-ctx.Done():
 			for range s.inflight {
@@ -770,8 +771,8 @@ type Progress struct {
 	Total int64
 }
 
-// progress is g's download progress from the Downloading facts, or its
-// Transfer's verified bytes; nil when neither runs or reported.
+// progress is g's download progress as its Torrent's Node last reported
+// it, or its Transfer's verified bytes; nil when neither runs or reported.
 func (gr *Grabs) progress(g Grab) *Progress {
 	if g.Stage == Downloading {
 		return gr.downloadProgress(g)
@@ -787,16 +788,11 @@ func (gr *Grabs) progress(g Grab) *Progress {
 }
 
 func (gr *Grabs) downloadProgress(g Grab) *Progress {
-	facts, ok := gr.cfg.Downloads.Facts(g.Node)
-	if !ok {
+	p := g.Torrent.Progress
+	if p == nil {
 		return nil
 	}
-	for _, t := range facts.GetTorrents() {
-		if bencode.InfoHash(t.GetInfoHash()) == g.Torrent.InfoHash {
-			return &Progress{Done: t.GetDone(), Total: t.GetWanted()}
-		}
-	}
-	return nil
+	return &Progress{Done: p.Done, Total: p.Size}
 }
 
 // open reads, in one snapshot, every open search run and unfinished Grab,

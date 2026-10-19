@@ -66,6 +66,22 @@
         ],
         "type": "object"
       },
+      "DownloadclientsChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "description": "The Torrents whose record changed",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
       "EmailChangeInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -13011,6 +13027,32 @@
                           "event"
                         ],
                         "title": "Event tasks.progress",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/DownloadclientsChanged"
+                          },
+                          "event": {
+                            "const": "torrents.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event torrents.changed",
                         "type": "object"
                       },
                       {

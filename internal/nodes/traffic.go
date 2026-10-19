@@ -8,8 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
-	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -64,31 +62,19 @@ type TrafficPublisher interface {
 	Listening() bool
 }
 
-// Downloads is each Node's torrent client as the Downloading Role's
-// control half last heard from it.
-type Downloads interface {
-	Facts(node ID) (*dlv1.Facts, bool)
-}
-
-// Grabbed is a Grab whose torrent a Node's client keeps.
+// Grabbed is a Grab whose torrent a Node's client keeps, with the
+// torrent's progress as the Node last reported it.
 type Grabbed struct {
-	Grab     storage.UUID
-	InfoHash bencode.InfoHash
-	Title    string
+	Grab         storage.UUID
+	InfoHash     bencode.InfoHash
+	Title        string
+	Done, Wanted int64
 }
 
-// meter turns the link's byte counters and each client's torrent counters
-// into rates. Link counters are read at each sample; a client's counters
-// arrive with its facts, so its rate spans its last two facts and reads
-// zero once no facts came for quiet.
+// meter turns the link's byte counters, read at each sample, into rates.
 type meter struct {
-	quiet time.Duration
-
-	mu      sync.Mutex
-	links   map[ID]sampled
-	clients map[ID]*client
-	// kept is each Node's Grabs by the hash of the torrent they share.
-	kept map[ID]map[bencode.InfoHash][]storage.UUID
+	mu    sync.Mutex
+	links map[ID]sampled
 	// moving: the last sample published showed bytes moving, so the next
 	// is published even when nothing moves, and the canvas comes to rest.
 	moving bool
@@ -99,17 +85,7 @@ type sampled struct {
 	sent, received int64
 }
 
-type client struct {
-	at       time.Time
-	progress map[bencode.InfoHash]progress
-	down, up int64
-}
-
-type progress struct{ done, uploaded int64 }
-
-func newMeter(quiet time.Duration) *meter {
-	return &meter{quiet: quiet, links: map[ID]sampled{}, clients: map[ID]*client{}, kept: map[ID]map[bencode.InfoHash][]storage.UUID{}}
-}
+func newMeter() *meter { return &meter{links: map[ID]sampled{}} }
 
 // link is the rate each way of a Worker's live session since the last
 // sample, zero for its first or a new session.
@@ -131,66 +107,10 @@ func (m *meter) linkDown(id ID) {
 	delete(m.links, id)
 }
 
-func (m *meter) arrive(node ID, at time.Time, f *dlv1.Facts) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	c := m.clients[node]
-	if c == nil {
-		c = &client{}
-		m.clients[node] = c
-	}
-	next := make(map[bencode.InfoHash]progress, len(f.GetTorrents()))
-	var down, up int64
-	for _, t := range f.GetTorrents() {
-		h := bencode.InfoHash(t.GetInfoHash())
-		p := progress{done: t.GetDone(), uploaded: t.GetUploaded()}
-		next[h] = p
-		if was, ok := c.progress[h]; ok {
-			down += max(0, p.done-was.done)
-			up += max(0, p.uploaded-was.uploaded)
-		}
-	}
-	if !c.at.IsZero() && at.After(c.at) {
-		c.down, c.up = perSecond(down, at.Sub(c.at)), perSecond(up, at.Sub(c.at))
-	}
-	c.at, c.progress = at, next
-}
-
-func (m *meter) rates(node ID, now time.Time) (down, up int64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	c := m.clients[node]
-	if c == nil || now.Sub(c.at) > m.quiet {
-		return 0, 0
-	}
-	return c.down, c.up
-}
-
-// forget drops what the meter holds of a Node whose client no longer
-// reports.
-func (m *meter) forget(node ID) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.clients, node)
-	delete(m.kept, node)
-}
-
 func perSecond(bytes int64, d time.Duration) int64 { return int64(float64(bytes) / d.Seconds()) }
 
-// factsIn notes the time Downloading facts arrived from node, so its
-// client's rate spans the facts' own interval, and passes every arrival on.
-func (s *Service) factsIn(node ID, scope string) {
-	if scope == string(role.Downloading) {
-		if f, ok := s.cfg.Downloads.Facts(node); ok {
-			s.meter.arrive(node, time.Now(), f)
-		}
-	}
-	s.cfg.Facts(node, scope)
-}
-
-// sample reads every link's counters, and while an Admin listens, every
-// client's rates, and publishes them while bytes move and once more after
-// they stop.
+// sample reads every link's counters and, while an Admin listens,
+// publishes them while bytes move and once more after they stop.
 func (s *Service) sample(ctx context.Context) {
 	now := time.Now()
 	t := Traffic{At: now, Links: []LinkTraffic{}, Nodes: []NodeTraffic{}}
@@ -212,18 +132,6 @@ func (s *Service) sample(ctx context.Context) {
 		t.Links = append(t.Links, LinkTraffic{A: s.self.String(), B: v.ID.String(), ABBps: sent, BABps: received, RTTMs: st.RTT.Milliseconds()})
 	}
 	listening := s.cfg.Traffic.Listening()
-	for _, v := range board.nodes {
-		f, ok := s.cfg.Downloads.Facts(v.ID)
-		if !ok {
-			s.meter.forget(v.ID)
-			continue
-		}
-		if !listening {
-			continue
-		}
-		down, up := s.meter.rates(v.ID, now)
-		t.Nodes = append(t.Nodes, NodeTraffic{ID: v.ID.String(), DownBps: down, UpBps: up, Torrents: s.torrentTraffic(ctx, v.ID, f)})
-	}
 	moving := listening && t.moving()
 	s.meter.mu.Lock()
 	publish := moving || listening && s.meter.moving
@@ -232,43 +140,4 @@ func (s *Service) sample(ctx context.Context) {
 	if publish {
 		s.cfg.Traffic.Publish(ctx, t)
 	}
-}
-
-// torrentTraffic is each Grab whose torrent node's client reports in f.
-// It reads the Grabs again when f names a torrent it hasn't seen.
-func (s *Service) torrentTraffic(ctx context.Context, node ID, f *dlv1.Facts) []TorrentTraffic {
-	s.meter.mu.Lock()
-	kept := s.meter.kept[node]
-	s.meter.mu.Unlock()
-	for _, t := range f.GetTorrents() {
-		if _, ok := kept[bencode.InfoHash(t.GetInfoHash())]; !ok {
-			kept = s.readKept(ctx, node)
-			break
-		}
-	}
-	out := []TorrentTraffic{}
-	for _, t := range f.GetTorrents() {
-		for _, grab := range kept[bencode.InfoHash(t.GetInfoHash())] {
-			out = append(out, TorrentTraffic{GrabID: grab.String(), Done: t.GetDone(), Peers: int(t.GetPeers())})
-		}
-	}
-	return out
-}
-
-func (s *Service) readKept(ctx context.Context, node ID) map[bencode.InfoHash][]storage.UUID {
-	grabbed, err := s.cfg.Kept(ctx, s.cfg.Library, node)
-	if err != nil {
-		if ctx.Err() == nil {
-			s.cfg.Log.Error("read the Grabs a Node's client keeps", "node", node.String(), "err", err.Error())
-		}
-		return nil
-	}
-	kept := map[bencode.InfoHash][]storage.UUID{}
-	for _, g := range grabbed {
-		kept[g.InfoHash] = append(kept[g.InfoHash], g.Grab)
-	}
-	s.meter.mu.Lock()
-	s.meter.kept[node] = kept
-	s.meter.mu.Unlock()
-	return kept
 }

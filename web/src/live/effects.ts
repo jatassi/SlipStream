@@ -70,4 +70,7 @@ export const effects = {
   "indexers.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListIndexersQueryKey() });
   },
+  "torrents.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getGetTopologyQueryKey() });
+  },
 } satisfies LiveEffects;
