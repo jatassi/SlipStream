@@ -127,8 +127,8 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(shown.Folders) != len(want)+2 || shown.Hidden != 0 {
-		t.Errorf("with hidden shown: %d folders and %d hidden, want %d and 0", len(shown.Folders), shown.Hidden, len(want)+2)
+	if len(shown.Folders) != len(want)+wantHidden || shown.Hidden != 0 {
+		t.Errorf("with hidden shown: %d folders and %d hidden, want %d and 0", len(shown.Folders), shown.Hidden, len(want)+wantHidden)
 	}
 }
 
