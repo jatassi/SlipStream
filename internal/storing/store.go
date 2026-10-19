@@ -197,7 +197,7 @@ func (s *Store) pass(ctx context.Context) *storagev1.Facts {
 		}
 		v, err := timed(ctx, s, r.path, func(ctx context.Context) (Volume, error) { return s.cfg.Disk.Volume(ctx, r.path) })
 		switch {
-		case errors.Is(err, errHung):
+		case errors.Is(err, errHung), errors.Is(err, errUnresponsive):
 			verdicts[i] = verdict{Unresponsive, err.Error()}
 		case err == nil:
 			samples = append(samples, rootSample{root: r.id, volume: v})
@@ -357,11 +357,11 @@ func (s *Store) read(ctx context.Context, folder string) (marking, error) {
 	})
 }
 
-// kindOf classifies a Disk error. Every answer to a failed call reads
+// folderErrorOf classifies a Disk error. Every answer to a failed call reads
 // through it.
-func kindOf(err error) FolderErrorKind {
+func folderErrorOf(err error) FolderErrorKind {
 	switch {
-	case errors.Is(err, errHung):
+	case errors.Is(err, errHung), errors.Is(err, errUnresponsive):
 		return FolderUnresponsive
 	case errors.Is(err, fs.ErrNotExist):
 		return FolderNotFound
@@ -382,7 +382,7 @@ var stateOf = map[FolderErrorKind]RootState{
 	FolderIO:           Unresponsive,
 }
 
-func verdictOf(err error) verdict { return verdict{stateOf[kindOf(err)], err.Error()} }
+func verdictOf(err error) verdict { return verdict{stateOf[folderErrorOf(err)], err.Error()} }
 
 // resolve is root's folder for a write: in the intent, its marker naming
 // it at this instant, and for a placement not draining. Else *NotReady,

@@ -100,15 +100,6 @@ func (d *testDisk) fault(ctx context.Context, op, path string) error {
 	return nil
 }
 
-type osInfo struct{ fi fs.FileInfo }
-
-func (i osInfo) Dir() bool   { return i.fi.IsDir() }
-func (i osInfo) Size() int64 { return i.fi.Size() }
-func (i osInfo) Same(o Info) bool {
-	other, ok := o.(osInfo)
-	return ok && os.SameFile(i.fi, other.fi)
-}
-
 func (d *testDisk) Stat(ctx context.Context, path string) (Info, error) {
 	if err := d.fault(ctx, "stat", path); err != nil {
 		return nil, err

@@ -51,7 +51,8 @@ type Entry struct {
 	// Dir is a folder, or a link or junction to one.
 	Dir bool
 	// Hidden is the hidden rule's verdict.
-	Hidden   bool
+	Hidden bool
+	// Readable is a folder SlipStream can list; a file is always Readable.
 	Readable bool
 }
 
