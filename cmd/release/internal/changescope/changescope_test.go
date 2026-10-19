@@ -165,3 +165,24 @@ func TestLink(t *testing.T) {
 		}
 	}
 }
+
+func TestDiagram(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		changes []nativetouch.Change
+		want    bool
+	}{
+		{"elsewhere", []nativetouch.Change{modified("web/src/routes/_app/settings.tsx"), modified("internal/works/works.go")}, false},
+		{"a part", []nativetouch.Change{modified("web/src/diagram/parts/dish.tsx")}, true},
+		{"the harness page", []nativetouch.Change{modified("web/src/diagram/harness/index.html")}, true},
+		{"the Nodes landing", []nativetouch.Change{modified("web/src/routes/_app/nodes/-landing/view.ts")}, true},
+		{"the check", []nativetouch.Change{modified("web/scripts/diagram-check.ts")}, true},
+		{"the anatomy skill", []nativetouch.Change{modified(".claude/skills/anatomy/scripts/line-ends.mjs")}, true},
+		{"the lockfile", []nativetouch.Change{modified("web/bun.lock")}, true},
+		{"a rename out of the Diagram", []nativetouch.Change{{Old: nativetouch.Side{Path: "web/src/diagram/x.ts"}, New: nativetouch.Side{Path: "web/src/x.ts"}}}, true},
+	} {
+		if got := Diagram(c.changes); got != c.want {
+			t.Errorf("%s: Diagram = %t, want %t", c.name, got, c.want)
+		}
+	}
+}

@@ -3,34 +3,34 @@
 		{
 			"kind": "toolchain",
 			"target": "linux-amd64",
-			"digest": "e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50",
-			"asset": "toolchain-linux-amd64-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50.tar.gz",
-			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50/toolchain-linux-amd64-e8034eb2be1dcca0436d818996c3d59a241bcff0755bbc08bb31b2ccfc240c50.tar.gz",
-			"sha256": "29077f36a45b54a049cab4678ec619a7f6135f98456bbe80d2785ef121044a66"
+			"digest": "42ab7b7387b1830678738cbacf24ed359c76e0a57545f30000f83dda35d520c7",
+			"asset": "toolchain-linux-amd64-42ab7b7387b1830678738cbacf24ed359c76e0a57545f30000f83dda35d520c7.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-42ab7b7387b1830678738cbacf24ed359c76e0a57545f30000f83dda35d520c7/toolchain-linux-amd64-42ab7b7387b1830678738cbacf24ed359c76e0a57545f30000f83dda35d520c7.tar.gz",
+			"sha256": "4475e7420d172f20125b6f9d0a44147ad452c7b058a06db6bdf6199aa7ed33f3"
 		},
 		{
 			"kind": "libs",
 			"target": "linux-amd64",
-			"digest": "ff56388191dc294ebac5e1634055419f10b499d76443c6f26e994526a1b539df",
-			"asset": "libs-linux-amd64-ff56388191dc294ebac5e1634055419f10b499d76443c6f26e994526a1b539df.tar.gz",
-			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-ff56388191dc294ebac5e1634055419f10b499d76443c6f26e994526a1b539df/libs-linux-amd64-ff56388191dc294ebac5e1634055419f10b499d76443c6f26e994526a1b539df.tar.gz",
-			"sha256": "6bd16c7e1383de408c5c2501b14fa9bcd7716847424c259c804ae024b47a1be4"
+			"digest": "684c6f57caac18b7687787f34ed6089f4703b7317e5444dedb367266ef96df91",
+			"asset": "libs-linux-amd64-684c6f57caac18b7687787f34ed6089f4703b7317e5444dedb367266ef96df91.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-684c6f57caac18b7687787f34ed6089f4703b7317e5444dedb367266ef96df91/libs-linux-amd64-684c6f57caac18b7687787f34ed6089f4703b7317e5444dedb367266ef96df91.tar.gz",
+			"sha256": "544aa2441daea88580c16113bc49187ca22f5e4d65794a42b717412122ae20ea"
 		},
 		{
 			"kind": "toolchain",
 			"target": "linux-arm64",
-			"digest": "c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da",
-			"asset": "toolchain-linux-arm64-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da.tar.gz",
-			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da/toolchain-linux-arm64-c59c9fcdafe475e63e014affa01a7bc4ac50e2d7e410b9a8d6cedc7e1a6052da.tar.gz",
-			"sha256": "e937f4d586ba96f90840b90d9da8e3d5a05541cc4adaf6a8e37d20b5f576341d"
+			"digest": "3c79139815f4d0afd9464161b251049bbcfd5f6e7612ec95fe9a9f0decd24a43",
+			"asset": "toolchain-linux-arm64-3c79139815f4d0afd9464161b251049bbcfd5f6e7612ec95fe9a9f0decd24a43.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-3c79139815f4d0afd9464161b251049bbcfd5f6e7612ec95fe9a9f0decd24a43/toolchain-linux-arm64-3c79139815f4d0afd9464161b251049bbcfd5f6e7612ec95fe9a9f0decd24a43.tar.gz",
+			"sha256": "9c67519622420afafa2f92ac32234e7e8aee74b5370783d682697b428b25f225"
 		},
 		{
 			"kind": "libs",
 			"target": "linux-arm64",
-			"digest": "348088c35d1303801b48f6b8c4e67f48e2117cb45aac40d31c14b1489345d552",
-			"asset": "libs-linux-arm64-348088c35d1303801b48f6b8c4e67f48e2117cb45aac40d31c14b1489345d552.tar.gz",
-			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-348088c35d1303801b48f6b8c4e67f48e2117cb45aac40d31c14b1489345d552/libs-linux-arm64-348088c35d1303801b48f6b8c4e67f48e2117cb45aac40d31c14b1489345d552.tar.gz",
-			"sha256": "b691d08b0e2680066d02ca734a836c1c33170b0edb87773098029768059721ef"
+			"digest": "10961068f163e2b27f3b3bcd4696ae5494004d163a401ca52df296373643f6de",
+			"asset": "libs-linux-arm64-10961068f163e2b27f3b3bcd4696ae5494004d163a401ca52df296373643f6de.tar.gz",
+			"url": "https://github.com/jatassi/slipstream-native/releases/download/layer-10961068f163e2b27f3b3bcd4696ae5494004d163a401ca52df296373643f6de/libs-linux-arm64-10961068f163e2b27f3b3bcd4696ae5494004d163a401ca52df296373643f6de.tar.gz",
+			"sha256": "b7f1473cca061690588bded0eddfec7e5e7a5d4c60c3d90ef103b294d76f23e6"
 		},
 		{
 			"kind": "toolchain",

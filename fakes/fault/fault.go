@@ -1,10 +1,10 @@
 // Package fault is the one fault vocabulary for both offline tiers. A
-// Fault is one connection, TLS or HTTP failure with one canonical text,
-// and a Rule says where and when it plays. A Plan owns every rule's state:
-// it wraps connections and HTTP handlers, and network.go's in-memory
-// Network gives each path between two addresses its own Plan. Waits are
-// channels and timers, so all of it runs inside a testing/synctest bubble
-// on fake time.
+// Fault is one connection, TLS, HTTP or disk failure with one canonical
+// text, and a Rule says where and when it plays. A Plan owns every rule's
+// state: it wraps connections, HTTP handlers and a Node's Disk, and
+// network.go's in-memory Network gives each path between two addresses its
+// own Plan. Waits are channels and timers, so all of it runs inside a
+// testing/synctest bubble on fake time.
 package fault
 
 import (
@@ -21,6 +21,7 @@ const (
 	Conn Layer = 1 << iota
 	TLS
 	HTTP
+	Disk
 )
 
 func (l Layer) String() string {
@@ -31,6 +32,8 @@ func (l Layer) String() string {
 		return "TLS"
 	case HTTP:
 		return "HTTP"
+	case Disk:
+		return "disk"
 	default:
 		return "layers(" + strconv.Itoa(int(l)) + ")"
 	}

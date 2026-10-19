@@ -12,6 +12,7 @@ import (
 //
 //	refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
 //	status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+//	full | unmounted | hung | readonly | volume=<total>,free=<free>
 func Parse(s string) (Fault, error) {
 	name, value, hasValue := strings.Cut(s, "=")
 	if f, ok := bare[name]; ok {
@@ -37,6 +38,7 @@ func Parse(s string) (Fault, error) {
 var bare = map[string]Fault{
 	"refuse": Refuse{}, "reset": Reset{}, "stall": Stall{},
 	"hang": Hang{}, "malformed": Malformed{}, "truncate": Truncate{},
+	"full": Full{}, "unmounted": Unmounted{}, "hung": Hung{}, "readonly": ReadOnly{},
 }
 
 var valued = map[string]func(string) (Fault, error){
@@ -61,6 +63,7 @@ var valued = map[string]func(string) (Fault, error){
 		return nil, errors.New("want untrusted, expired or wrong-name")
 	},
 	"status": status,
+	"volume": volume,
 	"slow-body": func(v string) (Fault, error) {
 		r, err := rate(v)
 		return SlowBody(r), err

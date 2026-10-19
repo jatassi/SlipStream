@@ -59,6 +59,7 @@ jobs:
       e2e: ${{ steps.plan.outputs.e2e }}
       browser: ${{ steps.plan.outputs.browser }}
       component: ${{ steps.plan.outputs.component }}
+      diagram: ${{ steps.plan.outputs.diagram }}
       package: ${{ steps.plan.outputs.package }}
       online: ${{ steps.scope.outputs.online }}
       link: ${{ steps.scope.outputs.link }}
@@ -91,7 +92,7 @@ jobs:
       # runs linux-amd64 alone unless labelled ci: full.
       - name: Plan the lanes and matrices
         id: plan
-        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -targets "$TARGETS" -tier "$TIER"
+        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER"
         env:
           EVENT: >-
             ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'workflow_dispatch' && 'dispatch' ||
@@ -99,6 +100,7 @@ jobs:
               github.base_ref != 'main' && !contains(github.event.pull_request.labels.*.name, 'ci: full') && 'stacked' || 'pr' }}
           SCOPE: ${{ steps.scope.outputs.scope }}
           PACKAGE: ${{ steps.scope.outputs.package }}
+          DIAGRAM: ${{ steps.scope.outputs.diagram }}
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
       # Every go and e2e shard splits its tier by the same timings, so each
@@ -603,6 +605,58 @@ jobs:
       - name: Run the component tests
         run: go run ./cmd/release test -tier component
 
+  # A pull request runs the Diagram check only when its scope touches what
+  # the check reads; every other event runs it.
+  diagram:
+    name: Diagram check (harness, anatomy audit, frame budget)
+    needs: plan
+    if: fromJSON(needs.plan.outputs.planned)['diagram']
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.diagram) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      # The tier builds no Go but the release tool, which plan's cache holds.
+      - name: Set up Go and restore the Go caches
+        uses: ./.github/actions/go
+        with:
+          cache: go-plan
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - name: Cache Bun's install cache
+        if: runner.os != 'Windows'
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - name: Keep Playwright browsers in the runner temp dir
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - name: Cache the Playwright Chromium
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-chromium-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
+      - name: Install Chromium and its system libraries
+        if: runner.os == 'Linux'
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun x playwright install --with-deps chromium
+      - name: Run the Diagram check
+        run: go run ./cmd/release test -tier diagram
+      - name: Upload the Diagram close-ups
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagram-close-ups
+          path: .verify/diagram
+          if-no-files-found: ignore
+
   # Main's go and e2e shards each upload the timings of the packages they
   # ran, and the next run's shards split their tiers by them.
   timings:
@@ -706,7 +760,7 @@ jobs:
   gate:
     name: All required checks passed
     if: always()
-    needs: [plan, build, lint, lint-repo, go, e2e, browser, component]
+    needs: [plan, build, lint, lint-repo, go, e2e, browser, component, diagram]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

@@ -164,6 +164,7 @@ func (s Scenario) Validate() error {
 			add("library is set, but no node is controller")
 		}
 		s.Library.check(add)
+		s.checkRootNodes(add)
 		switch holders := s.searching(); {
 		case len(s.Library.Indexers) == 0:
 		case len(holders) == 0:
@@ -341,6 +342,43 @@ func (s Scenario) searching() []string {
 	var holders []string
 	for _, n := range s.Nodes {
 		if (n.Setup == SetupController && len(n.Roles) == 0) || (n.Setup != SetupNone && slices.Contains(n.Roles, role.Searching)) {
+			holders = append(holders, n.Name)
+		}
+	}
+	return holders
+}
+
+// RootNode is the Node r is on: the one it names, or the controller Node.
+func (s Scenario) RootNode(r LibraryRoot) string {
+	if r.Node != "" {
+		return r.Node
+	}
+	for _, n := range s.Nodes {
+		if n.Setup == SetupController {
+			return n.Name
+		}
+	}
+	return ""
+}
+
+func (s Scenario) checkRootNodes(add func(format string, args ...any)) {
+	for _, r := range s.Library.Roots {
+		if n := s.RootNode(r); n != "" && !slices.Contains(s.storing(), n) {
+			add("library root %s is on node %s, which does not hold storage", r.Folder, n)
+		}
+	}
+}
+
+// storing names each Node that holds Storage once set up: a join or
+// controller Node listing it, and a controller Node that lists no Roles or
+// whose Scenario has no Node listing it, since Storage always has a holder.
+func (s Scenario) storing() []string {
+	listed := slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Setup != SetupNone && slices.Contains(n.Roles, role.Storage) })
+	var holders []string
+	for _, n := range s.Nodes {
+		switch {
+		case n.Setup == SetupNone:
+		case slices.Contains(n.Roles, role.Storage), n.Setup == SetupController && (len(n.Roles) == 0 || !listed):
 			holders = append(holders, n.Name)
 		}
 	}

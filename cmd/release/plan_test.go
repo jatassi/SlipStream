@@ -59,12 +59,12 @@ func TestPlanTargets(t *testing.T) {
 		{"tag", changescope.Docs, false, all, true},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, events[tt.event], tt.scope, tt.touched, nil, "all")
+		got, err := plan(planInputs, events[tt.event], tt.scope, touched{packages: tt.touched}, nil, "all")
 		if err != nil {
 			t.Fatal(err)
 		}
 		for kind, m := range got.Lanes {
-			if kind == "lint-repo" || kind == "component" {
+			if kind == "lint-repo" || kind == "component" || kind == "diagram" {
 				continue
 			}
 			if targets := laneTargets(m); !slices.Equal(targets, tt.want) {
@@ -78,7 +78,7 @@ func TestPlanTargets(t *testing.T) {
 }
 
 func TestPlanShardsEachLanePerTarget(t *testing.T) {
-	got, err := plan(planInputs, events["push"], changescope.PR, false, nil, "all")
+	got, err := plan(planInputs, events["push"], changescope.PR, touched{}, nil, "all")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,10 +109,11 @@ func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 		{[]string{"windows-amd64"}, "go", map[string]bool{"go": true}},
 		{nil, "browser", map[string]bool{"build": true, "browser": true}},
 		{nil, "lint", map[string]bool{"lint": true, "lint-repo": true}},
+		{nil, "component", map[string]bool{"component": true, "diagram": true}},
 		{[]string{"darwin-arm64"}, "lint", map[string]bool{"lint": true}},
 		{[]string{"windows-amd64"}, "all", map[string]bool{"build": true, "lint": true, "go": true, "e2e": true, "browser": true}},
 	} {
-		got, err := plan(planInputs, events["dispatch"], changescope.Native, false, tt.keep, tt.tier)
+		got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, tt.keep, tt.tier)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -125,11 +126,39 @@ func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 			}
 		}
 	}
-	if _, err := plan(planInputs, events["dispatch"], changescope.Native, false, []string{"plan9-amd64"}, "all"); err == nil {
+	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, []string{"plan9-amd64"}, "all"); err == nil {
 		t.Error("a dispatch of an unknown target planned")
 	}
-	if _, err := plan(planInputs, events["dispatch"], changescope.Native, false, nil, "build"); err == nil {
+	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "build"); err == nil {
 		t.Error("a dispatch of an unknown tier planned")
+	}
+}
+
+func TestPlanDiagramWhenTouched(t *testing.T) {
+	for _, tt := range []struct {
+		event   string
+		scope   changescope.Scope
+		touched touched
+		want    bool
+	}{
+		{"pr", changescope.PR, touched{}, false},
+		{"pr", changescope.PR, touched{diagram: true}, true},
+		{"pr", changescope.Native, touched{packages: true}, false},
+		{"pr", changescope.Docs, touched{diagram: true}, false},
+		{"stacked", changescope.PR, touched{}, false},
+		{"stacked", changescope.PR, touched{diagram: true}, true},
+		{"push", changescope.PR, touched{}, true},
+		{"dispatch", changescope.Native, touched{}, true},
+		{"schedule", changescope.Docs, touched{}, true},
+		{"tag", changescope.Docs, touched{}, true},
+	} {
+		got, err := plan(planInputs, events[tt.event], tt.scope, tt.touched, nil, "all")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if planned := got.Planned()["diagram"]; planned != tt.want {
+			t.Errorf("plan(%s, %s, %+v) plans diagram %t, want %t", tt.event, tt.scope, tt.touched, planned, tt.want)
+		}
 	}
 }
 
@@ -164,7 +193,7 @@ func TestLanesCoverEveryTarget(t *testing.T) {
 }
 
 func TestPlanJSON(t *testing.T) {
-	p, err := plan(planInputs, events["push"], changescope.PR, false, nil, "all")
+	p, err := plan(planInputs, events["push"], changescope.PR, touched{}, nil, "all")
 	if err != nil {
 		t.Fatal(err)
 	}
