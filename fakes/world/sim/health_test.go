@@ -133,9 +133,13 @@ type moviesOnHome struct {
 	space  *space
 }
 
+// launchMoviesOnHome launches home at the default Storage levels, which
+// the figures space plays are judged by.
 func launchMoviesOnHome(t *testing.T) moviesOnHome {
 	t.Helper()
-	w := sim.Launch(t, home(t), sim.WithWalk())
+	s := home(t)
+	s.Library.StorageLevels = nil
+	w := sim.Launch(t, s, sim.WithWalk())
 	synctest.Wait()
 	a := w.API()
 	m := moviesOnHome{w: w, a: a, home: a.Node("home").NodeID, folder: filepath.Join(w.Manifest().MediaDir, "movies")}

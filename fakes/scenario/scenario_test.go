@@ -37,8 +37,9 @@ func quietOrchardReleases() []Release {
 
 func movieLibrary() *Library {
 	return &Library{
-		Roots:    []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
-		Indexers: []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
+		StorageLevels: &LibraryLevels{},
+		Roots:         []LibraryRoot{{ContentType: "movie", Folder: "movies"}},
+		Indexers:      []LibraryIndexer{{Name: "Fixture Site", Site: "fixture-site"}},
 	}
 }
 
@@ -332,6 +333,9 @@ releases:
 tracker:
   interval: 5s
 library:
+  storage_levels:
+    warn_below: 0B
+    error_below: 0B
   roots:
     - content_type: movie
       folder: movies

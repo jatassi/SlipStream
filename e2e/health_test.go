@@ -56,10 +56,6 @@ type healthChecked struct {
 	} `json:"unreached"`
 }
 
-// noStorageLevels keeps the host's own disk, which the world's roots sit
-// on, from raising a Storage item whatever its free space.
-const noStorageLevels = `{"warnBelow":{"amount":0,"unit":"bytes"},"errorBelow":{"amount":0,"unit":"bytes"}}`
-
 func healthAlerts(t *testing.T, a *worldtest.API) (health, nodes *string) {
 	t.Helper()
 	var c struct {
@@ -85,9 +81,6 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 	stream := worldtest.NewMessages(t, run.Manifest(), world.AdminIdentity)
 	if r := a.Admin("home", http.MethodPatch, "/api/v1/nodes/settings", `{"offlineGrace":60}`); r.Status != http.StatusOK {
 		t.Fatalf("updateNodeSettings = %d %s, want 200", r.Status, r.Body)
-	}
-	if r := a.Admin("home", http.MethodPatch, "/api/v1/system/health/settings", noStorageLevels); r.Status != http.StatusOK {
-		t.Fatalf("updateHealthSettings = %d %s, want 200", r.Status, r.Body)
 	}
 	box := a.Node("seedbox").NodeID
 	worldtest.Until(t, "the Nodes category is clear", func() (bool, error) { return len(healthItems(t, a, "nodes")) == 0, nil })

@@ -634,6 +634,24 @@
     },
     "library": {
       "properties": {
+        "storage_levels": {
+          "properties": {
+            "warn_below": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+            },
+            "error_below": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "warn_below",
+            "error_below"
+          ]
+        },
         "roots": {
           "items": {
             "properties": {
