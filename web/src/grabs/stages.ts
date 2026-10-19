@@ -88,6 +88,10 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The download stopped with an error.",
     recovery: searchAgain,
   },
+  removed: {
+    cause: "An Admin removed the torrent before it finished downloading.",
+    recovery: searchAgain,
+  },
   no_video_file: {
     cause: "The download holds no video file.",
     recovery: searchAgain,
