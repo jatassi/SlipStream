@@ -56,3 +56,16 @@ test("on a phone Jobs and Torrents are a segmented control under the large title
   await expect.poll(() => router.state.location.pathname).toBe("/activity");
   await expect.element(sentence()).toBeVisible();
 });
+
+test("on a phone the Activity tab opens Jobs under the large title", async () => {
+  await asPhone();
+  renderApp({ path: "/library", handlers });
+  await userEvent.click(
+    page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: /^Activity/u }),
+  );
+  await expect.element(page.getByRole("heading", { name: "Activity", level: 1 })).toBeVisible();
+  await expect
+    .element(page.getByRole("radiogroup", { name: "View" }).getByRole("radio", { name: "Jobs" }))
+    .toBeChecked();
+  await expect.element(sentence()).toBeVisible();
+});

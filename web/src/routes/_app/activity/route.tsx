@@ -1,4 +1,10 @@
-import { Link, Outlet, createFileRoute, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import {
+  Link,
+  Outlet,
+  createFileRoute,
+  useChildMatches,
+  useNavigate,
+} from "@tanstack/react-router";
 
 import { Page } from "../../../shell/page";
 import { PageTabs, pageTab } from "../../../ui/page-tabs";
@@ -6,8 +12,8 @@ import { Segmented } from "../../../ui/segmented";
 import { useShell } from "../../../ui/shell-context";
 
 const activityViews = [
-  { id: "jobs", label: "Jobs", to: "/activity" },
-  { id: "torrents", label: "Torrents", to: "/activity/torrents" },
+  { id: "jobs", label: "Jobs", to: "/activity", route: "/_app/activity/" },
+  { id: "torrents", label: "Torrents", to: "/activity/torrents", route: "/_app/activity/torrents" },
 ] as const;
 
 export const Route = createFileRoute("/_app/activity")({
@@ -43,11 +49,9 @@ function ActivityLayout() {
 }
 
 function PhoneViews() {
-  const matchRoute = useMatchRoute();
   const navigate = useNavigate();
-  const current = activityViews.findLast(
-    (view) => matchRoute({ to: view.to, fuzzy: true }) !== false,
-  );
+  const shown = useChildMatches({ select: (matches) => matches[0]?.routeId });
+  const current = activityViews.find((view) => view.route === shown);
   if (current === undefined) {
     throw new Error("Activity rendered outside its views");
   }
