@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"hash/fnv"
-	"math/rand/v2"
 	"slices"
 	"time"
 
@@ -178,7 +177,7 @@ func (k knobs) start(t Task, opening time.Time) time.Time {
 	}
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(opening.In(k.zone).Format(time.DateOnly) + k.install.String()))
-	return opening.Add(time.Duration(rand.New(rand.NewPCG(h.Sum64(), 0)).Int64N(int64(spread))) * time.Second) //nolint:gosec // G404: an offset fixed by the opening and install, not a secret
+	return opening.Add(time.Duration(h.Sum64()%uint64(spread)) * time.Second) //nolint:gosec // G115: the remainder is below spread, which fits a Duration
 }
 
 // spreading reports a window task waiting for its offset in the open
