@@ -588,6 +588,41 @@ func (q *Queries) ProofOfRoot(ctx context.Context, rootID roots.ID) ([]string, e
 	return items, nil
 }
 
+const recordedOfRoot = `-- name: RecordedOfRoot :many
+SELECT f.id, CAST(coalesce(m.sits, f.path) AS TEXT) AS path, f.size
+FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = ?1 ORDER BY f.id
+`
+
+type RecordedOfRootRow struct {
+	ID   FileID
+	Path string
+	Size int64
+}
+
+func (q *Queries) RecordedOfRoot(ctx context.Context, rootID roots.ID) ([]RecordedOfRootRow, error) {
+	rows, err := q.db.QueryContext(ctx, recordedOfRoot, rootID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecordedOfRootRow
+	for rows.Next() {
+		var i RecordedOfRootRow
+		if err := rows.Scan(&i.ID, &i.Path, &i.Size); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const renameFile = `-- name: RenameFile :exec
 UPDATE files_file SET path = ?1, label = ?2, extra = ?3 WHERE id = ?4
 `

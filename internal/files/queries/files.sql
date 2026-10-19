@@ -85,3 +85,8 @@ WHERE root_id IN (sqlc.slice(root_ids)) GROUP BY root_id ORDER BY root_id;
 SELECT CAST(coalesce(m.sits, f.path) AS TEXT) AS path
 FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) ORDER BY f.id LIMIT 3;
+
+-- name: RecordedOfRoot :many
+SELECT f.id, CAST(coalesce(m.sits, f.path) AS TEXT) AS path, f.size
+FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = sqlc.arg(root_id) ORDER BY f.id;

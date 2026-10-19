@@ -122,3 +122,10 @@ UPDATE grabs_grab SET unwanted = sqlc.arg(unwanted) WHERE id = sqlc.arg(id);
 
 -- name: GetUnwanted :one
 SELECT unwanted FROM grabs_grab WHERE id = sqlc.arg(id);
+
+-- name: CountGrabsInto :one
+SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
+    AND (root_id = sqlc.arg(root_id) OR work_id IN (sqlc.slice(work_ids)));
+
+-- name: ReleaseRoot :exec
+UPDATE grabs_grab SET root_id = NULL WHERE root_id = sqlc.arg(root_id) AND stage IN ('imported', 'failed');
