@@ -1,0 +1,40 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: downloadclients_torrent.id
+            go_type:
+              type: TorrentID
+          - column: "*.node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: downloadclients_torrent.content_type
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+          - column: downloadclients_node.utp
+            go_type:
+              type: bool
+              pointer: true
+          - column: downloadclients_settings.id
+            go_type:
+              type: int64
+          - column: "downloadclients_node.*"
+            go_type:
+              type: int64
+              pointer: true
+          - column: "downloadclients_settings.*"
+            go_type:
+              type: int64
+              pointer: true
