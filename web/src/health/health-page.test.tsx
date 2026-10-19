@@ -35,7 +35,10 @@ test("with nothing wrong the page says everything is working and names what it c
   renderApp({ path: "/health", handlers: healthServer(reportOf()).handlers });
   await expect.element(page.getByText("Everything is working.")).toBeVisible();
   await expect.element(page.getByText("Checked storage, Nodes and scheduled tasks")).toBeVisible();
-  await expect.element(region("Storage")).toHaveTextContent("Storage. All good.Check now");
+  await expect.element(region("Storage").getByText("Storage. All good.")).toBeVisible();
+  await expect
+    .element(region("Storage").getByRole("button", { name: "Check now: Storage" }))
+    .toBeVisible();
   await expect.element(region("Nodes")).toHaveTextContent("Nodes. All good.Check now");
   await expect.element(region("Scheduled tasks")).toHaveTextContent("Scheduled tasks. All good.");
   expect(region("Scheduled tasks").getByRole("button").query()).toBeNull();

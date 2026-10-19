@@ -6,11 +6,18 @@ import { useNow } from "../tasks/use-now";
 import { CategorySection } from "./category-section";
 import { HealthHead } from "./health-head";
 import { worstFirst } from "./levels";
+import { StorageSettings } from "./storage-settings";
 import { useStableOrder } from "./use-stable-order";
 
 const sinceTick = 60_000;
 
-const ends: { readonly [C in HealthCategoryID]?: ReactNode } = {};
+const ends: { readonly [C in HealthCategoryID]?: ReactNode } = {
+  storage: (
+    <div className="mt-3">
+      <StorageSettings toLibraryRoots />
+    </div>
+  ),
+};
 
 export function HealthPage({ report }: { report: HealthReport }) {
   const categories = useStableOrder(worstFirst(report.categories), (category) => category.id);

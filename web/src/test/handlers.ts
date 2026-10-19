@@ -7,7 +7,9 @@ import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
+import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
+// oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
 import { board, boardIs, homeSeat } from "./roles";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
@@ -86,6 +88,7 @@ export const baseHandlers: RequestHandler[] = [
   topologyIs(topologyOf([home], { sentence: "home is online." })),
   boardIs(board(homeSeat)),
   noTaskRunning,
+  ...quietHealth,
   ...tagMocks,
 ];
 

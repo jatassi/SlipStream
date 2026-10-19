@@ -1,5 +1,8 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 
+import { getGetSystemHealthSuspenseQueryOptions } from "../../../api/gen/query/health/health";
+import { ensureQuery } from "../../../api/query-client";
+import { SectionDot, SectionWarning } from "../../../settings/section-alert";
 import { settingsSections, sectionOf } from "../../../settings/sections";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
@@ -11,7 +14,10 @@ export const Route = createFileRoute("/_app/settings/$section")({
   staticData: { title: loaderTitle },
   loader: async ({ context, params }) => {
     const section = sectionOf(params.section);
-    await section.load(context.queryClient);
+    await Promise.all([
+      section.load(context.queryClient),
+      ensureQuery(context.queryClient, getGetSystemHealthSuspenseQueryOptions()),
+    ]);
     return { title: section.label, trail: [{ title: "Settings", pathname: "/settings" }] };
   },
   pendingComponent: () => <Skeleton label="Loading Settings" />,
@@ -25,6 +31,7 @@ function SettingsPage() {
   const section = sectionOf(id);
   const body = (
     <div className={`flex flex-col gap-6 ${section.wide === true ? "" : "max-w-[560px]"}`}>
+      <SectionWarning section={section} />
       <section.component key={id} />
     </div>
   );
@@ -39,9 +46,10 @@ function SettingsPage() {
             key={row.id}
             to="/settings/$section"
             params={{ section: row.id }}
-            className={pageTab}
+            className={`${pageTab} gap-1.5`}
           >
             {row.label}
+            <SectionDot section={row} />
           </Link>
         ))}
       </PageTabs>
