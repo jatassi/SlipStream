@@ -134,6 +134,8 @@ export async function browse(props: { nodeId?: string; startPath?: string } = {}
   renderQueried(<Picker {...props} />);
   await userEvent.click(page.getByRole("button", { name: "Browse" }));
   await expect.element(dialog()).toBeVisible();
+  // The dialog takes focus a frame after it shows; keys typed before then go nowhere.
+  await expect.poll(() => dialog().element().contains(document.activeElement)).toBe(true);
   return asked;
 }
 
