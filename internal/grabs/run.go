@@ -212,12 +212,14 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	}
 	p.FileIndex, p.Probe = video.Index, probe
 	switch gr.routeOf(p.Root, g.Node) {
+	case sameNode:
+		return advance{to: Importing, plan: &p}
 	case transfer:
 		return advance{to: Transferring, plan: &p}
 	case needsTransfer:
 		return fail{NeedsTransfer, needsTransferWords}
 	}
-	return advance{to: Importing, plan: &p}
+	panic("grabs: unknown route")
 }
 
 // route is how a downloaded file reaches its root.
@@ -263,9 +265,15 @@ func (gr *Grabs) transfer(ctx context.Context, g Grab) outcome {
 	switch gr.routeOf(g.Plan.Root, g.Node) {
 	case sameNode:
 		return advance{to: Importing}
+	case transfer:
+		return gr.receive(ctx, g)
 	case needsTransfer:
 		return fail{NeedsTransfer, needsTransferWords}
 	}
+	panic("grabs: unknown route")
+}
+
+func (gr *Grabs) receive(ctx context.Context, g Grab) outcome {
 	at, err := placesOf(g)
 	if err != nil {
 		return fail{TransferFailed, err.Error()}

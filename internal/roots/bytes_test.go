@@ -102,7 +102,7 @@ func TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = reachable(t, r)
-	if !errors.As(err, &unreachable) || unreachable.State != roots.WrittenOff || err.Error() != "Media server's Storage was written off, so the root there takes no new files" {
+	if !errors.As(err, &unreachable) || unreachable.State != roots.WrittenOff || err.Error() != "Media server's Storage was written off, so the library root there takes no new files." {
 		t.Fatalf("a root on a written-off Node is %v, want unreachable written off, naming the Node", err)
 	}
 }

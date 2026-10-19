@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -408,10 +409,69 @@ func TestTheQueueSweepsHeldFilesNoFileOrGrabNames(t *testing.T) {
 	l.put(t, files.HoldingOf(storage.NewUUID(), ".mkv.part"), "a failed Grab's copy")
 	l.put(t, storing.StagingDir+"/"+storage.NewUUID().String()+".part", "a failed Grab's Transfer")
 	l.put(t, storing.HoldingDir+"/stray.txt", "not SlipStream's")
-	l.settle(t, l.on(unfinished{grab}, l.held))
 	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Grab's Transfer"}
-	if got := l.onDisk(t); !maps.Equal(got, want) {
-		t.Fatalf("after the sweep the root holds %v, want %v", got, want)
+	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed files", func() bool { return maps.Equal(l.onDisk(t), want) })
+}
+
+// TestASweepWaitsForTheRootsNode sweeps a root whose Node doesn't answer
+// the first lists, as at a start before the Node holds its roots: the
+// queue sweeps it once the Node answers.
+func TestASweepWaitsForTheRootsNode(t *testing.T) {
+	l := open(t)
+	orphan := files.HoldingOf(storage.NewUUID(), ".mkv")
+	l.put(t, orphan, "a failed Grab's download")
+	disk := &unanswering{Disk: l.held, refusals: 3}
+	l.runUntil(t, l.on(files.NoGrabs{}, disk), "the orphan is swept", func() bool { return len(l.onDisk(t)) == 0 })
+	if disk.refused() != 3 {
+		t.Fatalf("the Node refused %d lists, want 3 before the sweep", disk.refused())
+	}
+}
+
+// unanswering refuses its first lists as a Node that doesn't hold the
+// root yet.
+type unanswering struct {
+	files.Disk
+	mu       sync.Mutex
+	refusals int
+	seen     int
+}
+
+func (d *unanswering) ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error) {
+	d.mu.Lock()
+	d.seen++
+	refuse := d.seen <= d.refusals
+	d.mu.Unlock()
+	if refuse {
+		return nil, &storing.NotReady{Unknown: true}
+	}
+	return d.Disk.ListHeld(ctx, root, folder)
+}
+
+func (d *unanswering) refused() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return min(d.seen, d.refusals)
+}
+
+// runUntil runs svc's disk queue until done holds.
+func (l *library) runUntil(t *testing.T, svc *files.Files, what string, done func() bool) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	ran := make(chan error, 1)
+	go func() { ran <- svc.Run(ctx) }()
+	defer func() {
+		cancel()
+		if err := <-ran; err != nil {
+			t.Error(err)
+		}
+	}()
+	deadline := time.After(10 * time.Second)
+	for !done() {
+		select {
+		case <-deadline:
+			t.Fatalf("%s: not within 10s; the root holds %v", what, l.onDisk(t))
+		case <-time.After(time.Millisecond):
+		}
 	}
 }
 

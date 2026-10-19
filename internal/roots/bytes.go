@@ -94,8 +94,13 @@ func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Roo
 	if err != nil {
 		return err
 	}
-	state := stateOf(writtenOff[root.Node], r.cfg.Roster.InStep(root.Node), 0)
-	if state != WrittenOff && state != Offline {
+	var state State
+	switch {
+	case writtenOff[root.Node]:
+		state = WrittenOff
+	case !r.cfg.Roster.InStep(root.Node):
+		state = Offline
+	default:
 		return nil
 	}
 	named, err := nodes.Names(ctx, rd)
@@ -109,7 +114,7 @@ func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Roo
 		}
 	}
 	if state == WrittenOff {
-		return &UnreachableError{State: state, Why: name + "'s Storage was written off, so the root there takes no new files"}
+		return &UnreachableError{State: state, Why: name + "'s Storage was written off, so the library root there takes no new files."}
 	}
-	return &UnreachableError{State: state, Why: name + " is offline, so the root there takes no new files"}
+	return &UnreachableError{State: state, Why: name + " is offline, so the library root there takes no new files."}
 }

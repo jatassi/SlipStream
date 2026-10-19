@@ -43,15 +43,19 @@ func (f *Files) Poke() {
 	}
 }
 
-// Run drains the disk queue until ctx ends, after sweeping each root's
-// holding folder. Each pass removes every doomed file, then moves every
-// queued file to its holding path, then from there to its path. Every
-// step is a Move or a Remove that converges on a repeat, and a row goes
-// only after its step, so a crash anywhere converges on the next pass.
-// A pass that leaves work behind runs again after a backoff. Each step
-// runs on the Node that holds the file's root.
+// Run drains the disk queue until ctx ends. Each pass first sweeps the
+// held folders of each root not swept since start, then removes every
+// doomed file, then moves every queued file to its holding path, then
+// from there to its path. Every step is a Move or a Remove that converges
+// on a repeat, and a row goes only after its step, so a crash anywhere
+// converges on the next pass. A pass that leaves work behind, a root to
+// sweep among it, runs again after a backoff. Each step runs on the Node
+// that holds the file's root.
 func (f *Files) Run(ctx context.Context) error {
-	f.sweep(ctx)
+	unswept, err := f.rootIDs(ctx)
+	if err != nil {
+		f.logSweep(ctx, err)
+	}
 	attempts := 0
 	timer := time.NewTimer(0)
 	defer timer.Stop()
@@ -62,7 +66,11 @@ func (f *Files) Run(ctx context.Context) error {
 		case <-f.poke:
 		case <-timer.C:
 		}
+		unswept = f.sweep(ctx, unswept)
 		err := f.drain(ctx)
+		if len(unswept) > 0 {
+			err = errors.Join(err, fmt.Errorf("%d roots wait for their sweep", len(unswept)))
+		}
 		switch {
 		case ctx.Err() != nil:
 			return nil
@@ -209,28 +217,27 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 	})
 }
 
-// sweep removes each file in a root's holding and staging folders whose
-// name is no live file's or unfinished Grab's: what a Grab that failed
-// after its import placed the bytes or its Transfer staged them, or a
-// crash between two steps, leaves. It lists the folders, on each root's
-// Node, before reading the library, so a file placed meanwhile belongs to
-// a Grab or file the read sees. A root whose Node doesn't answer keeps
-// its files until the next start.
-func (f *Files) sweep(ctx context.Context) {
-	found, err := f.held(ctx)
-	if err != nil {
-		f.logSweep(ctx, err)
-		return
+// sweep removes each file in the held folders of roots ids whose name
+// is no live file's or unfinished Grab's: what a Grab that failed after
+// its import placed the bytes or its Transfer staged them, or a crash
+// between two steps, leaves. It lists the folders, on each root's Node,
+// before reading the library, so a file placed meanwhile belongs to a
+// Grab or file the read sees. It answers the roots left to sweep: those
+// whose Node didn't answer.
+func (f *Files) sweep(ctx context.Context, ids []roots.ID) []roots.ID {
+	if len(ids) == 0 {
+		return nil
 	}
+	found, unswept := f.held(ctx, ids)
 	live, err := f.claimed(ctx)
 	if err != nil {
 		f.logSweep(ctx, err)
-		return
+		return ids
 	}
 	moving, err := f.read(ctx)
 	if err != nil {
 		f.logSweep(ctx, err)
-		return
+		return ids
 	}
 	for root, paths := range found {
 		for _, p := range paths {
@@ -244,34 +251,49 @@ func (f *Files) sweep(ctx context.Context) {
 			}
 		}
 	}
+	return unswept
 }
 
-// held is the root-relative path of each file in each root's holding and
-// staging folders.
-func (f *Files) held(ctx context.Context) (map[roots.ID][]string, error) {
-	var rs []roots.Root
+func (f *Files) rootIDs(ctx context.Context) ([]roots.ID, error) {
+	var ids []roots.ID
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		var err error
-		rs, err = roots.All(ctx, r)
+		rs, err := roots.All(ctx, r)
+		for _, root := range rs {
+			ids = append(ids, root.ID)
+		}
 		return err
 	})
-	if err != nil {
-		return nil, err
+	return ids, err
+}
+
+// held is the root-relative path of each file in the holding and staging
+// folders of each of ids, and the roots whose Node didn't list both.
+func (f *Files) held(ctx context.Context, ids []roots.ID) (found map[roots.ID][]string, unanswered []roots.ID) {
+	found = map[roots.ID][]string{}
+	for _, root := range ids {
+		paths, err := f.heldIn(ctx, root)
+		if err != nil {
+			f.cfg.Log.Warn("sweep a root's held folders later", "root", root.String(), "err", err.Error())
+			unanswered = append(unanswered, root)
+			continue
+		}
+		found[root] = paths
 	}
-	found := map[roots.ID][]string{}
-	for _, root := range rs {
-		for _, folder := range []storing.HeldFolder{storing.Holding, storing.Staging} {
-			names, err := f.cfg.Disk.ListHeld(ctx, root.ID, folder)
-			if err != nil {
-				f.cfg.Log.Warn("sweep a root's held folder later", "root", root.ID.String(), "folder", folder.String(), "err", err.Error())
-				continue
-			}
-			for _, n := range names {
-				found[root.ID] = append(found[root.ID], folder.String()+"/"+n)
-			}
+	return found, unanswered
+}
+
+func (f *Files) heldIn(ctx context.Context, root roots.ID) ([]string, error) {
+	var paths []string
+	for _, folder := range []storing.HeldFolder{storing.Holding, storing.Staging} {
+		names, err := f.cfg.Disk.ListHeld(ctx, root, folder)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range names {
+			paths = append(paths, folder.String()+"/"+n)
 		}
 	}
-	return found, nil
+	return paths, nil
 }
 
 // move moves root's bytes at from to to, on root's Node.
@@ -285,7 +307,7 @@ func (f *Files) move(ctx context.Context, root roots.ID, from, to string) error 
 		return err
 	}
 	_, err = f.cfg.Disk.Move(ctx, root, src, dst)
-	return err //nolint:wrapcheck // step names the move
+	return err
 }
 
 // removeAt removes root's bytes at p, on root's Node.
@@ -294,7 +316,7 @@ func (f *Files) removeAt(ctx context.Context, root roots.ID, p string) error {
 	if err != nil {
 		return err
 	}
-	return f.cfg.Disk.Remove(ctx, root, rel) //nolint:wrapcheck // callers read fs.ErrNotExist and name the path
+	return f.cfg.Disk.Remove(ctx, root, rel)
 }
 
 // claimed is every live file's id and unfinished Grab's.

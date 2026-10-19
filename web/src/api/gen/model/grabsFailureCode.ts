@@ -12,4 +12,5 @@ export type GrabsFailureCode =
   | "transfer_failed"
   | "import_failed"
   | "node_written_off"
-  | "root_changed";
+  | "root_changed"
+  | "needs_transfer";

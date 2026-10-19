@@ -570,7 +570,8 @@
               "transfer_failed",
               "import_failed",
               "node_written_off",
-              "root_changed"
+              "root_changed",
+              "needs_transfer"
             ],
             "type": "string"
           },
@@ -30726,6 +30727,7 @@
                             "no_root",
                             "not_searchable",
                             "nothing_wanted",
+                            "root_unreachable",
                             "worker_node"
                           ],
                           "type": "string"
