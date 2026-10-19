@@ -505,8 +505,7 @@ func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel)
 	}
 	size, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
 	if err != nil {
-		s.wake()
-		return 0, false, err
+		return 0, false, s.refused(ctx, dir, err)
 	}
 	s.resample(root)
 	return size, linked, nil
@@ -517,7 +516,29 @@ func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (int6
 	if err != nil {
 		return 0, err
 	}
-	return placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
+	size, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
+	if err != nil {
+		return 0, s.refused(ctx, dir, err)
+	}
+	return size, nil
+}
+
+// refused is a failed write into a root's folder dir as its caller reads
+// it: a folder that stopped taking writes, or answering, is *NotReady, so
+// the write waits for the root. The facts follow at once.
+func (s *Store) refused(ctx context.Context, dir string, err error) error {
+	if errors.Is(err, ErrOccupied) {
+		return err
+	}
+	s.wake()
+	ok, werr := timed(ctx, s, dir, func(ctx context.Context) (bool, error) { return s.cfg.Disk.Writable(ctx, dir) })
+	switch {
+	case errors.Is(werr, errUnresponsive):
+		return &NotReady{State: Unresponsive}
+	case werr == nil && !ok:
+		return &NotReady{State: Unwritable}
+	}
+	return err
 }
 
 func (s *Store) remove(ctx context.Context, root storage.UUID, rel Rel) error {

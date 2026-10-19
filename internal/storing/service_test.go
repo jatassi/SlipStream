@@ -439,6 +439,24 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 	})
 }
 
+// TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady makes the
+// root read-only after its last pass found it ready: the failed copy
+// answers NotReady unwritable, which an import waits on.
+func TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPlacing(t, false)
+		p.disk.noLinks = true
+		holding := dir(t, p.folder, HoldingDir)
+		p.disk.mu.Lock()
+		p.disk.readOnly[p.folder], p.disk.readOnly[holding] = true, true
+		p.disk.mu.Unlock()
+		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"))
+		if nr := notReady(t, err); nr.State != Unwritable {
+			t.Errorf("Place into a read-only root = %+v, want unwritable", nr)
+		}
+	})
+}
+
 func TestPlaceRefusesWhileDraining(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, true)

@@ -203,9 +203,14 @@ type Roots struct {
 	// mu orders the checks and writes that create roots, so two can't
 	// claim one folder.
 	mu sync.Mutex
-	// last is what each root's Node last reported of it at its place. Only
-	// Run reads and writes it.
-	last map[ID]report
+	// last is what each root's Node last reported of it, and at which
+	// place. Only Run reads and writes it.
+	last map[ID]placed
+	// watch is closed and replaced when a report moves.
+	watch struct {
+		sync.Mutex
+		ch chan struct{}
+	}
 }
 
 // Open homes, in one Write, every rootless Work whose type has a default
@@ -224,7 +229,9 @@ func Open(ctx context.Context, cfg Config) (*Roots, error) {
 	if len(homed) > 0 {
 		cfg.Changed.Publish(ctx, changedOf(homed))
 	}
-	return &Roots{cfg: cfg, last: map[ID]report{}}, nil
+	r := &Roots{cfg: cfg, last: map[ID]placed{}}
+	r.watch.ch = make(chan struct{})
+	return r, nil
 }
 
 // Create makes a folder on n's Node a root of n's type once the Node, which

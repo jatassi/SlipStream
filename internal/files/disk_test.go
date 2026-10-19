@@ -14,8 +14,10 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -113,7 +115,7 @@ func (l *library) onDisk(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	err := filepath.WalkDir(l.root.Path, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}
 		data, err := os.ReadFile(p)
@@ -285,12 +287,18 @@ func (d *crashing) at(do func() error) error {
 	return errCrashed
 }
 
-func (d *crashing) Move(from, to string) error {
-	return d.at(func() error { return d.Disk.Move(from, to) })
+func (d *crashing) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error) {
+	var size int64
+	err := d.at(func() error {
+		var err error
+		size, err = d.Disk.Move(ctx, root, from, to)
+		return err
+	})
+	return size, err
 }
 
-func (d *crashing) Remove(p string) error {
-	return d.at(func() error { return d.Disk.Remove(p) })
+func (d *crashing) Remove(ctx context.Context, root roots.ID, rel storing.Rel) error {
+	return d.at(func() error { return d.Disk.Remove(ctx, root, rel) })
 }
 
 // crashWorld is a library whose disk queue holds a same-path upgrade of
@@ -370,7 +378,7 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 				c := newCrashWorld(t)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
-				disk := &crashing{Disk: files.OSDisk{}, n: n, after: after, crash: cancel}
+				disk := &crashing{Disk: c.l.held, n: n, after: after, crash: cancel}
 				c.l.drain(ctx, t, c.l.on(files.NoGrabs{}, disk), cancel)
 				reached = disk.seen >= n
 				c.later(t)
@@ -388,17 +396,20 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 	}
 }
 
-func TestTheQueueSweepsHoldingFilesNoFileOrGrabNames(t *testing.T) {
+func TestTheQueueSweepsHeldFilesNoFileOrGrabNames(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
 	svc := l.files(files.NoGrabs{})
 	live := l.download(t, svc, tree, 0, release.WEBDL1080p, "live")
 	grab := storage.NewUUID()
+	staged := storing.StagingDir + "/" + grab.String() + ".part"
 	l.put(t, files.HoldingOf(grab, ".mkv"), "a Grab's download")
+	l.put(t, staged, "a Grab's Transfer")
 	l.put(t, files.HoldingOf(storage.NewUUID(), ".mkv.part"), "a failed Grab's copy")
-	l.put(t, ".slipstream-incoming/stray.txt", "not SlipStream's")
-	l.settle(t, l.on(unfinished{grab}, files.OSDisk{}))
-	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download"}
+	l.put(t, storing.StagingDir+"/"+storage.NewUUID().String()+".part", "a failed Grab's Transfer")
+	l.put(t, storing.HoldingDir+"/stray.txt", "not SlipStream's")
+	l.settle(t, l.on(unfinished{grab}, l.held))
+	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Grab's Transfer"}
 	if got := l.onDisk(t); !maps.Equal(got, want) {
 		t.Fatalf("after the sweep the root holds %v, want %v", got, want)
 	}

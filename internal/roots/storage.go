@@ -164,7 +164,8 @@ func (a *Arrivals) take() []role.NodeID {
 // Run is the recorder until ctx ends. For each Node whose Storage facts
 // arrived it records where the Node found each root ready, and the Node's
 // volumes; Touches the Node once a root it was adopting is seen at its
-// place; and publishes roots.changed for each root whose report moved.
+// place; and publishes roots.changed for each root whose report moved,
+// closing Watch.
 func (r *Roots) Run(ctx context.Context) error {
 	for {
 		select {
@@ -213,13 +214,14 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 	var moved []ID
 	for _, row := range on {
 		p, ok := reports[row.ID]
-		if !ok || p.place != row.Place || r.last[row.ID] == p.report {
+		if !ok || p.place != row.Place || r.last[row.ID] == p {
 			continue
 		}
-		r.last[row.ID] = p.report
+		r.last[row.ID] = p
 		moved = append(moved, row.ID)
 	}
 	if len(moved) > 0 {
+		r.moved()
 		r.cfg.Changed.Publish(ctx, changedOf(moved))
 	}
 	return nil

@@ -30,12 +30,13 @@ func open(p Pipeline) *grabs.Grabs {
 }
 
 var (
-	workNotFound  = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
-	nothingWanted = api.NewCode(http.StatusConflict, "nothing_wanted", "The Work has no wanted cell to search for")
-	noIndexer     = api.NewCode(http.StatusConflict, "no_indexer", "No Indexer is set up")
-	noRoot        = api.NewCode(http.StatusConflict, "no_root", "The Work's Content Type has no library root")
-	notSearchable = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
-	grabNotFound  = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
+	workNotFound    = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
+	nothingWanted   = api.NewCode(http.StatusConflict, "nothing_wanted", "The Work has no wanted cell to search for")
+	noIndexer       = api.NewCode(http.StatusConflict, "no_indexer", "No Indexer is set up")
+	noRoot          = api.NewCode(http.StatusConflict, "no_root", "The Work's Content Type has no library root")
+	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "The Work's library root is on a Node that takes no new files now")
+	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
+	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
 )
 
 func answer(err error) error {
@@ -52,6 +53,9 @@ func answer(err error) error {
 		return notSearchable
 	case errors.Is(err, grabs.ErrNoGrab):
 		return grabNotFound
+	}
+	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
+		return rootUnreachable.Because(e.Why)
 	}
 	return err
 }
@@ -130,7 +134,7 @@ func searchOf(s grabs.Search) search {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
+	Code    string `json:"code" enum:"indexer_unavailable,torrent_unreachable,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed,needs_transfer"`
 	Message string `json:"message"`
 }
 
@@ -214,7 +218,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/search",
 		Summary: "Search for each of a Work's wanted cells and grab the best release",
 		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, notSearchable},
+		Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable},
 	}, h.searchWork)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listSearches",
