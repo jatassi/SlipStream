@@ -65,14 +65,19 @@ type changes chan roots.Changed
 
 func (c changes) Publish(_ context.Context, ev roots.Changed) { c <- ev }
 
+type volumeChanges chan roots.VolumesChanged
+
+func (c volumeChanges) Publish(_ context.Context, ev roots.VolumesChanged) { c <- ev }
+
 type storageRig struct {
-	lib     *storage.DB[storage.Library]
-	svc     *roots.Roots
-	storage *control
-	changed changes
-	arrived *roots.Arrivals
-	node    role.NodeID
-	root    roots.Root
+	lib          *storage.DB[storage.Library]
+	svc          *roots.Roots
+	storage      *control
+	changed      changes
+	volumeEvents volumeChanges
+	arrived      *roots.Arrivals
+	node         role.NodeID
+	root         roots.Root
 }
 
 // rig is a roots service whose Storage facts the test sends, with one
@@ -81,7 +86,7 @@ type storageRig struct {
 func rig(t *testing.T, offline bool) *storageRig {
 	t.Helper()
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
-	r := &storageRig{lib: lib, storage: &control{facts: map[role.NodeID]*storagev1.Facts{}}, changed: make(changes, 8), node: role.NodeID{UUID: storage.NewUUID()}}
+	r := &storageRig{lib: lib, storage: &control{facts: map[role.NodeID]*storagev1.Facts{}}, changed: make(changes, 8), volumeEvents: make(volumeChanges, 8), node: role.NodeID{UUID: storage.NewUUID()}}
 	cfg := rootstest.Config(t, lib, alpha)
 	var away role.NodeID
 	if offline {
@@ -90,6 +95,7 @@ func rig(t *testing.T, offline bool) *storageRig {
 	cfg.Roster = roster{away: away}
 	cfg.Storage = r.storage
 	cfg.Changed = r.changed
+	cfg.Volumes = r.volumeEvents
 	r.arrived = cfg.Arrivals
 	svc, err := roots.Open(t.Context(), cfg)
 	if err != nil {

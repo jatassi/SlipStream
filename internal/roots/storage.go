@@ -14,20 +14,22 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 )
 
-// sampleEvery is how often a Storage Node samples its roots' volumes.
-const sampleEvery = 5 * time.Minute
-
 // StorageIntent derives a Node's Storage intent from the library: its roots
 // by id, each to adopt while roots_seen doesn't hold its place, with up to
 // three of its recorded files as the proof adoption needs, and how often
 // to sample.
 func StorageIntent(c Contents) func(context.Context, storage.Reader[file], role.NodeID) (*storagev1.Intent, error) {
 	return func(ctx context.Context, rd storage.Reader[file], node role.NodeID) (*storagev1.Intent, error) {
-		rows, err := db.New(rd).ListIntentRoots(ctx, node)
+		q := db.New(rd)
+		rows, err := q.ListIntentRoots(ctx, node)
 		if err != nil {
 			return nil, err
 		}
-		in := &storagev1.Intent{SampleEverySeconds: int64(sampleEvery / time.Second)}
+		every, err := q.GetSampleEvery(ctx)
+		if err != nil {
+			return nil, err
+		}
+		in := &storagev1.Intent{SampleEverySeconds: int64(SampleEvery.Value(every) / time.Second)}
 		for _, row := range rows {
 			root := &storagev1.Root{Id: row.ID.Bytes(), Path: row.Path, Place: row.Place}
 			if root.Adopt = !row.SeenPlace.Valid || row.SeenPlace.Int64 != row.Place; root.Adopt {
@@ -164,8 +166,9 @@ func (a *Arrivals) take() []role.NodeID {
 // Run is the recorder until ctx ends. For each Node whose Storage facts
 // arrived it records where the Node found each root ready, and the Node's
 // volumes; Touches the Node once a root it was adopting is seen at its
-// place; and publishes roots.changed for each root whose report moved,
-// closing Watch.
+// place; publishes volumes.changed for the volumes whose figures moved;
+// and publishes roots.changed for each root whose report moved, closing
+// Watch.
 func (r *Roots) Run(ctx context.Context) error {
 	for {
 		select {
@@ -193,6 +196,7 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 	var (
 		on      []db.RootsRoot
 		adopted bool
+		volumes []string
 	)
 	err = r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -203,13 +207,17 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 		if adopted, err = see(ctx, q, on, reports); err != nil {
 			return err
 		}
-		return replaceVolumes(ctx, q, node, f.GetVolumes())
+		volumes, err = replaceVolumes(ctx, q, node, f.GetVolumes())
+		return err
 	})
 	if err != nil {
 		return err
 	}
 	if adopted {
 		r.cfg.Storage.Touch(node)
+	}
+	if len(volumes) > 0 {
+		r.cfg.Volumes.Publish(ctx, VolumesChanged{NodeID: node.String(), VolumeIDs: volumes})
 	}
 	var moved []ID
 	for _, row := range on {
@@ -256,25 +264,4 @@ func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]p
 		adopted = adopted || fresh
 	}
 	return adopted, nil
-}
-
-// replaceVolumes makes node's recorded volumes the ones it reported.
-func replaceVolumes(ctx context.Context, q *db.Queries, node role.NodeID, volumes []*storagev1.Volume) error {
-	if err := q.DeleteVolumesOf(ctx, node); err != nil {
-		return err
-	}
-	for _, v := range volumes {
-		kind, err := storing.ParseKind(v.GetKind())
-		if err != nil {
-			return fmt.Errorf("volume %s: %w", v.GetId(), err)
-		}
-		err = q.InsertVolume(ctx, db.InsertVolumeParams{
-			NodeID: node, ID: db.VolumeID(v.GetId()), Name: v.GetName(), Mount: v.GetMount(), Kind: kind.String(),
-			Total: v.GetTotal(), Free: v.GetFree(), SampledAt: storage.FromTime(time.UnixMilli(v.GetSampledAtUnixMs())),
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

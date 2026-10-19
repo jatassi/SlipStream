@@ -4,13 +4,16 @@ import {
   CheckRootInputBody,
   MakeFolderInputBody,
   RehomeRootInputBody,
+  RootSettingsInputBody,
   RootsListing,
   RootsMadeFolder,
   RootsNewRoot,
   RootsRoot,
   RootsRootList,
+  RootsRootSettings,
   RootsSuggestions,
   RootsVerdict,
+  RootsVolumeList,
   RootsWorkRoot,
   SetWorkRootInputBody,
 } from "../slipStream.schemas.zod.ts";
@@ -85,6 +88,18 @@ export const CheckRootBody = CheckRootInputBody;
 export const CheckRootResponse = RootsVerdict;
 
 /**
+ * @summary Get the library roots settings
+ */
+export const GetRootSettingsResponse = RootsRootSettings;
+
+/**
+ * @summary Change the library roots settings
+ */
+export const UpdateRootSettingsBody = RootSettingsInputBody;
+
+export const UpdateRootSettingsResponse = RootsRootSettings;
+
+/**
  * @summary Delete a root that holds no files, leaving its folder on disk
  */
 export const DeleteRootParams = zod.object({
@@ -121,6 +136,11 @@ export const MakeDefaultRootParams = zod.object({
 });
 
 export const MakeDefaultRootResponse = zod.void();
+
+/**
+ * @summary List each Storage Node's volumes that hold a library root
+ */
+export const ListVolumesResponse = RootsVolumeList;
 
 /**
  * @summary Move a Work that has no files into another root of its Content Type

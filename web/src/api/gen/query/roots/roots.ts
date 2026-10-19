@@ -42,10 +42,18 @@ import type {
   DeleteRoot422,
   DeleteRoot500,
   DeleteRootParams,
+  GetRootSettings401,
+  GetRootSettings403,
+  GetRootSettings409,
+  GetRootSettings500,
   ListRoots401,
   ListRoots403,
   ListRoots409,
   ListRoots500,
+  ListVolumes401,
+  ListVolumes403,
+  ListVolumes409,
+  ListVolumes500,
   MakeDefaultRoot401,
   MakeDefaultRoot403,
   MakeDefaultRoot404,
@@ -67,13 +75,16 @@ import type {
   RehomeRoot500,
   RehomeRoot503,
   RehomeRootInputBody,
+  RootSettingsInputBody,
   RootsListing,
   RootsMadeFolder,
   RootsNewRoot,
   RootsRoot,
   RootsRootList,
+  RootsRootSettings,
   RootsSuggestions,
   RootsVerdict,
+  RootsVolumeList,
   RootsWorkRoot,
   SetWorkRoot401,
   SetWorkRoot403,
@@ -89,6 +100,11 @@ import type {
   SuggestFolders500,
   SuggestFolders503,
   SuggestFoldersParams,
+  UpdateRootSettings401,
+  UpdateRootSettings403,
+  UpdateRootSettings409,
+  UpdateRootSettings422,
+  UpdateRootSettings500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -912,6 +928,258 @@ export const useCheckRoot = <
 > => {
   return useMutation(getCheckRootMutationOptions(options), queryClient);
 };
+export const getGetRootSettingsUrl = () => {
+  return `/api/v1/roots/settings`;
+};
+
+/**
+ * @summary Get the library roots settings
+ */
+export const getRootSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsRootSettings> => {
+  return apiFetch<RootsRootSettings>(getGetRootSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRootSettingsQueryKey = () => {
+  return [`/api/v1/roots/settings`] as const;
+};
+
+export const getGetRootSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRootSettings>>,
+  TError = ErrorType<
+    GetRootSettings401 | GetRootSettings403 | GetRootSettings409 | GetRootSettings500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRootSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRootSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRootSettings>>> = ({ signal }) =>
+    getRootSettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRootSettings>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetRootSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRootSettings>>
+>;
+export type GetRootSettingsSuspenseQueryError = ErrorType<
+  GetRootSettings401 | GetRootSettings403 | GetRootSettings409 | GetRootSettings500
+>;
+
+export function useGetRootSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getRootSettings>>,
+  TError = ErrorType<
+    GetRootSettings401 | GetRootSettings403 | GetRootSettings409 | GetRootSettings500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRootSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetRootSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getRootSettings>>,
+  TError = ErrorType<
+    GetRootSettings401 | GetRootSettings403 | GetRootSettings409 | GetRootSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRootSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetRootSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getRootSettings>>,
+  TError = ErrorType<
+    GetRootSettings401 | GetRootSettings403 | GetRootSettings409 | GetRootSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRootSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the library roots settings
+ */
+
+export function useGetRootSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getRootSettings>>,
+  TError = ErrorType<
+    GetRootSettings401 | GetRootSettings403 | GetRootSettings409 | GetRootSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getRootSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetRootSettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateRootSettingsUrl = () => {
+  return `/api/v1/roots/settings`;
+};
+
+/**
+ * @summary Change the library roots settings
+ */
+export const updateRootSettings = async (
+  rootSettingsInputBody: RootSettingsInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsRootSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<RootsRootSettings>(getUpdateRootSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(rootSettingsInputBody),
+  });
+};
+
+export const getUpdateRootSettingsMutationKey = () => ["updateRootSettings"] as const;
+
+export const getUpdateRootSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateRootSettings401
+    | UpdateRootSettings403
+    | UpdateRootSettings409
+    | UpdateRootSettings422
+    | UpdateRootSettings500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRootSettings>>,
+    TError,
+    UpdateRootSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRootSettings>>,
+  TError,
+  UpdateRootSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateRootSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRootSettings>>,
+    UpdateRootSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateRootSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRootSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRootSettings>>
+>;
+export type UpdateRootSettingsMutationBody = RootSettingsInputBody;
+export type UpdateRootSettingsMutationError = ErrorType<
+  | UpdateRootSettings401
+  | UpdateRootSettings403
+  | UpdateRootSettings409
+  | UpdateRootSettings422
+  | UpdateRootSettings500
+>;
+export type UpdateRootSettingsMutationVariables = { data: RootSettingsInputBody };
+
+/**
+ * @summary Change the library roots settings
+ */
+export const useUpdateRootSettings = <
+  TError = ErrorType<
+    | UpdateRootSettings401
+    | UpdateRootSettings403
+    | UpdateRootSettings409
+    | UpdateRootSettings422
+    | UpdateRootSettings500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateRootSettings>>,
+      TError,
+      UpdateRootSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateRootSettings>>,
+  TError,
+  UpdateRootSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateRootSettingsMutationOptions(options), queryClient);
+};
 export const getDeleteRootUrl = (rootId: string, params?: DeleteRootParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1255,6 +1523,116 @@ export const useMakeDefaultRoot = <
 > => {
   return useMutation(getMakeDefaultRootMutationOptions(options), queryClient);
 };
+export const getListVolumesUrl = () => {
+  return `/api/v1/volumes`;
+};
+
+/**
+ * @summary List each Storage Node's volumes that hold a library root
+ */
+export const listVolumes = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsVolumeList> => {
+  return apiFetch<RootsVolumeList>(getListVolumesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListVolumesQueryKey = () => {
+  return [`/api/v1/volumes`] as const;
+};
+
+export const getListVolumesSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listVolumes>>,
+  TError = ErrorType<ListVolumes401 | ListVolumes403 | ListVolumes409 | ListVolumes500>,
+>(options?: {
+  query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listVolumes>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListVolumesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listVolumes>>> = ({ signal }) =>
+    listVolumes({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listVolumes>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListVolumesSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listVolumes>>>;
+export type ListVolumesSuspenseQueryError = ErrorType<
+  ListVolumes401 | ListVolumes403 | ListVolumes409 | ListVolumes500
+>;
+
+export function useListVolumesSuspense<
+  TData = Awaited<ReturnType<typeof listVolumes>>,
+  TError = ErrorType<ListVolumes401 | ListVolumes403 | ListVolumes409 | ListVolumes500>,
+>(
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listVolumes>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListVolumesSuspense<
+  TData = Awaited<ReturnType<typeof listVolumes>>,
+  TError = ErrorType<ListVolumes401 | ListVolumes403 | ListVolumes409 | ListVolumes500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listVolumes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListVolumesSuspense<
+  TData = Awaited<ReturnType<typeof listVolumes>>,
+  TError = ErrorType<ListVolumes401 | ListVolumes403 | ListVolumes409 | ListVolumes500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listVolumes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List each Storage Node's volumes that hold a library root
+ */
+
+export function useListVolumesSuspense<
+  TData = Awaited<ReturnType<typeof listVolumes>>,
+  TError = ErrorType<ListVolumes401 | ListVolumes403 | ListVolumes409 | ListVolumes500>,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listVolumes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListVolumesSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getSetWorkRootUrl = (workId: string) => {
   return `/api/v1/works/${workId}`;
 };

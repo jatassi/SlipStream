@@ -25,6 +25,10 @@ type discard struct{}
 
 func (discard) Publish(context.Context, roots.Changed) {}
 
+type discardVolumes struct{}
+
+func (discardVolumes) Publish(context.Context, roots.VolumesChanged) {}
+
 // Roster is a roster where every Node holds Storage and is in step.
 type Roster struct{}
 
@@ -64,6 +68,7 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Contents: files.RootContents{},
 		Inflight: grabs.RootGrabs{},
 		Changed:  discard{},
+		Volumes:  discardVolumes{},
 		Log:      slog.New(slog.DiscardHandler),
 	}
 }
@@ -88,6 +93,17 @@ func Root(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, t w
 // as lib records them now and has adopted each. Make the roots first.
 func Held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, types ...works.TypeID) *roots.Roots {
 	tb.Helper()
+	return held(tb, lib, node, payloads, false, types)
+}
+
+// Draining is Held while node drains Storage.
+func Draining(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, types ...works.TypeID) *roots.Roots {
+	tb.Helper()
+	return held(tb, lib, node, payloads, true, types)
+}
+
+func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, draining bool, types []works.TypeID) *roots.Roots {
+	tb.Helper()
 	disk, err := storing.NewOSDisk(tb.TempDir(), tb.TempDir())
 	if err != nil {
 		tb.Fatal(err)
@@ -101,7 +117,7 @@ func Held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, pay
 	if err != nil {
 		tb.Fatal(err)
 	}
-	h := &holder{intent: intent, facts: make(chan *storagev1.Facts, 1)}
+	h := &holder{intent: intent, draining: draining, facts: make(chan *storagev1.Facts, 1)}
 	ctx, cancel := context.WithCancel(context.WithoutCancel(tb.Context()))
 	done := make(chan error, 1)
 	go func() { done <- store.Run(ctx, h) }()
@@ -125,15 +141,17 @@ func Held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, pay
 	return svc
 }
 
-// holder hands a Store one intent and keeps its latest facts.
+// holder hands a Store one intent, draining or not, and keeps its latest
+// facts.
 type holder struct {
-	intent *storagev1.Intent
-	facts  chan *storagev1.Facts
+	intent   *storagev1.Intent
+	draining bool
+	facts    chan *storagev1.Facts
 }
 
 func (h *holder) Intent(ctx context.Context) iter.Seq[role.Snapshot[*storagev1.Intent]] {
 	return func(yield func(role.Snapshot[*storagev1.Intent]) bool) {
-		if yield(role.Snapshot[*storagev1.Intent]{Intent: h.intent, Standing: role.Live}) {
+		if yield(role.Snapshot[*storagev1.Intent]{Intent: h.intent, Standing: role.Live, Draining: h.draining}) {
 			<-ctx.Done()
 		}
 	}

@@ -14,7 +14,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
-	"github.com/jatassi/slipstream/internal/nodes"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots/internal/db"
@@ -218,6 +217,7 @@ type Config struct {
 	Contents Contents
 	Inflight Inflight
 	Changed  Publisher
+	Volumes  VolumesPublisher
 	Log      *slog.Logger
 }
 
@@ -446,7 +446,7 @@ func (r *Roots) views(ctx context.Context, rd storage.Reader[file], roots []Root
 	if err != nil {
 		return nil, err
 	}
-	writtenOff, err := nodes.WrittenOffIn(ctx, rd, role.Storage)
+	lost, err := LostIn(ctx, rd)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +485,7 @@ func (r *Roots) views(ctx context.Context, rd storage.Reader[file], roots []Root
 		if p, ok := of[root.ID]; ok && p.place == root.Place {
 			rep = p.report
 		}
-		v.State = stateOf(writtenOff[root.Node], r.cfg.Roster.InStep(root.Node), rep.state)
+		v.State = stateOf(lost[root.ID], r.cfg.Roster.InStep(root.Node), rep.state)
 		if s, ok := seen[root.ID]; ok && s.Place == root.Place {
 			v.VolumeID = string(s.VolumeID)
 		}

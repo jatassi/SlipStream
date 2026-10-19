@@ -95,7 +95,10 @@ func (n *Node) startController(ctx context.Context) error {
 	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	arrivals := roots.NewArrivals()
-	var systems *nodesystem.Nodes
+	var (
+		systems *nodesystem.Nodes
+		library *roots.Roots
+	)
 	side, err := nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -110,7 +113,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Owners:          owners(),
 		Downloads:       downloads,
 		Kept:            grabs.Kept,
-		Facts:           arrivals.Note,
+		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
+			return library.Figures(ctx, r, id)
+		},
+		Facts: arrivals.Note,
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
@@ -172,7 +178,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	library, err := roots.Open(ctx, roots.Config{
+	library, err = roots.Open(ctx, roots.Config{
 		Library: lib.db,
 		Types:   types,
 		Roster:  side,
@@ -184,6 +190,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Contents: files.RootContents{},
 		Inflight: grabs.RootGrabs{},
 		Changed:  roots.ChangedEvent.Bind(n.hub),
+		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
 		Log:      n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {

@@ -50,6 +50,7 @@ var Events = []live.Event{
 	works.ContentTypesChangedEvent,
 	targets.ChangedEvent,
 	roots.ChangedEvent,
+	roots.VolumesChangedEvent,
 	indexers.ChangedEvent,
 	files.ChangedEvent,
 	grabs.ChangedEvent,

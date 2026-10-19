@@ -34,6 +34,30 @@ type topologyNode struct {
 
 type resources struct {
 	Downloading *downloadingResource `json:"downloading,omitempty" doc:"Its torrent client; absent unless the Node stands in Downloading and is in step"`
+	Storage     *storageResource     `json:"storage,omitempty" doc:"Its library roots and the volumes they sit on; absent unless the Node stands in Storage. While it is away, as it last reported them"`
+}
+
+type storageResource struct {
+	Roots   []storageRoot   `json:"roots" nullable:"false" doc:"The library roots on the Node, by Content Type, oldest first in each"`
+	Volumes []storageVolume `json:"volumes" nullable:"false" doc:"The volumes its roots sit on"`
+}
+
+type storageRoot struct {
+	ID          string `json:"id" format:"uuid"`
+	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Path        string `json:"path" doc:"The folder as its Node cleaned it"`
+	State       string `json:"state" enum:"ready,missing,unmounted,foreign,unwritable,unresponsive,checking,offline,written_off" doc:"As listRoots names it"`
+	VolumeID    string `json:"volumeId,omitempty" doc:"The volume its Node last found it ready on; absent before it did"`
+}
+
+type storageVolume struct {
+	ID        string    `json:"id" doc:"The filesystem id, or the volume serial on Windows"`
+	Name      string    `json:"name" doc:"The volume as its Node names it, such as D: (Media) or /mnt/media"`
+	Mount     string    `json:"mount"`
+	Kind      string    `json:"kind" enum:"local,removable,network"`
+	Total     int64     `json:"total"`
+	Free      int64     `json:"free" doc:"The bytes SlipStream may write"`
+	SampledAt time.Time `json:"sampledAt" doc:"When its Node read these figures"`
 }
 
 type downloadingResource struct {
@@ -86,6 +110,9 @@ func topologyOf(t nodes.Topology) topology {
 				})
 			}
 		}
+		if st := n.Storage; st != nil {
+			v.Resources.Storage = storageOf(*st)
+		}
 		out.Nodes = append(out.Nodes, v)
 	}
 	for _, l := range t.Links {
@@ -94,6 +121,19 @@ func topologyOf(t nodes.Topology) topology {
 			v.Dialer = l.Dialer.String()
 		}
 		out.Links = append(out.Links, v)
+	}
+	return out
+}
+
+func storageOf(f nodes.StorageFigures) *storageResource {
+	out := &storageResource{Roots: []storageRoot{}, Volumes: []storageVolume{}}
+	for _, r := range f.Roots {
+		out.Roots = append(out.Roots, storageRoot{ID: r.ID.String(), ContentType: r.ContentType, Path: r.Path, State: r.State, VolumeID: r.VolumeID})
+	}
+	for _, v := range f.Volumes {
+		out.Volumes = append(out.Volumes, storageVolume{
+			ID: v.ID, Name: v.Name, Mount: v.Mount, Kind: v.Kind.String(), Total: v.Total, Free: v.Free, SampledAt: v.SampledAt,
+		})
 	}
 	return out
 }

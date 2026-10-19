@@ -93,6 +93,10 @@ func keptNothing(context.Context, storage.Reader[storage.Library], nodes.ID) ([]
 	return nil, nil
 }
 
+func storesNothing(context.Context, storage.Reader[storage.Library], nodes.ID) (nodes.StorageFigures, error) {
+	return nodes.StorageFigures{}, nil
+}
+
 type controller struct {
 	net     *fault.Network
 	node    *linktest.Node
@@ -136,6 +140,7 @@ func (c *controller) open(t *testing.T, s *side) {
 		Owners:    nodestest.Unowned(),
 		Downloads: noClients{},
 		Kept:      keptNothing,
+		Storage:   storesNothing,
 		Facts:     func(nodes.ID, string) {},
 		Timings:   nodes.DefaultTimings(),
 		Stall:     45 * time.Second,

@@ -11,6 +11,8 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/works"
@@ -331,6 +333,41 @@ type madeFolder struct {
 
 type madeFolderOutput struct{ Body madeFolder }
 
+type nodeVolumes struct {
+	NodeID  string       `json:"nodeId" format:"uuid"`
+	Live    bool         `json:"live" doc:"The Node is online, so its figures are current; else each volume reads as of its sampledAt"`
+	Volumes []rootVolume `json:"volumes" nullable:"false" doc:"Its volumes that hold a root, by name"`
+}
+
+type rootVolume struct {
+	ID        string    `json:"id" doc:"The filesystem id, or the volume serial on Windows"`
+	Name      string    `json:"name" doc:"The volume as its Node names it, such as D: (Media) or /mnt/media"`
+	Mount     string    `json:"mount"`
+	Kind      string    `json:"kind" enum:"local,removable,network"`
+	Total     int64     `json:"total"`
+	Free      int64     `json:"free" doc:"The bytes SlipStream may write"`
+	SampledAt time.Time `json:"sampledAt" doc:"When its Node read these figures"`
+	RootIDs   []string  `json:"rootIds" nullable:"false" doc:"The roots its Node last found ready on it"`
+}
+
+type volumeList struct {
+	Nodes []nodeVolumes `json:"nodes" nullable:"false" doc:"Each Storage Node with a volume that holds a root, in id order"`
+}
+
+type volumeListOutput struct{ Body volumeList }
+
+type rootSettings struct {
+	SampleEvery setting.DurationField `json:"sampleEvery"`
+}
+
+type rootSettingsOutput struct{ Body rootSettings }
+
+type rootSettingsInput struct {
+	Body struct {
+		SampleEvery api.Patch[int64] `json:"sampleEvery,omitempty" doc:"Seconds; null resets it to its default"`
+	}
+}
+
 func Routes(r *api.Router, folders Folders) {
 	o := r.Owner("roots", api.Admin)
 	h := handlers{folders}
@@ -360,6 +397,31 @@ func Routes(r *api.Router, folders Folders) {
 		Summary: "List the library roots",
 		Status:  http.StatusOK,
 	}, h.listRoots)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listVolumes",
+		Method:  http.MethodGet,
+		Path:    "/volumes",
+		Summary: "List each Storage Node's volumes that hold a library root",
+		Status:  http.StatusOK,
+	}, h.listVolumes)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getRootSettings",
+		Method:  http.MethodGet,
+		Path:    "/roots/settings",
+		Summary: "Get the library roots settings",
+		Status:  http.StatusOK,
+	}, h.getRootSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateRootSettings",
+		Method:  http.MethodPatch,
+		Path:    "/roots/settings",
+		Summary: "Change the library roots settings",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange},
+	}, h.updateRootSettings)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "makeDefaultRoot",
@@ -476,6 +538,54 @@ func (h handlers) listRoots(ctx context.Context, by identity.Admin, _ *struct{})
 		out.Roots = append(out.Roots, rootOf(r))
 	}
 	return &rootListOutput{Body: out}, nil
+}
+
+func (h handlers) listVolumes(ctx context.Context, by identity.Admin, _ *struct{}) (*volumeListOutput, error) {
+	list, err := open(h.folders).Volumes(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	out := volumeList{Nodes: []nodeVolumes{}}
+	for _, n := range list {
+		nv := nodeVolumes{NodeID: n.Node.String(), Live: n.Live, Volumes: []rootVolume{}}
+		for _, v := range n.Volumes {
+			rv := rootVolume{
+				ID: v.ID, Name: v.Name, Mount: v.Mount, Kind: v.Kind.String(), Total: v.Total, Free: v.Free, SampledAt: v.SampledAt, RootIDs: []string{},
+			}
+			for _, id := range v.Roots {
+				rv.RootIDs = append(rv.RootIDs, id.String())
+			}
+			nv.Volumes = append(nv.Volumes, rv)
+		}
+		out.Nodes = append(out.Nodes, nv)
+	}
+	return &volumeListOutput{Body: out}, nil
+}
+
+func (h handlers) getRootSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*rootSettingsOutput, error) {
+	return currentSettings(ctx, open(h.folders))
+}
+
+func (h handlers) updateRootSettings(ctx context.Context, _ identity.Admin, in *rootSettingsInput) (*rootSettingsOutput, error) {
+	r := open(h.folders)
+	if p := in.Body.SampleEvery; p.Sent() {
+		v, err := roots.SampleEvery.Parse(p.Value())
+		if err != nil {
+			return nil, settingapi.Refused(err)
+		}
+		if err := r.SetSampleEvery(ctx, v); err != nil {
+			return nil, err
+		}
+	}
+	return currentSettings(ctx, r)
+}
+
+func currentSettings(ctx context.Context, r *roots.Roots) (*rootSettingsOutput, error) {
+	every, err := r.SampleEveryField(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &rootSettingsOutput{Body: rootSettings{SampleEvery: every}}, nil
 }
 
 func (h handlers) makeDefaultRoot(ctx context.Context, by identity.Admin, in *rootInput) (*struct{}, error) {

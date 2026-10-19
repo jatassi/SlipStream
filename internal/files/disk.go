@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,11 +19,13 @@ import (
 
 // Disk is the file IO the disk queue does, on the Node that holds each
 // root. Move converges on a repeat; Remove of a missing file is an error
-// wrapping fs.ErrNotExist. *roots.Roots is one.
+// wrapping fs.ErrNotExist. Watch is closed at the next change of a root's
+// report, as a re-home off a lost root makes. *roots.Roots is one.
 type Disk interface {
 	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
 	Remove(ctx context.Context, root roots.ID, rel storing.Rel) error
 	ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error)
+	Watch() <-chan struct{}
 }
 
 type Timings struct {
@@ -50,7 +53,8 @@ func (f *Files) Poke() {
 // on a repeat, and a row goes only after its step, so a crash anywhere
 // converges on the next pass. A pass that leaves work behind, a root to
 // sweep among it, runs again after a backoff. Each step runs on the Node
-// that holds the file's root.
+// that holds the file's root. Work in a lost root waits, without a
+// backoff, until a root's report changes.
 func (f *Files) Run(ctx context.Context) error {
 	unswept, err := f.rootIDs(ctx)
 	if err != nil {
@@ -59,17 +63,24 @@ func (f *Files) Run(ctx context.Context) error {
 	attempts := 0
 	timer := time.NewTimer(0)
 	defer timer.Stop()
+	var watch <-chan struct{}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-f.poke:
 		case <-timer.C:
+		case <-watch:
 		}
-		unswept = f.sweep(ctx, unswept)
-		err := f.drain(ctx)
-		if len(unswept) > 0 {
-			err = errors.Join(err, fmt.Errorf("%d roots wait for their sweep", len(unswept)))
+		watch = f.cfg.Disk.Watch()
+		unanswered, lostRoots := f.sweep(ctx, unswept)
+		unswept = slices.Concat(unanswered, lostRoots)
+		lostRows, err := f.drain(ctx)
+		if len(unanswered) > 0 {
+			err = errors.Join(err, fmt.Errorf("%d roots wait for their sweep", len(unanswered)))
+		}
+		if len(lostRoots) == 0 && !lostRows {
+			watch = nil
 		}
 		switch {
 		case ctx.Err() != nil:
@@ -84,10 +95,11 @@ func (f *Files) Run(ctx context.Context) error {
 	}
 }
 
-// queue is the disk queue as one Read found it.
+// queue is the disk queue as one Read found it, and the roots lost then.
 type queue struct {
 	doomed []db.FilesDoomed
 	moves  []db.ListMovesRow
+	lost   map[roots.ID]bool
 }
 
 func (f *Files) read(ctx context.Context) (queue, error) {
@@ -98,10 +110,28 @@ func (f *Files) read(ctx context.Context) (queue, error) {
 		if out.doomed, err = q.ListDoomed(ctx); err != nil {
 			return err
 		}
-		out.moves, err = q.ListMoves(ctx)
+		if out.moves, err = q.ListMoves(ctx); err != nil {
+			return err
+		}
+		out.lost, err = roots.LostIn(ctx, r)
 		return err
 	})
 	return out, err
+}
+
+// waits reports whether a row of q is in a lost root.
+func (q queue) waits() bool {
+	for _, d := range q.doomed {
+		if q.lost[d.RootID] {
+			return true
+		}
+	}
+	for _, m := range q.moves {
+		if q.lost[m.RootID] {
+			return true
+		}
+	}
+	return false
 }
 
 // pending is every place bytes the queue has yet to remove or move on
@@ -129,38 +159,41 @@ type place struct {
 
 func holdingOf(id ID, p string) string { return HoldingOf(id.UUID, path.Ext(p)) }
 
-// drain runs one pass of the queue and reports what it left undone.
-func (f *Files) drain(ctx context.Context) error {
+// drain runs one pass of the queue, skipping the rows of lost roots, and
+// reports whether it skipped any and what else it left undone.
+func (f *Files) drain(ctx context.Context) (bool, error) {
 	q, err := f.read(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var errs []error
 	for _, d := range q.doomed {
-		errs = append(errs, f.remove(ctx, q, d))
+		if !q.lost[d.RootID] {
+			errs = append(errs, f.remove(ctx, q, d))
+		}
 	}
 	for _, m := range q.moves {
-		if hold := holdingOf(m.FileID, m.Path); m.Sits != hold {
+		if hold := holdingOf(m.FileID, m.Path); m.Sits != hold && !q.lost[m.RootID] {
 			errs = append(errs, f.step(ctx, m, hold))
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return err //nolint:wrapcheck // Run's own cancel
+		return false, err //nolint:wrapcheck // Run's own cancel
 	}
 	if q, err = f.read(ctx); err != nil {
-		return err
+		return false, err
 	}
 	pending := q.pending()
 	for _, m := range q.moves {
 		switch {
-		case m.Sits != holdingOf(m.FileID, m.Path):
+		case m.Sits != holdingOf(m.FileID, m.Path), q.lost[m.RootID]:
 		case pending[place{m.RootID, m.Path}]:
 			errs = append(errs, fmt.Errorf("%s waits for the bytes at its path to go", m.Path))
 		default:
 			errs = append(errs, f.step(ctx, m, m.Path))
 		}
 	}
-	return errors.Join(errs...)
+	return q.waits(), errors.Join(errs...)
 }
 
 // step moves m's bytes from m.Sits to to, then records that they reached
@@ -223,21 +256,26 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 // between two steps, leaves. It lists the folders, on each root's Node,
 // before reading the library, so a file placed meanwhile belongs to a
 // Grab or file the read sees. It answers the roots left to sweep: those
-// whose Node didn't answer.
-func (f *Files) sweep(ctx context.Context, ids []roots.ID) []roots.ID {
+// whose Node didn't answer, and the lost ones, which it doesn't ask.
+func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []roots.ID) {
 	if len(ids) == 0 {
-		return nil
+		return nil, nil
 	}
-	found, unswept := f.held(ctx, ids)
+	lost, asked, err := f.lostOf(ctx, ids)
+	if err != nil {
+		f.logSweep(ctx, err)
+		return ids, nil
+	}
+	found, unanswered := f.held(ctx, asked)
 	live, err := f.claimed(ctx)
 	if err != nil {
 		f.logSweep(ctx, err)
-		return ids
+		return asked, lost
 	}
 	moving, err := f.read(ctx)
 	if err != nil {
 		f.logSweep(ctx, err)
-		return ids
+		return asked, lost
 	}
 	for root, paths := range found {
 		for _, p := range paths {
@@ -251,7 +289,23 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) []roots.ID {
 			}
 		}
 	}
-	return unswept
+	return unanswered, lost
+}
+
+// lostOf splits ids into the lost roots and the others.
+func (f *Files) lostOf(ctx context.Context, ids []roots.ID) (lost, others []roots.ID, err error) {
+	err = f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		of, err := roots.LostIn(ctx, r)
+		for _, id := range ids {
+			if of[id] {
+				lost = append(lost, id)
+			} else {
+				others = append(others, id)
+			}
+		}
+		return err
+	})
+	return lost, others, err
 }
 
 func (f *Files) rootIDs(ctx context.Context) ([]roots.ID, error) {

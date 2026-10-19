@@ -190,6 +190,7 @@ type cellList struct {
 	Cells []struct {
 		ItemID   string `json:"itemId"`
 		TargetID string `json:"targetId"`
+		State    string `json:"state"`
 		File     *struct {
 			ID   string `json:"id"`
 			Size int64  `json:"size"`
