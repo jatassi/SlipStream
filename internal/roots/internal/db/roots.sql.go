@@ -138,6 +138,17 @@ func (q *Queries) GetRootOfWork(ctx context.Context, workID works.WorkID) (Roots
 	return i, err
 }
 
+const getSampleEvery = `-- name: GetSampleEvery :one
+SELECT sample_every FROM roots_settings WHERE id = 1
+`
+
+func (q *Queries) GetSampleEvery(ctx context.Context) (*int64, error) {
+	row := q.db.QueryRowContext(ctx, getSampleEvery)
+	var sample_every *int64
+	err := row.Scan(&sample_every)
+	return sample_every, err
+}
+
 const homeWork = `-- name: HomeWork :exec
 INSERT INTO roots_work (work_id, root_id) VALUES (?1, ?2)
 ON CONFLICT (work_id) DO UPDATE SET root_id = excluded.root_id
@@ -275,6 +286,33 @@ func (q *Queries) ListIntentRoots(ctx context.Context, nodeID role.NodeID) ([]Li
 	return items, nil
 }
 
+const listRootNodes = `-- name: ListRootNodes :many
+SELECT DISTINCT node_id FROM roots_root ORDER BY node_id
+`
+
+func (q *Queries) ListRootNodes(ctx context.Context) ([]role.NodeID, error) {
+	rows, err := q.db.QueryContext(ctx, listRootNodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []role.NodeID
+	for rows.Next() {
+		var node_id role.NodeID
+		if err := rows.Scan(&node_id); err != nil {
+			return nil, err
+		}
+		items = append(items, node_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoots = `-- name: ListRoots :many
 SELECT id, content_type, node_id, path, is_default, place FROM roots_root ORDER BY content_type, id
 `
@@ -370,6 +408,78 @@ func (q *Queries) ListSeen(ctx context.Context) ([]RootsSeen, error) {
 	return items, nil
 }
 
+const listVolumes = `-- name: ListVolumes :many
+SELECT node_id, id, name, mount, kind, total, free, sampled_at FROM roots_volume ORDER BY node_id, name, id
+`
+
+func (q *Queries) ListVolumes(ctx context.Context) ([]RootsVolume, error) {
+	rows, err := q.db.QueryContext(ctx, listVolumes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RootsVolume
+	for rows.Next() {
+		var i RootsVolume
+		if err := rows.Scan(
+			&i.NodeID,
+			&i.ID,
+			&i.Name,
+			&i.Mount,
+			&i.Kind,
+			&i.Total,
+			&i.Free,
+			&i.SampledAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVolumesOf = `-- name: ListVolumesOf :many
+SELECT node_id, id, name, mount, kind, total, free, sampled_at FROM roots_volume WHERE node_id = ?1 ORDER BY id
+`
+
+func (q *Queries) ListVolumesOf(ctx context.Context, nodeID role.NodeID) ([]RootsVolume, error) {
+	rows, err := q.db.QueryContext(ctx, listVolumesOf, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RootsVolume
+	for rows.Next() {
+		var i RootsVolume
+		if err := rows.Scan(
+			&i.NodeID,
+			&i.ID,
+			&i.Name,
+			&i.Mount,
+			&i.Kind,
+			&i.Total,
+			&i.Free,
+			&i.SampledAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorksOfRoot = `-- name: ListWorksOfRoot :many
 SELECT work_id FROM roots_work WHERE root_id = ?1 ORDER BY work_id
 `
@@ -434,5 +544,14 @@ UPDATE roots_root SET is_default = 1 WHERE id = ?1
 
 func (q *Queries) SetDefaultRoot(ctx context.Context, id RootID) error {
 	_, err := q.db.ExecContext(ctx, setDefaultRoot, id)
+	return err
+}
+
+const setSampleEvery = `-- name: SetSampleEvery :exec
+UPDATE roots_settings SET sample_every = ?1 WHERE id = 1
+`
+
+func (q *Queries) SetSampleEvery(ctx context.Context, sampleEvery *int64) error {
+	_, err := q.db.ExecContext(ctx, setSampleEvery, sampleEvery)
 	return err
 }

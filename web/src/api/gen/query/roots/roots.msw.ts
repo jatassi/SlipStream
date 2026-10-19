@@ -8,8 +8,10 @@ import type {
   RootsMadeFolder,
   RootsRoot,
   RootsRootList,
+  RootsRootSettings,
   RootsSuggestions,
   RootsVerdict,
+  RootsVolumeList,
   RootsWorkRoot,
 } from "../../model";
 
@@ -181,6 +183,78 @@ export const getCheckRootResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetRootSettingsResponseMock = (
+  overrideResponse: Partial<Extract<RootsRootSettings, object>> = {},
+): RootsRootSettings => ({
+  sampleEvery: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateRootSettingsResponseMock = (
+  overrideResponse: Partial<Extract<RootsRootSettings, object>> = {},
+): RootsRootSettings => ({
+  sampleEvery: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
 export const getRehomeRootResponseMock = (
   overrideResponse: Partial<Extract<RootsRoot, object>> = {},
 ): RootsRoot => ({
@@ -208,6 +282,30 @@ export const getRehomeRootResponseMock = (
     ? { volumeId: faker.string.alpha({ length: { min: 10, max: 20 } }) }
     : {}),
   works: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getListVolumesResponseMock = (
+  overrideResponse: Partial<Extract<RootsVolumeList, object>> = {},
+): RootsVolumeList => ({
+  nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    live: faker.datatype.boolean(),
+    nodeId: faker.string.uuid(),
+    volumes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        free: faker.number.int(),
+        id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        kind: faker.helpers.arrayElement(["local", "removable", "network"] as const),
+        mount: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        rootIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+        sampledAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+        total: faker.number.int(),
+      }),
+    ),
+  })),
   ...overrideResponse,
 });
 
@@ -361,6 +459,54 @@ export const getCheckRootMockHandler = (
   );
 };
 
+export const getGetRootSettingsMockHandler = (
+  overrideResponse?:
+    | RootsRootSettings
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<RootsRootSettings> | RootsRootSettings),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/roots/settings",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetRootSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getUpdateRootSettingsMockHandler = (
+  overrideResponse?:
+    | RootsRootSettings
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<RootsRootSettings> | RootsRootSettings),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/roots/settings",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateRootSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getDeleteRootMockHandler = (
   overrideResponse?:
     | void
@@ -421,6 +567,30 @@ export const getMakeDefaultRootMockHandler = (
   );
 };
 
+export const getListVolumesMockHandler = (
+  overrideResponse?:
+    | RootsVolumeList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<RootsVolumeList> | RootsVolumeList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/volumes",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListVolumesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getSetWorkRootMockHandler = (
   overrideResponse?:
     | RootsWorkRoot
@@ -451,8 +621,11 @@ export const getRootsMock = () => [
   getListRootsMockHandler(),
   getCreateRootMockHandler(),
   getCheckRootMockHandler(),
+  getGetRootSettingsMockHandler(),
+  getUpdateRootSettingsMockHandler(),
   getDeleteRootMockHandler(),
   getRehomeRootMockHandler(),
   getMakeDefaultRootMockHandler(),
+  getListVolumesMockHandler(),
   getSetWorkRootMockHandler(),
 ];

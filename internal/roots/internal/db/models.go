@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -29,7 +27,7 @@ type RootsSeen struct {
 
 type RootsSetting struct {
 	ID          Singleton
-	SampleEvery sql.NullInt64
+	SampleEvery *int64
 }
 
 type RootsVolume struct {

@@ -1712,9 +1712,63 @@ export const NodesRenameBody = zod.object({
 export type NodesRenameBody = zod.input<typeof NodesRenameBody>;
 export type NodesRenameBodyOutput = zod.output<typeof NodesRenameBody>;
 
+export const nodesStorageRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const NodesStorageRoot = zod.object({
+  contentType: zod.string().regex(nodesStorageRootContentTypeRegExp),
+  id: zod.uuid(),
+  path: zod.string().describe("The folder as its Node cleaned it"),
+  state: zod
+    .enum([
+      "ready",
+      "missing",
+      "unmounted",
+      "foreign",
+      "unwritable",
+      "unresponsive",
+      "checking",
+      "offline",
+      "written_off",
+    ])
+    .describe("As listRoots names it"),
+  volumeId: zod
+    .string()
+    .exactOptional()
+    .describe("The volume its Node last found it ready on; absent before it did"),
+});
+
+export type NodesStorageRoot = zod.input<typeof NodesStorageRoot>;
+export type NodesStorageRootOutput = zod.output<typeof NodesStorageRoot>;
+
+export const NodesStorageVolume = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write"),
+  id: zod.string().describe("The filesystem id, or the volume serial on Windows"),
+  kind: zod.enum(["local", "removable", "network"]),
+  mount: zod.string(),
+  name: zod.string().describe("The volume as its Node names it, such as D: (Media) or /mnt/media"),
+  sampledAt: zod.iso.datetime({ offset: true }).describe("When its Node read these figures"),
+  total: zod.int(),
+});
+
+export type NodesStorageVolume = zod.input<typeof NodesStorageVolume>;
+export type NodesStorageVolumeOutput = zod.output<typeof NodesStorageVolume>;
+
+export const NodesStorageResource = zod.object({
+  roots: zod
+    .array(NodesStorageRoot)
+    .describe("The library roots on the Node, by Content Type, oldest first in each"),
+  volumes: zod.array(NodesStorageVolume).describe("The volumes its roots sit on"),
+});
+
+export type NodesStorageResource = zod.input<typeof NodesStorageResource>;
+export type NodesStorageResourceOutput = zod.output<typeof NodesStorageResource>;
+
 export const NodesResources = zod.object({
   downloading: NodesDownloadingResource.exactOptional().describe(
     "Its torrent client; absent unless the Node stands in Downloading and is in step",
+  ),
+  storage: NodesStorageResource.exactOptional().describe(
+    "Its library roots and the volumes they sit on; absent unless the Node stands in Storage. While it is away, as it last reported them",
   ),
 });
 
@@ -2013,6 +2067,13 @@ export const ResetLinkInputBody = zod.object({
 export type ResetLinkInputBody = zod.input<typeof ResetLinkInputBody>;
 export type ResetLinkInputBodyOutput = zod.output<typeof ResetLinkInputBody>;
 
+export const RootSettingsInputBody = zod.object({
+  sampleEvery: zod.int().nullish().describe("Seconds; null resets it to its default"),
+});
+
+export type RootSettingsInputBody = zod.input<typeof RootSettingsInputBody>;
+export type RootSettingsInputBodyOutput = zod.output<typeof RootSettingsInputBody>;
+
 export const RootsChanged = zod.object({
   rootIds: zod.array(zod.string()),
 });
@@ -2156,6 +2217,33 @@ export const RootsNewRoot = zod.object({
 export type RootsNewRoot = zod.input<typeof RootsNewRoot>;
 export type RootsNewRootOutput = zod.output<typeof RootsNewRoot>;
 
+export const RootsRootVolume = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write"),
+  id: zod.string().describe("The filesystem id, or the volume serial on Windows"),
+  kind: zod.enum(["local", "removable", "network"]),
+  mount: zod.string(),
+  name: zod.string().describe("The volume as its Node names it, such as D: (Media) or /mnt/media"),
+  rootIds: zod.array(zod.string()).describe("The roots its Node last found ready on it"),
+  sampledAt: zod.iso.datetime({ offset: true }).describe("When its Node read these figures"),
+  total: zod.int(),
+});
+
+export type RootsRootVolume = zod.input<typeof RootsRootVolume>;
+export type RootsRootVolumeOutput = zod.output<typeof RootsRootVolume>;
+
+export const RootsNodeVolumes = zod.object({
+  live: zod
+    .boolean()
+    .describe(
+      "The Node is online, so its figures are current; else each volume reads as of its sampledAt",
+    ),
+  nodeId: zod.uuid(),
+  volumes: zod.array(RootsRootVolume).describe("Its volumes that hold a root, by name"),
+});
+
+export type RootsNodeVolumes = zod.input<typeof RootsNodeVolumes>;
+export type RootsNodeVolumesOutput = zod.output<typeof RootsNodeVolumes>;
+
 export const RootsProgress = zod.object({
   checked: zod.int().describe("The recorded files checked so far"),
   total: zod.int().describe("The recorded files to check"),
@@ -2234,6 +2322,13 @@ export const RootsRootList = zod.object({
 export type RootsRootList = zod.input<typeof RootsRootList>;
 export type RootsRootListOutput = zod.output<typeof RootsRootList>;
 
+export const RootsRootSettings = zod.object({
+  sampleEvery: SettingDurationField,
+});
+
+export type RootsRootSettings = zod.input<typeof RootsRootSettings>;
+export type RootsRootSettingsOutput = zod.output<typeof RootsRootSettings>;
+
 export const RootsSuggestions = zod.object({
   suggestions: zod
     .array(zod.string())
@@ -2252,6 +2347,23 @@ export const RootsVerdict = zod.object({
 
 export type RootsVerdict = zod.input<typeof RootsVerdict>;
 export type RootsVerdictOutput = zod.output<typeof RootsVerdict>;
+
+export const RootsVolumeList = zod.object({
+  nodes: zod
+    .array(RootsNodeVolumes)
+    .describe("Each Storage Node with a volume that holds a root, in id order"),
+});
+
+export type RootsVolumeList = zod.input<typeof RootsVolumeList>;
+export type RootsVolumeListOutput = zod.output<typeof RootsVolumeList>;
+
+export const RootsVolumesChanged = zod.object({
+  nodeId: zod.uuid(),
+  volumeIds: zod.array(zod.string()),
+});
+
+export type RootsVolumesChanged = zod.input<typeof RootsVolumesChanged>;
+export type RootsVolumesChangedOutput = zod.output<typeof RootsVolumesChanged>;
 
 export const RootsWorkRoot = zod.object({
   rootId: zod.uuid(),
@@ -3776,6 +3888,14 @@ export const LiveEventTasksProgress = zod.object({
 export type LiveEventTasksProgress = zod.input<typeof LiveEventTasksProgress>;
 export type LiveEventTasksProgressOutput = zod.output<typeof LiveEventTasksProgress>;
 
+export const LiveEventVolumesChanged = zod.object({
+  event: zod.enum(["volumes.changed"]),
+  data: RootsVolumesChanged,
+});
+
+export type LiveEventVolumesChanged = zod.input<typeof LiveEventVolumesChanged>;
+export type LiveEventVolumesChangedOutput = zod.output<typeof LiveEventVolumesChanged>;
+
 export const LiveEventWorksChanged = zod.object({
   event: zod.enum(["works.changed"]),
   data: WorksWorkChanged,
@@ -3813,6 +3933,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTargetsChanged,
   LiveEventTasksChanged,
   LiveEventTasksProgress,
+  LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
 ]);

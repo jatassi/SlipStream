@@ -63,3 +63,18 @@ DELETE FROM roots_root WHERE id = sqlc.arg(id);
 
 -- name: ListWorksOfRoot :many
 SELECT work_id FROM roots_work WHERE root_id = sqlc.arg(root_id) ORDER BY work_id;
+
+-- name: ListVolumesOf :many
+SELECT * FROM roots_volume WHERE node_id = sqlc.arg(node_id) ORDER BY id;
+
+-- name: ListVolumes :many
+SELECT * FROM roots_volume ORDER BY node_id, name, id;
+
+-- name: ListRootNodes :many
+SELECT DISTINCT node_id FROM roots_root ORDER BY node_id;
+
+-- name: GetSampleEvery :one
+SELECT sample_every FROM roots_settings WHERE id = 1;
+
+-- name: SetSampleEvery :exec
+UPDATE roots_settings SET sample_every = sqlc.arg(sample_every) WHERE id = 1;

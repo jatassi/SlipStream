@@ -2,6 +2,7 @@ package roots
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -10,24 +11,77 @@ import (
 )
 
 // Place puts payload from at to in root, on the Node that holds root now,
-// answering the file's size. The Node may refuse with *storing.NotReady,
+// answering the file's size. The Node may refuse with a *WaitingError,
 // and another file at to is storing.ErrOccupied.
 func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Payload) (int64, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
 		return 0, err
 	}
-	return r.cfg.Remote.Place(ctx, at, from, to)
+	size, err := r.cfg.Remote.Place(ctx, at, from, to)
+	return size, r.waiting(ctx, at.Node, err)
 }
 
 // Move renames from to to within root on its Node, answering the file's
-// size; moving again converges.
+// size; moving again converges. The Node may refuse with a *WaitingError.
 func (r *Roots) Move(ctx context.Context, root ID, from, to storing.Rel) (int64, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
 		return 0, err
 	}
-	return r.cfg.Remote.Move(ctx, at, from, to)
+	size, err := r.cfg.Remote.Move(ctx, at, from, to)
+	return size, r.waiting(ctx, at.Node, err)
+}
+
+// WaitingError is a root whose Node takes no new bytes into it now, so an
+// import waits for its next report. Why names the Node and the cause in
+// words.
+type WaitingError struct {
+	Why string
+	Err *storing.NotReady
+}
+
+func (e *WaitingError) Error() string { return e.Why }
+func (e *WaitingError) Unwrap() error { return e.Err }
+
+// waiting gives a refusal by node's Store its words.
+func (r *Roots) waiting(ctx context.Context, node role.NodeID, err error) error {
+	refused, ok := errors.AsType[*storing.NotReady](err)
+	if !ok {
+		return err
+	}
+	var name string
+	if err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
+		var err error
+		name, err = nameOf(ctx, rd, node)
+		return err
+	}); err != nil {
+		return errors.Join(refused, err)
+	}
+	var why string
+	switch {
+	case refused.Draining:
+		why = name + " is draining Storage, so the library root there takes no new files."
+	case refused.Unknown:
+		why = name + " hasn't taken up the library root yet, so it takes no new files."
+	default:
+		why = "The library root on " + name + " reads " + refused.State.String() + ", so it takes no new files until it is ready."
+	}
+	return &WaitingError{Why: why, Err: refused}
+}
+
+// nameOf is node's name in rd, "Its Node" when no Node has its id.
+func nameOf(ctx context.Context, rd storage.Reader[file], node role.NodeID) (string, error) {
+	named, err := nodes.Names(ctx, rd)
+	if err != nil {
+		return "", err
+	}
+	for _, n := range named {
+		if n.ID == node {
+			return n.Name, nil
+		}
+	}
+	return "Its Node", nil
 }
 
 // Remove removes rel from root on its Node; a file already gone wraps
@@ -90,28 +144,22 @@ func (e *UnreachableError) Error() string { return e.Why }
 // unmounted, unwritable, unresponsive or draining is reachable: its
 // imports wait until it is ready.
 func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Root) error {
-	writtenOff, err := nodes.WrittenOffIn(ctx, rd, role.Storage)
+	lost, err := LostIn(ctx, rd)
 	if err != nil {
 		return err
 	}
 	var state State
 	switch {
-	case writtenOff[root.Node]:
+	case lost[root.ID]:
 		state = WrittenOff
 	case !r.cfg.Roster.InStep(root.Node):
 		state = Offline
 	default:
 		return nil
 	}
-	named, err := nodes.Names(ctx, rd)
+	name, err := nameOf(ctx, rd, root.Node)
 	if err != nil {
 		return err
-	}
-	name := "Its Node"
-	for _, n := range named {
-		if n.ID == root.Node {
-			name = n.Name
-		}
 	}
 	if state == WrittenOff {
 		return &UnreachableError{State: state, Why: name + "'s Storage was written off, so the library root there takes no new files."}

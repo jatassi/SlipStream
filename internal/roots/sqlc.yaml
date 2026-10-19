@@ -48,3 +48,7 @@ sql:
           - column: roots_volume.id
             go_type:
               type: VolumeID
+          - column: roots_settings.sample_every
+            go_type:
+              type: int64
+              pointer: true

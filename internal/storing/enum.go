@@ -36,6 +36,16 @@ func (e enum[G, W]) parse(w W) (G, error) {
 	return 0, fmt.Errorf("unknown %T %d", w, w)
 }
 
+func (e enum[G, W]) parseWord(word string) (G, error) {
+	for _, m := range e {
+		if m.word == word {
+			return m.value, nil
+		}
+	}
+	var g G
+	return 0, fmt.Errorf("unknown %T %q", g, word)
+}
+
 // RootState is what a root's Node found at its folder. Only Ready takes
 // imports.
 type RootState uint8
@@ -80,6 +90,7 @@ var kinds = enum[Kind, storagev1.VolumeKind]{
 func (k Kind) String() string                        { return kinds.of(k).word }
 func (k Kind) Wire() storagev1.VolumeKind            { return kinds.of(k).wire }
 func ParseKind(w storagev1.VolumeKind) (Kind, error) { return kinds.parse(w) }
+func ParseKindWord(word string) (Kind, error)        { return kinds.parseWord(word) }
 
 // Reason is why Check refused a folder as a root. A folder equal to
 // another root or folder is inside it.

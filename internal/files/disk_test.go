@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -487,4 +488,116 @@ func (u unfinished) Unfinished(context.Context, storage.Reader[storage.Library])
 
 func (unfinished) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
 	return 0, nil
+}
+
+// watching is a Disk whose Watch the test closes.
+type watching struct {
+	files.Disk
+	mu    sync.Mutex
+	ch    chan struct{}
+	moves int
+}
+
+func (d *watching) Watch() <-chan struct{} {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.ch
+}
+
+func (d *watching) moved() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	close(d.ch)
+	d.ch = make(chan struct{})
+}
+
+func (d *watching) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error) {
+	d.mu.Lock()
+	d.moves++
+	d.mu.Unlock()
+	return d.Disk.Move(ctx, root, from, to)
+}
+
+func (d *watching) movesSeen() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.moves
+}
+
+func (l *library) writeOff(t *testing.T) {
+	t.Helper()
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)", l.root.Node); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, "INSERT INTO nodes_forfeit (node_id, role, declared_at) VALUES (?, ?, 0)", l.root.Node, role.Storage)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAFileInALostRootFillsNoCellAndItsQueueWaits writes off the Storage
+// of the root's Node with a file's move queued: the file fills no cell,
+// and the queue leaves its move alone without retrying it. Once the root
+// is no longer lost, the next change of a root's report runs the move and
+// the file fills its cell again.
+func TestAFileInALostRootFillsNoCellAndItsQueueWaits(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	svc := l.files(files.NoGrabs{})
+	f := l.download(t, svc, tree, 0, release.WEBDL1080p, "scarf")
+	l.writeOff(t)
+	_, cells, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "Scarf any 1080p missing wanted=true\nMittens any 1080p missing wanted=true\n"; lines(cells) != want {
+		t.Fatalf("cells with the root lost =\n%swant\n%s", lines(cells), want)
+	}
+
+	disk := &watching{Disk: l.held, ch: make(chan struct{})}
+	queue := l.on(files.NoGrabs{}, disk)
+	ctx, cancel := context.WithCancel(t.Context())
+	ran := make(chan error, 1)
+	go func() { ran <- queue.Run(ctx) }()
+	defer func() {
+		cancel()
+		if err := <-ran; err != nil {
+			t.Error(err)
+		}
+	}()
+	queue.Poke()
+	time.Sleep(50 * time.Millisecond)
+	if disk.movesSeen() != 0 || l.queued(t) != 1 {
+		t.Fatalf("the queue moved %d times and holds %d rows with the root lost, want none moved and the move kept", disk.movesSeen(), l.queued(t))
+	}
+
+	err = l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM nodes_forfeit")
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	disk.moved()
+	deadline := time.After(10 * time.Second)
+	for l.queued(t) > 0 {
+		select {
+		case <-deadline:
+			t.Fatal("the move never ran after the root's report changed")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	if got := l.onDisk(t); got[f.Path] != "scarf" {
+		t.Fatalf("the root holds %v, want the file at %s", got, f.Path)
+	}
+	_, cells, err = svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cells[0].File == nil || cells[0].File.ID != f.ID {
+		t.Fatalf("the Scarf cell once the root is back = %s, want filled by the file", lines(cells[:1]))
+	}
 }
