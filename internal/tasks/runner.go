@@ -61,6 +61,16 @@ func (s *Scheduler) Cancel(id RunID) error {
 }
 
 func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress) {
+	if r.task.Prepare != nil {
+		var err error
+		if r, err = s.prepare(nodeCtx, runCtx, r, p); err != nil {
+			if nodeCtx.Err() == nil {
+				s.cfg.Log.Error("list a run's units", "task", r.task.ID, "run", r.id, "err", err)
+				s.finish(nodeCtx, r, RunFailed, "0 "+r.task.Noun.Many, err.Error(), nil)
+			}
+			return
+		}
+	}
 	results := make([]result, len(r.units))
 	placed := make([]role.NodeID, len(r.units))
 	byNode := map[role.NodeID][]int{}
@@ -90,6 +100,37 @@ func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress)
 		return
 	}
 	s.close(nodeCtx, r, placed, results, errors.Is(context.Cause(runCtx), errCanceled))
+}
+
+// prepare runs the task's Prepare, then lists the units the run acts on
+// and records them as the task's units.
+func (s *Scheduler) prepare(ctx, runCtx context.Context, r openRun, p *progress) (openRun, error) {
+	r.task.Prepare(runCtx, r.trigger)
+	var all []Unit
+	err := s.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
+		var err error
+		all, err = r.task.Units(ctx, rd)
+		return err
+	})
+	if err != nil {
+		return r, err
+	}
+	if err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return syncUnits(ctx, db.New(tx), r.task.ID, all)
+	}); err != nil {
+		return r, err
+	}
+	r.units = all
+	if r.trigger == ByReturn {
+		if r.units, err = s.returning(ctx, r.task.ID, all); err != nil {
+			return r, err
+		}
+	}
+	s.mu.Lock()
+	s.running[r.id].run = r
+	s.mu.Unlock()
+	p.listed(len(r.units))
+	return r, nil
 }
 
 // unit runs u on node, the Node its place routed it to for this run.
@@ -153,6 +194,10 @@ func (s *Scheduler) close(ctx context.Context, r openRun, placed []role.NodeID, 
 	for i, u := range r.units {
 		lines[i] = lineOf(u.Key, u.Label, placed[i], results[i])
 	}
+	s.finish(ctx, r, outcome, summary, cause, lines)
+}
+
+func (s *Scheduler) finish(ctx context.Context, r openRun, outcome Result, summary, cause string, lines []line) {
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		if err := closeRun(ctx, q, r.id, storage.Now(), outcome, summary, cause, lines); err != nil {
@@ -178,7 +223,7 @@ func (s *Scheduler) drawJitter() *float64 {
 type progress struct {
 	ctx   context.Context
 	s     *Scheduler
-	run   openRun
+	units int
 	mu    sync.Mutex
 	done  int
 	sent  time.Time
@@ -186,20 +231,26 @@ type progress struct {
 }
 
 func newProgress(ctx context.Context, s *Scheduler, r openRun) *progress {
-	return &progress{ctx: ctx, s: s, run: r, frame: Progressed{RunID: r.id, TaskID: r.task.ID, Total: len(r.units)}}
+	return &progress{ctx: ctx, s: s, units: len(r.units), frame: Progressed{RunID: r.id, TaskID: r.task.ID, Total: len(r.units)}}
+}
+
+func (p *progress) listed(units int) {
+	p.mu.Lock()
+	p.units, p.frame.Total = units, units
+	p.mu.Unlock()
 }
 
 func (p *progress) finished() {
 	p.mu.Lock()
 	p.done++
-	p.frame.Done, p.frame.Total = p.done, len(p.run.units)
+	p.frame.Done, p.frame.Total = p.done, p.units
 	p.mu.Unlock()
 	p.publish()
 }
 
 func (p *progress) step(done, total int) {
 	p.mu.Lock()
-	p.frame.Done, p.frame.Total = p.done*total+done, len(p.run.units)*total
+	p.frame.Done, p.frame.Total = p.done*total+done, p.units*total
 	p.mu.Unlock()
 	p.publish()
 }

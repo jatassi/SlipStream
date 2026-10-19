@@ -194,7 +194,7 @@ func Routes(r *api.Router, facts system.Facts, node Node) {
 		Path:    "/nodes/{id}/config",
 		Summary: "Change a Node's settings, every key or none",
 		Status:  http.StatusOK,
-		Errors:  slices.Concat(reach, []*api.Code{setByEnvironment, settingapi.ErrOutOfRange, portUsedByNode, unknownSetting, configNotWritable}),
+		Errors:  slices.Concat(reach, []*api.Code{setByEnvironment, settingapi.ErrOutOfRange, portUsedByNode, settingapi.ErrUnknown, configNotWritable}),
 	}, h.updateNodeConfig)
 
 	api.Register(o, api.Admin, api.Op{
