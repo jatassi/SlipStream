@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -106,7 +107,7 @@ func TestAttachAddsATorrentFromTheMetainfo(t *testing.T) {
 	lib := open(t)
 	a := addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	id, node := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: "movie", WrittenOff: noneWrittenOff})
+	id, node := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	if node != a {
 		t.Fatalf("Attach put the Torrent on %s, want the routed Node %s", node, a)
 	}
@@ -119,9 +120,9 @@ func TestAttachAddsATorrentFromTheMetainfo(t *testing.T) {
 		t.Fatal(err)
 	}
 	if name != "Orchard" || size != 1024 || private != 1 || trackers != `["tracker.test","backup.test"]` || wanted != "started" ||
-		contentType != "movie" || order != 1 || !bytes.Equal(stored, raw) {
+		contentType != string(contenttypetest.ID) || order != 1 || !bytes.Equal(stored, raw) {
 		t.Errorf("the new Torrent is %q %d B private=%d trackers=%s %s %s order %d, want Orchard 1024 B private=1 "+
-			`["tracker.test","backup.test"] started movie order 1 with the .torrent's bytes`, name, size, private, trackers, wanted, contentType, order)
+			`["tracker.test","backup.test"] started fixture order 1 with the .torrent's bytes`, name, size, private, trackers, wanted, contentType, order)
 	}
 	if got := intentOf(t, lib, a); !slices.Equal(got, []dc.ID{id}) {
 		t.Errorf("seedbox's intent lists %v, want the new Torrent %s", got, id)
@@ -180,7 +181,7 @@ func TestAttachPrefersTheRoutedNodeThenAnyLiveOne(t *testing.T) {
 			lib := open(t)
 			a, b := addNode(t, lib, "home"), addNode(t, lib, "seedbox")
 			m, raw := dotTorrent(t, "Orchard")
-			want := dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: "movie", WrittenOff: noneWrittenOff}
+			want := dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
 			bound := c.held(t, lib, a, b, want)
 			want.WrittenOff = func(n role.NodeID) bool { return c.writtenOff && n == b }
 			id, node, err := attach(t, lib, want)
@@ -221,7 +222,7 @@ func TestANewTorrentStartsFromTheLatestRemovedTotals(t *testing.T) {
 	lib := open(t)
 	a, b := addNode(t, lib, "home"), addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	want := dc.Want{Node: b, Metainfo: m, Raw: raw, ContentType: "movie", WrittenOff: noneWrittenOff}
+	want := dc.Want{Node: b, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
 	t0 := time.Date(2026, 10, 19, 20, 0, 0, 0, time.UTC)
 	older, _ := mustAttach(t, lib, want)
 	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -325,7 +326,7 @@ func TestOutcomesFollowTheTorrentsState(t *testing.T) {
 			lib := open(t)
 			node := addNode(t, lib, "seedbox")
 			m, raw := dotTorrent(t, "Orchard")
-			id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: "movie", WrittenOff: noneWrittenOff})
+			id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 			c.to(t, lib, node, id)
 			got := outcomeOf(t, lib, id)
 			if got.Outcome != c.want || got.InfoHash != m.InfoHash || !slices.Equal(got.Files, c.files) {
@@ -340,7 +341,7 @@ func TestAWriteOffPartsEveryTorrentOfTheNodeAndKeepsFiles(t *testing.T) {
 	box, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 	attachNamed := func(node role.NodeID, name string) dc.ID {
 		m, raw := dotTorrent(t, name)
-		id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: "movie", WrittenOff: noneWrittenOff})
+		id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 		return id
 	}
 	live, removing, kept := attachNamed(box, "Orchard"), attachNamed(box, "Attic"), attachNamed(home, "Harbor")
