@@ -85,7 +85,10 @@ type Movies = Awaited<ReturnType<typeof moviesRoot>>;
 
 async function browseToFilms(page: Page, movies: Movies): Promise<void> {
   await expect(folders(page).getByRole("option").first()).toContainText(movies.path);
-  await folders(page).getByRole("option").filter({ hasText: placeOf(movies.path) }).click();
+  await folders(page)
+    .getByRole("option")
+    .filter({ hasText: placeOf(movies.path) })
+    .click();
   for (const name of movies.media.split(movies.sep).slice(1)) {
     // oxlint-disable-next-line no-await-in-loop -- each folder opens before the next, as a person's does
     await drillInto(page, name);
