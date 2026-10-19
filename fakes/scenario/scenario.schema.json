@@ -415,6 +415,19 @@
           },
           "additionalProperties": false,
           "type": "object"
+        },
+        "omdb": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -835,6 +848,54 @@
       "required": [
         "movies"
       ]
+    },
+    "omdb": {
+      "properties": {
+        "daily_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "titles": {
+          "items": {
+            "properties": {
+              "imdb_id": {
+                "type": "string",
+                "pattern": "^tt[0-9]{7,}$"
+              },
+              "imdb_rating": {
+                "type": "number",
+                "maximum": 10,
+                "minimum": 0
+              },
+              "imdb_votes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rotten_tomatoes": {
+                "type": "integer",
+                "maximum": 100,
+                "minimum": 0
+              },
+              "metacritic": {
+                "type": "integer",
+                "maximum": 100,
+                "minimum": 0
+              },
+              "awards": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "imdb_id"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "releases": {
       "items": {

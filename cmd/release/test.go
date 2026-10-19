@@ -159,8 +159,8 @@ func testE2E(ctx context.Context, root string, o testOptions) error {
 }
 
 // testOnline runs every conformance suite against the real service it
-// checks. TEST_ONLINE_TMDB_KEY carries TMDB's key; -update rewrites each
-// suite's shape.json.
+// checks. TEST_ONLINE_TMDB_KEY carries TMDB's key and TEST_ONLINE_OMDB_KEY
+// OMDb's; -update rewrites each suite's shape.json.
 func testOnline(ctx context.Context, root string, o testOptions) error {
 	args := append([]string{"test", "-tags", "online", "-count=1", "./conformance/..."}, o.goArgs...)
 	gotest := exec.CommandContext(ctx, "go", args...)
