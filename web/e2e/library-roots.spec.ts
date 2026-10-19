@@ -22,7 +22,9 @@ const Roots = z.object({
   roots: z.array(z.object({ path: z.string(), works: z.number() })),
 });
 const Volumes = z.object({
-  nodes: z.array(z.object({ volumes: z.array(z.object({ rootIds: z.array(z.string()) })) })),
+  nodes: z.array(
+    z.object({ volumes: z.array(z.object({ name: z.string(), rootIds: z.array(z.string()) })) }),
+  ),
 });
 const Settings = z.object({ sampleEvery: z.object({ value: z.number() }) });
 const Added = z.object({ work: z.object({ id: z.string() }) });
@@ -122,7 +124,7 @@ async function expectOneVolume(page: Page, world: World, paths: readonly string[
     // oxlint-disable-next-line no-await-in-loop -- one assertion per root, on the same row
     await expect(onHome).toContainText(path);
   }
-  await expect(onHome.getByRole("meter", { name: "/ used" })).toBeVisible();
+  await expect(onHome.getByRole("meter", { name: `${volume?.name} used` })).toBeVisible();
 }
 
 async function checkStorageEveryTenMinutes(page: Page, world: World): Promise<void> {
