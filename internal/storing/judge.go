@@ -16,16 +16,12 @@ func apartFrom(roots []Other) []reserved {
 	return all
 }
 
-// forRoot is the Node's own folders a root may not overlap; "" is none.
-func forRoot(data, downloads string) []reserved {
-	var all []reserved
-	for _, r := range []reserved{
-		{path: data, inside: ReasonInsideData, contains: ReasonContainsData},
-		{path: downloads, inside: ReasonInsideDownloads, contains: ReasonContainsDownloads},
-	} {
-		if r.path != "" {
-			all = append(all, r)
-		}
+// forRoot is the Node's own folders a root may not overlap: its data
+// folder and its downloads folders.
+func forRoot(data string, downloads []string) []reserved {
+	all := []reserved{{path: data, inside: ReasonInsideData, contains: ReasonContainsData}}
+	for _, d := range downloads {
+		all = append(all, reserved{path: d, inside: ReasonInsideDownloads, contains: ReasonContainsDownloads})
 	}
 	return all
 }

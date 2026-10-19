@@ -163,6 +163,11 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 // Dir is the folder each torrent's save path is in.
 func (c *Client) Dir() string { return c.cfg.Dir }
 
+// Folders is the downloads folder and every save folder outside it, which
+// no root may overlap. Each save folder lies inside Dir until torrents
+// keep the folder the Controller records.
+func (c *Client) Folders() []string { return []string{c.cfg.Dir} }
+
 func (c *Client) savePath(h bencode.InfoHash) string { return filepath.Join(c.cfg.Dir, h.String()) }
 
 // Run is the Role's run function, reporting through local. It adds each

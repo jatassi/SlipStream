@@ -274,7 +274,7 @@ func TestMakeFolderMakesOneNamedFolder(t *testing.T) {
 func TestCheckReasons(t *testing.T) {
 	d := newTestDisk(t)
 	downloads := dir(t, t.TempDir(), "downloads")
-	d.host.Downloads = dir(t, downloads, "incoming")
+	d.downloads = []string{dir(t, downloads, "incoming")}
 	base := t.TempDir()
 	d.volumes[base] = Volume{ID: "fs-1", Kind: Local, Total: 100, Free: 40}
 	movies, tv := storage.NewUUID(), storage.NewUUID()
@@ -322,6 +322,38 @@ func TestCheckReasons(t *testing.T) {
 	}
 }
 
+func TestARootMayNotOverlapAHeldSaveFolder(t *testing.T) {
+	d := newTestDisk(t)
+	base := t.TempDir()
+	saveAt := dir(t, base, "seeding", "Film.2024")
+	folders := foldersOf(newStore(d))
+	check := func(path string) *Refusal {
+		t.Helper()
+		got, err := folders.Check(t.Context(), node, path, PurposeRoot, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.Refusal
+	}
+	if r := check(saveAt); r != nil {
+		t.Fatalf("a folder no torrent holds = %+v, want usable", r)
+	}
+
+	d.downloads = append(d.downloads, saveAt)
+	for _, c := range []struct {
+		name, path string
+		reason     Reason
+	}{
+		{"the save folder", saveAt, ReasonInsideDownloads},
+		{"inside the save folder", dir(t, saveAt, "Extras"), ReasonInsideDownloads},
+		{"containing the save folder", filepath.Join(base, "seeding"), ReasonContainsDownloads},
+	} {
+		if r := check(c.path); r == nil || r.Reason != c.reason {
+			t.Errorf("%s once a torrent holds it: refusal = %+v, want %v", c.name, r, c.reason)
+		}
+	}
+}
+
 func TestCheckForDownloads(t *testing.T) {
 	d := newTestDisk(t)
 	base := t.TempDir()
@@ -359,7 +391,7 @@ func TestCheckForDownloads(t *testing.T) {
 	}
 	for name, path := range map[string]string{
 		"inside the data folder":      dir(t, d.host.Data, "downloads"),
-		"the downloads folder":        d.host.Downloads,
+		"the downloads folder":        d.downloads[0],
 		"a root the Controller named": others[0].Path,
 	} {
 		got, err := folders.Check(t.Context(), node, path, PurposeDownloads, others)

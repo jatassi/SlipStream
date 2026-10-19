@@ -393,6 +393,12 @@ var reasonOf = map[FolderErrorKind]Reason{
 	FolderUnresponsive: ReasonUnresponsive,
 }
 
+// Judge is the FolderService's Check on this Node, apart from no roots
+// but the ones it holds.
+func (s *Store) Judge(ctx context.Context, path string, purpose Purpose) (CheckResult, error) {
+	return s.check(ctx, path, purpose, nil)
+}
+
 // check judges path as a folder for purpose: absolute, there, a folder,
 // apart from the folders purpose reserves, on no network share for
 // downloads, and writable by a temp file.
@@ -442,7 +448,7 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 	switch purpose {
 	case PurposeRoot:
-		return append(apartFrom(others), forRoot(s.host.Data, s.host.Downloads)...)
+		return append(apartFrom(others), forRoot(s.host.Data, s.cfg.Downloads())...)
 	case PurposeDownloads:
 		s.mu.Lock()
 		held := make([]Other, len(s.roots))
