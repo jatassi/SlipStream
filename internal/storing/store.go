@@ -384,7 +384,7 @@ func verdictOf(err error) verdict { return verdict{stateOf[folderErrorOf(err)], 
 // and a poke so the facts follow at once.
 func (s *Store) resolve(ctx context.Context, root storage.UUID, place bool) (string, error) {
 	s.mu.Lock()
-	r, known := s.root(root)
+	r, known := s.rootLocked(root)
 	draining := s.draining
 	s.mu.Unlock()
 	switch {
@@ -408,8 +408,7 @@ func (s *Store) resolve(ctx context.Context, root storage.UUID, place bool) (str
 	return "", &NotReady{State: state}
 }
 
-// The caller holds s.mu.
-func (s *Store) root(id storage.UUID) (intentRoot, bool) {
+func (s *Store) rootLocked(id storage.UUID) (intentRoot, bool) {
 	for _, r := range s.roots {
 		if r.id == id {
 			return r, true

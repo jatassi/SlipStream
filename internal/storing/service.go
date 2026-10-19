@@ -29,7 +29,7 @@ func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*stor
 		return nil, wireError(err)
 	}
 	res := &storagev1.BrowseResponse{
-		Path: l.Path, Parent: l.Parent, Hidden: int32(l.Hidden), Service: l.Service, //nolint:gosec // a folder's count of hidden folders fits
+		Path: l.Path, Parent: l.Parent, Hidden: int64(l.Hidden), Service: l.Service,
 	}
 	if l.Volume != nil {
 		res.Volume = volumeWire(*l.Volume)
@@ -113,7 +113,7 @@ func (s *Store) Verify(ctx context.Context, req *storagev1.VerifyRequest) (*stor
 	}
 	res := &storagev1.VerifyResponse{}
 	for _, m := range missing {
-		res.Missing = append(res.Missing, &storagev1.Missing{Index: int32(m.Index), Reason: m.Reason.Wire()}) //nolint:gosec // an index into one batch fits
+		res.Missing = append(res.Missing, &storagev1.Missing{Index: int64(m.Index), Reason: m.Reason.Wire()})
 	}
 	return res, nil
 }

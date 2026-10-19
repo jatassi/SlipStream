@@ -158,8 +158,8 @@ type place struct {
 func holdingOf(id ID, p string) string { return HoldingOf(id.UUID, path.Ext(p)) }
 
 // drain runs one pass of the queue, skipping the rows of lost roots, and
-// reports whether it skipped any and what else it left undone.
-func (f *Files) drain(ctx context.Context) (bool, error) {
+// reports what else it left undone.
+func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 	q, err := f.read(ctx)
 	if err != nil {
 		return false, err

@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 const (
@@ -341,7 +342,7 @@ func filesUnder(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || d.Name() == ".slipstream-root" {
+		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}
 		rel, err := filepath.Rel(dir, path)

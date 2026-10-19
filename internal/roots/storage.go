@@ -230,10 +230,9 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 	return nil
 }
 
-// see records each root of on its Node reports ready at its place, and
-// reports whether one was seen there for the first time: its adoption is
-// done.
-func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]placed) (bool, error) {
+// see records each root of on its Node reports ready at its place,
+// adopting one seen there for the first time.
+func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]placed) (adopted bool, err error) {
 	rows, err := q.ListSeen(ctx)
 	if err != nil {
 		return false, err
@@ -242,7 +241,6 @@ func see(ctx context.Context, q *db.Queries, on []db.RootsRoot, reports map[ID]p
 	for _, row := range rows {
 		seen[row.RootID] = row
 	}
-	adopted := false
 	for _, root := range on {
 		p, ok := reports[root.ID]
 		if !ok || p.place != root.Place || p.state != storing.Ready {

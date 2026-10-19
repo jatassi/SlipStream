@@ -403,9 +403,9 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	return nil
 }
 
-// record writes g's move by params in tx, false when g has left the
-// stage params moves it from.
-func (gr *Grabs) record(ctx context.Context, tx *storage.Tx[file], g Grab, params db.AdvanceParams, a advance, now storage.Time) (bool, error) {
+// record writes g's move by params in tx, unless g has left the stage
+// params moves it from.
+func (gr *Grabs) record(ctx context.Context, tx *storage.Tx[file], g Grab, params db.AdvanceParams, a advance, now storage.Time) (advanced bool, err error) {
 	q := db.New(tx)
 	if n, err := q.Advance(ctx, params); err != nil || n == 0 {
 		return false, err
