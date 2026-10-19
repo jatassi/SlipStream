@@ -57,6 +57,7 @@ func (w *World) Open(cfg engine.Config) (engine.Engine, error) {
 	return &Engine{
 		w:        w,
 		listen:   listen,
+		floor:    cfg.AnnounceFloor,
 		events:   make(chan engine.Event, events),
 		torrents: map[engine.Handle]*torrent{},
 		parting:  map[bencode.InfoHash]*torrent{},
@@ -87,6 +88,7 @@ func Payloads(payloads map[bencode.InfoHash][]byte) func(engine.Config) (engine.
 type Engine struct {
 	w      *World
 	listen netip.AddrPort
+	floor  time.Duration
 	events chan engine.Event
 
 	closed  bool

@@ -29,8 +29,6 @@ type Announce struct {
 
 // libtorrent's defaults, which the engine keeps.
 const (
-	// announceFloor is min_announce_interval: no interval is shorter.
-	announceFloor = 5 * time.Minute
 	// failRetry is the interval libtorrent reads from a failure without one.
 	failRetry = 1800 * time.Second
 	// retryFloor and retryCeiling bound the back-off after failures, which
@@ -177,7 +175,7 @@ func (a *announcing) answer(tr *tracker, event string) {
 		a.startSent = a.startSent || event == "started"
 		a.completeSent = a.completeSent || event == "completed"
 		a.fails = 0
-		a.next, a.min = now.Add(max(tr.rules.Interval, announceFloor)), now.Add(tr.rules.MinInterval)
+		a.next, a.min = now.Add(max(tr.rules.Interval, a.t.e.floor)), now.Add(tr.rules.MinInterval)
 		if a.t.e.holds(a.t) {
 			a.t.e.emit(engine.TrackerReplied{Torrent: a.t.handle})
 		}

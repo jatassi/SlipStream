@@ -51,6 +51,10 @@ type Config struct {
 	Discovery       Discovery
 	// OutgoingUTP lets the engine dial peers over uTP as well as TCP.
 	OutgoingUTP bool
+	// AnnounceFloor is the least time between two regular announces to a
+	// tracker, whatever interval it answers: libtorrent's
+	// min_announce_interval. Zero is no floor.
+	AnnounceFloor time.Duration
 	// Rand draws the ports an engine tries when ListenInterface's port is 0.
 	Rand *rand.Rand
 }

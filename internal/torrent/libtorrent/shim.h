@@ -121,7 +121,9 @@ typedef struct {
 } lts_alert;
 
 /* Functions that return int return 0 on success and -1 with *err filled. */
-lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int outgoing_utp, lts_error* err);
+/* announce_floor_s is min_announce_interval, the least interval between two
+   regular announces to a tracker. */
+lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int outgoing_utp, int32_t announce_floor_s, lts_error* err);
 int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
