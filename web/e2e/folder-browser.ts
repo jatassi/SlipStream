@@ -3,10 +3,10 @@ import type { Page } from "@playwright/test";
 import { isPhone } from "./shell.ts";
 
 // A phone shell's Menu is a sheet of buttons.
-export const menuItem = (page: Page, name: string) =>
+export const menuItem = (page: Page, menu: string, name: string) =>
   isPhone(page)
-    ? page.getByRole("dialog").last().getByRole("button", { name, exact: true })
-    : page.getByRole("menuitem", { name, exact: true });
+    ? page.getByRole("dialog", { name: menu }).getByRole("button", { name, exact: true })
+    : page.getByRole("menu", { name: menu }).getByRole("menuitem", { name, exact: true });
 
 export const browser = (page: Page) =>
   page.getByRole("dialog", { name: "Choose a folder on home" });
@@ -32,7 +32,7 @@ export async function upTo(page: Page, parent: string): Promise<void> {
 export async function newFolder(page: Page, name: string): Promise<void> {
   if (isPhone(page)) {
     await browser(page).getByRole("button", { name: "Folder actions" }).click();
-    await menuItem(page, "New folder").click();
+    await menuItem(page, "Folder actions", "New folder").click();
   } else {
     await browser(page).getByRole("button", { name: "New folder" }).click();
   }

@@ -70,7 +70,7 @@ const toasts = (page: Page) => page.getByRole("region", { name: "Notifications" 
 
 async function act(page: Page, path: string, item: string): Promise<void> {
   await page.getByRole("button", { name: `Actions for ${path}` }).click();
-  await menuItem(page, item).click();
+  await menuItem(page, path, item).click();
 }
 
 type Movies = Awaited<ReturnType<typeof moviesRoot>>;
