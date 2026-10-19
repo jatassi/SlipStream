@@ -6,8 +6,6 @@ import (
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 )
 
-// mapping is one value of a domain enum, its wire value and its word, its
-// text form.
 type mapping[G ~uint8, W ~int32] struct {
 	value G
 	wire  W
@@ -72,7 +70,6 @@ func (s RootState) String() string                            { return rootState
 func (s RootState) Wire() storagev1.RootState                 { return rootStates.of(s).wire }
 func ParseRootState(w storagev1.RootState) (RootState, error) { return rootStates.parse(w) }
 
-// Kind is the kind of volume a folder sits on.
 type Kind uint8
 
 const (
@@ -149,7 +146,6 @@ var folderErrorKinds = enum[FolderErrorKind, storagev1.FolderErrorKind]{
 func (k FolderErrorKind) String() string                  { return folderErrorKinds.of(k).word }
 func (k FolderErrorKind) Wire() storagev1.FolderErrorKind { return folderErrorKinds.of(k).wire }
 
-// MissingReason is why Verify counted a recorded file missing.
 type MissingReason uint8
 
 const (

@@ -40,8 +40,6 @@ func closed(ch <-chan struct{}) bool {
 	}
 }
 
-// TestWatchClosesWhenARootsReportMoves closes the watch at a report that
-// moves the root's state, and not at one that repeats it.
 func TestWatchClosesWhenARootsReportMoves(t *testing.T) {
 	r := rig(t, false)
 	r.run(t)
@@ -62,10 +60,6 @@ func TestWatchClosesWhenARootsReportMoves(t *testing.T) {
 	}
 }
 
-// TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable keeps a root
-// reachable whatever its Node finds, refuses it while the Node is out of
-// step, and refuses it in words once the Admin wrote off the Node's
-// Storage.
 func TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable(t *testing.T) {
 	reachable := func(t *testing.T, r *storageRig) error {
 		t.Helper()
@@ -107,8 +101,6 @@ func TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable(t *testing.T) {
 	}
 }
 
-// TestBytesGoThroughTheRootsNode places a payload into the root, moves it
-// and lists and removes it, each through the Store that holds the root.
 func TestBytesGoThroughTheRootsNode(t *testing.T) {
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	node := role.NodeID{UUID: storage.NewUUID()}
@@ -160,8 +152,6 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 	}
 }
 
-// TestAWriteToARootItsNodeDoesntHoldIsNotReady asks a Store that holds no
-// root to move a file: the Node answers NotReady, which a Grab waits on.
 func TestAWriteToARootItsNodeDoesntHoldIsNotReady(t *testing.T) {
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	svc, err := roots.Open(t.Context(), rootstest.Config(t, lib, alpha))

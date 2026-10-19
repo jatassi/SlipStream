@@ -382,7 +382,6 @@ func (s *Store) makeFolder(ctx context.Context, parent, name string) (string, er
 	return p, nil
 }
 
-// reasonOf is the refusal a failed read of a folder Check judges means.
 var reasonOf = map[FolderErrorKind]Reason{
 	FolderNotFound:     ReasonNotFound,
 	FolderNotAFolder:   ReasonNotAFolder,
@@ -584,8 +583,6 @@ func kindWire(k Kind) storagev1.VolumeKind {
 	return k.Wire()
 }
 
-// name reports whether n names one entry in a folder: no separator, no
-// NUL, and not "." or "..".
 func (s PathStyle) name(n string) bool {
 	seps := "/\x00"
 	if s == Windows {

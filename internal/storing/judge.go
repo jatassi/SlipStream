@@ -2,7 +2,6 @@ package storing
 
 import "github.com/jatassi/slipstream/internal/storage"
 
-// reserved is a folder no root may overlap, and the reasons it refuses.
 type reserved struct {
 	path             string
 	root             storage.UUID
@@ -39,8 +38,6 @@ func judge(style PathStyle, folder string, others []Other, data, downloads strin
 	return nil
 }
 
-// within reports whether p or one of its ancestors is the same folder as
-// dir.
 func within(style PathStyle, p, dir string, same func(a, b string) bool) bool {
 	for at, ok := p, true; ok; at, ok = style.Parent(at) {
 		if same(at, dir) {

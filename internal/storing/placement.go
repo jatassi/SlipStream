@@ -12,7 +12,6 @@ import (
 
 var ErrOccupied = errors.New("another file is at the target path")
 
-// placer moves bytes into one root's folder through d.
 type placer struct {
 	d     Disk
 	style PathStyle
@@ -89,7 +88,6 @@ func (p placer) move(ctx context.Context, from, to Rel) (int64, error) {
 	return info.Size(), nil
 }
 
-// folders makes each folder rel's file sits in under the root.
 func (p placer) folders(ctx context.Context, rel Rel) error {
 	dir := p.root
 	segs := rel.segments()

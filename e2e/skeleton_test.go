@@ -72,7 +72,6 @@ func walk(t *testing.T, name string) walked {
 	return walkFrom(t, begin(t, name))
 }
 
-// walkFrom walks w from its search until its Grab is imported.
 func walkFrom(t *testing.T, w walked) walked {
 	t.Helper()
 	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
@@ -125,7 +124,6 @@ func begin(t *testing.T, name string) walked {
 	return beginIn(t, s, worldtest.Launch(t, name))
 }
 
-// beginIn is begin in run, a launch of s.
 func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
 	t.Helper()
 	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
@@ -339,8 +337,6 @@ func announce(t *testing.T, r events.Record) tracker.Announce {
 	return an
 }
 
-// filesUnder is every file under dir but the markers its Storage Node
-// writes into each root it adopts.
 func filesUnder(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string

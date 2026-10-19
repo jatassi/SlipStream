@@ -222,7 +222,6 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	panic("grabs: unknown route")
 }
 
-// route is how a downloaded file reaches its root.
 type route uint8
 
 const (

@@ -95,7 +95,6 @@ func (f *Files) Run(ctx context.Context) error {
 	}
 }
 
-// queue is the disk queue as one Read found it, and the roots lost then.
 type queue struct {
 	doomed []db.FilesDoomed
 	moves  []db.ListMovesRow
@@ -119,7 +118,6 @@ func (f *Files) read(ctx context.Context) (queue, error) {
 	return out, err
 }
 
-// waits reports whether a row of q is in a lost root.
 func (q queue) waits() bool {
 	for _, d := range q.doomed {
 		if q.lost[d.RootID] {
@@ -292,7 +290,6 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 	return unanswered, lost
 }
 
-// lostOf splits ids into the lost roots and the others.
 func (f *Files) lostOf(ctx context.Context, ids []roots.ID) (lost, others []roots.ID, err error) {
 	err = f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		of, err := roots.LostIn(ctx, r)
@@ -350,7 +347,6 @@ func (f *Files) heldIn(ctx context.Context, root roots.ID) ([]string, error) {
 	return paths, nil
 }
 
-// move moves root's bytes at from to to, on root's Node.
 func (f *Files) move(ctx context.Context, root roots.ID, from, to string) error {
 	src, err := storing.ParseRel(from)
 	if err != nil {
@@ -364,7 +360,6 @@ func (f *Files) move(ctx context.Context, root roots.ID, from, to string) error 
 	return err
 }
 
-// removeAt removes root's bytes at p, on root's Node.
 func (f *Files) removeAt(ctx context.Context, root roots.ID, p string) error {
 	rel, err := storing.ParseRel(p)
 	if err != nil {

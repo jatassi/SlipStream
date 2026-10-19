@@ -88,20 +88,16 @@ func stateOf(writtenOff, inStep bool, reported storing.RootState) State {
 	return State(reported.String())
 }
 
-// report is what a Node said of one root.
 type report struct {
 	state  storing.RootState
 	volume string
 }
 
-// placed is a report and the place of the root it judged.
 type placed struct {
 	report
 	place int64
 }
 
-// reportedOn is what node's Storage facts say of each root they name,
-// none while it has sent none.
 func (r *Roots) reportedOn(node role.NodeID) (map[ID]placed, error) {
 	f, ok := r.cfg.Storage.Facts(node)
 	if !ok {
@@ -138,7 +134,6 @@ func NewArrivals() *Arrivals {
 	return &Arrivals{nodes: map[role.NodeID]bool{}, wake: make(chan struct{}, 1)}
 }
 
-// Note records that node's facts for the Role named scope arrived.
 func (a *Arrivals) Note(node role.NodeID, scope string) {
 	if scope != string(role.Storage) {
 		return

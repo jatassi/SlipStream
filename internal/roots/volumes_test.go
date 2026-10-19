@@ -31,7 +31,6 @@ func volume(id string, free int64, at time.Time) *storagev1.Volume {
 	return &storagev1.Volume{Id: id, Name: "/mnt/" + id, Mount: "/mnt/" + id, Kind: storagev1.VolumeKind_VOLUME_KIND_LOCAL, Total: 100, Free: free, SampledAtUnixMs: at.UnixMilli()}
 }
 
-// ready reports root ready on volume a.
 func ready(root roots.Root) *storagev1.RootFacts {
 	return &storagev1.RootFacts{Id: root.ID.Bytes(), Place: root.Place, State: storagev1.RootState_ROOT_STATE_READY, VolumeId: "a"}
 }
@@ -69,10 +68,6 @@ func (r *storageRig) listVolumes(t *testing.T) []roots.NodeVolumes {
 	return out
 }
 
-// TestTwoRootsOnOneVolumeAreListedOnce reports two roots ready on one
-// volume beside a volume that holds none: the listing names the one
-// volume once, with both roots, and volumes.changed names only the
-// volumes whose figures moved, not those only sampled again.
 func TestTwoRootsOnOneVolumeAreListedOnce(t *testing.T) {
 	r := rig(t, false)
 	other := r.second(t)
@@ -113,8 +108,6 @@ func equalVolumes(a, b []roots.NodeVolumes) bool {
 	})
 }
 
-// TestAnOfflineNodesVolumesKeepTheirLastFigures lists the volumes of a
-// Node out of step as it last reported them, not live.
 func TestAnOfflineNodesVolumesKeepTheirLastFigures(t *testing.T) {
 	r := rig(t, true)
 	r.run(t)
@@ -125,9 +118,6 @@ func TestAnOfflineNodesVolumesKeepTheirLastFigures(t *testing.T) {
 	}
 }
 
-// TestTheTopologyFiguresAreTheNodesRootsAndTheirVolumes reads a Node's
-// Storage for the topology: its root as listed, and only the volume it
-// sits on.
 func TestTheTopologyFiguresAreTheNodesRootsAndTheirVolumes(t *testing.T) {
 	r := rig(t, false)
 	r.run(t)
@@ -147,9 +137,6 @@ func TestTheTopologyFiguresAreTheNodesRootsAndTheirVolumes(t *testing.T) {
 	}
 }
 
-// TestCheckStorageEveryReachesTheIntent stores the interval, which every
-// Node holding a root is touched for and finds in its intent, and resets
-// it to five minutes.
 func TestCheckStorageEveryReachesTheIntent(t *testing.T) {
 	r := rig(t, false)
 	every := func() int64 {
@@ -188,8 +175,6 @@ func TestCheckStorageEveryReachesTheIntent(t *testing.T) {
 	}
 }
 
-// TestAWrittenOffNodesRootsAreLost writes off the Storage of the root's
-// Node: the root reads written off and is lost.
 func TestAWrittenOffNodesRootsAreLost(t *testing.T) {
 	r := rig(t, false)
 	writeOff(t, r.lib, r.node)
@@ -221,9 +206,6 @@ func writeOff(t *testing.T, lib *storage.DB[storage.Library], node role.NodeID) 
 	}
 }
 
-// TestAPlacementIntoADrainingNodesRootWaitsInWords places into a root
-// whose Node drains Storage: the Node refuses, and the refusal names the
-// Node and the drain.
 func TestAPlacementIntoADrainingNodesRootWaitsInWords(t *testing.T) {
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	node := role.NodeID{UUID: storage.NewUUID()}

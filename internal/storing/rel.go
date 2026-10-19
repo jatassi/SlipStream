@@ -35,7 +35,6 @@ func (r Rel) String() string { return r.s }
 
 func (r Rel) segments() []string { return strings.Split(r.s, "/") }
 
-// drive reports whether s starts with a Windows drive, "C:".
 func drive(s string) bool {
 	return len(s) >= 2 && s[1] == ':' && ('a' <= s[0]|0x20 && s[0]|0x20 <= 'z')
 }

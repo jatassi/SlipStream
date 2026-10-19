@@ -123,7 +123,6 @@ func (d OSDisk) Places(ctx context.Context) ([]Place, error) {
 	return placesAt(ctx, d, paths), nil
 }
 
-// KindOf is local, removable or network for the volume holding path.
 func KindOf(path string) (Kind, error) {
 	if isUNC(path) {
 		return Network, nil

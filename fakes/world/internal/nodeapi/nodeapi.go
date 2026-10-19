@@ -137,8 +137,6 @@ func SetRoles(ctx context.Context, c *http.Client, baseURL, apiKey string, set [
 	return err
 }
 
-// CreateRoot makes path on Node nodeID a root of contentType and returns
-// its id.
 func CreateRoot(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, nodeID, path string) (string, error) {
 	var root struct {
 		ID string `json:"id"`

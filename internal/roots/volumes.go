@@ -39,13 +39,11 @@ type NodeVolumes struct {
 	Volumes []VolumeView
 }
 
-// VolumeView is a volume as its Node last reported it, and the roots on it.
 type VolumeView struct {
 	storing.Volume
 	Roots []ID
 }
 
-// Volumes lists each Node's volumes that hold a root, by Node.
 func (r *Roots) Volumes(ctx context.Context, _ identity.Admin) ([]NodeVolumes, error) {
 	var out []NodeVolumes
 	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
@@ -185,8 +183,6 @@ func LostIn(ctx context.Context, rd storage.Reader[file]) (map[ID]bool, error) {
 	return out, nil
 }
 
-// Figures is node's Storage on the topology: its roots and the volumes
-// they sit on, as it last reported them.
 func (r *Roots) Figures(ctx context.Context, rd storage.Reader[file], node role.NodeID) (nodes.StorageFigures, error) {
 	q := db.New(rd)
 	rows, err := q.ListRootsOnNode(ctx, node)

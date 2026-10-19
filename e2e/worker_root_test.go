@@ -12,8 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 )
 
-// workerRoot is the home Scenario with its movies root on seedbox, which
-// holds roles.
 func workerRoot(t *testing.T, roles ...role.Name) scenario.Scenario {
 	t.Helper()
 	s, err := scenario.Load("home")

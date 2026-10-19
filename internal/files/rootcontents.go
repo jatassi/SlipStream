@@ -11,7 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// RootContents is what the files know about each root.
 type RootContents struct{}
 
 func (RootContents) Use(ctx context.Context, r storage.Reader[file], ids []roots.ID) (map[roots.ID]roots.Use, error) {

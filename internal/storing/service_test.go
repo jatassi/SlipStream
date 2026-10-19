@@ -352,7 +352,6 @@ func TestVerifyFindsMissingFilesInBatches(t *testing.T) {
 	}
 }
 
-// placing is a Store running one ready root, with one finished download.
 type placing struct {
 	disk   *testDisk
 	store  *Store
@@ -439,9 +438,6 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 	})
 }
 
-// TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady makes the
-// root read-only after its last pass found it ready: the failed copy
-// answers NotReady unwritable, which an import waits on.
 func TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)

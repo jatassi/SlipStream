@@ -32,7 +32,6 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("roots", sch
 
 type ID = db.RootID
 
-// Root is a folder on Node that holds Works of ContentType.
 type Root struct {
 	ID          ID
 	ContentType works.TypeID
@@ -70,7 +69,6 @@ const (
 	WrittenOff State = "written_off"
 )
 
-// View is a root as the Admin lists it.
 type View struct {
 	Root
 	State State
@@ -83,7 +81,6 @@ type View struct {
 	Rehome *Progress
 }
 
-// Progress is how many of a re-home's recorded files it has checked.
 type Progress struct{ Checked, Total int64 }
 
 // Use is the files a root holds, doomed ones counted, and the bytes of the
@@ -170,9 +167,7 @@ type Verdict struct {
 // Contents is what files knows about roots. files.RootContents implements
 // it.
 type Contents interface {
-	// Use counts the files of each of ids and their bytes.
 	Use(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]Use, error)
-	// HasFiles reports whether work has a file.
 	HasFiles(ctx context.Context, r storage.Reader[file], work works.WorkID) (bool, error)
 	// Proof is up to three root-relative paths where root's files record
 	// their bytes, none while it has no files.
@@ -194,13 +189,11 @@ type Inflight interface {
 	Release(ctx context.Context, tx *storage.Tx[file], root ID) error
 }
 
-// Roster is the roster as roots reads it.
 type Roster interface {
 	Holds(r role.Name, node role.NodeID) bool
 	InStep(node role.NodeID) bool
 }
 
-// Storage is the Storage Role's *role.Control.
 type Storage interface {
 	Touch(nodes ...role.NodeID)
 	Facts(node role.NodeID) (*storagev1.Facts, bool)
@@ -309,8 +302,6 @@ func (r *Roots) Create(ctx context.Context, _ identity.Admin, n NewRoot) (View, 
 	return view, nil
 }
 
-// insert saves root, its type's default when makeDefault says so or it is
-// the type's first, which also homes the type's rootless Works.
 func insert(ctx context.Context, tx *storage.Tx[file], root Root, makeDefault bool) error {
 	q := db.New(tx)
 	others, err := q.CountRootsOf(ctx, root.ContentType)
@@ -398,7 +389,6 @@ func reached(err error) error {
 	return err
 }
 
-// MakeDefault makes root id where its type's new Works go.
 func (r *Roots) MakeDefault(ctx context.Context, _ identity.Admin, id ID) error {
 	changed := []ID{id}
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {

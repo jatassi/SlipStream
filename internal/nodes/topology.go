@@ -39,8 +39,6 @@ type TopologyNode struct {
 	Storage *StorageFigures
 }
 
-// StorageFigures is what a Storage Node holds: its roots, and the volumes
-// they sit on as it last reported them.
 type StorageFigures struct {
 	Roots   []StorageRoot
 	Volumes []storing.Volume
