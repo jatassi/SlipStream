@@ -96,12 +96,13 @@ type ActionKind uint8
 
 const (
 	NoAction ActionKind = iota
-	// Check is Check now on the item, answered by its category's Source.Check.
-	Check
-	// Run is Run now on a scheduled task.
-	Run
-	// Link is a page in the web.
-	Link
+	// ActionCheck is Check now on the item, answered by its category's
+	// Source.Check.
+	ActionCheck
+	// ActionRun is Run now on a scheduled task.
+	ActionRun
+	// ActionLink is a page in the web.
+	ActionLink
 )
 
 func (k ActionKind) String() string { return [...]string{"", "check", "run", "link"}[k] }
@@ -114,12 +115,12 @@ type Action struct {
 	label string
 }
 
-func CheckAction() Action { return Action{kind: Check} }
+func CheckAction() Action { return Action{kind: ActionCheck} }
 
-func RunAction(task string) Action { return Action{kind: Run, task: task} }
+func RunAction(task string) Action { return Action{kind: ActionRun, task: task} }
 
 // LinkAction is a link to href, a route in the web such as "/nodes/<id>".
-func LinkAction(href, label string) Action { return Action{kind: Link, href: href, label: label} }
+func LinkAction(href, label string) Action { return Action{kind: ActionLink, href: href, label: label} }
 
 func (a Action) Kind() ActionKind { return a.kind }
 
