@@ -369,6 +369,20 @@ func (t *torrent) finish(payload []byte) error {
 	return nil
 }
 
+func (e *Engine) Reannounce(h engine.Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error {
+	return e.with(h, func(t *torrent) error {
+		t.trackers.reannounce(tracker, delay, ignoreMinInterval)
+		return nil
+	})
+}
+
+func (e *Engine) PostTrackers(h engine.Handle) error {
+	return e.with(h, func(t *torrent) error {
+		e.emit(engine.TrackerList{Torrent: h, Trackers: t.trackers.list()})
+		return nil
+	})
+}
+
 func (e *Engine) SaveResume(h engine.Handle) error {
 	return e.with(h, func(t *torrent) error {
 		t.fold()

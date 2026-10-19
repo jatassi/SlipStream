@@ -22,8 +22,16 @@ type Engine interface {
 	// waits, as Remove does.
 	Pause(Handle) error
 	Resume(Handle) error
+	// Reannounce schedules the next announce to tracker, an index into the
+	// torrent's tracker list, delay from now. Without ignoreMinInterval the
+	// announce waits for the tracker's MinAnnounce. Either way MinAnnounce
+	// moves to the scheduled time. A paused torrent, or a tracker it never
+	// announced to, is left as it is.
+	Reannounce(h Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error
 	// SaveResume asks for resume data: ResumeSaved or ResumeFailed follows.
 	SaveResume(Handle) error
+	// PostTrackers sends TrackerList for h.
+	PostTrackers(Handle) error
 	// PostUpdates sends Updates with the torrents whose status changed since
 	// the last call, or with every torrent once the engine sent Dropped.
 	PostUpdates() error
@@ -148,6 +156,48 @@ type Status struct {
 	Err *Error
 }
 
+type AnnounceEvent uint8
+
+const (
+	// AnnounceNone is a regular announce.
+	AnnounceNone AnnounceEvent = iota
+	AnnounceCompleted
+	AnnounceStarted
+	AnnounceStopped
+)
+
+var announceEventNames = [...]string{
+	AnnounceNone:      "none",
+	AnnounceCompleted: "completed",
+	AnnounceStarted:   "started",
+	AnnounceStopped:   "stopped",
+}
+
+func (a AnnounceEvent) String() string { return announceEventNames[a] }
+
+// Tracker is one entry of a torrent's tracker list. The torrent announces
+// to it from each of its Endpoints, its local listen addresses, and the
+// announce state is that of the first.
+type Tracker struct {
+	Index     int
+	URL       string
+	Tier      int
+	Endpoints int
+	// NextAnnounce is when the next regular announce goes out, and
+	// MinAnnounce the earliest one may. Zero for never announced.
+	NextAnnounce, MinAnnounce time.Time
+	// Message is the tracker's last warning or failure reason.
+	Message string
+	// LastError is the last announce's error, nil once one succeeds.
+	LastError *Error
+	// Fails is the announces that failed in a row.
+	Fails int
+	// Updating is an announce awaiting its answer.
+	Updating bool
+	// StartSent is whether the tracker answered started.
+	StartSent bool
+}
+
 type Event interface{ event() }
 
 type (
@@ -162,11 +212,41 @@ type (
 		Torrent Handle
 		Err     *Error
 	}
-	// TrackerReplied and TrackerFailed report each announce to a tracker.
-	TrackerReplied struct{ Torrent Handle }
-	TrackerFailed  struct {
+	// TrackerAnnounced reports each announce sent to a tracker, an index
+	// into the torrent's tracker list, and TrackerReplied or TrackerFailed
+	// its answer.
+	TrackerAnnounced struct {
 		Torrent Handle
-		Err     *Error
+		Tracker int
+		Event   AnnounceEvent
+		At      time.Time
+	}
+	TrackerReplied struct {
+		Torrent Handle
+		Tracker int
+		At      time.Time
+	}
+	// TrackerWarned precedes the TrackerReplied of an answer that carried a
+	// warning.
+	TrackerWarned struct {
+		Torrent Handle
+		Tracker int
+		Message string
+	}
+	TrackerFailed struct {
+		Torrent Handle
+		Tracker int
+		// Times is the announces that failed in a row, this one included.
+		Times int
+		// Reason is the failure reason the tracker answered, empty when it
+		// never answered.
+		Reason string
+		Err    *Error
+		At     time.Time
+	}
+	TrackerList struct {
+		Torrent  Handle
+		Trackers []Tracker
 	}
 	ListenFailed struct{ Err *Error }
 	Dropped      struct{}
@@ -189,21 +269,24 @@ type (
 	Updates struct{ Statuses []Status }
 )
 
-func (Added) event()          {}
-func (StateChanged) event()   {}
-func (Finished) event()       {}
-func (Removed) event()        {}
-func (TorrentFailed) event()  {}
-func (TrackerReplied) event() {}
-func (TrackerFailed) event()  {}
-func (ListenFailed) event()   {}
-func (Dropped) event()        {}
-func (Paused) event()         {}
-func (Resumed) event()        {}
-func (ResumeSaved) event()    {}
-func (ResumeFailed) event()   {}
-func (FilesDeleted) event()   {}
-func (Updates) event()        {}
+func (Added) event()            {}
+func (StateChanged) event()     {}
+func (Finished) event()         {}
+func (Removed) event()          {}
+func (TorrentFailed) event()    {}
+func (TrackerAnnounced) event() {}
+func (TrackerReplied) event()   {}
+func (TrackerWarned) event()    {}
+func (TrackerFailed) event()    {}
+func (TrackerList) event()      {}
+func (ListenFailed) event()     {}
+func (Dropped) event()          {}
+func (Paused) event()           {}
+func (Resumed) event()          {}
+func (ResumeSaved) event()      {}
+func (ResumeFailed) event()     {}
+func (FilesDeleted) event()     {}
+func (Updates) event()          {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
 // *Error in that category.

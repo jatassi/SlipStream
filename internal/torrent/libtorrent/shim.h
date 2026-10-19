@@ -59,7 +59,17 @@ enum {
 	LTS_ALERT_RESUME_SAVED,
 	LTS_ALERT_RESUME_FAILED,
 	LTS_ALERT_FILES_DELETED,
-	LTS_ALERT_UPDATES
+	LTS_ALERT_UPDATES,
+	LTS_ALERT_TRACKER_ANNOUNCED,
+	LTS_ALERT_TRACKER_WARNED,
+	LTS_ALERT_TRACKER_LIST
+};
+
+enum {
+	LTS_EVENT_NONE = 0,
+	LTS_EVENT_COMPLETED,
+	LTS_EVENT_STARTED,
+	LTS_EVENT_STOPPED
 };
 
 /* A category of 0 is no error. */
@@ -109,8 +119,27 @@ typedef struct {
 	char* path;
 } lts_file;
 
-/* payload is shim-owned until lts_free_alert: the bytes of RESUME_SAVED, or
-   payload_len lts_status of UPDATES. */
+/* One tracker of TRACKER_LIST, its announce state that of its first endpoint.
+   url and message point into the alert's payload. Times are Unix
+   milliseconds, 0 for never. */
+typedef struct {
+	const char* url;
+	const char* message;
+	int64_t next_announce_ms;
+	int64_t min_announce_ms;
+	lts_error last_error;
+	int32_t tier;
+	int32_t endpoints;
+	int32_t fails;
+	int32_t updating;
+	int32_t start_sent;
+} lts_tracker;
+
+/* payload is shim-owned until lts_free_alert: the bytes of RESUME_SAVED, the
+   text of TRACKER_FAILED's failure reason or TRACKER_WARNED's message,
+   payload_len lts_status of UPDATES, or payload_len lts_tracker of
+   TRACKER_LIST. tracker indexes the torrent's tracker list, and at_ms is the
+   Unix milliseconds the alert was posted at. */
 typedef struct {
 	int32_t kind;
 	int32_t state;
@@ -118,6 +147,10 @@ typedef struct {
 	lts_error error;
 	void* payload;
 	int64_t payload_len;
+	int32_t tracker;
+	int32_t event;
+	int32_t times;
+	int64_t at_ms;
 } lts_alert;
 
 /* Functions that return int return 0 on success and -1 with *err filled. */
@@ -132,7 +165,11 @@ int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* 
 /* Pauses gracefully once no tracker awaits its answer to started. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
 int lts_resume(lts_session* s, int64_t torrent, lts_error* err);
+/* force_reannounce of one tracker. */
+int lts_reannounce(lts_session* s, int64_t torrent, int32_t tracker, int32_t delay_s, int32_t ignore_min_interval, lts_error* err);
 int lts_save_resume(lts_session* s, int64_t torrent, lts_error* err);
+/* Posts TRACKER_LIST. */
+int lts_post_trackers(lts_session* s, int64_t torrent, lts_error* err);
 /* Posts UPDATES with the torrents that changed, or with every torrent after
    DROPPED. */
 int lts_post_updates(lts_session* s, lts_error* err);

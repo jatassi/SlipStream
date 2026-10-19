@@ -93,7 +93,7 @@ func TestAnnouncesFollowLibtorrentsIntervals(t *testing.T) {
 func TestAFailureWithoutIntervalRetriesAfter1800s(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := enginetest.NewWorld()
-		w.Tracker(tracked, enginetest.TrackerRules{Interval: time.Minute, FailWithoutInterval: true})
+		w.Tracker(tracked, enginetest.TrackerRules{Interval: time.Minute, Failure: "unregistered"})
 		start := time.Now()
 		e, h := running(t, w, nil)
 		time.Sleep(time.Hour + time.Second)
