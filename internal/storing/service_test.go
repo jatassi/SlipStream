@@ -85,12 +85,17 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	}
 	write(t, filepath.Join(base, "notes.txt"), "x")
 	d.flag(d.unreadable, filepath.Join(base, "Locked"))
-	want := []Folder{
+	var want []Folder
+	wantHidden := 2
+	if nativeStyle == Windows {
+		want, wantHidden = append(want, Folder{".cache", filepath.Join(base, ".cache"), true}), 1
+	}
+	want = append(want, []Folder{
 		{"Locked", filepath.Join(base, "Locked"), false},
 		{"season 1", filepath.Join(base, "season 1"), true},
 		{"Season 2", filepath.Join(base, "Season 2"), true},
 		{"Season 10", filepath.Join(base, "Season 10"), true},
-	}
+	}...)
 	if err := os.Symlink(dir(t, t.TempDir(), "Elsewhere"), filepath.Join(base, "Shortcut")); err == nil {
 		want = append(want, Folder{"Shortcut", filepath.Join(base, "Shortcut"), true})
 	} else {
@@ -105,8 +110,8 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	if !slices.Equal(l.Folders, want) {
 		t.Errorf("folders = %v, want %v", l.Folders, want)
 	}
-	if l.Hidden != 2 {
-		t.Errorf("hidden = %d, want 2", l.Hidden)
+	if l.Hidden != wantHidden {
+		t.Errorf("hidden = %d, want %d", l.Hidden, wantHidden)
 	}
 	if l.Path != base || l.Volume == nil || l.Volume.ID != "fs-1" || l.Volume.Kind != Local {
 		t.Errorf("listing = path %q volume %+v, want %q on fs-1", l.Path, l.Volume, base)
