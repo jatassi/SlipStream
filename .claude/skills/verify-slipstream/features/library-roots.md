@@ -194,5 +194,4 @@ Steps:
 - After seedbox lets Storage go, the Edit dialog defaults its `Node` to home, the only Storage Node left; the row still names seedbox until Save.
 - A re-home with one file checks it too fast to see `Checked <n> of <m> files at the new place`; the progress line shows only on a large root.
 - The Storage block counts a volume once per Node. home and seedbox share the container's `/`, so each Node lists its own `/`.
-- After the write-off, doctor's check 3 reports seedbox's Roles, since the Scenario gives seedbox Searching and Downloading only and the Role set no longer matches.
 - `Re-home` with missing files and `Save anyway, forget <n> files`, deleting a root whose Works move to another, the empty state and the phone sheets are driven by `web/e2e/library-roots.spec.ts` on the browser tier.
