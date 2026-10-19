@@ -1152,6 +1152,9 @@ export type NodesProbeOutput = zod.output<typeof NodesProbe>;
 
 export const NodesHeld = zod.object({
   bytes: zod.int().describe("0 when sizes don't apply"),
+  endless: zod
+    .boolean()
+    .describe("The Node can't finish it on its own, so it stays until it is moved or written off"),
   noun: zod.string().describe("The noun that fits units: torrent, torrents"),
   units: zod.int(),
 });
