@@ -60,6 +60,8 @@ export const effects = {
   },
   "roots.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListRootsQueryKey() });
+    refresh({ queryKey: getListVolumesQueryKey() });
+    refresh({ queryKey: getGetTopologyQueryKey() });
   },
   "volumes.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListVolumesQueryKey() });

@@ -5,6 +5,7 @@ import {
   getGetTopologyQueryKey,
   getListNodesQueryKey,
 } from "../api/gen/query/nodes/nodes";
+import { getListRootsQueryKey, getListVolumesQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
 import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
@@ -26,6 +27,8 @@ export const systemEffects = {
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListIndexersQueryKey() });
     refresh({ queryKey: getGetTopologyQueryKey() });
+    refresh({ queryKey: getListRootsQueryKey() });
+    refresh({ queryKey: getListVolumesQueryKey() });
     refresh(everyJoinCodeQuery);
   },
   // Samples feed the Diagram alone, so they go to its ring, not a query.
