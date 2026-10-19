@@ -57,6 +57,7 @@ func (w *World) Open(cfg engine.Config) (engine.Engine, error) {
 	return &Engine{
 		w:        w,
 		listen:   listen,
+		floor:    cfg.AnnounceFloor,
 		events:   make(chan engine.Event, events),
 		torrents: map[engine.Handle]*torrent{},
 		parting:  map[bencode.InfoHash]*torrent{},
@@ -87,6 +88,7 @@ func Payloads(payloads map[bencode.InfoHash][]byte) func(engine.Config) (engine.
 type Engine struct {
 	w      *World
 	listen netip.AddrPort
+	floor  time.Duration
 	events chan engine.Event
 
 	closed  bool
@@ -365,6 +367,20 @@ func (t *torrent) finish(payload []byte) error {
 	t.e.emit(engine.Finished{Torrent: t.handle})
 	t.trackers.completed()
 	return nil
+}
+
+func (e *Engine) Reannounce(h engine.Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error {
+	return e.with(h, func(t *torrent) error {
+		t.trackers.reannounce(tracker, delay, ignoreMinInterval)
+		return nil
+	})
+}
+
+func (e *Engine) PostTrackers(h engine.Handle) error {
+	return e.with(h, func(t *torrent) error {
+		e.emit(engine.TrackerList{Torrent: h, Trackers: t.trackers.list()})
+		return nil
+	})
 }
 
 func (e *Engine) SaveResume(h engine.Handle) error {

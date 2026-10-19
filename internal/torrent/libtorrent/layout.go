@@ -14,12 +14,14 @@ func layout() map[string][]uintptr {
 		p C.lts_add_params
 		a C.lts_alert
 		f C.lts_file
+		t C.lts_tracker
 	)
 	return map[string][]uintptr{
 		"lts_error":      {unsafe.Sizeof(e)},
 		"lts_status":     {unsafe.Sizeof(s), unsafe.Offsetof(s.need_save), unsafe.Offsetof(s.error)},
 		"lts_add_params": {unsafe.Sizeof(p), unsafe.Offsetof(p.seed_mode), unsafe.Offsetof(p.base_uploaded)},
-		"lts_alert":      {unsafe.Sizeof(a), unsafe.Offsetof(a.error), unsafe.Offsetof(a.payload)},
+		"lts_alert":      {unsafe.Sizeof(a), unsafe.Offsetof(a.error), unsafe.Offsetof(a.payload), unsafe.Offsetof(a.at_ms)},
 		"lts_file":       {unsafe.Sizeof(f), unsafe.Offsetof(f.path)},
+		"lts_tracker":    {unsafe.Sizeof(t), unsafe.Offsetof(t.last_error), unsafe.Offsetof(t.start_sent)},
 	}
 }

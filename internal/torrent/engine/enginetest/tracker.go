@@ -11,9 +11,12 @@ import (
 // TrackerRules is how a tracker answers announces.
 type TrackerRules struct {
 	Interval, MinInterval time.Duration
-	// FailWithoutInterval answers every announce with a failure reason and
-	// no interval, which libtorrent retries after 1800 s.
-	FailWithoutInterval bool
+	// Failure, when set, is the failure reason the tracker answers every
+	// announce with, and no interval, which libtorrent retries after 1800 s.
+	Failure string
+	// Warning, when set, is a warning message every successful answer
+	// carries.
+	Warning string
 	// HoldStarted holds each answer to started until the tracker is told to
 	// answer.
 	HoldStarted bool
@@ -29,8 +32,6 @@ type Announce struct {
 
 // libtorrent's defaults, which the engine keeps.
 const (
-	// announceFloor is min_announce_interval: no interval is shorter.
-	announceFloor = 5 * time.Minute
 	// failRetry is the interval libtorrent reads from a failure without one.
 	failRetry = 1800 * time.Second
 	// retryFloor and retryCeiling bound the back-off after failures, which
@@ -38,6 +39,10 @@ const (
 	retryFloor, retryCeiling = 5 * time.Second, time.Hour
 	backoffRatio             = 250
 )
+
+var announceEvents = map[string]engine.AnnounceEvent{
+	"": engine.AnnounceNone, "completed": engine.AnnounceCompleted, "started": engine.AnnounceStarted, "stopped": engine.AnnounceStopped,
+}
 
 var errTrackerFailure = &engine.Error{Category: engine.CategoryLibtorrent, Code: 173, Text: "tracker sent a failure message"}
 
@@ -98,6 +103,11 @@ type announcing struct {
 	updating  bool
 	next, min time.Time
 	fails     int
+	// endpoints is libtorrent's endpoint count, which its first announce
+	// makes: one, the World's engines listening on one address.
+	endpoints int
+	message   string
+	lastErr   *engine.Error
 	timer     *time.Timer
 }
 
@@ -156,7 +166,10 @@ func (a *announcing) send(event string) {
 	}
 	now := time.Now()
 	tr.log = append(tr.log, Announce{InfoHash: a.t.meta.InfoHash, Event: event, At: now})
-	a.updating, a.next, a.min = true, now, now
+	a.updating, a.next, a.min, a.endpoints = true, now, now, 1
+	if a.t.e.holds(a.t) {
+		a.t.e.emit(engine.TrackerAnnounced{Torrent: a.t.handle, Event: announceEvents[event], At: now})
+	}
 	if event == "started" && tr.rules.HoldStarted && !tr.answering {
 		tr.held = append(tr.held, a)
 		return
@@ -167,23 +180,54 @@ func (a *announcing) send(event string) {
 func (a *announcing) answer(tr *tracker, event string) {
 	now := time.Now()
 	a.updating = false
-	if tr.rules.FailWithoutInterval {
+	if tr.rules.Failure != "" {
 		a.fails++
 		a.next = now.Add(max(failRetry, min(retryCeiling, retryFloor+time.Duration(a.fails*a.fails)*retryFloor*backoffRatio/100)))
+		a.message, a.lastErr = tr.rules.Failure, errTrackerFailure
 		if a.t.e.holds(a.t) {
-			a.t.e.emit(engine.TrackerFailed{Torrent: a.t.handle, Err: errTrackerFailure})
+			a.t.e.emit(engine.TrackerFailed{Torrent: a.t.handle, Times: a.fails, Reason: tr.rules.Failure, Err: errTrackerFailure, At: now})
 		}
 	} else {
 		a.startSent = a.startSent || event == "started"
 		a.completeSent = a.completeSent || event == "completed"
 		a.fails = 0
-		a.next, a.min = now.Add(max(tr.rules.Interval, announceFloor)), now.Add(tr.rules.MinInterval)
+		a.next, a.min = now.Add(max(tr.rules.Interval, a.t.e.floor)), now.Add(tr.rules.MinInterval)
+		a.message, a.lastErr = tr.rules.Warning, nil
 		if a.t.e.holds(a.t) {
-			a.t.e.emit(engine.TrackerReplied{Torrent: a.t.handle})
+			if tr.rules.Warning != "" {
+				a.t.e.emit(engine.TrackerWarned{Torrent: a.t.handle, Message: tr.rules.Warning})
+			}
+			a.t.e.emit(engine.TrackerReplied{Torrent: a.t.handle, At: now})
 		}
 	}
 	a.schedule()
 	a.t.settle()
+}
+
+// reannounce moves the next announce as force_reannounce does: to delay
+// from now, held to min unless ignoreMin, a second later, and min with it.
+func (a *announcing) reannounce(index int, delay time.Duration, ignoreMin bool) {
+	if a.t.paused || index != 0 || a.endpoints == 0 {
+		return
+	}
+	at := time.Now().Add(delay)
+	if !ignoreMin {
+		at = later(at, a.min)
+	}
+	a.next = at.Add(time.Second)
+	a.min = a.next
+	a.schedule()
+}
+
+// list is the torrent's tracker list: the one tracker its metainfo names.
+func (a *announcing) list() []engine.Tracker {
+	if a.t.meta.Announce == "" {
+		return nil
+	}
+	return []engine.Tracker{{
+		URL: a.t.meta.Announce, Endpoints: a.endpoints, NextAnnounce: a.next, MinAnnounce: a.min,
+		Message: a.message, LastError: a.lastErr, Fails: a.fails, Updating: a.updating, StartSent: a.startSent,
+	}}
 }
 
 // schedule sets the timer for the next regular announce, which waits for

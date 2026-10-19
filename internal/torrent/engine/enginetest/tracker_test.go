@@ -33,7 +33,7 @@ func announces(w *enginetest.World, start time.Time) []announced {
 }
 
 // running adds trackedSingle, seeding unless payload is set, and resumes
-// it.
+// it in an engine whose announce floor is libtorrent's default, 5 minutes.
 func running(t *testing.T, w *enginetest.World, payload []byte) (engine.Engine, engine.Handle) {
 	t.Helper()
 	m, err := bencode.DecodeMetainfo([]byte(trackedSingle))
@@ -43,7 +43,7 @@ func running(t *testing.T, w *enginetest.World, payload []byte) (engine.Engine, 
 	if payload != nil {
 		w.Payload(m.InfoHash, payload)
 	}
-	e, err := w.Open(engine.Config{})
+	e, err := w.Open(engine.Config{AnnounceFloor: 5 * time.Minute})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestAnnouncesFollowLibtorrentsIntervals(t *testing.T) {
 func TestAFailureWithoutIntervalRetriesAfter1800s(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := enginetest.NewWorld()
-		w.Tracker(tracked, enginetest.TrackerRules{Interval: time.Minute, FailWithoutInterval: true})
+		w.Tracker(tracked, enginetest.TrackerRules{Interval: time.Minute, Failure: "unregistered"})
 		start := time.Now()
 		e, h := running(t, w, nil)
 		time.Sleep(time.Hour + time.Second)

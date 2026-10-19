@@ -20,7 +20,15 @@ const payloadSize = 8 << 20
 
 func open(t *testing.T) engine.Engine {
 	t.Helper()
-	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), Rand: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}) //nolint:gosec // picks listen ports
+	return openWith(t, engine.Config{})
+}
+
+// openWith opens a session on loopback, as cfg says otherwise.
+func openWith(t *testing.T, cfg engine.Config) engine.Engine {
+	t.Helper()
+	cfg.ListenInterface = netip.MustParseAddrPort("127.0.0.1:0")
+	cfg.Rand = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())) //nolint:gosec // picks listen ports
+	e, err := libtorrent.Open(cfg)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

@@ -48,9 +48,12 @@ type Holder = role.Holder[*dlv1.Intent, *dlv1.Facts, *dlv1.Result]
 type Timings struct {
 	// Facts is the least time between two sends of the torrents' progress.
 	Facts time.Duration `yaml:"facts"`
+	// AnnounceFloor is the least time between two regular announces to a
+	// tracker, whatever interval the tracker answers.
+	AnnounceFloor time.Duration `yaml:"announce_floor"`
 }
 
-func DefaultTimings() Timings { return Timings{Facts: time.Second} }
+func DefaultTimings() Timings { return Timings{Facts: time.Second, AnnounceFloor: 5 * time.Minute} }
 
 // ErrNotPresent is a torrent this Node's client hasn't finished.
 var ErrNotPresent = transfers.ErrNotPresent

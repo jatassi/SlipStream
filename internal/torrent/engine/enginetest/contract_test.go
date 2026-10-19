@@ -27,8 +27,9 @@ func (h *worlds) Within(t *testing.T, f func(*testing.T)) {
 	})
 }
 
-func (h *worlds) Open(t *testing.T) engine.Engine {
-	e, err := h.w.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0")})
+func (h *worlds) Open(t *testing.T, cfg engine.Config) engine.Engine {
+	cfg.ListenInterface = netip.MustParseAddrPort("127.0.0.1:0")
+	e, err := h.w.Open(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

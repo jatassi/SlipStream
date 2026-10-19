@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -24,8 +25,9 @@ type Harness interface {
 	// Within runs f where the harness's clock rules: a synctest bubble for
 	// enginetest, as is for libtorrent.
 	Within(t *testing.T, f func(*testing.T))
-	// Open opens an engine, closed when t ends.
-	Open(t *testing.T) engine.Engine
+	// Open opens an engine on loopback, as cfg says otherwise, closed when t
+	// ends.
+	Open(t *testing.T, cfg engine.Config) engine.Engine
 	Tracker(t *testing.T, rules enginetest.TrackerRules) Tracker
 	// Until waits for cond on the harness's clock, failing t when it takes
 	// too long: what says what it waited for.
@@ -55,6 +57,12 @@ func Run(t *testing.T, h Harness) {
 		{"RemoveWithFilesDeletesTheDownloadCopyAndItsFolder", removeWithFilesDeletesTheDownloadCopyAndItsFolder},
 		{"UpdatesCarryOnlyChangedTorrents", updatesCarryOnlyChangedTorrents},
 		{"UpdatesCarryEveryTorrentAfterDropped", updatesCarryEveryTorrentAfterDropped},
+		{"TrackerListCarriesNextAndMinAnnounce", trackerListCarriesNextAndMinAnnounce},
+		{"TheAnnounceFloorLengthensAShortInterval", theAnnounceFloorLengthensAShortInterval},
+		{"AWarningIsReportedAndListed", aWarningIsReportedAndListed},
+		{"AFailureWithoutIntervalWaits1800s", aFailureWithoutIntervalWaits1800s},
+		{"ReannounceMovesMinAnnounce", reannounceMovesMinAnnounce},
+		{"ReannounceIgnoringMinIntervalAnnouncesNow", reannounceIgnoringMinIntervalAnnouncesNow},
 	} {
 		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
 	}
@@ -62,7 +70,7 @@ func Run(t *testing.T, h Harness) {
 
 func addWaitsPausedUntilResume(t *testing.T, h Harness) {
 	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	rel := release(t, "Waits", tr.URL)
 	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
@@ -82,7 +90,7 @@ func addWaitsPausedUntilResume(t *testing.T, h Harness) {
 }
 
 func anAddFromResumeDataSkipsTheCheck(t *testing.T, h Harness) {
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	baseline := engine.Totals{Uploaded: 1000, Downloaded: 2000, Active: time.Hour, Seeding: 30 * time.Minute}
 	rel, data := resumeData(t, h, e, r, baseline)
@@ -104,7 +112,7 @@ func anAddFromResumeDataSkipsTheCheck(t *testing.T, h Harness) {
 }
 
 func theBaselineRaisesCounters(t *testing.T, h Harness) {
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	saved := engine.Totals{Uploaded: 1000, Downloaded: 2000, Active: time.Hour, Seeding: 30 * time.Minute}
 	rel, data := resumeData(t, h, e, r, saved)
@@ -120,7 +128,7 @@ func theBaselineRaisesCounters(t *testing.T, h Harness) {
 
 func pauseSendsStoppedOnlyAfterStartedWasAnswered(t *testing.T, h Harness) {
 	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	rel := release(t, "Pausing", tr.URL)
 	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
@@ -143,7 +151,7 @@ func pauseSendsStoppedOnlyAfterStartedWasAnswered(t *testing.T, h Harness) {
 }
 
 func removeKeepsTheFiles(t *testing.T, h Harness) {
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	rel := release(t, "Kept", "")
 	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
@@ -160,7 +168,7 @@ func removeKeepsTheFiles(t *testing.T, h Harness) {
 }
 
 func removeWithFilesDeletesTheDownloadCopyAndItsFolder(t *testing.T, h Harness) {
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	remove := func(rel released) {
 		t.Helper()
@@ -210,7 +218,7 @@ func removeWithFilesDeletesTheDownloadCopyAndItsFolder(t *testing.T, h Harness) 
 }
 
 func updatesCarryOnlyChangedTorrents(t *testing.T, h Harness) {
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	a, b := settled(t, h, e, r)
 	if err := e.Resume(a); err != nil {
@@ -228,7 +236,7 @@ func updatesCarryOnlyChangedTorrents(t *testing.T, h Harness) {
 }
 
 func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
-	e := h.Open(t)
+	e := h.Open(t, engine.Config{})
 	r := record(e)
 	a, b := settled(t, h, e, r)
 	// More than libtorrent's alert queue holds: high_performance_seed's 10000,
@@ -262,6 +270,158 @@ func updatesCarryEveryTorrentAfterDropped(t *testing.T, h Harness) {
 		}
 		return false
 	})
+}
+
+func trackerListCarriesNextAndMinAnnounce(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: 10 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Listed", tr.URL)
+	if a := await(t, h, r, func(a engine.TrackerAnnounced) bool { return a.Torrent == th }); a.Tracker != 0 || a.Event != engine.AnnounceStarted {
+		t.Fatalf("the resumed torrent first reported %+v, want started to tracker 0", a)
+	}
+	replied := await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	got := onlyTracker(t, trackerList(t, h, e, r, th))
+	want := engine.Tracker{URL: tr.URL, Endpoints: 1, NextAnnounce: got.NextAnnounce, MinAnnounce: got.MinAnnounce, StartSent: true}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("after the tracker answered started the tracker list holds %+v, want %+v", got, want)
+	}
+	if !near(got.NextAnnounce, replied.At.Add(30*time.Minute)) || !near(got.MinAnnounce, replied.At.Add(10*time.Minute)) {
+		t.Fatalf("answered at %s with a 30m interval and 10m min interval, the tracker reads next %s and min %s",
+			replied.At, got.NextAnnounce, got.MinAnnounce)
+	}
+}
+
+func theAnnounceFloorLengthensAShortInterval(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: time.Minute})
+	e := h.Open(t, engine.Config{AnnounceFloor: 10 * time.Minute})
+	r := record(e)
+	th := running(t, e, "Floored", tr.URL)
+	replied := await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	if got := onlyTracker(t, trackerList(t, h, e, r, th)); !near(got.NextAnnounce, replied.At.Add(10*time.Minute)) {
+		t.Fatalf("answered at %s with a 1m interval under a 10m floor, the next announce is at %s, want 10m on", replied.At, got.NextAnnounce)
+	}
+}
+
+func aWarningIsReportedAndListed(t *testing.T, h Harness) {
+	const warning = "Your client is out of date"
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, Warning: warning})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Warned", tr.URL)
+	if w := await(t, h, r, func(w engine.TrackerWarned) bool { return w.Torrent == th }); w.Tracker != 0 || w.Message != warning {
+		t.Fatalf("the tracker warned %q, and the engine reported %+v", warning, w)
+	}
+	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	if got := onlyTracker(t, trackerList(t, h, e, r, th)); got.Message != warning || got.LastError != nil {
+		t.Fatalf("the tracker that warned %q lists %+v", warning, got)
+	}
+}
+
+func aFailureWithoutIntervalWaits1800s(t *testing.T, h Harness) {
+	const reason = "Unregistered torrent"
+	tr := h.Tracker(t, enginetest.TrackerRules{Failure: reason})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Unregistered", tr.URL)
+	failed := await(t, h, r, func(f engine.TrackerFailed) bool { return f.Torrent == th })
+	if failed.Tracker != 0 || failed.Times != 1 || failed.Reason != reason || !errors.Is(failed.Err, errTrackerFailure) {
+		t.Fatalf("the tracker answered %q, and the engine reported %+v", reason, failed)
+	}
+	got := onlyTracker(t, trackerList(t, h, e, r, th))
+	if got.Fails != 1 || got.Message != reason || !errors.Is(got.LastError, errTrackerFailure) || got.StartSent {
+		t.Fatalf("the tracker that answered %q lists %+v", reason, got)
+	}
+	if !near(got.NextAnnounce, failed.At.Add(1800*time.Second)) {
+		t.Fatalf("failed at %s with no interval, the next announce is at %s, want 1800s on", failed.At, got.NextAnnounce)
+	}
+}
+
+func reannounceMovesMinAnnounce(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: 20 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Moved", tr.URL)
+	replied := await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+
+	if err := e.Reannounce(th, 0, time.Minute, false); err != nil {
+		t.Fatal(err)
+	}
+	got := onlyTracker(t, trackerList(t, h, e, r, th))
+	if want := replied.At.Add(20*time.Minute + time.Second); !near(got.NextAnnounce, want) || !near(got.MinAnnounce, got.NextAnnounce) {
+		t.Fatalf("a reannounce in 1m under a min interval to %s reads next %s and min %s, want both a second past the min",
+			replied.At.Add(20*time.Minute), got.NextAnnounce, got.MinAnnounce)
+	}
+
+	asked := time.Now()
+	if err := e.Reannounce(th, 0, 25*time.Minute, false); err != nil {
+		t.Fatal(err)
+	}
+	got = onlyTracker(t, trackerList(t, h, e, r, th))
+	if want := asked.Add(25*time.Minute + time.Second); !near(got.NextAnnounce, want) || !near(got.MinAnnounce, got.NextAnnounce) {
+		t.Fatalf("a reannounce in 25m asked at %s reads next %s and min %s, want both at %s", asked, got.NextAnnounce, got.MinAnnounce, want)
+	}
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started"}) {
+		t.Fatalf("after two reannounces held to the min interval the tracker received %q, want only started", got)
+	}
+}
+
+func reannounceIgnoringMinIntervalAnnouncesNow(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: 20 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Forced", tr.URL)
+	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	asked := time.Now()
+	if err := e.Reannounce(th, 0, 0, true); err != nil {
+		t.Fatal(err)
+	}
+	if a := await(t, h, r, func(a engine.TrackerAnnounced) bool { return a.Torrent == th }); a.Event != engine.AnnounceNone || !near(a.At, asked.Add(time.Second)) {
+		t.Fatalf("a reannounce ignoring the min interval asked at %s sent %+v, want a regular announce a second later", asked, a)
+	}
+	h.Until(t, "the tracker hears the reannounce", func() bool { return len(tr.Announces()) == 2 })
+	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", ""}) {
+		t.Fatalf("a reannounce ignoring the min interval reached the tracker as %q, want started then a regular announce", got)
+	}
+}
+
+// errTrackerFailure is libtorrent's tracker_failure, a reply with a
+// failure reason.
+var errTrackerFailure = &engine.Error{Category: engine.CategoryLibtorrent, Code: 173}
+
+// running adds a seeding release named name announcing to announce, and
+// resumes it.
+func running(t *testing.T, e engine.Engine, name, announce string) engine.Handle {
+	t.Helper()
+	rel := release(t, name, announce)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	return th
+}
+
+func trackerList(t *testing.T, h Harness, e engine.Engine, r *recorder, th engine.Handle) engine.TrackerList {
+	t.Helper()
+	if err := e.PostTrackers(th); err != nil {
+		t.Fatal(err)
+	}
+	return await(t, h, r, func(l engine.TrackerList) bool { return l.Torrent == th })
+}
+
+func onlyTracker(t *testing.T, l engine.TrackerList) engine.Tracker {
+	t.Helper()
+	if len(l.Trackers) != 1 {
+		t.Fatalf("the torrent's tracker list holds %+v, want its one tracker", l.Trackers)
+	}
+	return l.Trackers[0]
+}
+
+// near is whether got is within libtorrent's whole-second announce clock
+// of want.
+func near(got, want time.Time) bool {
+	d := got.Sub(want)
+	return !got.IsZero() && d > -2*time.Second && d < 2*time.Second
 }
 
 // settled adds two torrents and posts updates until, once both came, one
