@@ -2,11 +2,13 @@ package tasksapi_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -147,7 +149,7 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 			`,"units":[`+
 			`{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false},`+
 			`{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],`+
-			`"runs":[{"id":1,"trigger":"run-now","startedAt":"T","endedAt":null,"result":null,"summary":"","cause":null,"nodes":[],"units":[]}]}`)
+			`"runs":[{"id":1,"trigger":"run-now","startedAt":"T","endedAt":null,"result":null,"summary":"","cause":null,"nodes":[],"units":[]}],"tuning":[]}`)
 
 		if status, reply := o.Call(t, http.MethodDelete, "/api/v1/tasks/runs/1", ""); status != http.StatusNoContent || reply != "" {
 			t.Fatalf("Cancel = %d %q, want 204 and no body", status, reply)
@@ -162,7 +164,7 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 			`,"units":[`+
 			`{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false},`+
 			`{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null,"endedAt":"T","lastSuccessAt":null,"dueOnReturn":false}],`+
-			`"runs":[`+last+`]}`)
+			`"runs":[`+last+`],"tuning":[]}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/runs/open", "", http.StatusOK, `{"headerDelaySeconds":5,"runs":[]}`)
 	})
 }
@@ -176,7 +178,7 @@ func TestACadenceOutsideItsRangeAnswersItsSentenceAndNullResets(t *testing.T) {
 			`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Choose Catch up or Wait."}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":7200}`, http.StatusOK, tidyTask(2, idle, "", available))
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+tidyTask(2, idle, "", available)+
-			`,"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[]}`)
+			`,"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[],"tuning":[]}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":null}`, http.StatusOK, tidyTask(8, idle, "", available))
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/nothing", `{"cadence":null}`, http.StatusNotFound,
 			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
@@ -231,5 +233,106 @@ func TestTheTasksPageListsShownTasksAndWhatWaits(t *testing.T) {
 		if got := ownertest.Masked(body); status != http.StatusOK || got != want {
 			t.Fatalf("GET /tasks = %d\n%s\nwant\n%s", status, got, want)
 		}
+	})
+}
+
+const day = 24 * time.Hour
+
+var (
+	tidyEvery  = setting.Duration{Key: "tidy.every", Label: "Tidy every", Default: day, Min: day, Max: 30 * day, Step: day}
+	tidyFollow = setting.Switch{Key: "tidy.follow", Label: "Follow changes", Default: true}
+)
+
+// tuning is a Tuning its owner keeps in memory.
+type tuning struct {
+	mu     sync.Mutex
+	every  *int64
+	follow *bool
+}
+
+func (t *tuning) Fields(context.Context) ([]setting.Field, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return []setting.Field{tidyEvery.Field(t.every), tidyFollow.Field(t.follow)}, nil
+}
+
+func (t *tuning) Apply(_ context.Context, p setting.Patch) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	every, follow := t.every, t.follow
+	for key, raw := range p {
+		switch key {
+		case tidyEvery.Key:
+			v, err := tidyEvery.ParseJSON(raw)
+			if err != nil {
+				return err
+			}
+			every = v.Override()
+		case tidyFollow.Key:
+			v, err := tidyFollow.ParseJSON(raw)
+			if err != nil {
+				return err
+			}
+			follow = v.Override()
+		default:
+			return &setting.UnknownKeyError{Key: key}
+		}
+	}
+	t.every, t.follow = every, follow
+	return nil
+}
+
+func tuningOf(t *testing.T, o *ownertest.Owner, id string) string {
+	t.Helper()
+	status, body := o.Call(t, http.MethodGet, "/api/v1/tasks/"+id, "")
+	var d struct{ Tuning json.RawMessage }
+	if err := json.Unmarshal([]byte(body), &d); status != http.StatusOK || err != nil {
+		t.Fatalf("GET /tasks/%s = %d %s", id, status, body)
+	}
+	return string(d.Tuning)
+}
+
+func tuned(every int64, everyDefault, follow, followDefault bool) string {
+	about := `"source":"database","applies":"live",`
+	return fmt.Sprintf(`[{"key":"tidy.every","label":"Tidy every",`+about+`"isDefault":%t,"pendingRestart":false,"kind":"duration","value":%d,"running":%d,"default":86400,"min":86400,"max":2592000,"step":86400},`+
+		`{"key":"tidy.follow","label":"Follow changes",`+about+`"isDefault":%t,"pendingRestart":false,"kind":"switch","value":%t,"running":%t,"default":true}]`,
+		everyDefault, every, every, followDefault, follow, follow)
+}
+
+func TestTuningPatchesThroughTheTaskRoute(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tuneable := task("tune", onController("a"))
+		tuneable.Tuning = &tuning{}
+		o := serve(t, tuneable, task("tidy", onController("a")))
+		if got, want := tuningOf(t, o, "tune"), tuned(86400, true, true, true); got != want {
+			t.Fatalf("tuning = %s, want %s", got, want)
+		}
+		if got := tuningOf(t, o, "tidy"); got != "[]" {
+			t.Fatalf("a task with no Tuning lists %s, want []", got)
+		}
+
+		if status, reply := o.Call(t, http.MethodPatch, "/api/v1/tasks/tune", `{"tuning":{"tidy.every":172800,"tidy.follow":false}}`); status != http.StatusOK {
+			t.Fatalf("PATCH tuning = %d %s", status, reply)
+		}
+		if got, want := tuningOf(t, o, "tune"), tuned(172800, false, false, false); got != want {
+			t.Fatalf("tuning after the save = %s, want %s", got, want)
+		}
+
+		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tune", `{"tuning":{"tidy.every":3600,"tidy.follow":true}}`, http.StatusUnprocessableEntity,
+			`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 day and 30 days."}`)
+		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tune", `{"tuning":{"tidy.often":1}}`, http.StatusUnprocessableEntity,
+			`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key tidy.often."}`)
+		if got, want := tuningOf(t, o, "tune"), tuned(172800, false, false, false); got != want {
+			t.Fatalf("a refused patch changed the tuning to %s, want %s", got, want)
+		}
+
+		if status, reply := o.Call(t, http.MethodPatch, "/api/v1/tasks/tune", `{"tuning":{"tidy.every":null}}`); status != http.StatusOK {
+			t.Fatalf("PATCH null = %d %s", status, reply)
+		}
+		if got, want := tuningOf(t, o, "tune"), tuned(86400, true, false, false); got != want {
+			t.Fatalf("tuning after a reset = %s, want %s", got, want)
+		}
+		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"tuning":{"tidy.every":172800}}`, http.StatusUnprocessableEntity,
+			`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key tidy.every."}`)
 	})
 }

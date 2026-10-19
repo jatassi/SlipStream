@@ -6801,6 +6801,13 @@
           "task": {
             "$ref": "#/components/schemas/TasksTask"
           },
+          "tuning": {
+            "description": "Settings its owner stores that tune what it does; PATCH sets them under tuning by key",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          },
           "units": {
             "description": "Each unit it lists now, in run order",
             "items": {
@@ -6812,7 +6819,8 @@
         "required": [
           "task",
           "units",
-          "runs"
+          "runs",
+          "tuning"
         ],
         "type": "object"
       },
@@ -7488,6 +7496,11 @@
               "string",
               "null"
             ]
+          },
+          "tuning": {
+            "additionalProperties": {},
+            "description": "Each tuning setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
           }
         },
         "type": "object"
@@ -29955,7 +29968,8 @@
                         "code": {
                           "enum": [
                             "invalid",
-                            "setting_out_of_range"
+                            "setting_out_of_range",
+                            "unknown_setting"
                           ],
                           "type": "string"
                         }
@@ -30004,7 +30018,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a task's cadence or overdue rule",
+        "summary": "Change a task's cadence, overdue rule or tuning",
         "tags": [
           "tasks"
         ],
