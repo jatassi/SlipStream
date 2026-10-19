@@ -1,0 +1,147 @@
+// The Metadata Role's wire calls. The Controller sends everything a call
+// needs in Ask, so a holder keeps only its in-memory cache. Candidates and
+// records travel as works' own encoding, so a new field kind needs no
+// change here.
+syntax = "proto3";
+
+package slipstream.metadata.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service MetadataService {
+  option (slipstream.node.v1.served_by) = {role: "metadata"};
+  rpc Search(SearchRequest) returns (SearchResponse);
+  rpc Fetch(FetchRequest) returns (FetchResponse);
+  rpc Changes(ChangesRequest) returns (ChangesResponse);
+  // Test spends one call to learn whether a provider takes the key in ask.
+  rpc Test(TestRequest) returns (TestResponse);
+  // Image fetches one image of at most 16 MiB. It is unary because a
+  // dispatched service can't stream.
+  rpc Image(ImageRequest) returns (ImageResponse);
+}
+
+// Ask is a metadata.Ask with the cache policy the Controller sets.
+message Ask {
+  // keys maps a provider id to the key in effect; a provider with none is
+  // called keyless.
+  map<string, string> keys = 1;
+  string language = 2;
+  string region = 3;
+  bool ratings = 4;
+  // fresh bypasses the holder's cache and writes the answer back.
+  bool fresh = 5;
+  int64 cache_for_seconds = 6;
+  // generation is the Controller's cache generation. A holder that holds
+  // another drops its whole cache first.
+  uint64 generation = 7;
+}
+
+enum OutcomeKind {
+  OUTCOME_KIND_UNSPECIFIED = 0;
+  OUTCOME_KIND_OK = 1;
+  OUTCOME_KIND_NOT_FOUND = 2;
+  OUTCOME_KIND_REFUSED = 3;
+  OUTCOME_KIND_LIMITED = 4;
+  OUTCOME_KIND_CAPPED = 5;
+  OUTCOME_KIND_UNREACHABLE = 6;
+}
+
+// Outcome is one provider call's result, the only input to provider status.
+message Outcome {
+  string provider = 1;
+  OutcomeKind kind = 2;
+  int64 until_unix_micro = 3;
+  string words = 4;
+  int64 at_unix_micro = 5;
+}
+
+// FailureKind is the works error a failure answers as.
+enum FailureKind {
+  FAILURE_KIND_UNSPECIFIED = 0;
+  FAILURE_KIND_NOT_FOUND = 1;
+  FAILURE_KIND_REFUSED = 2;
+  FAILURE_KIND_UNAVAILABLE = 3;
+  FAILURE_KIND_INVALID = 4;
+  // FAILURE_KIND_NO_CHANGES is a source that keeps no changes list reaching
+  // back that far.
+  FAILURE_KIND_NO_CHANGES = 5;
+}
+
+// Failure is a provider failure, answered as a normal response so the
+// outcomes always travel. An RPC error means the holder itself failed.
+message Failure {
+  FailureKind kind = 1;
+  // source names the provider in words.
+  string source = 2;
+  int64 until_unix_micro = 3;
+  string words = 4;
+}
+
+// ArtRef is an artwork.Ref.
+message ArtRef {
+  string source = 1;
+  string shape = 2;
+  string path = 3;
+}
+
+message SearchRequest {
+  Ask ask = 1;
+  string content_type = 2;
+  string query = 3;
+}
+
+message SearchResponse {
+  // candidates is works.EncodeCandidates, empty with a failure.
+  bytes candidates = 1;
+  Failure failure = 2;
+  repeated Outcome outcomes = 3;
+}
+
+message FetchRequest {
+  Ask ask = 1;
+  string content_type = 2;
+  string key = 3;
+}
+
+message FetchResponse {
+  // fetched is works.EncodeFetched, empty with a failure.
+  bytes fetched = 1;
+  Failure failure = 2;
+  repeated Outcome outcomes = 3;
+}
+
+message ChangesRequest {
+  Ask ask = 1;
+  string content_type = 2;
+  int64 since_unix_micro = 3;
+}
+
+message ChangesResponse {
+  repeated string keys = 1;
+  Failure failure = 2;
+  repeated Outcome outcomes = 3;
+}
+
+message TestRequest {
+  Ask ask = 1;
+  string provider = 2;
+}
+
+message TestResponse {
+  repeated Outcome outcomes = 1;
+}
+
+message ImageRequest {
+  Ask ask = 1;
+  ArtRef ref = 2;
+  // size is an artwork.Size.
+  string size = 3;
+}
+
+// ImageResponse carries no outcomes: an image host's answers never feed
+// provider status.
+message ImageResponse {
+  bytes body = 1;
+  string content_type = 2;
+  Failure failure = 3;
+}
