@@ -1,1 +1,1 @@
-export type SystemConfigSectionId = "web" | "log";
+export type SystemConfigSectionId = "web" | "log" | "torrent";

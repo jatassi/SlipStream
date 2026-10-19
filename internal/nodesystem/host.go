@@ -21,7 +21,7 @@ type Host interface {
 	Config() (Config, error)
 	// SetConfig refuses with a *Refusal and changes nothing, or applies
 	// every change.
-	SetConfig(changes []Change) (Config, error)
+	SetConfig(ctx context.Context, changes []Change) (Config, error)
 	// Restart stops the Node to start again, or answers
 	// ErrAlreadyRestarting.
 	Restart() (Restarting, error)
@@ -59,8 +59,9 @@ var (
 type SectionID string
 
 const (
-	Web SectionID = "web"
-	Log SectionID = "log"
+	Web     SectionID = "web"
+	Log     SectionID = "log"
+	Torrent SectionID = "torrent"
 )
 
 // Config is a Node's settings as the Nodes sections show them: each field
