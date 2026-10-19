@@ -11,7 +11,7 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 - `roots-sample-every` the Storage block's Details sets `Check storage every` to 10 minutes, and the summary reads `Storage Nodes check each volume every 10 min, and again after each import.` (P-028).
 - `roots-write-off` unticking Storage on seedbox drains it, its Roster chip reading `Storage · Draining, 1 root (<size>) stays`; writing seedbox's Storage off marks the root `Node written off` with `Re-home` first in its menu, the Work's cell reads `missing`, and its search answers 409 `root_unreachable`, `seedbox's Storage was written off, so the library root there takes no new files.`
 - `roots-rehome` `Re-home` onto home at the same folder checks the recorded file, saves with `The Movies root is now <path> on home.`, and the cell reads `upgradable` again with no new download.
-- `roots-delete` deleting the default while another Movies root exists answers 409 `root_is_default`; deleting the empty `movies` root toasts `Deleted the <path> root. The folder is still on disk.`, and its `.slipstream-root` marker is still in the folder (P-021).
+- `roots-delete` deleting the worker root, which holds the file, answers 409 `root_in_use` with its file count; deleting the empty `movies` root toasts `Deleted the <path> root. The folder is still on disk.`, and its `.slipstream-root` marker is still in the folder (P-021).
 
 ## How to get to it (user POV)
 
@@ -120,7 +120,7 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli $S goto '{nodes.home.browserUrl}/nodes?view=diagram'
-  $FW exec $RUN --proof library-roots/roots-storage -- $PW cli $S eval 'Array.from(document.querySelectorAll("[data-node=\"{nodes.seedbox.nodeId}\"] [data-drawer]")).map((drawer) => `${drawer.dataset.drawer}:${drawer.dataset.used ?? "-"}`).join(" ")'
+  $FW exec $RUN --proof library-roots/roots-storage -- $PW cli $S eval 'Array.from(document.querySelectorAll("[data-node=\"{nodes.seedbox.nodeId}\"] [data-drawer]")).map((drawer) => drawer.dataset.drawer + ":" + (drawer.dataset.used ?? "-")).join(" ")'
   $FW exec $RUN -- $PW cli $S click 'locator("[data-node=\"{nodes.seedbox.nodeId}\"] [data-role=storage]:not([data-chip])").first()'
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("complementary", { name: "Storage on seedbox" }).getByText(/1 root on 1 volume/).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-storage -- $PW cli $S snapshot --filename={runDir}/proof/library-roots/roots-storage/inspector.aria.yml
@@ -159,11 +159,11 @@ Steps:
   $FW exec $RUN --proof library-roots/roots-rehome -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
   ```
 
-- **Delete.** Deleting the default over the API answers 409 `root_is_default`. Delete `{mediaDir}/movies` from its menu: the dialog says the folder stays, and the toast reads `Deleted the {mediaDir}/movies root. The folder is still on disk.`; `fs stat` still finds its marker.
+- **Delete.** Deleting the worker root over the API answers 409 `root_in_use`, since it holds a file. Delete `{mediaDir}/movies` from its menu: the dialog says the folder stays, and the toast reads `Deleted the {mediaDir}/movies root. The folder is still on disk.`; `fs stat` still finds its marker.
 
   ```sh
-  DEFAULT=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots' | jq -r '.roots[] | select(.default) | .id')
-  $FW exec $RUN --proof library-roots/roots-delete -- curl -sS -i -X DELETE -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/roots/$DEFAULT"
+  HELD=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots' | jq -r '.roots[] | select(.works > 0) | .id')
+  $FW exec $RUN --proof library-roots/roots-delete -- curl -sS -i -X DELETE -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/roots/$HELD"
   $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Actions for {mediaDir}/movies" })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("menuitem", { name: "Delete" })'
   $FW exec $RUN --proof library-roots/roots-delete -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-delete/confirm.png
@@ -174,11 +174,21 @@ Steps:
   $FW exec $RUN -- $PW cli $S tracing-stop
   ```
 
-- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`, go to `/settings/library-roots`, and screenshot it into `proof/library-roots/roots-section/section-phone.png`.
+- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone` and go to `/settings/library-roots`: one pushed page with the worker root on home and the Storage block.
+
+  ```sh
+  $FW exec $RUN -- bun web/harness/bin/sign-in.ts {runDir} admin phone
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone open --config={runDir}/browser/phone/playwright-cli.json
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone state-load {runDir}/auth/admin-phone.json
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/settings/library-roots'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone run-code 'async page => { await page.getByRole("list", { name: "Volumes on home" }).waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-section -- $PW cli -s={runId}-admin-phone screenshot --full-page --filename={runDir}/proof/library-roots/roots-section/section-phone.png
+  ```
 
 ## Gotchas
 
 - Overlap is judged per Node. `{mediaDir}/movies` is home's root, so seedbox's browser reads it as a usable folder; a refusal on seedbox needs seedbox's own data or downloads folder, or a root on seedbox.
+- exec fills every `{...}` in a command from the manifest, so a script passed to `eval` or `run-code` can't hold a template literal's `${...}`; join strings with `+` instead.
 - The Library's `Add` button sits in the Library's banner only, so go to `/library` before the Add steps.
 - The completed announce lands before any step that follows `Search` returns, so wait on Activity's `Imported` rather than `announces wait` without an `--after` seq.
 - After seedbox lets Storage go, the Edit dialog defaults its `Node` to home, the only Storage Node left; the row still names seedbox until Save.
