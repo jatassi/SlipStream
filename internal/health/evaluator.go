@@ -33,6 +33,8 @@ type Config struct {
 	// no longer report. A Node it lacks is removed, and its volumes' own
 	// levels go.
 	Names func(ctx context.Context, rd storage.Reader[file]) (map[role.NodeID]string, error)
+	// NameEvents are the events after which Names may answer differently.
+	NameEvents []live.Event
 	// Transitions, when set, takes each evaluation's transitions inside
 	// the Write that records them, so each is seen exactly once.
 	Transitions func(ctx context.Context, tx *storage.Tx[file], ts []Transition) error
@@ -45,6 +47,7 @@ var (
 	ErrNoCategory = errors.New("no Health category has that id")
 	ErrNoItem     = errors.New("the category has no item with that key")
 	ErrNoCheck    = errors.New("there is no Check now for that")
+	errMoved      = errors.New("the health item moved under the evaluator")
 )
 
 // Checked is the Report right after a Check now, and what it couldn't
@@ -78,6 +81,16 @@ type Health struct {
 	// failed answer's rows and a cleared item's transition. Only Run
 	// touches it.
 	last map[ID]map[Key]Says
+	// rows is health_item as Run last committed it. Only Run touches it.
+	rows map[ID]map[Key]row
+
+	// levelsMu holds each levels Write until levels keeps what it
+	// committed, so levels is always the stored levels.
+	levelsMu sync.Mutex
+	levels   atomic.Pointer[Levels]
+	// mayPrune: the Node names or the own levels may have changed since
+	// the last look for own levels on removed Nodes.
+	mayPrune atomic.Bool
 }
 
 // Open checks the registry, panicking on a breach, and deletes the rows
@@ -104,22 +117,30 @@ func Open(ctx context.Context, cfg Config) (*Health, error) {
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
-		rows, err := q.ListItems(ctx)
+		rows, err := itemsIn(ctx, tx)
 		if err != nil {
 			return err
 		}
-		for _, r := range rows {
-			if _, ok := h.byID[ID(r.Category)]; !ok {
-				if err := q.DeleteCategory(ctx, r.Category); err != nil {
+		for id := range rows {
+			if _, ok := h.byID[id]; !ok {
+				if err := q.DeleteCategory(ctx, string(id)); err != nil {
 					return err
 				}
+				delete(rows, id)
 			}
 		}
+		h.rows = rows
+		l, err := LevelsIn(ctx, tx)
+		if err != nil {
+			return err
+		}
+		h.levels.Store(&l)
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open health: %w", err)
 	}
+	h.mayPrune.Store(true)
 	return h, nil
 }
 
@@ -129,22 +150,26 @@ func Open(ctx context.Context, cfg Config) (*Health, error) {
 func (h *Health) Run(ctx context.Context) error {
 	var follows sync.WaitGroup
 	defer follows.Wait()
-	for _, c := range h.all {
-		if len(c.Events) == 0 {
-			continue
+	follow := func(events []live.Event, then func()) {
+		if len(events) == 0 {
+			return
 		}
-		woken := h.cfg.Hub.Watch(ctx, c.Events...)
+		woken := h.cfg.Hub.Watch(ctx, events...)
 		follows.Go(func() {
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				case <-woken:
-					h.mark(c.ID)
+					then()
 				}
 			}
 		})
 	}
+	for _, c := range h.all {
+		follow(c.Events, func() { h.mark(c.ID) })
+	}
+	follow(h.cfg.NameEvents, func() { h.mayPrune.Store(true) })
 	h.evaluate(ctx, h.ids(), false)
 	close(h.ready)
 	tick := time.NewTicker(h.cfg.Timings.Reevaluate)
@@ -315,7 +340,7 @@ func (h *Health) evaluate(ctx context.Context, ids []ID, publish bool) {
 		}
 	}
 	defer func() { h.publish(ctx, changed) }()
-	rows, changes, pruned, err := h.record(ctx, ids, answers, failed)
+	pruned, err := h.record(ctx, ids, answers, failed)
 	if err != nil {
 		h.unread(ids, err)
 		return
@@ -330,7 +355,7 @@ func (h *Health) evaluate(ctx context.Context, ids []ID, publish bool) {
 	}
 	for i, id := range ids {
 		at := h.byID[id]
-		cats[at] = shownOf(h.all[at], applied(rows[id], changes[i]), answers[i], failed[i], h.last[id])
+		cats[at] = shownOf(h.all[at], h.rows[id], answers[i], failed[i], h.last[id])
 		if failed[i] == nil {
 			h.last[id] = wordsOf(answers[i])
 		}
@@ -360,46 +385,41 @@ func (h *Health) answers(ctx context.Context, ids []ID) ([]Answer, []error) {
 }
 
 // record diffs the answers against the stored rows and writes the changes
-// with their transitions, pruning the own levels of removed Nodes' volumes
-// when Storage is among ids. It answers the rows it read and the changes.
-func (h *Health) record(ctx context.Context, ids []ID, answers []Answer, failed []error) (rows map[ID]map[Key]row, changes [][]change, pruned bool, err error) {
-	var removed []volumeAt
-	err = h.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
-		var err error
-		if rows, err = itemsIn(ctx, rd); err != nil {
-			return err
+// with their transitions in one Write, after pruning the own levels of
+// removed Nodes' volumes when Storage is among ids. An evaluation that
+// changes nothing touches no storage.
+func (h *Health) record(ctx context.Context, ids []ID, answers []Answer, failed []error) (pruned bool, err error) {
+	if slices.Contains(ids, StorageID) {
+		if pruned, err = h.prune(ctx); err != nil {
+			return false, err
 		}
-		if slices.Contains(ids, StorageID) {
-			removed, err = h.removed(ctx, rd)
-		}
-		return err
-	})
-	if err != nil {
-		return nil, nil, false, fmt.Errorf("read the health items: %w", err)
 	}
 	now := storage.Now().Time()
-	changes = make([][]change, len(ids))
+	changes := make([][]change, len(ids))
 	var ts []Transition
 	for i, id := range ids {
-		changes[i] = diff(rows[id], answers[i], failed[i] != nil, now)
+		changes[i] = diff(h.rows[id], answers[i], failed[i] != nil, now)
 		ts = append(ts, h.transitions(id, changes[i], answers[i], now)...)
 	}
-	if len(ts) == 0 && len(removed) == 0 {
-		return rows, changes, false, nil
+	if len(ts) == 0 {
+		return pruned, nil
 	}
 	err = h.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		if err := write(ctx, db.New(tx), ids, changes, removed); err != nil {
+		if err := write(ctx, db.New(tx), ids, changes); err != nil {
 			return err
 		}
-		if h.cfg.Transitions == nil || len(ts) == 0 {
+		if h.cfg.Transitions == nil {
 			return nil
 		}
 		return h.cfg.Transitions(ctx, tx, ts)
 	})
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("write the health items: %w", err)
+		return false, fmt.Errorf("write the health items: %w", err)
 	}
-	return rows, changes, len(removed) > 0, nil
+	for i, id := range ids {
+		h.rows[id] = applied(h.rows[id], changes[i])
+	}
+	return pruned, nil
 }
 
 // unread keeps ids' last reports, or none before the first, with err as
@@ -491,51 +511,68 @@ func itemsIn(ctx context.Context, rd storage.Reader[file]) (map[ID]map[Key]row, 
 	return out, nil
 }
 
-// removed is the own levels of volumes on Nodes no longer named.
-func (h *Health) removed(ctx context.Context, rd storage.Reader[file]) ([]volumeAt, error) {
-	l, err := LevelsIn(ctx, rd)
-	if err != nil || len(l.own) == 0 {
-		return nil, err
+// prune deletes the own levels of volumes on Nodes no longer named, when
+// the names or the levels may have changed since it last looked.
+func (h *Health) prune(ctx context.Context) (bool, error) {
+	if len(h.Levels().own) == 0 || !h.mayPrune.Swap(false) {
+		return false, nil
 	}
-	names, err := h.cfg.Names(ctx, rd)
-	if err != nil {
-		return nil, err
-	}
-	var out []volumeAt
-	for at := range l.own {
-		if _, ok := names[at.node]; !ok {
-			out = append(out, at)
+	var pruned bool
+	err := h.writeLevels(ctx, func(ctx context.Context, tx *storage.Tx[file], l *Levels) error {
+		names, err := h.cfg.Names(ctx, tx)
+		if err != nil {
+			return err
 		}
+		for at := range l.own {
+			if _, ok := names[at.node]; ok {
+				continue
+			}
+			if err := db.New(tx).DeleteVolumeLevels(ctx, db.DeleteVolumeLevelsParams{NodeID: at.node, Mount: at.mount}); err != nil {
+				return err
+			}
+			delete(l.own, at)
+			pruned = true
+		}
+		return nil
+	})
+	if err != nil {
+		h.mayPrune.Store(true)
+		return false, fmt.Errorf("prune the levels of removed Nodes' volumes: %w", err)
 	}
-	return out, nil
+	return pruned, nil
 }
 
-func write(ctx context.Context, q *db.Queries, ids []ID, changes [][]change, removed []volumeAt) error {
+// write writes changes. Run alone writes health_item, so each row it
+// updates or deletes is there; one that isn't fails the Write.
+func write(ctx context.Context, q *db.Queries, ids []ID, changes [][]change) error {
 	for i, id := range ids {
 		for _, c := range changes[i] {
-			var err error
-			switch c.Kind {
-			case Raised:
-				err = q.InsertItem(ctx, db.InsertItemParams{
-					Category: string(id), Key: string(c.Key), Level: c.To.String(),
-					Since: storage.FromTime(c.Row.Since), ChangedAt: storage.FromTime(c.Row.ChangedAt),
-				})
-			case Worse, Better:
-				err = q.UpdateItemLevel(ctx, db.UpdateItemLevelParams{
-					Category: string(id), Key: string(c.Key), Level: c.To.String(), ChangedAt: storage.FromTime(c.Row.ChangedAt),
-				})
-			case Cleared:
-				err = q.DeleteItem(ctx, db.DeleteItemParams{Category: string(id), Key: string(c.Key)})
-			}
-			if err != nil {
+			if err := writeItem(ctx, q, id, c); err != nil {
 				return err
 			}
 		}
 	}
-	for _, at := range removed {
-		if err := q.DeleteVolumeLevels(ctx, db.DeleteVolumeLevelsParams{NodeID: at.node, Mount: at.mount}); err != nil {
-			return err
-		}
-	}
 	return nil
+}
+
+func writeItem(ctx context.Context, q *db.Queries, id ID, c change) error {
+	var n int64
+	var err error
+	switch c.Kind {
+	case Raised:
+		return q.InsertItem(ctx, db.InsertItemParams{
+			Category: string(id), Key: string(c.Key), Level: c.To.String(),
+			Since: storage.FromTime(c.Row.Since), ChangedAt: storage.FromTime(c.Row.ChangedAt),
+		})
+	case Worse, Better:
+		n, err = q.UpdateItemLevel(ctx, db.UpdateItemLevelParams{
+			Category: string(id), Key: string(c.Key), Level: c.To.String(), ChangedAt: storage.FromTime(c.Row.ChangedAt),
+		})
+	case Cleared:
+		n, err = q.DeleteItem(ctx, db.DeleteItemParams{Category: string(id), Key: string(c.Key)})
+	}
+	if err == nil && n != 1 {
+		err = fmt.Errorf("%s %s: %w", id, c.Key, errMoved)
+	}
+	return err
 }

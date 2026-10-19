@@ -22,7 +22,7 @@ func (q *Queries) DeleteCategory(ctx context.Context, category string) error {
 	return err
 }
 
-const deleteItem = `-- name: DeleteItem :exec
+const deleteItem = `-- name: DeleteItem :execrows
 DELETE FROM health_item WHERE category = ?1 AND key = ?2
 `
 
@@ -31,9 +31,12 @@ type DeleteItemParams struct {
 	Key      string
 }
 
-func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
-	_, err := q.db.ExecContext(ctx, deleteItem, arg.Category, arg.Key)
-	return err
+func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteItem, arg.Category, arg.Key)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteVolumeLevels = `-- name: DeleteVolumeLevels :exec
@@ -239,7 +242,7 @@ func (q *Queries) SetVolumeLevels(ctx context.Context, arg SetVolumeLevelsParams
 	return err
 }
 
-const updateItemLevel = `-- name: UpdateItemLevel :exec
+const updateItemLevel = `-- name: UpdateItemLevel :execrows
 UPDATE health_item SET level = ?1, changed_at = ?2
 WHERE category = ?3 AND key = ?4
 `
@@ -251,12 +254,15 @@ type UpdateItemLevelParams struct {
 	Key       string
 }
 
-func (q *Queries) UpdateItemLevel(ctx context.Context, arg UpdateItemLevelParams) error {
-	_, err := q.db.ExecContext(ctx, updateItemLevel,
+func (q *Queries) UpdateItemLevel(ctx context.Context, arg UpdateItemLevelParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateItemLevel,
 		arg.Level,
 		arg.ChangedAt,
 		arg.Category,
 		arg.Key,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

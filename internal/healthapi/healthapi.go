@@ -378,8 +378,8 @@ func (h handlers) checkHealthItem(ctx context.Context, _ identity.Admin, in *ite
 	return checkedOf(c), nil
 }
 
-func (h handlers) getHealthSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*settingsOutput, error) {
-	return currentSettings(ctx, open(h.w))
+func (h handlers) getHealthSettings(_ context.Context, _ identity.Admin, _ *struct{}) (*settingsOutput, error) {
+	return currentSettings(open(h.w)), nil
 }
 
 func (h handlers) updateHealthSettings(ctx context.Context, _ identity.Admin, in *healthSettingsInput) (*settingsOutput, error) {
@@ -391,15 +391,12 @@ func (h handlers) updateHealthSettings(ctx context.Context, _ identity.Admin, in
 	if err := hl.SetGlobalLevels(ctx, p); err != nil {
 		return nil, answer(err)
 	}
-	return currentSettings(ctx, hl)
+	return currentSettings(hl), nil
 }
 
-func currentSettings(ctx context.Context, hl *health.Health) (*settingsOutput, error) {
-	warn, errorBelow, err := hl.GlobalLevels(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &settingsOutput{Body: settings{WarnBelow: warn, ErrorBelow: errorBelow}}, nil
+func currentSettings(hl *health.Health) *settingsOutput {
+	warn, errorBelow := hl.GlobalLevels()
+	return &settingsOutput{Body: settings{WarnBelow: warn, ErrorBelow: errorBelow}}
 }
 
 func pairPatch(warn, errorBelow api.Patch[setting.Amount]) (health.PairPatch, error) {

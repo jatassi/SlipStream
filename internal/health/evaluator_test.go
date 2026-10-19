@@ -198,6 +198,7 @@ func (w *world) open(t *testing.T) *health.Health {
 			defer w.mu.Unlock()
 			return maps(w.names), nil
 		},
+		NameEvents:  []live.Event{nodesEvent},
 		Transitions: w.sink.take,
 		Zone:        time.UTC,
 		Timings:     health.DefaultTimings(),
@@ -568,6 +569,8 @@ func TestAnOverrideOutlivesItsVolumeUntilItsNodeGoes(t *testing.T) {
 		w.mu.Lock()
 		delete(w.names, media)
 		w.mu.Unlock()
+		nodesEvent.Bind(w.hub).Publish(t.Context(), nodesPoked{})
+		synctest.Wait()
 		evaluate(t, h, health.StorageID)
 		if list, _ := h.VolumeList(t.Context()); len(list.NotReporting) != 0 {
 			t.Fatalf("after its Node went the override is %+v, want it gone", list.NotReporting)
@@ -637,6 +640,32 @@ func TestAVolumeWithNoTotalIsNotJudged(t *testing.T) {
 		run(t, h)
 		if r, _ := h.Report(t.Context()); len(items(t, r, health.StorageID)) != 0 {
 			t.Fatalf("a volume reporting no total shows %+v, want nothing", items(t, r, health.StorageID))
+		}
+	})
+}
+
+func TestAnEvaluationThatChangesNothingReadsNoStorage(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		w.vols.set(10*setting.GB, true)
+		w.nodes.set(health.Answer{Items: []health.Item{node(health.Fail, "Media server is offline.")}}, nil)
+		h := w.open(t)
+		run(t, h)
+		synctest.Wait()
+		if err := w.lib.Close(); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(health.DefaultTimings().Reevaluate)
+		for _, c := range evaluate(t, h, health.StorageID, health.NodesID, health.ScheduledTasksID).Categories {
+			if c.Unread != "" {
+				t.Fatalf("an evaluation that changes nothing left %s unread with the library closed: %s", c.ID, c.Unread)
+			}
+		}
+		w.nodes.set(health.Answer{}, nil)
+		for _, c := range evaluate(t, h, health.NodesID).Categories {
+			if c.ID == health.NodesID && c.Unread == "" {
+				t.Fatal("clearing an item with the library closed left nodes read, want why it couldn't be written")
+			}
 		}
 	})
 }

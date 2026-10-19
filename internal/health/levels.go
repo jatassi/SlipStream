@@ -121,8 +121,7 @@ type Levels struct {
 	own    map[volumeAt]Pair
 }
 
-// LevelsIn reads the levels in rd, for a caller that judges volumes inside
-// its own read.
+// LevelsIn reads the levels in rd.
 func LevelsIn(ctx context.Context, rd storage.Reader[file]) (Levels, error) {
 	q := db.New(rd)
 	s, err := q.GetSettings(ctx)
@@ -173,40 +172,47 @@ func columns(a *setting.Amount) (*int64, *setting.Unit) {
 	return &a.N, &a.Unit
 }
 
-func (h *Health) levels(ctx context.Context) (Levels, error) {
+// Levels is every stored level, kept since Open and through each levels
+// Write, so judging volumes reads no storage.
+func (h *Health) Levels() Levels { return *h.levels.Load() }
+
+// writeLevels reads the levels inside a Write, lets change write and
+// apply its change to them, and keeps them once the Write commits.
+func (h *Health) writeLevels(ctx context.Context, change func(ctx context.Context, tx *storage.Tx[file], l *Levels) error) error {
+	h.levelsMu.Lock()
+	defer h.levelsMu.Unlock()
 	var l Levels
-	err := h.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
+	err := h.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		l, err = LevelsIn(ctx, rd)
-		return err
+		if l, err = LevelsIn(ctx, tx); err != nil {
+			return err
+		}
+		return change(ctx, tx, &l)
 	})
-	return l, err
+	if err != nil {
+		return err
+	}
+	h.levels.Store(&l)
+	return nil
 }
 
 // GlobalLevels is the two global levels as settings.
-func (h *Health) GlobalLevels(ctx context.Context) (warn, errorBelow setting.SpaceField, err error) {
-	l, err := h.levels(ctx)
-	if err != nil {
-		return setting.SpaceField{}, setting.SpaceField{}, err
-	}
-	return StorageWarnBelow.Field(l.global.Warn), StorageErrorBelow.Field(l.global.Error), nil
+func (h *Health) GlobalLevels() (warn, errorBelow setting.SpaceField) {
+	l := h.Levels()
+	return StorageWarnBelow.Field(l.global.Warn), StorageErrorBelow.Field(l.global.Error)
 }
 
 // SetGlobalLevels applies p unless it leaves the levels out of order, then
 // evaluates Storage and publishes health.changed{storage}, so other tabs
 // read the levels again even when no item moved.
 func (h *Health) SetGlobalLevels(ctx context.Context, p PairPatch) error {
-	err := h.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		l, err := LevelsIn(ctx, tx)
-		if err != nil {
+	err := h.writeLevels(ctx, func(ctx context.Context, tx *storage.Tx[file], l *Levels) error {
+		l.global = l.global.patched(p)
+		if err := ordered(resolve(l.global, Pair{}, 0)); err != nil {
 			return err
 		}
-		next := l.global.patched(p)
-		if err := ordered(resolve(next, Pair{}, 0)); err != nil {
-			return err
-		}
-		warnN, warnUnit := columns(next.Warn)
-		errN, errUnit := columns(next.Error)
+		warnN, warnUnit := columns(l.global.Warn)
+		errN, errUnit := columns(l.global.Error)
 		return db.New(tx).SetSettings(ctx, db.SetSettingsParams{WarnAmount: warnN, WarnUnit: warnUnit, ErrorAmount: errN, ErrorUnit: errUnit})
 	})
 	if err != nil {
@@ -250,13 +256,10 @@ func (h *Health) VolumeList(ctx context.Context) (VolumeList, error) {
 	if err != nil {
 		return VolumeList{}, err
 	}
-	var l Levels
+	l := h.Levels()
 	var names map[role.NodeID]string
 	err = h.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
 		var err error
-		if l, err = LevelsIn(ctx, rd); err != nil {
-			return err
-		}
 		names, err = h.cfg.Names(ctx, rd)
 		return err
 	})
@@ -296,19 +299,18 @@ func (h *Health) SetVolumeLevels(ctx context.Context, node role.NodeID, mount st
 	if _, ok := vs.byKey[volumeKey(node, mount)]; !ok {
 		return ErrNoVolume
 	}
-	err = h.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		l, err := LevelsIn(ctx, tx)
-		if err != nil {
-			return err
-		}
-		own := l.own[volumeAt{node, mount}].patched(p)
+	err = h.writeLevels(ctx, func(ctx context.Context, tx *storage.Tx[file], l *Levels) error {
+		at := volumeAt{node, mount}
+		own := l.own[at].patched(p)
 		if err := ordered(resolve(l.global, own, 0)); err != nil {
 			return err
 		}
 		q := db.New(tx)
 		if own.Warn == nil && own.Error == nil {
+			delete(l.own, at)
 			return q.DeleteVolumeLevels(ctx, db.DeleteVolumeLevelsParams{NodeID: node, Mount: mount})
 		}
+		l.own[at] = own
 		warnN, warnUnit := columns(own.Warn)
 		errN, errUnit := columns(own.Error)
 		return q.SetVolumeLevels(ctx, db.SetVolumeLevelsParams{
@@ -324,7 +326,8 @@ func (h *Health) SetVolumeLevels(ctx context.Context, node role.NodeID, mount st
 // RemoveVolumeLevels deletes a volume's own levels; removing none is no
 // error.
 func (h *Health) RemoveVolumeLevels(ctx context.Context, node role.NodeID, mount string) error {
-	err := h.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err := h.writeLevels(ctx, func(ctx context.Context, tx *storage.Tx[file], l *Levels) error {
+		delete(l.own, volumeAt{node, mount})
 		return db.New(tx).DeleteVolumeLevels(ctx, db.DeleteVolumeLevelsParams{NodeID: node, Mount: mount})
 	})
 	if err != nil {
@@ -334,6 +337,7 @@ func (h *Health) RemoveVolumeLevels(ctx context.Context, node role.NodeID, mount
 }
 
 func (h *Health) levelsChanged(ctx context.Context) error {
+	h.mayPrune.Store(true)
 	_, err := h.ask(ctx, ask{ids: []ID{StorageID}, publish: true})
 	return err
 }

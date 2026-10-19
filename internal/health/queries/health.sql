@@ -5,11 +5,11 @@ SELECT * FROM health_item ORDER BY category, key;
 INSERT INTO health_item (category, key, level, since, changed_at)
 VALUES (sqlc.arg(category), sqlc.arg(key), sqlc.arg(level), sqlc.arg(since), sqlc.arg(changed_at));
 
--- name: UpdateItemLevel :exec
+-- name: UpdateItemLevel :execrows
 UPDATE health_item SET level = sqlc.arg(level), changed_at = sqlc.arg(changed_at)
 WHERE category = sqlc.arg(category) AND key = sqlc.arg(key);
 
--- name: DeleteItem :exec
+-- name: DeleteItem :execrows
 DELETE FROM health_item WHERE category = sqlc.arg(category) AND key = sqlc.arg(key);
 
 -- name: DeleteCategory :exec

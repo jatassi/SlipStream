@@ -111,10 +111,7 @@ func (h *Health) storageAnswer(ctx context.Context) (Answer, error) {
 	if err != nil {
 		return Answer{}, err
 	}
-	l, err := h.levels(ctx)
-	if err != nil {
-		return Answer{}, err
-	}
+	l := h.Levels()
 	var a Answer
 	for _, v := range vs.list {
 		if v.Total == 0 {
