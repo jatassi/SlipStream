@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -39,24 +37,24 @@ type DownloadclientsTorrent struct {
 	Private        int64
 	Trackers       string
 	ContentType    works.TypeID
-	SaveFolder     sql.NullString
+	SaveFolder     *string
 	Wanted         string
 	AddedOrder     int64
 	AddedAt        storage.Time
 	RemovedAt      storage.Time
-	RemovedReason  sql.NullString
+	RemovedReason  *string
 	DeleteFiles    int64
 	PartedAt       storage.Time
-	Freed          sql.NullInt64
+	Freed          *int64
 	Uploaded       int64
 	Downloaded     int64
 	ActiveSeconds  int64
 	SeedingSeconds int64
 	TotalsAt       storage.Time
-	Report         sql.NullString
+	Report         *string
 	ReportedAt     storage.Time
-	Completion     sql.NullString
+	Completion     *string
 	CompletedAt    storage.Time
-	Fault          sql.NullString
+	Fault          *string
 	FaultAt        storage.Time
 }
