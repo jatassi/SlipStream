@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -102,7 +103,7 @@ func TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable(t *testing.T) {
 }
 
 func TestBytesGoThroughTheRootsNode(t *testing.T) {
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	node := role.NodeID{UUID: storage.NewUUID()}
 	folder := t.TempDir()
 	root := rootstest.Root(t, lib, node, alpha, folder)
@@ -153,7 +154,7 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 }
 
 func TestAWriteToARootItsNodeDoesntHoldIsNotReady(t *testing.T) {
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	svc, err := roots.Open(t.Context(), rootstest.Config(t, lib, alpha))
 	if err != nil {
 		t.Fatal(err)

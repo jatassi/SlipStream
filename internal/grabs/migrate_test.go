@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -32,7 +33,7 @@ func TestTheFetchNodeIsTheHomeNodeOfEachFetchedGrab(t *testing.T) {
 	open := func(g storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 		t.Helper()
 		schemas := []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-			roots.Schema(), indexers.Schema(), g, files.Schema()}
+			roots.Schema(), indexers.Schema(), downloadclients.Schema(), g, files.Schema()}
 		lib, err := storage.OpenLibrary(ctx, path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 		if err != nil {
 			t.Fatal(err)
