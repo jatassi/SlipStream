@@ -192,10 +192,11 @@ func (q *Queries) ListTracksOf(ctx context.Context, workIds []works.WorkID) ([]M
 	return items, nil
 }
 
-const upsertAlbum = `-- name: UpsertAlbum :exec
+const upsertAlbum = `-- name: UpsertAlbum :execrows
 INSERT INTO music_album (level_id, work_id, released, primary_type, release_id)
 VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (level_id) DO UPDATE SET released = excluded.released, primary_type = excluded.primary_type, release_id = excluded.release_id
+WHERE released IS NOT excluded.released OR primary_type IS NOT excluded.primary_type OR release_id IS NOT excluded.release_id
 `
 
 type UpsertAlbumParams struct {
@@ -206,21 +207,25 @@ type UpsertAlbumParams struct {
 	ReleaseID   ReleaseID
 }
 
-func (q *Queries) UpsertAlbum(ctx context.Context, arg UpsertAlbumParams) error {
-	_, err := q.db.ExecContext(ctx, upsertAlbum,
+func (q *Queries) UpsertAlbum(ctx context.Context, arg UpsertAlbumParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upsertAlbum,
 		arg.LevelID,
 		arg.WorkID,
 		arg.Released,
 		arg.PrimaryType,
 		arg.ReleaseID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
-const upsertArtist = `-- name: UpsertArtist :exec
+const upsertArtist = `-- name: UpsertArtist :execrows
 INSERT INTO music_artist (work_id, country, disambiguation)
 VALUES (?1, ?2, ?3)
 ON CONFLICT (work_id) DO UPDATE SET country = excluded.country, disambiguation = excluded.disambiguation
+WHERE country IS NOT excluded.country OR disambiguation IS NOT excluded.disambiguation
 `
 
 type UpsertArtistParams struct {
@@ -229,15 +234,19 @@ type UpsertArtistParams struct {
 	Disambiguation string
 }
 
-func (q *Queries) UpsertArtist(ctx context.Context, arg UpsertArtistParams) error {
-	_, err := q.db.ExecContext(ctx, upsertArtist, arg.WorkID, arg.Country, arg.Disambiguation)
-	return err
+func (q *Queries) UpsertArtist(ctx context.Context, arg UpsertArtistParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upsertArtist, arg.WorkID, arg.Country, arg.Disambiguation)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
-const upsertTrack = `-- name: UpsertTrack :exec
+const upsertTrack = `-- name: UpsertTrack :execrows
 INSERT INTO music_track (item_id, work_id, disc, number, length_ms)
 VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (item_id) DO UPDATE SET disc = excluded.disc, number = excluded.number, length_ms = excluded.length_ms
+WHERE disc IS NOT excluded.disc OR number IS NOT excluded.number OR length_ms IS NOT excluded.length_ms
 `
 
 type UpsertTrackParams struct {
@@ -248,13 +257,16 @@ type UpsertTrackParams struct {
 	LengthMs *int64
 }
 
-func (q *Queries) UpsertTrack(ctx context.Context, arg UpsertTrackParams) error {
-	_, err := q.db.ExecContext(ctx, upsertTrack,
+func (q *Queries) UpsertTrack(ctx context.Context, arg UpsertTrackParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upsertTrack,
 		arg.ItemID,
 		arg.WorkID,
 		arg.Disc,
 		arg.Number,
 		arg.LengthMs,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

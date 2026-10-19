@@ -3538,15 +3538,75 @@ export const WorksDurationValue = zod.object({
 export type WorksDurationValue = zod.input<typeof WorksDurationValue>;
 export type WorksDurationValueOutput = zod.output<typeof WorksDurationValue>;
 
+export const WorksTextsValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["texts"]),
+  texts: zod.array(zod.string()).describe("In the source's order"),
+});
+
+export type WorksTextsValue = zod.input<typeof WorksTextsValue>;
+export type WorksTextsValueOutput = zod.output<typeof WorksTextsValue>;
+
+export const WorksPerson = zod.object({
+  department: zod.string().describe("Empty when the source names none"),
+  name: zod.string(),
+  role: zod
+    .string()
+    .describe("The character played or the job done; empty when the source names none"),
+});
+
+export type WorksPerson = zod.input<typeof WorksPerson>;
+export type WorksPersonOutput = zod.output<typeof WorksPerson>;
+
+export const WorksPeopleValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["people"]),
+  people: zod.array(WorksPerson).describe("In the source's order"),
+});
+
+export type WorksPeopleValue = zod.input<typeof WorksPeopleValue>;
+export type WorksPeopleValueOutput = zod.output<typeof WorksPeopleValue>;
+
+export const WorksLinkValue = zod.object({
+  key: zod.string(),
+  kind: zod.enum(["link"]),
+  label: zod.string(),
+  url: zod.url(),
+});
+
+export type WorksLinkValue = zod.input<typeof WorksLinkValue>;
+export type WorksLinkValueOutput = zod.output<typeof WorksLinkValue>;
+
 export const WorksFieldValue = zod.discriminatedUnion("kind", [
   WorksTextValue,
   WorksNumberValue,
   WorksDateValue,
   WorksDurationValue,
+  WorksTextsValue,
+  WorksPeopleValue,
+  WorksLinkValue,
 ]);
 
 export type WorksFieldValue = zod.input<typeof WorksFieldValue>;
 export type WorksFieldValueOutput = zod.output<typeof WorksFieldValue>;
+
+export const worksRatingScaleExclusiveMin = 0;
+
+export const worksRatingValueMin = 0;
+
+export const worksRatingVotesMin = 0;
+
+export const WorksRating = zod.object({
+  fetchedAt: zod.iso.datetime({ offset: true }),
+  label: zod.string().describe("The source's name as a person reads it"),
+  scale: zod.number().gt(worksRatingScaleExclusiveMin).describe("The value's maximum"),
+  source: zod.string().describe("The ratings source, such as imdb"),
+  value: zod.number().min(worksRatingValueMin),
+  votes: zod.int().min(worksRatingVotesMin).nullable().describe("Null when the source counts none"),
+});
+
+export type WorksRating = zod.input<typeof WorksRating>;
+export type WorksRatingOutput = zod.output<typeof WorksRating>;
 
 export const WorksItem = zod.object({
   fields: zod.array(WorksFieldValue),
@@ -3556,6 +3616,7 @@ export const WorksItem = zod.object({
   levelId: zod.uuid().nullable().describe("Null when the Content Type declares no levels"),
   monitored: zod.boolean(),
   position: zod.int().min(1),
+  ratings: zod.array(WorksRating).describe("By source"),
   withdrawnAt: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -3588,6 +3649,12 @@ export const WorksTree = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
   contentType: zod.string().regex(worksTreeContentTypeRegExp),
   fields: zod.array(WorksFieldValue),
+  goneUpstreamAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the metadata source last answered that it no longer has this Work; null while it has it",
+    ),
   id: zod.uuid(),
   items: zod
     .array(WorksItem)
@@ -3597,6 +3664,7 @@ export const WorksTree = zod.object({
   levels: zod
     .array(WorksLevel)
     .describe("By depth, then their parent's order, live before withdrawn, then position"),
+  ratings: zod.array(WorksRating).describe("The Work's own, by source"),
   refreshedAt: zod.iso.datetime({ offset: true }),
   sortLabel: zod.string(),
 });
@@ -3636,7 +3704,7 @@ export const WorksFieldSpec = zod.object({
     .exactOptional()
     .describe("The level's depth, 1 for the outermost; present only on tier level"),
   key: zod.string(),
-  kind: zod.enum(["text", "number", "date", "duration"]),
+  kind: zod.enum(["text", "number", "date", "duration", "texts", "people", "link"]),
   label: zod.string(),
   tier: zod.enum(["work", "level", "item"]),
 });
@@ -3697,6 +3765,12 @@ export const WorksListedWork = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
   contentType: zod.string().regex(worksListedWorkContentTypeRegExp),
   fields: zod.array(WorksFieldValue).describe("The Work's own fields"),
+  goneUpstreamAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the metadata source last answered that it no longer has this Work; null while it has it",
+    ),
   id: zod.uuid(),
   key: zod.string(),
   label: zod.string(),
@@ -3737,6 +3811,15 @@ export const WorksNewWork = zod.object({
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
+
+export const worksTypeChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const WorksTypeChanged = zod.object({
+  contentType: zod.string().regex(worksTypeChangedContentTypeRegExp),
+});
+
+export type WorksTypeChanged = zod.input<typeof WorksTypeChanged>;
+export type WorksTypeChangedOutput = zod.output<typeof WorksTypeChanged>;
 
 export const WorksWorkChanged = zod.object({
   workId: zod.uuid(),
@@ -3928,6 +4011,14 @@ export type LiveEventWorksContentTypesChangedOutput = zod.output<
   typeof LiveEventWorksContentTypesChanged
 >;
 
+export const LiveEventWorksTypeChanged = zod.object({
+  event: zod.enum(["works.type-changed"]),
+  data: WorksTypeChanged,
+});
+
+export type LiveEventWorksTypeChanged = zod.input<typeof LiveEventWorksTypeChanged>;
+export type LiveEventWorksTypeChangedOutput = zod.output<typeof LiveEventWorksTypeChanged>;
+
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
   LiveEventGrabsChanged,
@@ -3950,6 +4041,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
+  LiveEventWorksTypeChanged,
 ]);
 
 export type LiveEvent = zod.input<typeof LiveEvent>;

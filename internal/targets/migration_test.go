@@ -195,6 +195,6 @@ func TestEveryWorkMigratesToItsTypesDefaultProfileAndNoStarterIsMade(t *testing.
 // seedWork adds a Work of type typ as works 00001 holds it.
 func seedWork(ctx context.Context, tx *storage.Tx[storage.Library], typ, key string) (works.WorkID, error) {
 	id := works.WorkID{UUID: storage.NewUUID()}
-	_, err := tx.ExecContext(ctx, `INSERT INTO works_work VALUES (?, ?, ?, ?, ?, 1, 1)`, id, typ, key, key, key)
+	_, err := tx.ExecContext(ctx, `INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, ?, ?, ?, ?, 1, 1)`, id, typ, key, key, key)
 	return id, err
 }

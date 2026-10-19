@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -160,10 +161,10 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 	s := serve(t)
 	s.fx.Put("w1", record())
 	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1","monitor":true}`)
-	want := `{"created":true,"work":{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T",` +
-		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],` +
+	want := `{"created":true,"work":{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
+		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],` +
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
-		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}]}]}}` + "\n"
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[]}]}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -173,7 +174,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("addWork again = %d %s", code, masked(again))
 	}
 	code, list := s.call(t, http.MethodGet, "/api/v1/works?contentType=fixture", "")
-	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","fields":[{"key":"origin","kind":"text","text":"Grandma"}]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
+	if want := `{"works":[{"id":"` + id + `","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,"fields":[{"key":"origin","kind":"text","text":"Grandma"}]}]}` + "\n"; code != http.StatusOK || times.ReplaceAllString(list, `"T"`) != want {
 		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
@@ -190,7 +191,8 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	s.handler.ServeHTTP(w, req)
 	want := `{"contentTypes":[{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},` +
 		`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},` +
-		`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"}]}]}` + "\n"
+		`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},` +
+		`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}]}]}` + "\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
@@ -214,7 +216,8 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 200,
 		`{"id":"fixture","name":"Fixture","icon":"shapes","enabled":false,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"item":{"one":"Thing","many":"Things"},`+
 			`"fields":[{"key":"origin","label":"Origin","tier":"work","kind":"text"},{"key":"packed","label":"Packed","tier":"level","depth":1,"kind":"date"},`+
-			`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"}]}`)
+			`{"key":"count","label":"Count","tier":"item","kind":"number"},{"key":"runtime","label":"Runtime","tier":"item","kind":"duration"},`+
+			`{"key":"tags","label":"Tags","tier":"work","kind":"texts"},{"key":"makers","label":"Makers","tier":"work","kind":"people"},{"key":"page","label":"Page","tier":"work","kind":"link"}]}`)
 	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "", 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`, 409, `{"status":409,"code":"content_type_disabled","title":"That Content Type is turned off"}`)
 	if code, _ := s.call(t, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":true}`); code != 200 {
@@ -227,8 +230,57 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Remove its Works before turning this Content Type off"}`)
+	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "Invalid API key", Err: works.ErrRefused})
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused SlipStream's key","detail":"TMDB refused SlipStream's key"}`)
+}
+
+func TestRefreshByHandAnswersGoneUpstream409(t *testing.T) {
+	s := serve(t)
+	s.fx.Put("w1", record())
+	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	if code != 200 {
+		t.Fatalf("addWork = %d %s", code, body)
+	}
+	work := "/api/v1/works/" + uuids.FindString(body)
 	s.fx.Fail("w1", fmt.Errorf("lookup: %w", works.ErrNotFound))
-	expect(t, s, http.MethodPost, "/api/v1/works/"+uuids.FindString(body)+"/refresh", "", 409, `{"status":409,"code":"work_gone_upstream","title":"The metadata source no longer has this Work"}`)
+	gone := `{"status":409,"code":"work_gone_upstream","title":"The metadata source no longer has this Work"}`
+	expect(t, s, http.MethodPost, work+"/refresh", "", 409, gone)
+	expect(t, s, http.MethodPost, work+"/refresh", "", 409, gone)
+	code, body = s.call(t, http.MethodGet, work, "")
+	if code != 200 || strings.Contains(body, `"goneUpstreamAt":null`) || !strings.Contains(body, `"goneUpstreamAt":"`) {
+		t.Fatalf("getWork after the source lost it = %d %s, want goneUpstreamAt set", code, body)
+	}
+	s.fx.Fail("w1", nil)
+	code, body = s.call(t, http.MethodPost, work+"/refresh", "")
+	if code != 200 || !strings.Contains(body, `"goneUpstreamAt":null`) {
+		t.Fatalf("refreshWork once the source has it again = %d %s, want goneUpstreamAt null", code, body)
+	}
+}
+
+func TestFieldKindsTextsPeopleLinkRoundTripTheAPI(t *testing.T) {
+	s := serve(t)
+	r := record()
+	r.WorkFields = append(r.WorkFields,
+		works.TextsField("tags", []string{"wool", "winter"}),
+		works.PeopleField("makers", []works.Person{{Name: "Ada", Role: "Knitter", Department: "Craft", Photo: artwork.Ref{Source: "fixture", Shape: artwork.ShapePhoto, Path: "/ada.jpg"}}, {Name: "Grace"}}),
+		works.LinkField("page", works.Link{Label: "Shop", URL: "https://example.test/attic"}),
+	)
+	votes := int64(1200)
+	r.Tree.Ratings = []works.Rating{{Source: "tmdb", Value: 7.5, Votes: &votes}, {Source: "rottentomatoes", Value: 91}}
+	s.fx.Put("w1", r)
+	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	if code != 200 {
+		t.Fatalf("addWork = %d %s", code, body)
+	}
+	code, body = s.call(t, http.MethodGet, "/api/v1/works/"+uuids.FindString(body), "")
+	want := `"fields":[{"key":"origin","kind":"text","text":"Grandma"},{"key":"tags","kind":"texts","texts":["wool","winter"]},` +
+		`{"key":"makers","kind":"people","people":[{"name":"Ada","role":"Knitter","department":"Craft"},{"name":"Grace","role":"","department":""}]},` +
+		`{"key":"page","kind":"link","label":"Shop","url":"https://example.test/attic"}],` +
+		`"ratings":[{"source":"rottentomatoes","label":"Rotten Tomatoes critics","value":91,"scale":100,"votes":null,"fetchedAt":"T"},` +
+		`{"source":"tmdb","label":"TMDB","value":7.5,"scale":10,"votes":1200,"fetchedAt":"T"}],"levels"`
+	if code != 200 || !strings.Contains(masked(body), want) {
+		t.Fatalf("getWork = %d\n%s\nwant it to hold\n%s", code, masked(body), want)
+	}
 }
 
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {

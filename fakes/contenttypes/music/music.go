@@ -138,26 +138,31 @@ func (m *Music) Fetch(ctx context.Context, key works.Key) (works.Fetched, error)
 	return f, nil
 }
 
-func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, raw []byte) error {
+func (*Music) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, raw []byte) (bool, error) {
 	var d detail
 	if err := json.Unmarshal(raw, &d); err != nil {
-		return fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
+		return false, fmt.Errorf("decode the detail of work %s: %w", at.Work, err)
 	}
 	q := db.New(tx)
-	if err := q.UpsertArtist(ctx, db.UpsertArtistParams{WorkID: at.Work, Country: d.Country, Disambiguation: d.Disambiguation}); err != nil {
-		return err
+	rows, err := q.UpsertArtist(ctx, db.UpsertArtistParams{WorkID: at.Work, Country: d.Country, Disambiguation: d.Disambiguation})
+	if err != nil {
+		return false, err
 	}
 	for _, a := range d.Albums {
-		if err := q.UpsertAlbum(ctx, db.UpsertAlbumParams{LevelID: at.Levels[a.Key], WorkID: at.Work, Released: a.Released, PrimaryType: a.PrimaryType, ReleaseID: a.Release}); err != nil {
-			return err
+		n, err := q.UpsertAlbum(ctx, db.UpsertAlbumParams{LevelID: at.Levels[a.Key], WorkID: at.Work, Released: a.Released, PrimaryType: a.PrimaryType, ReleaseID: a.Release})
+		if err != nil {
+			return false, err
 		}
+		rows += n
 		for _, t := range a.Tracks {
-			if err := q.UpsertTrack(ctx, db.UpsertTrackParams{ItemID: at.Items[t.Key], WorkID: at.Work, Disc: t.Disc, Number: t.Number, LengthMs: t.LengthMs}); err != nil {
-				return err
+			n, err := q.UpsertTrack(ctx, db.UpsertTrackParams{ItemID: at.Items[t.Key], WorkID: at.Work, Disc: t.Disc, Number: t.Number, LengthMs: t.LengthMs})
+			if err != nil {
+				return false, err
 			}
+			rows += n
 		}
 	}
-	return nil
+	return rows > 0, nil
 }
 
 func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID) (works.FieldSet, error) {
