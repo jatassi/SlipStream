@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -140,4 +142,62 @@ func TestADownloadWithAPayloadFinishesIntoItsSavePathOnceResumed(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("events = %#v, want %#v", got, want)
 	}
+}
+
+func TestAPacedDownloadThatFindsTheDiskFullPausesUntilResumed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		m, err := bencode.DecodeMetainfo([]byte(single))
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := enginetest.NewWorld()
+		w.Payload(m.InfoHash, []byte("hello"))
+		w.Transfer(m.InfoHash, 1, 0)
+		e, err := w.Open(engine.Config{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		h, err := e.Add(engine.AddParams{Metainfo: []byte(single), SavePath: dir})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Resume(h); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(2 * time.Second)
+		w.DiskFull(true)
+		if s, err := e.Status(h); err != nil || !s.Paused || s.Done != 2 {
+			t.Fatalf("on a full disk two seconds into a 1 B/s download, Status = %+v, %v; want paused with 2 bytes done", s, err)
+		}
+		w.DiskFull(false)
+		if err := e.Resume(h); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(3 * time.Second)
+		if s, err := e.Status(h); err != nil || s.State != engine.StateSeeding || s.Done != 5 {
+			t.Fatalf("resumed with room again, Status = %+v, %v; want seeding 5 of 5", s, err)
+		}
+		want := []engine.Event{
+			engine.Resumed{Torrent: h}, engine.FileError{Torrent: h, Err: engine.ErrDiskFull}, engine.Paused{Torrent: h},
+			engine.Resumed{Torrent: h}, engine.Finished{Torrent: h},
+		}
+		if got := runEvents(e); !reflect.DeepEqual(got, want) {
+			t.Fatalf("events = %#v, want %#v", got, want)
+		}
+	})
+}
+
+// runEvents closes e and lists its events that start, pause, fail or
+// finish a torrent.
+func runEvents(e engine.Engine) []engine.Event {
+	_ = e.Close()
+	var got []engine.Event
+	for ev := range e.Events() {
+		switch ev.(type) {
+		case engine.FileError, engine.Paused, engine.Resumed, engine.Finished:
+			got = append(got, ev)
+		}
+	}
+	return got
 }

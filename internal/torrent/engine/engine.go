@@ -28,6 +28,10 @@ type Engine interface {
 	// moves to the scheduled time. A paused torrent, or a tracker it never
 	// announced to, is left as it is.
 	Reannounce(h Handle, tracker int, delay time.Duration, ignoreMinInterval bool) error
+	// Recheck hashes the files of a paused torrent, connecting to no peer
+	// and announcing to no tracker. The torrent runs for the check, so
+	// Resumed may come first, and pauses once checked: Checked, then Paused.
+	Recheck(Handle) error
 	// SaveResume asks for resume data: ResumeSaved or ResumeFailed follows.
 	SaveResume(Handle) error
 	// PostTrackers sends TrackerList for h.
@@ -35,6 +39,10 @@ type Engine interface {
 	// PostUpdates sends Updates with the torrents whose status changed since
 	// the last call, or with every torrent once the engine sent Dropped.
 	PostUpdates() error
+	// PostStats sends Stats.
+	PostStats() error
+	// Configure applies l live.
+	Configure(l Limits) error
 	ConnectPeer(Handle, netip.AddrPort) error
 	Status(Handle) (Status, error)
 	// Remove leaves once no tracker awaits its answer to started, so stopped
@@ -47,7 +55,13 @@ type Engine interface {
 	Files(Handle) ([]File, error)
 	// FileProgress is the bytes done of each file, in Files' order.
 	FileProgress(Handle) ([]int64, error)
+	// ListenAddr is ErrNotListening while the engine has no listener: a
+	// listen interface naming a port binds that port or none, and the
+	// engine sends ListenFailed.
 	ListenAddr() (netip.AddrPort, error)
+	// Version names the engine and the peer ID prefix and user agent it
+	// announces with, which are its own: SlipStream never sets them.
+	Version() Version
 	// Events is closed by Close. A reader that falls behind gets Dropped,
 	// and the next PostUpdates carries every torrent.
 	Events() <-chan Event
@@ -67,6 +81,29 @@ type Config struct {
 	Rand *rand.Rand
 }
 
+// Limits is the engine's live configuration, which Configure applies.
+type Limits struct {
+	// DownloadLimit and UploadLimit are payload bytes a second, 0 for none.
+	DownloadLimit, UploadLimit int64
+	// Connections is the most peer connections, 0 for as many as the
+	// process may open files.
+	Connections int
+	// UTP lets peers connect over uTP as well as TCP, both ways.
+	UTP bool
+	// WatchIncoming sends IncomingPeer for each incoming connection.
+	WatchIncoming bool
+}
+
+// Version is an engine's version and the identity it announces with.
+type Version struct {
+	// Libtorrent is major.minor.tiny.
+	Libtorrent string
+	// PeerIDPrefix starts every peer ID: -LT, the version, 0 and -.
+	PeerIDPrefix string
+	// UserAgent is libtorrent/ and the version with a fourth number.
+	UserAgent string
+}
+
 // Settings is the torrent section of a Node's configuration.
 type Settings struct {
 	Listen netip.AddrPort `yaml:"listen"`
@@ -76,6 +113,9 @@ type Settings struct {
 	// OutgoingUTP dials peers over uTP as well as TCP. Off, the engine
 	// dials TCP only and still accepts uTP.
 	OutgoingUTP bool `yaml:"outgoing_utp"`
+	// LoopbackPeers has a peer on loopback count as one on the internet,
+	// for a world whose every peer is on loopback.
+	LoopbackPeers bool `yaml:"loopback_peers"`
 }
 
 func DefaultSettings() Settings {
@@ -267,6 +307,23 @@ type (
 		Err     *Error
 	}
 	Updates struct{ Statuses []Status }
+	// Checked ends a Recheck.
+	Checked struct{ Torrent Handle }
+	// IncomingPeer is a peer that connected to the listener, sent while
+	// Limits.WatchIncoming is set.
+	IncomingPeer struct{ Addr netip.Addr }
+	// FileError is a failed read or write of a torrent's files. A write
+	// that finds the disk full, whose Err matches ErrDiskFull, pauses the
+	// torrent.
+	FileError struct {
+		Torrent Handle
+		Err     *Error
+	}
+	// Stats is the payload the engine sent and received since it opened.
+	Stats struct {
+		SentPayload, RecvPayload int64
+		At                       time.Time
+	}
 )
 
 func (Added) event()            {}
@@ -287,6 +344,10 @@ func (ResumeSaved) event()      {}
 func (ResumeFailed) event()     {}
 func (FilesDeleted) event()     {}
 func (Updates) event()          {}
+func (Checked) event()          {}
+func (IncomingPeer) event()     {}
+func (FileError) event()        {}
+func (Stats) event()            {}
 
 // Category implements error so errors.Is(err, CategoryBdecode) matches any
 // *Error in that category.
@@ -317,12 +378,15 @@ const (
 	CodeUnknownTorrent = 1
 	CodeClosed         = 2
 	CodeNotListening   = 3
+	CodeDiskFull       = 4
 )
 
 var (
 	ErrUnknownTorrent = &Error{Category: CategoryShim, Code: CodeUnknownTorrent, Text: "unknown torrent"}
 	ErrClosed         = &Error{Category: CategoryShim, Code: CodeClosed, Text: "engine closed"}
 	ErrNotListening   = &Error{Category: CategoryShim, Code: CodeNotListening, Text: "not listening"}
+	// ErrDiskFull matches an error out of space on any OS.
+	ErrDiskFull = &Error{Category: CategoryShim, Code: CodeDiskFull, Text: "disk full"}
 )
 
 // Error compares by Category and Code. Text is for logs.

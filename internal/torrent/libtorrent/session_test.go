@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -23,10 +22,13 @@ func open(t *testing.T) engine.Engine {
 	return openWith(t, engine.Config{})
 }
 
-// openWith opens a session on loopback, as cfg says otherwise.
+// openWith opens a session as cfg says, on loopback's any port unless it
+// names a listen interface.
 func openWith(t *testing.T, cfg engine.Config) engine.Engine {
 	t.Helper()
-	cfg.ListenInterface = netip.MustParseAddrPort("127.0.0.1:0")
+	if !cfg.ListenInterface.IsValid() {
+		cfg.ListenInterface = netip.MustParseAddrPort("127.0.0.1:0")
+	}
 	cfg.Rand = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())) //nolint:gosec // picks listen ports
 	e, err := libtorrent.Open(cfg)
 	if err != nil {
@@ -143,10 +145,13 @@ func awaitUploaded(t *testing.T, e engine.Engine, h engine.Handle, n int64) {
 }
 
 func TestEngineSaysWhyAFixedPortDoesNotListen(t *testing.T) {
-	_, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("192.0.2.1:6881")})
-	const want = "shim error 3: not listening on 192.0.2.1:6881: system error "
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Fatalf("open on an address the host does not have: err = %v, want it to start %q", err, want)
+	e := openWith(t, engine.Config{ListenInterface: netip.MustParseAddrPort("192.0.2.1:6881")})
+	if _, err := e.ListenAddr(); !errors.Is(err, engine.ErrNotListening) {
+		t.Fatalf("on an address the host does not have, ListenAddr err = %v, want %v", err, engine.ErrNotListening)
+	}
+	failed := waitFor(t, e.Events(), func(engine.ListenFailed) bool { return true })
+	if !errors.Is(failed.Err, engine.CategorySystem) {
+		t.Fatalf("on an address the host does not have, the engine failed to listen with %v, want a system error", failed.Err)
 	}
 }
 

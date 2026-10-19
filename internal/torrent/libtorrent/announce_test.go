@@ -45,7 +45,7 @@ func (a *announces) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	copy(hash[:], q.Get("info_hash"))
 	event := q.Get("event")
 	a.mu.Lock()
-	a.log = append(a.log, enginetest.Announce{InfoHash: hash, Event: event, At: time.Now()})
+	a.log = append(a.log, enginetest.Announce{InfoHash: hash, Event: event, At: time.Now(), PeerID: q.Get("peer_id"), UserAgent: r.UserAgent()})
 	a.mu.Unlock()
 	if event == "started" && a.rules.HoldStarted {
 		select {

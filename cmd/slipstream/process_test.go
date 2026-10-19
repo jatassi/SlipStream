@@ -516,6 +516,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default", Env: "SLIPSTREAM_TORRENT_LISTEN"},
 			{Key: "torrent.downloads", Value: "downloads", Default: "downloads", Source: "default", Env: "SLIPSTREAM_TORRENT_DOWNLOADS"},
 			{Key: "torrent.outgoing_utp", Value: "true", Default: "true", Source: "default", Env: "SLIPSTREAM_TORRENT_OUTGOING_UTP"},
+			{Key: "torrent.loopback_peers", Value: "false", Default: "false", Source: "default", Env: "SLIPSTREAM_TORRENT_LOOPBACK_PEERS"},
 			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default", Env: "SLIPSTREAM_HTTP_LISTEN"},
 			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_HTTP_TRUSTED_ORIGINS"},
 			{Key: "http.ports_to_try", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_HTTP_PORTS_TO_TRY"},

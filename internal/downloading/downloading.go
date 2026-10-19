@@ -111,6 +111,9 @@ func (c *Client) note(ev engine.Event) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch ev := ev.(type) {
+	case engine.ListenFailed:
+		c.cfg.Log.Warn("The torrent engine is not listening", "error", ev.Err)
+		return
 	case engine.Finished:
 		c.finished[c.hashOf[ev.Torrent]] = true
 	case engine.TorrentFailed:

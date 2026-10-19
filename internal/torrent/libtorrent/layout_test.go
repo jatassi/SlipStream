@@ -15,6 +15,7 @@ func TestTheShimStructsMatchGo(t *testing.T) {
 		"lts_alert":      {320, 16, 280, 312},
 		"lts_file":       {24, 16},
 		"lts_tracker":    {320, 32, 312},
+		"lts_limits":     {32, 16, 24},
 	}
 	if got := layout(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("cgo lays the shim's structs out as %v, want %v as in shim.cpp's static_asserts", got, want)

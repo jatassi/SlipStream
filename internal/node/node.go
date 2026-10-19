@@ -489,7 +489,9 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 	})
 	n.stack.Go("torrent events", n.downloads.Drain)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
-	if l.Torrent, err = torrent.ListenAddr(); err != nil {
+	// An engine whose port was taken runs without a listener, and the
+	// engine-starts probe says so.
+	if l.Torrent, err = torrent.ListenAddr(); err != nil && !errors.Is(err, engine.ErrNotListening) {
 		return fmt.Errorf("torrent listen address: %w", err)
 	}
 	return nil
