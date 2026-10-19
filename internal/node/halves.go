@@ -193,7 +193,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Works: tree, Targets: goals, Grabs: grabs.GrabCells{},
 		Naming:  contenttype.Project(opened, func(t contenttype.Type) naming.Facet { return t }),
 		Today:   n.today,
-		Disk:    files.OSDisk{},
+		Disk:    library,
 		Timings: n.cfg.Timings.Files,
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
@@ -211,9 +211,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
-		Payloads:      n.downloads,
+		Roots:         library,
+		Staging:       n.store,
+		Controller:    side.Self(),
 		Transfers:     receiver,
-		Linker:        files.OSLinker{},
 		Timings:       n.cfg.Timings.Grabs,
 		Rand:          n.grabsRand,
 		Changed:       grabs.ChangedEvent.Bind(n.hub),

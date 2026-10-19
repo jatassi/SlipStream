@@ -11,17 +11,17 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// incomingDir is the folder in each root where a file's bytes wait between
-// their download and its name, and between an old name and a new one.
-const incomingDir = ".slipstream-incoming"
-
 // HoldingOf is the root-relative path where the bytes of the file or Grab
-// with id wait: a name only it uses. ext is the file's, with its dot.
-func HoldingOf(id storage.UUID, ext string) string { return incomingDir + "/" + id.String() + ext }
+// with id wait, between their download and its name and between an old
+// name and a new one: a name only it uses. ext is the file's, with its dot.
+func HoldingOf(id storage.UUID, ext string) string {
+	return storing.HoldingDir + "/" + id.String() + ext
+}
 
 // Incoming is a downloaded file whose bytes sit at Holding under its root,
 // placed there before the Write that imports it.

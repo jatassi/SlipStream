@@ -226,9 +226,14 @@ type Roots struct {
 	// mu orders the checks and writes that create roots, so two can't
 	// claim one folder.
 	mu sync.Mutex
-	// last is what each root's Node last reported of it at its place. Only
-	// Run reads and writes it.
-	last map[ID]report
+	// last is what each root's Node last reported of it, and at which
+	// place. Only Run reads and writes it.
+	last map[ID]placed
+	// watch is closed and replaced when a report moves.
+	watch struct {
+		sync.Mutex
+		ch chan struct{}
+	}
 	// rehoming is each running re-home's progress, under its own lock so a
 	// list never waits for a re-home.
 	rehoming struct {
@@ -253,7 +258,8 @@ func Open(ctx context.Context, cfg Config) (*Roots, error) {
 	if len(homed) > 0 {
 		cfg.Changed.Publish(ctx, changedOf(homed))
 	}
-	r := &Roots{cfg: cfg, last: map[ID]report{}}
+	r := &Roots{cfg: cfg, last: map[ID]placed{}}
+	r.watch.ch = make(chan struct{})
 	r.rehoming.of = map[ID]Progress{}
 	return r, nil
 }

@@ -262,6 +262,7 @@ export const GrabsFailure = zod.object({
     "import_failed",
     "node_written_off",
     "root_changed",
+    "needs_transfer",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),

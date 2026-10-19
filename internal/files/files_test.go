@@ -62,6 +62,8 @@ type library struct {
 	works   *works.Works
 	targets *targets.Targets
 	root    roots.Root
+	// held is the roots, whose one Store holds root.
+	held *roots.Roots
 }
 
 func open(t testing.TB) *library {
@@ -77,20 +79,21 @@ func open(t testing.TB) *library {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := rootstest.Root(t, lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
+	node := role.NodeID{UUID: storage.NewUUID()}
+	root := rootstest.Root(t, lib, node, contenttypetest.ID, t.TempDir())
 	goals, err := targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &library{lib: lib, fx: fx, works: w, targets: goals, root: root}
+	return &library{lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID)}
 }
 
 // files is the files owner over l, whose today is the fixture's release
 // date, with grabs in flight.
 func (l *library) files(cells files.Inflight) *files.Files {
-	return l.on(cells, files.OSDisk{})
+	return l.on(cells, l.held)
 }
 
 // on is the files owner over l whose disk queue works through disk.

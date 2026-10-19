@@ -69,7 +69,12 @@ type walked struct {
 // stages until it is imported.
 func walk(t *testing.T, name string) walked {
 	t.Helper()
-	w := begin(t, name)
+	return walkFrom(t, begin(t, name))
+}
+
+// walkFrom walks w from its search until its Grab is imported.
+func walkFrom(t *testing.T, w walked) walked {
+	t.Helper()
 	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
 	search := w.search(t)
 	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
@@ -117,7 +122,12 @@ func begin(t *testing.T, name string) walked {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := worldtest.Launch(t, name)
+	return beginIn(t, s, worldtest.Launch(t, name))
+}
+
+// beginIn is begin in run, a launch of s.
+func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
+	t.Helper()
 	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
 
 	worldtest.Expect(t, "searchCatalog", w.a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", ""), worldtest.Reply{

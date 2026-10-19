@@ -3,6 +3,8 @@ package rootstest
 
 import (
 	"context"
+	"errors"
+	"iter"
 	"log/slog"
 	"testing"
 	"time"
@@ -79,4 +81,72 @@ func Root(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, t w
 		tb.Fatal(err)
 	}
 	return v.Root
+}
+
+// Held is the roots over lib for types whose every Node reaches one Store
+// on this machine, which finds downloads in payloads, holds node's roots
+// as lib records them now and has adopted each. Make the roots first.
+func Held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, types ...works.TypeID) *roots.Roots {
+	tb.Helper()
+	disk, err := storing.NewOSDisk(tb.TempDir(), tb.TempDir())
+	if err != nil {
+		tb.Fatal(err)
+	}
+	store := storing.NewStore(storing.Config{Disk: disk, Payloads: payloads, Timings: storing.Timings{Stat: 10 * time.Second}})
+	var intent *storagev1.Intent
+	err = lib.Read(tb.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		intent, err = roots.StorageIntent(files.RootContents{})(ctx, r, node)
+		return err
+	})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	h := &holder{intent: intent, facts: make(chan *storagev1.Facts, 1)}
+	ctx, cancel := context.WithCancel(context.WithoutCancel(tb.Context()))
+	done := make(chan error, 1)
+	go func() { done <- store.Run(ctx, h) }()
+	tb.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			tb.Errorf("the Store's run = %v", err)
+		}
+	})
+	for _, rf := range (<-h.facts).GetRoots() {
+		if rf.GetState() != storagev1.RootState_ROOT_STATE_READY {
+			tb.Fatalf("the Store finds a root %s: %s", rf.GetState(), rf.GetDetail())
+		}
+	}
+	cfg := Config(tb, lib, types...)
+	cfg.Remote = func(role.NodeID) storagev1connect.StorageServiceHandler { return store }
+	svc, err := roots.Open(tb.Context(), cfg)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return svc
+}
+
+// holder hands a Store one intent and keeps its latest facts.
+type holder struct {
+	intent *storagev1.Intent
+	facts  chan *storagev1.Facts
+}
+
+func (h *holder) Intent(ctx context.Context) iter.Seq[role.Snapshot[*storagev1.Intent]] {
+	return func(yield func(role.Snapshot[*storagev1.Intent]) bool) {
+		if yield(role.Snapshot[*storagev1.Intent]{Intent: h.intent, Standing: role.Live}) {
+			<-ctx.Done()
+		}
+	}
+}
+
+func (h *holder) SetFacts(f *storagev1.Facts) {
+	select {
+	case <-h.facts:
+	default:
+	}
+	h.facts <- f
+}
+
+func (h *holder) Report(context.Context, *storage.Tx[storage.Local], *storagev1.Result) error {
+	return errors.New("storage reports by facts")
 }
