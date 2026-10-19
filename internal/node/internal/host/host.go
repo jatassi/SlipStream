@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // Owner is the user who owns a data dir when that is not this process's.
@@ -29,7 +31,8 @@ func OnNetworkShare(dir string) (bool, error) {
 			return false, fmt.Errorf("data dir %s: not a directory", dir)
 		}
 		if err == nil {
-			return networkFS(dir)
+			kind, err := storing.KindOf(dir)
+			return kind == storing.Network, err
 		}
 		parent := filepath.Dir(dir)
 		if !errors.Is(err, fs.ErrNotExist) || parent == dir {

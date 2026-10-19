@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"os"
 	"path"
-	"path/filepath"
 	"slices"
 	"time"
 
@@ -25,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -56,11 +55,13 @@ type fail struct {
 }
 
 // wait retries the same step once a backoff has passed and, when the
-// Grab's Node is out of step or roster is set, the roster has changed. It
-// never fails the Grab.
+// Grab's Node is out of step or roster is set, the roster has changed; when
+// root is set, once it is closed or the roster has changed. It never fails
+// the Grab.
 type wait struct {
 	cause  error
 	roster bool
+	root   <-chan struct{}
 }
 
 // stopped commits nothing: the step runs again at the next start.
@@ -112,15 +113,25 @@ func local(ctx context.Context, err error) outcome {
 }
 
 // fetch brings the .torrent through the Node the Indexer routes to now and
-// hands it to a Downloading Node, that one when it may download. While no
-// Node may take either, it waits for the roster to change.
+// hands it to a Downloading Node: the one holding the Work's root when it
+// may download, so the file lands by a hard link. While no Node may take
+// either, it waits for the roster to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
-	if _, err := gr.cfg.Roster.Route(role.Downloading, g.Node); err != nil {
-		return wait{cause: err, roster: true}
-	}
-	idx, err := indexers.Get(ctx, gr.cfg.Library, g.Release.Indexer)
+	var idx indexers.Indexer
+	var root roots.Root
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		if idx, err = indexers.Get(ctx, r, g.Release.Indexer); err != nil {
+			return err
+		}
+		root, err = roots.OfWork(ctx, r, g.WorkID)
+		return err
+	})
 	if err != nil {
 		return local(ctx, err)
+	}
+	if _, err := gr.cfg.Roster.Route(role.Downloading, root.Node); err != nil {
+		return wait{cause: err, roster: true}
 	}
 	f, err := gr.cfg.Indexers.FetchTorrent(ctx, idx, g.Release.Link)
 	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
@@ -129,7 +140,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return classify(ctx, err, TorrentUnreachable)
 	}
-	to, err := gr.cfg.Roster.Route(role.Downloading, f.Node)
+	to, err := gr.cfg.Roster.Route(role.Downloading, root.Node)
 	if err != nil {
 		return wait{cause: err, roster: true}
 	}
@@ -169,7 +180,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
-		root, err := roots.Of(ctx, r, tree.ContentType)
+		root, err := roots.OfWork(ctx, r, g.WorkID)
 		if err != nil {
 			return err
 		}
@@ -200,10 +211,38 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		return fail{ImportFailed, placeErr.Error()}
 	}
 	p.FileIndex, p.Probe = video.Index, probe
-	if p.moves(g.Node) {
+	switch gr.routeOf(p.Root, g.Node) {
+	case sameNode:
+		return advance{to: Importing, plan: &p}
+	case transfer:
 		return advance{to: Transferring, plan: &p}
+	case needsTransfer:
+		return fail{NeedsTransfer, needsTransferWords}
 	}
-	return advance{to: Importing, plan: &p}
+	panic("grabs: unknown route")
+}
+
+type route uint8
+
+const (
+	// sameNode: the root's Node downloaded it, and places it there.
+	sameNode route = iota + 1
+	// transfer: the root is on the Controller, and another Node downloaded it.
+	transfer
+	// needsTransfer: the root is on a Worker that didn't download it.
+	needsTransfer
+)
+
+// routeOf is the one placement rule. Each stage runs it on the root as it
+// is now, so a re-home never strands a Grab on a stale plan.
+func (gr *Grabs) routeOf(root roots.Root, downloader role.NodeID) route {
+	switch root.Node {
+	case downloader:
+		return sameNode
+	case gr.cfg.Controller:
+		return transfer
+	}
+	return needsTransfer
 }
 
 // largestVideo is the largest file with a video extension.
@@ -219,10 +258,32 @@ func largestVideo(fs []engine.File) (engine.File, bool) {
 }
 
 // transfer brings the file from the Node that downloaded it into the
-// root's staging folder. The Transfer's id is the Grab's.
+// root's staging folder on the Controller, unless the root has since moved
+// to the Node that downloaded it. The Transfer's id is the Grab's.
 func (gr *Grabs) transfer(ctx context.Context, g Grab) outcome {
-	err := gr.cfg.Transfers.Receive(ctx, transfers.Job{
-		ID: transferOf(g.ID), Source: g.Node, InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex, Staging: g.staging(),
+	switch gr.routeOf(g.Plan.Root, g.Node) {
+	case sameNode:
+		return advance{to: Importing}
+	case transfer:
+		return gr.receive(ctx, g)
+	case needsTransfer:
+		return fail{NeedsTransfer, needsTransferWords}
+	}
+	panic("grabs: unknown route")
+}
+
+func (gr *Grabs) receive(ctx context.Context, g Grab) outcome {
+	at, err := placesOf(g)
+	if err != nil {
+		return fail{TransferFailed, err.Error()}
+	}
+	until := gr.cfg.Roots.Watch()
+	staging, err := gr.cfg.Staging.Local(ctx, g.Plan.Root.ID.UUID, at.staging)
+	if err != nil {
+		return storageOutcome(ctx, err, until)
+	}
+	err = gr.cfg.Transfers.Receive(ctx, transfers.Job{
+		ID: transferOf(g.ID), Source: g.Node, InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex, Staging: staging,
 	})
 	if err != nil {
 		return classify(ctx, err, TransferFailed)
@@ -230,44 +291,72 @@ func (gr *Grabs) transfer(ctx context.Context, g Grab) outcome {
 	return advance{to: Importing}
 }
 
-// stagingDir is the folder in a root that Transfers fill, so placing a
-// transferred file is a rename on the root's filesystem.
-const stagingDir = ".slipstream-staging"
+// places is where g's file sits in its root: staging, where a Transfer
+// brings it so placing it is a rename on the root's filesystem, and
+// holding, where the import places it.
+type places struct{ staging, holding storing.Rel }
 
-func (g Grab) staging() string {
-	return filepath.Join(g.Plan.Root.Path, stagingDir, g.ID.String()+".part")
+func placesOf(g Grab) (places, error) {
+	staging, err := storing.ParseRel(storing.StagingDir + "/" + g.ID.String() + ".part")
+	if err != nil {
+		return places{}, err
+	}
+	holding, err := storing.ParseRel(files.HoldingOf(g.ID.UUID, path.Ext(g.Plan.Path)))
+	return places{staging, holding}, err
 }
 
 func transferOf(id GrabID) transfers.ID { return transfers.ID{UUID: id.UUID} }
 
-// importFile places the file in its root's holding folder: the staged
-// Transfer renamed, or the local download linked. The bytes go first,
-// outside any Write, under a name only this Grab uses; the commit imports
-// the file, and the disk queue gives it its name.
+// importFile places the file in its root's holding folder, on the Node
+// that holds the root: the local download linked, or the staged Transfer
+// renamed. The bytes go first, outside any Write, under a name only this
+// Grab uses; the commit imports the file, and the disk queue gives it its
+// name. A root that isn't ready makes it wait for the root to change.
 func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
-	holding := files.HoldingOf(g.ID.UUID, path.Ext(g.Plan.Path))
-	dst := filepath.Join(g.Plan.Root.Path, filepath.FromSlash(holding))
-	if g.Plan.moves(g.Node) {
-		if err := files.Move(g.staging(), dst); err != nil {
-			return fail{ImportFailed, fmt.Sprintf("move %s: %v", holding, err)}
-		}
-	} else {
-		src, err := gr.cfg.Payloads.Path(g.Torrent.InfoHash, g.Plan.FileIndex)
-		if err != nil {
-			return classify(ctx, err, ImportFailed)
-		}
-		if err := files.Place(gr.cfg.Linker, src, dst); err != nil {
-			return fail{ImportFailed, fmt.Sprintf("place %s: %v", holding, err)}
-		}
-	}
-	info, err := os.Stat(dst)
+	root := g.Plan.Root
+	at, err := placesOf(g)
 	if err != nil {
 		return fail{ImportFailed, err.Error()}
 	}
+	until := gr.cfg.Roots.Watch()
+	var size int64
+	switch gr.routeOf(root, g.Node) {
+	case sameNode:
+		size, err = gr.cfg.Roots.Place(ctx, root.ID, at.holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
+	case transfer:
+		size, err = gr.cfg.Roots.Move(ctx, root.ID, at.staging, at.holding)
+	case needsTransfer:
+		return fail{NeedsTransfer, needsTransferWords}
+	}
+	if err != nil {
+		return storageOutcome(ctx, err, until)
+	}
 	return advance{to: Imported, file: &files.Incoming{
-		WorkID: g.WorkID, ItemID: g.ItemID, RootID: g.Plan.Root.ID, Holding: holding, Size: info.Size(),
+		WorkID: g.WorkID, ItemID: g.ItemID, RootID: root.ID, Holding: at.holding.String(), Size: size,
 		Probe: probed(g.Plan.Probe), GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
+}
+
+// storageOutcome turns a root's refusal or a Storage call's error into its
+// outcome. A root that may not take the bytes now, or a Node that lost
+// Storage, waits for until, a root's next change; a Node the call didn't
+// reach waits for the roster, and a call lost on the way, or a download
+// its Node hasn't finished re-adding, waits a backoff. Another file at the
+// target, or any other error, fails the Grab.
+func storageOutcome(ctx context.Context, err error, until <-chan struct{}) outcome {
+	why, notSent := rpc.NotSent(err)
+	_, notReady := errors.AsType[*storing.NotReady](err)
+	switch {
+	case ctx.Err() != nil:
+		return stopped{}
+	case notReady, notSent && why == rpc.NotHolder:
+		return wait{cause: err, root: until}
+	case notSent:
+		return wait{cause: err, roster: true}
+	case rpc.Lost(err):
+		return wait{cause: err}
+	}
+	return fail{ImportFailed, err.Error()}
 }
 
 // probed is what a file keeps of its probe.
@@ -297,26 +386,13 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	}
 	won := false
 	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		if n, err := q.Advance(ctx, params); err != nil || n == 0 {
-			return err
-		}
-		if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
-			return err
-		}
-		for i, t := range a.fills() {
-			if err := q.InsertFill(ctx, db.InsertFillParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
-				return err
-			}
-		}
-		if a.file != nil {
-			if err := gr.land(ctx, tx, g, *a.file); err != nil {
-				return err
-			}
-		}
-		won = true
-		return nil
+		var err error
+		won, err = gr.record(ctx, tx, g, params, a, now)
+		return err
 	})
+	if errors.Is(err, files.ErrRootChanged) {
+		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
+	}
 	if err != nil || !won {
 		return err
 	}
@@ -325,6 +401,29 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	}
 	gr.entered(ctx, g, params.Next)
 	return nil
+}
+
+// record writes g's move by params in tx, unless g has left the stage
+// params moves it from.
+func (gr *Grabs) record(ctx context.Context, tx *storage.Tx[file], g Grab, params db.AdvanceParams, a advance, now storage.Time) (advanced bool, err error) {
+	q := db.New(tx)
+	if n, err := q.Advance(ctx, params); err != nil || n == 0 {
+		return false, err
+	}
+	if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
+		return false, err
+	}
+	for i, t := range a.fills() {
+		if err := q.InsertFill(ctx, db.InsertFillParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
+			return false, err
+		}
+	}
+	if a.file != nil {
+		if err := gr.land(ctx, tx, g, *a.file); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 // land imports g's file in tx, with its facts, under the choice a change
@@ -424,9 +523,10 @@ func (gr *Grabs) step(ctx context.Context, g Grab) result {
 	case wait:
 		gr.cfg.Log.Warn("a Grab's step waits", "grab", g.ID.String(), "stage", string(g.Stage), "err", o.cause.Error())
 		changed := gr.cfg.Roster.Changed()
-		if o.roster || !gr.cfg.Roster.InStep(g.Node) {
+		if o.roster || o.root != nil || !gr.cfg.Roster.InStep(g.Node) {
 			select {
 			case <-changed:
+			case <-o.root:
 			case <-ctx.Done():
 				return halted
 			}

@@ -15,9 +15,11 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -60,11 +62,12 @@ type library struct {
 	works   *works.Works
 	targets *targets.Targets
 	root    roots.Root
+	held    *roots.Roots
 }
 
 func open(t testing.TB) *library {
 	t.Helper()
-	lib := storagetest.Library(t, works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
@@ -75,25 +78,21 @@ func open(t testing.TB) *library {
 	if err != nil {
 		t.Fatal(err)
 	}
-	types := []works.TypeID{contenttypetest.ID}
-	root, err := roots.New(roots.Config{Library: lib, Types: types, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
-		Create(t.Context(), admin, contenttypetest.ID, t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	node := role.NodeID{UUID: storage.NewUUID()}
+	root := rootstest.Root(t, lib, node, contenttypetest.ID, t.TempDir())
 	goals, err := targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &library{lib: lib, fx: fx, works: w, targets: goals, root: root}
+	return &library{lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID)}
 }
 
 // files is the files owner over l, whose today is the fixture's release
 // date, with grabs in flight.
 func (l *library) files(cells files.Inflight) *files.Files {
-	return l.on(cells, files.OSDisk{})
+	return l.on(cells, l.held)
 }
 
 // on is the files owner over l whose disk queue works through disk.
@@ -118,7 +117,10 @@ func (l *library) work(t *testing.T, key works.Key, monitor bool, profile *targe
 	tree, _, err := l.works.Add(t.Context(), admin, contenttypetest.ID, key, works.Adding{
 		Monitor: monitor,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			return targets.Assign(ctx, tx, w, profile)
+			if err := targets.Assign(ctx, tx, w, profile); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
 		},
 	})
 	if err != nil {

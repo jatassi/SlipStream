@@ -15,9 +15,11 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -56,7 +58,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 func serve(t *testing.T) *served {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), grabs.Schema(), files.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
@@ -329,7 +331,10 @@ func TestProfilesAreListedWithTheirWorksMadeDefaultAndEstimated(t *testing.T) {
 	}}})
 	tree, _, err := s.works.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			return targets.Assign(ctx, tx, w, nil)
+			if err := targets.Assign(ctx, tx, w, nil); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
 		},
 	})
 	if err != nil {
@@ -337,8 +342,7 @@ func TestProfilesAreListedWithTheirWorksMadeDefaultAndEstimated(t *testing.T) {
 	}
 	ids["work"] = tree.ID.String()
 	s.fx.SetTiming(tree.Items[0].ID, targets.Timing{Released: release.Known(contenttypetest.Released), Runtime: release.Known(100 * time.Minute)})
-	root := must[roots.Root](t)(roots.New(roots.Config{Library: s.lib, Types: []works.TypeID{contenttypetest.ID}, Self: role.NodeID{UUID: storage.NewUUID()}, Changed: discard[roots.Changed]{}}).
-		Create(ctx, identity.Admin{}, contenttypetest.ID, t.TempDir()))
+	root := rootstest.Root(t, s.lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
 			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "a.mkv", Size: 2000 << 20, Quality: release.WEBDL1080p,

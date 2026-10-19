@@ -23,3 +23,32 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID
+          - column: roots_root.is_default
+            go_type: bool
+          - column: roots_work.work_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: roots_work.root_id
+            go_type:
+              type: RootID
+          - column: roots_seen.root_id
+            go_type:
+              type: RootID
+          - column: roots_volume.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: roots_settings.id
+            go_type:
+              type: Singleton
+          - column: roots_seen.volume_id
+            go_type:
+              type: VolumeID
+          - column: roots_volume.id
+            go_type:
+              type: VolumeID
+          - column: roots_settings.sample_every
+            go_type:
+              type: int64
+              pointer: true

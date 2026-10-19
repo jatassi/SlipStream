@@ -6,6 +6,7 @@ import { getGetAddressMockHandler } from "../../../api/gen/query/identity/identi
 import { getGetMailSettingsMockHandler } from "../../../api/gen/query/mail/mail.msw";
 import { renderApp } from "../../../test/render-app";
 import { asPhone } from "../../../test/viewport";
+import { settingsSectionLabels } from "../../../test/settings";
 
 const mail: MailSettings = {
   host: "smtp.example.test",
@@ -48,7 +49,7 @@ test("on phone, Settings lists its sections, and each pushes with a back link to
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Address", "Email", "Sign-in", "Nodes", "API key", "Targets", "Profiles", "Editions"]);
+  ).toEqual(settingsSectionLabels);
 
   await userEvent.click(sections.getByRole("link", { name: "Email" }));
   await expect.poll(() => router.state.location.pathname).toBe("/settings/email");

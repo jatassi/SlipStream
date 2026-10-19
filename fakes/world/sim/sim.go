@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,6 +37,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/role/roletest"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 )
 
@@ -71,6 +73,7 @@ type World struct {
 	nodes    []*Node
 	claims   setup.Claims
 	walk     *walk
+	cues     atomic.Int64
 }
 
 type Node struct {
@@ -79,6 +82,7 @@ type Node struct {
 	addr netip.Addr
 	host *fault.Host
 	dir  node.DataDir
+	disk *fault.Plan
 
 	running      *node.Node
 	syncs        atomic.Int64
@@ -117,10 +121,15 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	}
 	listen := listenKeys(t)
 	for i, spec := range s.Nodes {
-		n := &Node{w: w, spec: spec, addr: setup.Address(i)}
+		n := &Node{w: w, spec: spec, addr: setup.Address(i), disk: fault.NewDiskPlan()}
 		n.host = network.Host(n.addr)
 		n.dir = dataDir(t, s, i, listen, endpoints)
 		w.nodes = append(w.nodes, n)
+	}
+	if w.walk != nil {
+		w.standVolumes()
+	}
+	for _, n := range w.nodes {
 		n.Start()
 	}
 	ready := make([]node.Ready, len(w.nodes))
@@ -232,6 +241,28 @@ func (w *World) Path(a, b string) *fault.Plan {
 	return w.net.Path(w.Node(a).addr, w.Node(b).addr)
 }
 
+// Disk plays f on every call the Node named name makes on folder, a path
+// in its own style, or beneath it, until lift runs.
+func (w *World) Disk(name, folder string, f fault.Fault) (lift func()) {
+	w.t.Helper()
+	id := "disk-" + strconv.FormatInt(w.cues.Add(1), 10)
+	plan := w.Node(name).disk
+	if _, err := plan.Set(fault.Rule{ID: id, Target: fault.Target(folder), Fault: f}); err != nil {
+		w.t.Fatal(err)
+	}
+	return func() { plan.Clear(id) }
+}
+
+func (w *World) standVolumes() {
+	for _, r := range w.scenario.Library.Roots {
+		if v := r.Volume; v != nil {
+			w.Disk(w.scenario.RootNode(r), filepath.Join(w.walk.mediaDir, r.Folder), fault.Volume{Total: gib(v.TotalGiB), Free: gib(v.FreeGiB)})
+		}
+	}
+}
+
+func gib(n float64) int64 { return int64(n * (1 << 30)) }
+
 // Listen listens at addr on the world's network, as a server beside the
 // Nodes would.
 func (w *World) Listen(addr netip.AddrPort) (net.Listener, error) {
@@ -284,6 +315,13 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
+		Disk: func(data, downloads string) (storing.Disk, error) {
+			d, err := node.OSDisk(data, downloads)
+			if err != nil {
+				return nil, err
+			}
+			return n.disk.Disk(d), nil
+		},
 		Restart: func() error {
 			n.restartAsked.Store(true)
 			return nil

@@ -68,7 +68,7 @@ test("each Roster row says the Node's state, when it was last seen, how it is re
   const seedboxRow = rowOf("seedbox");
   await expect
     .poll(textOf(seedboxRow))
-    .toMatch(/Offline · Last seen .+Downloading · Draining · 3 torrents \(41 GB\) left/u);
+    .toMatch(/Offline · Last seen .+Downloading · Draining, 3 torrents \(41 GB\) stay/u);
   await expect
     .element(seedboxRow.getByRole("list", { name: "What seedbox found" }))
     .toHaveTextContent("Weak: The downloads folder is on a network share.");

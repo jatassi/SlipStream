@@ -12,6 +12,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // Topology is every Node and the link between the Controller and each
@@ -33,6 +34,24 @@ type TopologyNode struct {
 	// Downloading is its client's torrents, nil unless it is in step and
 	// stands in Downloading.
 	Downloading *Downloading
+	// Storage is its roots and their volumes, nil unless it stands in
+	// Storage; while it is away, as it last reported them.
+	Storage *StorageFigures
+}
+
+type StorageFigures struct {
+	Roots   []StorageRoot
+	Volumes []storing.Volume
+}
+
+type StorageRoot struct {
+	ID          storage.UUID
+	ContentType string
+	Path        string
+	// State is the root's state as the Library roots section names it.
+	State string
+	// VolumeID is empty before its Node found it ready at its place.
+	VolumeID string
 }
 
 type Downloading struct {
@@ -64,18 +83,9 @@ func (s *Service) Topology(ctx context.Context) (Topology, error) {
 	t := Topology{At: time.Now(), Sentence: sentence(board)}
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		for _, v := range board.nodes {
-			held, _, err := s.work(ctx, r, v.ID)
+			n, err := s.topologyNode(ctx, r, board, v)
 			if err != nil {
 				return err
-			}
-			n := TopologyNode{NodeView: v, Roles: board.Roles(v.ID, held), Probes: s.probesOf(v.ID)}
-			if v.Standing == InStep && board.Who(role.Downloading).Serves(v.ID) {
-				kept, err := s.cfg.Kept(ctx, r, v.ID)
-				if err != nil {
-					return fmt.Errorf("read the Grabs node %s keeps: %w", v.ID, err)
-				}
-				f, _ := s.cfg.Downloads.Facts(v.ID)
-				n.Downloading = &Downloading{Torrents: torrentsOf(f, kept)}
 			}
 			t.Nodes = append(t.Nodes, n)
 			if !v.Controller {
@@ -88,6 +98,30 @@ func (s *Service) Topology(ctx context.Context) (Topology, error) {
 		return Topology{}, fmt.Errorf("read the topology: %w", err)
 	}
 	return t, nil
+}
+
+func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], board *Board, v NodeView) (TopologyNode, error) {
+	held, _, err := s.work(ctx, r, v.ID)
+	if err != nil {
+		return TopologyNode{}, err
+	}
+	n := TopologyNode{NodeView: v, Roles: board.Roles(v.ID, held), Probes: s.probesOf(v.ID)}
+	if v.Standing == InStep && board.Who(role.Downloading).Serves(v.ID) {
+		kept, err := s.cfg.Kept(ctx, r, v.ID)
+		if err != nil {
+			return TopologyNode{}, fmt.Errorf("read the Grabs node %s keeps: %w", v.ID, err)
+		}
+		f, _ := s.cfg.Downloads.Facts(v.ID)
+		n.Downloading = &Downloading{Torrents: torrentsOf(f, kept)}
+	}
+	if board.Who(role.Storage).Serves(v.ID) {
+		f, err := s.cfg.Storage(ctx, r, v.ID)
+		if err != nil {
+			return TopologyNode{}, fmt.Errorf("read node %s's Storage: %w", v.ID, err)
+		}
+		n.Storage = &f
+	}
+	return n, nil
 }
 
 // torrentsOf is each Grab of kept whose torrent f reports, in f's order.

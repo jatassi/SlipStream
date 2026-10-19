@@ -1,6 +1,7 @@
 package nodes_test
 
 import (
+	"context"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link/linktest"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 func (c *controller) topology(t *testing.T) nodes.Topology {
@@ -84,6 +86,43 @@ func TestTheTopologyFollowsTheLinkAndTheBoard(t *testing.T) {
 		}
 		if topo.Nodes[1].Standing != nodes.LapsedNode {
 			t.Errorf("seedbox stands %s, want lapsed", topo.Nodes[1].Standing)
+		}
+	})
+}
+
+// TestTopologyCarriesStorage has seedbox stand in Storage: the topology
+// carries its Storage figures and none for home, and keeps them once
+// seedbox lapses.
+func TestTopologyCarriesStorage(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		figures := func(_ context.Context, _ storage.Reader[storage.Library], node nodes.ID) (nodes.StorageFigures, error) {
+			return nodes.StorageFigures{Roots: []nodes.StorageRoot{{ID: node.UUID, ContentType: "alpha", Path: "/media/alpha", State: "ready", VolumeID: "v1"}}}, nil
+		}
+		c := startController(t, func(cfg *nodes.Config) { cfg.Storage = figures })
+		w := c.worker(t, "seedbox", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "seedbox")
+		holder(t, role.InProcess(c.svc.Controls()))
+		stop := c.hold(t, w)
+		c.apply(t, nodes.Roles{id: role.Of(role.Storage), c.svc.Self(): role.Of(role.Downloading)})
+		time.Sleep(time.Minute)
+		synctest.Wait()
+		stored := func(n nodes.TopologyNode) bool {
+			return n.Storage != nil && len(n.Storage.Roots) == 1 && n.Storage.Roots[0].ID == n.ID.UUID
+		}
+		topo := c.topology(t)
+		if home, seedbox := topo.Nodes[0], topo.Nodes[1]; home.Storage != nil || !stored(seedbox) {
+			t.Fatalf("in session home carries %+v and seedbox %+v; want seedbox's figures alone", home.Storage, seedbox.Storage)
+		}
+
+		stop()
+		w.Drop(c.node.Key)
+		c.node.Reset(w.Key)
+		synctest.Wait()
+		time.Sleep(nodes.OfflineGrace.Default)
+		synctest.Wait()
+		topo = c.topology(t)
+		if home, seedbox := topo.Nodes[0], topo.Nodes[1]; home.Storage != nil || !stored(seedbox) {
+			t.Fatalf("past the grace home carries %+v and seedbox %+v; want seedbox's figures alone", home.Storage, seedbox.Storage)
 		}
 	})
 }

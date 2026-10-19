@@ -1,8 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { sentenceOf } from "../../../../api/errors";
 import type { NodesBoardNode, NodesHeld, NodesRoleBoard } from "../../../../api/gen/model";
 import { writeOff } from "../../../../api/gen/query/nodes/nodes";
+import { getListRootsQueryKey, listRoots } from "../../../../api/gen/query/roots/roots";
 import {
   type Draft,
   type RoleName,
@@ -14,6 +16,7 @@ import {
 } from "../../../../nodes/roles";
 import { Checkbox } from "../../../../ui/checkbox";
 import { ConfirmDialog } from "../../../../ui/confirm-dialog";
+import { dataFont } from "../../../../ui/data";
 
 type Holding = { readonly role: RoleName; readonly work: NodesHeld };
 
@@ -69,6 +72,39 @@ function HeldList({
   );
 }
 
+/** The folders of the library roots a Node holds for Storage, which a write-off gives up. */
+function RootPaths({ seat }: { seat: NodesBoardNode }) {
+  const roots = useQuery({
+    queryKey: getListRootsQueryKey(),
+    queryFn: ({ signal }) => listRoots({ signal }),
+  }).data?.roots.filter(({ nodeId }) => nodeId === seat.id);
+  if (roots === undefined || roots.length === 0) {
+    return null;
+  }
+  return (
+    <ul aria-label={`Library roots on ${seat.name}`} className={`${dataFont} text-ink-1`}>
+      {roots.map(({ id, path }) => (
+        <li key={id} className="wrap-anywhere">
+          {path}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const leavesWork =
+  "SlipStream stops waiting for it. What isn't imported yet goes back to wanted, so SlipStream searches for it again.";
+const leavesRoots =
+  "Its library roots stay, marked Node written off, and their files count as missing until you re-home the roots onto a live Node.";
+
+/** What a write-off leaves behind for the Roles chosen, ending on the files it keeps. */
+const leftWords = (roles: readonly RoleName[]): string =>
+  [
+    ...(roles.length === 0 || roles.some((role) => role !== "storage") ? [leavesWork] : []),
+    ...(roles.includes("storage") ? [leavesRoots] : []),
+    "No files are deleted.",
+  ].join(" ");
+
 /**
  * Write off: give up what a Node holds for its Roles, after re-confirming,
  * with the count and size shown first.
@@ -107,10 +143,8 @@ export function WriteOffDialog({
       }}
     >
       <HeldList board={board} seat={seat} held={held} chosen={chosen} onChosen={setChosen} />
-      <p>
-        SlipStream stops waiting for it. What isn&apos;t imported yet goes back to wanted, so
-        SlipStream searches for it again. No files are deleted.
-      </p>
+      {held.some(({ role }) => role === "storage") && <RootPaths seat={seat} />}
+      <p>{leftWords(roles)}</p>
       {seat.away && <p>{seat.name} is offline, so it lets the work go when it comes back.</p>}
       {unticks.length > 0 && (
         <p>

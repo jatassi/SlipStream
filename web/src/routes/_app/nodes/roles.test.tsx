@@ -25,7 +25,7 @@ const onlineSeedbox: NodesNode = {
 
 const homeNamed = { id: homeId, name: "home" };
 const seedboxNamed = { id: seedboxId, name: "seedbox" };
-const torrents = { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3 };
+const torrents = { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endless: true };
 
 const drained: NodesBoardNode = {
   ...seedboxSeat,
@@ -55,7 +55,7 @@ test("the Roles section shows each Role Group's switch and every Role's state", 
   await expect.element(page.getByText("0 of 2").first()).toBeVisible();
   await expect.element(titled("Acquire")).toHaveAttribute("aria-expanded", "true");
   await expect.element(role("Downloading")).not.toBeChecked();
-  await expect.element(page.getByText("Draining · 3 torrents (41 GB) left")).toBeVisible();
+  await expect.element(page.getByText("Draining, 3 torrents (41 GB) stay")).toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Write off what seedbox holds" }))
     .toBeVisible();
@@ -144,7 +144,7 @@ const unticking = outcome({
       role: "searching",
       from: seedboxNamed,
       to: homeNamed,
-      held: { units: 3, noun: "Indexers", bytes: 0 },
+      held: { units: 3, noun: "Indexers", bytes: 0, endless: false },
       words: "3 Indexers move to home.",
     },
     {

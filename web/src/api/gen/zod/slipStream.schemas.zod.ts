@@ -18,6 +18,20 @@ export const AccountPatchInputBody = zod.object({
 export type AccountPatchInputBody = zod.input<typeof AccountPatchInputBody>;
 export type AccountPatchInputBodyOutput = zod.output<typeof AccountPatchInputBody>;
 
+export const checkRootInputBodyPathMax = 4096;
+
+export const CheckRootInputBody = zod.object({
+  nodeId: zod.uuid(),
+  path: zod.string().min(1).max(checkRootInputBodyPathMax),
+  rootId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The root being re-homed, which the folder may overlap"),
+});
+
+export type CheckRootInputBody = zod.input<typeof CheckRootInputBody>;
+export type CheckRootInputBodyOutput = zod.output<typeof CheckRootInputBody>;
+
 export const DialInputBody = zod.object({
   nodeAddress: zod.string().describe("The SLN1 text the waiting Node printed"),
 });
@@ -247,6 +261,8 @@ export const GrabsFailure = zod.object({
     "transfer_failed",
     "import_failed",
     "node_written_off",
+    "root_changed",
+    "needs_transfer",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
@@ -1059,6 +1075,22 @@ export const MailSettingsPatch = zod.object({
 export type MailSettingsPatch = zod.input<typeof MailSettingsPatch>;
 export type MailSettingsPatchOutput = zod.output<typeof MailSettingsPatch>;
 
+export const makeFolderInputBodyNameMax = 255;
+
+export const makeFolderInputBodyParentMax = 4096;
+
+export const MakeFolderInputBody = zod.object({
+  name: zod.string().min(1).max(makeFolderInputBodyNameMax).describe("The new folder's name"),
+  parent: zod
+    .string()
+    .min(1)
+    .max(makeFolderInputBodyParentMax)
+    .describe("An existing folder on the Node"),
+});
+
+export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
+export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
+
 export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
 
 export const NewPINInputBody = zod.object({
@@ -1120,6 +1152,9 @@ export type NodesProbeOutput = zod.output<typeof NodesProbe>;
 
 export const NodesHeld = zod.object({
   bytes: zod.int().describe("0 when sizes don't apply"),
+  endless: zod
+    .boolean()
+    .describe("The Node can't finish it on its own, so it stays until it is moved or written off"),
   noun: zod.string().describe("The noun that fits units: torrent, torrents"),
   units: zod.int(),
 });
@@ -1680,9 +1715,63 @@ export const NodesRenameBody = zod.object({
 export type NodesRenameBody = zod.input<typeof NodesRenameBody>;
 export type NodesRenameBodyOutput = zod.output<typeof NodesRenameBody>;
 
+export const nodesStorageRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const NodesStorageRoot = zod.object({
+  contentType: zod.string().regex(nodesStorageRootContentTypeRegExp),
+  id: zod.uuid(),
+  path: zod.string().describe("The folder as its Node cleaned it"),
+  state: zod
+    .enum([
+      "ready",
+      "missing",
+      "unmounted",
+      "foreign",
+      "unwritable",
+      "unresponsive",
+      "checking",
+      "offline",
+      "written_off",
+    ])
+    .describe("As listRoots names it"),
+  volumeId: zod
+    .string()
+    .exactOptional()
+    .describe("The volume its Node last found it ready on; absent before it did"),
+});
+
+export type NodesStorageRoot = zod.input<typeof NodesStorageRoot>;
+export type NodesStorageRootOutput = zod.output<typeof NodesStorageRoot>;
+
+export const NodesStorageVolume = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write"),
+  id: zod.string().describe("The filesystem id, or the volume serial on Windows"),
+  kind: zod.enum(["local", "removable", "network"]),
+  mount: zod.string(),
+  name: zod.string().describe("The volume as its Node names it, such as D: (Media) or /mnt/media"),
+  sampledAt: zod.iso.datetime({ offset: true }).describe("When its Node read these figures"),
+  total: zod.int(),
+});
+
+export type NodesStorageVolume = zod.input<typeof NodesStorageVolume>;
+export type NodesStorageVolumeOutput = zod.output<typeof NodesStorageVolume>;
+
+export const NodesStorageResource = zod.object({
+  roots: zod
+    .array(NodesStorageRoot)
+    .describe("The library roots on the Node, by Content Type, oldest first in each"),
+  volumes: zod.array(NodesStorageVolume).describe("The volumes its roots sit on"),
+});
+
+export type NodesStorageResource = zod.input<typeof NodesStorageResource>;
+export type NodesStorageResourceOutput = zod.output<typeof NodesStorageResource>;
+
 export const NodesResources = zod.object({
   downloading: NodesDownloadingResource.exactOptional().describe(
     "Its torrent client; absent unless the Node stands in Downloading and is in step",
+  ),
+  storage: NodesStorageResource.exactOptional().describe(
+    "Its library roots and the volumes they sit on; absent unless the Node stands in Storage. While it is away, as it last reported them",
   ),
 });
 
@@ -1945,6 +2034,32 @@ export const Problem = zod.object({
 export type Problem = zod.input<typeof Problem>;
 export type ProblemOutput = zod.output<typeof Problem>;
 
+export const rehomeRootInputBodyForgetMin = 0;
+
+export const rehomeRootInputBodyPathMax = 4096;
+
+export const RehomeRootInputBody = zod.object({
+  forget: zod
+    .int()
+    .min(rehomeRootInputBodyForgetMin)
+    .exactOptional()
+    .describe(
+      "The missing file count the Admin confirmed from a rehome_missing answer: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
+    ),
+  nodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Storage Node whose disk holds it now; left out, its Node"),
+  path: zod
+    .string()
+    .max(rehomeRootInputBodyPathMax)
+    .exactOptional()
+    .describe("The folder that holds it now, in its Node's path style; left out, its folder"),
+});
+
+export type RehomeRootInputBody = zod.input<typeof RehomeRootInputBody>;
+export type RehomeRootInputBodyOutput = zod.output<typeof RehomeRootInputBody>;
+
 export const ResetLinkInputBody = zod.object({
   removePasskeys: zod
     .boolean()
@@ -1955,44 +2070,311 @@ export const ResetLinkInputBody = zod.object({
 export type ResetLinkInputBody = zod.input<typeof ResetLinkInputBody>;
 export type ResetLinkInputBodyOutput = zod.output<typeof ResetLinkInputBody>;
 
-export const RootsChanged = zod.object({});
+export const RootSettingsInputBody = zod.object({
+  sampleEvery: zod.int().nullish().describe("Seconds; null resets it to its default"),
+});
+
+export type RootSettingsInputBody = zod.input<typeof RootSettingsInputBody>;
+export type RootSettingsInputBodyOutput = zod.output<typeof RootSettingsInputBody>;
+
+export const RootsChanged = zod.object({
+  rootIds: zod.array(zod.string()),
+});
 
 export type RootsChanged = zod.input<typeof RootsChanged>;
 export type RootsChangedOutput = zod.output<typeof RootsChanged>;
+
+export const RootsFolder = zod.object({
+  name: zod.string(),
+  path: zod.string(),
+  readable: zod.boolean().describe("SlipStream can list it"),
+});
+
+export type RootsFolder = zod.input<typeof RootsFolder>;
+export type RootsFolderOutput = zod.output<typeof RootsFolder>;
+
+export const RootsFolderProblem = zod.object({
+  account: zod
+    .string()
+    .exactOptional()
+    .describe("For denied, the account SlipStream runs as on the Node"),
+  kind: zod.enum(["not_found", "not_a_folder", "denied", "unresponsive", "io"]),
+  osText: zod.string().describe("The error as the Node's OS put it"),
+});
+
+export type RootsFolderProblem = zod.input<typeof RootsFolderProblem>;
+export type RootsFolderProblemOutput = zod.output<typeof RootsFolderProblem>;
+
+export const RootsInUse = zod.object({
+  files: zod.int().describe("The files it holds, those waiting to be deleted counted"),
+  grabs: zod.int().describe("The Grabs in flight for its Works or into it"),
+});
+
+export type RootsInUse = zod.input<typeof RootsInUse>;
+export type RootsInUseOutput = zod.output<typeof RootsInUse>;
+
+export const RootsPlace = zod.object({
+  free: zod.int(),
+  kind: zod
+    .enum(["local", "removable", "network"])
+    .exactOptional()
+    .describe("Absent for a root whose volume its Node hasn't read yet"),
+  name: zod.string(),
+  path: zod.string(),
+  rootId: zod.uuid().exactOptional().describe("The root this place is"),
+  total: zod.int(),
+});
+
+export type RootsPlace = zod.input<typeof RootsPlace>;
+export type RootsPlaceOutput = zod.output<typeof RootsPlace>;
+
+export const RootsSegment = zod.object({
+  name: zod.string(),
+  path: zod.string(),
+});
+
+export type RootsSegment = zod.input<typeof RootsSegment>;
+export type RootsSegmentOutput = zod.output<typeof RootsSegment>;
+
+export const RootsVolume = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write"),
+  id: zod.string().describe("The filesystem id, or the volume serial on Windows"),
+  kind: zod.enum(["local", "removable", "network"]),
+  mount: zod.string(),
+  name: zod.string().describe("The volume as its Node names it, such as D: (Media) or /mnt/media"),
+  sampledAt: zod.iso.datetime({ offset: true }),
+  total: zod.int(),
+});
+
+export type RootsVolume = zod.input<typeof RootsVolume>;
+export type RootsVolumeOutput = zod.output<typeof RootsVolume>;
+
+export const RootsListing = zod.object({
+  folders: zod.array(RootsFolder).describe("Its subfolders, in natural order without case"),
+  hidden: zod.int().describe("The hidden subfolders left out"),
+  parent: zod
+    .string()
+    .describe("The folder above it; empty at a drive, a share or /, and for the places"),
+  path: zod.string().describe("The folder as its Node cleaned it; empty for the Node's places"),
+  places: zod
+    .array(RootsPlace)
+    .describe("For the empty path: the roots on the Node, then its drives or mounts"),
+  segments: zod
+    .array(RootsSegment)
+    .describe("Its breadcrumbs as its Node splits it; a drive or a share is one"),
+  service: zod
+    .boolean()
+    .describe("SlipStream runs as a Windows service there, which sees no mapped drive letters"),
+  volume: RootsVolume.exactOptional().describe("The volume it sits on, when the Node read it"),
+});
+
+export type RootsListing = zod.input<typeof RootsListing>;
+export type RootsListingOutput = zod.output<typeof RootsListing>;
+
+export const RootsMadeFolder = zod.object({
+  path: zod.string().describe("The new folder, joined by the Node"),
+});
+
+export type RootsMadeFolder = zod.input<typeof RootsMadeFolder>;
+export type RootsMadeFolderOutput = zod.output<typeof RootsMadeFolder>;
+
+export const RootsMissingFile = zod.object({
+  path: zod
+    .string()
+    .describe("Where the file records its bytes, relative to the root and / separated"),
+  reason: zod
+    .enum(["missing", "size_differs"])
+    .describe("missing: nothing is at that path; size_differs: a file is there at another size"),
+});
+
+export type RootsMissingFile = zod.input<typeof RootsMissingFile>;
+export type RootsMissingFileOutput = zod.output<typeof RootsMissingFile>;
+
+export const RootsMissingFiles = zod.object({
+  count: zod.int().describe("The recorded files not at the new place"),
+  first: zod.array(RootsMissingFile).describe("Up to the first 20 of them, in file order"),
+});
+
+export type RootsMissingFiles = zod.input<typeof RootsMissingFiles>;
+export type RootsMissingFilesOutput = zod.output<typeof RootsMissingFiles>;
 
 export const rootsNewRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const rootsNewRootPathMax = 4096;
 
 export const RootsNewRoot = zod.object({
   contentType: zod.string().regex(rootsNewRootContentTypeRegExp),
+  makeDefault: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Make it its Content Type's default; a Content Type's first root is its default whatever this says",
+    ),
+  nodeId: zod.uuid().describe("A Node that holds Storage"),
   path: zod
     .string()
     .min(1)
     .max(rootsNewRootPathMax)
-    .describe("An absolute path to an existing folder on the Controller"),
+    .describe("An absolute path to an existing folder on the Node, in its own path style"),
 });
 
 export type RootsNewRoot = zod.input<typeof RootsNewRoot>;
 export type RootsNewRootOutput = zod.output<typeof RootsNewRoot>;
 
+export const RootsRootVolume = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write"),
+  id: zod.string().describe("The filesystem id, or the volume serial on Windows"),
+  kind: zod.enum(["local", "removable", "network"]),
+  mount: zod.string(),
+  name: zod.string().describe("The volume as its Node names it, such as D: (Media) or /mnt/media"),
+  rootIds: zod.array(zod.string()).describe("The roots its Node last found ready on it"),
+  sampledAt: zod.iso.datetime({ offset: true }).describe("When its Node read these figures"),
+  total: zod.int(),
+});
+
+export type RootsRootVolume = zod.input<typeof RootsRootVolume>;
+export type RootsRootVolumeOutput = zod.output<typeof RootsRootVolume>;
+
+export const RootsNodeVolumes = zod.object({
+  live: zod
+    .boolean()
+    .describe(
+      "The Node is online, so its figures are current; else each volume reads as of its sampledAt",
+    ),
+  nodeId: zod.uuid(),
+  volumes: zod.array(RootsRootVolume).describe("Its volumes that hold a root, by name"),
+});
+
+export type RootsNodeVolumes = zod.input<typeof RootsNodeVolumes>;
+export type RootsNodeVolumesOutput = zod.output<typeof RootsNodeVolumes>;
+
+export const RootsProgress = zod.object({
+  checked: zod.int().describe("The recorded files checked so far"),
+  total: zod.int().describe("The recorded files to check"),
+});
+
+export type RootsProgress = zod.input<typeof RootsProgress>;
+export type RootsProgressOutput = zod.output<typeof RootsProgress>;
+
+export const RootsRefusal = zod.object({
+  reason: zod
+    .enum([
+      "not_absolute",
+      "not_found",
+      "not_a_folder",
+      "unwritable",
+      "inside_root",
+      "contains_root",
+      "inside_data",
+      "contains_data",
+      "inside_downloads",
+      "contains_downloads",
+      "unresponsive",
+      "node_offline",
+    ])
+    .describe("Why the folder can't be a root"),
+  rootId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The root the folder is inside, contains or carries the marker of"),
+});
+
+export type RootsRefusal = zod.input<typeof RootsRefusal>;
+export type RootsRefusalOutput = zod.output<typeof RootsRefusal>;
+
 export const rootsRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const RootsRoot = zod.object({
   contentType: zod.string().regex(rootsRootContentTypeRegExp),
+  default: zod.boolean().describe("Where its Content Type's new Works go"),
+  fileBytes: zod.int().describe("The bytes of its files"),
   id: zod.uuid(),
-  nodeId: zod.uuid().describe("The Node whose disk holds it"),
-  path: zod.string(),
+  nodeId: zod.uuid().describe("The Storage Node whose disk holds it"),
+  path: zod.string().describe("The folder as its Node cleaned it"),
+  rehome: RootsProgress.exactOptional().describe(
+    "The re-home checking its files at the new place now; absent while none is",
+  ),
+  state: zod
+    .enum([
+      "ready",
+      "missing",
+      "unmounted",
+      "foreign",
+      "unwritable",
+      "unresponsive",
+      "checking",
+      "offline",
+      "written_off",
+    ])
+    .describe(
+      "Only ready takes imports. checking: its Node hasn't reported it yet; offline and written_off come from its Node's standing",
+    ),
+  volumeId: zod
+    .string()
+    .exactOptional()
+    .describe("The volume its Node last found it ready on; absent before it did"),
+  works: zod.int().describe("The Works that live in it"),
 });
 
 export type RootsRoot = zod.input<typeof RootsRoot>;
 export type RootsRootOutput = zod.output<typeof RootsRoot>;
 
 export const RootsRootList = zod.object({
-  roots: zod.array(RootsRoot).describe("By Content Type"),
+  roots: zod.array(RootsRoot).describe("By Content Type, oldest first in each"),
 });
 
 export type RootsRootList = zod.input<typeof RootsRootList>;
 export type RootsRootListOutput = zod.output<typeof RootsRootList>;
+
+export const RootsRootSettings = zod.object({
+  sampleEvery: SettingDurationField,
+});
+
+export type RootsRootSettings = zod.input<typeof RootsRootSettings>;
+export type RootsRootSettingsOutput = zod.output<typeof RootsRootSettings>;
+
+export const RootsSuggestions = zod.object({
+  suggestions: zod
+    .array(zod.string())
+    .describe("Up to 25 folders completing the text, in the separators it was typed with"),
+});
+
+export type RootsSuggestions = zod.input<typeof RootsSuggestions>;
+export type RootsSuggestionsOutput = zod.output<typeof RootsSuggestions>;
+
+export const RootsVerdict = zod.object({
+  path: zod.string().describe("The folder as its Node cleaned it"),
+  refusal: RootsRefusal.exactOptional().describe("Why it can't be a root; absent when usable"),
+  usable: zod.boolean(),
+  volume: RootsVolume.exactOptional().describe("The volume it sits on, when the Node read it"),
+});
+
+export type RootsVerdict = zod.input<typeof RootsVerdict>;
+export type RootsVerdictOutput = zod.output<typeof RootsVerdict>;
+
+export const RootsVolumeList = zod.object({
+  nodes: zod
+    .array(RootsNodeVolumes)
+    .describe("Each Storage Node with a volume that holds a root, in id order"),
+});
+
+export type RootsVolumeList = zod.input<typeof RootsVolumeList>;
+export type RootsVolumeListOutput = zod.output<typeof RootsVolumeList>;
+
+export const RootsVolumesChanged = zod.object({
+  nodeId: zod.uuid(),
+  volumeIds: zod.array(zod.string()),
+});
+
+export type RootsVolumesChanged = zod.input<typeof RootsVolumesChanged>;
+export type RootsVolumesChangedOutput = zod.output<typeof RootsVolumesChanged>;
+
+export const RootsWorkRoot = zod.object({
+  rootId: zod.uuid(),
+  workId: zod.uuid(),
+});
+
+export type RootsWorkRoot = zod.input<typeof RootsWorkRoot>;
+export type RootsWorkRootOutput = zod.output<typeof RootsWorkRoot>;
 
 export const ServingWorker = zod.object({
   controller: zod.string().describe("Its Controller's name"),
@@ -2010,6 +2392,13 @@ export const ServingWorker = zod.object({
 
 export type ServingWorker = zod.input<typeof ServingWorker>;
 export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
+
+export const SetWorkRootInputBody = zod.object({
+  rootId: zod.uuid(),
+});
+
+export type SetWorkRootInputBody = zod.input<typeof SetWorkRootInputBody>;
+export type SetWorkRootInputBodyOutput = zod.output<typeof SetWorkRootInputBody>;
 
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
@@ -3327,6 +3716,12 @@ export const WorksNewWork = zod.object({
     .describe(
       "The Profile of the Content Type a new Work wants from; left out, the type's default",
     ),
+  rootId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root",
+    ),
 });
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
@@ -3496,6 +3891,14 @@ export const LiveEventTasksProgress = zod.object({
 export type LiveEventTasksProgress = zod.input<typeof LiveEventTasksProgress>;
 export type LiveEventTasksProgressOutput = zod.output<typeof LiveEventTasksProgress>;
 
+export const LiveEventVolumesChanged = zod.object({
+  event: zod.enum(["volumes.changed"]),
+  data: RootsVolumesChanged,
+});
+
+export type LiveEventVolumesChanged = zod.input<typeof LiveEventVolumesChanged>;
+export type LiveEventVolumesChangedOutput = zod.output<typeof LiveEventVolumesChanged>;
+
 export const LiveEventWorksChanged = zod.object({
   event: zod.enum(["works.changed"]),
   data: WorksWorkChanged,
@@ -3533,6 +3936,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTargetsChanged,
   LiveEventTasksChanged,
   LiveEventTasksProgress,
+  LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,
 ]);

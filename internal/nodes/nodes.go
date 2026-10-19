@@ -100,6 +100,10 @@ type Config struct {
 	// Grabs whose torrents a Node's client keeps.
 	Downloads Downloads
 	Kept      func(ctx context.Context, r storage.Reader[file], node ID) ([]Grabbed, error)
+	Storage   func(ctx context.Context, r storage.Reader[file], node ID) (StorageFigures, error)
+	// Facts is called after a holder's Role facts are stored, with the
+	// Role's name, as role.ControlsConfig.Facts is. It must not block.
+	Facts func(node ID, scope string)
 	// Reach runs a reach test from node to t.
 	Reach func(ctx context.Context, node ID, t nodesystem.Target) (nodesystem.Reached, error)
 	// Always is Roles every Node holds beyond its nodes_role rows: only a

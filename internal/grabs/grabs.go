@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -68,7 +69,11 @@ const (
 	TransferFailed     Code = "transfer_failed"
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
+	RootChanged        Code = "root_changed"
+	NeedsTransfer      Code = "needs_transfer"
 )
+
+const needsTransferWords = "the Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
 
 const (
 	Grabbed                  Outcome = "grabbed"
@@ -119,6 +124,8 @@ var (
 	ErrNoGrab        = errors.New("no Grab has that id")
 )
 
+type RootUnreachableError = roots.UnreachableError
+
 // Roster is the Nodes and the Roles they hold.
 type Roster interface {
 	// Route is where r work homed on home goes now. It fails with
@@ -139,9 +146,23 @@ type Downloads interface {
 	Facts(node role.NodeID) (*dlv1.Facts, bool)
 }
 
-// Payloads is where this Node's downloaded torrent files lie.
-type Payloads interface {
-	Path(h bencode.InfoHash, index int) (string, error)
+// Roots is the library roots as a Grab reaches them: bytes go into a
+// root only through the Node that holds it.
+type Roots interface {
+	// Reachable is nil when root's Node may take new downloads into it.
+	Reachable(ctx context.Context, r storage.Reader[file], root roots.Root) error
+	// Watch is closed at the next change of a root's report.
+	Watch() <-chan struct{}
+	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload) (int64, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
+}
+
+// Staging is the Controller's own Storage, where a Transfer brings a file
+// into a root on the Controller.
+type Staging interface {
+	// Local is rel under root on this Node, *storing.NotReady while root
+	// may not take new bytes.
+	Local(ctx context.Context, root storage.UUID, rel storing.Rel) (string, error)
 }
 
 type Config struct {
@@ -153,14 +174,13 @@ type Config struct {
 	Terms    map[works.TypeID]indexers.Facet
 	Roster   Roster
 	// Downloads is the Downloading Role's *role.Control.
-	Downloads Downloads
-	Media     media.Remote
-	// Payloads is this Node's own client, for an import from a local
-	// download.
-	Payloads Payloads
+	Downloads  Downloads
+	Media      media.Remote
+	Roots      Roots
+	Staging    Staging
+	Controller role.NodeID
 	// Transfers receives a file from the Node that downloaded it.
 	Transfers     *transfers.Receiver
-	Linker        files.Linker
 	Timings       Timings
 	Rand          *rand.Rand
 	Changed       Publisher[Changed]
@@ -208,15 +228,12 @@ type Download struct {
 type Plan struct {
 	FileIndex int
 	Probe     media.Probe
-	Root      roots.Root
+	// Root is zero once a finished Grab's root is deleted.
+	Root roots.Root
 	// Path is relative to the root, '/' separated.
 	Path  string
 	Fills []targets.TargetID
 }
-
-// moves reports whether the file goes to a root on another Node than from,
-// the one that downloaded it, so a Transfer brings it first.
-func (p Plan) moves(from role.NodeID) bool { return p.Root.Node != from }
 
 type Failure struct {
 	Stage   Stage
@@ -314,11 +331,14 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		g.Download = &Download{Error: *row.DownloadError}
 	}
 	if row.Path != nil {
-		root, err := roots.Get(ctx, r, row.RootID)
-		if err != nil {
-			return Grab{}, err
+		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Path: *row.Path, Fills: rel.fills[row.ID]}
+		if !row.RootID.IsZero() {
+			root, err := roots.Get(ctx, r, row.RootID)
+			if err != nil {
+				return Grab{}, err
+			}
+			g.Plan.Root = root
 		}
-		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Root: root, Path: *row.Path, Fills: rel.fills[row.ID]}
 		if err := json.Unmarshal([]byte(*row.Probe), &g.Plan.Probe); err != nil {
 			return Grab{}, fmt.Errorf("grab %s: probe: %w", row.ID, err)
 		}

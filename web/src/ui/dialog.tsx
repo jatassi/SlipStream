@@ -1,5 +1,5 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode, RefObject } from "react";
 
 import { usePortalDensity } from "./portal-density";
 import { Sheet } from "./sheet";
@@ -13,14 +13,16 @@ export type DialogProps = {
   trigger?: ReactElement;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** The element focused on open in the desktop shell; a sheet focuses nothing. */
+  initialFocus?: RefObject<HTMLElement | null>;
   children: ReactNode;
 };
 
-export function Dialog({ size, ...props }: DialogProps) {
+export function Dialog({ size, initialFocus, ...props }: DialogProps) {
   return useShell() === "phone" ? (
     <Sheet {...props} />
   ) : (
-    <CentredDialog size={size ?? 460} {...props} />
+    <CentredDialog size={size ?? 460} {...(initialFocus && { initialFocus })} {...props} />
   );
 }
 
@@ -35,6 +37,7 @@ function CentredDialog({
   title,
   size,
   trigger,
+  initialFocus,
   children,
   ...root
 }: Omit<DialogProps, "size"> & { size: keyof typeof widths }) {
@@ -47,7 +50,11 @@ function CentredDialog({
         <BaseDialog.Portal data-density={density}>
           <BaseDialog.Backdrop className="fixed inset-0 bg-[rgb(0_0_0/0.5)] transition-opacity duration-(--duration-dialog) ease-spring data-starting-style:opacity-0 data-ending-style:opacity-0" />
           <BaseDialog.Viewport className="fixed inset-0 grid place-items-center p-4">
-            <BaseDialog.Popup aria-modal="true" className={`${popup} ${widths[size]}`}>
+            <BaseDialog.Popup
+              aria-modal="true"
+              {...(initialFocus && { initialFocus })}
+              className={`${popup} ${widths[size]}`}
+            >
               <BaseDialog.Title className="mb-4 text-title">{title}</BaseDialog.Title>
               {children}
             </BaseDialog.Popup>

@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
 )
@@ -147,9 +148,6 @@ func fileRows(t *testing.T, w *sim.World) int64 {
 	return n
 }
 
-// expectPlaced checks the media dir holds only the imported file, with the
-// release payload's bytes, and an empty staging folder, once the disk
-// queue has moved it to its name.
 func expectPlaced(t *testing.T, w *sim.World) {
 	t.Helper()
 	synctest.Wait()
@@ -163,8 +161,9 @@ func expectPlaced(t *testing.T, w *sim.World) {
 		got = append(got, filepath.ToSlash(rel))
 		return err //nolint:wrapcheck // the test reports it as is
 	})
-	if err != nil || !slices.Equal(got, []string{placed}) {
-		t.Fatalf("the media dir holds %v, %v; want exactly [%s]", got, err, placed)
+	want := []string{"movies/" + storing.MarkerName, placed}
+	if err != nil || !slices.Equal(got, want) {
+		t.Fatalf("the media dir holds %v, %v; want exactly %v", got, err, want)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(placed)))
 	if err != nil {

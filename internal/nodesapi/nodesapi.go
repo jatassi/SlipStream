@@ -112,9 +112,10 @@ type roleView struct {
 }
 
 type held struct {
-	Units int64  `json:"units"`
-	Noun  string `json:"noun" doc:"The noun that fits units: torrent, torrents"`
-	Bytes int64  `json:"bytes" doc:"0 when sizes don't apply"`
+	Units   int64  `json:"units"`
+	Noun    string `json:"noun" doc:"The noun that fits units: torrent, torrents"`
+	Bytes   int64  `json:"bytes" doc:"0 when sizes don't apply"`
+	Endless bool   `json:"endless" doc:"The Node can't finish it on its own, so it stays until it is moved or written off"`
 }
 
 func rolesOf(views []nodes.RoleView) []roleView {
@@ -134,7 +135,7 @@ func heldOf(h nodes.Held) held {
 	if h.Units == 1 {
 		noun = h.Noun.One
 	}
-	return held{Units: h.Units, Noun: noun, Bytes: h.Bytes}
+	return held{Units: h.Units, Noun: noun, Bytes: h.Bytes, Endless: h.Endless}
 }
 
 type link struct {

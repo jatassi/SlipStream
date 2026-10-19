@@ -100,7 +100,8 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 }
 
 // searchable is the Indexer tree's searches run on, or why tree can't be
-// searched.
+// searched: a rootless Work, or one whose root's Node is offline or
+// written off, doesn't search.
 func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) (indexers.ID, error) {
 	if len(tree.Items) > 0 {
 		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, tree.Items[0].ID)
@@ -118,7 +119,11 @@ func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree wo
 	if len(all) == 0 {
 		return indexers.ID{}, ErrNoIndexer
 	}
-	if _, err := roots.Of(ctx, r, tree.ContentType); err != nil {
+	root, err := roots.OfWork(ctx, r, tree.ID)
+	if err != nil {
+		return indexers.ID{}, err
+	}
+	if err := gr.cfg.Roots.Reachable(ctx, r, root); err != nil {
 		return indexers.ID{}, err
 	}
 	return all[0].ID, nil

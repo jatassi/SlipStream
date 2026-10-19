@@ -7,6 +7,7 @@ type Values = {
   startupOff: boolean;
   startupPlayed: boolean;
   lastEmail: string;
+  showHiddenFolders: boolean;
 };
 
 export type Pref = keyof Values;
@@ -26,6 +27,7 @@ const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   startupOff: flag("browser"),
   startupPlayed: flag("tab"),
   lastEmail: text("browser"),
+  showHiddenFolders: flag("browser"),
 };
 
 export const prefKey = (pref: Pref): string => `slipstream.${pref}`;
