@@ -5,19 +5,22 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/jatassi/slipstream/cmd/release/internal/changescope"
 	"github.com/jatassi/slipstream/cmd/release/internal/icons"
 	"github.com/jatassi/slipstream/cmd/release/internal/lint"
 	_ "github.com/jatassi/slipstream/cmd/release/internal/lint/rules"
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
+	"github.com/jatassi/slipstream/cmd/release/internal/nativetouch"
 	"github.com/jatassi/slipstream/cmd/release/internal/notices"
 	"github.com/jatassi/slipstream/cmd/release/internal/tokens"
 )
 
 func init() {
-	register("lint", "run gofmt, go vet and golangci-lint (-part target), and the architecture lint, the cgo-free openapi.json check, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the web checks and the notices check (-part repo); -part all runs both", runLint)
+	register("lint", "run gofmt, go vet and golangci-lint (-part target), and the architecture lint, the cgo-free openapi.json check, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the Diagram roots check, the web checks and the notices check (-part repo); -part all runs both", runLint)
 	register("fmt", "format the Go code with gofmt and the web app with Oxfmt", runFmt)
 }
 
@@ -126,10 +129,33 @@ func repoChecks(ctx context.Context, root string) ([]lintCheck, error) {
 		{"contrast", func() error { return tokens.CheckContrast(root) }},
 		{"icons generated", func() error { return icons.Check(root) }},
 		{"diagram keys", func() error { return run(ctx, web, nil, "bun", "run", "diagram:keys", "--check") }},
+		{"diagram roots", func() error { return diagramRoots(ctx, web) }},
 		{"oxlint", func() error { return run(ctx, web, nil, "bun", "run", "lint") }},
 		{"oxfmt", func() error { return run(ctx, web, nil, "bun", "run", "fmt:check") }},
 		{"notices", func() error { return notices.Check(ctx, root) }},
 	}, nil
+}
+
+// diagramRoots fails on each file the Diagram check imports that a change
+// could touch without running the diagram lane.
+func diagramRoots(ctx context.Context, web string) error {
+	cmd := exec.CommandContext(ctx, "bun", "scripts/diagram-inputs.ts")
+	cmd.Dir = web
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("bun scripts/diagram-inputs.ts: %w", err)
+	}
+	var unread []string
+	for _, p := range strings.Fields(string(out)) {
+		if !changescope.Diagram([]nativetouch.Change{{New: nativetouch.Side{Path: p}}}) {
+			unread = append(unread, p)
+		}
+	}
+	if len(unread) > 0 {
+		return fmt.Errorf("the Diagram check reads %s, which changescope's diagram roots leave out", strings.Join(unread, ", "))
+	}
+	return nil
 }
 
 func runFmt(ctx context.Context, args []string) error {

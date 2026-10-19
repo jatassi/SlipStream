@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	register("test", "run the test tiers: -tier go|e2e|component|browser|online|all (default all, which leaves out online); -tier go and e2e pass the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
+	register("test", "run the test tiers: -tier go|e2e|component|diagram|browser|online|all (default all, which leaves out online); -tier go and e2e pass the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
 }
 
 type testTier struct {
@@ -36,6 +36,7 @@ var testTiers = []testTier{
 	{name: "go", run: testGo, goArgs: true, sharded: true, timed: true},
 	{name: "e2e", run: testE2E, goArgs: true, sharded: true, timed: true},
 	{name: "component", run: testComponent},
+	{name: "diagram", run: testDiagram},
 	{name: "browser", run: testBrowser, sharded: true},
 	{name: "online", run: testOnline, goArgs: true, online: true},
 }
@@ -69,7 +70,7 @@ func (s *shard) Set(v string) error {
 // go -run Foo ./e2e` hands `-run Foo ./e2e` to go test.
 func runTest(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	tier := fs.String("tier", "all", "go, e2e, component, browser, online or all")
+	tier := fs.String("tier", "all", "go, e2e, component, diagram, browser, online or all")
 	var o testOptions
 	fs.Var(&o.shard, "shard", "run the i-th of n shards of the tier, as i/n")
 	fs.StringVar(&o.filter, "filter", "", "run only the tests that match, as go test -run or playwright --grep")
@@ -85,7 +86,7 @@ func runTest(ctx context.Context, args []string) error {
 	if *tier != "all" {
 		i := slices.IndexFunc(testTiers, func(t testTier) bool { return t.name == *tier })
 		if i < 0 {
-			return fmt.Errorf("-tier %q is not one of go, e2e, component, browser, online, all", *tier)
+			return fmt.Errorf("-tier %q is not one of go, e2e, component, diagram, browser, online, all", *tier)
 		}
 		tiers = testTiers[i : i+1]
 	}
@@ -171,9 +172,17 @@ func testOnline(ctx context.Context, root string, o testOptions) error {
 	return nil
 }
 
-// testComponent installs Chromium first, which Vitest's browser mode and
-// the Diagram check launch through Playwright.
 func testComponent(ctx context.Context, root string, _ testOptions) error {
+	return runWithChromium(ctx, root, "test")
+}
+
+func testDiagram(ctx context.Context, root string, _ testOptions) error {
+	return runWithChromium(ctx, root, "diagram:check")
+}
+
+// runWithChromium installs Chromium first, which Vitest's browser mode and
+// the Diagram check launch through Playwright.
+func runWithChromium(ctx context.Context, root, script string) error {
 	if err := installWeb(ctx, root); err != nil {
 		return err
 	}
@@ -181,10 +190,7 @@ func testComponent(ctx context.Context, root string, _ testOptions) error {
 	if err := run(ctx, web, nil, "bun", "x", "playwright", "install", "chromium"); err != nil {
 		return err
 	}
-	if err := run(ctx, web, nil, "bun", "run", "test"); err != nil {
-		return err
-	}
-	return run(ctx, web, nil, "bun", "run", "diagram:check")
+	return run(ctx, web, nil, "bun", "run", script)
 }
 
 // testBrowser needs Go only to find or build a binary the variables leave
