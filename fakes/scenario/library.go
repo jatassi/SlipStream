@@ -21,10 +21,20 @@ type Library struct {
 }
 
 // LibraryRoot is a root of a Content Type, the folder named Folder under
-// the run's media dir. A type's first root is its default.
+// the run's media dir, on the Node named Node, the controller Node when
+// empty. A type's first root is its default.
 type LibraryRoot struct {
 	ContentType string `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$"  yaml:"content_type"`
 	Folder      string `jsonschema:"required,pattern=^[a-z0-9][a-z0-9._-]*$" yaml:"folder"`
+	Node        string `jsonschema:"pattern=^[a-z][a-z0-9-]{0\\,15}$"          yaml:"node,omitempty"`
+	// Volume makes the folder a volume of its own with these figures. Only
+	// the simulation tier plays it.
+	Volume *LibraryVolume `yaml:"volume,omitempty"`
+}
+
+type LibraryVolume struct {
+	TotalGiB float64 `jsonschema:"required,exclusiveMinimum=0" yaml:"total_gib"`
+	FreeGiB  float64 `jsonschema:"required,minimum=0"          yaml:"free_gib"`
 }
 
 // LibraryTarget is a Target as an Admin creates it: tiers of quality keys,
@@ -130,6 +140,9 @@ func (l Library) checkRoots(add func(format string, args ...any)) {
 			add("library has two roots in folder %s", r.Folder)
 		}
 		folders = append(folders, r.Folder)
+		if v := r.Volume; v != nil && (v.TotalGiB <= 0 || v.FreeGiB < 0 || v.FreeGiB > v.TotalGiB) {
+			add("library root %s's volume has %g GiB free of %g; want free from 0 to a positive total", r.Folder, v.FreeGiB, v.TotalGiB)
+		}
 	}
 }
 

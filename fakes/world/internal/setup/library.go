@@ -2,11 +2,11 @@ package setup
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -17,25 +17,24 @@ import (
 
 // Library creates the Scenario's library on its controller Node, over c
 // with the Controller's API key: each root's folder under mediaDir and the
-// root on the Controller, then the Targets and Profiles as goals makes
-// them, then the Indexers on the site fakes at sites, as an Admin would.
-func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, apiKey, mediaDir string, sites map[string]fake.Address) error {
+// root on its Node, which shares the machine and so the media dir, then
+// the Targets and Profiles as goals makes them, then the Indexers on the
+// site fakes at sites, as an Admin would.
+func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address) error {
 	var controller string
 	for i, n := range s.Nodes {
 		if n.Setup == scenario.SetupController {
 			controller = url(ready[i])
 		}
 	}
-	self, err := controllerID(ctx, c, controller, apiKey)
-	if err != nil {
-		return err
-	}
+	apiKey := claims.APIKey
 	for _, r := range s.Library.Roots {
 		folder := filepath.Join(mediaDir, r.Folder)
 		if err := os.MkdirAll(folder, 0o700); err != nil {
 			return fmt.Errorf("make the %s root's folder: %w", r.ContentType, err)
 		}
-		if _, err := nodeapi.CreateRoot(ctx, c, controller, apiKey, r.ContentType, self, folder); err != nil {
+		on := slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == s.RootNode(r) })
+		if _, err := nodeapi.CreateRoot(ctx, c, controller, apiKey, r.ContentType, claims.Members[on].ID, folder); err != nil {
 			return err
 		}
 	}
@@ -48,19 +47,6 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 		}
 	}
 	return nil
-}
-
-func controllerID(ctx context.Context, c *http.Client, controller, apiKey string) (string, error) {
-	rows, err := nodeapi.ListNodes(ctx, c, controller, apiKey)
-	if err != nil {
-		return "", err
-	}
-	for _, n := range rows {
-		if n.Self {
-			return n.ID, nil
-		}
-	}
-	return "", errors.New("the Controller lists no row of its own")
 }
 
 // goals creates lib's Targets, replacing the rules of one whose name a

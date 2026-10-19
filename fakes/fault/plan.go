@@ -118,6 +118,9 @@ func Check(r Rule, fronts []Front) error {
 	if _, ok := r.Fault.(Refuse); ok && (r.Skip > 0 || r.Times > 0) {
 		return errors.New("refuse holds a front until cleared and takes no skip or times")
 	}
+	if layer == Disk {
+		return checkDisk(r, fronts)
+	}
 	var covered []Front
 	for _, f := range fronts {
 		if r.Covers(f) {
