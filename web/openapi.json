@@ -937,6 +937,535 @@
         ],
         "type": "object"
       },
+      "HealthAction": {
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "kind": {
+            "description": "check: Check now on the item; run: Run now on taskId; link: a page in the web",
+            "enum": [
+              "check",
+              "run",
+              "link"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "The link's words",
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "HealthCategory": {
+        "additionalProperties": false,
+        "properties": {
+          "canCheck": {
+            "description": "It has a Check now",
+            "type": "boolean"
+          },
+          "id": {
+            "$ref": "#/components/schemas/HealthCategoryID"
+          },
+          "items": {
+            "description": "Errors first, then the oldest",
+            "items": {
+              "$ref": "#/components/schemas/HealthItem"
+            },
+            "type": "array"
+          },
+          "label": {
+            "type": "string"
+          },
+          "level": {
+            "description": "Its worst item's level, null while it has none",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phrase": {
+            "description": "The label inside a sentence, such as storage",
+            "type": "string"
+          },
+          "unread": {
+            "description": "Why its last answer failed; its items then read as they last did. Absent while it answers",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "phrase",
+          "level",
+          "canCheck",
+          "items"
+        ],
+        "type": "object"
+      },
+      "HealthCategoryID": {
+        "enum": [
+          "storage",
+          "nodes",
+          "scheduled-tasks"
+        ],
+        "type": "string"
+      },
+      "HealthChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "type": "object"
+      },
+      "HealthChecked": {
+        "additionalProperties": false,
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/HealthReport",
+            "description": "What is wrong right after the check"
+          },
+          "unreached": {
+            "description": "What the check couldn't reach; those items stay as they were",
+            "items": {
+              "$ref": "#/components/schemas/HealthUnreached"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "report",
+          "unreached"
+        ],
+        "type": "object"
+      },
+      "HealthFact": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "text": {
+            "description": "Exactly one of text, bytes and at is present",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object"
+      },
+      "HealthItem": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HealthAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its one action, null when it has none"
+          },
+          "changedAt": {
+            "description": "When its level last changed",
+            "format": "date-time",
+            "type": "string"
+          },
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/HealthFact"
+            },
+            "type": "array"
+          },
+          "key": {
+            "description": "Stable within its category and safe as one path segment",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "description": "When it first appeared at any level",
+            "format": "date-time",
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "description": "What to do first",
+            "type": "string"
+          },
+          "unsure": {
+            "description": "Its owner can't judge it now, so it reads as it last did",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "level",
+          "subject",
+          "text",
+          "detail",
+          "action",
+          "since",
+          "changedAt",
+          "unsure"
+        ],
+        "type": "object"
+      },
+      "HealthNotReporting": {
+        "additionalProperties": false,
+        "properties": {
+          "errorBelow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingAmount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its own error level, null while it follows the global one"
+          },
+          "mount": {
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          },
+          "warnBelow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingAmount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its own warning level, null while it follows the global one"
+          }
+        },
+        "required": [
+          "nodeId",
+          "nodeName",
+          "mount",
+          "warnBelow",
+          "errorBelow"
+        ],
+        "type": "object"
+      },
+      "HealthPointer": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/HealthCategoryID"
+          },
+          "key": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "key",
+          "text"
+        ],
+        "type": "object"
+      },
+      "HealthReport": {
+        "additionalProperties": false,
+        "properties": {
+          "categories": {
+            "description": "In page order",
+            "items": {
+              "$ref": "#/components/schemas/HealthCategory"
+            },
+            "type": "array"
+          },
+          "first": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HealthPointer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The item the status sentence leads with: the worst, then the oldest, then in page order; null while nothing is wrong"
+          },
+          "level": {
+            "description": "The worst level over every category, null while nothing is wrong",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "level",
+          "first",
+          "categories"
+        ],
+        "type": "object"
+      },
+      "HealthSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "errorBelow": {
+            "$ref": "#/components/schemas/SettingSpaceField"
+          },
+          "warnBelow": {
+            "$ref": "#/components/schemas/SettingSpaceField"
+          }
+        },
+        "required": [
+          "warnBelow",
+          "errorBelow"
+        ],
+        "type": "object"
+      },
+      "HealthSettingsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "errorBelow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingAmount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null resets it to its default"
+          },
+          "warnBelow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingAmount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null resets it to its default"
+          }
+        },
+        "type": "object"
+      },
+      "HealthUnreached": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "The item it was for; absent for a whole category",
+            "type": "string"
+          },
+          "words": {
+            "description": "What couldn't be reached, as a sentence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "words"
+        ],
+        "type": "object"
+      },
+      "HealthVolume": {
+        "additionalProperties": false,
+        "properties": {
+          "errorBelow": {
+            "$ref": "#/components/schemas/SettingSpaceField",
+            "description": "Its own error level, the default while it follows the global one"
+          },
+          "errorBytes": {
+            "description": "The error level it follows, in bytes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "free": {
+            "description": "The bytes SlipStream may write",
+            "format": "int64",
+            "type": "integer"
+          },
+          "level": {
+            "description": "Its Storage item's level, null while it has none",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "live": {
+            "description": "Its Node is in step, so its figures are current; else they read as of sampledAt",
+            "type": "boolean"
+          },
+          "mount": {
+            "description": "As its Node names it, such as D:\\ or /mnt/media",
+            "type": "string"
+          },
+          "name": {
+            "description": "Such as D: (Media)",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          },
+          "sampledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "skipsWarning": {
+            "description": "Its error level is at or above its warning level, so it goes straight to error",
+            "type": "boolean"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "warnBelow": {
+            "$ref": "#/components/schemas/SettingSpaceField",
+            "description": "Its own warning level, the default while it follows the global one"
+          },
+          "warnBytes": {
+            "description": "The warning level it follows, in bytes",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nodeId",
+          "nodeName",
+          "mount",
+          "name",
+          "total",
+          "free",
+          "sampledAt",
+          "live",
+          "warnBelow",
+          "errorBelow",
+          "warnBytes",
+          "errorBytes",
+          "skipsWarning",
+          "level"
+        ],
+        "type": "object"
+      },
+      "HealthVolumeInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "errorBelow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingAmount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null makes it follow the global level"
+          },
+          "mount": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "warnBelow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingAmount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null makes it follow the global level"
+          }
+        },
+        "required": [
+          "nodeId",
+          "mount"
+        ],
+        "type": "object"
+      },
+      "HealthVolumeList": {
+        "additionalProperties": false,
+        "properties": {
+          "notReporting": {
+            "description": "Volumes with levels of their own that no Node reports now, by Node then mount",
+            "items": {
+              "$ref": "#/components/schemas/HealthNotReporting"
+            },
+            "type": "array"
+          },
+          "volumes": {
+            "description": "Every volume a Node reports, by Node then mount",
+            "items": {
+              "$ref": "#/components/schemas/HealthVolume"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "volumes",
+          "notReporting"
+        ],
+        "type": "object"
+      },
       "IdentityAccount": {
         "additionalProperties": false,
         "properties": {
@@ -5574,8 +6103,30 @@
       "ShellAlerts": {
         "additionalProperties": false,
         "properties": {
+          "health": {
+            "description": "The worst level across every Health category, null while nothing is wrong",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "nodes": {
             "description": "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tasks": {
+            "description": "The worst level in the Scheduled tasks Health category, null while nothing is wrong",
             "enum": [
               "warn",
               "fail"
@@ -5587,7 +6138,9 @@
           }
         },
         "required": [
-          "nodes"
+          "nodes",
+          "health",
+          "tasks"
         ],
         "type": "object"
       },
@@ -12460,6 +13013,32 @@
                           "event"
                         ],
                         "title": "Event grabs.search-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/HealthChanged"
+                          },
+                          "event": {
+                            "const": "health.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event health.changed",
                         "type": "object"
                       },
                       {
@@ -27594,6 +28173,1474 @@
         "summary": "Report the build, data dir, process and listeners",
         "tags": [
           "system"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/system/health": {
+      "get": {
+        "operationId": "getSystemHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get what is wrong with SlipStream, by category",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/system/health/check": {
+      "post": {
+        "operationId": "checkSystemHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthChecked"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check every category now",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/system/health/settings": {
+      "get": {
+        "operationId": "getHealthSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the global Storage levels",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateHealthSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthSettingsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change the global Storage levels",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/system/health/volumes": {
+      "delete": {
+        "operationId": "deleteHealthVolume",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "mount",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove a volume's own levels",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "get": {
+        "operationId": "listHealthVolumes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthVolumeList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List every volume with the levels it follows",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateHealthVolume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthVolumeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthVolume"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "health_volume_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set or reset a volume's own levels",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/system/health/{category}/check": {
+      "post": {
+        "operationId": "checkHealthCategory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthChecked"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "health_category_not_found",
+                            "no_check"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check one category now",
+        "tags": [
+          "health"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/system/health/{category}/items/{key}/check": {
+      "post": {
+        "operationId": "checkHealthItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthChecked"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "health_category_not_found",
+                            "health_item_not_found",
+                            "no_check"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check one item now",
+        "tags": [
+          "health"
         ],
         "x-slipstream-access": "admin"
       }
