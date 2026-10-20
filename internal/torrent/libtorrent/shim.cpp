@@ -635,7 +635,7 @@ std::string listen_interface(lt::address const& addr, uint16_t port) {
 
 extern "C" {
 
-lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int outgoing_utp, int32_t announce_floor_s, lts_error* err) {
+lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, lts_error* err) {
 	lts_session* s = nullptr;
 	guard(err, [&] {
 		lt::address addr = lt::make_address(address);
@@ -646,7 +646,6 @@ lts_session* lts_open(char const* address, uint16_t port, uint32_t discovery, in
 		p.set_bool(sp::enable_lsd, discovery & LTS_DISCOVERY_LSD);
 		p.set_bool(sp::enable_upnp, discovery & LTS_DISCOVERY_UPNP);
 		p.set_bool(sp::enable_natpmp, discovery & LTS_DISCOVERY_NATPMP);
-		p.set_bool(sp::enable_outgoing_utp, outgoing_utp != 0);
 		p.set_int(sp::min_announce_interval, announce_floor_s);
 		p.set_str(sp::listen_interfaces, listen_interface(addr, port));
 		p.set_int(sp::max_retry_port_bind, 0);

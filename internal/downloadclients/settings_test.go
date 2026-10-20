@@ -2,12 +2,14 @@ package downloadclients_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -53,7 +55,7 @@ func TestEveryClientSettingIsDeclaredSoundly(t *testing.T) {
 func TestNodeSettingsReadDefaultsWhenAbsent(t *testing.T) {
 	lib := open(t)
 	node := addNode(t, lib, "seedbox")
-	o, err := dc.NodeOverridesOf(t.Context(), lib, node)
+	o, err := dc.New(dc.Config{Library: lib}).NodeSettings(t.Context(), node)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,35 +79,50 @@ func parsed[T any](s setting.Stored[T], err error) *setting.Stored[T] {
 	return &s
 }
 
-func TestNodeSettingsAreEachNodesOwn(t *testing.T) {
+func TestNodeSettingsAreEachNodesOwnAndReachItsIntent(t *testing.T) {
 	lib := open(t)
 	seedbox, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
+	r := &readers{}
+	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r})
 	limit := int64(512 * 1024)
 	off := false
-	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return dc.SetNodeSettings(ctx, tx, seedbox, dc.NodeChange{
-			UploadLimit: parsed(dc.UploadLimit.Parse(&limit)),
-			UTP:         new(dc.UTP.Parse(&off)),
-		})
-	})
-	read := func(node role.NodeID) dc.NodeSettings {
-		o, err := dc.NodeOverridesOf(t.Context(), lib, node)
+	set := func(ch dc.NodeChange) dc.NodeSettings {
+		t.Helper()
+		o, err := c.SetNodeSettings(t.Context(), seedbox, ch)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return o.Settings()
 	}
-	if got := read(seedbox); got.UploadLimit != limit || got.UTP || got.ActiveDownloads != 3 {
+	read := func(node role.NodeID) dc.NodeSettings {
+		t.Helper()
+		o, err := c.NodeSettings(t.Context(), node)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return o.Settings()
+	}
+
+	if got := set(dc.NodeChange{UploadLimit: parsed(dc.UploadLimit.Parse(&limit)), UTP: new(dc.UTP.Parse(&off))}); got != read(seedbox) || got.UploadLimit != limit || got.UTP || got.ActiveDownloads != 3 {
 		t.Errorf("seedbox = %+v, want a 512 KB/s upload limit, uTP off and the rest default", got)
 	}
 	if got := read(home); got.UploadLimit != 0 || !got.UTP {
 		t.Errorf("home = %+v, want defaults", got)
 	}
-
-	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return dc.SetNodeSettings(ctx, tx, seedbox, dc.NodeChange{UploadLimit: parsed(dc.UploadLimit.Parse(nil))})
+	if !slices.Equal(r.touched, []role.NodeID{seedbox}) {
+		t.Errorf("touched %v, want seedbox's intent alone", r.touched)
+	}
+	var in *dlv1.Intent
+	err := lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+		var err error
+		in, err = dc.Intent(ctx, rd, seedbox)
+		return err
 	})
-	if got := read(seedbox); got.UploadLimit != 0 || got.UTP {
+	if err != nil || in.GetSettings().GetUploadLimit() != limit || in.GetSettings().GetUtp() {
+		t.Errorf("seedbox's intent carries %v, %v; want its new settings", in.GetSettings(), err)
+	}
+
+	if got := set(dc.NodeChange{UploadLimit: parsed(dc.UploadLimit.Parse(nil))}); got.UploadLimit != 0 || got.UTP {
 		t.Errorf("after a reset seedbox = %+v, want the upload limit default and uTP still off", got)
 	}
 }

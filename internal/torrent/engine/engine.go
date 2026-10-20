@@ -70,8 +70,6 @@ type Engine interface {
 type Config struct {
 	ListenInterface netip.AddrPort
 	Discovery       Discovery
-	// OutgoingUTP lets the engine dial peers over uTP as well as TCP.
-	OutgoingUTP bool
 	// AnnounceFloor is the least time between two regular announces to a
 	// tracker, whatever interval it answers: libtorrent's
 	// min_announce_interval. Zero is no floor.
@@ -109,16 +107,13 @@ type Settings struct {
 	// Downloads is the folder torrents download into. Its consumer resolves
 	// a relative path against the data dir.
 	Downloads string `yaml:"downloads"`
-	// OutgoingUTP dials peers over uTP as well as TCP. Off, the engine
-	// dials TCP only and still accepts uTP.
-	OutgoingUTP bool `yaml:"outgoing_utp"`
 	// LoopbackPeers has a peer on loopback count as one on the internet,
 	// for a world whose every peer is on loopback.
 	LoopbackPeers bool `yaml:"loopback_peers"`
 }
 
 func DefaultSettings() Settings {
-	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads", OutgoingUTP: true}
+	return Settings{Listen: netip.MustParseAddrPort("0.0.0.0:6881"), Downloads: "downloads"}
 }
 
 // Discovery selects the peer discovery services. Its zero value turns

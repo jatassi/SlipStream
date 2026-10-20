@@ -473,7 +473,6 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) error {
 	torrent, err := n.env.Engine(engine.Config{
 		ListenInterface: cfg.Torrent.Listen,
-		OutgoingUTP:     cfg.Torrent.OutgoingUTP,
 		AnnounceFloor:   cfg.Timings.Downloading.AnnounceFloor,
 		Rand:            torrentRand,
 	})

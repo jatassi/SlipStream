@@ -173,7 +173,7 @@ typedef struct {
 /* announce_floor_s is min_announce_interval, the least interval between two
    regular announces to a tracker. */
 /* A session binds the port it is given or none, and then posts LISTEN_FAILED. */
-lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int outgoing_utp, int32_t announce_floor_s, lts_error* err);
+lts_session* lts_open(const char* address, uint16_t port, uint32_t discovery, int32_t announce_floor_s, lts_error* err);
 int lts_configure(lts_session* s, const lts_limits* l, lts_error* err);
 /* The peer fingerprint and user agent the session announces with. */
 int lts_identity(lts_session* s, char* fingerprint, size_t fingerprint_len, char* user_agent, size_t user_agent_len, lts_error* err);
