@@ -496,6 +496,7 @@ func (l *loop) event(ev engine.Event) {
 		if l.watching.sampling {
 			l.postStats()
 		}
+		l.saveResume(func(t *torrent) bool { return l.saving[t.handle] })
 	case engine.Updates:
 		l.updates(ev.Statuses)
 	case engine.Stats:
