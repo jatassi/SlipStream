@@ -67,12 +67,15 @@ type Timings struct {
 	AnnounceJitter time.Duration `yaml:"announce_jitter"`
 	// TotalsReport is how often the torrents' totals go to the Controller.
 	TotalsReport time.Duration `yaml:"totals_report"`
+	// RouteCheck is how often a client listening on an unspecified address
+	// checks which address the default route leaves from, to follow it.
+	RouteCheck time.Duration `yaml:"route_check"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Facts: time.Second, AnnounceFloor: 5 * time.Minute, ResumeSave: 5 * time.Minute, ShutdownSave: 15 * time.Second,
-		StartSpread: 2 * time.Minute, AnnounceJitter: 3 * time.Minute, TotalsReport: 5 * time.Minute,
+		StartSpread: 2 * time.Minute, AnnounceJitter: 3 * time.Minute, TotalsReport: 5 * time.Minute, RouteCheck: 30 * time.Second,
 	}
 }
 
