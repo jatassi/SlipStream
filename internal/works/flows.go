@@ -252,6 +252,63 @@ func prefetches(d Description, as []Art) []artwork.Want {
 	return wants
 }
 
+var errPreview = errors.New("works: a preview rolls back")
+
+// Preview is the Work Add would make of the record t's source knows by
+// key, without its ratings providers: Add's Write, rolled back, so the
+// tree has an added Work's shape and nothing commits. Its ids name
+// nothing. A key already in the library answers the stored Work, with
+// stored true.
+func (w *Works) Preview(ctx context.Context, _ identity.Admin, t TypeID, key Key, within func(context.Context, storage.Reader[file], Tree) error) (tree Tree, stored bool, err error) {
+	reg, err := w.open(ctx, t)
+	if err != nil {
+		return Tree{}, false, err
+	}
+	row, err := db.New(w.cfg.Library).GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: key})
+	if err == nil {
+		err = w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+			if tree, err = w.read(ctx, r, row.ID); err != nil {
+				return err
+			}
+			return within(ctx, r, tree)
+		})
+		return tree, true, err
+	}
+	if !errors.Is(err, storage.ErrNoRows) {
+		return Tree{}, false, err
+	}
+	p, err := w.fetch(ctx, t, reg, key, ForPreview)
+	if err != nil {
+		return Tree{}, false, err
+	}
+	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		id := WorkID{UUID: storage.NewUUID()}
+		row, err := db.New(tx).GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: key})
+		switch {
+		case err == nil:
+			id, stored = row.ID, true
+		case !errors.Is(err, storage.ErrNoRows):
+			return err
+		default:
+			err = insert(ctx, tx, reg, Summary{ID: id, ContentType: t, Key: key, Label: p.Label, SortLabel: p.SortLabel}, p, Adding{})
+			if err != nil {
+				return err
+			}
+		}
+		if tree, err = w.read(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := within(ctx, tx, tree); err != nil {
+			return err
+		}
+		return errPreview
+	})
+	if !errors.Is(err, errPreview) {
+		return Tree{}, false, err
+	}
+	return tree, stored, nil
+}
+
 // insert writes Work w, as p has it, now.
 func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary, p parsed, a Adding) error {
 	q := db.New(tx)

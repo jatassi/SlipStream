@@ -48,6 +48,7 @@ export const orchard: WorksTree = {
       fields: [],
       ratings: [],
       artwork: [],
+      availability: { date: "2021-04-09", basis: "Digital release in United States" },
     },
   ],
 };

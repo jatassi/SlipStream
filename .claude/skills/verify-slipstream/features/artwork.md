@@ -5,6 +5,7 @@ A movie's poster, backdrop, title treatment and studio logo, and a person's phot
 ## Sub-features
 
 - `artwork-urls` `POST /api/v1/works` and `GET /api/v1/works/{id}` answer an `artwork` list of `{kind, url}`, one per kind the movie has, each URL `/api/v1/artwork/<token>` without a size (P-059).
+- `artwork-search` `GET /api/v1/content-types/movie/catalog?query=quiet+orchard` answers each result's `posterUrl`, and `GET /api/v1/content-types/movie/catalog/9000001` previews the Work with its `artwork`, before anything is added; the URLs are the ones the add answers.
 - `artwork-sizes` a signed-in Account's GET of an artwork URL at `size=small`, `medium`, `large` and `original` answers 200 `image/jpeg` with `Cache-Control: private, max-age=31536000, immutable`, a larger image at each size (P-059).
 - `artwork-prefetch` with every image-cdn request failing after the add, the backdrop at `large` still answers 200 from the store, and at `small` answers 404 `artwork_unavailable` with `Cache-Control: no-store`.
 - `artwork-missing` once image-cdn answers again, the backdrop at `small` still answers 404 until `timings.metadata.artwork_retry` (5 minutes) passes, and a size never asked for answers 200.
@@ -34,6 +35,13 @@ Preconditions:
   `one() { sed "s#URL_HERE#\"$1\"#" one.js; }` fills it in.
 
 Steps:
+
+- **Search and preview.** The result's `posterUrl` and the preview's `work.artwork` carry artwork URLs.
+
+  ```sh
+  $FW exec $RUN --proof artwork/artwork-search -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=quiet+orchard'
+  $FW exec $RUN --proof artwork/artwork-search -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000001'
+  ```
 
 - **Add the movie and read its URLs.** The reply's `work.artwork` lists `backdrop`, `poster` and `title_treatment`. Set `P` and `B` to the poster's and backdrop's `url`.
 

@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -75,6 +76,7 @@ type Fixture struct {
 	timings   map[works.ItemID]targets.Timing
 	cuts      []release.Cut
 	prefetch  []artwork.Want
+	depth     *int64
 }
 
 // Released is the date every Item is released on until SetTiming says
@@ -315,6 +317,37 @@ func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w
 	defer f.mu.Unlock()
 	fs := f.stored[w]
 	return works.FieldSet{Work: fs.Work, Levels: maps.Clone(fs.Levels), Items: maps.Clone(fs.Items)}, nil
+}
+
+// Depth is the Fixture's one setting. It is held in memory, so a Write
+// that fails after ApplySettings still keeps it.
+var Depth = setting.Count{Key: "fixture.depth", Label: "Boxes deep", Default: 3, Min: 1, Max: 9, Unit: setting.Noun{One: "box", Many: "boxes"}}
+
+func (f *Fixture) SettingFields(context.Context, storage.Reader[storage.Library]) ([]setting.Field, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return []setting.Field{Depth.Field(f.depth)}, nil
+}
+
+func (f *Fixture) ApplySettings(_ context.Context, _ *storage.Tx[storage.Library], p setting.Patch) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	next := f.depth
+	for key, raw := range p {
+		if key != Depth.Key {
+			return false, &setting.UnknownKeyError{Key: key}
+		}
+		s, err := Depth.ParseJSON(raw)
+		if err != nil {
+			return false, err
+		}
+		next = s.Override()
+	}
+	if reflect.DeepEqual(next, f.depth) {
+		return false, nil
+	}
+	f.depth = next
+	return true, nil
 }
 
 // NamingTokens names an Item's files after its Work's label, as Shelf,

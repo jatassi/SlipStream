@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -35,9 +36,13 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-type shelf struct{ w *works.Works }
+type shelf struct {
+	w *works.Works
+	t *targets.Targets
+}
 
-func (s shelf) Works() (*works.Works, bool) { return s.w, true }
+func (s shelf) Works() (*works.Works, bool)       { return s.w, true }
+func (s shelf) Targets() (*targets.Targets, bool) { return s.t, true }
 
 func (shelf) Minter() (artwork.Minter, bool) { return minter, true }
 
@@ -101,6 +106,7 @@ func serve(t *testing.T) *server {
 		Timings:      works.Timings{Fetch: 5 * time.Second},
 		Changed:      discard[works.WorkChanged]{},
 		TypesChanged: discard[works.ContentTypesChanged]{},
+		TypeChanged:  discard[works.TypeChanged]{},
 		Log:          log,
 	})
 	if err != nil {
@@ -113,7 +119,7 @@ func serve(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
-	worksapi.Routes(r, shelf{w})
+	worksapi.Routes(r, shelf{w, goals})
 	return &server{handler: r.Handler(), fx: fx, goals: goals, apiKey: admin.APIKey.Reveal(), session: admin.Cookie.Value, log: logged}
 }
 
@@ -171,7 +177,8 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 	want := `{"created":true,"work":{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
 		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
-		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[]}]}}` + "\n"
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],` +
+		`"availability":{"date":"2000-01-01","basis":""}}]}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -185,8 +192,33 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		t.Fatalf("listWorks = %d %s, want %s", code, list, want)
 	}
 	code, search := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog?query=attic", "")
-	if want := `{"candidates":[{"key":"w1","label":"The Attic","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
+	if want := `{"candidates":[{"key":"w1","label":"The Attic","original":"","overview":"","fields":[{"key":"origin","kind":"text","text":"Grandma"}],"posterUrl":null,"workId":"` + id + `"}]}` + "\n"; code != http.StatusOK || search != want {
 		t.Fatalf("searchCatalog = %d %s, want %s", code, search, want)
+	}
+}
+
+func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
+	s := serve(t)
+	s.fx.Put("w1", record())
+	tree := `{"id":"id1","contentType":"fixture","key":"w1","label":"The Attic","sortLabel":"The Attic","addedAt":"T","refreshedAt":"T","goneUpstreamAt":null,` +
+		`"fields":[{"key":"origin","kind":"text","text":"Grandma"}],"ratings":[],"artwork":[],` +
+		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}]}],` +
+		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
+	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
+	if want := `{"inLibrary":false,"work":` + tree + "}\n"; code != http.StatusOK || masked(body) != want {
+		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
+	}
+	expect(t, s, http.MethodGet, "/api/v1/works", "", 200, `{"works":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/content-types/fixture/catalog/w2", "", 404, `{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
+
+	code, body = s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("addWork = %d %s", code, body)
+	}
+	id := uuids.FindString(body)
+	code, body = s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
+	if code != http.StatusOK || !strings.HasPrefix(body, `{"inLibrary":true,"work":{"id":"`+id+`"`) || masked(body) != `{"inLibrary":true,"work":`+tree+"}\n" {
+		t.Fatalf("previewCatalogRecord once added = %d %s, want the Work %s", code, body, id)
 	}
 }
 
@@ -296,6 +328,61 @@ func TestFieldKindsTextsPeopleLinkRoundTripTheAPI(t *testing.T) {
 	}
 }
 
+func TestTheWorkAPIShowsDateAndBasis(t *testing.T) {
+	s := serve(t)
+	s.fx.Put("w1", record())
+	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
+	if code != 200 {
+		t.Fatalf("addWork = %d %s", code, body)
+	}
+	var added struct {
+		Work struct {
+			ID    string `json:"id"`
+			Items []struct {
+				ID string `json:"id"`
+			} `json:"items"`
+		} `json:"work"`
+	}
+	if err := json.Unmarshal([]byte(body), &added); err != nil {
+		t.Fatal(err)
+	}
+	item, err := storage.ParseUUID(added.Work.Items[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := "/api/v1/works/" + added.Work.ID
+	s.fx.SetTiming(works.ItemID{UUID: item}, targets.Timing{Released: release.Known(works.Date{Year: 2026, Month: 11, Day: 3}), Basis: "Digital release in United States"})
+	for _, call := range []struct{ method, path string }{{http.MethodGet, work}, {http.MethodPost, work + "/refresh"}} {
+		code, body = s.call(t, call.method, call.path, "")
+		if want := `"availability":{"date":"2026-11-03","basis":"Digital release in United States"}`; code != 200 || !strings.Contains(body, want) {
+			t.Fatalf("%s %s = %d %s, want it to hold %s", call.method, call.path, code, body, want)
+		}
+	}
+	s.fx.SetTiming(works.ItemID{UUID: item}, targets.Timing{})
+	if code, body = s.call(t, http.MethodGet, work, ""); code != 200 || !strings.Contains(body, `"availability":null`) {
+		t.Fatalf("getWork with no date = %d %s, want availability null", code, body)
+	}
+}
+
+func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
+	s := serve(t)
+	depth := func(value int, isDefault bool) string {
+		return fmt.Sprintf(`{"settings":[{"key":"fixture.depth","label":"Boxes deep","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,`+
+			`"kind":"count","value":%d,"running":%d,"default":3,"min":1,"max":9,"unit":{"one":"box","many":"boxes"}}]}`, isDefault, value, value)
+	}
+	settings := "/api/v1/content-types/fixture/settings"
+	expect(t, s, http.MethodGet, settings, "", 200, depth(3, true))
+	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":5}}`, 200, depth(5, false))
+	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":12}}`, 422,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 and 9 boxes."}`)
+	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.width":2}}`, 422,
+		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key fixture.width."}`)
+	expect(t, s, http.MethodGet, settings, "", 200, depth(5, false))
+	expect(t, s, http.MethodPatch, settings, `{"values":{"fixture.depth":null}}`, 200, depth(3, true))
+	expect(t, s, http.MethodGet, "/api/v1/content-types/ghost/settings", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
+	expect(t, s, http.MethodPatch, "/api/v1/content-types/ghost/settings", `{"values":{}}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
+}
+
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {
 	s := serve(t)
 	s.fx.Fail("w1", errors.New("disk on fire"))
@@ -359,21 +446,6 @@ func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
 	r := record()
 	r.Tree.Artwork = []works.Art{{Kind: "photo", Ref: photo}, {Item: "c1", Kind: "snap", Ref: snap}}
 	s.fx.Put("w1", r)
-	code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`)
-	if code != http.StatusOK {
-		t.Fatalf("addWork = %d %s", code, body)
-	}
-	var tree struct {
-		Work struct {
-			Artwork []struct{ Kind, URL string }
-			Items   []struct {
-				Artwork []struct{ Kind, URL string }
-			}
-		}
-	}
-	if err := json.Unmarshal([]byte(body), &tree); err != nil || len(tree.Work.Artwork) != 1 || len(tree.Work.Items) != 1 || len(tree.Work.Items[0].Artwork) != 1 {
-		t.Fatalf("addWork = %s, %v; want one Work image and one Item image", body, err)
-	}
 	opens := func(what, kind, url string, want artwork.Ref) {
 		t.Helper()
 		token, ok := strings.CutPrefix(url, artwork.Route)
@@ -382,8 +454,25 @@ func TestArtworkAnswersAsURLsTheRouteOpens(t *testing.T) {
 			t.Errorf("%s's %s URL %q opens to %+v, %v; want %+v", what, kind, url, got, err, want)
 		}
 	}
-	opens("the Work", tree.Work.Artwork[0].Kind, tree.Work.Artwork[0].URL, photo)
-	opens("the Item", tree.Work.Items[0].Artwork[0].Kind, tree.Work.Items[0].Artwork[0].URL, snap)
+	for _, at := range []struct{ op, method, path, body string }{
+		{"previewCatalogRecord", http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", ""},
+		{"addWork", http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w1"}`},
+	} {
+		code, body := s.call(t, at.method, at.path, at.body)
+		var tree struct {
+			Work struct {
+				Artwork []struct{ Kind, URL string }
+				Items   []struct {
+					Artwork []struct{ Kind, URL string }
+				}
+			}
+		}
+		if err := json.Unmarshal([]byte(body), &tree); code != http.StatusOK || err != nil || len(tree.Work.Artwork) != 1 || len(tree.Work.Items) != 1 || len(tree.Work.Items[0].Artwork) != 1 {
+			t.Fatalf("%s = %d %s, %v; want one Work image and one Item image", at.op, code, body, err)
+		}
+		opens(at.op+"'s Work", tree.Work.Artwork[0].Kind, tree.Work.Artwork[0].URL, photo)
+		opens(at.op+"'s Item", tree.Work.Items[0].Artwork[0].Kind, tree.Work.Items[0].Artwork[0].URL, snap)
+	}
 
 	code, list := s.call(t, http.MethodGet, "/api/v1/works", "")
 	if want := `"artwork":[{"kind":"photo","url":"` + minter.URL(photo) + `"}]`; code != http.StatusOK || !strings.Contains(list, want) || strings.Contains(list, "scarf") {

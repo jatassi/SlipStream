@@ -3681,6 +3681,20 @@ export const WorksFieldValue = zod.discriminatedUnion("kind", [
 export type WorksFieldValue = zod.input<typeof WorksFieldValue>;
 export type WorksFieldValueOutput = zod.output<typeof WorksFieldValue>;
 
+export const worksAvailabilityDateRegExp = new RegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$");
+
+export const WorksAvailability = zod.object({
+  basis: zod
+    .string()
+    .describe(
+      "The rule that chose the date, in words, such as Digital release in United States; empty when the Content Type names none",
+    ),
+  date: zod.string().regex(worksAvailabilityDateRegExp).describe("YYYY, YYYY-MM or YYYY-MM-DD"),
+});
+
+export type WorksAvailability = zod.input<typeof WorksAvailability>;
+export type WorksAvailabilityOutput = zod.output<typeof WorksAvailability>;
+
 export const worksRatingScaleExclusiveMin = 0;
 
 export const worksRatingValueMin = 0;
@@ -3701,6 +3715,9 @@ export type WorksRatingOutput = zod.output<typeof WorksRating>;
 
 export const WorksItem = zod.object({
   artwork: zod.array(WorksArt).describe("By kind"),
+  availability: WorksAvailability.describe(
+    "The day the Item counts as released and the rule that chose it; null while no date is known",
+  ),
   fields: zod.array(WorksFieldValue),
   id: zod.uuid(),
   key: zod.string(),
@@ -3787,6 +3804,8 @@ export const WorksCandidate = zod.object({
   fields: zod.array(WorksFieldValue).describe("The Work's fields"),
   key: zod.string(),
   label: zod.string(),
+  original: zod.string().describe("The label in its original language; empty when it is the label"),
+  overview: zod.string().describe("One line; empty when the source has none"),
   posterUrl: zod
     .string()
     .nullable()
@@ -3923,6 +3942,25 @@ export const WorksNewWork = zod.object({
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
 
+export const WorksPreviewed = zod.object({
+  inLibrary: zod
+    .boolean()
+    .describe("Whether the Work is in the library; while it isn't, the ids in work name nothing"),
+  work: WorksTree,
+});
+
+export type WorksPreviewed = zod.input<typeof WorksPreviewed>;
+export type WorksPreviewedOutput = zod.output<typeof WorksPreviewed>;
+
+export const WorksSettingsChange = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type WorksSettingsChange = zod.input<typeof WorksSettingsChange>;
+export type WorksSettingsChangeOutput = zod.output<typeof WorksSettingsChange>;
+
 export const worksTypeChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksTypeChanged = zod.object({
@@ -3931,6 +3969,13 @@ export const WorksTypeChanged = zod.object({
 
 export type WorksTypeChanged = zod.input<typeof WorksTypeChanged>;
 export type WorksTypeChangedOutput = zod.output<typeof WorksTypeChanged>;
+
+export const WorksTypeSettings = zod.object({
+  settings: zod.array(SettingField).describe("In the Content Type's order; empty when it has none"),
+});
+
+export type WorksTypeSettings = zod.input<typeof WorksTypeSettings>;
+export type WorksTypeSettingsOutput = zod.output<typeof WorksTypeSettings>;
 
 export const WorksWorkChanged = zod.object({
   workId: zod.uuid(),

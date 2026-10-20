@@ -3,6 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
@@ -19,14 +20,23 @@ const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"w
 	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},` +
 	`{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}]}`
 
+// artworkURL is an artwork URL, whose token each install signs with its
+// own key.
+var artworkURL = regexp.MustCompile(`"/api/v1/artwork/[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"`)
+
+func artworkMasked(r worldtest.Reply) worldtest.Reply {
+	r.Body = artworkURL.ReplaceAllString(r.Body, `"ART"`)
+	return r
+}
+
 func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 	t.Parallel()
 	run := worldtest.Launch(t, "single-machine")
 	a := api(t, run)
 
-	worldtest.Expect(t, "searchCatalog for quiet orchard", a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", ""), worldtest.Reply{
+	worldtest.Expect(t, "searchCatalog for quiet orchard", artworkMasked(a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", "")), worldtest.Reply{
 		Status: 200,
-		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":null,"workId":null}]}` + "\n",
+		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","original":"","overview":"","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":"ART","workId":null}]}` + "\n",
 	})
 
 	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})

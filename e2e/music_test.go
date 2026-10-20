@@ -28,7 +28,7 @@ const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,` +
 	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"}]}`
 
 func searchLanterns(workID string) worldtest.Reply {
-	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}
+	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `}]}` + "\n"}
 }
 
 func problem(status int, code, title string) worldtest.Reply {

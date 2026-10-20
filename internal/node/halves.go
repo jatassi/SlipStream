@@ -166,6 +166,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
+		TypeChanged:  works.TypeChangedEvent.Bind(n.hub),
 		Log:          n.rootLog.With("subsystem", "works"),
 	})
 	if err != nil {

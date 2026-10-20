@@ -125,6 +125,7 @@ type Config struct {
 	Timings      Timings
 	Changed      Publisher[WorkChanged]
 	TypesChanged Publisher[ContentTypesChanged]
+	TypeChanged  Publisher[TypeChanged]
 	Log          *slog.Logger
 }
 

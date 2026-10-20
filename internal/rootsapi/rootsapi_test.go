@@ -54,10 +54,12 @@ func (discard[T]) Publish(context.Context, T) {}
 type node struct {
 	r *roots.Roots
 	w *works.Works
+	t *targets.Targets
 }
 
-func (n node) Roots() (*roots.Roots, bool) { return n.r, true }
-func (n node) Works() (*works.Works, bool) { return n.w, true }
+func (n node) Roots() (*roots.Roots, bool)       { return n.r, true }
+func (n node) Works() (*works.Works, bool)       { return n.w, true }
+func (n node) Targets() (*targets.Targets, bool) { return n.t, true }
 func (node) Minter() (artwork.Minter, bool) {
 	return artwork.NewMinter([]byte("rootsapi")), true
 }
@@ -135,7 +137,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = targets.Open(t.Context(), targets.Config{
+	goals, err := targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: named{}, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx, "other": fx}, Changed: discard[targets.Changed]{},
 	})
 	if err != nil {
@@ -158,7 +160,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := node{svc, w}
+	n := node{svc, w, goals}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)

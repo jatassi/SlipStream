@@ -2,12 +2,16 @@ package movie_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
+	"maps"
 	"math/rand/v2"
 	"net/http"
 	"reflect"
+	"slices"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -29,7 +33,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
-	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -47,7 +51,15 @@ func id(t *testing.T, k works.Key) int64 {
 	return n
 }
 
-const saltRoad works.Key = "9000005"
+const (
+	saltRoad        works.Key = "9000005"
+	heat1986        works.Key = "9100001"
+	heat1995        works.Key = "9100002"
+	heatMaking      works.Key = "9100003"
+	bladeRunner2049 works.Key = "9100005"
+	war1917         works.Key = "9100006"
+	summer1993      works.Key = "9100007"
+)
 
 func catalog(t *testing.T) scenario.Scenario {
 	t.Helper()
@@ -96,7 +108,25 @@ func catalog(t *testing.T) scenario.Scenario {
 			Dates:  []scenario.TMDBDate{{Country: "GB", Kind: "digital", Date: "2020-01-01"}, {Country: "US", Kind: "cinema", Date: "2019-11-01"}},
 			Images: []scenario.TMDBImage{{Shape: "logo", Language: "fr", Votes: 9}, {Shape: "logo", Votes: 3}},
 		},
+		scenario.TMDBMovie{ID: 9000007, Title: "Harbor Lights", Dates: []scenario.TMDBDate{
+			{Country: "US", Kind: "cinema", Date: "2020-03-01"}, {Country: "FR", Kind: "limited", Date: "2020-01-01"},
+		}},
+		scenario.TMDBMovie{ID: 9000008, Title: "Paper Moon", Dates: []scenario.TMDBDate{{Country: "FR", Kind: "cinema", Date: "2020-01-10"}}},
+		scenario.TMDBMovie{ID: 9000009, Title: "Glass Garden", Dates: []scenario.TMDBDate{{Country: "US", Kind: "premiere", Date: "2021-06-01"}}},
+		scenario.TMDBMovie{ID: 9000010, Title: "Early Stream", Dates: []scenario.TMDBDate{
+			{Country: "US", Kind: "digital", Date: "2020-01-01"}, {Country: "US", Kind: "cinema", Date: "2020-02-01"},
+		}},
 	)
+	for _, m := range []struct {
+		key             works.Key
+		title, released string
+	}{
+		{heat1986, "Heat", "1986-03-14"}, {heat1995, "Heat", "1995-12-15"}, {heatMaking, "Heat 1995: The Making Of", "2005-06-01"},
+		{"9100004", "Blade Runner", "1982-06-25"}, {bladeRunner2049, "Blade Runner 2049", "2017-10-06"},
+		{war1917, "1917", "2019-12-25"}, {summer1993, "Summer 1993", "1993-09-01"},
+	} {
+		s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: id(t, m.key), IMDbID: "tt" + string(m.key), Title: m.title, Released: m.released})
+	}
 	s.OMDb = &scenario.OMDb{Titles: []scenario.OMDbTitle{{
 		IMDbID: "tt9000005", IMDbRating: ptr(7.1), IMDbVotes: ptr(int64(12345)), RottenTomatoes: ptr(88), Metacritic: ptr(74),
 		Awards: "1 win & 3 nominations",
@@ -182,22 +212,89 @@ func inEachTier(t *testing.T, test func(t *testing.T, m metadata.Source)) {
 	})
 }
 
-func TestSearchAnswersTitleAndYear(t *testing.T) {
+func keys(cs []works.Candidate) []works.Key {
+	out := []works.Key{}
+	for _, c := range cs {
+		out = append(out, c.Key)
+	}
+	return out
+}
+
+func TestTrailingYear(t *testing.T) {
 	inEachTier(t, func(t *testing.T, m metadata.Source) {
-		for query, want := range map[string][]works.Candidate{
-			"quiet orchard": {{Key: "9000001", Label: "The Quiet Orchard", Fields: []works.FieldValue{works.NumberField("year", 2021)}}},
-			"orchard": {
-				{Key: "9000001", Label: "The Quiet Orchard", Fields: []works.FieldValue{works.NumberField("year", 2021)}},
-				{Key: "9000002", Label: "Orchard Road", Fields: []works.FieldValue{works.NumberField("year", 2019)}},
-			},
-			"nobody": {},
+		for query, want := range map[string][]works.Key{
+			"Heat 1995":         {heat1995, heatMaking},
+			"heat":              {heat1986, heat1995, heatMaking},
+			"Blade Runner 2049": {bladeRunner2049},
+			"1917":              {war1917},
+			"Summer 1993":       {summer1993},
+			"nobody":            {},
 		} {
-			got, err := m.Search(t.Context(), metadata.NewAsk(metadata.AskOptions{Language: metadata.DefaultLanguage}), query)
-			if err != nil || !reflect.DeepEqual(got, want) {
-				t.Errorf("Search(%q) = %+v, %v; want %+v", query, got, err, want)
+			got, err := m.Search(t.Context(), inEnglish, query)
+			if err != nil || !reflect.DeepEqual(keys(got), want) {
+				t.Errorf("Search(%q) = %v, %v; want %v", query, keys(got), err, want)
 			}
 		}
 	})
+}
+
+func TestOnlyAYearUpToTenYearsAheadIsReadAsAFilter(t *testing.T) {
+	sv := serve(t, catalog(t))
+	for _, c := range []struct {
+		query string
+		reads int64
+	}{{"Heat 1995", 2}, {"Heat " + strconv.Itoa(time.Now().Year()+10), 2}, {"Heat " + strconv.Itoa(time.Now().Year()+11), 1}, {"Heat 1873", 1}, {"1917", 1}} {
+		before := sv.tmdbSent.sent.Load()
+		if _, err := sv.open().Search(t.Context(), inEnglish, c.query); err != nil {
+			t.Fatal(err)
+		}
+		if sent := sv.tmdbSent.sent.Load() - before; sent != c.reads {
+			t.Errorf("Search(%q) sent %d TMDB requests, want %d", c.query, sent, c.reads)
+		}
+	}
+}
+
+func TestSearchAnswersTitleOriginalOverviewYearAndPoster(t *testing.T) {
+	sv := serve(t, catalog(t))
+	got, err := sv.open().Search(t.Context(), inEnglish, "salt road")
+	want := []works.Candidate{{
+		Key: saltRoad, Label: "The Salt Road", Original: "La Route du Sel", Overview: "Two sisters walk the salt road.",
+		Poster: artwork.Ref{Source: tmdb.ImagesID, Shape: artwork.ShapePoster, Path: sv.tmdbOf(t, inEnglish, id(t, saltRoad)).PosterPath},
+		Fields: []works.FieldValue{works.NumberField("year", 2022)},
+	}}
+	if err != nil || !reflect.DeepEqual(got, want) || want[0].Poster.Path == "" {
+		t.Fatalf("Search = %+v, %v; want %+v", got, err, want)
+	}
+	if sv.omdbSent.sent.Load() != 0 {
+		t.Fatalf("search sent %d OMDb requests, want none", sv.omdbSent.sent.Load())
+	}
+}
+
+func TestSearchReadsPagesUntil25(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		movies, pages int
+	}{{"more than 25", 30, 2}, {"fewer than 25", 22, 2}, {"one page", 7, 1}} {
+		t.Run(c.name, func(t *testing.T) {
+			s := catalog(t)
+			var want []works.Key
+			for i := range c.movies {
+				id := int64(9200001 + i)
+				s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: id, IMDbID: "tt" + strconv.FormatInt(id, 10), Title: "Lantern " + strconv.Itoa(i+1)})
+				if len(want) < 25 {
+					want = append(want, works.Key(strconv.FormatInt(id, 10)))
+				}
+			}
+			sv := serve(t, s)
+			got, err := sv.open().Search(t.Context(), inEnglish, "lantern")
+			if err != nil || !reflect.DeepEqual(keys(got), want) {
+				t.Fatalf("Search = %v, %v; want %v", keys(got), err, want)
+			}
+			if sent := sv.tmdbSent.sent.Load(); sent != int64(c.pages) {
+				t.Fatalf("search sent %d TMDB requests, want %d", sent, c.pages)
+			}
+		})
+	}
 }
 
 func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
@@ -226,20 +323,40 @@ type published struct{ n atomic.Int64 }
 
 func (p *published) Publish(context.Context, works.WorkChanged) { p.n.Add(1) }
 
+// retyped records each works.type-changed by its Content Type.
+type retyped struct {
+	mu    sync.Mutex
+	types []string
+}
+
+func (p *retyped) Publish(_ context.Context, e works.TypeChanged) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.types = append(p.types, e.ContentType)
+}
+
+func (p *retyped) sent() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.types)
+}
+
 type shelf struct {
-	works *works.Works
-	m     contenttype.Library
-	lib   *storage.DB[storage.Library]
-	sent  *published
+	works   *works.Works
+	m       contenttype.Library
+	lib     *storage.DB[storage.Library]
+	sent    *published
+	retyped *retyped
 }
 
 func open(t *testing.T, src works.Source) shelf {
 	t.Helper()
-	sh := shelf{m: library(), lib: storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(movie.Def))...), sent: &published{}}
+	sh := shelf{m: library(), lib: storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(movie.Def))...), sent: &published{}, retyped: &retyped{}}
 	var err error
 	sh.works, err = works.Open(t.Context(), works.Config{
 		Library: sh.lib, Catalogs: map[works.TypeID]works.Catalog{movie.Def.ID(): sh.m}, Timings: works.DefaultTimings(),
-		Source: src, Artwork: noPrefetch{}, Changed: sh.sent, TypesChanged: discard[works.ContentTypesChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Source: src, Artwork: noPrefetch{}, Changed: sh.sent, TypesChanged: discard[works.ContentTypesChanged]{}, TypeChanged: sh.retyped,
+		Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -399,6 +516,38 @@ func imageOf(t *testing.T, ims []tmdb.Image, language string, votes float64) str
 	}
 	t.Fatalf("TMDB lists no image in %q with %v votes", language, votes)
 	return ""
+}
+
+func TestPreviewSkipsOMDbAndCommitsNothing(t *testing.T) {
+	sv := serve(t, catalog(t))
+	sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): sv.open()}))
+	preview, stored, err := sh.works.Preview(t.Context(), identity.Admin{}, movie.Def.ID(), saltRoad, noneWithin)
+	if err != nil || stored {
+		t.Fatalf("Preview = stored %v, %v; want a record not in the library", stored, err)
+	}
+	if sv.omdbSent.sent.Load() != 0 || sv.tmdbSent.sent.Load() != 1 {
+		t.Fatalf("preview sent %d TMDB and %d OMDb requests, want 1 and none", sv.tmdbSent.sent.Load(), sv.omdbSent.sent.Load())
+	}
+	listed, err := sh.works.List(t.Context(), identity.Admin{}, nil)
+	if err != nil || len(listed) != 0 || sh.sent.n.Load() != 0 {
+		t.Fatalf("after a preview the library lists %v, %v and published %d works.changed, want nothing", listed, err, sh.sent.n.Load())
+	}
+	if len(preview.Ratings) != 1 || preview.Ratings[0].Source != "tmdb" || !preview.RatingsReadAt.IsZero() {
+		t.Fatalf("preview ratings %+v read at %v, want only TMDB's and no ratings read", preview.Ratings, preview.RatingsReadAt)
+	}
+
+	added := sh.add(t, saltRoad)
+	without := func(fs []works.FieldValue) []works.FieldValue {
+		return slices.DeleteFunc(slices.Clone(fs), func(f works.FieldValue) bool { return f.Key == "awards" })
+	}
+	if !reflect.DeepEqual(without(added.Fields), preview.Fields) || !reflect.DeepEqual(added.Artwork, preview.Artwork) ||
+		added.Label != preview.Label || len(added.Items) != 1 || len(preview.Items) != 1 || added.Items[0].Key != preview.Items[0].Key {
+		t.Fatalf("added %+v\nwant the preview but OMDb's awards %+v", added, preview)
+	}
+	again, stored, err := sh.works.Preview(t.Context(), identity.Admin{}, movie.Def.ID(), saltRoad, noneWithin)
+	if err != nil || !stored || again.ID != added.ID || !reflect.DeepEqual(again.Fields, added.Fields) {
+		t.Fatalf("Preview once added = %v %v, %v; want the stored Work %v", again.ID, stored, err, added.ID)
+	}
 }
 
 func TestAddedMovieHasOneMonitoredItem(t *testing.T) {
@@ -644,38 +793,146 @@ func timings(t *testing.T, key works.Key) (tree works.Tree, got map[works.ItemID
 	return tree, got
 }
 
-func TestTimingsAreTheHomeReleaseInTheRegionAndTheRuntime(t *testing.T) {
-	for key, want := range map[works.Key]targets.Timing{
-		"9000001": {Released: release.Known(works.Date{Year: 2021, Month: 4, Day: 16}), Runtime: release.Known(104 * time.Minute)},
-		saltRoad:  {Released: release.Known(works.Date{Year: 2023, Month: 4, Day: 4}), Runtime: release.Known(112 * time.Minute)},
-	} {
-		tree, got := timings(t, key)
-		if w := (map[works.ItemID]targets.Timing{tree.Items[0].ID: want}); !reflect.DeepEqual(got, w) {
-			t.Errorf("Timings of %s = %+v, want %+v", key, got, w)
-		}
-	}
-}
-
-func TestWithNoHomeReleaseInTheRegionAnotherCountrysCounts(t *testing.T) {
-	tree, got := timings(t, "9000006")
-	want := map[works.ItemID]targets.Timing{tree.Items[0].ID: {Released: release.Known(works.Date{Year: 2020, Month: 1, Day: 1}), Runtime: release.Known(95 * time.Minute)}}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Timings = %+v, want %+v", got, want)
+func TestTimingsCarryTheRuntime(t *testing.T) {
+	tree, got := timings(t, saltRoad)
+	if r, _ := got[tree.Items[0].ID].Runtime.Get(); r != 112*time.Minute {
+		t.Fatalf("Timings = %+v, want a runtime of 112 min", got)
 	}
 }
 
 func TestAMovieWithoutRuntimeHasAnUnknownRuntime(t *testing.T) {
 	tree, got := timings(t, "9000002")
-	want := map[works.ItemID]targets.Timing{tree.Items[0].ID: {Released: release.Known(works.Date{Year: 2019, Month: 1, Day: 5})}}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Timings = %+v, want %+v", got, want)
+	if _, known := got[tree.Items[0].ID].Runtime.Get(); known {
+		t.Fatalf("Timings = %+v, want an unknown runtime", got)
 	}
 }
 
-func TestAnUndatedMovieHasAnUnknownReleaseDate(t *testing.T) {
-	tree, got := timings(t, "9000004")
-	if want := (map[works.ItemID]targets.Timing{tree.Items[0].ID: {Runtime: release.Known(90 * time.Minute)}}); !reflect.DeepEqual(got, want) {
-		t.Fatalf("Timings = %+v, want %+v", got, want)
+type availability struct {
+	date  string
+	basis string
+}
+
+func TestAvailabilityRule(t *testing.T) {
+	keys := []works.Key{"9000002", "9000004", saltRoad, "9000006", "9000007", "9000008", "9000009", "9000010"}
+	home := map[works.Key]availability{
+		"9000002": {"2019-01-05", "Digital release in United States"},
+		saltRoad:  {"2023-04-04", "Digital release in United States"},
+		"9000006": {"2020-01-01", "Digital release in United Kingdom"},
+		"9000007": {"2020-05-30", "Cinema release in United States plus 90 days"},
+		"9000008": {"2020-04-09", "Cinema release in France plus 90 days"},
+		"9000009": {"2021-08-30", "Release date plus 90 days"},
+		"9000010": {"2020-01-01", "Digital release in United States"},
+	}
+	cases := []struct {
+		name  string
+		patch setting.Patch
+		want  map[works.Key]availability
+	}{
+		{"home release by default", nil, home},
+		{"cinema release, the earlier of cinema and home", setting.Patch{movie.CountsAs.Key: json.RawMessage(`"cinema"`)}, map[works.Key]availability{
+			"9000002": home["9000002"],
+			saltRoad:  {"2023-01-20", "Limited cinema release in United States"},
+			"9000006": {"2019-11-01", "Cinema release in United States"},
+			"9000007": {"2020-03-01", "Cinema release in United States"},
+			"9000008": {"2020-01-10", "Cinema release in France"},
+			"9000009": home["9000009"],
+			"9000010": home["9000010"],
+		}},
+		{"a 30-day cinema delay", setting.Patch{movie.CinemaDelay.Key: json.RawMessage(`2592000`)}, map[works.Key]availability{
+			"9000002": home["9000002"],
+			saltRoad:  home[saltRoad],
+			"9000006": home["9000006"],
+			"9000007": {"2020-03-31", "Cinema release in United States plus 30 days"},
+			"9000008": {"2020-02-09", "Cinema release in France plus 30 days"},
+			"9000009": {"2021-07-01", "Release date plus 30 days"},
+			"9000010": home["9000010"],
+		}},
+		{"no cinema delay", setting.Patch{movie.CinemaDelay.Key: json.RawMessage(`0`)}, map[works.Key]availability{
+			"9000002": home["9000002"],
+			saltRoad:  home[saltRoad],
+			"9000006": home["9000006"],
+			"9000007": {"2020-03-01", "Cinema release in United States"},
+			"9000008": {"2020-01-10", "Cinema release in France"},
+			"9000009": {"2021-06-01", "Release date"},
+			"9000010": home["9000010"],
+		}},
+	}
+	sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): serve(t, catalog(t)).open()}))
+	added := map[works.WorkID]works.Key{}
+	for _, k := range keys {
+		added[sh.add(t, k).ID] = k
+	}
+	reset := setting.Patch{movie.CountsAs.Key: json.RawMessage(`null`), movie.CinemaDelay.Key: json.RawMessage(`null`)}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			sh.set(t, reset)
+			sh.set(t, c.patch)
+			got := map[works.Key]availability{}
+			sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+				items, err := works.ItemsOf(ctx, r, slices.Collect(maps.Keys(added)))
+				if err != nil {
+					return err
+				}
+				timings, err := sh.m.Timings(ctx, r, slices.Collect(maps.Keys(added)))
+				for w, its := range items {
+					if d, known := timings[its[0].ID].Released.Get(); known {
+						got[added[w]] = availability{d.String(), timings[its[0].ID].Basis}
+					}
+				}
+				return err
+			})
+			if !reflect.DeepEqual(got, c.want) {
+				t.Fatalf("availability = %v, want %v (9000004 has no date)", got, c.want)
+			}
+		})
+	}
+}
+
+func (sh shelf) set(t *testing.T, p setting.Patch) []setting.Field {
+	t.Helper()
+	fields, err := sh.works.SetSettings(t.Context(), identity.Admin{}, movie.Def.ID(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fields
+}
+
+func TestATypeSettingChangePublishesOneTypeChanged(t *testing.T) {
+	sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): serve(t, catalog(t)).open()}))
+	cinema := setting.Patch{movie.CountsAs.Key: json.RawMessage(`"cinema"`), movie.CinemaDelay.Key: json.RawMessage(`604800`)}
+	fields := sh.set(t, cinema)
+	want := []setting.Field{
+		movie.CountsAs.Field(ptr(movie.CountsAs.Options[1].Value)),
+		movie.CinemaDelay.Field(ptr(int64(604800))),
+	}
+	if !reflect.DeepEqual(fields, want) {
+		t.Fatalf("fields = %+v, want %+v", fields, want)
+	}
+	sh.set(t, cinema)
+	if got := sh.retyped.sent(); !reflect.DeepEqual(got, []string{"movie"}) {
+		t.Fatalf("works.type-changed sent for %v by a change and a repeat, want once for movie", got)
+	}
+	_, err := sh.works.SetSettings(t.Context(), identity.Admin{}, movie.Def.ID(), setting.Patch{
+		movie.CountsAs.Key: json.RawMessage(`null`), movie.CinemaDelay.Key: json.RawMessage(`86400000`),
+	})
+	if r, ok := errors.AsType[*setting.RangeError](err); !ok || r.Sentence != "Between 0 s and 365 days." {
+		t.Fatalf("a delay past a year = %v, want Between 0 s and 365 days.", err)
+	}
+	_, err = sh.works.SetSettings(t.Context(), identity.Admin{}, movie.Def.ID(), setting.Patch{"movie.region": json.RawMessage(`"GB"`)})
+	if u, ok := errors.AsType[*setting.UnknownKeyError](err); !ok || u.Key != "movie.region" {
+		t.Fatalf("an unknown key = %v, want an UnknownKeyError for movie.region", err)
+	}
+	read, err := sh.works.Settings(t.Context(), identity.Admin{}, movie.Def.ID())
+	if err != nil || !reflect.DeepEqual(read, want) || len(sh.retyped.sent()) != 1 {
+		t.Fatalf("after two refused changes: fields %+v, %v, events %v; want %+v and still one event", read, err, sh.retyped.sent(), want)
+	}
+}
+
+func TestTheMovieSettingsAreWellFormed(t *testing.T) {
+	for _, d := range []interface{ Check() error }{movie.CountsAs, movie.CinemaDelay} {
+		if err := d.Check(); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
@@ -688,3 +945,5 @@ func TestAMovieHasNoCutsOfItsOwn(t *testing.T) {
 func TestTheLibraryAuditPassesWithMovie(t *testing.T) {
 	storagetest.AuditLibrary(t, node.LibrarySchemas(contenttype.NewSet(movie.Def)))
 }
+
+func noneWithin(context.Context, storage.Reader[storage.Library], works.Tree) error { return nil }
