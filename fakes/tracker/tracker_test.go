@@ -43,10 +43,12 @@ func catalog() *releases.Catalog {
 	}}
 }
 
-// fronts are the seeder fronts of orchard for two Nodes.
+// fronts are the seeder fronts of orchard for two Nodes, and its bad peer
+// front for one.
 var fronts = fake.Fronts{
 	{Target: tracker.SeedersTarget("orchard"), Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:6001")}},
 	{Target: tracker.SeedersTarget("orchard"), Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:6002")}},
+	{Target: tracker.BadPeerTarget("orchard"), Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:6003")}},
 }
 
 type announce struct {
@@ -141,12 +143,12 @@ func failed(reason, interval, minInterval string) string {
 	return fmt.Sprintf("200 OK d14:failure reason%d:%s%se", len(reason), reason, timing)
 }
 
-func TestALeecherGetsOnlyItsOwnSeederFront(t *testing.T) {
+func TestALeecherGetsOnlyItsOwnSeederAndBadPeerFronts(t *testing.T) {
 	s := scenario.Scenario{Seed: "tracker", Tracker: scenario.Tracker{Interval: 5 * time.Second}}
 	none := "200 OK d8:intervali5e12:min intervali5e5:peers0:e"
 	announces := []announce{
 		{0, passkey, orchard, seeder, 6881, "started", 0, none},
-		{0, passkey, orchard, leecher, 6882, "started", 4096, "200 OK d8:intervali5e12:min intervali5e5:peers6:\x7f\x00\x00\x01\x17\x72e"},
+		{0, passkey, orchard, leecher, 6882, "started", 4096, "200 OK d8:intervali5e12:min intervali5e5:peers12:\x7f\x00\x00\x01\x17\x72\x7f\x00\x00\x01\x17\x73e"},
 		{0, passkey, orchard, leecher, 6882, "completed", 0, none},
 		{0, passkey, orchard, leecher, 6882, "stopped", 0, none},
 		{0, "wrongpasskey", orchard, leecher, 6882, "started", 4096, failed(tracker.FailurePasskey, "5", "5")},
@@ -196,7 +198,7 @@ func TestUNIT3DRejectsAStartedInsideTheWindow(t *testing.T) {
 func TestUNIT3DAcceptsCompletedAndStopped(t *testing.T) {
 	s := scenario.Scenario{Seed: "tracker", Tracker: unit3dTracker}
 	announces := []announce{
-		{0, passkey, orchard, leecher, 6882, "started", 4096, "200 OK d8:intervali2400e12:min intervali1800e5:peers6:\x7f\x00\x00\x01\x17\x72e"},
+		{0, passkey, orchard, leecher, 6882, "started", 4096, "200 OK d8:intervali2400e12:min intervali1800e5:peers12:\x7f\x00\x00\x01\x17\x72\x7f\x00\x00\x01\x17\x73e"},
 		{0, passkey, orchard, leecher, 6882, "completed", 0, unit3dNone},
 		{0, passkey, orchard, leecher, 6882, "stopped", 0, unit3dNone},
 	}
