@@ -400,6 +400,20 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 		return a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query="+query, "")
 	}
 
+	setFault(t, run, fault.Rule{ID: "down", Target: "tmdb"}, "refuse")
+	if got := search("orchard"); got.Status != http.StatusBadGateway || !strings.Contains(got.Body, `"detail":"TMDB: didn't answer: `) {
+		t.Fatalf("searchCatalog with TMDB refusing connections = %d %s, want 502 metadata_unavailable", got.Status, got.Body)
+	}
+	if p := provider(t, a, "tmdb"); p.State != "unreachable" {
+		t.Fatalf("TMDB refusing connections = %+v, want unreachable", p)
+	}
+	if _, err := run.ClearFault(worldtest.Context(t), "down"); err != nil {
+		t.Fatal(err)
+	}
+	worldtest.Until(t, "TMDB tests itself working again past timings.metadata.retest_min", func() (bool, error) {
+		return provider(t, a, "tmdb").State == "working", nil
+	})
+
 	cue(t, run, "omdb-cap", `{}`)
 	addMovie(t, a, saltRoad)
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)

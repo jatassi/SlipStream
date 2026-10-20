@@ -4,7 +4,8 @@ description: >-
   part of a movie's record, from its French original title and dates in three
   countries to cast, crew, artwork, a TMDB rating and OMDb's ratings and
   awards, and The Quiet Orchard carries only the essentials. A missed image is
-  tried again after five seconds.
+  tried again after five seconds, and an unreachable provider is tested again
+  from two seconds on.
 seed: movies
 admin:
   email: ada@example.test
@@ -22,6 +23,8 @@ timings:
     stop_deadline: 5s
   metadata:
     artwork_retry: 5s
+    retest_min: 2s
+    retest_max: 8s
 tmdb:
   movies:
     - id: 9000001
