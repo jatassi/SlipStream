@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import type { NodesNode } from "../../../api/gen/model";
-import { nodeSections } from "../../../shell/node-sections";
+import { sectionsFor } from "../../../shell/node-sections";
 import { Chevron } from "../../../ui/chevron";
 import { Icon } from "../../../ui/icon";
 import { List, ListRow } from "../../../ui/list";
@@ -12,7 +12,7 @@ export function SectionList({ node }: { node: NodesNode }) {
   return (
     <Section title="Sections">
       <List label={node.name}>
-        {nodeSections
+        {sectionsFor(node)
           .filter((section) => section.id !== "overview")
           .map((section) => (
             <ListRow

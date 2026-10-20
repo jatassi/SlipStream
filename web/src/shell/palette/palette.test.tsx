@@ -95,6 +95,7 @@ test("the palette groups Works then Commands, and Esc returns focus to the capsu
       "Go to Overviewhome",
       "Go to Roleshome",
       "Go to Web and APIhome",
+      "Go to Torrent clienthome",
       "Go to Logshome",
       "Go to Log settingshome",
       "Add a Film",

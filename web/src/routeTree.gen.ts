@@ -51,6 +51,7 @@ import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$no
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
 import { Route as AppNodesNodeIdRolesRouteImport } from "./routes/_app/nodes/$nodeId/roles";
+import { Route as AppNodesNodeIdTorrentClientRouteImport } from "./routes/_app/nodes/$nodeId/torrent-client";
 import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
 import { Route as AppSettingsProfilesProfileIdRouteImport } from "./routes/_app/settings/profiles.$profileId";
 import { Route as AppSettingsProfilesNewRouteImport } from "./routes/_app/settings/profiles.new";
@@ -267,6 +268,12 @@ const AppNodesNodeIdRolesRoute = AppNodesNodeIdRolesRouteImport.update({
   path: "/roles",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppNodesNodeIdTorrentClientRoute =
+  AppNodesNodeIdTorrentClientRouteImport.update({
+    id: "/torrent-client",
+    path: "/torrent-client",
+    getParentRoute: () => AppNodesNodeIdRouteRoute,
+  } as any);
 const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
   id: "/web",
   path: "/web",
@@ -336,6 +343,7 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
+  "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -378,6 +386,7 @@ export interface FileRoutesByTo {
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
+  "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -428,6 +437,7 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
+  "/_app/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
   "/_app/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/_app/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -478,6 +488,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/roles"
+    | "/nodes/$nodeId/torrent-client"
     | "/nodes/$nodeId/web"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
@@ -520,6 +531,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/roles"
+    | "/nodes/$nodeId/torrent-client"
     | "/nodes/$nodeId/web"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
@@ -569,6 +581,7 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/roles"
+    | "/_app/nodes/$nodeId/torrent-client"
     | "/_app/nodes/$nodeId/web"
     | "/_app/settings/profiles/$profileId"
     | "/_app/settings/profiles/new"
@@ -887,6 +900,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdRolesRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/nodes/$nodeId/torrent-client": {
+      id: "/_app/nodes/$nodeId/torrent-client";
+      path: "/torrent-client";
+      fullPath: "/nodes/$nodeId/torrent-client";
+      preLoaderRoute: typeof AppNodesNodeIdTorrentClientRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
     "/_app/nodes/$nodeId/web": {
       id: "/_app/nodes/$nodeId/web";
       path: "/web";
@@ -956,6 +976,7 @@ interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
   AppNodesNodeIdRolesRoute: typeof AppNodesNodeIdRolesRoute;
+  AppNodesNodeIdTorrentClientRoute: typeof AppNodesNodeIdTorrentClientRoute;
   AppNodesNodeIdWebRoute: typeof AppNodesNodeIdWebRoute;
   AppNodesNodeIdIndexRoute: typeof AppNodesNodeIdIndexRoute;
 }
@@ -964,6 +985,7 @@ const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
   AppNodesNodeIdRolesRoute: AppNodesNodeIdRolesRoute,
+  AppNodesNodeIdTorrentClientRoute: AppNodesNodeIdTorrentClientRoute,
   AppNodesNodeIdWebRoute: AppNodesNodeIdWebRoute,
   AppNodesNodeIdIndexRoute: AppNodesNodeIdIndexRoute,
 };

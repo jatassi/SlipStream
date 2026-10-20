@@ -1,4 +1,5 @@
 import {
+  Download04Icon,
   Globe02Icon,
   InformationCircleIcon,
   Layers01Icon,
@@ -8,6 +9,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
+import type { NodesNode, NodesRoleViewRole } from "../api/gen/model";
 import { getListNodesQueryKey, listNodes } from "../api/gen/query/nodes/nodes";
 import type { Command } from "./commands";
 import type { RoutePath } from "./nav";
@@ -17,7 +19,15 @@ export type NodeSection = {
   readonly label: string;
   readonly icon: IconSvgElement;
   readonly to: Extract<RoutePath, `/nodes/$nodeId${string}`>;
+  /** Whether a Node has the section; absent, every Node has it. */
+  readonly shows?: (node: NodesNode) => boolean;
 };
+
+/** A Node that stands in the Role in any state: holding it, away, covering, draining or writing it off. */
+const standsIn =
+  (role: NodesRoleViewRole) =>
+  (node: NodesNode): boolean =>
+    node.roles.some((view) => view.role === role);
 
 /**
  * A Node's sections, in order. They draw the desktop page tabs, the phone
@@ -28,6 +38,13 @@ export const nodeSections = [
   { id: "overview", label: "Overview", icon: InformationCircleIcon, to: "/nodes/$nodeId" },
   { id: "roles", label: "Roles", icon: Layers01Icon, to: "/nodes/$nodeId/roles" },
   { id: "web", label: "Web and API", icon: Globe02Icon, to: "/nodes/$nodeId/web" },
+  {
+    id: "torrent-client",
+    label: "Torrent client",
+    icon: Download04Icon,
+    to: "/nodes/$nodeId/torrent-client",
+    shows: standsIn("downloading"),
+  },
   { id: "logs", label: "Logs", icon: TextAlignLeftIcon, to: "/nodes/$nodeId/logs" },
   {
     id: "log-settings",
@@ -38,6 +55,10 @@ export const nodeSections = [
 ] as const satisfies readonly NodeSection[];
 
 export type NodeSectionId = (typeof nodeSections)[number]["id"];
+
+/** The sections a Node has, in order. */
+export const sectionsFor = (node: NodesNode): readonly NodeSection[] =>
+  nodeSections.filter((section: NodeSection) => section.shows?.(node) ?? true);
 
 export function sectionOf(id: NodeSectionId): NodeSection {
   const section = nodeSections.find((candidate) => candidate.id === id);
@@ -56,7 +77,7 @@ export function useNodeSectionCommands(): Command[] {
   if (self === undefined) {
     return [];
   }
-  return nodeSections.map((section) => ({
+  return sectionsFor(self).map((section) => ({
     id: `go-node-${section.id}`,
     label: `Go to ${section.label}`,
     meta: self.name,

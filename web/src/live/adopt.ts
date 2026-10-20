@@ -1,6 +1,17 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import type { SystemNodeConfig, TasksOverview, TasksSchedule } from "../api/gen/model";
+import type {
+  DownloadclientsClientsList,
+  DownloadclientsSettings,
+  DownloadclientsThresholds,
+  SystemNodeConfig,
+  TasksOverview,
+  TasksSchedule,
+} from "../api/gen/model";
+import {
+  getGetDownloadClientSettingsQueryKey,
+  getListDownloadClientsQueryKey,
+} from "../api/gen/query/downloadclients/downloadclients";
 import { getGetNodeConfigQueryKey } from "../api/gen/query/system/system";
 import { getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
 
@@ -19,5 +30,20 @@ export function adoptTaskSettings(queryClient: QueryClient, settings: TasksSched
   queryClient.setQueryData<TasksOverview>(
     getListTasksQueryKey(),
     (overview) => overview && { ...overview, settings },
+  );
+}
+
+export function adoptClientSettings(
+  queryClient: QueryClient,
+  nodeId: string,
+  settings: DownloadclientsSettings,
+) {
+  queryClient.setQueryData(getGetDownloadClientSettingsQueryKey(nodeId), settings);
+}
+
+export function adoptThresholds(queryClient: QueryClient, thresholds: DownloadclientsThresholds) {
+  queryClient.setQueryData<DownloadclientsClientsList>(
+    getListDownloadClientsQueryKey(),
+    (list) => list && { ...list, thresholds },
   );
 }

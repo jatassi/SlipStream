@@ -38,6 +38,19 @@ function StorageFigures({ storage }: { storage: NodesStorageResource | undefined
   );
 }
 
+function DownloadingLinks({ nodeId }: { nodeId: string }) {
+  return (
+    <p className="mt-2 flex gap-3">
+      <Link to="/nodes/$nodeId/torrent-client" params={{ nodeId }} className="text-ink-1 underline">
+        Torrent client
+      </Link>
+      <Link to="/activity/torrents" className="text-ink-1 underline">
+        Torrents
+      </Link>
+    </p>
+  );
+}
+
 /** A Role on a Node in the Inspector: what it is doing, and what its machine shows. */
 export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
   const live = chip.role === "downloading";
@@ -52,6 +65,7 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
         {live && node.torrents.length === 0 && (
           <p className="mt-2 text-ink-3">No torrents right now.</p>
         )}
+        {live && <DownloadingLinks nodeId={node.id} />}
       </InspectorSection>
       {live && node.torrents.length > 0 && (
         <InspectorSection title="Torrents">
