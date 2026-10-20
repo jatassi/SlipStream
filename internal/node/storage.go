@@ -45,6 +45,7 @@ func localSchemas() []storage.Schema[storage.Local] {
 	return []storage.Schema[storage.Local]{
 		role.LocalSchema(),
 		transfers.Schema(),
+		metadata.LocalSchema(),
 		artwork.Schema(),
 	}
 }
