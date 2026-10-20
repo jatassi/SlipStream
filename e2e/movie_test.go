@@ -15,7 +15,9 @@ const movieType = `{"id":"movie","name":"Movies","icon":"film","enabled":true,"w
 	`{"key":"genres","label":"Genres","tier":"work","kind":"texts"},{"key":"tagline","label":"Tagline","tier":"work","kind":"text"},{"key":"overview","label":"Overview","tier":"work","kind":"text"},` +
 	`{"key":"studio","label":"Studio","tier":"work","kind":"text"},{"key":"collection","label":"Collection","tier":"work","kind":"text"},{"key":"credits","label":"Cast and crew","tier":"work","kind":"people"},` +
 	`{"key":"alternative_titles","label":"Alternative titles","tier":"work","kind":"texts"},{"key":"imdb_id","label":"IMDb id","tier":"work","kind":"text"},{"key":"trailer_site","label":"Trailer site","tier":"work","kind":"text"},` +
-	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text"},{"key":"awards","label":"Awards","tier":"work","kind":"text"}]}`
+	`{"key":"trailer_key","label":"Trailer key","tier":"work","kind":"text"},{"key":"awards","label":"Awards","tier":"work","kind":"text"}],` +
+	`"artwork":[{"key":"poster","label":"Poster","tier":"work","shape":"poster"},{"key":"backdrop","label":"Backdrop","tier":"work","shape":"backdrop"},` +
+	`{"key":"title_treatment","label":"Title treatment","tier":"work","shape":"logo"},{"key":"studio_logo","label":"Studio logo","tier":"work","shape":"logo"}]}`
 
 func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 	t.Parallel()
@@ -24,7 +26,7 @@ func TestAMovieIsAddedMonitoredFromTheCatalog(t *testing.T) {
 
 	worldtest.Expect(t, "searchCatalog for quiet orchard", a.Admin("home", http.MethodGet, "/api/v1/content-types/movie/catalog?query=quiet+orchard", ""), worldtest.Reply{
 		Status: 200,
-		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","fields":[{"key":"year","kind":"number","number":2021}],"workId":null}]}` + "\n",
+		Body:   `{"candidates":[{"key":"9000001","label":"The Quiet Orchard","fields":[{"key":"year","kind":"number","number":2021}],"posterUrl":null,"workId":null}]}` + "\n",
 	})
 
 	first := decode(t, "addWork", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000001","monitor":true}`), &added{})
