@@ -28,6 +28,7 @@ import { startupPlayedScript } from "../harness/startup.ts";
 import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
 import type { Scenario } from "./scenario.ts";
 import { waitForSheets } from "./sheets.ts";
+import { pageErrors } from "./page-errors.ts";
 
 export { expect, expectAccessible };
 
@@ -111,15 +112,12 @@ function testCommand(testInfo: TestInfo): string {
 async function guard(context: BrowserContext, origin: string): Promise<() => Promise<void>> {
   const foreign: string[] = [];
   const violations: string[] = [];
-  const errors: string[] = [];
+  const errors = await pageErrors(context);
   context.on("request", (request) => {
     const url = new URL(request.url());
     if (url.protocol !== "data:" && url.protocol !== "blob:" && url.origin !== origin) {
       foreign.push(request.url());
     }
-  });
-  context.on("weberror", (error) => {
-    errors.push(String(error.error()));
   });
   await context.exposeBinding("reportCspViolation", (_source, violation: string) => {
     violations.push(violation);
