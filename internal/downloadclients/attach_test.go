@@ -405,3 +405,24 @@ func TestAWriteOffPartsEveryTorrentOfTheNodeAndKeepsFiles(t *testing.T) {
 		t.Errorf("a second WriteOff parted %d Torrents, want none", n)
 	}
 }
+
+// TestTheFirstReleaseFaultStays applies reports that carry a fault, then
+// another, then none: the Torrent keeps the first.
+func TestTheFirstReleaseFaultStays(t *testing.T) {
+	lib := open(t)
+	a := addNode(t, lib, "seedbox")
+	m, raw := dotTorrent(t, "Orchard")
+	id, _ := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	if got := outcomeOf(t, lib, id).Fault; got != nil {
+		t.Fatalf("a new Torrent has fault %+v, want none", got)
+	}
+	faulted := func(kind dlv1.FaultKind, at time.Time) *dlv1.TorrentReport {
+		return &dlv1.TorrentReport{AtUnixMs: at.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Fault: &dlv1.Fault{Kind: kind, AtUnixMs: at.UnixMilli()}}
+	}
+	apply(t, lib, a, id, faulted(dlv1.FaultKind_FAULT_KIND_UNREGISTERED, reportedAt))
+	apply(t, lib, a, id, faulted(dlv1.FaultKind_FAULT_KIND_NO_PAYLOAD, reportedAt.Add(time.Hour)))
+	apply(t, lib, a, id, &dlv1.TorrentReport{AtUnixMs: reportedAt.Add(2 * time.Hour).UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING})
+	if got := outcomeOf(t, lib, id).Fault; got == nil || got.Kind != dc.FaultUnregistered || !got.At.Equal(reportedAt) {
+		t.Fatalf("the Torrent's fault is %+v, want the first one, unregistered at %v", got, reportedAt)
+	}
+}

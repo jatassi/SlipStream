@@ -21,8 +21,9 @@ import (
 
 // bindFronts binds every front before any fake is built, since the
 // release catalog and every address a Node sees name one: each fake as
-// each Node and the world reach it, each seeded release's seeder as each
-// Node reaches it, and each Node's link as every peer reaches it.
+// each Node and the world reach it, each seeded release's seeder and each
+// bad peer as each Node reaches it, and each Node's link as every peer
+// reaches it.
 func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
 		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
@@ -60,11 +61,13 @@ func planFronts(specs []fake.Spec, nodes []string, releases []scenario.Release) 
 		}
 	}
 	for _, rel := range releases {
-		if !rel.Seeded {
-			continue
-		}
 		for _, origin := range nodes {
-			planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+			if rel.Seeded {
+				planned = append(planned, fault.Front{Target: tracker.SeedersTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+			}
+			if rel.BadPeer != "" {
+				planned = append(planned, fault.Front{Target: tracker.BadPeerTarget(rel.Name), Origin: origin, Layers: fault.Conn})
+			}
 		}
 	}
 	for _, name := range nodes {
@@ -169,12 +172,16 @@ func (r *Run) linkFront(name string) *front.Front {
 	return r.listeners[i]
 }
 
-// serveSeederFronts forwards each seeder front to its release's seeder.
+// serveSeederFronts forwards each seeder front to its release's seeder,
+// and each bad peer front to its release's bad peer.
 func (r *Run) serveSeederFronts() {
 	for _, l := range r.listeners {
 		for _, rel := range r.releases.Releases {
-			if rel.Seeded && l.Fault().Target == tracker.SeedersTarget(rel.Name) {
+			switch target := l.Fault().Target; {
+			case rel.Seeded && target == tracker.SeedersTarget(rel.Name):
 				l.Serve(front.Forward(func() (netip.AddrPort, error) { return r.seeders.Addr(rel.Name) }))
+			case rel.BadPeer != "" && target == tracker.BadPeerTarget(rel.Name):
+				l.Serve(front.Forward(func() (netip.AddrPort, error) { return r.seeders.BadPeerAddr(rel.Name) }))
 			}
 		}
 	}

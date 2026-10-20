@@ -14,7 +14,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}, Tracker: Tracker{Interval: -time.Second}, Releases: []Release{
 		good,
 		good,
-		{Name: "a b.mkv", TMDBID: 0, Video: Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1},
+		{Name: "a b.mkv", TMDBID: 0, Video: Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1, BadPeer: "evil"},
 		{Name: "B.2021.720p", TMDBID: 2, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
 	}}
 	want := []string{
@@ -24,6 +24,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		"scenario x: release a b.mkv video is 1919x1080; width and height are even, up to 7680x4320",
 		"scenario x: release a b.mkv video lasts 0 seconds; it lasts 1 to 60",
 		"scenario x: release a b.mkv has -1 seeders",
+		`scenario x: release a b.mkv bad_peer "evil" is not corrupt, stall, choke or drop`,
 		"scenario x: release B.2021.720p names tmdb movie 2, which tmdb does not list",
 		"scenario x: tracker interval -1s is negative",
 	}
