@@ -176,6 +176,13 @@ func applyReport(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r 
 			return false, err
 		}
 	}
+	if f := r.GetFault(); f != nil {
+		kind := string(faultFromWire[f.GetKind()])
+		err := q.SetFault(ctx, db.SetFaultParams{Fault: &kind, FaultAt: storage.FromTime(time.UnixMilli(f.GetAtUnixMs())), ID: id, NodeID: node})
+		if err != nil {
+			return false, err
+		}
+	}
 	if t := r.GetTotals(); t != nil {
 		if err := q.MergeTotals(ctx, totalsParams(node, id, t, at)); err != nil {
 			return false, err
@@ -273,6 +280,11 @@ var (
 		dlv1.Hold_HOLD_DISK_GUARD:  HoldDiskGuard,
 		dlv1.Hold_HOLD_DRAINING:    HoldDraining,
 		dlv1.Hold_HOLD_CONTROLLER:  HoldController,
+	}
+	faultFromWire = map[dlv1.FaultKind]FaultKind{
+		dlv1.FaultKind_FAULT_KIND_ENGINE_ERROR: FaultEngineError,
+		dlv1.FaultKind_FAULT_KIND_UNREGISTERED: FaultUnregistered,
+		dlv1.FaultKind_FAULT_KIND_NO_PAYLOAD:   FaultNoPayload,
 	}
 	trackerFromWire = map[dlv1.TrackerStatus]TrackerStatus{
 		dlv1.TrackerStatus_TRACKER_STATUS_WORKING:       TrackerWorking,

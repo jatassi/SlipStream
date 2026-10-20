@@ -95,6 +95,7 @@ func (t *torrent) report() *dlv1.TorrentReport {
 		Complete: t.Complete,
 		Stalled:  t.state.Stalled,
 		Error:    t.failed,
+		Fault:    t.fault,
 	}
 	if !t.state.Until.IsZero() {
 		r.UntilUnixMs = t.state.Until.UnixMilli()

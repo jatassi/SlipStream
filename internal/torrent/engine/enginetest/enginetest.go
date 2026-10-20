@@ -149,6 +149,16 @@ func (w *World) DiskFull(full bool) {
 	w.each(func(*torrent) bool { return true }, (*torrent).reschedule)
 }
 
+// Fail has every engine holding a torrent with hash fail it with err, as
+// libtorrent fails a torrent it found an error in.
+func (w *World) Fail(h bencode.InfoHash, err *engine.Error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.each(func(t *torrent) bool { return t.meta.InfoHash == h }, func(t *torrent) {
+		t.e.emit(engine.TorrentFailed{Torrent: t.handle, Err: err})
+	})
+}
+
 // Incoming has a peer at from connect to the engine listening on to. An
 // engine reports it while it watches incoming peers and runs a torrent,
 // since libtorrent turns a peer away before it reports it otherwise.

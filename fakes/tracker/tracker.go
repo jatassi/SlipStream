@@ -1,7 +1,7 @@
 // Package tracker is fake-tracker: a private HTTPS BitTorrent tracker that
 // knows the world's one passkey and the release catalog's torrents. It
-// answers a leecher with the seeder front of its own origin, and records
-// every announce as its announces capture.
+// answers a leecher with the seeder and bad peer fronts of its own origin,
+// and records every announce as its announces capture.
 package tracker
 
 import (
@@ -63,6 +63,9 @@ var Fake = fake.Spec{
 
 // SeedersTarget is the fault target of the seeder fronts of release.
 func SeedersTarget(release string) fault.Target { return fault.Target("seeders/" + release) }
+
+// BadPeerTarget is the fault target of the bad peer fronts of release.
+func BadPeerTarget(release string) fault.Target { return fault.Target("badpeer/" + release) }
 
 // Announce is one announce as the tracker received it. Accepted is whether
 // it answered peers; when not, Rule is the rule the announce broke and
@@ -199,16 +202,18 @@ func (s *server) judge(a Announce, hash bencode.InfoHash, peerID string) (rule, 
 }
 
 // peers is the compact peer list for a: a leecher's own origin's seeder
-// front for the release, so every swarm byte crosses a front, and nothing
-// for a seeder, so no seeder dials a Node.
+// front and bad peer front for the release, so every swarm byte crosses a
+// front, and nothing for a seeder, so no seeder dials a Node.
 func (s *server) peers(origin, release string, a Announce) []byte {
+	peers := []byte{}
 	if a.Left == 0 || a.Event == "stopped" {
-		return []byte{}
+		return peers
 	}
-	at, ok := s.fronts.Find(SeedersTarget(release), origin)
-	if !ok {
-		return []byte{}
+	for _, target := range []fault.Target{SeedersTarget(release), BadPeerTarget(release)} {
+		if at, ok := s.fronts.Find(target, origin); ok {
+			ip := at.AddrPort.Addr().As4()
+			peers = binary.BigEndian.AppendUint16(append(peers, ip[:]...), at.AddrPort.Port())
+		}
 	}
-	ip := at.AddrPort.Addr().As4()
-	return binary.BigEndian.AppendUint16(ip[:], at.AddrPort.Port())
+	return peers
 }
