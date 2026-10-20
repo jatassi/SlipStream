@@ -156,20 +156,16 @@ func (m *Metadata) test(p ProviderID) *metadatav1.TestRequest {
 func (m *Metadata) Run(ctx context.Context) error {
 	for {
 		var fire <-chan time.Time
-		next, ok := m.nextRetest()
-		timer := time.NewTimer(time.Until(next))
-		if ok {
-			fire = timer.C
+		if next, ok := m.nextRetest(); ok {
+			fire = time.After(time.Until(next))
 		}
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return nil
 		case <-m.wake:
 		case <-fire:
 			m.retestDue(ctx)
 		}
-		timer.Stop()
 	}
 }
 
