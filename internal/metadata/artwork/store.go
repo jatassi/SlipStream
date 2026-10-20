@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/metadata/artwork/internal/db"
-	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -30,9 +29,6 @@ var schemaFiles embed.FS
 // Schema is the store's index, in the Controller's local.db, so a Backup
 // carries no image.
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("artwork", schemaFiles) }
-
-// StoreSize bounds the artwork store, in MB.
-var StoreSize = setting.Count{Key: "metadata.artworkStore", Label: "Artwork store size", Default: 2048, Min: 100, Max: 1 << 20, Unit: setting.Noun{One: "MB", Many: "MB"}}
 
 const megabyte = 1 << 20
 
@@ -54,7 +50,7 @@ type Image struct {
 
 // Store is the Controller's byte cache of images, one file per distinct
 // image named by its SHA-256, indexed in local.db and bounded by the
-// StoreSize setting, dropping the images served longest ago.
+// bound it opens with, dropping the images served longest ago.
 type Store struct {
 	dir   string
 	local *storage.DB[file]

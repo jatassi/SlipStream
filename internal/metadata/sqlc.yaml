@@ -7,7 +7,6 @@ sql:
       go:
         package: db
         out: internal/db
-        emit_pointers_for_null_types: true
         overrides:
           - column: "*.*_at"
             go_type:
@@ -16,6 +15,10 @@ sql:
           - column: metadata_settings.id
             go_type:
               type: Singleton
+          - column: metadata_settings.artwork_store_mb
+            go_type:
+              type: int64
+              pointer: true
           - column: metadata_due.work_id
             go_type:
               import: github.com/jatassi/slipstream/internal/works

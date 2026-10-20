@@ -14,7 +14,11 @@ import (
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/setting"
 )
+
+// ArtworkStore bounds the artwork store, in MB.
+var ArtworkStore = setting.Count{Key: "metadata.artworkStore", Label: "Artwork store size", Default: 2048, Min: 100, Max: 1 << 20, Unit: setting.Noun{One: "MB", Many: "MB"}}
 
 // imageHost is one image host a holder fetches from, over a Line of its
 // own.
@@ -94,7 +98,7 @@ func (g *gallery) close() {
 func openStore(ctx context.Context, cfg Config) (*artwork.Store, error) {
 	return artwork.OpenStore(ctx, cfg.ArtworkDir, cfg.Local, func(ctx context.Context) (int64, error) {
 		mb, err := db.New(cfg.Library).GetArtworkStoreMB(ctx)
-		return artwork.StoreSize.Value(mb), err
+		return ArtworkStore.Value(mb), err
 	})
 }
 

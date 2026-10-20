@@ -5,6 +5,8 @@
 package db
 
 import (
+	"database/sql"
+
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -24,19 +26,19 @@ type MetadataKey struct {
 
 type MetadataSetting struct {
 	ID                     Singleton
-	Language               *string
-	Region                 *string
-	UnreleasedEverySeconds *int64
-	GrowingEverySeconds    *int64
-	OthersEverySeconds     *int64
-	FollowChanges          *int64
-	RatingsEverySeconds    *int64
-	CacheForSeconds        *int64
+	Language               sql.NullString
+	Region                 sql.NullString
+	UnreleasedEverySeconds sql.NullInt64
+	GrowingEverySeconds    sql.NullInt64
+	OthersEverySeconds     sql.NullInt64
+	FollowChanges          sql.NullInt64
+	RatingsEverySeconds    sql.NullInt64
+	CacheForSeconds        sql.NullInt64
 	ArtworkStoreMb         *int64
 }
 
 type MetadataType struct {
 	ContentType    string
-	ChangesThrough *int64
+	ChangesThrough sql.NullInt64
 	RefreshAllAt   storage.Time
 }
