@@ -183,7 +183,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 }
 
 const listAttached = `-- name: ListAttached :many
-SELECT id, info_hash, size, removed_reason, report, completion FROM downloadclients_torrent
+SELECT id, info_hash, size, removed_reason, report, completion, fault, fault_at FROM downloadclients_torrent
 WHERE id IN (/*SLICE:ids*/?)
 ORDER BY id
 `
@@ -195,6 +195,8 @@ type ListAttachedRow struct {
 	RemovedReason *string
 	Report        *string
 	Completion    *string
+	Fault         *string
+	FaultAt       storage.Time
 }
 
 func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAttachedRow, error) {
@@ -223,6 +225,8 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 			&i.RemovedReason,
 			&i.Report,
 			&i.Completion,
+			&i.Fault,
+			&i.FaultAt,
 		); err != nil {
 			return nil, err
 		}
@@ -464,6 +468,28 @@ type SetDoneParams struct {
 
 func (q *Queries) SetDone(ctx context.Context, arg SetDoneParams) error {
 	_, err := q.db.ExecContext(ctx, setDone, arg.Done, arg.ID, arg.NodeID)
+	return err
+}
+
+const setFault = `-- name: SetFault :exec
+UPDATE downloadclients_torrent SET fault = ?1, fault_at = ?2
+WHERE id = ?3 AND node_id = ?4 AND fault IS NULL
+`
+
+type SetFaultParams struct {
+	Fault   *string
+	FaultAt storage.Time
+	ID      TorrentID
+	NodeID  role.NodeID
+}
+
+func (q *Queries) SetFault(ctx context.Context, arg SetFaultParams) error {
+	_, err := q.db.ExecContext(ctx, setFault,
+		arg.Fault,
+		arg.FaultAt,
+		arg.ID,
+		arg.NodeID,
+	)
 	return err
 }
 
