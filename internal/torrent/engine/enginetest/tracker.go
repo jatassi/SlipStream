@@ -17,9 +17,10 @@ type TrackerRules struct {
 	// Warning, when set, is a warning message every successful answer
 	// carries.
 	Warning string
-	// HoldStarted holds each answer to started, and HoldRegular each answer
-	// to a regular announce, until the tracker is told to answer.
-	HoldStarted, HoldRegular bool
+	// HoldStarted holds each answer to started, HoldRegular each answer to
+	// a regular announce, and HoldStopped each answer to stopped, until the
+	// tracker is told to answer.
+	HoldStarted, HoldRegular, HoldStopped bool
 }
 
 // Announce is one announce a tracker received. Event is its event as on
@@ -99,8 +100,9 @@ func (w *World) Answer(url string) {
 // announcing is a torrent's state on the tracker its metainfo announces
 // to, by libtorrent's rules: an answer sets next to now plus the larger of
 // the interval and the floor, and min to now plus the min interval;
-// stopping resets both and sends stopped only where started was answered
-// and no announce awaits its answer;
+// starting and stopping reset both, starting announces only where no
+// announce awaits its answer, and stopping sends stopped only where
+// started was answered and none awaits its answer;
 // completed waits for no min.
 type announcing struct {
 	t *torrent
@@ -129,7 +131,9 @@ func (a *announcing) start() {
 		return
 	}
 	a.on, a.startSent, a.next, a.min = true, false, time.Time{}, time.Time{}
-	a.announce()
+	if !a.updating {
+		a.announce()
+	}
 }
 
 func (a *announcing) stop() {
@@ -189,7 +193,12 @@ func (a *announcing) send(event string) {
 }
 
 func (tr *tracker) holds(event string) bool {
-	return !tr.answering && (event == "started" && tr.rules.HoldStarted || event == "" && tr.rules.HoldRegular)
+	return !tr.answering && tr.rules.Holds(event)
+}
+
+// Holds is whether the rules hold the answer to an announce of event.
+func (r TrackerRules) Holds(event string) bool {
+	return event == "started" && r.HoldStarted || event == "" && r.HoldRegular || event == "stopped" && r.HoldStopped
 }
 
 func (a *announcing) answer(tr *tracker, event string) {

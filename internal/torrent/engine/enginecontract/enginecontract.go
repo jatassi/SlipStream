@@ -84,6 +84,8 @@ func Run(t *testing.T, h Harness) {
 		{"TheAnnouncedPeerIDAndUserAgentAreTheVersions", theAnnouncedPeerIDAndUserAgentAreTheVersions},
 		{"CloseSendsStopped", closeSendsStopped},
 		{"CloseSendsStoppedOnceAnOutstandingAnnounceIsAnswered", closeSendsStoppedOnceAnOutstandingAnnounceIsAnswered},
+		{"AResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs", aResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs},
+		{"AResumedDownloadReachesThePeerItsPauseDropped", aResumedDownloadReachesThePeerItsPauseDropped},
 	} {
 		t.Run(tc.name, func(t *testing.T) { h.Within(t, func(t *testing.T) { tc.test(t, h) }) })
 	}
@@ -635,6 +637,65 @@ func closeSendsStoppedOnceAnOutstandingAnnounceIsAnswered(t *testing.T, h Harnes
 	h.Until(t, "the tracker hears stopped", func() bool { return slices.Contains(events(tr.Announces()), "stopped") })
 	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", "", "stopped"}) {
 		t.Fatalf("a torrent whose regular announce awaited its answer when its engine closed announced %q, want started, the regular announce, then stopped", got)
+	}
+}
+
+func aResumeBeforeStoppedIsAnsweredAnnouncesStartedOnceItIs(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStopped: true})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	th := running(t, e, "Toggled", tr.URL)
+	await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+	if err := e.Pause(th); err != nil {
+		t.Fatal(err)
+	}
+	h.Until(t, "the tracker hears stopped", func() bool { return slices.Contains(events(tr.Announces()), "stopped") })
+	for _, toggle := range []func(engine.Handle) error{e.Resume, e.Pause, e.Resume} {
+		if err := toggle(th); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tr.Answer()
+	answered := time.Now()
+	h.Until(t, "the tracker hears from the resumed torrent again", func() bool { return len(tr.Announces()) == 3 })
+	got := tr.Announces()
+	if !slices.Equal(events(got), []string{"started", "stopped", "started"}) {
+		t.Fatalf("a torrent resumed, paused and resumed while the tracker held its answer to stopped announced %q, want started, stopped, then started", events(got))
+	}
+	if late := got[2].At.Sub(answered); late > time.Minute {
+		t.Fatalf("the resumed torrent announced started %s after the tracker answered stopped, want at once", late)
+	}
+}
+
+func aResumedDownloadReachesThePeerItsPauseDropped(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Rejoined", "", file{[]string{"feature.mkv"}, 1 << 20})
+	reach := h.Seed(t, rel.meta, rel.dir)
+	if err := e.Configure(engine.Limits{DownloadLimit: 32 << 10, Connections: 50, UTP: true}); err != nil {
+		t.Fatal(err)
+	}
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: t.TempDir()})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	reach(e, th)
+	awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.Done > 0 })
+	for round := 1; round <= 3; round++ {
+		if err := e.Pause(th); err != nil {
+			t.Fatal(err)
+		}
+		await(t, h, r, func(p engine.Paused) bool { return p.Torrent == th })
+		paused := awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.Paused })
+		if err := e.Resume(th); err != nil {
+			t.Fatal(err)
+		}
+		resumed := time.Now()
+		reach(e, th)
+		s := awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.Done > paused.Done })
+		if took := time.Since(resumed); took > 15*time.Second {
+			t.Fatalf("resumed for the %d time, the download got bytes from the peer its pause dropped %s after Resume (%d of %d bytes), want within seconds", round, took, s.Done, s.Wanted)
+		}
 	}
 }
 
