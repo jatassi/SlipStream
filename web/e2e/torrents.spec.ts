@@ -131,6 +131,8 @@ test("the Inspector reads one torrent, and a remove with its download copy cance
   adminPage: page,
   world,
 }, testInfo) => {
+  // The live fills ease every tick, so a downloading page never holds still for the scan.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await downloading(world);
   await page.goto("/activity/torrents");
   await row(page)
