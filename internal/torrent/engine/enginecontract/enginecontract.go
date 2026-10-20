@@ -76,6 +76,7 @@ func Run(t *testing.T, h Harness) {
 		{"ReannounceMovesMinAnnounce", reannounceMovesMinAnnounce},
 		{"ReannounceIgnoringMinIntervalAnnouncesNow", reannounceIgnoringMinIntervalAnnouncesNow},
 		{"RecheckSendsNoAnnounceAndEndsPaused", recheckSendsNoAnnounceAndEndsPaused},
+		{"ARecheckThatFindsNoFilesEndsPaused", aRecheckThatFindsNoFilesEndsPaused},
 		{"ATakenPortStaysTakenAndTheSessionRuns", aTakenPortStaysTakenAndTheSessionRuns},
 		{"ConfigureAppliesLive", configureAppliesLive},
 		{"StatsCountThePayload", statsCountThePayload},
@@ -432,6 +433,27 @@ func recheckSendsNoAnnounceAndEndsPaused(t *testing.T, h Harness) {
 	}
 	if got := events(tr.Announces()); !slices.Equal(got, []string{"started", "stopped"}) {
 		t.Fatalf("around a recheck of the paused torrent the tracker received %q, want only the started and stopped before it", got)
+	}
+}
+
+// aRecheckThatFindsNoFilesEndsPaused rechecks a torrent just added
+// without its files, so the check ends before the torrent could run.
+func aRecheckThatFindsNoFilesEndsPaused(t *testing.T, h Harness) {
+	tr := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Missing", tr.URL)
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: t.TempDir()})
+	if err := e.Recheck(th); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(c engine.Checked) bool { return c.Torrent == th })
+	await(t, h, r, func(p engine.Paused) bool { return p.Torrent == th })
+	if s := awaitStatus(t, h, e, r, th, func(engine.Status) bool { return true }); !s.Paused || s.Done != 0 {
+		t.Fatalf("rechecked without its files, the torrent reads %+v, want paused with nothing done", s)
+	}
+	if got := tr.Announces(); len(got) != 0 {
+		t.Fatalf("around a recheck of a torrent that never ran the tracker received %+v, want nothing", got)
 	}
 }
 
