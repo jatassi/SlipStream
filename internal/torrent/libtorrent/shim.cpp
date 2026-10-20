@@ -75,6 +75,9 @@ struct deleting_torrent {
 	std::optional<lts_alert> files_deleted;
 };
 
+// turn is what a torrent does once no tracker awaits an answer.
+enum class turn { pause, resume };
+
 struct lts_session {
 	lt::session ses;
 	// popped is the alert pump's alone.
@@ -85,9 +88,9 @@ struct lts_session {
 	std::unordered_map<lt::torrent_handle, int64_t> by_handle;
 	std::unordered_set<int64_t> finishing;
 	std::unordered_map<lt::torrent_handle, parting_torrent> parting;
-	// pausing holds each torrent paused while a tracker had yet to answer
-	// its started announce, for the reason parting waits.
-	std::unordered_set<lt::torrent_handle> pausing;
+	// turning holds each torrent's pause or resume that waits for its
+	// trackers to answer, as awaits_answer says.
+	std::unordered_map<lt::torrent_handle, turn> turning;
 	std::map<lt::info_hash_t, deleting_torrent> deleting;
 	// rechecking holds each torrent whose Recheck has yet to pause it.
 	// libtorrent pauses it before it posts torrent_checked, so its pause
@@ -212,8 +215,10 @@ int32_t state(lt::torrent_status::state_t st) {
 }
 
 // awaits_answer is whether a tracker has yet to answer an announce of h.
-// libtorrent sends no stopped to a tracker it awaits, and none later, so a
-// torrent pauses, leaves or closes only once none awaits an answer.
+// libtorrent sends no stopped to a tracker it awaits, and none later. It
+// skips started too, and sends it only an interval after the answer. So a
+// torrent pauses, resumes, leaves or closes only once none awaits an
+// answer.
 bool awaits_answer(lt::torrent_handle const& h) {
 	for (lt::announce_entry const& ae : h.trackers()) {
 		for (lt::announce_endpoint const& ep : ae.endpoints) {
@@ -234,15 +239,21 @@ void remove_now(lts_session* s, lt::torrent_handle const& h, parting_torrent con
 	s->ses.remove_torrent(h, flags);
 }
 
-// settle carries out the pause or removal of h that waited for its trackers
-// to answer, once none awaits an answer. Called with s->mu held.
+// settle carries out the pause, resume or removal of h that waited for its
+// trackers to answer, once none awaits an answer. Called with s->mu held.
 void settle(lts_session* s, lt::torrent_handle const& h) {
 	auto p = s->parting.find(h);
-	bool const pausing = s->pausing.count(h) != 0;
-	if ((p == s->parting.end() && !pausing) || awaits_answer(h)) return;
-	if (pausing) {
-		s->pausing.erase(h);
-		h.pause(lt::torrent_handle::graceful_pause);
+	auto t = s->turning.find(h);
+	if ((p == s->parting.end() && t == s->turning.end()) || awaits_answer(h)) return;
+	if (t != s->turning.end()) {
+		turn const to = t->second;
+		s->turning.erase(t);
+		if (to == turn::pause) {
+			h.pause(lt::torrent_handle::graceful_pause);
+		} else {
+			h.unset_flags(lt::torrent_flags::upload_mode);
+			h.resume();
+		}
 	}
 	if (p != s->parting.end()) {
 		parting_torrent const gone = p->second;
@@ -251,10 +262,10 @@ void settle(lts_session* s, lt::torrent_handle const& h) {
 	}
 }
 
-// pause pauses h now, or once no tracker awaits an answer. Called with
-// s->mu held.
-void pause(lts_session* s, lt::torrent_handle const& h) {
-	s->pausing.insert(h);
+// turn_to pauses or resumes h now, or once no tracker awaits an answer.
+// Called with s->mu held.
+void turn_to(lts_session* s, lt::torrent_handle const& h, turn to) {
+	s->turning[h] = to;
 	settle(s, h);
 }
 
@@ -517,6 +528,11 @@ void convert(lts_session* s, lt::alert* a) {
 		auto* tp = static_cast<lt::torrent_paused_alert*>(a);
 		o.kind = LTS_ALERT_PAUSED;
 		o.torrent = torrent(tp);
+		// libtorrent dials a peer it dropped again only a minute later, so
+		// the peers a pause dropped would be out of reach of a resume that
+		// soon. A paused torrent forgets them: its resume's started announce
+		// lists them again.
+		if (o.torrent != 0 && (tp->handle.flags() & lt::torrent_flags::paused)) tp->handle.clear_peers();
 		if (o.torrent != 0 && s->rechecking.erase(tp->handle) != 0) {
 			lts_alert checked{};
 			checked.kind = LTS_ALERT_CHECKED;
@@ -532,7 +548,7 @@ void convert(lts_session* s, lt::alert* a) {
 		fill(&o.error, fe->error);
 		// libtorrent only stops downloading a torrent whose write found the
 		// disk full, and never starts it again unless it is auto-managed.
-		if (o.torrent != 0 && o.error.category == LTS_CATEGORY_SHIM && o.error.code == LTS_SHIM_DISK_FULL) pause(s, fe->handle);
+		if (o.torrent != 0 && o.error.category == LTS_CATEGORY_SHIM && o.error.code == LTS_SHIM_DISK_FULL) turn_to(s, fe->handle, turn::pause);
 		break;
 	}
 	case lt::hash_failed_alert::alert_type:
@@ -734,7 +750,7 @@ int lts_add(lts_session* s, lts_add_params const* p, int64_t* torrent, lts_error
 		if (auto pt = s->parting.find(h); pt != s->parting.end()) {
 			id = pt->second.id;
 			s->parting.erase(pt);
-			pause(s, h);
+			turn_to(s, h, turn::pause);
 		}
 		s->by_id[id] = h;
 		s->by_handle[h] = id;
@@ -755,7 +771,7 @@ int lts_pause(lts_session* s, int64_t torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);
 		std::lock_guard<std::mutex> l(s->mu);
-		pause(s, h);
+		turn_to(s, h, turn::pause);
 	});
 }
 
@@ -763,9 +779,7 @@ int lts_resume(lts_session* s, int64_t torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);
 		std::lock_guard<std::mutex> l(s->mu);
-		s->pausing.erase(h);
-		h.unset_flags(lt::torrent_flags::upload_mode);
-		h.resume();
+		turn_to(s, h, turn::resume);
 	});
 }
 
@@ -830,7 +844,7 @@ int lts_remove(lts_session* s, int64_t torrent, int32_t delete_files, lts_error*
 		std::lock_guard<std::mutex> l(s->mu);
 		s->by_handle.erase(h);
 		s->by_id.erase(torrent);
-		s->pausing.erase(h);
+		s->turning.erase(h);
 		s->rechecking.erase(h);
 		s->parting[h] = parting_torrent{torrent, delete_files != 0, save_path};
 		settle(s, h);
@@ -934,7 +948,7 @@ int lts_close(lts_session* s, lts_error* err) {
 			std::lock_guard<std::mutex> l(s->mu);
 			for (lt::torrent_handle const& h : s->ses.get_torrents()) {
 				h.force_reannounce(floor);
-				if (s->parting.count(h) == 0) pause(s, h);
+				if (s->parting.count(h) == 0) turn_to(s, h, turn::pause);
 			}
 		}
 		// An announce ends within tracker_completion_timeout, and its answer
@@ -943,10 +957,11 @@ int lts_close(lts_session* s, lts_error* err) {
 		for (;;) {
 			{
 				std::lock_guard<std::mutex> l(s->mu);
-				std::vector<lt::torrent_handle> waiting(s->pausing.begin(), s->pausing.end());
+				std::vector<lt::torrent_handle> waiting;
+				for (auto const& t : s->turning) waiting.push_back(t.first);
 				for (auto const& p : s->parting) waiting.push_back(p.first);
 				for (lt::torrent_handle const& h : waiting) settle(s, h);
-				if (s->pausing.empty() && s->parting.empty()) break;
+				if (s->turning.empty() && s->parting.empty()) break;
 			}
 			s->ses.wait_for_alert(answer);
 			s->ses.pop_alerts(&s->popped);

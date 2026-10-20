@@ -17,8 +17,7 @@ import (
 )
 
 // announces is a tracker on loopback that logs each announce and answers
-// it as its rules say, holding each answer to started or to a regular
-// announce until answer closes when they hold it.
+// it as its rules say, holding each answer they hold until answer closes.
 type announces struct {
 	rules  enginetest.TrackerRules
 	answer chan struct{}
@@ -47,7 +46,7 @@ func (a *announces) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	a.log = append(a.log, enginetest.Announce{InfoHash: hash, Event: event, At: time.Now(), PeerID: q.Get("peer_id"), UserAgent: r.UserAgent()})
 	a.mu.Unlock()
-	if event == "started" && a.rules.HoldStarted || event == "" && a.rules.HoldRegular {
+	if a.rules.Holds(event) {
 		select {
 		case <-a.answer:
 		case <-r.Context().Done():
