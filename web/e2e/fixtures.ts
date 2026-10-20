@@ -27,6 +27,7 @@ import { startupPlayedScript } from "../harness/startup.ts";
 // oxlint-disable-next-line import/max-dependencies -- the fixtures wire every seam the browser tier drives
 import { warmUpFirefox, overrideNewPageWithWarmUp } from "./warm-up.ts";
 import type { Scenario } from "./scenario.ts";
+import { waitForSheets } from "./sheets.ts";
 
 export { expect, expectAccessible };
 
@@ -269,6 +270,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       if (browserName === "webkit") {
         overrideNewPageWithWarmUp(context, `${origin}/icon-192.png`);
       }
+      waitForSheets(context);
       if (!startupSequence) {
         await context.addInitScript({ path: startupPlayedScript });
       }
