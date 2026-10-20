@@ -28,6 +28,7 @@ type Publisher[T any] interface {
 }
 
 type Config struct {
+	Library *storage.DB[file]
 	// Touch tells the Downloading Control a Node's intent may have
 	// changed.
 	Touch   func(nodes ...role.NodeID)
@@ -35,7 +36,7 @@ type Config struct {
 }
 
 // Clients applies each Node's reports and tells their readers once they
-// commit.
+// commit, and keeps each Node's client settings.
 type Clients struct {
 	cfg Config
 
