@@ -14,11 +14,13 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"net"
 	"net/netip"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -37,10 +39,17 @@ type Session struct {
 	// version is the identity the session announces with, read from it
 	// once: nothing sets it.
 	version engine.Version
-	listen  netip.Addr
-	events  chan engine.Event
-	stop    chan struct{}
-	done    chan struct{}
+	// listen is the address the listener is on, invalid while there is no
+	// route to listen on. Only the pump moves it.
+	listen atomic.Pointer[netip.Addr]
+	port   uint16
+	// route is the address to listen on, checked each routeCheck, for a
+	// session on an unspecified address; nil for one on a named address.
+	route      func() (netip.Addr, error)
+	routeCheck time.Duration
+	events     chan engine.Event
+	stop       chan struct{}
+	done       chan struct{}
 
 	mu     sync.RWMutex
 	closed bool
@@ -57,28 +66,68 @@ func Version() string {
 // ports refused, all of them fail with probability f^anyPortTries.
 const anyPortTries = 32
 
-// Open returns a session on cfg's listen interface. A session given a port
-// binds that port or none, and then sends ListenFailed. For port 0 Open
-// tries random dynamic ports until one takes both libtorrent's TCP listener
-// and its uTP socket, or returns the reason the last one did not. Windows
-// refuses either bind with WSAEACCES on a port in one of its excluded
-// ranges, which span runs of adjacent ports, so candidates from an
+// Open returns a session on cfg's listen interface, or for an unspecified
+// address on the address the default route leaves from. A session given a
+// port binds that port or none, and then sends ListenFailed. For port 0
+// Open tries random dynamic ports until one takes both libtorrent's TCP
+// listener and its uTP socket, or returns the reason the last one did not.
+// Windows refuses either bind with WSAEACCES on a port in one of its
+// excluded ranges, which span runs of adjacent ports, so candidates from an
 // allocator that walks ports in sequence fail together.
 func Open(cfg engine.Config) (*Session, error) {
+	var route func() (netip.Addr, error)
+	if family := cfg.ListenInterface.Addr(); family.IsUnspecified() {
+		route = func() (netip.Addr, error) { return defaultRoute(family) }
+	}
+	return openRouted(cfg, route)
+}
+
+func openRouted(cfg engine.Config, route func() (netip.Addr, error)) (*Session, error) {
+	ap := cfg.ListenInterface
+	var unrouted error
+	if route != nil {
+		addr, err := route()
+		ap, unrouted = netip.AddrPortFrom(addr, ap.Port()), err
+	}
 	var s *Session
 	var err error
-	if cfg.ListenInterface.Port() != 0 {
-		s, err = open(cfg.ListenInterface, cfg)
+	if ap.Port() != 0 || unrouted != nil {
+		s, err = open(ap, cfg)
 	} else {
 		s, err = firstListening(dynamicPorts(cfg.Rand, anyPortTries), func(port uint16) (*Session, error) {
-			return openListening(netip.AddrPortFrom(cfg.ListenInterface.Addr(), port), cfg)
+			return openListening(netip.AddrPortFrom(ap.Addr(), port), cfg)
 		})
 	}
 	if err != nil {
 		return nil, err
 	}
+	s.route, s.routeCheck = route, cfg.RouteCheck
+	if unrouted != nil {
+		s.events <- engine.ListenFailed{Err: noRoute(unrouted)}
+	}
 	go s.pump()
 	return s, nil
+}
+
+// defaultRoute is the address the host reaches the internet from in
+// family's family, the source of its default route. It connects a UDP
+// socket to a.root-servers.net, whose addresses IANA keeps, which sends
+// nothing: the host only picks the route and the source address.
+func defaultRoute(family netip.Addr) (netip.Addr, error) {
+	internet := netip.MustParseAddrPort("198.41.0.4:53")
+	if family.Is6() {
+		internet = netip.MustParseAddrPort("[2001:503:ba3e::2:30]:53")
+	}
+	conn, err := net.DialUDP("udp", nil, net.UDPAddrFromAddrPort(internet))
+	if err != nil {
+		return netip.Addr{}, err //nolint:wrapcheck // noRoute names it
+	}
+	defer func() { _ = conn.Close() }()
+	return conn.LocalAddr().(*net.UDPAddr).AddrPort().Addr().Unmap(), nil //nolint:forcetypeassert // a UDP conn's address is a *net.UDPAddr
+}
+
+func noRoute(err error) *engine.Error {
+	return &engine.Error{Category: engine.ErrNoRoute.Category, Code: engine.ErrNoRoute.Code, Text: fmt.Sprintf("%s: %v", engine.ErrNoRoute.Text, err)}
 }
 
 // firstListening opens on each port in turn and returns the first session
@@ -104,8 +153,10 @@ func dynamicPorts(r *rand.Rand, n int) []uint16 {
 	return ports
 }
 
+// open opens a session on ap, or one that listens nowhere for an invalid
+// address.
 func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
-	addr := C.CString(ap.Addr().String())
+	addr := C.CString(addressText(ap.Addr()))
 	defer C.free(unsafe.Pointer(addr))
 	var cerr C.lts_error
 	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), cBool(cfg.OutgoingUTP), C.int32_t(cfg.AnnounceFloor/time.Second), &cerr)
@@ -119,14 +170,24 @@ func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 		C.lts_close(ses, &cerr)
 		return nil, err
 	}
-	return &Session{
+	s := &Session{
 		ses:     ses,
 		version: engine.Version{Libtorrent: Version(), PeerIDPrefix: C.GoString(&fingerprint[0]), UserAgent: C.GoString(&userAgent[0])},
-		listen:  ap.Addr(),
+		port:    ap.Port(),
 		events:  make(chan engine.Event, 64),
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
-	}, nil
+	}
+	listen := ap.Addr()
+	s.listen.Store(&listen)
+	return s, nil
+}
+
+func addressText(a netip.Addr) string {
+	if !a.IsValid() {
+		return ""
+	}
+	return a.String()
 }
 
 // openListening opens a session that listens on ap, or closes it and says
@@ -183,7 +244,25 @@ func (s *Session) ListenAddr() (netip.AddrPort, error) {
 	if port == 0 {
 		return netip.AddrPort{}, engine.ErrNotListening
 	}
-	return netip.AddrPortFrom(s.listen, uint16(port)), nil
+	return netip.AddrPortFrom(*s.listen.Load(), uint16(port)), nil
+}
+
+// follow moves the listener to the address the default route leaves from
+// once the route moved, on the port the session opened on. A host that
+// lost its route keeps the listener where it is.
+func (s *Session) follow() {
+	to, err := s.route()
+	if err != nil || to == *s.listen.Load() {
+		return
+	}
+	addr := C.CString(to.String())
+	defer C.free(unsafe.Pointer(addr))
+	var cerr C.lts_error
+	if C.lts_listen_on(s.ses, addr, C.uint16_t(s.port), &cerr) != 0 {
+		s.send(engine.ListenFailed{Err: goError(&cerr)})
+		return
+	}
+	s.listen.Store(&to)
 }
 
 func (s *Session) Add(p engine.AddParams) (engine.Handle, error) {
@@ -388,11 +467,16 @@ func (s *Session) pump() {
 	defer close(s.done)
 	var buf [64]C.lts_alert
 	events := make([]engine.Event, 0, len(buf))
+	checkRoute := time.Now().Add(s.routeCheck)
 	for {
 		select {
 		case <-s.stop:
 			return
 		default:
+		}
+		if s.route != nil && s.routeCheck > 0 && !time.Now().Before(checkRoute) {
+			s.follow()
+			checkRoute = time.Now().Add(s.routeCheck)
 		}
 		var cerr C.lts_error
 		n := int(C.lts_wait_alerts(s.ses, pollMillis, &buf[0], C.int(len(buf)), &cerr)) //nolint:gocritic // cgo's pointer check repeats &buf[0]
