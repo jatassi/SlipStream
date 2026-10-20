@@ -98,23 +98,23 @@ func (s *startedFrom) heard(t *testing.T, n int, quiet time.Duration) map[bencod
 	}
 }
 
-// hostAddrs is the host's IPv4 addresses other than loopback, each of
-// which a Node on the wildcard address listens on.
-func hostAddrs(t *testing.T) []netip.Addr {
+// routeIfaceAddrs is the IPv4 addresses, other than loopback and
+// link-local, of the interface the host reaches the internet from. An
+// engine on 0.0.0.0 binds its tracker connections to that interface, so a
+// tracker elsewhere on the host is out of its reach.
+func routeIfaceAddrs(t *testing.T) []netip.Addr {
 	t.Helper()
+	route := routeAddr(t)
 	ifs, err := net.Interfaces()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var addrs []netip.Addr
 	for _, i := range ifs {
-		if i.Flags&net.FlagUp == 0 {
-			continue
-		}
 		as, err := i.Addrs()
 		if err != nil {
 			t.Fatal(err)
 		}
+		var addrs []netip.Addr
 		for _, a := range as {
 			n, ok := a.(*net.IPNet)
 			if !ok {
@@ -125,21 +125,25 @@ func hostAddrs(t *testing.T) []netip.Addr {
 				addrs = append(addrs, addr)
 			}
 		}
+		if slices.Contains(addrs, route) {
+			return addrs
+		}
 	}
-	return addrs
+	t.Fatalf("no interface holds the default route's address %s", route)
+	return nil
 }
 
 // TestEachTorrentAnnouncesStartedOnce opens an engine on the wildcard
 // address, as a Node does by default, and has three torrents announce to
-// a tracker at each of the host's addresses in turn. A tracker counts each
-// announce as a peer, so it must hear started once per torrent however
-// many addresses the host has. A loopback tracker would not show a second
-// announce: libtorrent's announce from another address to loopback never
-// arrives.
+// a tracker at each address of the interface the default route leaves
+// from, in turn. A tracker counts each announce as a peer, so it must hear
+// started once per torrent however many addresses that interface has. A
+// loopback tracker would not show a second announce: libtorrent's announce
+// from another address to loopback never arrives.
 func TestEachTorrentAnnouncesStartedOnce(t *testing.T) {
-	hosts := hostAddrs(t)
+	hosts := routeIfaceAddrs(t)
 	if len(hosts) < 2 {
-		t.Skipf("this host's only IPv4 addresses besides loopback are %v, so one announce per torrent proves nothing: at most one of its addresses reaches a tracker", hosts)
+		t.Skipf("the default route's interface has only %v, so one announce per torrent proves nothing", hosts)
 	}
 	for _, host := range hosts {
 		t.Run(host.String(), func(t *testing.T) {
@@ -159,7 +163,7 @@ func TestEachTorrentAnnouncesStartedOnce(t *testing.T) {
 			}
 			for hash, from := range tracker.heard(t, torrents, 2*time.Second) {
 				if len(from) != 1 {
-					t.Errorf("the tracker at %s heard started %d times for torrent %s, from %v; the host's addresses are %v", host, len(from), hash, from, hosts)
+					t.Errorf("the tracker at %s heard started %d times for torrent %s, from %v; the default route's interface has %v", host, len(from), hash, from, hosts)
 				}
 			}
 		})
