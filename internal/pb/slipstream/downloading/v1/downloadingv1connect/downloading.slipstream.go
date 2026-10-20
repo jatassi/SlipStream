@@ -6,7 +6,16 @@ package downloadingv1connect
 
 import (
 	connect "connectrpc.com/connect/v2"
+	role "github.com/jatassi/slipstream/internal/role"
 	rpc "github.com/jatassi/slipstream/internal/rpc"
+)
+
+// DownloadingService is the rpc descriptor of slipstream.downloading.v1.DownloadingService.
+var DownloadingService = rpc.NewRoleService(
+	role.Downloading,
+	DownloadingServiceName,
+	func(c *connect.Client) DownloadingServiceHandler { return NewDownloadingServiceClient(c) },
+	RegisterDownloadingServiceHandler,
 )
 
 // DownloadingControlService is the rpc descriptor of slipstream.downloading.v1.DownloadingControlService.

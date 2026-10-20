@@ -43,12 +43,45 @@ export const DialInputBody = zod.object({
 export type DialInputBody = zod.input<typeof DialInputBody>;
 export type DialInputBodyOutput = zod.output<typeof DialInputBody>;
 
+export const DownloadclientsAggregate = zod.object({
+  allPaused: zod.boolean().describe("There are downloads and every one is paused"),
+  done: zod.int().describe("Bytes the downloads hold, live while sampled"),
+  wanted: zod.int().describe("Bytes the downloads want"),
+});
+
+export type DownloadclientsAggregate = zod.input<typeof DownloadclientsAggregate>;
+export type DownloadclientsAggregateOutput = zod.output<typeof DownloadclientsAggregate>;
+
 export const DownloadclientsChanged = zod.object({
   ids: zod.array(zod.string()).describe("The Torrents whose record changed"),
 });
 
 export type DownloadclientsChanged = zod.input<typeof DownloadclientsChanged>;
 export type DownloadclientsChangedOutput = zod.output<typeof DownloadclientsChanged>;
+
+export const DownloadclientsLiveRow = zod.object({
+  done: zod.int().describe("Bytes downloaded"),
+  downBps: zod.int().describe("Payload bytes a second it downloads"),
+  id: zod.uuid(),
+  peers: zod.int(),
+  seeds: zod.int(),
+  upBps: zod.int().describe("Payload bytes a second it uploads"),
+  wanted: zod.int().describe("Bytes its selected files hold"),
+});
+
+export type DownloadclientsLiveRow = zod.input<typeof DownloadclientsLiveRow>;
+export type DownloadclientsLiveRowOutput = zod.output<typeof DownloadclientsLiveRow>;
+
+export const DownloadclientsLiveTick = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  downloads: DownloadclientsAggregate,
+  rows: zod
+    .array(DownloadclientsLiveRow)
+    .describe("The Torrents whose rates, progress or peers moved"),
+});
+
+export type DownloadclientsLiveTick = zod.input<typeof DownloadclientsLiveTick>;
+export type DownloadclientsLiveTickOutput = zod.output<typeof DownloadclientsLiveTick>;
 
 export const SettingNoun = zod.object({
   many: zod.string(),
@@ -1436,10 +1469,10 @@ export type NodesDialView = zod.input<typeof NodesDialView>;
 export type NodesDialViewOutput = zod.output<typeof NodesDialView>;
 
 export const NodesTorrentView = zod.object({
-  done: zod.int().describe("Bytes downloaded"),
-  grabId: zod.uuid(),
-  peers: zod.int(),
-  title: zod.string(),
+  done: zod.int().describe("Bytes downloaded, live while an Admin listens"),
+  peers: zod.int().describe("0 while its Node isn't sampled"),
+  title: zod.string().describe("Its newest Grab's release, or its name once no Grab is left"),
+  torrentId: zod.uuid(),
   wanted: zod.int().describe("Bytes the torrent's selected files hold"),
 });
 
@@ -1447,7 +1480,7 @@ export type NodesTorrentView = zod.input<typeof NodesTorrentView>;
 export type NodesTorrentViewOutput = zod.output<typeof NodesTorrentView>;
 
 export const NodesDownloadingResource = zod.object({
-  torrents: zod.array(NodesTorrentView).describe("Each Grab whose torrent the client keeps"),
+  torrents: zod.array(NodesTorrentView).describe("Each Torrent the client keeps, in added order"),
 });
 
 export type NodesDownloadingResource = zod.input<typeof NodesDownloadingResource>;
@@ -1746,8 +1779,9 @@ export type NodesNodeListOutput = zod.output<typeof NodesNodeList>;
 
 export const NodesTorrentTraffic = zod.object({
   done: zod.int(),
-  grabId: zod.uuid(),
   peers: zod.int(),
+  torrentId: zod.uuid(),
+  wanted: zod.int(),
 });
 
 export type NodesTorrentTraffic = zod.input<typeof NodesTorrentTraffic>;
@@ -1756,7 +1790,9 @@ export type NodesTorrentTrafficOutput = zod.output<typeof NodesTorrentTraffic>;
 export const NodesNodeTraffic = zod.object({
   downBps: zod.int().describe("Payload bytes a second its torrents download"),
   id: zod.uuid(),
-  torrents: zod.array(NodesTorrentTraffic).describe("Each Grab whose torrent its client keeps"),
+  torrents: zod
+    .array(NodesTorrentTraffic)
+    .describe("Each Torrent its client sampled moving since an Admin began listening, in id order"),
   upBps: zod.int().describe("Payload bytes a second its torrents upload"),
 });
 
@@ -2019,7 +2055,7 @@ export const NodesTraffic = zod.object({
     .describe("Every live link, between the Controller and a Worker"),
   nodes: zod
     .array(NodesNodeTraffic)
-    .describe("Every Node whose torrent client reports, in id order"),
+    .describe("Every Node whose torrent client is sampled, in id order"),
 });
 
 export type NodesTraffic = zod.input<typeof NodesTraffic>;
@@ -4039,6 +4075,14 @@ export const LiveEventTorrentsChanged = zod.object({
 export type LiveEventTorrentsChanged = zod.input<typeof LiveEventTorrentsChanged>;
 export type LiveEventTorrentsChangedOutput = zod.output<typeof LiveEventTorrentsChanged>;
 
+export const LiveEventTorrentsLive = zod.object({
+  event: zod.enum(["torrents.live"]),
+  data: DownloadclientsLiveTick,
+});
+
+export type LiveEventTorrentsLive = zod.input<typeof LiveEventTorrentsLive>;
+export type LiveEventTorrentsLiveOutput = zod.output<typeof LiveEventTorrentsLive>;
+
 export const LiveEventVolumesChanged = zod.object({
   event: zod.enum(["volumes.changed"]),
   data: RootsVolumesChanged,
@@ -4085,6 +4129,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTasksChanged,
   LiveEventTasksProgress,
   LiveEventTorrentsChanged,
+  LiveEventTorrentsLive,
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
   LiveEventWorksContentTypesChanged,

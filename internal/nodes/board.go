@@ -253,6 +253,17 @@ func (h Holders) Pick(prefer ID) (ID, bool) {
 	return ID{}, false
 }
 
+// InStep is every Node in step that serves the Role, in id order.
+func (h Holders) InStep() []ID {
+	var out []ID
+	for _, n := range h.b.nodes {
+		if n.Standing == InStep && h.Serves(n.ID) {
+			out = append(out, n.ID)
+		}
+	}
+	return out
+}
+
 func (h Holders) Lapsed(n ID) bool { return h.State(n) == Lapsed }
 
 // Absence is how a Node assigned a Role stands while it is out of step.

@@ -1,5 +1,6 @@
 export interface NodesTorrentTraffic {
   done: number;
-  grabId: string;
   peers: number;
+  torrentId: string;
+  wanted: number;
 }

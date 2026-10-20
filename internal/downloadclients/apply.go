@@ -33,6 +33,7 @@ type Config struct {
 	// changed.
 	Touch   func(nodes ...role.NodeID)
 	Changed Publisher[Changed]
+	Live    LiveConfig
 }
 
 // Clients applies each Node's reports and tells their readers once they
@@ -44,6 +45,8 @@ type Clients struct {
 	// pending is what each Node's applied reports changed, until Applied.
 	pending map[role.NodeID]*pending
 	moved   chan struct{}
+
+	watching watching
 }
 
 type pending struct {
@@ -52,7 +55,10 @@ type pending struct {
 }
 
 func New(cfg Config) *Clients {
-	return &Clients{cfg: cfg, pending: map[role.NodeID]*pending{}, moved: make(chan struct{})}
+	return &Clients{
+		cfg: cfg, pending: map[role.NodeID]*pending{}, moved: make(chan struct{}),
+		watching: watching{nodes: map[role.NodeID]*watched{}, moved: map[ID]Sample{}},
+	}
 }
 
 // Touch tells the Downloading Control nodes' intents may have changed.

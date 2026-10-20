@@ -24,7 +24,7 @@ const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.opti
 
 // A sample that fails to parse is dropped: the next replaces it within a
 // second, where a resync would refetch every query at the samples' rate.
-const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic"]);
+const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic", "torrents.live"]);
 
 type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
 type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;

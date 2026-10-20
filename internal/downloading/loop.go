@@ -59,6 +59,7 @@ type loop struct {
 	// sentFacts is nil until facts go to a run.
 	sentFacts *dlv1.Facts
 	wake      *time.Timer
+	watching  watching
 	// limits is what the engine was last configured with, nil before the
 	// first intent.
 	limits *engine.Limits
@@ -116,10 +117,11 @@ func (c *Client) Loop(ctx context.Context) error {
 	l := &loop{
 		c: c, eng: c.cfg.Engine, ledger: announce.New(c.cfg.Rand, t.AnnounceJitter, t.AnnounceFloor),
 		torrents: map[bencode.InfoHash]*torrent{}, byHandle: map[engine.Handle]*torrent{},
-		wake: time.NewTimer(time.Hour), version: c.cfg.Engine.Version(),
+		wake: time.NewTimer(time.Hour), version: c.cfg.Engine.Version(), watching: newWatching(),
 	}
 	l.listened()
 	defer l.wake.Stop()
+	defer l.watching.timer.Stop()
 	facts, resume, totals := time.NewTicker(t.Facts), time.NewTicker(t.ResumeSave), time.NewTicker(t.TotalsReport)
 	defer facts.Stop()
 	defer resume.Stop()
@@ -151,6 +153,8 @@ func (c *Client) Loop(ctx context.Context) error {
 			l.saveResume(func(t *torrent) bool { return t.status.NeedSave })
 		case <-totals.C:
 			l.sendTotals(time.Now())
+		case <-l.watching.timer.C:
+			l.takeSample()
 		case <-l.wake.C:
 		case <-ctx.Done():
 			return nil
@@ -572,8 +576,14 @@ func (l *loop) event(ev engine.Event) {
 		if err := l.eng.PostUpdates(); err != nil {
 			l.c.cfg.Log.Warn("read the torrents' status", "err", err.Error())
 		}
+		if l.watching.sampling {
+			l.postStats()
+		}
+		l.saveResume(func(t *torrent) bool { return l.saving[t.handle] })
 	case engine.Updates:
 		l.updates(ev.Statuses)
+	case engine.Stats:
+		l.stats(ev)
 	default:
 		if t := l.byHandle[handleOf(ev)]; t != nil {
 			l.torrentEvent(t, ev)

@@ -241,6 +241,47 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 	return items, nil
 }
 
+const listDownloads = `-- name: ListDownloads :many
+SELECT id, size, wanted, report FROM downloadclients_torrent
+WHERE removed_at IS NULL AND completion IS NULL
+ORDER BY added_order
+`
+
+type ListDownloadsRow struct {
+	ID     TorrentID
+	Size   int64
+	Wanted string
+	Report *string
+}
+
+func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDownloads)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDownloadsRow
+	for rows.Next() {
+		var i ListDownloadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Size,
+			&i.Wanted,
+			&i.Report,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHeldOfHash = `-- name: ListHeldOfHash :many
 SELECT id, node_id, removed_at FROM downloadclients_torrent
 WHERE info_hash = ?1 AND parted_at IS NULL
@@ -349,7 +390,7 @@ func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListInt
 }
 
 const listKept = `-- name: ListKept :many
-SELECT id, info_hash, size, report FROM downloadclients_torrent
+SELECT id, info_hash, name, size, report FROM downloadclients_torrent
 WHERE node_id = ?1 AND removed_at IS NULL
 ORDER BY added_order
 `
@@ -357,6 +398,7 @@ ORDER BY added_order
 type ListKeptRow struct {
 	ID       TorrentID
 	InfoHash []byte
+	Name     string
 	Size     int64
 	Report   *string
 }
@@ -373,6 +415,7 @@ func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptR
 		if err := rows.Scan(
 			&i.ID,
 			&i.InfoHash,
+			&i.Name,
 			&i.Size,
 			&i.Report,
 		); err != nil {

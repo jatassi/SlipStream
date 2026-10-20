@@ -86,6 +86,9 @@ type noDownloads struct{}
 
 func (noDownloads) Touch(...role.NodeID)   {}
 func (noDownloads) Moved() <-chan struct{} { return nil }
+func (noDownloads) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
+	return downloadclients.Sample{}, false
+}
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()

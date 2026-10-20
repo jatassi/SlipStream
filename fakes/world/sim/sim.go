@@ -92,6 +92,7 @@ type Node struct {
 	half    node.Half
 	probe   *roletest.Probe
 	control *roletest.Control
+	swarm   *enginetest.World
 }
 
 // Launch starts every Node of s inside the caller's synctest bubble and
@@ -329,7 +330,7 @@ func (n *Node) env() node.Env {
 		Test: n.test(),
 	}
 	if n.w.walk != nil {
-		n.w.walk.env(&env)
+		n.w.walk.env(n, &env)
 	}
 	for _, edit := range n.w.opts.edits {
 		edit(n.spec.Name, &env)
@@ -421,6 +422,14 @@ func (n *Node) Probe() *roletest.Probe {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return n.probe
+}
+
+// Swarm is the World the Node's engine last opened in under the walk:
+// its payloads, peers and trackers.
+func (n *Node) Swarm() *enginetest.World {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.swarm
 }
 
 // Control is the Probe's control half on a Controller.

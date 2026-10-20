@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/engine/enginetest"
 	"github.com/jatassi/slipstream/internal/transfers"
 )
@@ -144,9 +145,18 @@ func (w *walk) seed(world *World, ready []node.Ready) {
 	}
 }
 
-func (w *walk) env(e *node.Env) {
+func (w *walk) env(n *Node, e *node.Env) {
 	e.Types = contenttype.NewSet(movie.Def)
-	e.Engine = enginetest.Payloads(w.payloads)
+	e.Engine = func(cfg engine.Config) (engine.Engine, error) {
+		swarm := enginetest.NewWorld()
+		for h, payload := range w.payloads {
+			swarm.Payload(h, payload)
+		}
+		n.mu.Lock()
+		n.swarm = swarm
+		n.mu.Unlock()
+		return swarm.Open(cfg)
+	}
 	e.Media = mediatest.Prober{Of: w.probes}
 }
 

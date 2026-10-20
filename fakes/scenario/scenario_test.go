@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/role"
@@ -73,7 +72,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 			{Name: "home", Setup: SetupController, Roles: []role.Name{role.Storage, role.Converting, role.Subtitles, role.Metadata, role.MediaServerLink, role.Notifying, role.Serving}},
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
 		},
-		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}, Downloading: downloading.Timings{TotalsReport: 2 * time.Second}},
+		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
 		TMDB:     quietOrchard(),
 		Releases: quietOrchardReleases(),
 		Tracker:  Tracker{Interval: 5 * time.Second},
