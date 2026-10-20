@@ -19,7 +19,8 @@ import (
 const pieceLength = 16 << 10
 
 // seeding is a libtorrent session on loopback that seeds one torrent and
-// watches incoming peers, and that torrent's info hash.
+// watches incoming peers, and that torrent's info hash. It returns once the
+// torrent seeds: until then libtorrent turns peers away as not ready.
 func seeding(t *testing.T) (engine.Engine, bencode.InfoHash) {
 	t.Helper()
 	payload := make([]byte, 3*pieceLength-100)
@@ -56,7 +57,10 @@ func seeding(t *testing.T) (engine.Engine, bencode.InfoHash) {
 	if err := e.Resume(h); err != nil {
 		t.Fatal(err)
 	}
-	await(t, e, "the torrent starting", func(ev engine.Event) bool { r, ok := ev.(engine.Resumed); return ok && r.Torrent == h })
+	await(t, e, "the torrent seeding", func(ev engine.Event) bool {
+		sc, ok := ev.(engine.StateChanged)
+		return ok && sc.Torrent == h && sc.State == engine.StateSeeding
+	})
 	return e, m.InfoHash
 }
 
