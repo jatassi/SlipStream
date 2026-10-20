@@ -5,6 +5,7 @@ import {
   useChildMatches,
   useNavigate,
 } from "@tanstack/react-router";
+import { z } from "zod";
 
 import { Page } from "../../../shell/page";
 import { PageTabs, pageTab } from "../../../ui/page-tabs";
@@ -16,8 +17,20 @@ const activityViews = [
   { id: "torrents", label: "Torrents", to: "/activity/torrents", route: "/_app/activity/torrents" },
 ] as const;
 
+// Shared by both views, so a Node, Content Type or search survives a switch.
+const activitySearch = z.object({
+  node: z.uuid().optional().catch(undefined),
+  type: z.string().optional().catch(undefined),
+  q: z.string().optional().catch(undefined),
+});
+
+type ActivitySearch = z.infer<typeof activitySearch>;
+
+const shared = ({ node, type, q }: ActivitySearch): ActivitySearch => ({ node, type, q });
+
 export const Route = createFileRoute("/_app/activity")({
   staticData: { title: "Activity" },
+  validateSearch: activitySearch,
   component: ActivityLayout,
 });
 
@@ -36,6 +49,7 @@ function ActivityLayout() {
           <Link
             key={view.id}
             to={view.to}
+            search={shared}
             activeOptions={{ exact: view.id === "jobs" }}
             className={pageTab}
           >
@@ -61,7 +75,7 @@ function PhoneViews() {
       options={activityViews.map(({ to, label }) => ({ value: to, label }))}
       value={current.to}
       onValueChange={(to) => {
-        void navigate({ to });
+        void navigate({ to, search: shared });
       }}
     />
   );
