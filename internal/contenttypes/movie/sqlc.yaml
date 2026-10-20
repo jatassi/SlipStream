@@ -38,3 +38,7 @@ sql:
           - column: movie_settings.id
             go_type:
               type: Singleton
+          - column: movie_settings.counts_as
+            go_type:
+              type: CountsAs
+              pointer: true

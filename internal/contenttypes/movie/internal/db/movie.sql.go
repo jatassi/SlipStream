@@ -82,6 +82,22 @@ func (q *Queries) GetMovie(ctx context.Context, workID works.WorkID) (MovieMovie
 	return i, err
 }
 
+const getSettings = `-- name: GetSettings :one
+SELECT counts_as, cinema_delay_seconds FROM movie_settings WHERE id = 1
+`
+
+type GetSettingsRow struct {
+	CountsAs           *CountsAs
+	CinemaDelaySeconds *int64
+}
+
+func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getSettings)
+	var i GetSettingsRow
+	err := row.Scan(&i.CountsAs, &i.CinemaDelaySeconds)
+	return i, err
+}
+
 const insertCredit = `-- name: InsertCredit :exec
 INSERT INTO movie_credit (work_id, position, person_id, name, department, role, photo_path)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -377,6 +393,20 @@ func (q *Queries) ListTitles(ctx context.Context, workID works.WorkID) ([]ListTi
 		return nil, err
 	}
 	return items, nil
+}
+
+const setSettings = `-- name: SetSettings :exec
+UPDATE movie_settings SET counts_as = ?1, cinema_delay_seconds = ?2 WHERE id = 1
+`
+
+type SetSettingsParams struct {
+	CountsAs           *CountsAs
+	CinemaDelaySeconds *int64
+}
+
+func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setSettings, arg.CountsAs, arg.CinemaDelaySeconds)
+	return err
 }
 
 const upsertMovie = `-- name: UpsertMovie :exec
