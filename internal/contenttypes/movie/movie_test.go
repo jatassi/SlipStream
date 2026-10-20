@@ -550,6 +550,21 @@ func TestPreviewSkipsOMDbAndCommitsNothing(t *testing.T) {
 	}
 }
 
+func TestAddAfterPreviewMakesNoSecondTMDBCall(t *testing.T) {
+	sv := serve(t, catalog(t))
+	sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): sv.open()}))
+	if _, _, err := sh.works.Preview(t.Context(), identity.Admin{}, movie.Def.ID(), saltRoad, noneWithin); err != nil {
+		t.Fatal(err)
+	}
+	sh.add(t, saltRoad)
+	if got := sv.tmdbSent.sent.Load(); got != 1 {
+		t.Fatalf("a preview then an add sent %d TMDB requests, want 1: the add reuses the preview's answer", got)
+	}
+	if got := sv.omdbSent.sent.Load(); got != 1 {
+		t.Fatalf("the add sent %d OMDb requests, want 1", got)
+	}
+}
+
 func TestAddedMovieHasOneMonitoredItem(t *testing.T) {
 	_, tree := added(t, "9000001")
 	if tree.Label != "The Quiet Orchard" || tree.Key != "9000001" {

@@ -41,8 +41,8 @@ var formats = map[string]string{"image/jpeg": "jpeg", "image/png": "png"}
 
 // Run reads every Known image at every size and asserts what holds on
 // both sides: each answers 200 under its content type, a raster decodes as
-// that type at the size's width or height, and an SVG is an svg element.
-// A size TMDB doesn't offer answers 400.
+// that type at the size's width or height (or one pixel short), and an
+// SVG is an svg element. A size TMDB doesn't offer answers 400.
 func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	for _, k := range tgt.Known {
@@ -78,10 +78,16 @@ func check(r reply, k Known, size string) string {
 	if err != nil || format != formats[k.Type] {
 		return fmt.Sprintf("decodes as %q, %v; want %s", format, err, formats[k.Type])
 	}
-	if n, err := strconv.Atoi(size[1:]); err == nil && (size[0] == 'w' && cfg.Width != n || size[0] == 'h' && cfg.Height != n) {
+	if n, err := strconv.Atoi(size[1:]); err == nil && (size[0] == 'w' && !near(cfg.Width, n) || size[0] == 'h' && !near(cfg.Height, n)) {
 		return fmt.Sprintf("is %dx%d, want %s", cfg.Width, cfg.Height, size)
 	}
 	return ""
+}
+
+// near allows TMDB's resizer its rounding: Netflix's 2000x538 logo comes
+// back 1279 wide at w1280 from some of its servers.
+func near(got, want int) bool {
+	return got >= want-1 && got <= want
 }
 
 func get(t *testing.T, tgt Target, path string) reply {

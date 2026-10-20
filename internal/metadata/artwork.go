@@ -10,15 +10,10 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/metadata/internal/db"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/rpc"
-	"github.com/jatassi/slipstream/internal/setting"
 )
-
-// ArtworkStore bounds the artwork store, in MB.
-var ArtworkStore = setting.Count{Key: "metadata.artworkStore", Label: "Artwork store size", Default: 2048, Min: 100, Max: 1 << 20, Unit: setting.Noun{One: "MB", Many: "MB"}}
 
 // imageHost is one image host a holder fetches from, over a Line of its
 // own.
@@ -95,10 +90,11 @@ func (g *gallery) close() {
 	g.flying.Wait()
 }
 
-func openStore(ctx context.Context, cfg Config) (*artwork.Store, error) {
-	return artwork.OpenStore(ctx, cfg.ArtworkDir, cfg.Local, func(ctx context.Context) (int64, error) {
-		mb, err := db.New(cfg.Library).GetArtworkStoreMB(ctx)
-		return ArtworkStore.Value(mb), err
+// openStore opens the artwork store bounded by the artwork store size
+// setting as the Controller holds it.
+func (m *Metadata) openStore(ctx context.Context) (*artwork.Store, error) {
+	return artwork.OpenStore(ctx, m.cfg.ArtworkDir, m.cfg.Local, func(context.Context) (int64, error) {
+		return ArtworkStore.Value(m.stored().ArtworkStoreMb), nil
 	})
 }
 

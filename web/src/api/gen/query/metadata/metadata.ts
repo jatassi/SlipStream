@@ -16,12 +16,20 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ClearMetadataCache401,
+  ClearMetadataCache403,
+  ClearMetadataCache409,
+  ClearMetadataCache500,
   ClearMetadataKey401,
   ClearMetadataKey403,
   ClearMetadataKey404,
   ClearMetadataKey409,
   ClearMetadataKey422,
   ClearMetadataKey500,
+  GetMetadataSettings401,
+  GetMetadataSettings403,
+  GetMetadataSettings409,
+  GetMetadataSettings500,
   ListMetadataProviders401,
   ListMetadataProviders403,
   ListMetadataProviders409,
@@ -29,6 +37,8 @@ import type {
   MetadataNewKey,
   MetadataProvider,
   MetadataProviderList,
+  MetadataSettings,
+  MetadataSettingsChange,
   SetMetadataKey401,
   SetMetadataKey403,
   SetMetadataKey404,
@@ -43,6 +53,11 @@ import type {
   TestMetadataProvider422,
   TestMetadataProvider500,
   TestMetadataProvider502,
+  UpdateMetadataSettings401,
+  UpdateMetadataSettings403,
+  UpdateMetadataSettings409,
+  UpdateMetadataSettings422,
+  UpdateMetadataSettings500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -65,6 +80,82 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getClearMetadataCacheUrl = () => {
+  return `/api/v1/metadata/cache`;
+};
+
+/**
+ * @summary Have every Node reading metadata drop what it cached, the next time it reads
+ */
+export const clearMetadataCache = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getClearMetadataCacheUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearMetadataCacheMutationKey = () => ["clearMetadataCache"] as const;
+
+export const getClearMetadataCacheMutationOptions = <
+  TError = ErrorType<
+    ClearMetadataCache401 | ClearMetadataCache403 | ClearMetadataCache409 | ClearMetadataCache500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearMetadataCache>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<Awaited<ReturnType<typeof clearMetadataCache>>, TError, void, TContext> => {
+  const mutationKey = getClearMetadataCacheMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearMetadataCache>>, void> = () => {
+    return clearMetadataCache(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearMetadataCacheMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearMetadataCache>>
+>;
+
+export type ClearMetadataCacheMutationError = ErrorType<
+  ClearMetadataCache401 | ClearMetadataCache403 | ClearMetadataCache409 | ClearMetadataCache500
+>;
+
+/**
+ * @summary Have every Node reading metadata drop what it cached, the next time it reads
+ */
+export const useClearMetadataCache = <
+  TError = ErrorType<
+    ClearMetadataCache401 | ClearMetadataCache403 | ClearMetadataCache409 | ClearMetadataCache500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof clearMetadataCache>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof clearMetadataCache>>, TError, void, TContext> => {
+  return useMutation(getClearMetadataCacheMutationOptions(options), queryClient);
+};
 export const getListMetadataProvidersUrl = () => {
   return `/api/v1/metadata/providers`;
 };
@@ -560,4 +651,271 @@ export const useTestMetadataProvider = <
   TContext
 > => {
   return useMutation(getTestMetadataProviderMutationOptions(options), queryClient);
+};
+export const getGetMetadataSettingsUrl = () => {
+  return `/api/v1/metadata/settings`;
+};
+
+/**
+ * @summary Get the metadata settings, with the language and region options
+ */
+export const getMetadataSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MetadataSettings> => {
+  return apiFetch<MetadataSettings>(getGetMetadataSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMetadataSettingsQueryKey = () => {
+  return [`/api/v1/metadata/settings`] as const;
+};
+
+export const getGetMetadataSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMetadataSettings>>,
+  TError = ErrorType<
+    | GetMetadataSettings401
+    | GetMetadataSettings403
+    | GetMetadataSettings409
+    | GetMetadataSettings500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMetadataSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMetadataSettings>>> = ({ signal }) =>
+    getMetadataSettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetMetadataSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMetadataSettings>>
+>;
+export type GetMetadataSettingsSuspenseQueryError = ErrorType<
+  GetMetadataSettings401 | GetMetadataSettings403 | GetMetadataSettings409 | GetMetadataSettings500
+>;
+
+export function useGetMetadataSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMetadataSettings>>,
+  TError = ErrorType<
+    | GetMetadataSettings401
+    | GetMetadataSettings403
+    | GetMetadataSettings409
+    | GetMetadataSettings500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMetadataSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMetadataSettings>>,
+  TError = ErrorType<
+    | GetMetadataSettings401
+    | GetMetadataSettings403
+    | GetMetadataSettings409
+    | GetMetadataSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMetadataSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMetadataSettings>>,
+  TError = ErrorType<
+    | GetMetadataSettings401
+    | GetMetadataSettings403
+    | GetMetadataSettings409
+    | GetMetadataSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the metadata settings, with the language and region options
+ */
+
+export function useGetMetadataSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMetadataSettings>>,
+  TError = ErrorType<
+    | GetMetadataSettings401
+    | GetMetadataSettings403
+    | GetMetadataSettings409
+    | GetMetadataSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetMetadataSettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateMetadataSettingsUrl = () => {
+  return `/api/v1/metadata/settings`;
+};
+
+/**
+ * @summary Change metadata settings by key, all or none
+ */
+export const updateMetadataSettings = async (
+  metadataSettingsChange: MetadataSettingsChange,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MetadataSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MetadataSettings>(getUpdateMetadataSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(metadataSettingsChange),
+  });
+};
+
+export const getUpdateMetadataSettingsMutationKey = () => ["updateMetadataSettings"] as const;
+
+export const getUpdateMetadataSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateMetadataSettings401
+    | UpdateMetadataSettings403
+    | UpdateMetadataSettings409
+    | UpdateMetadataSettings422
+    | UpdateMetadataSettings500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMetadataSettings>>,
+    TError,
+    UpdateMetadataSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMetadataSettings>>,
+  TError,
+  UpdateMetadataSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateMetadataSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMetadataSettings>>,
+    UpdateMetadataSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMetadataSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMetadataSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMetadataSettings>>
+>;
+export type UpdateMetadataSettingsMutationBody = MetadataSettingsChange;
+export type UpdateMetadataSettingsMutationError = ErrorType<
+  | UpdateMetadataSettings401
+  | UpdateMetadataSettings403
+  | UpdateMetadataSettings409
+  | UpdateMetadataSettings422
+  | UpdateMetadataSettings500
+>;
+export type UpdateMetadataSettingsMutationVariables = { data: MetadataSettingsChange };
+
+/**
+ * @summary Change metadata settings by key, all or none
+ */
+export const useUpdateMetadataSettings = <
+  TError = ErrorType<
+    | UpdateMetadataSettings401
+    | UpdateMetadataSettings403
+    | UpdateMetadataSettings409
+    | UpdateMetadataSettings422
+    | UpdateMetadataSettings500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateMetadataSettings>>,
+      TError,
+      UpdateMetadataSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateMetadataSettings>>,
+  TError,
+  UpdateMetadataSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateMetadataSettingsMutationOptions(options), queryClient);
 };

@@ -20,16 +20,11 @@ import (
 )
 
 // DefaultLanguage and DefaultRegion are the metadata language and release
-// region every Ask carries.
+// region an Ask carries until an Admin sets others.
 const (
 	DefaultLanguage = "en-US"
 	DefaultRegion   = "US"
 )
-
-// Region is the release region a library half reads availability against.
-func Region(context.Context, storage.Reader[storage.Library]) (string, error) {
-	return DefaultRegion, nil
-}
 
 // Owner is the Metadata Role's owner. A holder keeps no work, so the Role
 // moves freely.
@@ -62,6 +57,10 @@ type Config struct {
 	Timings Timings
 	// Rand draws the cache generation.
 	Rand *rand.Rand
+	// Types are the Content Types a new region changes, announced on
+	// TypeChanged.
+	Types       []works.TypeID
+	TypeChanged works.Publisher[works.TypeChanged]
 	// Minter opens the artwork tokens the API hands out.
 	Minter artwork.Minter
 	// Local indexes the artwork store, whose images are files under
@@ -78,16 +77,19 @@ type Publisher interface {
 // for each call, sends the call to a holder and keeps each provider's
 // status from the outcomes holders answer with.
 type Metadata struct {
-	cfg Config
-	// generation is the cache generation every Ask carries. A holder whose
-	// cache holds another drops it, so a new Controller process starts every
-	// holder's cache afresh.
-	generation uint64
-	bundled    map[ProviderID]string
+	cfg     Config
+	bundled map[ProviderID]string
 	// wake tells Run a retest was scheduled.
 	wake chan struct{}
+	// applying holds one settings change at a time.
+	applying sync.Mutex
 
 	mu sync.Mutex
+	// generation is the cache generation every Ask carries. A holder whose
+	// cache holds another drops it, so a new Controller process, or a
+	// cleared cache, starts every holder's cache afresh.
+	generation uint64
+	settings   stored
 	// yours are the Admin keys, opened.
 	yours    map[ProviderID]string
 	statuses map[ProviderID]*status
@@ -114,11 +116,16 @@ func New(cfg Config) *Metadata {
 // find unreachable.
 func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 	m := New(cfg)
-	var err error
-	if m.gallery.store, err = openStore(ctx, cfg); err != nil {
+	q := db.New(cfg.Library)
+	settings, err := q.GetSettings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read the metadata settings: %w", err)
+	}
+	m.settings = settings
+	if m.gallery.store, err = m.openStore(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := db.New(cfg.Library).ListKeys(ctx)
+	rows, err := q.ListKeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the metadata keys: %w", err)
 	}
@@ -163,10 +170,20 @@ func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f w
 }
 
 func (m *Metadata) ask(p works.Purpose) *metadatav1.Ask {
+	keys := m.inEffect()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s := m.settings
 	return askToWire(Ask{
-		Language: DefaultLanguage, Region: DefaultRegion, Ratings: p != works.ForPreview,
-		keys: m.inEffect(), fresh: p == works.ForRefresh, generation: m.generation,
+		Language: LanguageChoice.Value(s.Language), Region: RegionChoice.Value(s.Region), Ratings: p != works.ForPreview,
+		keys: keys, fresh: p == works.ForRefresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
 	})
+}
+
+func (m *Metadata) cacheGeneration() uint64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.generation
 }
 
 // reply is a holder's answer, which carries every outcome of the call.

@@ -6,6 +6,7 @@ export const settingsSectionLabels = [
   "Nodes",
   "API key",
   "Library roots",
+  "Metadata",
   "Targets",
   "Profiles",
   "Editions",
