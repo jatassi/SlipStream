@@ -489,7 +489,7 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Listed(func(r *site.Release) { r.InfoHash = wrong }))
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
-		expectFailed(t, g, "fetching", "infohash_mismatch", "the .torrent's info hash is "+w.InfoHash(release).String()+" and the Indexer's is "+wrong)
+		expectFailed(t, g, "fetching", "infohash_mismatch", "The .torrent's info hash is "+w.InfoHash(release).String()+" and the Indexer's is "+wrong)
 		if got := g.stages(); !slices.Equal(got, []string{"fetching", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching failed]", got)
 		}

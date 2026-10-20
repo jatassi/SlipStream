@@ -48,7 +48,7 @@ func TestAGrabIntoAWorkerRootFromAnotherNodeFailsNeedsTransfer(t *testing.T) {
 	search := w.search(t)
 	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
 	w.ended(t, grabChanged(t, stream, w.work))
-	const words = "the Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
+	const words = "The Work's library root is on another Worker, and moving files into a root on another Worker isn't supported yet"
 	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "needs_transfer" || w.grab.Failure.Message != words {
 		t.Fatalf("the Grab ended %s with %+v after %v, want failed needs_transfer: %s", w.grab.Stage, w.grab.Failure, w.grab.stages(), words)
 	}

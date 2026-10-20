@@ -138,7 +138,7 @@ func TestARemoveBetweenTheReadAndTheCommitFailsTheGrab(t *testing.T) {
 		lib.Store(w.Node("home").Half().Library)
 		search(t, w, addOrchard(t, w))
 		g := await(t, w)
-		expectFailed(t, g, "downloading", "removed", "the Admin removed this Grab's torrent")
+		expectFailed(t, g, "downloading", "removed", "The Admin removed this Grab's torrent")
 		if got := g.stages(); !slices.Equal(got, []string{"fetching", "downloading", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading failed]", got)
 		}
