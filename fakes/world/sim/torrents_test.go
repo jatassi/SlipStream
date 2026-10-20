@@ -360,7 +360,7 @@ func TestSteadyAnnouncesAreJittered(t *testing.T) {
 
 // TestRemoveFailsDownloadingGrabsWithRemoved removes the Torrent a Grab
 // downloads: the preview names the Grab it cancels, and the remove fails
-// it with removed.
+// it with removed and a Detail that reads as a sentence.
 func TestRemoveFailsDownloadingGrabsWithRemoved(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = enginetest.Open }))
@@ -379,6 +379,6 @@ func TestRemoveFailsDownloadingGrabsWithRemoved(t *testing.T) {
 			t.Fatalf("the remove's preview cancels %+v, want the Grab downloading %s", preview.Cancels, release)
 		}
 		act(t, w, downloadclients.Action{Kind: downloadclients.Remove, IDs: []downloadclients.ID{id}})
-		expectFailed(t, await(t, w), "downloading", "removed", "the Admin removed this Grab's torrent")
+		expectFailed(t, await(t, w), "downloading", "removed", "The Admin removed this Grab's torrent")
 	})
 }

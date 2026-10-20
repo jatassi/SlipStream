@@ -1,3 +1,4 @@
+import { http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -8,7 +9,9 @@ import { orchard as orchardTree, orchardItemId } from "../test/library";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { actionsServer, detailOf, orchardId, torrent, torrentsServer } from "../test/torrents";
+// oxlint-disable-next-line import/max-dependencies -- one test listens on the worker for asks of a gone torrent
 import { asPhone } from "../test/viewport";
+import { worker } from "../test/worker";
 
 const orchard = torrent({
   state: "downloading",
@@ -213,13 +216,29 @@ test("the arrow keys move the selection and the Inspector follows", async () => 
   await expect.element(page.getByRole("complementary")).not.toBeInTheDocument();
 });
 
-test("a torrent that leaves closes its Inspector", async () => {
+test("torrents.changed reads the shown torrent's detail again", async () => {
+  const { live, server } = open(`/activity/torrents/${orchard.id}?tab=all`);
+  await expect.element(inspector()).toMatchTextContent("Downloaded238 MB");
+  server.become([{ ...orchard, done: 500_000_000 }, paused, third]);
+  live.clients[0]?.send({ event: "torrents.changed", data: { ids: [orchard.id] } });
+  await expect.element(inspector()).toMatchTextContent("Downloaded477 MB");
+});
+
+test("a torrent that leaves closes its Inspector without asking for its detail again", async () => {
   const { app, live, server } = open(`/activity/torrents/${orchard.id}?tab=all`);
   await expect.element(inspector()).toBeVisible();
+  const missed: string[] = [];
+  worker.use(
+    http.get("*/api/v1/torrents/:id", ({ params }) => {
+      missed.push(String(params["id"]));
+    }),
+  );
   server.become([paused, third]);
+  live.clients[0]?.send({ event: "torrents.changed", data: { ids: [orchard.id] } });
   live.clients[0]?.send({ event: "torrents.changed", data: { ids: [orchard.id] } });
   await expect.poll(() => app.router.state.location.pathname).toBe("/activity/torrents");
   await expect.element(page.getByRole("complementary")).not.toBeInTheDocument();
+  expect(missed).toEqual([]);
 });
 
 test("on a phone a row opens the torrent as a pushed page with a way back", async () => {
