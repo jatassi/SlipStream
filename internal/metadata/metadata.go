@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/metadata/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -132,8 +133,8 @@ var _ works.Source = (*Metadata)(nil)
 // Search reads no ratings provider and may answer from the cache, as a
 // preview does.
 func (m *Metadata) Search(ctx context.Context, t works.TypeID, query string) ([]works.Candidate, error) {
-	res, err := send(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.SearchResponse, error) {
-		return s.Search(ctx, &metadatav1.SearchRequest{Ask: m.ask(works.ForPreview), ContentType: string(t), Query: query})
+	res, err := send(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.SearchResponse, error) {
+		return s.Search(ctx, &metadatav1.SearchRequest{Ask: m.ask(false, false), ContentType: string(t), Query: query})
 	})
 	if err != nil {
 		return nil, err
@@ -144,9 +145,12 @@ func (m *Metadata) Search(ctx context.Context, t works.TypeID, query string) ([]
 	return works.DecodeCandidates(res.GetCandidates())
 }
 
+// Fetch reads the ratings providers on an add, and on a refresh once the
+// ratings setting's time has passed since they last answered.
 func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f works.Fetching) (works.Fetched, error) {
-	res, err := send(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.FetchResponse, error) {
-		return s.Fetch(ctx, &metadatav1.FetchRequest{Ask: m.ask(f.Purpose), ContentType: string(t), Key: string(key)})
+	ratings := f.Purpose == works.ForAdd || f.Purpose == works.ForRefresh && m.ratingsDue(f.RatingsReadAt)
+	res, err := send(ctx, m, f.Via, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.FetchResponse, error) {
+		return s.Fetch(ctx, &metadatav1.FetchRequest{Ask: m.ask(f.Purpose == works.ForRefresh, ratings), ContentType: string(t), Key: string(key)})
 	})
 	if err != nil {
 		return works.Fetched{}, err
@@ -157,14 +161,40 @@ func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f w
 	return works.DecodeFetched(res.GetFetched())
 }
 
-func (m *Metadata) ask(p works.Purpose) *metadatav1.Ask {
+// Changes reads type t's changes list from since to now, all of it.
+// A source that lists none from that far back, or a list longer than the
+// holder reads, is ErrNoChanges.
+func (m *Metadata) Changes(ctx context.Context, t works.TypeID, since time.Time) ([]works.Key, error) {
+	res, err := send(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.ChangesResponse, error) {
+		return s.Changes(ctx, &metadatav1.ChangesRequest{Ask: m.ask(true, false), ContentType: string(t), SinceUnixMicro: since.UnixMicro()})
+	})
+	if err != nil {
+		return nil, err
+	}
+	if f := res.GetFailure(); f != nil {
+		return nil, failureOf(f)
+	}
+	keys := make([]works.Key, len(res.GetKeys()))
+	for i, k := range res.GetKeys() {
+		keys[i] = works.Key(k)
+	}
+	return keys, nil
+}
+
+func (m *Metadata) ratingsDue(readAt storage.Time) bool {
+	return readAt.IsZero() || time.Since(readAt.Time()) >= RatingsEvery.Value(m.stored().RatingsEverySeconds)
+}
+
+// ask is an Ask with the settings, keys and cache generation in effect:
+// fresh bypasses the holders' caches, ratings calls the ratings providers.
+func (m *Metadata) ask(fresh, ratings bool) *metadatav1.Ask {
 	keys := m.inEffect()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s := m.settings
 	return askToWire(Ask{
-		Language: LanguageChoice.Value(s.Language), Region: RegionChoice.Value(s.Region), Ratings: p != works.ForPreview,
-		keys: keys, fresh: p == works.ForRefresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
+		Language: LanguageChoice.Value(s.Language), Region: RegionChoice.Value(s.Region), Ratings: ratings,
+		keys: keys, fresh: fresh, cacheFor: CacheFor.Value(s.CacheForSeconds), generation: m.generation,
 	})
 }
 
@@ -180,8 +210,8 @@ type reply interface {
 }
 
 // send is call with the answer's outcomes folded into provider status.
-func send[R reply](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, error) {
-	res, node, err := call(ctx, m, do)
+func send[R reply](ctx context.Context, m *Metadata, via role.NodeID, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, error) {
+	res, node, err := call(ctx, m, via, do)
 	if err != nil {
 		return res, err
 	}
@@ -194,8 +224,19 @@ func send[R reply](ctx context.Context, m *Metadata, do func(context.Context, me
 // the holder PickOther chooses. While no Node may take metadata, or no
 // holder answered in time, the call is ErrUnavailable saying why. A holder
 // that answered with an error ran into a bug of the type.
-func call[R reply](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
+//
+// A call pinned to via goes there alone and fails with the rpc error
+// itself, so a Scheduled task's runner reads a Node that couldn't take it
+// as a skipped unit, not a failed one.
+func call[R reply](ctx context.Context, m *Metadata, via role.NodeID, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
 	var none R
+	if !via.IsZero() {
+		res, err := do(ctx, m.cfg.Service(via))
+		if err != nil {
+			return none, via, fmt.Errorf("metadata on %s: %w", via, err)
+		}
+		return res, via, nil
+	}
 	node, ok := m.cfg.Roster.Pick(role.Metadata, m.cfg.Roster.Self())
 	if !ok {
 		return none, role.NodeID{}, unavailable(m.cfg.Roster.Why(role.Metadata))

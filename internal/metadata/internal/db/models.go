@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -14,8 +12,8 @@ import (
 
 type MetadataDue struct {
 	WorkID works.WorkID
-	Reason string
-	Since  int64
+	Reason Reason
+	Since  storage.Time
 }
 
 type MetadataKey struct {
@@ -39,6 +37,6 @@ type MetadataSetting struct {
 
 type MetadataType struct {
 	ContentType    string
-	ChangesThrough sql.NullInt64
+	ChangesThrough storage.Time
 	RefreshAllAt   storage.Time
 }

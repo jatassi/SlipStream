@@ -56,6 +56,7 @@ func (h *host) handle(n int, w http.ResponseWriter, r *http.Request) {
 // probe is a TMDB client over a Line: its test reads /test, and as a
 // provider half it fetches /fetch.
 type probe struct {
+	unlisted
 	line *metadata.Line
 	base *url.URL
 }

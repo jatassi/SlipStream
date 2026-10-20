@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
@@ -202,7 +203,7 @@ func (w *Works) Add(ctx context.Context, by identity.Admin, t TypeID, key Key, a
 	if !errors.Is(err, storage.ErrNoRows) {
 		return Tree{}, false, err
 	}
-	p, err := w.fetch(ctx, t, reg, key, ForAdd)
+	p, err := w.fetch(ctx, t, reg, key, Fetching{Purpose: ForAdd})
 	if err != nil {
 		return Tree{}, false, err
 	}
@@ -262,7 +263,7 @@ func (w *Works) Preview(ctx context.Context, _ identity.Admin, t TypeID, key Key
 	if !errors.Is(err, storage.ErrNoRows) {
 		return Tree{}, false, err
 	}
-	p, err := w.fetch(ctx, t, reg, key, ForPreview)
+	p, err := w.fetch(ctx, t, reg, key, Fetching{Purpose: ForPreview})
 	if err != nil {
 		return Tree{}, false, err
 	}
@@ -322,13 +323,22 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 // moved. A source that no longer has the Work marks it gone upstream,
 // changes nothing else, and is ErrGoneUpstream.
 func (w *Works) Refresh(ctx context.Context, by identity.Admin, id WorkID) (Tree, error) {
-	if err := w.refresh(ctx, id); err != nil {
+	if err := w.refresh(ctx, id, role.NodeID{}); err != nil {
 		return Tree{}, err
 	}
 	return w.Get(ctx, by, id)
 }
 
-func (w *Works) refresh(ctx context.Context, id WorkID) error {
+// RefreshDue is Refresh for the Metadata refresh task, which needs no
+// Admin: the call leaves from via, the Node the task's runner placed the
+// Work on. A call via couldn't take fails with the rpc error, so the
+// runner can tell a Node that no longer holds Metadata from a source that
+// failed.
+func (w *Works) RefreshDue(ctx context.Context, id WorkID, via role.NodeID) error {
+	return w.refresh(ctx, id, via)
+}
+
+func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) error {
 	row, err := db.New(w.cfg.Library).GetWork(ctx, id)
 	if errors.Is(err, storage.ErrNoRows) {
 		return ErrNoWork
@@ -337,7 +347,7 @@ func (w *Works) refresh(ctx context.Context, id WorkID) error {
 		return err
 	}
 	reg := w.types[row.ContentType]
-	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, ForRefresh)
+	p, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Via: via})
 	if errors.Is(err, ErrNotFound) {
 		return w.goneUpstream(ctx, id)
 	}
@@ -417,14 +427,14 @@ func (w *Works) open(ctx context.Context, t TypeID) (registered, error) {
 	return reg, nil
 }
 
-func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key, purpose Purpose) (parsed, error) {
+func (w *Works) fetch(ctx context.Context, t TypeID, reg registered, key Key, f Fetching) (parsed, error) {
 	ctx, cancel := context.WithTimeout(ctx, w.cfg.Timings.Fetch)
 	defer cancel()
-	f, err := w.cfg.Source.Fetch(ctx, t, key, Fetching{Purpose: purpose})
+	fetched, err := w.cfg.Source.Fetch(ctx, t, key, f)
 	if err != nil {
 		return parsed{}, sourced(t, "fetch "+string(key), err)
 	}
-	p, err := parseFetched(reg.desc, key, f)
+	p, err := parseFetched(reg.desc, key, fetched)
 	if err != nil {
 		w.cfg.Log.Warn("metadata invalid", "contentType", string(t), "key", string(key), "err", err.Error())
 	}

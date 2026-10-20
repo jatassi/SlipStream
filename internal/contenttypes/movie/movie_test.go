@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -141,6 +142,17 @@ func (h hosts) RoundTrip(r *http.Request) (*http.Response, error) {
 	return h[r.URL.Host].RoundTrip(r) //nolint:wrapcheck // a RoundTripper hands its transport's error on unchanged
 }
 
+// byPath sends TMDB's requests, all under /3, through tmdb, and every
+// other through omdb: in memory both fakes share one address.
+type byPath struct{ tmdb, omdb http.RoundTripper }
+
+func (b byPath) RoundTrip(r *http.Request) (*http.Response, error) {
+	if strings.HasPrefix(r.URL.Path, "/3/") {
+		return b.tmdb.RoundTrip(r) //nolint:wrapcheck // a RoundTripper hands its transport's error on unchanged
+	}
+	return b.omdb.RoundTrip(r) //nolint:wrapcheck // a RoundTripper hands its transport's error on unchanged
+}
+
 // counted counts the requests a transport sends.
 type counted struct {
 	next http.RoundTripper
@@ -165,6 +177,15 @@ func serve(t *testing.T, s scenario.Scenario) sources {
 	sv := sources{tmdb: faketest.Loopback(t, faketmdb.Fake, s), omdb: faketest.Loopback(t, fakeomdb.Fake, s)}
 	sv.tmdbSent, sv.omdbSent = &counted{next: sv.tmdb.Client.Transport}, &counted{next: sv.omdb.Client.Transport}
 	sv.client = &http.Client{Transport: hosts{sv.tmdb.Address.AddrPort.String(): sv.tmdbSent, sv.omdb.Address.AddrPort.String(): sv.omdbSent}}
+	return sv
+}
+
+// serveInMemory is serve inside a synctest bubble.
+func serveInMemory(t *testing.T, s scenario.Scenario) sources {
+	t.Helper()
+	sv := sources{tmdb: faketest.InMemory(t, faketmdb.Fake, s), omdb: faketest.InMemory(t, fakeomdb.Fake, s)}
+	sv.tmdbSent, sv.omdbSent = &counted{next: sv.tmdb.Client.Transport}, &counted{next: sv.omdb.Client.Transport}
+	sv.client = &http.Client{Transport: byPath{tmdb: sv.tmdbSent, omdb: sv.omdbSent}}
 	return sv
 }
 
@@ -658,31 +679,54 @@ func TestCertificationNamesItsCountry(t *testing.T) {
 	}
 }
 
-func TestAnOMDbCapKeepsLastRatingsAndAwards(t *testing.T) {
-	sv := serve(t, catalog(t))
-	sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): sv.open()}))
-	before := sh.add(t, saltRoad)
-	sv.omdb.Cue(t, fakeomdb.Cap.Name, fakeomdb.Key{})
-	after := sh.refresh(t, before.ID)
-	if sent := sv.omdbSent.sent.Load(); sent != 2 {
-		t.Fatalf("OMDb was sent %d requests, want the add's and the refresh's", sent)
-	}
-	omdbRatings := func(tree works.Tree) []works.StoredRating {
-		var out []works.StoredRating
-		for _, r := range tree.Ratings {
-			if r.Source != "tmdb" {
-				out = append(out, r)
-			}
+func TestARefreshReadsOMDbNoMoreOftenThanTheRatingsSetting(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		sv := serveInMemory(t, catalog(t))
+		sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): sv.open()}))
+		tree := sh.add(t, saltRoad)
+		time.Sleep(metadata.RatingsEvery.Default - time.Hour)
+		sh.refresh(t, tree.ID)
+		if sent := sv.omdbSent.sent.Load(); sent != 1 {
+			t.Fatalf("OMDb was sent %d requests by an add and a refresh inside the ratings setting, want the add's", sent)
 		}
-		return out
-	}
-	awards, _ := field(after, "awards")
-	if len(omdbRatings(before)) != 3 || !reflect.DeepEqual(omdbRatings(after), omdbRatings(before)) || after.RatingsReadAt != before.RatingsReadAt {
-		t.Fatalf("OMDb ratings %+v read at %v after the cap, want %+v read at %v", omdbRatings(after), after.RatingsReadAt, omdbRatings(before), before.RatingsReadAt)
-	}
-	if awards.Text != "1 win & 3 nominations" {
-		t.Fatalf("awards %q after the cap, want the stored line", awards.Text)
-	}
+		time.Sleep(time.Hour)
+		if after := sh.refresh(t, tree.ID); after.RatingsReadAt.Compare(tree.RatingsReadAt) <= 0 {
+			t.Fatalf("ratings read at %v after the setting's time passed, want later than the add's %v", after.RatingsReadAt, tree.RatingsReadAt)
+		}
+		if sent := sv.omdbSent.sent.Load(); sent != 2 {
+			t.Fatalf("OMDb was sent %d requests, want the add's and the refresh's once the setting's time passed", sent)
+		}
+	})
+}
+
+func TestAnOMDbCapKeepsLastRatingsAndAwards(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		sv := serveInMemory(t, catalog(t))
+		sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): sv.open()}))
+		before := sh.add(t, saltRoad)
+		time.Sleep(metadata.RatingsEvery.Default)
+		sv.omdb.Cue(t, fakeomdb.Cap.Name, fakeomdb.Key{})
+		after := sh.refresh(t, before.ID)
+		if sent := sv.omdbSent.sent.Load(); sent != 2 {
+			t.Fatalf("OMDb was sent %d requests, want the add's and the refresh's", sent)
+		}
+		omdbRatings := func(tree works.Tree) []works.StoredRating {
+			var out []works.StoredRating
+			for _, r := range tree.Ratings {
+				if r.Source != "tmdb" {
+					out = append(out, r)
+				}
+			}
+			return out
+		}
+		awards, _ := field(after, "awards")
+		if len(omdbRatings(before)) != 3 || !reflect.DeepEqual(omdbRatings(after), omdbRatings(before)) || after.RatingsReadAt != before.RatingsReadAt {
+			t.Fatalf("OMDb ratings %+v read at %v after the cap, want %+v read at %v", omdbRatings(after), after.RatingsReadAt, omdbRatings(before), before.RatingsReadAt)
+		}
+		if awards.Text != "1 win & 3 nominations" {
+			t.Fatalf("awards %q after the cap, want the stored line", awards.Text)
+		}
+	})
 }
 
 func TestARefreshPublishesOnlyARealChange(t *testing.T) {

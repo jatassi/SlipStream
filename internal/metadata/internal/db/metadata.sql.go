@@ -10,7 +10,22 @@ import (
 
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
+
+const deleteDue = `-- name: DeleteDue :exec
+DELETE FROM metadata_due WHERE work_id = ?1 AND since = ?2
+`
+
+type DeleteDueParams struct {
+	WorkID works.WorkID
+	Since  storage.Time
+}
+
+func (q *Queries) DeleteDue(ctx context.Context, arg DeleteDueParams) error {
+	_, err := q.db.ExecContext(ctx, deleteDue, arg.WorkID, arg.Since)
+	return err
+}
 
 const deleteKey = `-- name: DeleteKey :execrows
 DELETE FROM metadata_key WHERE provider = ?1
@@ -46,6 +61,33 @@ func (q *Queries) GetSettings(ctx context.Context) (MetadataSetting, error) {
 	return i, err
 }
 
+const listDue = `-- name: ListDue :many
+SELECT work_id, reason, since FROM metadata_due ORDER BY work_id
+`
+
+func (q *Queries) ListDue(ctx context.Context) ([]MetadataDue, error) {
+	rows, err := q.db.QueryContext(ctx, listDue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MetadataDue
+	for rows.Next() {
+		var i MetadataDue
+		if err := rows.Scan(&i.WorkID, &i.Reason, &i.Since); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listKeys = `-- name: ListKeys :many
 SELECT provider, api_key_sealed, set_at FROM metadata_key ORDER BY provider
 `
@@ -71,6 +113,52 @@ func (q *Queries) ListKeys(ctx context.Context) ([]MetadataKey, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTypes = `-- name: ListTypes :many
+SELECT content_type, changes_through, refresh_all_at FROM metadata_type ORDER BY content_type
+`
+
+func (q *Queries) ListTypes(ctx context.Context) ([]MetadataType, error) {
+	rows, err := q.db.QueryContext(ctx, listTypes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MetadataType
+	for rows.Next() {
+		var i MetadataType
+		if err := rows.Scan(&i.ContentType, &i.ChangesThrough, &i.RefreshAllAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markDue = `-- name: MarkDue :exec
+INSERT INTO metadata_due (work_id, reason, since)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (work_id) DO UPDATE SET
+    reason = CASE WHEN excluded.since > since THEN excluded.reason ELSE reason END,
+    since = max(since, excluded.since)
+`
+
+type MarkDueParams struct {
+	WorkID works.WorkID
+	Reason Reason
+	Since  storage.Time
+}
+
+func (q *Queries) MarkDue(ctx context.Context, arg MarkDueParams) error {
+	_, err := q.db.ExecContext(ctx, markDue, arg.WorkID, arg.Reason, arg.Since)
+	return err
 }
 
 const putKey = `-- name: PutKey :exec
@@ -103,6 +191,22 @@ type RefreshAllParams struct {
 
 func (q *Queries) RefreshAll(ctx context.Context, arg RefreshAllParams) error {
 	_, err := q.db.ExecContext(ctx, refreshAll, arg.ContentType, arg.RefreshAllAt)
+	return err
+}
+
+const setChangesThrough = `-- name: SetChangesThrough :exec
+INSERT INTO metadata_type (content_type, changes_through)
+VALUES (?1, ?2)
+ON CONFLICT (content_type) DO UPDATE SET changes_through = excluded.changes_through
+`
+
+type SetChangesThroughParams struct {
+	ContentType    string
+	ChangesThrough storage.Time
+}
+
+func (q *Queries) SetChangesThrough(ctx context.Context, arg SetChangesThroughParams) error {
+	_, err := q.db.ExecContext(ctx, setChangesThrough, arg.ContentType, arg.ChangesThrough)
 	return err
 }
 

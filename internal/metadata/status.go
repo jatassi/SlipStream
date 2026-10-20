@@ -137,7 +137,7 @@ func (m *Metadata) Test(ctx context.Context, _ identity.Admin, p ProviderID) (Pr
 	if _, ok := m.label(p); !ok {
 		return ProviderStatus{}, ErrNoProvider
 	}
-	_, err := send(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.TestResponse, error) {
+	_, err := send(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.TestResponse, error) {
 		return s.Test(ctx, m.test(p))
 	})
 	if err != nil {

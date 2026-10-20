@@ -28,3 +28,24 @@ UPDATE metadata_settings SET
 INSERT INTO metadata_type (content_type, refresh_all_at)
 VALUES (sqlc.arg(content_type), sqlc.arg(refresh_all_at))
 ON CONFLICT (content_type) DO UPDATE SET refresh_all_at = max(coalesce(refresh_all_at, 0), excluded.refresh_all_at);
+
+-- name: ListTypes :many
+SELECT * FROM metadata_type ORDER BY content_type;
+
+-- name: SetChangesThrough :exec
+INSERT INTO metadata_type (content_type, changes_through)
+VALUES (sqlc.arg(content_type), sqlc.arg(changes_through))
+ON CONFLICT (content_type) DO UPDATE SET changes_through = excluded.changes_through;
+
+-- name: ListDue :many
+SELECT * FROM metadata_due ORDER BY work_id;
+
+-- name: MarkDue :exec
+INSERT INTO metadata_due (work_id, reason, since)
+VALUES (sqlc.arg(work_id), sqlc.arg(reason), sqlc.arg(since))
+ON CONFLICT (work_id) DO UPDATE SET
+    reason = CASE WHEN excluded.since > since THEN excluded.reason ELSE reason END,
+    since = max(since, excluded.since);
+
+-- name: DeleteDue :exec
+DELETE FROM metadata_due WHERE work_id = sqlc.arg(work_id) AND since = sqlc.arg(since);

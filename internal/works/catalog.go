@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -60,6 +61,13 @@ const (
 
 type Fetching struct {
 	Purpose Purpose
+	// RatingsReadAt is when the Work's ratings providers last answered,
+	// zero for a Work not yet stored. A refresh reads them again only once
+	// the ratings setting's time has passed since.
+	RatingsReadAt storage.Time
+	// Via is the Node a scheduled refresh runs on, which the call must
+	// leave from; zero lets the Controller pick one.
+	Via role.NodeID
 }
 
 type Description struct {

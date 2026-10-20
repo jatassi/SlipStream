@@ -56,12 +56,15 @@ type Timings struct {
 	// tests a provider again on a holder that couldn't reach it.
 	RetestMin time.Duration `yaml:"retest_min"`
 	RetestMax time.Duration `yaml:"retest_max"`
+	// ChangesPages bounds the pages of one changes list a holder reads; a
+	// longer list counts as none, and the refresh tiers cover the gap.
+	ChangesPages int `yaml:"changes_pages"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Attempts: 3, Try: 30 * time.Second, RetryMin: time.Second, RetryMax: 8 * time.Second, Wait: 10 * time.Second, CacheEntries: 4096,
-		RetestMin: time.Minute, RetestMax: time.Hour,
+		RetestMin: time.Minute, RetestMax: time.Hour, ChangesPages: 500,
 	}
 }
 

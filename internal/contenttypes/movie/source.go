@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
@@ -56,6 +57,19 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 		return works.Fetched{}, fmt.Errorf("encode movie %s: %w", key, err)
 	}
 	return f, nil
+}
+
+// Changes reads one page of the movies TMDB changed from since to until.
+func (s *Source) Changes(ctx context.Context, ask metadata.Ask, since, until time.Time, page int) (metadata.ChangesPage, error) {
+	p, err := s.tmdb.MovieChanges(ctx, ask, since, until, page)
+	if err != nil {
+		return metadata.ChangesPage{}, err
+	}
+	keys := make([]works.Key, len(p.IDs))
+	for i, id := range p.IDs {
+		keys[i] = works.Key(strconv.FormatInt(id, 10))
+	}
+	return metadata.ChangesPage{Keys: keys, Pages: p.TotalPages}, nil
 }
 
 func year(date string) *int64 {

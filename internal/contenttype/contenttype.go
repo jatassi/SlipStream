@@ -60,6 +60,7 @@ type Library interface {
 	naming.Facet
 	indexers.Facet
 	targets.Facet
+	metadata.Refreshing
 }
 
 // ProviderDeps is what a provider half gets on any Node: clients over the

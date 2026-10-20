@@ -247,3 +247,8 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.
 
 // Cuts answers none: every cut a movie names is built in.
 func (*Movie) Cuts() []release.Cut { return nil }
+
+// Growing answers none: a movie never gains Items.
+func (*Movie) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
+	return nil, nil
+}

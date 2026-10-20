@@ -52,6 +52,11 @@ func Summaries(ctx context.Context, r storage.Reader[file]) ([]Summary, error) {
 	return out, nil
 }
 
+// Held is the Content Types holding a Work, inside a caller's read.
+func Held(ctx context.Context, r storage.Reader[file]) ([]TypeID, error) {
+	return db.New(r).HeldTypes(ctx)
+}
+
 func bare(it db.WorksItem) Item {
 	return Item{ID: it.ID, LevelID: it.LevelID, Key: it.Key, Label: it.Label, Position: int(it.Position), WithdrawnAt: it.WithdrawnAt, Monitored: it.Monitored}
 }

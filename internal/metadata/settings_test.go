@@ -42,6 +42,7 @@ func (c *typeChanges) take() []string {
 
 // cached is a provider half whose fetch the Node's cache may answer.
 type cached struct {
+	unlisted
 	line *metadata.Line
 	base *url.URL
 	h    *heard

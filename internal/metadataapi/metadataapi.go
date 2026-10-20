@@ -12,6 +12,8 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/settingapi"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -19,6 +21,9 @@ type Registry interface {
 	// Metadata is the Controller's metadata, false unless the Node is a
 	// Controller.
 	Metadata() (*metadata.Metadata, bool)
+	// Tasks is the Controller's Scheduled tasks, false unless the Node is a
+	// Controller.
+	Tasks() (*tasks.Scheduler, bool)
 }
 
 func open(r Registry) *metadata.Metadata {
@@ -29,10 +34,21 @@ func open(r Registry) *metadata.Metadata {
 	return m
 }
 
+func scheduler(r Registry) *tasks.Scheduler {
+	s, ok := r.Tasks()
+	if !ok {
+		panic("metadataapi: an operation ran on a Node that is no Controller")
+	}
+	return s
+}
+
 var (
 	providerNotFound    = api.NewCode(http.StatusNotFound, "metadata_provider_not_found", "No metadata provider has that id")
 	keyRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_key_refused", "The metadata provider refused that key, so SlipStream didn't save it")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't answer. Try again later.")
+	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
+	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
+	taskRunning         = api.NewCode(http.StatusConflict, "task_running", "The task has a run open")
 )
 
 func answer(err error) error {
@@ -44,6 +60,13 @@ func answer(err error) error {
 		return keyRefused.Because(se.Source + " " + se.Words)
 	case isSource && errors.Is(err, works.ErrUnavailable):
 		return metadataUnavailable.Because(se.Error())
+	case errors.Is(err, works.ErrNoType):
+		return contentTypeNotFound
+	case errors.Is(err, tasks.ErrUnknownTask):
+		return taskUnknown.Because("Metadata refresh is listed once the library holds a Work")
+	}
+	if running, ok := errors.AsType[*tasks.ErrRunning](err); ok {
+		return taskRunning.Because("Metadata refresh has been running since " + running.Since.UTC().Format(time.RFC3339) + "; the next run refreshes every Work")
 	}
 	return err
 }
@@ -128,6 +151,16 @@ type keyInput struct {
 	Body     newKey
 }
 
+type refreshInput struct {
+	ContentType string `path:"contentType"`
+}
+
+type refreshStarted struct {
+	RunID int64 `json:"runId" doc:"The Metadata refresh run that refreshes every Work of the type"`
+}
+
+type refreshStartedOutput struct{ Body refreshStarted }
+
 type settings struct {
 	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Language and region first, then the cache, OMDb's ratings and the artwork store"`
 }
@@ -203,6 +236,15 @@ func Routes(r *api.Router, registry Registry) {
 		Summary: "Have every Node reading metadata drop what it cached, the next time it reads",
 		Status:  http.StatusNoContent,
 	}, h.clearCache)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "refreshContentType",
+		Method:  http.MethodPost,
+		Path:    "/content-types/{contentType}/refresh",
+		Summary: "Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open",
+		Status:  http.StatusAccepted,
+		Errors:  []*api.Code{contentTypeNotFound, taskUnknown, taskRunning},
+	}, h.refreshAll)
 }
 
 type handlers struct{ registry Registry }
@@ -257,6 +299,21 @@ func settingsOf(ctx context.Context, p setting.Panel) (*settingsOutput, error) {
 		return nil, err
 	}
 	return &settingsOutput{Body: settings{Settings: settingapi.FieldsOf(fields)}}, nil
+}
+
+func (h handlers) refreshAll(ctx context.Context, by identity.Admin, in *refreshInput) (*refreshStartedOutput, error) {
+	if err := open(h.registry).RefreshAll(ctx, by, works.TypeID(in.ContentType)); err != nil {
+		return nil, answer(err)
+	}
+	var who storage.UUID
+	if account, ok := by.Account(); ok {
+		who = account.Profile().ID.UUID
+	}
+	id, err := scheduler(h.registry).RunNow(ctx, metadata.RefreshTaskID, who)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &refreshStartedOutput{Body: refreshStarted{RunID: int64(id)}}, nil
 }
 
 func (h handlers) clearCache(_ context.Context, by identity.Admin, _ *struct{}) (*struct{}, error) {

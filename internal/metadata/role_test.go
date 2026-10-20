@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -68,8 +69,16 @@ func (h *heard) add(call string, ask metadata.Ask) {
 	h.asks = append(h.asks, ask)
 }
 
+// unlisted keeps no changes list.
+type unlisted struct{}
+
+func (unlisted) Changes(context.Context, metadata.Ask, time.Time, time.Time, int) (metadata.ChangesPage, error) {
+	return metadata.ChangesPage{}, metadata.ErrNoChanges
+}
+
 // shelf is a provider half that answers every key, or fails with fail.
 type shelf struct {
+	unlisted
 	node string
 	h    *heard
 	fail error
@@ -235,6 +244,7 @@ func TestOutcomesTravelWithAFailure(t *testing.T) {
 
 // twice reads base, then base again, through one Line.
 type twice struct {
+	unlisted
 	line *metadata.Line
 	base *url.URL
 }

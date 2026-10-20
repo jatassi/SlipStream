@@ -293,6 +293,17 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws []works.Wo
 	return out, nil
 }
 
+// Changes answers none: music keeps no changes list, so its tiers refresh
+// it.
+func (*Source) Changes(context.Context, metadata.Ask, time.Time, time.Time, int) (metadata.ChangesPage, error) {
+	return metadata.ChangesPage{}, metadata.ErrNoChanges
+}
+
+// Growing answers none.
+func (*Music) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
+	return nil, nil
+}
+
 func (*Music) Cuts() []release.Cut {
 	return []release.Cut{{Key: "deluxe", Name: "Deluxe", Aliases: []string{"Deluxe", "Deluxe Edition"}}}
 }

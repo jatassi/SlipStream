@@ -77,7 +77,7 @@ func (m *Metadata) SetKey(ctx context.Context, _ identity.Admin, p ProviderID, k
 		return ProviderStatus{}, ErrNoProvider
 	}
 	test := &metadatav1.TestRequest{Ask: askToWire(Ask{keys: map[ProviderID]string{p: key}, fresh: true, generation: m.cacheGeneration()}), Provider: string(p)}
-	res, node, err := call(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.TestResponse, error) {
+	res, node, err := call(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.TestResponse, error) {
 		return s.Test(ctx, test)
 	})
 	if err != nil {

@@ -39,7 +39,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.works.fetch", "timings.indexers.request", "timings.transfers.chunk",
 		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.files.retry_min", "timings.files.retry_max", "timings.downloading.facts", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 		"timings.storing.stat",
-		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max",
+		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.changes_pages",
 		"timings.tmdb.interval", "timings.tmdb.burst", "timings.omdb.interval", "timings.omdb.burst",
 	}
 	if !slices.Equal(paths, want) {

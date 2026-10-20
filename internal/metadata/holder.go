@@ -3,6 +3,7 @@ package metadata
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
@@ -18,6 +19,7 @@ type Holder struct {
 	metadatav1connect.UnimplementedMetadataServiceHandler
 	types   map[works.TypeID]Source
 	testers map[ProviderID]Tester
+	pages   int
 }
 
 // Tester is a provider client's cheap call that says whether the provider
@@ -30,10 +32,12 @@ type Tester interface {
 type HolderConfig struct {
 	Types   map[works.TypeID]Source
 	Testers []Tester
+	// Timings are the Node's: they bound a changes list.
+	Timings Timings
 }
 
 func NewHolder(cfg HolderConfig) *Holder {
-	h := &Holder{types: cfg.Types, testers: map[ProviderID]Tester{}}
+	h := &Holder{types: cfg.Types, testers: map[ProviderID]Tester{}, pages: cfg.Timings.ChangesPages}
 	for _, t := range cfg.Testers {
 		h.testers[t.Provider().ID] = t
 	}
@@ -62,6 +66,37 @@ func (h *Holder) Fetch(ctx context.Context, req *metadatav1.FetchRequest) (*meta
 	}
 	fetched, err := works.EncodeFetched(f)
 	return &metadatav1.FetchResponse{Fetched: fetched, Outcomes: outcomes}, err
+}
+
+// Changes reads the type's changes list from the Ask's since to now, every
+// page of it. A list longer than the Node's page bound is ErrNoChanges,
+// like one the source doesn't keep.
+func (h *Holder) Changes(ctx context.Context, req *metadatav1.ChangesRequest) (*metadatav1.ChangesResponse, error) {
+	since, until := time.UnixMicro(req.GetSinceUnixMicro()), time.Now()
+	keys, failure, outcomes, err := run(ctx, h, req.GetAsk(), req.GetContentType(), func(s Source, ask Ask) ([]works.Key, error) {
+		var keys []works.Key
+		for page := 1; ; page++ {
+			p, err := s.Changes(ctx, ask, since, until, page)
+			switch {
+			case err != nil:
+				return nil, err
+			case p.Pages > h.pages:
+				return nil, fmt.Errorf("the changes list runs to %d pages, past the %d a holder reads: %w", p.Pages, h.pages, ErrNoChanges)
+			}
+			keys = append(keys, p.Keys...)
+			if page >= p.Pages {
+				return keys, nil
+			}
+		}
+	})
+	if err != nil || failure != nil {
+		return &metadatav1.ChangesResponse{Failure: failure, Outcomes: outcomes}, err
+	}
+	out := make([]string, len(keys))
+	for i, k := range keys {
+		out[i] = string(k)
+	}
+	return &metadatav1.ChangesResponse{Keys: out, Outcomes: outcomes}, nil
 }
 
 // Test runs the provider's test call with the key the Ask carries and

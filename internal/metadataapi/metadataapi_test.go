@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -47,6 +48,8 @@ func (alone) Why(role.Name) string { return "" }
 type registry struct{ m *metadata.Metadata }
 
 func (r registry) Metadata() (*metadata.Metadata, bool) { return r.m, true }
+
+func (registry) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 
 type changes struct {
 	mu        sync.Mutex

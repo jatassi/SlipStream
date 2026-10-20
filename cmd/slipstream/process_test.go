@@ -583,6 +583,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.metadata.cache_entries", Value: "4096", Default: "4096", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_CACHE_ENTRIES"},
 			{Key: "timings.metadata.retest_min", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETEST_MIN"},
 			{Key: "timings.metadata.retest_max", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETEST_MAX"},
+			{Key: "timings.metadata.changes_pages", Value: "500", Default: "500", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_CHANGES_PAGES"},
 			{Key: "timings.tmdb.interval", Value: "50ms", Default: "50ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_INTERVAL"},
 			{Key: "timings.tmdb.burst", Value: "20", Default: "20", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_BURST"},
 			{Key: "timings.omdb.interval", Value: "500ms", Default: "500ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_INTERVAL"},

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -76,6 +77,9 @@ type Fixture struct {
 	timings   map[works.ItemID]targets.Timing
 	cuts      []release.Cut
 	depth     *int64
+	changed   []works.Key
+	changeErr error
+	growing   map[works.WorkID]bool
 }
 
 // Released is the date every Item is released on until SetTiming says
@@ -88,13 +92,16 @@ type Opened struct {
 	Endpoints Endpoints
 }
 
-// Call is one Search or Fetch a provider half answered.
+// Call is one Search, Fetch or page of Changes a provider half answered.
 type Call struct {
 	// Open is the provider half's index in Opens, -1 for Source's.
 	Open  int
 	Ask   metadata.Ask
 	Query string
 	Key   works.Key
+	// Since and Page are a Changes call's.
+	Since time.Time
+	Page  int
 }
 
 type hold struct {
@@ -109,6 +116,7 @@ func New() *Fixture {
 		fetches: map[works.Key]int{},
 		stored:  map[works.WorkID]works.FieldSet{},
 		timings: map[works.ItemID]targets.Timing{},
+		growing: map[works.WorkID]bool{},
 	}
 }
 
@@ -266,6 +274,65 @@ func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 	fetched := r.Tree
 	fetched.Detail = detail
 	return fetched, nil
+}
+
+// ChangesWindow is how far back the Fixture's changes list reaches, as
+// TMDB's does.
+const ChangesWindow = 14 * 24 * time.Hour
+
+// ChangesPerPage is how many keys a page of the changes list holds.
+const ChangesPerPage = 2
+
+// Changes answers the keys Change set, ChangesPerPage a page, whatever
+// since is within ChangesWindow of until.
+func (s *source) Changes(_ context.Context, ask metadata.Ask, since, until time.Time, page int) (metadata.ChangesPage, error) {
+	f := s.f
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Since: since, Page: page})
+	switch {
+	case f.changeErr != nil:
+		return metadata.ChangesPage{}, f.changeErr
+	case until.Sub(since) > ChangesWindow:
+		return metadata.ChangesPage{}, metadata.ErrNoChanges
+	}
+	pages := max(1, (len(f.changed)+ChangesPerPage-1)/ChangesPerPage)
+	from := min((page-1)*ChangesPerPage, len(f.changed))
+	return metadata.ChangesPage{Keys: slices.Clone(f.changed[from:min(from+ChangesPerPage, len(f.changed))]), Pages: pages}, nil
+}
+
+// Change sets the keys every changes list answers.
+func (f *Fixture) Change(keys ...works.Key) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.changed = keys
+}
+
+// FailChanges makes every changes list answer err, until
+// FailChanges(nil).
+func (f *Fixture) FailChanges(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.changeErr = err
+}
+
+// SetGrowing says whether Work w can still gain Items.
+func (f *Fixture) SetGrowing(w works.WorkID, on bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.growing[w] = on
+}
+
+func (f *Fixture) Growing(_ context.Context, _ storage.Reader[storage.Library], ws []works.WorkID) (map[works.WorkID]bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := map[works.WorkID]bool{}
+	for _, w := range ws {
+		if f.growing[w] {
+			out[w] = true
+		}
+	}
+	return out, nil
 }
 
 // Store keeps the fields of every placed node in memory, beside the

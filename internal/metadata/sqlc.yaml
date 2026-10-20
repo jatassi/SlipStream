@@ -35,6 +35,17 @@ sql:
             go_type:
               type: int64
               pointer: true
+          - column: metadata_type.changes_through
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: metadata_due.since
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: metadata_due.reason
+            go_type:
+              type: Reason
           - column: metadata_due.work_id
             go_type:
               import: github.com/jatassi/slipstream/internal/works
