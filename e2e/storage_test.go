@@ -105,6 +105,12 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 		t.Fatalf("writing off seedbox's Storage says %q, want its 1 root written off", words)
 	}
 	root := rootOn(t, w.a, seedbox, "written_off")
+	key := "r." + root.ID
+	worldtest.Until(t, "the written-off root is a Storage error", func() (bool, error) { return healthItems(t, w.a, "storage")[key].Level == "fail", nil })
+	if it := healthItems(t, w.a, "storage")[key]; it.Subject != "Movies library root on seedbox" || it.Action == nil || it.Action.Kind != "link" || it.Action.Href != "/settings/library-roots" ||
+		it.Text != "Its Node was written off, so its files count as missing. Re-home the root to a Node that holds Storage." {
+		t.Fatalf("the written-off root's Storage item is %+v, want it leading to Re-home", it)
+	}
 	if c := cells(t, w.a, w.work).Cells[0]; c.File != nil || c.State != "missing" {
 		t.Fatalf("the cell after the write-off is %+v, want missing", c)
 	}
@@ -118,6 +124,10 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	if c := cells(t, w.a, w.work).Cells[0]; c.File == nil || c.State != "upgradable" {
 		t.Fatalf("the cell after the re-home is %+v, want filled by the imported file", c)
 	}
+	worldtest.Until(t, "the re-homed root's Storage error clears", func() (bool, error) {
+		_, open := healthItems(t, w.a, "storage")[key]
+		return !open, nil
+	})
 	worldtest.Until(t, "the write-off settles", func() (bool, error) { return storageState(w.a, seedbox) == "none", nil })
 	checkPlaced(t, w.m, 2)
 }

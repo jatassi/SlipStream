@@ -2,6 +2,7 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
 import { Button } from "./button";
+import type { AlertTone } from "./count";
 import { Data } from "./data";
 import { Icon } from "./icon";
 import { Sheet } from "./sheet";
@@ -9,6 +10,7 @@ import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
 
 export type WarningLineProps = {
+  signal: AlertTone;
   chip: string;
   subject: string;
   detail: string;
@@ -16,29 +18,39 @@ export type WarningLineProps = {
   action: { label: string; onClick: () => void };
 };
 
-const line =
-  "rounded-card bg-warn-card text-(length:--body-size) leading-(--body-line-height) text-warn-text ring-1 ring-warn-line ring-inset";
+const looks: { readonly [S in AlertTone]: { line: string; dim: string } } = {
+  warn: {
+    line: "rounded-card bg-warn-card text-(length:--body-size) leading-(--body-line-height) text-warn-text ring-1 ring-warn-line ring-inset",
+    dim: "text-warn-dim",
+  },
+  fail: {
+    line: "rounded-card bg-fail-card text-(length:--body-size) leading-(--body-line-height) text-fail-text ring-1 ring-fail-line ring-inset",
+    dim: "text-fail-dim",
+  },
+};
 
 export function WarningLine(props: WarningLineProps) {
   return useShell() === "phone" ? <WarningRow {...props} /> : <DesktopLine {...props} />;
 }
 
-function DesktopLine({ chip, subject, detail, since, action }: WarningLineProps) {
+function DesktopLine({ signal, chip, subject, detail, since, action }: WarningLineProps) {
+  const { line, dim } = looks[signal];
   return (
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3 ${line}`}>
-      <SignalChip kind="warn">{chip}</SignalChip>
+      <SignalChip kind={signal}>{chip}</SignalChip>
       <span className="font-bold">{subject}</span>
-      <span className="min-w-0 flex-[1_1_16ch] text-warn-dim">{detail}</span>
-      {since !== undefined && <Since since={since} />}
-      <Button look="warn" onClick={action.onClick}>
+      <span className={`min-w-0 flex-[1_1_16ch] ${dim}`}>{detail}</span>
+      {since !== undefined && <Since since={since} dim={dim} />}
+      <Button look={signal} onClick={action.onClick}>
         {action.label}
       </Button>
     </div>
   );
 }
 
-function WarningRow({ chip, subject, detail, since, action }: WarningLineProps) {
+function WarningRow({ signal, chip, subject, detail, since, action }: WarningLineProps) {
   const [open, setOpen] = useState(false);
+  const { line, dim } = looks[signal];
   return (
     <Sheet
       title={subject}
@@ -49,19 +61,19 @@ function WarningRow({ chip, subject, detail, since, action }: WarningLineProps) 
           type="button"
           className={`flex min-h-(--control-height) w-full items-center gap-3 px-4 py-3 text-left ${line}`}
         >
-          <SignalChip kind="warn">{chip}</SignalChip>
+          <SignalChip kind={signal}>{chip}</SignalChip>
           <span className="min-w-0 flex-1 truncate font-bold">{subject}</span>
-          <Icon icon={ArrowRight01Icon} className="size-4 shrink-0 text-warn-dim" />
+          <Icon icon={ArrowRight01Icon} className={`size-4 shrink-0 ${dim}`} />
         </button>
       }
     >
       <div className={`flex flex-col items-start gap-3 p-4 ${line}`}>
-        <SignalChip kind="warn">{chip}</SignalChip>
-        <p className="text-warn-dim">{detail}</p>
-        {since !== undefined && <Since since={since} />}
+        <SignalChip kind={signal}>{chip}</SignalChip>
+        <p className={dim}>{detail}</p>
+        {since !== undefined && <Since since={since} dim={dim} />}
       </div>
       <Button
-        look="warn"
+        look={signal}
         className="w-full"
         onClick={() => {
           setOpen(false);
@@ -74,9 +86,9 @@ function WarningRow({ chip, subject, detail, since, action }: WarningLineProps) 
   );
 }
 
-function Since({ since }: { since: string }) {
+function Since({ since, dim }: { since: string; dim: string }) {
   return (
-    <span className="whitespace-nowrap text-warn-dim">
+    <span className={`whitespace-nowrap ${dim}`}>
       since <Data>{since}</Data>
     </span>
   );

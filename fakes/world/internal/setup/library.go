@@ -16,10 +16,10 @@ import (
 )
 
 // Library creates the Scenario's library on its controller Node, over c
-// with the Controller's API key: each root's folder under mediaDir and the
-// root on its Node, which shares the machine and so the media dir, then
-// the Targets and Profiles as goals makes them, then the Indexers on the
-// site fakes at sites, as an Admin would.
+// with the Controller's API key: its Storage levels, each root's folder
+// under mediaDir and the root on its Node, which shares the machine and so
+// the media dir, then the Targets and Profiles as goals makes them, then
+// the Indexers on the site fakes at sites, as an Admin would.
 func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, sites map[string]fake.Address) error {
 	var controller string
 	for i, n := range s.Nodes {
@@ -28,6 +28,11 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 		}
 	}
 	apiKey := claims.APIKey
+	if l := s.Library.StorageLevels; l != nil {
+		if err := nodeapi.SetStorageLevels(ctx, c, controller, apiKey, *l); err != nil {
+			return err
+		}
+	}
 	for _, r := range s.Library.Roots {
 		folder := filepath.Join(mediaDir, r.Folder)
 		if err := os.MkdirAll(folder, 0o700); err != nil {

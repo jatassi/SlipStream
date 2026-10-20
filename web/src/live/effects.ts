@@ -9,6 +9,7 @@ import {
 } from "../api/gen/query/identity/identity";
 import { getListIndexersQueryKey } from "../api/gen/query/indexers/indexers";
 import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
+import { getListHealthVolumesQueryKey } from "../api/gen/query/health/health";
 import { getListRootsQueryKey, getListVolumesQueryKey } from "../api/gen/query/roots/roots";
 import {
   getListCutsQueryKey,
@@ -65,6 +66,7 @@ export const effects = {
   },
   "volumes.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListVolumesQueryKey() });
+    refresh({ queryKey: getListHealthVolumesQueryKey() });
     refresh({ queryKey: getGetTopologyQueryKey() });
   },
   "indexers.changed": (_data, { refresh }) => {

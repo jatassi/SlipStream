@@ -6,7 +6,7 @@ import { Data } from "./data";
 import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
 
-const signalLook = {
+export const signalLook = {
   fail: { row: "bg-fail-card text-fail-text shadow-signal-lift", dim: "text-fail-dim" },
   warn: {
     row: "bg-warn-card text-warn-text ring-1 ring-warn-line ring-inset",
@@ -20,6 +20,7 @@ export function SignalRow({
   subject,
   verdict,
   time,
+  timeLead,
   children,
 }: {
   signal: keyof typeof signalLook;
@@ -27,6 +28,8 @@ export function SignalRow({
   subject: string;
   verdict: string;
   time: string;
+  /** A word before the time, such as "since". */
+  timeLead?: string;
   children: ReactNode;
 }) {
   const look = signalLook[signal];
@@ -48,7 +51,10 @@ export function SignalRow({
         </span>
         <span className="truncate font-semibold [grid-area:subject]">{subject}</span>
         <span className={`line-clamp-2 [grid-area:verdict] ${look.dim}`}>{verdict}</span>
-        <Data className={`justify-self-end [grid-area:time] ${look.dim}`}>{time}</Data>
+        <span className={`justify-self-end whitespace-nowrap [grid-area:time] ${look.dim}`}>
+          {timeLead !== undefined && `${timeLead} `}
+          <Data>{time}</Data>
+        </span>
       </Collapsible.Trigger>
       <Collapsible.Panel className="px-4 pb-4">{children}</Collapsible.Panel>
     </Collapsible.Root>

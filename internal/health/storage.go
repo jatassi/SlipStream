@@ -23,7 +23,8 @@ type StorageParts struct {
 	// Roots answers a root missing, unmounted, foreign, unwritable,
 	// unresponsive or written off. Its keys are KeyOf("r", ...).
 	Roots Source
-	// RootEvents are the events after which Roots may answer differently.
+	// RootEvents are the events after which Roots may answer differently,
+	// besides the changes Config.Roster follows.
 	RootEvents []live.Event
 }
 

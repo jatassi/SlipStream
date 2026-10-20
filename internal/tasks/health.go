@@ -6,16 +6,16 @@ import (
 
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/live"
-	"github.com/jatassi/slipstream/internal/nodes"
 )
 
-// HealthAbout declares the Scheduled tasks category. Nodes' changes are
-// among its events because a task waits while its Node is away.
+// HealthAbout declares the Scheduled tasks category. A task waits while
+// its Node is away, and the clock publishes ChangedEvent at each change of
+// the roster, so ChangedEvent covers the Nodes' changes too.
 var HealthAbout = health.About{
 	ID:     health.ScheduledTasksID,
 	Label:  "Scheduled tasks",
 	Phrase: "scheduled tasks",
-	Events: []live.Event{ChangedEvent, nodes.ChangedEvent},
+	Events: []live.Event{ChangedEvent},
 }
 
 // HealthSource answers category's items from the tasks whose Health names

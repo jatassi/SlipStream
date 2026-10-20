@@ -7,7 +7,7 @@ This directory is the maintained source for verifying what a SlipStream user or 
 - The `home` Scenario launched from a `go run ./cmd/release build` binary, with `RUN`, `FW` and `PW` set as in the skill's Launch.
 - `$FW doctor $RUN` passing all six checks.
 - The `{runId}-admin-desktop` session open, signed in as the manifest's Admin (Ada Okafor, `ada@example.test`) and on the Library, as in the skill's Drive.
-- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, and `serving` is `home` with Serving on seedbox too.
+- A feature that needs another Scenario names it in its Preconditions. `first-run` is a fresh Controller before setup, `serving` is `home` with Serving on seedbox too, and `low-space` is one Controller whose volume is below both Storage levels.
 
 ## Conventions
 
@@ -58,5 +58,5 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Library roots](./library-roots.md) covers Settings > Library roots, adding a root on seedbox through its folder browser with a refusal in words, an import on that Worker by hard link, the Storage block, `Check storage every` and the Storage Inspector, a drain and write-off that mark the root `Node written off`, re-homing it onto home, and deleting a root while its folder stays.
 - [Nodes](./nodes.md) covers the Nodes landing with its Diagram and its Roster, renaming and removing a Node, a Node's Overview, its sections and Node picker, Web and API and Log settings, the live Logs and Download logs, Restart, `GET /api/v1/system`, and Serving on a Worker: its address serving the Controller's app and the status card while the Controller can't be reached.
 - [Tasks](./tasks.md) covers the Tasks page, a task's detail page, Run now and Cancel, the header capsule and the phone's running list, cadence and Schedule settings, and Housekeeping going Partial and back when seedbox stops and starts.
-- [Health](./health.md) covers `GET /api/v1/system/health` with nothing wrong, a Worker offline past the grace as a Nodes error with home covering its Searching, the counts' Health alert and `health.changed`, Check now and what it couldn't reach, and the Storage levels in bytes and percent.
+- [Health](./health.md) covers the Health page with nothing wrong and with a Worker offline past the grace, the Health nav dot, Check all and Check now with what it couldn't reach, the Storage levels on the page and per volume from Library roots, the Library roots row's dot and `Open Health` on `low-space`, and the API under `GET /api/v1/system/health` with the counts' alerts and `health.changed`.
 - [Live updates](./live-updates.md) covers the reconnecting line, reconnecting after `fakeworld node kill` and `start`, and the captured stream.

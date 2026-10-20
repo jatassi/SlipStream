@@ -1,3 +1,7 @@
+import {
+  getGetHealthSettingsSuspenseQueryOptions,
+  getListHealthVolumesSuspenseQueryOptions,
+} from "../api/gen/query/health/health";
 import { getListNodesSuspenseQueryOptions } from "../api/gen/query/nodes/nodes";
 import {
   getGetRootSettingsSuspenseQueryOptions,
@@ -19,8 +23,11 @@ export const libraryRootsSection: SettingsSection = {
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
       freshQuery(queryClient, getGetRootSettingsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListHealthVolumesSuspenseQueryOptions()),
+      ensureQuery(queryClient, getGetHealthSettingsSuspenseQueryOptions()),
     ]);
   },
   component: LibraryRootsSection,
   wide: true,
+  health: ["storage"],
 };

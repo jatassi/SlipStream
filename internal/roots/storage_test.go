@@ -103,6 +103,12 @@ func rig(t *testing.T, offline bool) *storageRig {
 		away = r.node
 	}
 	cfg.Roster = roster{away: away}
+	cfg.Names = func(context.Context) (map[role.NodeID]nodes.Named, error) {
+		return map[role.NodeID]nodes.Named{r.node: {ID: r.node, Name: "Media server"}}, nil
+	}
+	cfg.Describe = func(works.TypeID) (works.Description, bool) {
+		return works.Description{Work: works.Noun{One: "Alpha", Many: "Alphas"}}, true
+	}
 	cfg.Storage = r.storage
 	cfg.Changed = r.changed
 	cfg.Volumes = r.volumeEvents

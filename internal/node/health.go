@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/health"
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 )
@@ -22,8 +22,12 @@ func healthCategories(h *half) []health.Category {
 
 // storageParts is what the Storage category judges: a line per holder
 // that samples volumes, and the library roots' own items.
-func storageParts(*half) health.StorageParts {
-	return health.StorageParts{}
+func storageParts(h *half) health.StorageParts {
+	return health.StorageParts{
+		Volumes:    []health.VolumeSource{h.roots.HealthVolumes()},
+		Roots:      h.roots.HealthSource(),
+		RootEvents: roots.HealthEvents,
+	}
 }
 
 func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library], h *half) (*health.Health, error) {
@@ -34,7 +38,7 @@ func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library],
 		Storage:    storageParts(h),
 		Categories: healthCategories(h),
 		Names:      liveNames,
-		NameEvents: []live.Event{nodes.ChangedEvent},
+		Roster:     h.nodes,
 		Zone:       n.zone(),
 		Timings:    n.cfg.Timings.Health,
 		Log:        n.rootLog.With("subsystem", "health"),

@@ -161,8 +161,24 @@ type world struct {
 	sink    *sink
 	changed *publisher
 
-	mu    sync.Mutex
-	names map[role.NodeID]string
+	mu     sync.Mutex
+	names  map[role.NodeID]string
+	roster chan struct{}
+}
+
+func (w *world) Changed() <-chan struct{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.roster
+}
+
+// remove takes node off the roster.
+func (w *world) remove(node role.NodeID) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.names, node)
+	close(w.roster)
+	w.roster = make(chan struct{})
 }
 
 func newWorld(t *testing.T) *world {
@@ -177,6 +193,7 @@ func newWorld(t *testing.T) *world {
 		sink:    &sink{},
 		changed: &publisher{},
 		names:   map[role.NodeID]string{media: "Media server"},
+		roster:  make(chan struct{}),
 	}
 	w.nodes.check = func(health.Key) []health.Unreached { return nil }
 	return w
@@ -198,7 +215,7 @@ func (w *world) open(t *testing.T) *health.Health {
 			defer w.mu.Unlock()
 			return maps(w.names), nil
 		},
-		NameEvents:  []live.Event{nodesEvent},
+		Roster:      w,
 		Transitions: w.sink.take,
 		Zone:        time.UTC,
 		Timings:     health.DefaultTimings(),
@@ -586,10 +603,7 @@ func TestAnOverrideOutlivesItsVolumeUntilItsNodeGoes(t *testing.T) {
 			t.Fatalf("levels for a volume nobody reports = %v, want ErrNoVolume", err)
 		}
 		w.changed.take()
-		w.mu.Lock()
-		delete(w.names, media)
-		w.mu.Unlock()
-		nodesEvent.Bind(w.hub).Publish(t.Context(), nodesPoked{})
+		w.remove(media)
 		synctest.Wait()
 		evaluate(t, h, health.StorageID)
 		if list, _ := h.VolumeList(t.Context()); len(list.NotReporting) != 0 {

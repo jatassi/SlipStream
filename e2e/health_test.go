@@ -43,9 +43,9 @@ func (r healthReport) items(t *testing.T, id string) map[string]healthItem {
 	return nil
 }
 
-func nodesItems(t *testing.T, a *worldtest.API) map[string]healthItem {
+func healthItems(t *testing.T, a *worldtest.API, id string) map[string]healthItem {
 	t.Helper()
-	return decode(t, "getSystemHealth", a.Admin("home", http.MethodGet, "/api/v1/system/health", ""), &healthReport{}).items(t, "nodes")
+	return decode(t, "getSystemHealth", a.Admin("home", http.MethodGet, "/api/v1/system/health", ""), &healthReport{}).items(t, id)
 }
 
 type healthChecked struct {
@@ -83,7 +83,7 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 		t.Fatalf("updateNodeSettings = %d %s, want 200", r.Status, r.Body)
 	}
 	box := a.Node("seedbox").NodeID
-	worldtest.Until(t, "the Nodes category is clear", func() (bool, error) { return len(nodesItems(t, a)) == 0, nil })
+	worldtest.Until(t, "the Nodes category is clear", func() (bool, error) { return len(healthItems(t, a, "nodes")) == 0, nil })
 	checked := decode(t, "checkHealthCategory", a.Admin("home", http.MethodPost, "/api/v1/system/health/nodes/check", ""), &healthChecked{})
 	if len(checked.Unreached) != 0 || len(checked.Report.items(t, "nodes")) != 0 {
 		t.Fatalf("Check now on Nodes in step = %+v, want nothing unreached and no items", checked)
@@ -93,8 +93,8 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 	}
 
 	act(t, run, "seedbox", world.StopNode)
-	worldtest.Until(t, "seedbox is a Nodes error", func() (bool, error) { return nodesItems(t, a)[box].Level == "fail", nil })
-	items := nodesItems(t, a)
+	worldtest.Until(t, "seedbox is a Nodes error", func() (bool, error) { return healthItems(t, a, "nodes")[box].Level == "fail", nil })
+	items := healthItems(t, a, "nodes")
 	lapsed := items[box]
 	if lapsed.Subject != "seedbox" || lapsed.Action == nil || lapsed.Action.Kind != "link" || lapsed.Action.Href != "/nodes/"+box {
 		t.Fatalf("seedbox's item is %+v, want subject seedbox and a link to /nodes/%s", lapsed, box)
@@ -124,7 +124,7 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 		problem(http.StatusNotFound, "health_category_not_found", "No Health category has that id"))
 
 	act(t, run, "seedbox", world.StartNode)
-	worldtest.Until(t, "the Nodes items clear once seedbox is back and settled", func() (bool, error) { return len(nodesItems(t, a)) == 0, nil })
+	worldtest.Until(t, "the Nodes items clear once seedbox is back and settled", func() (bool, error) { return len(healthItems(t, a, "nodes")) == 0, nil })
 	if health, _ := healthAlerts(t, a); health != nil {
 		t.Fatalf("with seedbox back the Health alert is %s, want null", *health)
 	}

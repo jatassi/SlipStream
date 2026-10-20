@@ -194,6 +194,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Inflight: grabs.RootGrabs{},
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
+		Names:    side.Names,
+		Describe: tree.Describe,
 		Log:      n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {

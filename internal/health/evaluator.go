@@ -22,6 +22,12 @@ type Hub interface {
 	Watch(ctx context.Context, events ...live.Event) <-chan struct{}
 }
 
+type Roster interface {
+	// Changed is closed at the next change of the Nodes' names or
+	// standings.
+	Changed() <-chan struct{}
+}
+
 type Config struct {
 	Library *storage.DB[file]
 	Hub     Hub
@@ -33,8 +39,9 @@ type Config struct {
 	// no longer report. A Node it lacks is removed, and its volumes' own
 	// levels go.
 	Names func(ctx context.Context, rd storage.Reader[file]) (map[role.NodeID]string, error)
-	// NameEvents are the events after which Names may answer differently.
-	NameEvents []live.Event
+	// Roster, when set, follows the Nodes' names and standings, after
+	// whose changes Names and Storage may answer differently.
+	Roster Roster
 	// Transitions, when set, takes each evaluation's transitions inside
 	// the Write that records them, so each is seen exactly once.
 	Transitions func(ctx context.Context, tx *storage.Tx[file], ts []Transition) error
@@ -175,10 +182,7 @@ func (h *Health) Run(ctx context.Context) error {
 	for _, c := range h.all {
 		follow(c.Events, func() { h.mark(c.ID) })
 	}
-	follow(h.cfg.NameEvents, func() {
-		h.mayPrune.Store(true)
-		h.mark(StorageID)
-	})
+	h.followRoster(ctx, &follows)
 	h.evaluate(ctx, h.ids(), false)
 	close(h.ready)
 	due := time.NewTimer(0)
@@ -200,6 +204,27 @@ func (h *Health) Run(ctx context.Context) error {
 			a.reply <- *h.report.Load()
 		}
 	}
+}
+
+// followRoster marks Storage, and the names to look at again, at each
+// change of the roster.
+func (h *Health) followRoster(ctx context.Context, follows *sync.WaitGroup) {
+	if h.cfg.Roster == nil {
+		return
+	}
+	changed := h.cfg.Roster.Changed()
+	follows.Go(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-changed:
+				changed = h.cfg.Roster.Changed()
+				h.mayPrune.Store(true)
+				h.mark(StorageID)
+			}
+		}
+	})
 }
 
 func (h *Health) ids() []ID {

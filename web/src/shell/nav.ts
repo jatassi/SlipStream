@@ -1,5 +1,6 @@
 import {
   Activity01Icon,
+  HeartCheckIcon,
   Home01Icon,
   LibraryIcon,
   Search01Icon,
@@ -27,6 +28,7 @@ export type NavId =
   | "library"
   | "activity"
   | "nodes"
+  | "health"
   | "accounts"
   | "settings"
   | "tasks"
@@ -97,6 +99,15 @@ export const adminNav: NavTable = [
     place: "system",
   },
   {
+    id: "health",
+    label: "Health",
+    icon: HeartCheckIcon,
+    to: "/health",
+    alert: "health",
+    audience: "admin",
+    place: "system",
+  },
+  {
     id: "accounts",
     label: "Accounts",
     icon: UserGroupIcon,
@@ -117,6 +128,7 @@ export const adminNav: NavTable = [
     label: "Tasks",
     icon: TimeScheduleIcon,
     to: "/tasks",
+    alert: "tasks",
     audience: "admin",
     place: "system",
   },
