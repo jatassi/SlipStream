@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
-import { untilStill } from "./still.ts";
+import { clickWhenStill } from "./still.ts";
 
 async function openTargets(page: Page) {
   await navigate(page, "Settings");
@@ -13,14 +13,12 @@ async function openTargets(page: Page) {
   await expect(page).toHaveURL(/\/settings\/targets$/u);
 }
 
-// WebKit can hold an entering sheet at its start for frames, which passes the
-// click's stability check; the tap then lands while the sheet slides, its press
-// and release fall on different rows, and nothing is chosen.
 async function choose(page: Page, popup: string, item: string) {
-  const menu = page.getByRole(isPhone(page) ? "dialog" : "menu", { name: popup });
-  await menu.waitFor();
-  await untilStill(page);
-  await menu.getByRole(isPhone(page) ? "button" : "menuitem", { name: item }).click();
+  await clickWhenStill(
+    page
+      .getByRole(isPhone(page) ? "dialog" : "menu", { name: popup })
+      .getByRole(isPhone(page) ? "button" : "menuitem", { name: item }),
+  );
 }
 
 async function untick(page: Page, qualities: readonly string[]) {

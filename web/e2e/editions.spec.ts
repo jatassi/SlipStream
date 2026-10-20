@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 test.use({ scenario: "targets" });
 test.describe.configure({ timeout: 120_000 });
@@ -29,7 +30,9 @@ const cutRow = (page: Page, name: string) =>
 
 async function pick(page: Page, button: string, item: string) {
   await page.getByRole("button", { name: button }).click();
-  await page.getByRole(isPhone(page) ? "button" : "menuitem", { name: item, exact: true }).click();
+  await clickWhenStill(
+    page.getByRole(isPhone(page) ? "button" : "menuitem", { name: item, exact: true }),
+  );
 }
 
 async function filmsId(world: World) {
@@ -112,7 +115,7 @@ test("an Admin adds a custom cut, lists it in a Profile, and renames it and its 
 
   await openEditions(page);
   await page.getByRole("button", { name: "Actions for Superfan" }).click();
-  await page.getByRole(isPhone(page) ? "button" : "menuitem", { name: "Edit" }).click();
+  await clickWhenStill(page.getByRole(isPhone(page) ? "button" : "menuitem", { name: "Edit" }));
   const editing = page.getByRole("dialog", { name: "Edit Superfan" });
   await editing.getByRole("textbox", { name: "Name" }).fill("Superfan Edition");
   await editing.getByRole("button", { name: "Save" }).click();
