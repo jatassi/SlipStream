@@ -7,7 +7,7 @@ A movie added from the metadata catalog carries its whole record: titles in the 
 - `movies-whole-record` `POST /api/v1/works` for The Salt Road (`9000005`) answers every field from `english_title` to `awards` (`1 win & 3 nominations`), with `original_title` `La Route du Sel`, `certification` `PG-13` from `US`, four people with a `photoUrl` each, ratings from `imdb`, `metacritic`, `rottentomatoes` and `tmdb` each with its `fetchedAt`, and the `backdrop`, `poster`, `studio_logo` and `title_treatment` artwork. Its Item's availability reads `2023-04-04`, `Digital release in United States`, and the Work page on desktop and phone shows the record (P-286, P-054, P-056, P-058).
 - `movies-preview-then-add` `GET /api/v1/content-types/movie/catalog/9000005` opens a connection to fake-tmdb and none to fake-omdb, and answers the TMDB rating alone. With every TMDB `movie` request then failing, the add still answers 200 with the whole record, the fault never fires, and fake-omdb sees one connection (P-054, P-060).
 - `movies-refresh` after the `tmdb-change` cue, `POST /api/v1/works/{id}/refresh` answers the overview `Two sisters walk the salt road. Revision 1.` and TMDB's 411 votes with the OMDb ratings kept; `POST /api/v1/content-types/movie/refresh` answers 202 and its run ends `succeeded` with `1 Work`. After the `tmdb-delete` cue, a refresh answers 409 `work_gone_upstream` and the Work keeps its record with `goneUpstreamAt` set (P-038, P-231).
-- `movies-unreachable` with fake-tmdb refusing connections, a search answers 502 `metadata_unavailable` with `TMDB: didn't answer: …` and TMDB reads `unreachable`, `SlipStream can't reach TMDB. It tries again on its own; …`. Once the fault clears, TMDB reads `working` again with no call from anyone, from its own retest (P-253, P-061).
+- `movies-unreachable` with fake-tmdb answering 503 (or refusing connections, as the end-to-end test plays it), a search answers 502 `metadata_unavailable` naming TMDB and TMDB reads `unreachable`, `SlipStream can't reach TMDB. It tries again on its own; …`. Once the fault clears, TMDB reads `working` again with no call from anyone, from its own retest (P-253, P-061).
 - `movies-rate-limited` a TMDB 429 with `Retry-After: 30` answers 502 `metadata_unavailable` with `TMDB: is rate limited until <time>`, TMDB reads `rate_limited` until that time, and a second search inside it answers the same without reaching fake-tmdb (P-061).
 - `movies-key-refused` after `tmdb-revoke-key`, a search answers 502 `metadata_refused`, `TMDB refused SlipStream's key`, and TMDB reads `key_refused`, `This build has no TMDB key. Add your own.`; an Admin key fake-tmdb takes turns it `working` on `yours` (P-063).
 - `movies-omdb-cap` after `omdb-cap`, adding a movie still answers 200, and OMDb reads `out_of_allowance` until the next UTC midnight, `OMDb is out of today's allowance. It resets on its own.` (P-056, P-061).
@@ -30,11 +30,11 @@ Preconditions:
 
 Steps:
 
-- **Preview, then add on that one read.** The preview names no OMDb rating and `events.jsonl` holds no `front.open` on `omdb`. Fail TMDB's `movie` route, then add: 200 with the whole record, and `fault list` shows the rule never fired. Set `W` to the reply's `work.id`.
+- **Preview, then add on that one read.** The preview names no OMDb rating and `events.jsonl` holds no `front.open` from home on `omdb` (doctor's own checks are from `world`). Fail TMDB's `movie` route, then add: 200 with the whole record, and `fault list` shows the rule never fired. Set `W` to the reply's `work.id`.
 
   ```sh
   $FW exec $RUN --proof movies/movies-preview-then-add -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog/9000005'
-  grep '"front.open"' $RUN/events.jsonl | grep -c '"omdb"'
+  grep '"front.open","node":"home"' $RUN/events.jsonl | grep -c '"omdb"'
   $FW fault set $RUN second-fetch tmdb status=500 --route movie
   $FW exec $RUN --proof movies/movies-whole-record -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000005","monitor":true}' '{nodes.home.url}/api/v1/works'
   grep -c '"rule":"second-fetch","target"' $RUN/events.jsonl
@@ -77,7 +77,7 @@ Steps:
 - **Unreachable, then back on its own.**
 
   ```sh
-  $FW fault set $RUN down tmdb refuse
+  $FW fault set $RUN down tmdb status=503
   $FW exec $RUN --proof movies/movies-unreachable -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=orchard'
   $FW exec $RUN --proof movies/movies-unreachable -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/metadata/providers'
   $FW fault clear $RUN down
@@ -109,7 +109,7 @@ Steps:
   $FW exec $RUN --proof movies/movies-worker -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d @{runDir}/roles.json '{nodes.home.url}/api/v1/nodes/roles'
   $FW fault set $RUN home-cut-off tmdb@home refuse
   $FW exec $RUN --proof movies/movies-worker -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"seedbox-never-keeps-this"}' '{nodes.home.url}/api/v1/metadata/providers/tmdb/key'
-  $FW exec $RUN --proof movies/movies-worker -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=road'
+  $FW exec $RUN --proof movies/movies-worker -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types/movie/catalog?query=quiet+orchard'
   grep '"front.open"' $RUN/events.jsonl | grep '"tmdb"' | tail -3
   $FW exec $RUN --proof movies/movies-worker -- grep -rIl seedbox-never-keeps-this {nodes.seedbox.dataDir}
   $FW exec $RUN --proof movies/movies-worker -- ls {nodes.seedbox.dataDir}
@@ -120,6 +120,7 @@ Steps:
 
 - Run the recipe on a fresh `movies` run in the order above: the key and cap steps change every provider's status for the rest of the run, and `tmdb-delete` takes The Salt Road away.
 - The holder caches answers for an hour: a search or preview repeated with the same query never reaches the fake, so a fault set after it never fires. Use a new query, or `DELETE /api/v1/metadata/cache`.
+- A `refuse` fault refuses new connections only: a holder that already keeps a connection open to the fake goes on using it. Play `status=503` to fail every call.
 - A TMDB key fake-tmdb revoked stays refused for the run; `tmdb-revoke-key '{}'` revokes every key it has seen, none included, so save a new Admin key to call TMDB again.
 - `grep -rIl` exits 1 when no file holds the key, which is the pass; exec reports the exit code with the step.
 - OMDb's cap lasts until the next UTC midnight, and a world's clock never crosses it.

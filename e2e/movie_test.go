@@ -87,16 +87,17 @@ const omdbRatings = `{"source":"imdb","label":"IMDb","value":7.1,"scale":10,"vot
 
 var fetchedAt = regexp.MustCompile(`"fetchedAt":"[^"]+"`)
 
-// movieView is the part of a movie's Work the movies tests read.
 type movieView struct {
 	ID             string          `json:"id"`
 	GoneUpstreamAt *string         `json:"goneUpstreamAt"`
 	Fields         json.RawMessage `json:"fields"`
 	Ratings        json.RawMessage `json:"ratings"`
-	Artwork        []struct {
-		Kind string `json:"kind"`
-		URL  string `json:"url"`
-	} `json:"artwork"`
+	Artwork        []artRef        `json:"artwork"`
+}
+
+type artRef struct {
+	Kind string `json:"kind"`
+	URL  string `json:"url"`
 }
 
 func (m movieView) fields() string {
@@ -109,12 +110,7 @@ func (m movieView) ratings() string {
 
 func (m movieView) art(t *testing.T, kind string) string {
 	t.Helper()
-	i := slices.IndexFunc(m.Artwork, func(a struct {
-		Kind string `json:"kind"`
-		URL  string `json:"url"`
-	}) bool {
-		return a.Kind == kind
-	})
+	i := slices.IndexFunc(m.Artwork, func(a artRef) bool { return a.Kind == kind })
 	if i < 0 {
 		t.Fatalf("the Work's artwork %+v has no %s", m.Artwork, kind)
 	}
