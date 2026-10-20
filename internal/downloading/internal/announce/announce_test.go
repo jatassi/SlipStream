@@ -151,6 +151,25 @@ func TestTheSameEventWithin30sWaits(t *testing.T) {
 			want:  at(time.Second),
 		},
 		{
+			name:  "counted from the tracker's answer",
+			steps: []step{
+				sent(h, beacon, announce.Started, 0),
+				func(l *announce.Ledger) { l.Answered(h, beacon, at(2*time.Second)) },
+				sent(h, beacon, announce.Stopped, 10*time.Second),
+			},
+			ask:   startAt(false, 20*time.Second),
+			want:  at(32 * time.Second),
+		},
+		{
+			name: "counted from a failure's answer",
+			steps: []step{
+				sent(h, beacon, announce.Stopped, 0),
+				func(l *announce.Ledger) { l.Failed(h, beacon, "Too many requests", time.Hour, at(3*time.Second)) },
+			},
+			ask:  func(l *announce.Ledger) time.Time { return l.StopAt(h, at(20*time.Second)) },
+			want: at(33 * time.Second),
+		},
+		{
 			name:  "another torrent",
 			steps: []step{sent(other, beacon, announce.Started, 0)},
 			ask:   startAt(true, 10*time.Second),

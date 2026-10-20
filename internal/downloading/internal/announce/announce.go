@@ -46,10 +46,15 @@ type Ledger struct {
 }
 
 type line struct {
-	host         string
-	opened       time.Time
-	min          time.Duration
-	sent         [Stopped + 1]time.Time
+	host   string
+	opened time.Time
+	min    time.Duration
+	// sent is when each event last went out, or once the tracker answered
+	// it, when the answer came.
+	sent [Stopped + 1]time.Time
+	// awaiting is the event of the announce the tracker has yet to answer.
+	awaiting     Event
+	answering    bool
 	unregistered time.Time
 }
 
@@ -65,7 +70,7 @@ func New(r *rand.Rand, jitter, floor time.Duration) *Ledger {
 // Sent notes an announce that went out at at.
 func (l *Ledger) Sent(h bencode.InfoHash, t Tracker, ev Event, at time.Time) {
 	ln := l.line(h, t)
-	ln.sent[ev] = at
+	ln.sent[ev], ln.awaiting, ln.answering = at, ev, true
 	minInterval := l.minInterval(ln)
 	open := ln.open(at, minInterval)
 	switch {
@@ -92,14 +97,23 @@ func (l *Ledger) Replied(h bencode.InfoHash, t Tracker, r Reply) time.Duration {
 	return r.NextAnnounce.Sub(r.At) + time.Duration(l.rand.Int64N(int64(l.jitter)+1))
 }
 
-// Failed notes the tracker's failure reason at at, and reports whether the
-// tracker has now called the torrent unregistered on answers at least gap
-// apart with no success between them.
+// Answered notes the tracker's answer at at to the announce it awaited. The
+// duplicate rule counts from the answer: the tracker received the announce
+// at some time between its send and the answer, and an engine's clock says
+// when it sent only roughly.
+func (l *Ledger) Answered(h bencode.InfoHash, t Tracker, at time.Time) {
+	l.line(h, t).answered(at)
+}
+
+// Failed notes the tracker's answer at at with a failure reason, and
+// reports whether the tracker has now called the torrent unregistered on
+// answers at least gap apart with no success between them.
 func (l *Ledger) Failed(h bencode.InfoHash, t Tracker, reason string, gap time.Duration, at time.Time) bool {
+	ln := l.line(h, t)
+	ln.answered(at)
 	if !Unregistered(reason) {
 		return false
 	}
-	ln := l.line(h, t)
 	if ln.unregistered.IsZero() {
 		ln.unregistered = at
 	}
@@ -167,6 +181,13 @@ func (l *Ledger) minInterval(ln *line) time.Duration {
 		return l.hostMin[ln.host]
 	}
 	return l.floor
+}
+
+func (ln *line) answered(at time.Time) {
+	if ln.answering {
+		ln.sent[ln.awaiting] = later(ln.sent[ln.awaiting], at)
+		ln.answering = false
+	}
 }
 
 func (ln *line) open(now time.Time, minInterval time.Duration) bool {

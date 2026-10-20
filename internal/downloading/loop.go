@@ -555,6 +555,7 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 	case engine.TrackerAnnounced:
 		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At)
 	case engine.TrackerReplied:
+		l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
 		t.replied[ev.Tracker] = ev.At
 		l.call(t, "list a torrent's trackers", l.eng.PostTrackers(t.handle))
 	case engine.TrackerFailed:
