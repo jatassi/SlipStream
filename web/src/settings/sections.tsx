@@ -14,11 +14,12 @@ import {
 } from "../api/gen/query/targets/targets";
 import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/works";
 import { ensureQuery, freshQuery } from "../api/query-client";
+import { downloadClientsSection } from "../download-clients/section";
 import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
-import { TargetsSection } from "../targets/targets-section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
+import { TargetsSection } from "../targets/targets-section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
 import { EmailSection } from "./email";
@@ -52,6 +53,7 @@ export const settingsSections: readonly [SettingsSection, ...SettingsSection[]] 
     component: SignInSection,
   },
   nodesSection,
+  downloadClientsSection,
   {
     id: "api-key",
     label: "API key",

@@ -1,7 +1,7 @@
 import { Link, Outlet, useMatch } from "@tanstack/react-router";
 
 import { useListNodesSuspense } from "../../../api/gen/query/nodes/nodes";
-import { nodeSections } from "../../../shell/node-sections";
+import { sectionsFor } from "../../../shell/node-sections";
 import { Page } from "../../../shell/page";
 import { PageTabs, pageTab } from "../../../ui/page-tabs";
 import { useShell } from "../../../ui/shell-context";
@@ -41,7 +41,7 @@ export function NodeLayout({ nodeId }: { nodeId: string }) {
     <Page title={node.name} action={actions}>
       {nodes.length > 1 && <NodePicker nodes={nodes} current={node.id} />}
       <PageTabs label={node.name}>
-        {nodeSections.map((section) => (
+        {sectionsFor(node).map((section) => (
           <Link
             key={section.id}
             to={section.to}

@@ -25,7 +25,7 @@ const rateUnits = [
 type RateUnit = (typeof rateUnits)[number];
 
 /** Bytes a second in MB/s when whole, else KB/s. */
-const rateWords = (perSecond: number): string =>
+export const rateWords = (perSecond: number): string =>
   perSecond > 0 && perSecond % mib === 0 ? `${perSecond / mib} MB/s` : `${perSecond / kib} KB/s`;
 
 const rateAmount = (field: SettingRateField, perSecond: number): string =>

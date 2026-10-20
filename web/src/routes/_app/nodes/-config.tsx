@@ -19,7 +19,7 @@ const savedToast: { readonly [S in SystemConfigSectionId]: string } = {
   torrent: "Torrent client settings saved",
 };
 
-function fieldsOf(config: SystemNodeConfig, id: SystemConfigSectionId): readonly Field[] {
+export function fieldsOf(config: SystemNodeConfig, id: SystemConfigSectionId): readonly Field[] {
   const section = config.sections.find((candidate) => candidate.id === id);
   if (section === undefined) {
     throw new Error(`getNodeConfig has no ${id} section`);
