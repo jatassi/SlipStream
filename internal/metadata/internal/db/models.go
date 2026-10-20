@@ -26,15 +26,15 @@ type MetadataKey struct {
 
 type MetadataSetting struct {
 	ID                     Singleton
-	Language               sql.NullString
-	Region                 sql.NullString
-	UnreleasedEverySeconds sql.NullInt64
-	GrowingEverySeconds    sql.NullInt64
-	OthersEverySeconds     sql.NullInt64
-	FollowChanges          sql.NullInt64
-	RatingsEverySeconds    sql.NullInt64
-	CacheForSeconds        sql.NullInt64
-	ArtworkStoreMb         sql.NullInt64
+	Language               *string
+	Region                 *string
+	UnreleasedEverySeconds *int64
+	GrowingEverySeconds    *int64
+	OthersEverySeconds     *int64
+	FollowChanges          *bool
+	RatingsEverySeconds    *int64
+	CacheForSeconds        *int64
+	ArtworkStoreMb         *int64
 }
 
 type MetadataType struct {

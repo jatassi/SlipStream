@@ -2,6 +2,7 @@ package metadataapi_test
 
 import (
 	"context"
+	"encoding/json"
 	"math/rand/v2"
 	"net/http"
 	"slices"
@@ -139,4 +140,61 @@ func TestAnUnknownProviderIsNotFound(t *testing.T) {
 	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/imdb/key", `{"key":"k"}`, http.StatusNotFound, notFound)
 	s.owner.Expect(t, http.MethodDelete, "/api/v1/metadata/providers/imdb/key", "", http.StatusNotFound, notFound)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/metadata/providers/imdb/test", "", http.StatusNotFound, notFound)
+}
+
+func TestMetadataSettingsReadAndChangeByKey(t *testing.T) {
+	s := serve(t)
+	type field struct {
+		Key       string
+		Kind      string
+		Value     any
+		IsDefault bool
+		Options   []struct{ Value string }
+	}
+	read := func() []field {
+		t.Helper()
+		code, reply := s.owner.Call(t, http.MethodGet, "/api/v1/metadata/settings", "")
+		var body struct{ Settings []field }
+		if err := json.Unmarshal([]byte(reply), &body); code != http.StatusOK || err != nil {
+			t.Fatalf("getMetadataSettings = %d %s", code, reply)
+		}
+		return body.Settings
+	}
+	got := read()
+	keys := make([]string, len(got))
+	for i, f := range got {
+		keys[i] = f.Key
+	}
+	if want := []string{"metadata.language", "metadata.region", "metadata.cacheFor", "metadata.ratingsEvery", "metadata.artworkStore"}; !slices.Equal(keys, want) {
+		t.Fatalf("settings = %v, want %v", keys, want)
+	}
+	if region := got[1]; region.Kind != "choice" || region.Value != "US" || len(region.Options) < 200 {
+		t.Fatalf("region = %v, want a choice of the countries, US by default", region)
+	}
+
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/metadata/settings", `{"values":{"metadata.language":"de-DE","metadata.cacheFor":86460}}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 0 s and 1 day."}`)
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/metadata/settings", `{"values":{"metadata.refresh.others":86400}}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key metadata.refresh.others."}`)
+	if got := read(); got[0].Value != "en-US" {
+		t.Fatalf("after a refused patch the language is %v, want en-US kept", got[0].Value)
+	}
+
+	code, reply := s.owner.Call(t, http.MethodPatch, "/api/v1/metadata/settings", `{"values":{"metadata.language":"de-DE","metadata.region":"DE"}}`)
+	if code != http.StatusOK || !strings.Contains(reply, `"key":"metadata.language","label":"Metadata language","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"choice","value":"de-DE"`) {
+		t.Fatalf("updateMetadataSettings = %d %s, want German saved", code, reply)
+	}
+	if code, reply := s.owner.Call(t, http.MethodPatch, "/api/v1/metadata/settings", `{"values":{"metadata.language":null}}`); code != http.StatusOK {
+		t.Fatalf("resetting the language = %d %s", code, reply)
+	}
+	if got := read(); got[0].Value != "en-US" || !got[0].IsDefault || got[1].Value != "DE" {
+		t.Fatalf("after resetting the language, settings = %v %v, want en-US by default and DE kept", got[0], got[1])
+	}
+}
+
+func TestClearingTheCacheAnswersNoContent(t *testing.T) {
+	s := serve(t)
+	if code, reply := s.owner.Call(t, http.MethodDelete, "/api/v1/metadata/cache", ""); code != http.StatusNoContent || reply != "" {
+		t.Fatalf("clearMetadataCache = %d %q, want 204 and no body", code, reply)
+	}
 }

@@ -15,6 +15,26 @@ sql:
           - column: metadata_settings.id
             go_type:
               type: Singleton
+          - column: metadata_settings.language
+            go_type:
+              type: string
+              pointer: true
+          - column: metadata_settings.region
+            go_type:
+              type: string
+              pointer: true
+          - column: metadata_settings.follow_changes
+            go_type:
+              type: bool
+              pointer: true
+          - column: "metadata_settings.*_seconds"
+            go_type:
+              type: int64
+              pointer: true
+          - column: metadata_settings.artwork_store_mb
+            go_type:
+              type: int64
+              pointer: true
           - column: metadata_due.work_id
             go_type:
               import: github.com/jatassi/slipstream/internal/works

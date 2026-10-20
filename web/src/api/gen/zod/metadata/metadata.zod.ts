@@ -4,7 +4,14 @@ import {
   MetadataNewKey,
   MetadataProvider,
   MetadataProviderList,
+  MetadataSettings,
+  MetadataSettingsChange,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary Have every Node reading metadata drop what it cached, the next time it reads
+ */
+export const ClearMetadataCacheResponse = zod.void();
 
 /**
  * @summary List each metadata provider's status and whose key it is called with
@@ -39,3 +46,15 @@ export const TestMetadataProviderParams = zod.object({
 });
 
 export const TestMetadataProviderResponse = MetadataProvider;
+
+/**
+ * @summary Get the metadata settings, with the language and region options
+ */
+export const GetMetadataSettingsResponse = MetadataSettings;
+
+/**
+ * @summary Change metadata settings by key, all or none
+ */
+export const UpdateMetadataSettingsBody = MetadataSettingsChange;
+
+export const UpdateMetadataSettingsResponse = MetadataSettings;

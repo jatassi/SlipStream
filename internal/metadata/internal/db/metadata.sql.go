@@ -24,6 +24,28 @@ func (q *Queries) DeleteKey(ctx context.Context, provider string) (int64, error)
 	return result.RowsAffected()
 }
 
+const getSettings = `-- name: GetSettings :one
+SELECT id, language, region, unreleased_every_seconds, growing_every_seconds, others_every_seconds, follow_changes, ratings_every_seconds, cache_for_seconds, artwork_store_mb FROM metadata_settings
+`
+
+func (q *Queries) GetSettings(ctx context.Context) (MetadataSetting, error) {
+	row := q.db.QueryRowContext(ctx, getSettings)
+	var i MetadataSetting
+	err := row.Scan(
+		&i.ID,
+		&i.Language,
+		&i.Region,
+		&i.UnreleasedEverySeconds,
+		&i.GrowingEverySeconds,
+		&i.OthersEverySeconds,
+		&i.FollowChanges,
+		&i.RatingsEverySeconds,
+		&i.CacheForSeconds,
+		&i.ArtworkStoreMb,
+	)
+	return i, err
+}
+
 const listKeys = `-- name: ListKeys :many
 SELECT provider, api_key_sealed, set_at FROM metadata_key ORDER BY provider
 `
@@ -65,5 +87,61 @@ type PutKeyParams struct {
 
 func (q *Queries) PutKey(ctx context.Context, arg PutKeyParams) error {
 	_, err := q.db.ExecContext(ctx, putKey, arg.Provider, arg.ApiKeySealed, arg.SetAt)
+	return err
+}
+
+const refreshAll = `-- name: RefreshAll :exec
+INSERT INTO metadata_type (content_type, refresh_all_at)
+VALUES (?1, ?2)
+ON CONFLICT (content_type) DO UPDATE SET refresh_all_at = max(coalesce(refresh_all_at, 0), excluded.refresh_all_at)
+`
+
+type RefreshAllParams struct {
+	ContentType  string
+	RefreshAllAt storage.Time
+}
+
+func (q *Queries) RefreshAll(ctx context.Context, arg RefreshAllParams) error {
+	_, err := q.db.ExecContext(ctx, refreshAll, arg.ContentType, arg.RefreshAllAt)
+	return err
+}
+
+const setSettings = `-- name: SetSettings :exec
+UPDATE metadata_settings SET
+    language = ?1,
+    region = ?2,
+    unreleased_every_seconds = ?3,
+    growing_every_seconds = ?4,
+    others_every_seconds = ?5,
+    follow_changes = ?6,
+    ratings_every_seconds = ?7,
+    cache_for_seconds = ?8,
+    artwork_store_mb = ?9
+`
+
+type SetSettingsParams struct {
+	Language               *string
+	Region                 *string
+	UnreleasedEverySeconds *int64
+	GrowingEverySeconds    *int64
+	OthersEverySeconds     *int64
+	FollowChanges          *bool
+	RatingsEverySeconds    *int64
+	CacheForSeconds        *int64
+	ArtworkStoreMb         *int64
+}
+
+func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setSettings,
+		arg.Language,
+		arg.Region,
+		arg.UnreleasedEverySeconds,
+		arg.GrowingEverySeconds,
+		arg.OthersEverySeconds,
+		arg.FollowChanges,
+		arg.RatingsEverySeconds,
+		arg.CacheForSeconds,
+		arg.ArtworkStoreMb,
+	)
 	return err
 }

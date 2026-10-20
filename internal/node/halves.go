@@ -147,10 +147,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Service: func(node role.NodeID) metadatav1connect.MetadataServiceHandler {
 			return metadatav1connect.MetadataService.On(cluster, node)
 		},
-		Providers: providers,
-		Changed:   metadata.ChangedEvent.Bind(n.hub),
-		Timings:   n.cfg.Timings.Metadata,
-		Rand:      n.cacheRand,
+		Providers:   providers,
+		Changed:     metadata.ChangedEvent.Bind(n.hub),
+		Timings:     n.cfg.Timings.Metadata,
+		Rand:        n.cacheRand,
+		Types:       n.env.Types.IDs(),
+		TypeChanged: works.TypeChangedEvent.Bind(n.hub),
 	})
 	if err != nil {
 		return err

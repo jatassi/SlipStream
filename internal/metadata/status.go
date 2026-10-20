@@ -147,7 +147,7 @@ func (m *Metadata) Test(ctx context.Context, _ identity.Admin, p ProviderID) (Pr
 }
 
 func (m *Metadata) test(p ProviderID) *metadatav1.TestRequest {
-	return &metadatav1.TestRequest{Ask: askToWire(Ask{keys: m.inEffect(), fresh: true, generation: m.generation}), Provider: string(p)}
+	return &metadatav1.TestRequest{Ask: askToWire(Ask{keys: m.inEffect(), fresh: true, generation: m.cacheGeneration()}), Provider: string(p)}
 }
 
 // Run retests each provider a holder couldn't reach, on that holder, a

@@ -2,6 +2,7 @@ package metadataapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -9,6 +10,8 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -125,6 +128,18 @@ type keyInput struct {
 	Body     newKey
 }
 
+type settings struct {
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Language and region first, then the cache, OMDb's ratings and the artwork store"`
+}
+
+type settingsOutput struct{ Body settings }
+
+type settingsInput struct{ Body settingsChange }
+
+type settingsChange struct {
+	Values map[string]json.RawMessage `json:"values" doc:"Each setting's new value by key, all or none; null resets one to its default. A new language or region makes every Work due at the next Metadata refresh."`
+}
+
 func Routes(r *api.Router, registry Registry) {
 	o := r.Owner("metadata", api.Admin)
 	h := handlers{registry}
@@ -163,6 +178,31 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{providerNotFound, metadataUnavailable},
 	}, h.test)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getMetadataSettings",
+		Method:  http.MethodGet,
+		Path:    "/metadata/settings",
+		Summary: "Get the metadata settings, with the language and region options",
+		Status:  http.StatusOK,
+	}, h.getSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateMetadataSettings",
+		Method:  http.MethodPatch,
+		Path:    "/metadata/settings",
+		Summary: "Change metadata settings by key, all or none",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "clearMetadataCache",
+		Method:  http.MethodDelete,
+		Path:    "/metadata/cache",
+		Summary: "Have every Node reading metadata drop what it cached, the next time it reads",
+		Status:  http.StatusNoContent,
+	}, h.clearCache)
 }
 
 type handlers struct{ registry Registry }
@@ -197,4 +237,29 @@ func (h handlers) test(ctx context.Context, by identity.Admin, in *providerInput
 		return nil, answer(err)
 	}
 	return &providerOutput{Body: providerOf(s)}, nil
+}
+
+func (h handlers) getSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*settingsOutput, error) {
+	return settingsOf(ctx, open(h.registry).Settings())
+}
+
+func (h handlers) updateSettings(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
+	p := open(h.registry).Settings()
+	if err := p.Apply(ctx, in.Body.Values); err != nil {
+		return nil, settingapi.Refused(err)
+	}
+	return settingsOf(ctx, p)
+}
+
+func settingsOf(ctx context.Context, p setting.Panel) (*settingsOutput, error) {
+	fields, err := p.Fields(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &settingsOutput{Body: settings{Settings: settingapi.FieldsOf(fields)}}, nil
+}
+
+func (h handlers) clearCache(_ context.Context, by identity.Admin, _ *struct{}) (*struct{}, error) {
+	open(h.registry).ClearCache(by)
+	return nil, nil
 }
