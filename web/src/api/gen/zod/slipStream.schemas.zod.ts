@@ -3684,6 +3684,8 @@ export const WorksCandidate = zod.object({
   fields: zod.array(WorksFieldValue).describe("The Work's fields"),
   key: zod.string(),
   label: zod.string(),
+  original: zod.string().describe("The label in its original language; empty when it is the label"),
+  overview: zod.string().describe("One line; empty when the source has none"),
   workId: zod.uuid().nullable().describe("The Work, once it is in the library"),
 });
 
@@ -3811,6 +3813,16 @@ export const WorksNewWork = zod.object({
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
+
+export const WorksPreviewed = zod.object({
+  inLibrary: zod
+    .boolean()
+    .describe("Whether the Work is in the library; while it isn't, the ids in work name nothing"),
+  work: WorksTree,
+});
+
+export type WorksPreviewed = zod.input<typeof WorksPreviewed>;
+export type WorksPreviewedOutput = zod.output<typeof WorksPreviewed>;
 
 export const worksTypeChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 

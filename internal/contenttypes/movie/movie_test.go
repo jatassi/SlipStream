@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"reflect"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -47,7 +48,15 @@ func id(t *testing.T, k works.Key) int64 {
 	return n
 }
 
-const saltRoad works.Key = "9000005"
+const (
+	saltRoad        works.Key = "9000005"
+	heat1986        works.Key = "9100001"
+	heat1995        works.Key = "9100002"
+	heatMaking      works.Key = "9100003"
+	bladeRunner2049 works.Key = "9100005"
+	war1917         works.Key = "9100006"
+	summer1993      works.Key = "9100007"
+)
 
 func catalog(t *testing.T) scenario.Scenario {
 	t.Helper()
@@ -97,6 +106,16 @@ func catalog(t *testing.T) scenario.Scenario {
 			Images: []scenario.TMDBImage{{Shape: "logo", Language: "fr", Votes: 9}, {Shape: "logo", Votes: 3}},
 		},
 	)
+	for _, m := range []struct {
+		key             works.Key
+		title, released string
+	}{
+		{heat1986, "Heat", "1986-03-14"}, {heat1995, "Heat", "1995-12-15"}, {heatMaking, "Heat 1995: The Making Of", "2005-06-01"},
+		{"9100004", "Blade Runner", "1982-06-25"}, {bladeRunner2049, "Blade Runner 2049", "2017-10-06"},
+		{war1917, "1917", "2019-12-25"}, {summer1993, "Summer 1993", "1993-09-01"},
+	} {
+		s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: id(t, m.key), IMDbID: "tt" + string(m.key), Title: m.title, Released: m.released})
+	}
 	s.OMDb = &scenario.OMDb{Titles: []scenario.OMDbTitle{{
 		IMDbID: "tt9000005", IMDbRating: ptr(7.1), IMDbVotes: ptr(int64(12345)), RottenTomatoes: ptr(88), Metacritic: ptr(74),
 		Awards: "1 win & 3 nominations",
@@ -182,22 +201,89 @@ func inEachTier(t *testing.T, test func(t *testing.T, m metadata.Source)) {
 	})
 }
 
-func TestSearchAnswersTitleAndYear(t *testing.T) {
+func keys(cs []works.Candidate) []works.Key {
+	out := []works.Key{}
+	for _, c := range cs {
+		out = append(out, c.Key)
+	}
+	return out
+}
+
+func TestTrailingYear(t *testing.T) {
 	inEachTier(t, func(t *testing.T, m metadata.Source) {
-		for query, want := range map[string][]works.Candidate{
-			"quiet orchard": {{Key: "9000001", Label: "The Quiet Orchard", Fields: []works.FieldValue{works.NumberField("year", 2021)}}},
-			"orchard": {
-				{Key: "9000001", Label: "The Quiet Orchard", Fields: []works.FieldValue{works.NumberField("year", 2021)}},
-				{Key: "9000002", Label: "Orchard Road", Fields: []works.FieldValue{works.NumberField("year", 2019)}},
-			},
-			"nobody": {},
+		for query, want := range map[string][]works.Key{
+			"Heat 1995":         {heat1995, heatMaking},
+			"heat":              {heat1986, heat1995, heatMaking},
+			"Blade Runner 2049": {bladeRunner2049},
+			"1917":              {war1917},
+			"Summer 1993":       {summer1993},
+			"nobody":            {},
 		} {
-			got, err := m.Search(t.Context(), metadata.NewAsk(metadata.AskOptions{Language: metadata.DefaultLanguage}), query)
-			if err != nil || !reflect.DeepEqual(got, want) {
-				t.Errorf("Search(%q) = %+v, %v; want %+v", query, got, err, want)
+			got, err := m.Search(t.Context(), inEnglish, query)
+			if err != nil || !reflect.DeepEqual(keys(got), want) {
+				t.Errorf("Search(%q) = %v, %v; want %v", query, keys(got), err, want)
 			}
 		}
 	})
+}
+
+func TestOnlyAYearUpToTenYearsAheadIsReadAsAFilter(t *testing.T) {
+	sv := serve(t, catalog(t))
+	for _, c := range []struct {
+		query string
+		reads int64
+	}{{"Heat 1995", 2}, {"Heat " + strconv.Itoa(time.Now().Year()+10), 2}, {"Heat " + strconv.Itoa(time.Now().Year()+11), 1}, {"Heat 1873", 1}, {"1917", 1}} {
+		before := sv.tmdbSent.sent.Load()
+		if _, err := sv.open().Search(t.Context(), inEnglish, c.query); err != nil {
+			t.Fatal(err)
+		}
+		if sent := sv.tmdbSent.sent.Load() - before; sent != c.reads {
+			t.Errorf("Search(%q) sent %d TMDB requests, want %d", c.query, sent, c.reads)
+		}
+	}
+}
+
+func TestSearchAnswersTitleOriginalOverviewYearAndPoster(t *testing.T) {
+	sv := serve(t, catalog(t))
+	got, err := sv.open().Search(t.Context(), inEnglish, "salt road")
+	want := []works.Candidate{{
+		Key: saltRoad, Label: "The Salt Road", Original: "La Route du Sel", Overview: "Two sisters walk the salt road.",
+		Poster: artwork.Ref{Source: tmdb.ImagesID, Shape: artwork.ShapePoster, Path: sv.tmdbOf(t, inEnglish, id(t, saltRoad)).PosterPath},
+		Fields: []works.FieldValue{works.NumberField("year", 2022)},
+	}}
+	if err != nil || !reflect.DeepEqual(got, want) || want[0].Poster.Path == "" {
+		t.Fatalf("Search = %+v, %v; want %+v", got, err, want)
+	}
+	if sv.omdbSent.sent.Load() != 0 {
+		t.Fatalf("search sent %d OMDb requests, want none", sv.omdbSent.sent.Load())
+	}
+}
+
+func TestSearchReadsPagesUntil25(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		movies, pages int
+	}{{"more than 25", 30, 2}, {"fewer than 25", 22, 2}, {"one page", 7, 1}} {
+		t.Run(c.name, func(t *testing.T) {
+			s := catalog(t)
+			var want []works.Key
+			for i := range c.movies {
+				id := int64(9200001 + i)
+				s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: id, IMDbID: "tt" + strconv.FormatInt(id, 10), Title: "Lantern " + strconv.Itoa(i+1)})
+				if len(want) < 25 {
+					want = append(want, works.Key(strconv.FormatInt(id, 10)))
+				}
+			}
+			sv := serve(t, s)
+			got, err := sv.open().Search(t.Context(), inEnglish, "lantern")
+			if err != nil || !reflect.DeepEqual(keys(got), want) {
+				t.Fatalf("Search = %v, %v; want %v", keys(got), err, want)
+			}
+			if sent := sv.tmdbSent.sent.Load(); sent != int64(c.pages) {
+				t.Fatalf("search sent %d TMDB requests, want %d", sent, c.pages)
+			}
+		})
+	}
 }
 
 func TestFetchReadsTheMovieAsOneItem(t *testing.T) {
@@ -395,6 +481,38 @@ func imageOf(t *testing.T, ims []tmdb.Image, language string, votes float64) str
 	}
 	t.Fatalf("TMDB lists no image in %q with %v votes", language, votes)
 	return ""
+}
+
+func TestPreviewSkipsOMDbAndCommitsNothing(t *testing.T) {
+	sv := serve(t, catalog(t))
+	sh := open(t, metadatatest.Serve(map[works.TypeID]metadata.Source{movie.Def.ID(): sv.open()}))
+	preview, stored, err := sh.works.Preview(t.Context(), identity.Admin{}, movie.Def.ID(), saltRoad)
+	if err != nil || stored {
+		t.Fatalf("Preview = stored %v, %v; want a record not in the library", stored, err)
+	}
+	if sv.omdbSent.sent.Load() != 0 || sv.tmdbSent.sent.Load() != 1 {
+		t.Fatalf("preview sent %d TMDB and %d OMDb requests, want 1 and none", sv.tmdbSent.sent.Load(), sv.omdbSent.sent.Load())
+	}
+	listed, err := sh.works.List(t.Context(), identity.Admin{}, nil)
+	if err != nil || len(listed) != 0 || sh.sent.n.Load() != 0 {
+		t.Fatalf("after a preview the library lists %v, %v and published %d works.changed, want nothing", listed, err, sh.sent.n.Load())
+	}
+	if len(preview.Ratings) != 1 || preview.Ratings[0].Source != "tmdb" || !preview.RatingsReadAt.IsZero() {
+		t.Fatalf("preview ratings %+v read at %v, want only TMDB's and no ratings read", preview.Ratings, preview.RatingsReadAt)
+	}
+
+	added := sh.add(t, saltRoad)
+	without := func(fs []works.FieldValue) []works.FieldValue {
+		return slices.DeleteFunc(slices.Clone(fs), func(f works.FieldValue) bool { return f.Key == "awards" })
+	}
+	if !reflect.DeepEqual(without(added.Fields), preview.Fields) || !reflect.DeepEqual(added.Artwork, preview.Artwork) ||
+		added.Label != preview.Label || len(added.Items) != 1 || len(preview.Items) != 1 || added.Items[0].Key != preview.Items[0].Key {
+		t.Fatalf("added %+v\nwant the preview but OMDb's awards %+v", added, preview)
+	}
+	again, stored, err := sh.works.Preview(t.Context(), identity.Admin{}, movie.Def.ID(), saltRoad)
+	if err != nil || !stored || again.ID != added.ID || !reflect.DeepEqual(again.Fields, added.Fields) {
+		t.Fatalf("Preview once added = %v %v, %v; want the stored Work %v", again.ID, stored, err, added.ID)
+	}
 }
 
 func TestAddedMovieHasOneMonitoredItem(t *testing.T) {

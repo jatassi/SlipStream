@@ -317,10 +317,12 @@ func timeOrNull(t storage.Time) *time.Time {
 }
 
 type candidate struct {
-	Key    string                  `json:"key"`
-	Label  string                  `json:"label"`
-	Fields []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's fields"`
-	WorkID *string                 `json:"workId" format:"uuid" doc:"The Work, once it is in the library"`
+	Key      string                  `json:"key"`
+	Label    string                  `json:"label"`
+	Original string                  `json:"original" doc:"The label in its original language; empty when it is the label"`
+	Overview string                  `json:"overview" doc:"One line; empty when the source has none"`
+	Fields   []api.OneOf[fieldValue] `json:"fields" nullable:"false" doc:"The Work's fields"`
+	WorkID   *string                 `json:"workId" format:"uuid" doc:"The Work, once it is in the library"`
 }
 
 type contentTypeList struct {
@@ -350,6 +352,18 @@ type candidateList struct {
 }
 
 type candidateListOutput struct{ Body candidateList }
+
+type recordInput struct {
+	ContentType string `path:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Key         string `path:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
+}
+
+type previewed struct {
+	InLibrary bool `json:"inLibrary" doc:"Whether the Work is in the library; while it isn't, the ids in work name nothing"`
+	Work      tree `json:"work"`
+}
+
+type previewedOutput struct{ Body previewed }
 
 type addInput struct {
 	Body newWork
@@ -430,6 +444,15 @@ func Routes(r *api.Router, shelf Shelf) {
 	}, h.searchCatalog)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "previewCatalogRecord",
+		Method:  http.MethodGet,
+		Path:    "/content-types/{contentType}/catalog/{key}",
+		Summary: "Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused},
+	}, h.previewCatalogRecord)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "addWork",
 		Method:  http.MethodPost,
 		Path:    "/works",
@@ -495,9 +518,23 @@ func (h handlers) searchCatalog(ctx context.Context, by identity.Admin, in *cata
 	}
 	out := candidateList{Candidates: []candidate{}}
 	for _, c := range found {
-		out.Candidates = append(out.Candidates, candidate{Key: string(c.Key), Label: c.Label, Fields: fieldsOf(c.Fields), WorkID: idOrNull(c.WorkID.UUID)})
+		out.Candidates = append(out.Candidates, candidate{
+			Key: string(c.Key), Label: c.Label, Original: c.Original, Overview: c.Overview, Fields: fieldsOf(c.Fields), WorkID: idOrNull(c.WorkID.UUID),
+		})
 	}
 	return &candidateListOutput{Body: out}, nil
+}
+
+func (h handlers) previewCatalogRecord(ctx context.Context, by identity.Admin, in *recordInput) (*previewedOutput, error) {
+	key, err := works.ParseKey(in.Key)
+	if err != nil {
+		return nil, api.Invalid
+	}
+	t, stored, err := open(h.shelf).Preview(ctx, by, works.TypeID(in.ContentType), key)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &previewedOutput{Body: previewed{InLibrary: stored, Work: treeOf(t)}}, nil
 }
 
 func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) (*addedOutput, error) {
