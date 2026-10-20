@@ -354,15 +354,6 @@ func (s *Session) ConnectPeer(h engine.Handle, peer netip.AddrPort) error {
 	})
 }
 
-func (s *Session) Status(h engine.Handle) (engine.Status, error) {
-	var st C.lts_status
-	err := s.call(func(cerr *C.lts_error) C.int { return C.lts_status_get(s.ses, C.int64_t(h), &st, cerr) })
-	if err != nil {
-		return engine.Status{}, err
-	}
-	return goStatus(&st), nil
-}
-
 func goStatus(st *C.lts_status) engine.Status {
 	out := engine.Status{
 		Torrent: engine.Handle(st.torrent),

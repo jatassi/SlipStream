@@ -48,6 +48,8 @@ type cluster struct {
 	mu       sync.Mutex
 	assigned map[role.NodeID][]role.Name
 	draining map[role.NodeID][]role.Name
+	// applied is what each Applied call found committed.
+	applied []string
 }
 
 func (c *cluster) Self() role.NodeID { return c.controllerID }
@@ -94,6 +96,20 @@ func (c *cluster) setIntent(t *testing.T, node role.NodeID, value string) {
 	}
 }
 
+// noteApplied records the results of node committed when Applied runs.
+func (c *cluster) noteApplied(node role.NodeID, scope string) {
+	ns, err := roletest.Applied(context.Background(), c.lib, node)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.applied = append(c.applied, fmt.Sprintf("%s %v %v", scope, ns, err))
+}
+
+func (c *cluster) appliedNotes() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.applied)
+}
+
 func (c *cluster) path() *fault.Plan {
 	return c.pair.Net.Path(linktest.ControllerAddr, linktest.WorkerAddr)
 }
@@ -110,7 +126,7 @@ func newCluster(t *testing.T, controllerVersion, workerVersion string) *cluster 
 		assigned:     map[role.NodeID][]role.Name{},
 		draining:     map[role.NodeID][]role.Name{},
 	}
-	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Stall: 45 * time.Second, Log: discard}, c.probe)
+	c.controls = role.NewControls(role.ControlsConfig{Library: c.lib, Nodes: c, Scope: c.scopeOf, Applied: c.noteApplied, Stall: 45 * time.Second, Log: discard}, c.probe)
 	lockstep.Handle(c.controls.Handler())
 	return c
 }
@@ -221,6 +237,28 @@ func TestAWorkerFollowsItsIntentAcrossAPartition(t *testing.T) {
 		check(t, "unassigned, the Worker's facts", nodeFacts(c, c.workerID), "assigned [] running [] restarting []")
 		if w.Holds(roletest.Name) {
 			t.Error("the Worker still holds the probe once unassigned")
+		}
+	})
+}
+
+// TestAppliedRunsOnceEachBatchOfResultsCommits reports two results from
+// the Worker: Applied runs after each batch commits, so the Controller's
+// hook already reads every result it was called for.
+func TestAppliedRunsOnceEachBatchOfResultsCommits(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+		for _, n := range []uint64{1, 2} {
+			if err := w.probe.Report(t.Context(), n); err != nil {
+				t.Fatal(err)
+			}
+			synctest.Wait()
+		}
+		if got, want := c.appliedNotes(), []string{"probe [1] <nil>", "probe [1 2] <nil>"}; !slices.Equal(got, want) {
+			t.Errorf("Applied saw %q, want %q", got, want)
 		}
 	})
 }

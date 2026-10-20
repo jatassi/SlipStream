@@ -1,0 +1,13 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: downloading_torrent.private
+            go_type:
+              type: bool

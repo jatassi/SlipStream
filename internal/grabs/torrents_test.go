@@ -15,7 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -83,14 +82,14 @@ func addAttic(t *testing.T, lib library) works.WorkID {
 	return tree.ID
 }
 
-type noFacts struct{}
+type noDownloads struct{}
 
-func (noFacts) Touch(...role.NodeID)                  {}
-func (noFacts) Facts(role.NodeID) (*dlv1.Facts, bool) { return nil, false }
+func (noDownloads) Touch(...role.NodeID)   {}
+func (noDownloads) Moved() <-chan struct{} { return nil }
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()
-	v, err := grabs.New(grabs.Config{Library: lib, Downloads: noFacts{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
+	v, err := grabs.New(grabs.Config{Library: lib, Downloads: noDownloads{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
 	if err != nil {
 		t.Fatal(err)
 	}

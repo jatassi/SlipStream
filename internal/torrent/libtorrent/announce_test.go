@@ -169,8 +169,8 @@ func TestATorrentAddedAgainWhileItsRemovalWaitsStays(t *testing.T) {
 	}
 	tracker.Answer()
 	waitFor(t, e.Events(), func(r engine.TrackerReplied) bool { return r.Torrent == h })
-	if _, err := e.Status(h); err != nil {
-		t.Fatalf("after the tracker answered, the torrent added again reads %v, want its status", err)
+	if _, err := e.Files(h); err != nil {
+		t.Fatalf("after the tracker answered, the torrent added again reads %v, want its files", err)
 	}
 	if got := tracker.next(2 * time.Second); got != "" {
 		t.Fatalf("after the tracker answered, the torrent added again announced %q, want nothing", got)

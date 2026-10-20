@@ -7,9 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/link"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -111,8 +109,7 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 		if err != nil {
 			return TopologyNode{}, fmt.Errorf("read the Grabs node %s keeps: %w", v.ID, err)
 		}
-		f, _ := s.cfg.Downloads.Facts(v.ID)
-		n.Downloading = &Downloading{Torrents: torrentsOf(f, kept)}
+		n.Downloading = &Downloading{Torrents: torrentsOf(kept)}
 	}
 	if board.Who(role.Storage).Serves(v.ID) {
 		f, err := s.cfg.Storage(ctx, r, v.ID)
@@ -124,16 +121,11 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 	return n, nil
 }
 
-// torrentsOf is each Grab of kept whose torrent f reports, in f's order.
-func torrentsOf(f *dlv1.Facts, kept []Grabbed) []Torrent {
-	out := []Torrent{}
-	for _, t := range f.GetTorrents() {
-		h := bencode.InfoHash(t.GetInfoHash())
-		for _, g := range kept {
-			if g.InfoHash == h {
-				out = append(out, Torrent{Grab: g.Grab, Title: g.Title, Done: t.GetDone(), Wanted: t.GetWanted(), Peers: int(t.GetPeers())})
-			}
-		}
+// torrentsOf is each Grab of kept, in kept's order.
+func torrentsOf(kept []Grabbed) []Torrent {
+	out := make([]Torrent, len(kept))
+	for i, g := range kept {
+		out[i] = Torrent{Grab: g.Grab, Title: g.Title, Done: g.Done, Wanted: g.Wanted}
 	}
 	return out
 }

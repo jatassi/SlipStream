@@ -5,6 +5,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -44,6 +45,7 @@ func localSchemas() []storage.Schema[storage.Local] {
 	return []storage.Schema[storage.Local]{
 		role.LocalSchema(),
 		transfers.Schema(),
+		downloading.Schema(),
 	}
 }
 

@@ -89,7 +89,7 @@ func intentOf(t *testing.T, lib library, node role.NodeID) []dc.ID {
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		in, err := dc.Intent(ctx, r, node)
 		for _, tor := range in.GetTorrents() {
-			u, err := storage.UUIDFromBytes(tor.GetGrabId())
+			u, err := storage.UUIDFromBytes(tor.GetId())
 			if err != nil {
 				return err
 			}
@@ -258,22 +258,35 @@ func outcomeOf(t *testing.T, lib library, id dc.ID) dc.Attached {
 	return got[id]
 }
 
-func apply(t *testing.T, lib library, node role.NodeID, id dc.ID, res *dlv1.Result) {
+func apply(t *testing.T, lib library, node role.NodeID, id dc.ID, r *dlv1.TorrentReport) {
 	t.Helper()
-	res.GrabId = id.Bytes()
-	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return dc.Apply(ctx, tx, node, res) })
+	r.Id = id.Bytes()
+	rep := &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{r}}}}
+	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return clients().Apply(ctx, tx, node, rep)
+	})
 }
 
-func completed(files ...engine.File) *dlv1.Result {
-	c := &dlv1.Completed{}
+func clients() *dc.Clients {
+	return dc.New(dc.Config{Touch: func(...role.NodeID) {}, Changed: published{}})
+}
+
+type published struct{}
+
+func (published) Publish(context.Context, dc.Changed) {}
+
+var reportedAt = time.Date(2026, 10, 19, 21, 0, 0, 0, time.UTC)
+
+func completed(files ...engine.File) *dlv1.TorrentReport {
+	c := &dlv1.Completion{}
 	for _, f := range files {
 		c.Files = append(c.Files, &dlv1.File{Index: int32(f.Index), Path: f.Path, Size: f.Size}) //nolint:gosec // a test index fits
 	}
-	return &dlv1.Result{Outcome: &dlv1.Result_Completed{Completed: c}}
+	return &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_SEEDING, Complete: true, Completion: c}
 }
 
-func failed() *dlv1.Result {
-	return &dlv1.Result{Outcome: &dlv1.Result_Failed{Failed: &dlv1.Failed{Error: "disk on fire"}}}
+func failed() *dlv1.TorrentReport {
+	return &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_FAILED, Error: "disk on fire"}
 }
 
 // TestOutcomesFollowTheTorrentsState is what a Grab attached to a

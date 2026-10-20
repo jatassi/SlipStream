@@ -745,10 +745,6 @@ int lts_connect_peer(lts_session* s, int64_t torrent, char const* address, uint1
 	});
 }
 
-int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* err) {
-	return guard(err, [&] { fill(out, torrent, find(s, torrent).status()); });
-}
-
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err) {
 	return guard(err, [&] {
 		lt::torrent_handle h = find(s, torrent);

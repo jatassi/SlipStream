@@ -470,25 +470,29 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 
 // startTorrent opens the torrent engine and the Node's built-in client,
 // which reads its events from now on, claimed or not.
-func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
+func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) error {
 	torrent, err := n.env.Engine(engine.Config{
 		ListenInterface: cfg.Torrent.Listen,
 		OutgoingUTP:     cfg.Torrent.OutgoingUTP,
 		AnnounceFloor:   cfg.Timings.Downloading.AnnounceFloor,
 		RouteCheck:      cfg.Timings.Downloading.RouteCheck,
-		Rand:            ports,
+		Rand:            torrentRand,
 	})
 	if err != nil {
 		return fmt.Errorf("open torrent engine on %s: %w", cfg.Torrent.Listen, err)
 	}
 	n.torrent = torrent
 	n.downloads = downloading.NewClient(downloading.Config{
-		Engine:  torrent,
-		Dir:     n.env.DataDir.Resolve(cfg.Torrent.Downloads),
-		Timings: cfg.Timings.Downloading,
-		Log:     n.rootLog.With("subsystem", "downloading"),
+		Engine:   torrent,
+		Dir:      n.env.DataDir.Resolve(cfg.Torrent.Downloads),
+		Listen:   cfg.Torrent.Listen,
+		Timings:  cfg.Timings.Downloading,
+		RetryMin: cfg.Timings.Role.RestartMin,
+		RetryMax: cfg.Timings.Role.RestartMax,
+		Rand:     torrentRand,
+		Log:      n.rootLog.With("subsystem", "downloading"),
 	})
-	n.stack.Go("torrent events", n.downloads.Drain)
+	n.stack.Go("torrent client", n.downloads.Loop)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
 	// An engine whose port was taken runs without a listener, and the
 	// engine-starts probe says so.

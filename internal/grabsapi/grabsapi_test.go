@@ -20,7 +20,6 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
-	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/release"
@@ -68,7 +67,7 @@ func (alone) InStep(role.NodeID) bool                             { return true 
 func (alone) WrittenOff(role.Name, role.NodeID) bool              { return false }
 func (alone) Changed() <-chan struct{}                            { return nil }
 func (alone) Touch(...role.NodeID)                                {}
-func (alone) Facts(role.NodeID) (*dlv1.Facts, bool)               { return nil, false }
+func (alone) Moved() <-chan struct{}                              { return nil }
 
 type lapsing struct{ lapsed atomic.Bool }
 

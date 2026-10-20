@@ -183,7 +183,6 @@ int lts_listen_port(lts_session* s, uint16_t* port, lts_error* err);
 /* Adds the torrent paused and not auto-managed, whatever resume data says. */
 int lts_add(lts_session* s, const lts_add_params* p, int64_t* torrent, lts_error* err);
 int lts_connect_peer(lts_session* s, int64_t torrent, const char* address, uint16_t port, lts_error* err);
-int lts_status_get(lts_session* s, int64_t torrent, lts_status* out, lts_error* err);
 /* Pauses gracefully once no tracker awaits its answer to started. */
 int lts_pause(lts_session* s, int64_t torrent, lts_error* err);
 int lts_resume(lts_session* s, int64_t torrent, lts_error* err);

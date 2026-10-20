@@ -44,7 +44,6 @@ type Engine interface {
 	// Configure applies l live.
 	Configure(l Limits) error
 	ConnectPeer(Handle, netip.AddrPort) error
-	Status(Handle) (Status, error)
 	// Remove leaves once no tracker awaits its answer to started, so stopped
 	// goes out wherever started was answered. deleteFiles deletes the
 	// torrent's files and then its save path when that is left empty, and

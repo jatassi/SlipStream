@@ -300,37 +300,40 @@ func TestAResultMadeWhileTheWorkersLinkIsDownLandsOnce(t *testing.T) {
 		}
 		path.Clear("")
 		expectImported(t, await(t, w))
-		if got := watermarks(t, w); !slices.Equal(got, []int64{1}) {
-			t.Fatalf("home applied seedbox's results through %v, want [1]: one result, applied once", got)
+		if got := watermarks(t, w); len(got) != 1 {
+			t.Fatalf("home applied seedbox's results through %v, want one epoch's: each result applied once", got)
 		}
 		expectPlaced(t, w)
 	})
 }
 
-// adds records the info hash of each torrent an engine adds.
+// adds records how an engine adds each torrent: by the info hash of its
+// metainfo, or "resume" when from resume data.
 type adds struct {
 	engine.Engine
-	mu     *sync.Mutex
-	hashes *[]bencode.InfoHash
+	mu    *sync.Mutex
+	added *[]string
 }
 
 func (a adds) Add(p engine.AddParams) (engine.Handle, error) {
+	how := "resume"
 	if m, err := bencode.DecodeMetainfo(p.Metainfo); err == nil {
-		a.mu.Lock()
-		*a.hashes = append(*a.hashes, m.InfoHash)
-		a.mu.Unlock()
+		how = m.InfoHash.String()
 	}
+	a.mu.Lock()
+	*a.added = append(*a.added, how)
+	a.mu.Unlock()
 	return a.Engine.Add(p)
 }
 
 // TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing restarts
-// seedbox with its link to home stalled: once home had time to answer, it
-// adds the torrent again from its cached intent, and its second Completed,
-// once applied, changes nothing.
+// seedbox with its link to home stalled: it adds the torrent again from
+// the resume data it saved, while partitioned, and its reports, once
+// applied, change nothing about the Grab.
 func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var mu sync.Mutex
-		var added []bencode.InfoHash
+		var added []string
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
 			open := e.Engine
 			e.Engine = func(cfg engine.Config) (engine.Engine, error) {
@@ -341,8 +344,9 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		search(t, w, addOrchard(t, w))
 		before := await(t, w)
 		expectImported(t, before)
-		if got := watermarks(t, w); !slices.Equal(got, []int64{1}) {
-			t.Fatalf("home applied seedbox's results through %v, want [1]", got)
+		first := watermarks(t, w)
+		if len(first) != 1 {
+			t.Fatalf("home applied seedbox's results through %v, want one epoch's", first)
 		}
 
 		path := w.Path("home", "seedbox")
@@ -354,21 +358,17 @@ func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
 		timings := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(timings.RedialMax + timings.Handshake)
 		synctest.Wait()
-		hash, err := bencode.ParseInfoHash(before.InfoHash)
-		if err != nil {
-			t.Fatal(err)
-		}
 		mu.Lock()
-		if !slices.Equal(added, []bencode.InfoHash{hash, hash}) {
-			t.Fatalf("seedbox's engines added %v, want %s twice: once from the intent, once from its cache while partitioned", added, hash)
+		if !slices.Equal(added, []string{before.InfoHash, "resume"}) {
+			t.Fatalf("seedbox's engines added %v, want %s from its metainfo, then from resume data while partitioned", added, before.InfoHash)
 		}
 		mu.Unlock()
 
 		path.Clear("")
 		time.Sleep(redialed)
 		synctest.Wait()
-		if got := watermarks(t, w); !slices.Equal(got, []int64{2}) {
-			t.Fatalf("home applied seedbox's results through %v, want [2]: the second Completed applied", got)
+		if got := watermarks(t, w); len(got) != 1 || got[0] <= first[0] {
+			t.Fatalf("home applied seedbox's results through %v, want past %v: the restarted Node's reports applied", got, first)
 		}
 		after := await(t, w)
 		if !slices.Equal(after.History, before.History) || after.Stage != "imported" {

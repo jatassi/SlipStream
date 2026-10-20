@@ -20,6 +20,8 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifying"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/housekeeping/v1/housekeepingv1connect"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
@@ -95,7 +97,12 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	downloads := downloading.Def.Serve(downloadclients.Intent, downloadclients.Apply)
+	var downloads *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+	clients := downloadclients.New(downloadclients.Config{
+		Touch:   func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
+		Changed: downloadclients.ChangedEvent.Bind(n.hub),
+	})
+	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	arrivals := roots.NewArrivals()
 	var (
@@ -114,12 +121,12 @@ func (n *Node) startController(ctx context.Context) error {
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads, stored}, n.env.Test.Served...),
 		Owners:          owners(),
-		Downloads:       downloads,
 		Kept:            grabs.Kept,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
 			return library.Figures(ctx, r, id)
 		},
-		Facts: arrivals.Note,
+		Facts:   arrivals.Note,
+		Applied: clients.Applied,
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
@@ -132,13 +139,15 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	controls := side.Controls()
-	holding, local, err := n.startHolding(ctx, role.InProcess(controls), nil)
+	self := n.key.Public()
+	var holding *role.Holding
+	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
+	cluster := rpc.NewCluster(dispatch, side)
+	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.TorrentService{Library: lib.db, Nodes: side, Types: tree})
+	holding, local, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil)
 	if err != nil {
 		return err
 	}
-	self := n.key.Public()
-	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
-	cluster := rpc.NewCluster(dispatch, side)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
@@ -221,7 +230,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Indexers:  registry,
 		Terms:     contenttype.Project(opened, func(t contenttype.Type) indexers.Facet { return t }),
 		Roster:    side,
-		Downloads: downloads,
+		Downloads: clients,
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
@@ -329,11 +338,12 @@ func (n *Node) startWorker(ctx context.Context) error {
 	side := n.pairing
 	controller := side.Controller()
 	front := serving.NewWorker(n.link, controller.Key, n.cfg.Timings.Serving, n.rootLog.With("subsystem", "serving"))
-	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
+	var holding *role.Holding
+	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
+	holding, local, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
 	if err != nil {
 		return err
 	}
-	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(n.httpClient(), n.cfg.Timings.Indexers))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
@@ -371,17 +381,19 @@ func (n *Node) removed(ctx context.Context) {
 }
 
 // startHolding opens local.db and runs the holder half toward upstream,
-// holding the half's own Roles beside every Node's.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, own []role.Held) (*role.Holding, *storage.DB[storage.Local], error) {
+// holding the half's own Roles beside every Node's. Its Roles call the
+// Controller through dispatch.
+func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held) (*role.Holding, *storage.DB[storage.Local], error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
 		return nil, nil, err
 	}
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
+	n.claimed.OnStop("torrent resume data", n.downloads.Shutdown(local))
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:    local,
 		Upstream: upstream,
-		Held:     slices.Concat(n.heldRoles(local), own, n.env.Test.held(local)),
+		Held:     slices.Concat(n.heldRoles(local, dispatch), own, n.env.Test.held(local)),
 		Timings:  n.cfg.Timings.Role,
 		Rand:     n.roleRand,
 		Log:      n.rootLog.With("subsystem", "role"),
@@ -429,9 +441,9 @@ func owners() []nodes.Owner {
 }
 
 // heldRoles is every Role this binary runs, one held line each.
-func (n *Node) heldRoles(local *storage.DB[storage.Local]) []role.Held {
+func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch) []role.Held {
 	return []role.Held{
-		downloading.Def.Hold(n.downloads.Run(local), n.downloads.Release),
+		downloading.Def.Hold(n.downloads.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloads.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
 	}
 }

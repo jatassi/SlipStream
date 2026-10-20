@@ -58,8 +58,8 @@ func partlyDownloaded(t *testing.T, meta, payload []byte) (engine.Engine, engine
 	}
 	var st engine.Status
 	for deadline := time.Now().Add(60 * time.Second); st.Done == 0; time.Sleep(time.Millisecond) {
-		if st, err = leecher.Status(h); err != nil {
-			t.Fatalf("status: %v", err)
+		if s, ok := updated(t, leecher, h); ok {
+			st = s
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("status = %+v, want a piece done", st)
