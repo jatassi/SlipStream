@@ -112,11 +112,9 @@ async function browseToFilms(page: Page, movies: Movies): Promise<void> {
   await useButton(page, "films").click();
 }
 
+// A root joins its volume when its Node next reports finding it, a moment
+// after the Add, so the page is waited on before the API is read.
 async function expectOneVolume(page: Page, world: World, paths: readonly string[]): Promise<void> {
-  const [volume] = Volumes.parse((await world.api("GET", "/api/v1/volumes")).body).nodes.flatMap(
-    (group) => group.volumes,
-  );
-  expect(volume?.rootIds, "both roots sit on one volume, counted once").toHaveLength(paths.length);
   const onHome = page.getByRole("list", { name: "Volumes on home" }).getByRole("listitem");
   await expect(onHome).toHaveCount(1);
   await expect(onHome).toContainText(/free of/u);
@@ -124,6 +122,10 @@ async function expectOneVolume(page: Page, world: World, paths: readonly string[
     // oxlint-disable-next-line no-await-in-loop -- one assertion per root, on the same row
     await expect(onHome).toContainText(path);
   }
+  const [volume] = Volumes.parse((await world.api("GET", "/api/v1/volumes")).body).nodes.flatMap(
+    (group) => group.volumes,
+  );
+  expect(volume?.rootIds, "both roots sit on one volume, counted once").toHaveLength(paths.length);
   await expect(onHome.getByRole("meter", { name: `${volume?.name} used` })).toBeVisible();
 }
 
