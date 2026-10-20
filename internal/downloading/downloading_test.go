@@ -50,6 +50,18 @@ type file struct {
 
 func newFile(t *testing.T, name string) file {
 	t.Helper()
+	return makeFile(t, name, map[string]any{})
+}
+
+// newPrivateFile is a torrent of a private tracker, which the announce
+// policy holds to the tracker's window.
+func newPrivateFile(t *testing.T, name string) file {
+	t.Helper()
+	return makeFile(t, name, map[string]any{"private": 1})
+}
+
+func makeFile(t *testing.T, name string, info map[string]any) file {
+	t.Helper()
 	payload := make([]byte, size)
 	_, _ = rand.NewChaCha8([32]byte{name[0], name[1]}).Read(payload)
 	var pieces []byte
@@ -57,9 +69,10 @@ func newFile(t *testing.T, name string) file {
 		sum := sha1.Sum(p[:min(pieceLength, len(p))]) //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
 		pieces = append(pieces, sum[:]...)
 	}
+	info["length"], info["name"], info["piece length"], info["pieces"] = size, name, pieceLength, pieces
 	meta, err := bencode.Encode(map[string]any{
 		"announce": trackerURL,
-		"info":     map[string]any{"length": size, "name": name, "piece length": pieceLength, "pieces": pieces},
+		"info":     info,
 	})
 	if err != nil {
 		t.Fatal(err)
