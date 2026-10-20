@@ -1,7 +1,8 @@
 import type { GrabsGrab } from "../api/gen/model";
+import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { bytes } from "../format";
 import { useLiveRow } from "../live/torrents";
-import { etaWords, rateWords } from "../torrents/model";
+import { paceOf } from "../torrents/model";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
 import { movesBytes, stageWord } from "./stages";
@@ -36,15 +37,18 @@ function Progress({
   );
 }
 
-// A download's speed and time left come from its Torrent's live samples.
+// A download's progress comes from its Torrent's live samples, and its
+// speed and time left too while the Torrent downloads.
 function LiveProgress({ grab, torrentId }: { grab: GrabsGrab; torrentId: string }) {
   const live = useLiveRow(torrentId);
+  const state = useListTorrentsSuspense(undefined, {
+    query: { select: ({ rows }) => rows.find(({ id }) => id === torrentId)?.state },
+  }).data;
   if (live === undefined) {
     return <ReportedProgress grab={grab} />;
   }
-  const pace = [etaWords(live), live.downBps > 0 ? rateWords(live.downBps) : ""]
-    .filter((part) => part !== "")
-    .join(" · ");
+  const { eta, rate } = state === undefined ? { eta: "", rate: "" } : paceOf(state, live);
+  const pace = [eta, rate].filter((part) => part !== "").join(" · ");
   return <Progress grab={grab} progress={{ done: live.done, total: live.wanted }} pace={pace} />;
 }
 

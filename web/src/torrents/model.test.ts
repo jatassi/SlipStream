@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import type { DownloadclientsTorrentRow } from "../api/gen/model";
 import { homeId, listOf, seedboxId, torrent } from "../test/torrents";
-import { etaWords, matches, rateWords, seedWords, stateLine, trackerLine } from "./model";
+import { matches, paceOf, rateWords, seedWords, stateLine, trackerLine } from "./model";
 import { signalsOf, torrentsSentence } from "./summary";
 
 const clock = { now: new Date("2026-10-20T12:00:00Z"), zone: "UTC" };
@@ -113,14 +113,14 @@ test.each([
   expect(trackerLine(cell, clock)).toEqual(words);
 });
 
-test("rates, time left and seed words", () => {
+test("rates, a pace only while downloading, and seed words", () => {
   expect(rateWords(0)).toBe("—");
   expect(rateWords(4.1 * 1024 * 1024)).toBe("4.1 MB/s");
   expect(rateWords(597)).toBe("0.6 KB/s");
-  expect(etaWords({ ...live, done: 0, wanted: 600 * 1024 * 1024, downBps: 1024 * 1024 })).toBe(
-    "10 min left",
-  );
-  expect(etaWords({ ...live, downBps: 0, wanted: 10 })).toBe("");
+  const moving = { ...live, done: 0, wanted: 600 * 1024 * 1024, downBps: 1024 * 1024 };
+  expect(paceOf("downloading", moving)).toEqual({ eta: "10 min left", rate: "1.0 MB/s" });
+  expect(paceOf("downloading", { ...live, downBps: 0, wanted: 10 })).toEqual({ eta: "", rate: "" });
+  expect(paceOf("paused", moving)).toEqual({ eta: "", rate: "" });
   expect(seedWords(torrent({ state: "seeding", seedingSeconds: 6 * 86_400 }))).toBe(
     "Seeded 6 days",
   );
