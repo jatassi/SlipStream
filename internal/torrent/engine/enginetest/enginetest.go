@@ -239,8 +239,9 @@ type torrent struct {
 	files    []engine.File
 	state    engine.State
 	paused   bool
-	// pausing is a pause waiting for a tracker's answer to started.
-	pausing bool
+	// turning is a pause or resume waiting for no tracker to await an
+	// answer.
+	turning turn
 	// removing is a removal waiting likewise, deleting files when
 	// deleteFiles.
 	removing, deleteFiles bool
@@ -349,26 +350,52 @@ func (e *Engine) Pause(h engine.Handle) error {
 	})
 }
 
+// turn is what a torrent does once no tracker awaits an answer, as
+// libtorrent's shim has it: libtorrent sends stopped only to a tracker
+// that answered, and skips started while one awaits an answer.
+type turn uint8
+
+const (
+	noTurn turn = iota
+	pauseTurn
+	resumeTurn
+)
+
 // pause pauses t now, or once no tracker awaits an answer.
-func (t *torrent) pause() {
-	t.pausing = true
+func (t *torrent) pause() { t.turnTo(pauseTurn) }
+
+func (t *torrent) turnTo(to turn) {
+	t.turning = to
 	t.settle()
 }
 
-// settle carries out the pause or removal of t that waited for its
-// trackers to answer, once none awaits an answer.
+// settle carries out the pause, resume or removal of t that waited for
+// its trackers to answer, once none awaits an answer.
 func (t *torrent) settle() {
 	if t.trackers.awaitsAnswer() {
 		return
 	}
-	if t.pausing {
-		t.pausing = false
+	to := t.turning
+	t.turning = noTurn
+	switch to {
+	case pauseTurn:
 		if !t.paused {
 			t.setPaused(true)
 			t.reschedule()
 			t.trackers.stop()
 			t.e.emit(engine.Paused{Torrent: t.handle})
 		}
+	case resumeTurn:
+		if t.paused {
+			t.setPaused(false)
+			t.e.emit(engine.Resumed{Torrent: t.handle})
+			if t.state == engine.StateCheckingFiles {
+				t.check()
+			}
+			t.trackers.start()
+			t.reschedule()
+		}
+	case noTurn:
 	}
 	if t.removing {
 		t.removing = false
@@ -385,17 +412,7 @@ func (e *Engine) holds(t *torrent) bool {
 
 func (e *Engine) Resume(h engine.Handle) error {
 	return e.with(h, func(t *torrent) error {
-		t.pausing = false
-		if !t.paused {
-			return nil
-		}
-		t.setPaused(false)
-		t.e.emit(engine.Resumed{Torrent: t.handle})
-		if t.state == engine.StateCheckingFiles {
-			t.check()
-		}
-		t.trackers.start()
-		t.reschedule()
+		t.turnTo(resumeTurn)
 		return nil
 	})
 }
@@ -748,7 +765,7 @@ func (e *Engine) Remove(h engine.Handle, deleteFiles bool) error {
 		t.stopTransfer()
 		delete(e.torrents, h)
 		delete(e.posted, h)
-		t.pausing, t.removing, t.deleteFiles = false, true, deleteFiles
+		t.turning, t.removing, t.deleteFiles = noTurn, true, deleteFiles
 		e.parting[t.meta.InfoHash] = t
 		t.settle()
 		return nil
