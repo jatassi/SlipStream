@@ -161,7 +161,7 @@ func open(ap netip.AddrPort, cfg engine.Config) (*Session, error) {
 	addr := C.CString(addressText(ap.Addr()))
 	defer C.free(unsafe.Pointer(addr))
 	var cerr C.lts_error
-	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), cBool(cfg.OutgoingUTP), C.int32_t(cfg.AnnounceFloor/time.Second), &cerr)
+	ses := C.lts_open(addr, C.uint16_t(ap.Port()), discoveryBits(cfg.Discovery), C.int32_t(cfg.AnnounceFloor/time.Second), &cerr)
 	if ses == nil {
 		return nil, goError(&cerr)
 	}

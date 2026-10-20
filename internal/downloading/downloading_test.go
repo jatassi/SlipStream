@@ -196,11 +196,26 @@ func (c *control) fetched() []storage.UUID {
 	return slices.Clone(c.asked)
 }
 
-// checks is an engine that counts the checks it is asked for.
+// checks is an engine that counts the checks it is asked for and keeps
+// the limits it runs with.
 type checks struct {
 	engine.Engine
-	mu sync.Mutex
-	n  int
+	mu     sync.Mutex
+	n      int
+	limits engine.Limits
+}
+
+func (c *checks) Configure(l engine.Limits) error {
+	c.mu.Lock()
+	c.limits = l
+	c.mu.Unlock()
+	return c.Engine.Configure(l)
+}
+
+func (c *checks) running() engine.Limits {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.limits
 }
 
 func (c *checks) Recheck(h engine.Handle) error {
@@ -425,6 +440,40 @@ func TestADownloadWaitsForAFreeSlot(t *testing.T) {
 		synctest.Wait()
 		if _, err := c.Path(files[waiting].hash, 0); err != nil {
 			t.Fatalf("Path of the download that waited, after its 40 s = %v", err)
+		}
+	})
+}
+
+func TestSettingsApplyLiveFromTheIntent(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		n.world.Transfer(f.hash, 1000, 0)
+		id := n.hold(f)
+		c := n.start()
+		limited := live(f.started(id, 1))
+		limited.Intent.Settings = &dlv1.Settings{DownloadLimit: 100, ActiveDownloads: 3, ActiveChecks: 1, Connections: 50, StalledAfterSeconds: 600}
+		c.send(limited)
+		if got, want := c.engine.running(), (engine.Limits{DownloadLimit: 100, Connections: 50}); got != want {
+			t.Fatalf("the engine runs with %+v, want the intent's %+v", got, want)
+		}
+		time.Sleep(time.Minute)
+		synctest.Wait()
+		if c.h.latest(t, id).GetComplete() {
+			t.Fatal("a 40 KB download held to 100 B/s is complete after a minute")
+		}
+
+		unlimited := live(f.started(id, 1))
+		unlimited.Intent.Settings = &dlv1.Settings{ActiveDownloads: 3, ActiveChecks: 1, Connections: 8000, Utp: true, StalledAfterSeconds: 600}
+		c.send(unlimited)
+		if got, want := c.engine.running(), (engine.Limits{Connections: 8000, UTP: true}); got != want {
+			t.Fatalf("the engine runs with %+v once the settings changed, want %+v", got, want)
+		}
+		time.Sleep(40 * time.Second)
+		synctest.Wait()
+		if !c.h.latest(t, id).GetComplete() {
+			t.Fatal("the download is incomplete 40 s after its limit was lifted, want it done at 1000 B/s")
 		}
 	})
 }

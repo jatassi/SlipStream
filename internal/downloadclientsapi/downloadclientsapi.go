@@ -1,0 +1,180 @@
+// Package downloadclientsapi is the built-in torrent clients' operations:
+// each downloading Node's client settings.
+package downloadclientsapi
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/settingapi"
+	"github.com/jatassi/slipstream/internal/storage"
+)
+
+// Clients is the Node's download clients owner and its roster.
+type Clients interface {
+	// DownloadClients is the record of every Node's built-in client,
+	// false unless the Node is a Controller.
+	DownloadClients() (*downloadclients.Clients, bool)
+	// Nodes is the nodes service, false unless the Node is a Controller.
+	Nodes() (*nodes.Service, bool)
+}
+
+func open(c Clients) (*downloadclients.Clients, *nodes.Service) {
+	clients, ok := c.DownloadClients()
+	roster, known := c.Nodes()
+	if !ok || !known {
+		panic("downloadclientsapi: an Admin operation ran on a Node that is no Controller")
+	}
+	return clients, roster
+}
+
+var nodeNotFound = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
+
+type settings struct {
+	DownloadLimit   setting.RateField     `json:"downloadLimit"`
+	UploadLimit     setting.RateField     `json:"uploadLimit"`
+	ActiveDownloads setting.CountField    `json:"activeDownloads"`
+	ActiveChecks    setting.CountField    `json:"activeChecks"`
+	Connections     setting.CountField    `json:"connections"`
+	UTP             setting.SwitchField   `json:"utp"`
+	StalledAfter    setting.DurationField `json:"stalledAfter"`
+}
+
+type settingsPatch struct {
+	DownloadLimit   api.Patch[int64] `json:"downloadLimit,omitempty" doc:"Bytes a second, 0 for no limit; null resets it to its default"`
+	UploadLimit     api.Patch[int64] `json:"uploadLimit,omitempty" doc:"Bytes a second, 0 for no limit; null resets it to its default"`
+	ActiveDownloads api.Patch[int64] `json:"activeDownloads,omitempty" doc:"0 for no limit; null resets it to its default"`
+	ActiveChecks    api.Patch[int64] `json:"activeChecks,omitempty" doc:"null resets it to its default"`
+	Connections     api.Patch[int64] `json:"connections,omitempty" doc:"null resets it to its default"`
+	UTP             api.Patch[bool]  `json:"utp,omitempty" doc:"null resets it to its default"`
+	StalledAfter    api.Patch[int64] `json:"stalledAfter,omitempty" doc:"Seconds; null resets it to its default"`
+}
+
+type nodeInput struct {
+	NodeID string `path:"nodeId" format:"uuid"`
+}
+
+type settingsInput struct {
+	NodeID string `path:"nodeId" format:"uuid"`
+	Body   settingsPatch
+}
+
+type settingsOutput struct{ Body settings }
+
+func settingsOf(o downloadclients.NodeOverrides) *settingsOutput {
+	return &settingsOutput{Body: settings{
+		DownloadLimit:   downloadclients.DownloadLimit.Field(o.DownloadLimit),
+		UploadLimit:     downloadclients.UploadLimit.Field(o.UploadLimit),
+		ActiveDownloads: downloadclients.ActiveDownloads.Field(o.ActiveDownloads),
+		ActiveChecks:    downloadclients.ActiveChecks.Field(o.ActiveChecks),
+		Connections:     downloadclients.Connections.Field(o.Connections),
+		UTP:             downloadclients.UTP.Field(o.UTP),
+		StalledAfter:    downloadclients.StalledAfter.Field(o.StalledAfter),
+	}}
+}
+
+func change(b settingsPatch) (downloadclients.NodeChange, error) {
+	var c downloadclients.NodeChange
+	for _, f := range []struct {
+		patch api.Patch[int64]
+		parse func(*int64) (setting.Stored[int64], error)
+		into  **setting.Stored[int64]
+	}{
+		{b.DownloadLimit, downloadclients.DownloadLimit.Parse, &c.DownloadLimit},
+		{b.UploadLimit, downloadclients.UploadLimit.Parse, &c.UploadLimit},
+		{b.ActiveDownloads, downloadclients.ActiveDownloads.Parse, &c.ActiveDownloads},
+		{b.ActiveChecks, downloadclients.ActiveChecks.Parse, &c.ActiveChecks},
+		{b.Connections, downloadclients.Connections.Parse, &c.Connections},
+		{b.StalledAfter, downloadclients.StalledAfter.Parse, &c.StalledAfter},
+	} {
+		if !f.patch.Sent() {
+			continue
+		}
+		v, err := f.parse(f.patch.Value())
+		if err != nil {
+			return c, settingapi.Refused(err)
+		}
+		*f.into = &v
+	}
+	if b.UTP.Sent() {
+		c.UTP = new(downloadclients.UTP.Parse(b.UTP.Value()))
+	}
+	return c, nil
+}
+
+// node is the Node id names, nodeNotFound unless the roster has it.
+func node(ctx context.Context, roster *nodes.Service, id string) (role.NodeID, error) {
+	u, err := storage.ParseUUID(id)
+	if err != nil {
+		return role.NodeID{}, nodeNotFound
+	}
+	n := nodes.ID{UUID: u}
+	if _, err := roster.Get(ctx, n); errors.Is(err, nodes.ErrNotFound) {
+		return role.NodeID{}, nodeNotFound
+	} else if err != nil {
+		return role.NodeID{}, err
+	}
+	return n, nil
+}
+
+type handlers struct{ clients Clients }
+
+func (h handlers) getSettings(ctx context.Context, _ identity.Admin, in *nodeInput) (*settingsOutput, error) {
+	clients, roster := open(h.clients)
+	id, err := node(ctx, roster, in.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	o, err := clients.NodeSettings(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return settingsOf(o), nil
+}
+
+func (h handlers) setSettings(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
+	clients, roster := open(h.clients)
+	id, err := node(ctx, roster, in.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	c, err := change(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	o, err := clients.SetNodeSettings(ctx, id, c)
+	if err != nil {
+		return nil, err
+	}
+	return settingsOf(o), nil
+}
+
+func Routes(r *api.Router, clients Clients) {
+	o := r.Owner("downloadclients", api.Admin)
+	h := handlers{clients}
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getDownloadClientSettings",
+		Method:  http.MethodGet,
+		Path:    "/download-clients/{nodeId}/settings",
+		Summary: "Get a Node's built-in torrent client settings",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotFound},
+	}, h.getSettings)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setDownloadClientSettings",
+		Method:  http.MethodPatch,
+		Path:    "/download-clients/{nodeId}/settings",
+		Summary: "Change a Node's built-in torrent client settings, which the Node applies at once",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{nodeNotFound, settingapi.ErrOutOfRange},
+	}, h.setSettings)
+}

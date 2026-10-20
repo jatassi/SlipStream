@@ -521,6 +521,19 @@ func (r *Run) admit(name string, resolved node.Resolved, worldEnv []string) erro
 	return nil
 }
 
+// divergeDatabase records the divergences the database settings keys
+// fall under, refusing one no divergence names.
+func (r *Run) divergeDatabase(keys []string) error {
+	used, uncovered := diverge(databaseSettings(keys))
+	if len(uncovered) > 0 {
+		return fmt.Errorf("the world sets database settings %v, which the divergences list in fakes/world does not name", uncovered)
+	}
+	for id := range used {
+		r.used[id] = true
+	}
+	return nil
+}
+
 func overrides(keys []node.Key) []node.Key {
 	var out []node.Key
 	for _, k := range keys {
@@ -615,6 +628,14 @@ func (r *Run) setUp(ctx context.Context, _ *unwind) error {
 	r.claims, err = setup.Steps(ctx, http.DefaultClient, r.scenario, r.ready())
 	if err != nil {
 		return err
+	}
+	if r.claims.APIKey != "" {
+		if err := setup.TCPOnly(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims); err != nil {
+			return err
+		}
+		if err := r.divergeDatabase(setup.TCPPeers); err != nil {
+			return err
+		}
 	}
 	r.log.Info("nodes set up")
 	return nil

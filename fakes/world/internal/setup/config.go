@@ -44,8 +44,8 @@ func ListenKeys(probe node.Resolved) []string {
 // Config is Node i's config.yaml: its seed and name, every listen key on
 // its own address, the timings the Scenario sets and the endpoints the
 // fakes moved. A world of fronts passes the Node's link front, which the
-// Node advertises, and since fronts carry TCP only, the Node dials no uTP.
-// The simulation tier, which has no fronts, passes the zero link.
+// Node advertises. The simulation tier, which has no fronts, passes the
+// zero link.
 func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, endpoints node.EndpointsBlock) ([]byte, error) {
 	root := &yaml.Node{Kind: yaml.MappingNode}
 	set(root, "seed", scalar(s.Seed+"/"+s.Nodes[i].Name))
@@ -56,7 +56,6 @@ func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, en
 	}
 	if link.IsValid() {
 		set(root, "link.advertise", &yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{scalar(link.String())}})
-		set(root, "torrent.outgoing_utp", &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"})
 	}
 	if t := scenario.SetTimings(s.Timings); t != nil {
 		root.Content = append(root.Content, scalar("timings"), t)

@@ -61,8 +61,8 @@ func (o NodeOverrides) Settings() NodeSettings {
 	}
 }
 
-// NodeOverridesOf reads node's overrides. A Node with no row has none.
-func NodeOverridesOf(ctx context.Context, r storage.Reader[file], node role.NodeID) (NodeOverrides, error) {
+// nodeOverridesOf reads node's overrides. A Node with no row has none.
+func nodeOverridesOf(ctx context.Context, r storage.Reader[file], node role.NodeID) (NodeOverrides, error) {
 	row, err := db.New(r).GetNodeSettings(ctx, node)
 	if errors.Is(err, storage.ErrNoRows) {
 		return NodeOverrides{}, nil
@@ -76,10 +76,31 @@ func NodeOverridesOf(ctx context.Context, r storage.Reader[file], node role.Node
 	}, nil
 }
 
-func SetNodeSettings(ctx context.Context, tx *storage.Tx[file], node role.NodeID, c NodeChange) error {
-	o, err := NodeOverridesOf(ctx, tx, node)
-	if err != nil {
+// NodeSettings is node's stored overrides.
+func (c *Clients) NodeSettings(ctx context.Context, node role.NodeID) (NodeOverrides, error) {
+	return nodeOverridesOf(ctx, c.cfg.Library, node)
+}
+
+// SetNodeSettings stores ch as node's settings, which node applies from
+// its next intent.
+func (c *Clients) SetNodeSettings(ctx context.Context, node role.NodeID, ch NodeChange) (NodeOverrides, error) {
+	var o NodeOverrides
+	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
+		o, err = setNodeSettings(ctx, tx, node, ch)
 		return err
+	})
+	if err != nil {
+		return NodeOverrides{}, err
+	}
+	c.cfg.Touch(node)
+	return o, nil
+}
+
+func setNodeSettings(ctx context.Context, tx *storage.Tx[file], node role.NodeID, c NodeChange) (NodeOverrides, error) {
+	o, err := nodeOverridesOf(ctx, tx, node)
+	if err != nil {
+		return NodeOverrides{}, err
 	}
 	for _, f := range []struct {
 		change *setting.Stored[int64]
@@ -99,7 +120,7 @@ func SetNodeSettings(ctx context.Context, tx *storage.Tx[file], node role.NodeID
 	if c.UTP != nil {
 		o.UTP = c.UTP.Override()
 	}
-	return db.New(tx).SetNodeSettings(ctx, db.SetNodeSettingsParams{
+	return o, db.New(tx).SetNodeSettings(ctx, db.SetNodeSettingsParams{
 		NodeID: node, DownloadLimit: o.DownloadLimit, UploadLimit: o.UploadLimit, ActiveDownloads: o.ActiveDownloads,
 		ActiveChecks: o.ActiveChecks, Connections: o.Connections, Utp: o.UTP, StalledAfterSeconds: o.StalledAfter,
 	})
