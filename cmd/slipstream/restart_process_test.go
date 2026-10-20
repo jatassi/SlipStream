@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"math/rand/v2"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -31,18 +33,30 @@ func startedSince(t *testing.T, status map[string]any, launched time.Time) {
 	delete(status, "started_at")
 }
 
-// freeTorrentListen is a loopback address no listener holds now.
+// freeTorrentListen is a loopback address no TCP or UDP socket holds now, on
+// a port below every OS's ephemeral range. A restart releases the port until
+// its successor binds it again, and in between the kernel hands an ephemeral
+// port to any process that binds port 0 or connects.
 func freeTorrentListen(t *testing.T) string {
 	t.Helper()
-	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	const low, ephemeral, tries = 1024, 32768, 64
+	for range tries {
+		port := low + rand.N[uint16](ephemeral-low)
+		addr := netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port).String()
+		ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", addr)
+		if err != nil {
+			continue
+		}
+		pc, err := new(net.ListenConfig).ListenPacket(t.Context(), "udp", addr)
+		_ = ln.Close()
+		if err != nil {
+			continue
+		}
+		_ = pc.Close()
+		return "SLIPSTREAM_TORRENT_LISTEN=" + addr
 	}
-	addr := ln.Addr().String()
-	if err := ln.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return "SLIPSTREAM_TORRENT_LISTEN=" + addr
+	t.Fatalf("no free loopback port below %d in %d tries", ephemeral, tries)
+	return ""
 }
 
 // restarted runs slipstream restart on dir and returns the Node's next
