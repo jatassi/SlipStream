@@ -112,18 +112,20 @@ func openRouted(cfg engine.Config, route func() (netip.Addr, error)) (*Session, 
 // defaultRoute is the address the host reaches the internet from in
 // family's family, the source of its default route. It connects a UDP
 // socket to a.root-servers.net, whose addresses IANA keeps, which sends
-// nothing: the host only picks the route and the source address.
+// nothing: the host only picks the route and the source address. So the
+// root server is no endpoint, and Fake worlds need no stand-in for it.
 func defaultRoute(family netip.Addr) (netip.Addr, error) {
-	internet := netip.MustParseAddrPort("198.41.0.4:53")
+	internet := netip.MustParseAddr("198.41.0.4")
 	if family.Is6() {
-		internet = netip.MustParseAddrPort("[2001:503:ba3e::2:30]:53")
+		internet = netip.MustParseAddr("2001:503:ba3e::2:30")
 	}
-	conn, err := net.DialUDP("udp", nil, net.UDPAddrFromAddrPort(internet))
+	conn, err := net.DialUDP("udp", nil, net.UDPAddrFromAddrPort(netip.AddrPortFrom(internet, 53)))
 	if err != nil {
 		return netip.Addr{}, err //nolint:wrapcheck // noRoute names it
 	}
 	defer func() { _ = conn.Close() }()
-	return conn.LocalAddr().(*net.UDPAddr).AddrPort().Addr().Unmap(), nil //nolint:forcetypeassert // a UDP conn's address is a *net.UDPAddr
+	local, err := netip.ParseAddrPort(conn.LocalAddr().String())
+	return local.Addr().Unmap(), err
 }
 
 func noRoute(err error) *engine.Error {
