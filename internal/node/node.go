@@ -475,6 +475,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, ports *rand.Rand) error {
 		ListenInterface: cfg.Torrent.Listen,
 		OutgoingUTP:     cfg.Torrent.OutgoingUTP,
 		AnnounceFloor:   cfg.Timings.Downloading.AnnounceFloor,
+		RouteCheck:      cfg.Timings.Downloading.RouteCheck,
 		Rand:            ports,
 	})
 	if err != nil {

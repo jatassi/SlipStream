@@ -51,9 +51,14 @@ type Timings struct {
 	// AnnounceFloor is the least time between two regular announces to a
 	// tracker, whatever interval the tracker answers.
 	AnnounceFloor time.Duration `yaml:"announce_floor"`
+	// RouteCheck is how often a client listening on an unspecified address
+	// checks which address the default route leaves from, to follow it.
+	RouteCheck time.Duration `yaml:"route_check"`
 }
 
-func DefaultTimings() Timings { return Timings{Facts: time.Second, AnnounceFloor: 5 * time.Minute} }
+func DefaultTimings() Timings {
+	return Timings{Facts: time.Second, AnnounceFloor: 5 * time.Minute, RouteCheck: 30 * time.Second}
+}
 
 // ErrNotPresent is a torrent this Node's client hasn't finished.
 var ErrNotPresent = transfers.ErrNotPresent
