@@ -466,3 +466,42 @@ func TestASecondLineForAProviderPanics(t *testing.T) {
 	}()
 	lines.Line(tmdb)
 }
+
+// TestACappedKeyHoldsBackNoOtherKey spends one key's allowance: calls with
+// it wait for the reset, and a call with another key goes out.
+func TestACappedKeyHoldsBackNoOtherKey(t *testing.T) {
+	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
+	omdb := metadata.Provider{
+		ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
+		Key: func(q url.Values, key string) { q.Set("apikey", key) },
+		Classify: func(_ int, _ http.Header, b []byte, _ time.Time) (metadata.Outcome, bool) {
+			if strings.Contains(string(b), "Request limit reached!") {
+				return metadata.Outcome{Kind: metadata.Capped, Until: midnight, Words: "is out of its daily allowance"}, true
+			}
+			return metadata.Outcome{}, false
+		},
+	}
+	lines, base, s := serve(t, func(n int, w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("apikey") == "spent" {
+			_, _ = w.Write([]byte(`{"Response":"False","Error":"Request limit reached!"}`))
+			return
+		}
+		ok(w, n)
+	})
+	line := lines.Line(omdb)
+	get := func(key string) error {
+		ask := metadata.NewAsk(metadata.AskOptions{Keys: map[metadata.ProviderID]string{"omdb": key}})
+		return line.Get(t.Context(), ask, metadata.Request{URL: at(base, "/", url.Values{"i": {"tt1"}})}, &body{})
+	}
+	for range 2 {
+		if err := get("spent"); !errors.Is(err, works.ErrUnavailable) {
+			t.Fatalf("a call with the spent key = %v, want ErrUnavailable", err)
+		}
+	}
+	if s.count() != 1 {
+		t.Fatalf("%d calls went out with the spent key, want 1", s.count())
+	}
+	if err := get("fresh"); err != nil || s.count() != 2 {
+		t.Fatalf("a call with another key = %v after %d requests, want it sent and answered", err, s.count())
+	}
+}

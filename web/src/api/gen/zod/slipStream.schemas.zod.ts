@@ -1091,6 +1091,83 @@ export const MakeFolderInputBody = zod.object({
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
 
+export const MetadataChanged = zod.object({
+  provider: zod.string().describe("The provider whose status changed"),
+});
+
+export type MetadataChanged = zod.input<typeof MetadataChanged>;
+export type MetadataChangedOutput = zod.output<typeof MetadataChanged>;
+
+export const MetadataLastError = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  words: zod.string().describe("In plain words, the provider named"),
+});
+
+export type MetadataLastError = zod.input<typeof MetadataLastError>;
+export type MetadataLastErrorOutput = zod.output<typeof MetadataLastError>;
+
+export const MetadataReach = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  nodeId: zod.uuid(),
+  reached: zod.boolean().describe("Whether the Node reached the provider on its latest call"),
+});
+
+export type MetadataReach = zod.input<typeof MetadataReach>;
+export type MetadataReachOutput = zod.output<typeof MetadataReach>;
+
+export const MetadataDetails = zod.object({
+  lastError: zod.union([MetadataLastError, zod.null()]),
+  lastSuccess: zod.iso.datetime({ offset: true }).nullable(),
+  nodes: zod
+    .array(MetadataReach)
+    .describe(
+      "Each holder that called the provider since the Controller started or the key changed, by id",
+    ),
+});
+
+export type MetadataDetails = zod.input<typeof MetadataDetails>;
+export type MetadataDetailsOutput = zod.output<typeof MetadataDetails>;
+
+export const metadataNewKeyKeyMax = 256;
+
+export const MetadataNewKey = zod.object({
+  key: zod.string().min(1).max(metadataNewKeyKeyMax),
+});
+
+export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
+export type MetadataNewKeyOutput = zod.output<typeof MetadataNewKey>;
+
+export const MetadataProvider = zod.object({
+  details: MetadataDetails,
+  id: zod.string().describe("The provider, such as tmdb"),
+  key: zod
+    .enum(["none", "bundled", "yours"])
+    .describe("Whose key calls carry: none in this build, SlipStream's, or the Admin's"),
+  label: zod.string(),
+  state: zod
+    .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
+    .describe("From the latest outcome of a call or test, unused until one"),
+  summary: zod
+    .string()
+    .describe(
+      "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
+    ),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a rate limited provider, or one out of its daily allowance, takes calls again"),
+});
+
+export type MetadataProvider = zod.input<typeof MetadataProvider>;
+export type MetadataProviderOutput = zod.output<typeof MetadataProvider>;
+
+export const MetadataProviderList = zod.object({
+  providers: zod.array(MetadataProvider).describe("In display order"),
+});
+
+export type MetadataProviderList = zod.input<typeof MetadataProviderList>;
+export type MetadataProviderListOutput = zod.output<typeof MetadataProviderList>;
+
 export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
 
 export const NewPINInputBody = zod.object({
@@ -3929,6 +4006,14 @@ export const LiveEventLiveSessionEnded = zod.object({
 export type LiveEventLiveSessionEnded = zod.input<typeof LiveEventLiveSessionEnded>;
 export type LiveEventLiveSessionEndedOutput = zod.output<typeof LiveEventLiveSessionEnded>;
 
+export const LiveEventMetadataChanged = zod.object({
+  event: zod.enum(["metadata.changed"]),
+  data: MetadataChanged,
+});
+
+export type LiveEventMetadataChanged = zod.input<typeof LiveEventMetadataChanged>;
+export type LiveEventMetadataChangedOutput = zod.output<typeof LiveEventMetadataChanged>;
+
 export const LiveEventNodeSettingsChanged = zod.object({
   event: zod.enum(["node.settings-changed"]),
   data: NodesSettingsChanged,
@@ -4031,6 +4116,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveAccessChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
+  LiveEventMetadataChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
   LiveEventNodesTraffic,

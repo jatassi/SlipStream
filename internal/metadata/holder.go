@@ -16,10 +16,29 @@ import (
 // Lines' in-memory state.
 type Holder struct {
 	metadatav1connect.UnimplementedMetadataServiceHandler
-	types map[works.TypeID]Source
+	types   map[works.TypeID]Source
+	testers map[ProviderID]Tester
 }
 
-func NewHolder(types map[works.TypeID]Source) *Holder { return &Holder{types: types} }
+// Tester is a provider client's cheap call that says whether the provider
+// answers with an Ask's key.
+type Tester interface {
+	Provider() Provider
+	Test(ctx context.Context, ask Ask) error
+}
+
+type HolderConfig struct {
+	Types   map[works.TypeID]Source
+	Testers []Tester
+}
+
+func NewHolder(cfg HolderConfig) *Holder {
+	h := &Holder{types: cfg.Types, testers: map[ProviderID]Tester{}}
+	for _, t := range cfg.Testers {
+		h.testers[t.Provider().ID] = t
+	}
+	return h
+}
 
 var _ metadatav1connect.MetadataServiceHandler = (*Holder)(nil)
 
@@ -43,6 +62,22 @@ func (h *Holder) Fetch(ctx context.Context, req *metadatav1.FetchRequest) (*meta
 	}
 	fetched, err := works.EncodeFetched(f)
 	return &metadatav1.FetchResponse{Fetched: fetched, Outcomes: outcomes}, err
+}
+
+// Test runs the provider's test call with the key the Ask carries and
+// answers its outcomes, a refusal included.
+func (h *Holder) Test(ctx context.Context, req *metadatav1.TestRequest) (*metadatav1.TestResponse, error) {
+	t, ok := h.testers[ProviderID(req.GetProvider())]
+	if !ok {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "this Node tests no provider %q", req.GetProvider())
+	}
+	ask, read := tallied(askOf(req.GetAsk()))
+	if err := t.Test(ctx, ask); err != nil {
+		if _, failed := failureToWire(err); !failed {
+			return nil, fmt.Errorf("test %s: %w", req.GetProvider(), err)
+		}
+	}
+	return &metadatav1.TestResponse{Outcomes: outcomesToWire(read())}, nil
 }
 
 // run calls the provider half of type t with the Ask w carries. A provider

@@ -115,7 +115,7 @@ func controller(r roster, fails map[role.NodeID]error, down ...role.NodeID) (*me
 			if slices.Contains(down, node) {
 				return unreachable{node: names[node], h: h}
 			}
-			return metadata.NewHolder(map[works.TypeID]metadata.Source{"fixture": shelf{node: names[node], h: h, fail: fails[node]}})
+			return metadata.NewHolder(metadata.HolderConfig{Types: map[works.TypeID]metadata.Source{"fixture": shelf{node: names[node], h: h, fail: fails[node]}}})
 		},
 		Rand: seeded(),
 	}), h
@@ -203,7 +203,7 @@ func TestOutcomesTravelWithAFailure(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusUnauthorized)
 	})
-	holder := metadata.NewHolder(map[works.TypeID]metadata.Source{"fixture": twice{line: lines.Line(tmdb), base: base}})
+	holder := metadata.NewHolder(metadata.HolderConfig{Types: map[works.TypeID]metadata.Source{"fixture": twice{line: lines.Line(tmdb), base: base}}})
 	res, err := holder.Fetch(t.Context(), &metadatav1.FetchRequest{Ask: &metadatav1.Ask{}, ContentType: "fixture", Key: "k1"})
 	if err != nil {
 		t.Fatal(err)

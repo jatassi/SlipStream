@@ -61,6 +61,7 @@ type half struct {
 	controls *role.Controls
 	cluster  *rpc.Cluster
 	works    *works.Works
+	metadata *metadata.Metadata
 	indexers *indexers.Indexers
 	targets  *targets.Targets
 	roots    *roots.Roots
@@ -83,7 +84,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	client := n.httpClient()
-	sources := n.openSources(client)
+	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	downloads := downloading.Def.Serve(grabs.DownloadIntent, grabs.ApplyDownload)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -130,21 +131,34 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, holding.Holds)
 	cluster := rpc.NewCluster(dispatch, side)
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
-	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(sources))
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	n.serveSystem(dispatch)
+	providers := make([]metadata.Provider, len(holder.Testers))
+	for i, t := range holder.Testers {
+		providers[i] = t.Provider()
+	}
+	meta, err := metadata.Open(ctx, metadata.Config{
+		Library: lib.db,
+		Sealer:  lib.sealer,
+		Roster:  side,
+		Service: func(node role.NodeID) metadatav1connect.MetadataServiceHandler {
+			return metadatav1connect.MetadataService.On(cluster, node)
+		},
+		Providers: providers,
+		Changed:   metadata.ChangedEvent.Bind(n.hub),
+		Timings:   n.cfg.Timings.Metadata,
+		Rand:      n.cacheRand,
+	})
+	if err != nil {
+		return err
+	}
 	tree, err := works.Open(ctx, works.Config{
-		Library:  lib.db,
-		Catalogs: contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
-		Source: metadata.New(metadata.Config{
-			Roster: side,
-			Service: func(node role.NodeID) metadatav1connect.MetadataServiceHandler {
-				return metadatav1connect.MetadataService.On(cluster, node)
-			},
-			Rand: n.cacheRand,
-		}),
+		Library:      lib.db,
+		Catalogs:     contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
+		Source:       meta,
 		Timings:      n.cfg.Timings.Works,
 		Changed:      works.ChangedEvent.Bind(n.hub),
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
@@ -265,7 +279,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	n.setHalf(&half{
-		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, indexers: registry,
+		peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
 		targets:   goals,
 		roots:     library,
 		files:     shelf,
@@ -278,6 +292,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
+	n.claimed.Go("metadata", meta.Run)
 	n.env.Test.started(started)
 	return nil
 }
@@ -313,9 +328,10 @@ func (n *Node) httpClient() *http.Client {
 	return &http.Client{Transport: transport}
 }
 
-// openSources opens every Content Type's provider half over the Node's
-// one call layer, each provider's Line registered once.
-func (n *Node) openSources(client *http.Client) map[works.TypeID]metadata.Source {
+// openHolder opens every Content Type's provider half over the Node's one
+// call layer, each provider's Line registered once, and the providers'
+// tests, in the order status lists them.
+func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
 	lines := metadata.NewLines(client, userAgent, n.cfg.Timings.Metadata, n.metadataRand)
 	deps := contenttype.ProviderDeps{
@@ -328,7 +344,7 @@ func (n *Node) openSources(client *http.Client) map[works.TypeID]metadata.Source
 		deps.Log = n.rootLog.With("subsystem", "contenttype."+string(t.ID()))
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
-	return sources
+	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}}
 }
 
 // openLibraries opens every Content Type's library half, on the
@@ -357,7 +373,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, holding.Holds)
 	client := n.httpClient()
 	searchv1connect.SearchingService.Mount(dispatch, indexers.NewHome(client, n.cfg.Timings.Indexers))
-	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openSources(client)))
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)

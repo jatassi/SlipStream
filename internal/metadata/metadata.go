@@ -3,13 +3,17 @@ package metadata
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand/v2"
+	"sync"
 
+	"github.com/jatassi/slipstream/internal/metadata/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -43,25 +47,76 @@ type Roster interface {
 }
 
 type Config struct {
-	Roster Roster
+	// Library holds the Admin keys, sealed under Sealer.
+	Library *storage.DB[storage.Library]
+	Sealer  *secret.Sealer
+	Roster  Roster
 	// Service reaches MetadataService on a Node.
 	Service func(role.NodeID) metadatav1connect.MetadataServiceHandler
+	// Providers are the providers status lists and keys are set for, in
+	// display order.
+	Providers []Provider
+	// Changed announces a change to a provider's status.
+	Changed Publisher
+	Timings Timings
 	// Rand draws the cache generation.
 	Rand *rand.Rand
 }
 
+type Publisher interface {
+	Publish(ctx context.Context, v Changed)
+}
+
 // Metadata is the Controller's half of the Metadata Role: it fills an Ask
-// for each call and sends the call to a holder.
+// for each call, sends the call to a holder and keeps each provider's
+// status from the outcomes holders answer with.
 type Metadata struct {
 	cfg Config
 	// generation is the cache generation every Ask carries. A holder whose
 	// cache holds another drops it, so a new Controller process starts every
 	// holder's cache afresh.
 	generation uint64
+	bundled    map[ProviderID]string
+	// wake tells Run a retest was scheduled.
+	wake chan struct{}
+
+	mu sync.Mutex
+	// yours are the Admin keys, opened.
+	yours    map[ProviderID]string
+	statuses map[ProviderID]*status
+	retests  map[reach]*retest
 }
 
+// New is the Controller's metadata with no Admin key read. Open reads
+// them; New alone serves a test that sets none.
 func New(cfg Config) *Metadata {
-	return &Metadata{cfg: cfg, generation: cfg.Rand.Uint64()}
+	m := &Metadata{
+		cfg: cfg, generation: cfg.Rand.Uint64(), bundled: parseBundled(bundled), wake: make(chan struct{}, 1),
+		yours: map[ProviderID]string{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{},
+	}
+	for _, p := range cfg.Providers {
+		m.statuses[p.ID] = newStatus(p)
+	}
+	return m
+}
+
+// Open is New with the Admin keys library.db holds. It reaches no
+// provider: status starts unused, and Run retests what calls find
+// unreachable.
+func Open(ctx context.Context, cfg Config) (*Metadata, error) {
+	m := New(cfg)
+	rows, err := db.New(cfg.Library).ListKeys(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read the metadata keys: %w", err)
+	}
+	for _, row := range rows {
+		key, err := cfg.Sealer.Open(row.ApiKeySealed, keyColumn.Row(row.Provider))
+		if err != nil {
+			return nil, fmt.Errorf("open the %s key: %w", row.Provider, err)
+		}
+		m.yours[ProviderID(row.Provider)] = string(key)
+	}
+	return m, nil
 }
 
 var _ works.Source = (*Metadata)(nil)
@@ -69,21 +124,27 @@ var _ works.Source = (*Metadata)(nil)
 // Search reads no ratings provider and may answer from the cache, as a
 // preview does.
 func (m *Metadata) Search(ctx context.Context, t works.TypeID, query string) ([]works.Candidate, error) {
-	res, err := call(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.SearchResponse, error) {
+	res, err := send(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.SearchResponse, error) {
 		return s.Search(ctx, &metadatav1.SearchRequest{Ask: m.ask(works.ForPreview), ContentType: string(t), Query: query})
 	})
 	if err != nil {
 		return nil, err
 	}
+	if f := res.GetFailure(); f != nil {
+		return nil, failureOf(f)
+	}
 	return works.DecodeCandidates(res.GetCandidates())
 }
 
 func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f works.Fetching) (works.Fetched, error) {
-	res, err := call(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.FetchResponse, error) {
+	res, err := send(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.FetchResponse, error) {
 		return s.Fetch(ctx, &metadatav1.FetchRequest{Ask: m.ask(f.Purpose), ContentType: string(t), Key: string(key)})
 	})
 	if err != nil {
 		return works.Fetched{}, err
+	}
+	if f := res.GetFailure(); f != nil {
+		return works.Fetched{}, failureOf(f)
 	}
 	return works.DecodeFetched(res.GetFetched())
 }
@@ -91,45 +152,52 @@ func (m *Metadata) Fetch(ctx context.Context, t works.TypeID, key works.Key, f w
 func (m *Metadata) ask(p works.Purpose) *metadatav1.Ask {
 	return askToWire(Ask{
 		Language: DefaultLanguage, Region: DefaultRegion, Ratings: p != works.ForPreview,
-		fresh: p == works.ForRefresh, generation: m.generation,
+		keys: m.inEffect(), fresh: p == works.ForRefresh, generation: m.generation,
 	})
 }
 
-// response is a holder's answer, which carries a provider failure or none.
-type response interface {
-	GetFailure() *metadatav1.Failure
+// reply is a holder's answer, which carries every outcome of the call.
+type reply interface {
+	GetOutcomes() []*metadatav1.Outcome
 }
 
-// call sends do to the holder Pick chooses. A holder that wasn't reached,
-// or lost the call, is tried once more on the holder PickOther chooses.
-// While no Node may take metadata, or no holder answered in time, the call
-// is ErrUnavailable saying why. A holder that answered with an error ran
-// into a bug of the type.
-func call[R response](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, error) {
+// send is call with the answer's outcomes folded into provider status.
+func send[R reply](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, error) {
+	res, node, err := call(ctx, m, do)
+	if err != nil {
+		return res, err
+	}
+	m.fold(ctx, node, outcomesOf(res.GetOutcomes()))
+	return res, nil
+}
+
+// call sends do to the holder Pick chooses and says which holder answered.
+// A holder that wasn't reached, or lost the call, is tried once more on
+// the holder PickOther chooses. While no Node may take metadata, or no
+// holder answered in time, the call is ErrUnavailable saying why. A holder
+// that answered with an error ran into a bug of the type.
+func call[R reply](ctx context.Context, m *Metadata, do func(context.Context, metadatav1connect.MetadataServiceHandler) (R, error)) (R, role.NodeID, error) {
 	var none R
 	node, ok := m.cfg.Roster.Pick(role.Metadata, m.cfg.Roster.Self())
 	if !ok {
-		return none, unavailable(m.cfg.Roster.Why(role.Metadata))
+		return none, role.NodeID{}, unavailable(m.cfg.Roster.Why(role.Metadata))
 	}
 	res, err := do(ctx, m.cfg.Service(node))
 	if unreached(err) && ctx.Err() == nil {
 		if other, ok := m.cfg.Roster.PickOther(role.Metadata, node); ok {
+			node = other
 			res, err = do(ctx, m.cfg.Service(other))
 		}
 	}
 	switch {
 	case err == nil:
+		return res, node, nil
 	case !unreached(err) && rpc.Answered(err) && ctx.Err() == nil:
-		return none, errors.New(rpc.MessageOf(err))
+		return none, node, errors.New(rpc.MessageOf(err))
 	case ctx.Err() != nil:
-		return none, unavailable("the Node reading metadata didn't answer in time")
-	default:
-		return none, unavailable("the Node reading metadata didn't answer: " + err.Error())
+		return none, node, unavailable("the Node reading metadata didn't answer in time")
 	}
-	if f := res.GetFailure(); f != nil {
-		return none, failureOf(f)
-	}
-	return res, nil
+	return none, node, unavailable("the Node reading metadata didn't answer: " + err.Error())
 }
 
 func unreached(err error) bool {

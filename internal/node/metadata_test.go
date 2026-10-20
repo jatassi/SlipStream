@@ -24,6 +24,7 @@ type metadataCluster struct {
 	fx        *contenttypetest.Fixture
 	// homeOpen and boxOpen are each Node's provider half in fx.Opens.
 	homeOpen, boxOpen int
+	boxID             string
 }
 
 // startMetadataCluster runs inside the caller's bubble.
@@ -62,6 +63,8 @@ func startMetadataCluster(t *testing.T) *metadataCluster {
 		roles := []string{"metadata"}
 		if n.Controller {
 			roles = slices.DeleteFunc(n.Assigned, func(r string) bool { return r == "metadata" })
+		} else {
+			c.boxID = n.ID
 		}
 		set = append(set, assignment{NodeID: n.ID, Roles: roles})
 	}
@@ -152,6 +155,26 @@ func TestPastTheGraceTheControllerCovers(t *testing.T) {
 		}
 		if got := c.lastServedBy(t); got != c.homeOpen {
 			t.Fatalf("the search was answered by provider half %d, want home's %d", got, c.homeOpen)
+		}
+	})
+}
+
+// TestAProviderTestLeavesFromTheWorker tests TMDB, whose real host no Node
+// in this network reaches: box makes the call, and status names box.
+func TestAProviderTestLeavesFromTheWorker(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startMetadataCluster(t)
+		status := decode[struct {
+			State   string `json:"state"`
+			Details struct {
+				Nodes []struct {
+					NodeID  string `json:"nodeId"`
+					Reached bool   `json:"reached"`
+				} `json:"nodes"`
+			} `json:"details"`
+		}](t, c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/metadata/providers/tmdb/test", ""), http.StatusOK)
+		if n := status.Details.Nodes; status.State != "unreachable" || len(n) != 1 || n[0].NodeID != c.boxID || n[0].Reached {
+			t.Fatalf("testMetadataProvider = %+v, want TMDB unreachable from box %s alone", status, c.boxID)
 		}
 	})
 }
