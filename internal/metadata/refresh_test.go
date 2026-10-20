@@ -60,10 +60,10 @@ type quiet[T any] struct{}
 
 func (quiet[T]) Publish(context.Context, T) {}
 
-// library is a Controller whose only Content Type is the Fixture, with
+// refreshed is a Controller whose only Content Type is the Fixture, with
 // Metadata refresh in its tasks catalog, inside a synctest bubble that
 // starts at midnight on 1 January 2000, UTC.
-type library struct {
+type refreshed struct {
 	fx    *contenttypetest.Fixture
 	lib   *storage.DB[storage.Library]
 	meta  *metadata.Metadata
@@ -72,9 +72,9 @@ type library struct {
 	ids   map[works.Key]works.WorkID
 }
 
-func openLibrary(t *testing.T, pages int) *library {
+func openRefreshed(t *testing.T, pages int) *refreshed {
 	t.Helper()
-	l := &library{fx: contenttypetest.New(), ids: map[works.Key]works.WorkID{}}
+	l := &refreshed{fx: contenttypetest.New(), ids: map[works.Key]works.WorkID{}}
 	l.lib = storagetest.Library(t, identity.Schema(), works.Schema(), metadata.Schema(), targets.Schema(), tasks.Schema())
 	hub := live.NewHub([]live.Event{nodes.ChangedEvent, tasks.ChangedEvent, tasks.ProgressEvent, works.ChangedEvent, works.TypeChangedEvent})
 	t.Cleanup(hub.Close)
@@ -138,7 +138,7 @@ func openLibrary(t *testing.T, pages int) *library {
 }
 
 // add adds a Work whose one Item is released, unless unreleased.
-func (l *library) add(t *testing.T, key works.Key, unreleased bool) works.WorkID {
+func (l *refreshed) add(t *testing.T, key works.Key, unreleased bool) works.WorkID {
 	t.Helper()
 	l.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: strings.ToUpper(string(key)), Children: []works.Entry{{Key: "box", Label: "Box", Children: []works.Entry{{Key: "item", Label: "Item"}}}}, RatingsRead: true}})
 	tree, _, err := l.works.Add(t.Context(), identity.Admin{}, contenttypetest.ID, key, works.Adding{})
@@ -154,7 +154,7 @@ func (l *library) add(t *testing.T, key works.Key, unreleased bool) works.WorkID
 
 // nightly runs the window's scheduled run of each of n nights, from the
 // morning after, and answers which Works each fetched, by night.
-func (l *library) nightly(t *testing.T, n int) [][]works.Key {
+func (l *refreshed) nightly(t *testing.T, n int) [][]works.Key {
 	t.Helper()
 	var out [][]works.Key
 	for range n {
@@ -171,7 +171,7 @@ func (l *library) nightly(t *testing.T, n int) [][]works.Key {
 	return out
 }
 
-func (l *library) fetches() map[works.Key]int {
+func (l *refreshed) fetches() map[works.Key]int {
 	out := map[works.Key]int{}
 	for k := range l.ids {
 		out[k] = l.fx.Fetches(k)
@@ -179,7 +179,7 @@ func (l *library) fetches() map[works.Key]int {
 	return out
 }
 
-func (l *library) fetchedSince(before map[works.Key]int) []works.Key {
+func (l *refreshed) fetchedSince(before map[works.Key]int) []works.Key {
 	var out []works.Key
 	for k, n := range l.fetches() {
 		if n > before[k] {
@@ -191,7 +191,7 @@ func (l *library) fetchedSince(before map[works.Key]int) []works.Key {
 }
 
 // runNow runs Metadata refresh now and answers the run once it closes.
-func (l *library) runNow(t *testing.T) tasks.Run {
+func (l *refreshed) runNow(t *testing.T) tasks.Run {
 	t.Helper()
 	if _, err := l.tasks.RunNow(t.Context(), metadata.RefreshTaskID, storage.UUID{}); err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func (l *library) runNow(t *testing.T) tasks.Run {
 	return l.latest(t)
 }
 
-func (l *library) latest(t *testing.T) tasks.Run {
+func (l *refreshed) latest(t *testing.T) tasks.Run {
 	t.Helper()
 	d, err := l.tasks.Task(t.Context(), metadata.RefreshTaskID)
 	if err != nil {
@@ -212,7 +212,7 @@ func (l *library) latest(t *testing.T) tasks.Run {
 	return d.Runs[0]
 }
 
-func (l *library) tune(t *testing.T, values map[string]any) {
+func (l *refreshed) tune(t *testing.T, values map[string]any) {
 	t.Helper()
 	p := setting.Patch{}
 	for k, v := range values {
@@ -242,7 +242,7 @@ func labels(run tasks.Run) []string {
 }
 
 // changesAsked is the since of each changes list read, in order.
-func (l *library) changesAsked() []time.Time {
+func (l *refreshed) changesAsked() []time.Time {
 	var out []time.Time
 	for _, c := range l.fx.Calls() {
 		if c.Page == 1 {
@@ -256,7 +256,7 @@ func keys(ks ...works.Key) []works.Key { return ks }
 
 func TestEachTierMakesItsWorksDue(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "out", false)
 		l.add(t, "coming", true)
 		growing := l.add(t, "growing", false)
@@ -292,7 +292,7 @@ func TestEachTierMakesItsWorksDue(t *testing.T) {
 
 func TestTheTaskIsListedOnceAWorkExistsAndRunsWithNothingDue(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		listed := func() bool {
 			o, err := l.tasks.Overview(t.Context())
 			if err != nil {
@@ -315,7 +315,7 @@ func TestTheTaskIsListedOnceAWorkExistsAndRunsWithNothingDue(t *testing.T) {
 
 func TestTheChangesListCoversSinceTheLastGoodRun(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "out", false)
 		l.add(t, "still", false)
 		l.fx.Change("out", "elsewhere")
@@ -344,7 +344,7 @@ func TestTheChangesListCoversSinceTheLastGoodRun(t *testing.T) {
 
 func TestAChangesListFromPastTheSourcesWindowStartsAgainFromNow(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "out", false)
 		l.nightly(t, 1)
 		first := l.latest(t).Started
@@ -369,7 +369,7 @@ func TestAChangesListFromPastTheSourcesWindowStartsAgainFromNow(t *testing.T) {
 
 func TestAChangesListPastThePageBoundCountsAsNone(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 2)
+		l := openRefreshed(t, 2)
 		for _, k := range []works.Key{"a", "b", "c", "d", "e"} {
 			l.add(t, k, false)
 		}
@@ -391,7 +391,7 @@ func TestAChangesListPastThePageBoundCountsAsNone(t *testing.T) {
 
 func TestRefreshAllMakesEveryWorkDueOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "a", false)
 		l.add(t, "b", false)
 		time.Sleep(time.Minute)
@@ -412,7 +412,7 @@ func TestRefreshAllMakesEveryWorkDueOnce(t *testing.T) {
 
 func TestANewLanguageMakesEveryWorkDueAtTheNextRun(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "a", false)
 		l.add(t, "b", false)
 		time.Sleep(time.Minute)
@@ -434,7 +434,7 @@ func TestANewLanguageMakesEveryWorkDueAtTheNextRun(t *testing.T) {
 
 func TestFailedWorksStayDueAndRunFirst(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "a", false)
 		l.add(t, "b", true)
 		time.Sleep(time.Minute)
@@ -457,7 +457,7 @@ func TestFailedWorksStayDueAndRunFirst(t *testing.T) {
 
 func TestAGoneWorkFailsWithItsCauseAndRidesTheEveryOtherTier(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "lost", true)
 		l.fx.Fail("lost", works.ErrNotFound)
 		l.nightly(t, 2)
@@ -478,7 +478,7 @@ func TestAGoneWorkFailsWithItsCauseAndRidesTheEveryOtherTier(t *testing.T) {
 
 func TestTheRunReads40Of42Works2Failed(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		for i := range 42 {
 			l.add(t, works.Key(fmt.Sprintf("w%02d", i)), false)
 		}
@@ -496,7 +496,7 @@ func TestTheRunReads40Of42Works2Failed(t *testing.T) {
 
 func TestAFailedRunWarnsAndTheNextGoodRunClears(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		l := openLibrary(t, 500)
+		l := openRefreshed(t, 500)
 		l.add(t, "a", false)
 		time.Sleep(time.Minute)
 		if err := l.meta.RefreshAll(t.Context(), identity.Admin{}, contenttypetest.ID); err != nil {
