@@ -103,3 +103,22 @@ func unixMicro(t time.Time) int64 {
 	}
 	return t.UnixMicro()
 }
+
+var outcomeKindOf = func() map[metadatav1.OutcomeKind]OutcomeKind {
+	m := make(map[metadatav1.OutcomeKind]OutcomeKind, len(outcomeKinds))
+	for k, w := range outcomeKinds {
+		m[w] = k
+	}
+	return m
+}()
+
+func outcomesOf(ws []*metadatav1.Outcome) []Outcome {
+	out := make([]Outcome, len(ws))
+	for i, w := range ws {
+		out[i] = Outcome{Provider: ProviderID(w.GetProvider()), Kind: outcomeKindOf[w.GetKind()], Words: w.GetWords(), At: time.UnixMicro(w.GetAtUnixMicro())}
+		if u := w.GetUntilUnixMicro(); u != 0 {
+			out[i].Until = time.UnixMicro(u)
+		}
+	}
+	return out
+}

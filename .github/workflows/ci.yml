@@ -177,11 +177,21 @@ jobs:
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       # The e2e and browser jobs run fakeworld and the release tool from
       # dist/, so no job after this one builds anything.
+      # Only a tag build carries SlipStream's metadata keys, and only into
+      # cmd/slipstream; its e2e jobs still reach nothing but fakes. Until the
+      # repository has the secrets, a release is keyless and status says so;
+      # with one of the two, the build refuses.
       - name: Build the release binaries, fakeworld and the release tool
         run: |
-          go run ./cmd/release build
+          args=()
+          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
+          go run ./cmd/release build "${args[@]}"
           eval "$(go run ./cmd/release deps env)"
           go build -o dist/ ./cmd/fakeworld ./cmd/release
+        env:
+          TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.SLIPSTREAM_TMDB_KEY || '' }}
+          SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.SLIPSTREAM_OMDB_KEY || '' }}
       # The build test checks that the binary embeds web/dist/index.html.
       - name: Upload dist/ for the test jobs
         uses: actions/upload-artifact@v7

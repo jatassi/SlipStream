@@ -1,0 +1,142 @@
+package metadataapi_test
+
+import (
+	"context"
+	"math/rand/v2"
+	"net/http"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	fakeomdb "github.com/jatassi/slipstream/fakes/omdb"
+	"github.com/jatassi/slipstream/fakes/scenario"
+	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
+	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadataapi"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
+	"github.com/jatassi/slipstream/internal/providers/omdb"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/works"
+)
+
+var self = role.NodeID{UUID: storage.NewUUID()}
+
+type alone struct{}
+
+func (alone) Self() role.NodeID { return self }
+
+func (alone) Pick(role.Name, role.NodeID) (role.NodeID, bool) { return self, true }
+
+func (alone) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }
+
+func (alone) Why(role.Name) string { return "" }
+
+type registry struct{ m *metadata.Metadata }
+
+func (r registry) Metadata() (*metadata.Metadata, bool) { return r.m, true }
+
+type changes struct {
+	mu        sync.Mutex
+	providers []string
+}
+
+func (c *changes) Publish(_ context.Context, v metadata.Changed) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.providers = append(c.providers, v.Provider)
+}
+
+type served struct {
+	owner      *ownertest.Owner
+	tmdb, omdb faketest.Served
+	changed    *changes
+}
+
+// serve serves the operations over fake-tmdb and fake-omdb, reached by a
+// Controller that holds Metadata alone. Each fake has its own authority,
+// so each provider has a client of its own.
+func serve(t *testing.T) *served {
+	t.Helper()
+	s := scenario.Scenario{Name: "x", Seed: "metadataapi"}
+	srv := &served{tmdb: faketest.Loopback(t, faketmdb.Fake, s), omdb: faketest.Loopback(t, fakeomdb.Fake, s), changed: &changes{}}
+	lines := func(f faketest.Served) *metadata.Lines {
+		return metadata.NewLines(f.Client, "SlipStream/test", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // a fixed draw the test replays
+	}
+	tm := tmdb.New(lines(srv.tmdb), tmdb.Endpoints{API: endpoint.MustParseURL(srv.tmdb.Address.URL("/3"))}, tmdb.DefaultTimings())
+	om := omdb.New(lines(srv.omdb), omdb.Endpoints{API: endpoint.MustParseURL(srv.omdb.Address.URL(""))}, omdb.DefaultTimings())
+	holder := metadata.NewHolder(metadata.HolderConfig{Types: map[works.TypeID]metadata.Source{}, Testers: []metadata.Tester{tm, om}})
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), works.Schema(), metadata.Schema())
+	m, err := metadata.Open(t.Context(), metadata.Config{
+		Library:   lib,
+		Sealer:    secrettest.Sealer(t),
+		Roster:    alone{},
+		Service:   func(role.NodeID) metadatav1connect.MetadataServiceHandler { return holder },
+		Providers: []metadata.Provider{tm.Provider(), om.Provider()},
+		Changed:   srv.changed,
+		Timings:   metadata.DefaultTimings(),
+		Rand:      rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.owner = ownertest.Serve(t, lib, func(r *api.Router) { metadataapi.Routes(r, registry{m}) })
+	return srv
+}
+
+const (
+	unusedTMDB = `{"id":"tmdb","label":"TMDB","summary":"This build has no TMDB key. Add your own.","key":"none","state":"unused","until":null,"details":{"lastSuccess":null,"lastError":null,"nodes":[]}}`
+	unusedOMDb = `{"id":"omdb","label":"OMDb","summary":"This build has no OMDb key. Add your own.","key":"none","state":"unused","until":null,"details":{"lastSuccess":null,"lastError":null,"nodes":[]}}`
+)
+
+func TestAnAdminKeyIsTestedOnSaveAndShownInUse(t *testing.T) {
+	s := serve(t)
+	s.owner.Expect(t, http.MethodGet, "/api/v1/metadata/providers", "", http.StatusOK, `{"providers":[`+unusedTMDB+`,`+unusedOMDb+`]}`)
+
+	s.tmdb.Cue(t, faketmdb.RevokeKey.Name, map[string]string{"key": "typo"})
+	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/tmdb/key", `{"key":"typo"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"metadata_key_refused","title":"The metadata provider refused that key, so SlipStream didn't save it","detail":"TMDB refused the key: Invalid API key: You must be granted a valid key."}`)
+	s.owner.Expect(t, http.MethodGet, "/api/v1/metadata/providers", "", http.StatusOK, `{"providers":[`+unusedTMDB+`,`+unusedOMDb+`]}`)
+
+	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/tmdb/key", `{"key":"mine"}`, http.StatusOK,
+		`{"id":"tmdb","label":"TMDB","summary":"TMDB is working.","key":"yours","state":"working","until":null,"details":{"lastSuccess":"T","lastError":null,"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)
+	s.owner.Expect(t, http.MethodDelete, "/api/v1/metadata/providers/tmdb/key", "", http.StatusOK, unusedTMDB)
+	s.owner.Expect(t, http.MethodDelete, "/api/v1/metadata/providers/tmdb/key", "", http.StatusOK, unusedTMDB)
+	if want := []string{"tmdb", "tmdb"}; !slices.Equal(s.changed.providers, want) {
+		t.Fatalf("metadata.changed fired for %v, want %v: once for the key saved, once for it cleared", s.changed.providers, want)
+	}
+}
+
+func TestATestReadsTheProvidersStateWithItsTime(t *testing.T) {
+	s := serve(t)
+	s.omdb.Cue(t, fakeomdb.Cap.Name, map[string]any{})
+	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/metadata/providers/omdb/test", "")
+	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)
+	if code != http.StatusOK || !strings.Contains(reply, `"state":"out_of_allowance","until":"`+midnight+`"`) ||
+		!strings.Contains(reply, `"summary":"OMDb is out of today's allowance. It resets on its own."`) {
+		t.Fatalf("testMetadataProvider = %d %s, want OMDb out of its allowance until %s", code, reply, midnight)
+	}
+
+	s.tmdb.Cue(t, faketmdb.RevokeKey.Name, map[string]string{"key": ""})
+	s.owner.Expect(t, http.MethodPost, "/api/v1/metadata/providers/tmdb/test", "", http.StatusOK,
+		`{"id":"tmdb","label":"TMDB","summary":"This build has no TMDB key. Add your own.","key":"none","state":"key_refused","until":null,"details":{"lastSuccess":null,"lastError":{"words":"TMDB refused the key: Invalid API key: You must be granted a valid key.","at":"T"},"nodes":[{"nodeId":"id1","reached":true,"at":"T"}]}}`)
+}
+
+func TestAnUnknownProviderIsNotFound(t *testing.T) {
+	s := serve(t)
+	notFound := `{"status":404,"code":"metadata_provider_not_found","title":"No metadata provider has that id"}`
+	s.owner.Expect(t, http.MethodPut, "/api/v1/metadata/providers/imdb/key", `{"key":"k"}`, http.StatusNotFound, notFound)
+	s.owner.Expect(t, http.MethodDelete, "/api/v1/metadata/providers/imdb/key", "", http.StatusNotFound, notFound)
+	s.owner.Expect(t, http.MethodPost, "/api/v1/metadata/providers/imdb/test", "", http.StatusNotFound, notFound)
+}

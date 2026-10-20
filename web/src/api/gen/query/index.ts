@@ -3,6 +3,7 @@ export * from "./grabs/grabs.ts";
 export * from "./identity/identity.ts";
 export * from "./indexers/indexers.ts";
 export * from "./mail/mail.ts";
+export * from "./metadata/metadata.ts";
 export * from "./nodes/nodes.ts";
 export * from "./pairing/pairing.ts";
 export * from "./roots/roots.ts";

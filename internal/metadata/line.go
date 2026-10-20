@@ -52,10 +52,17 @@ type Timings struct {
 	Wait time.Duration `yaml:"wait"`
 	// CacheEntries bounds a Node's answer cache.
 	CacheEntries int `yaml:"cache_entries"`
+	// RetestMin and RetestMax bound the doubling wait before the Controller
+	// tests a provider again on a holder that couldn't reach it.
+	RetestMin time.Duration `yaml:"retest_min"`
+	RetestMax time.Duration `yaml:"retest_max"`
 }
 
 func DefaultTimings() Timings {
-	return Timings{Attempts: 3, Try: 30 * time.Second, RetryMin: time.Second, RetryMax: 8 * time.Second, Wait: 10 * time.Second, CacheEntries: 4096}
+	return Timings{
+		Attempts: 3, Try: 30 * time.Second, RetryMin: time.Second, RetryMax: 8 * time.Second, Wait: 10 * time.Second, CacheEntries: 4096,
+		RetestMin: time.Minute, RetestMax: time.Hour,
+	}
 }
 
 // Lines is one Node's call layer: an HTTP client, the answer cache and a
@@ -83,7 +90,7 @@ func (l *Lines) Line(p Provider) *Line {
 	if _, ok := l.lines[p.ID]; ok {
 		panic(fmt.Sprintf("metadata: provider %s already has a Line", p.ID))
 	}
-	line := &Line{lines: l, p: p, bucket: rate.NewLimiter(p.Rate, p.Burst)}
+	line := &Line{lines: l, p: p, bucket: rate.NewLimiter(p.Rate, p.Burst), gates: map[string]Outcome{}}
 	l.lines[p.ID] = line
 	return line
 }
@@ -101,9 +108,10 @@ type Line struct {
 	bucket *rate.Limiter
 
 	mu sync.Mutex
-	// gate is the last Limited or Capped outcome; no call is sent before
-	// its Until.
-	gate Outcome
+	// gates is the last Limited or Capped outcome of each key, the empty
+	// key included; no call with that key is sent before its Until. An
+	// allowance is a key's, so another key goes on.
+	gates map[string]Outcome
 }
 
 type Request struct {
@@ -193,7 +201,7 @@ func (l *Line) call(ctx context.Context, ask Ask, u *url.URL, lookup bool) (answ
 		return v.answer, nil
 	}
 	if v.Kind == Limited || v.Kind == Capped {
-		l.close(v.Outcome)
+		l.close(ask, v.Outcome)
 	}
 	return answer{}, &works.SourceError{Source: l.p.Label, Until: v.Until, Words: v.Words, Err: failures[v.Kind]}
 }
@@ -208,7 +216,7 @@ func (l *Line) tries(ctx context.Context, ask Ask, u *url.URL, lookup bool) (ver
 		budget = d
 	}
 	for try := 1; ; {
-		if o, shut := l.shut(); shut {
+		if o, shut := l.shut(ask); shut {
 			return verdict{Outcome: o}, nil
 		}
 		if err := l.bucket.Wait(ctx); err != nil {
@@ -299,8 +307,8 @@ func (l *Line) retryAfter(h http.Header, now time.Time) time.Duration {
 }
 
 func (l *Line) keyed(ask Ask, u *url.URL) *url.URL {
-	key := ask.keys[l.p.ID]
-	if key == "" || l.p.Key == nil {
+	key := l.key(ask)
+	if key == "" {
 		return u
 	}
 	q := u.Query()
@@ -310,27 +318,37 @@ func (l *Line) keyed(ask Ask, u *url.URL) *url.URL {
 	return &k
 }
 
+// key is the key a call with ask sends: none to a keyless host.
+func (l *Line) key(ask Ask) string {
+	if l.p.Key == nil {
+		return ""
+	}
+	return ask.keys[l.p.ID]
+}
+
 func (l *Line) outcome(k OutcomeKind, words string) Outcome {
 	return Outcome{Provider: l.p.ID, Kind: k, Words: words, At: time.Now()}
 }
 
-func (l *Line) shut() (Outcome, bool) {
+func (l *Line) shut(ask Ask) (Outcome, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
-	if !now.Before(l.gate.Until) {
+	key := l.key(ask)
+	o := l.gates[key]
+	if !now.Before(o.Until) {
+		delete(l.gates, key)
 		return Outcome{}, false
 	}
-	o := l.gate
 	o.At = now
 	return o, true
 }
 
-func (l *Line) close(o Outcome) {
+func (l *Line) close(ask Ask, o Outcome) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if o.Until.After(l.gate.Until) {
-		l.gate = o
+	if key := l.key(ask); o.Until.After(l.gates[key].Until) {
+		l.gates[key] = o
 	}
 }
 

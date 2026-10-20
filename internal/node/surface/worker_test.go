@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -44,6 +45,8 @@ func (worker) Nodes() (*nodes.Service, bool) { return nil, false }
 func (worker) Systems() (*nodesystem.Nodes, bool) { return nil, false }
 
 func (worker) Works() (*works.Works, bool) { return nil, false }
+
+func (worker) Metadata() (*metadata.Metadata, bool) { return nil, false }
 
 func (worker) Indexers() (*indexers.Indexers, bool) { return nil, false }
 

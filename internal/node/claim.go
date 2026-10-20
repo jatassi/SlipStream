@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -202,6 +203,14 @@ func (s surfaceNode) Works() (*works.Works, bool) {
 		return nil, false
 	}
 	return h.works, true
+}
+
+func (s surfaceNode) Metadata() (*metadata.Metadata, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.metadata == nil {
+		return nil, false
+	}
+	return h.metadata, true
 }
 
 func (s surfaceNode) Indexers() (*indexers.Indexers, bool) {

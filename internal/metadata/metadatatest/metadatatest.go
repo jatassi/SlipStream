@@ -19,7 +19,7 @@ import (
 func Serve(sources map[works.TypeID]metadata.Source) *metadata.Metadata {
 	a := alone{self: role.NodeID{UUID: storage.NewUUID()}}
 	d, cluster := rpc.Alone(a.self, func(role.Name) bool { return true })
-	metadatav1connect.MetadataService.Mount(d, metadata.NewHolder(sources))
+	metadatav1connect.MetadataService.Mount(d, metadata.NewHolder(metadata.HolderConfig{Types: sources}))
 	return metadata.New(metadata.Config{
 		Roster: a,
 		Service: func(node role.NodeID) metadatav1connect.MetadataServiceHandler {
