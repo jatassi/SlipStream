@@ -32,8 +32,12 @@ func TestATokenItDidntIssueIsForged(t *testing.T) {
 	r := artwork.Ref{Source: "tmdb-images", Shape: artwork.ShapePoster, Path: "/a.jpg"}
 	theirs := artwork.NewMinter([]byte("theirs")).Token(r)
 	other := mine.Token(artwork.Ref{Source: "tmdb-images", Shape: artwork.ShapePoster, Path: "/b.jpg"})
-	payload, _, _ := strings.Cut(mine.Token(r), ".")
+	token := mine.Token(r)
+	payload, _, _ := strings.Cut(token, ".")
 	_, otherMAC, _ := strings.Cut(other, ".")
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	loose := []byte(token)
+	loose[len(loose)-1] = alphabet[strings.IndexByte(alphabet, loose[len(loose)-1])^1]
 	for name, token := range map[string]string{
 		"another install's":   theirs,
 		"a spliced signature": payload + "." + otherMAC,
@@ -41,6 +45,7 @@ func TestATokenItDidntIssueIsForged(t *testing.T) {
 		"empty":               "",
 		"not base64":          "!!.!!",
 		"a bare dot":          ".",
+		"its own, respelled":  string(loose),
 	} {
 		if got, err := mine.Open(token); !errors.Is(err, artwork.ErrForged) {
 			t.Errorf("Open(%s token %q) = %+v, %v; want ErrForged", name, token, got, err)

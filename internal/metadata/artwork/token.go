@@ -26,7 +26,7 @@ const (
 	macBytes     = 16
 )
 
-var encoding = base64.RawURLEncoding
+var encoding = base64.RawURLEncoding.Strict()
 
 // URL is the artwork route's address for r, without a size.
 func (m Minter) URL(r Ref) string { return Route + m.Token(r) }
