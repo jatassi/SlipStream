@@ -6,6 +6,7 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   MetadataProvider,
   MetadataProviderList,
+  MetadataRefreshStarted,
   MetadataSettings,
   SettingChoiceField,
   SettingCountField,
@@ -14,6 +15,10 @@ import type {
   SettingSwitchField,
   SettingWindowField,
 } from "../../model";
+
+export const getRefreshContentTypeResponseMock = (
+  overrideResponse: Partial<Extract<MetadataRefreshStarted, object>> = {},
+): MetadataRefreshStarted => ({ runId: faker.number.int(), ...overrideResponse });
 
 export const getListMetadataProvidersResponseMock = (
   overrideResponse: Partial<Extract<MetadataProviderList, object>> = {},
@@ -635,6 +640,30 @@ export const getUpdateMetadataSettingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getRefreshContentTypeMockHandler = (
+  overrideResponse?:
+    | MetadataRefreshStarted
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MetadataRefreshStarted> | MetadataRefreshStarted),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/content-types/:contentType/refresh",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRefreshContentTypeResponseMock(),
+        { status: 202 },
+      );
+    },
+    options,
+  );
+};
+
 export const getClearMetadataCacheMockHandler = (
   overrideResponse?:
     | void
@@ -798,6 +827,7 @@ export const getUpdateMetadataSettingsMockHandler = (
   );
 };
 export const getMetadataMock = () => [
+  getRefreshContentTypeMockHandler(),
   getClearMetadataCacheMockHandler(),
   getListMetadataProvidersMockHandler(),
   getClearMetadataKeyMockHandler(),

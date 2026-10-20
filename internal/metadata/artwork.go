@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
@@ -205,7 +206,7 @@ func (m *Metadata) fromHolder(ctx context.Context, w artwork.Want) (artwork.Imag
 		Ref:  &metadatav1.ArtRef{Source: string(w.Ref.Source), Shape: string(w.Ref.Shape), Path: w.Ref.Path},
 		Size: string(w.Size),
 	}
-	res, _, err := call(ctx, m, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.ImageResponse, error) {
+	res, _, err := call(ctx, m, role.NodeID{}, func(ctx context.Context, s metadatav1connect.MetadataServiceHandler) (*metadatav1.ImageResponse, error) {
 		return s.Image(ctx, req)
 	})
 	if err != nil {

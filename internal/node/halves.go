@@ -274,6 +274,14 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
+		}, metadata.RefreshConfig{
+			Library:  lib.db,
+			Metadata: meta,
+			Works:    tree,
+			Targets:  goals,
+			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
+			Today:    n.today,
+			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
 		}), n.env.Test.tasks(started)...),
 		Roster:     side,
 		Zone:       n.zone(),
@@ -356,7 +364,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		deps.Log = n.rootLog.With("subsystem", "contenttype."+string(t.ID()))
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
-	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}, Lines: lines}
+	return metadata.HolderConfig{Types: sources, Testers: []metadata.Tester{deps.TMDB, deps.OMDb}, Timings: n.cfg.Timings.Metadata, Lines: lines}
 }
 
 // openLibraries opens every Content Type's library half, on the

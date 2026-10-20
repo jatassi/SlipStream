@@ -37,8 +37,15 @@ import type {
   MetadataNewKey,
   MetadataProvider,
   MetadataProviderList,
+  MetadataRefreshStarted,
   MetadataSettings,
   MetadataSettingsChange,
+  RefreshContentType401,
+  RefreshContentType403,
+  RefreshContentType404,
+  RefreshContentType409,
+  RefreshContentType422,
+  RefreshContentType500,
   SetMetadataKey401,
   SetMetadataKey403,
   SetMetadataKey404,
@@ -80,6 +87,114 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getRefreshContentTypeUrl = (contentType: string) => {
+  return `/api/v1/content-types/${contentType}/refresh`;
+};
+
+/**
+ * @summary Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open
+ */
+export const refreshContentType = async (
+  contentType: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MetadataRefreshStarted> => {
+  return apiFetch<MetadataRefreshStarted>(getRefreshContentTypeUrl(contentType), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRefreshContentTypeMutationKey = () => ["refreshContentType"] as const;
+
+export const getRefreshContentTypeMutationOptions = <
+  TError = ErrorType<
+    | RefreshContentType401
+    | RefreshContentType403
+    | RefreshContentType404
+    | RefreshContentType409
+    | RefreshContentType422
+    | RefreshContentType500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshContentType>>,
+    TError,
+    RefreshContentTypeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refreshContentType>>,
+  TError,
+  RefreshContentTypeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRefreshContentTypeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refreshContentType>>,
+    RefreshContentTypeMutationVariables
+  > = (props) => {
+    const { contentType } = props ?? {};
+
+    return refreshContentType(contentType, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshContentTypeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refreshContentType>>
+>;
+
+export type RefreshContentTypeMutationError = ErrorType<
+  | RefreshContentType401
+  | RefreshContentType403
+  | RefreshContentType404
+  | RefreshContentType409
+  | RefreshContentType422
+  | RefreshContentType500
+>;
+export type RefreshContentTypeMutationVariables = { contentType: string };
+
+/**
+ * @summary Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open
+ */
+export const useRefreshContentType = <
+  TError = ErrorType<
+    | RefreshContentType401
+    | RefreshContentType403
+    | RefreshContentType404
+    | RefreshContentType409
+    | RefreshContentType422
+    | RefreshContentType500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof refreshContentType>>,
+      TError,
+      RefreshContentTypeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof refreshContentType>>,
+  TError,
+  RefreshContentTypeMutationVariables,
+  TContext
+> => {
+  return useMutation(getRefreshContentTypeMutationOptions(options), queryClient);
+};
 export const getClearMetadataCacheUrl = () => {
   return `/api/v1/metadata/cache`;
 };

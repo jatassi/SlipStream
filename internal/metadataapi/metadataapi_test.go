@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -50,6 +51,8 @@ func (alone) Why(role.Name) string { return "" }
 type registry struct{ m *metadata.Metadata }
 
 func (r registry) Metadata() (*metadata.Metadata, bool) { return r.m, true }
+
+func (registry) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 
 type changes struct {
 	mu        sync.Mutex
@@ -148,6 +151,10 @@ func (pictures) Fetch(context.Context, metadata.Ask, works.Key) (works.Fetched, 
 }
 
 func (p pictures) Sources() []artwork.Source { return []artwork.Source{p.images} }
+
+func (pictures) Changes(context.Context, metadata.Ask, time.Time, time.Time, int) (metadata.ChangesPage, error) {
+	return metadata.ChangesPage{}, metadata.ErrNoChanges
+}
 
 // fetches records each path fetched from fake-image-cdn.
 type fetches struct {

@@ -1168,6 +1168,13 @@ export const MetadataProviderList = zod.object({
 export type MetadataProviderList = zod.input<typeof MetadataProviderList>;
 export type MetadataProviderListOutput = zod.output<typeof MetadataProviderList>;
 
+export const MetadataRefreshStarted = zod.object({
+  runId: zod.int().describe("The Metadata refresh run that refreshes every Work of the type"),
+});
+
+export type MetadataRefreshStarted = zod.input<typeof MetadataRefreshStarted>;
+export type MetadataRefreshStartedOutput = zod.output<typeof MetadataRefreshStarted>;
+
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
   value: zod.string(),

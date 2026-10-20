@@ -178,3 +178,110 @@ func TestAProviderTestLeavesFromTheWorker(t *testing.T) {
 		}
 	})
 }
+
+type refreshRun struct {
+	Result  string `json:"result"`
+	Summary string `json:"summary"`
+	Units   []struct {
+		Label   string `json:"label"`
+		Node    string `json:"node"`
+		Outcome string `json:"outcome"`
+		Cause   string `json:"cause"`
+	} `json:"units"`
+}
+
+// refreshRuns is Metadata refresh's runs, newest first.
+func (c *metadataCluster) refreshRuns(t *testing.T) []refreshRun {
+	t.Helper()
+	return decode[struct {
+		Runs []refreshRun `json:"runs"`
+	}](t, c.hc.admin(c.apiKey, http.MethodGet, "/api/v1/tasks/metadata-refresh", ""), http.StatusOK).Runs
+}
+
+func (c *metadataCluster) refreshAll(t *testing.T) reply {
+	t.Helper()
+	return c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/content-types/fixture/refresh", "")
+}
+
+func (c *metadataCluster) add(t *testing.T, key string) {
+	t.Helper()
+	if r := c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"`+key+`"}`); r.status != http.StatusOK {
+		t.Fatalf("addWork %s = %d %s", key, r.status, r.body)
+	}
+}
+
+func TestARefreshAllRunsOnTheWorkerHoldingMetadata(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startMetadataCluster(t)
+		c.add(t, "w1")
+		time.Sleep(time.Minute)
+		started := decode[struct {
+			RunID int64 `json:"runId"`
+		}](t, c.refreshAll(t), http.StatusAccepted)
+		synctest.Wait()
+		runs := c.refreshRuns(t)
+		if started.RunID == 0 || len(runs) != 1 || runs[0].Summary != "1 Work" || len(runs[0].Units) != 1 || runs[0].Units[0].Node != "box" || runs[0].Units[0].Outcome != "succeeded" {
+			t.Fatalf("Metadata refresh ran %+v after refreshContentType, want one Work refreshed on box", runs)
+		}
+		if got := c.lastServedBy(t); got != c.boxOpen {
+			t.Fatalf("the refresh was answered by provider half %d, want box's %d", got, c.boxOpen)
+		}
+		if r := c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/content-types/nothing/refresh", ""); r.status != http.StatusNotFound || !strings.Contains(r.body, `"code":"content_type_not_found"`) {
+			t.Fatalf("refreshContentType of an unknown Content Type = %d %s, want 404 content_type_not_found", r.status, r.body)
+		}
+	})
+}
+
+func TestAUnitWhoseHolderIsAwayIsSkippedNotFailed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startMetadataCluster(t)
+		c.add(t, "w1")
+		c.box.Stop()
+		waitDone(t, c.box)
+		time.Sleep(2 * time.Minute)
+		calls := len(c.fx.Calls())
+		decode[struct{}](t, c.refreshAll(t), http.StatusAccepted)
+		synctest.Wait()
+		runs := c.refreshRuns(t)
+		if len(runs) != 1 || runs[0].Result != "skipped" || len(runs[0].Units) != 1 ||
+			runs[0].Units[0].Outcome != "skipped" || runs[0].Units[0].Cause != "home no longer holds Metadata" {
+			t.Fatalf("Metadata refresh ran %+v while box was away, want the Work skipped because home no longer holds Metadata", runs)
+		}
+		if len(c.fx.Calls()) != calls {
+			t.Fatal("a provider half answered while box, the only Node holding Metadata, was away")
+		}
+	})
+}
+
+func TestRefreshAllDuringARunKeepsTheRequestAndAnswersTaskRunning(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startMetadataCluster(t)
+		c.fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Spring"}}}})
+		c.add(t, "w1")
+		c.add(t, "w2")
+		time.Sleep(time.Minute)
+		c.fx.Fail("w2", works.ErrUnavailable)
+		decode[struct{}](t, c.refreshAll(t), http.StatusAccepted)
+		synctest.Wait()
+		time.Sleep(time.Minute)
+
+		c.fx.Fail("w2", nil)
+		letGo := c.fx.Hold(1)
+		decode[struct{}](t, c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/tasks/metadata-refresh/runs", ""), http.StatusAccepted)
+		synctest.Wait()
+		if r := c.refreshAll(t); r.status != http.StatusConflict || !strings.Contains(r.body, `"code":"task_running"`) {
+			t.Fatalf("refreshContentType during a run = %d %s, want 409 task_running", r.status, r.body)
+		}
+		letGo()
+		synctest.Wait()
+		if runs := c.refreshRuns(t); len(runs) != 2 || runs[0].Summary != "1 Work" || runs[0].Units[0].Label != "The Cellar" {
+			t.Fatalf("the run open during the request ran %+v, want only The Cellar, which failed before", runs)
+		}
+
+		decode[struct{}](t, c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/tasks/metadata-refresh/runs", ""), http.StatusAccepted)
+		synctest.Wait()
+		if runs := c.refreshRuns(t); len(runs) != 3 || runs[0].Summary != "1 Work" || runs[0].Units[0].Label != "The Attic" {
+			t.Fatalf("the next run ran %+v, want The Attic, refreshed before the kept request", runs)
+		}
+	})
+}

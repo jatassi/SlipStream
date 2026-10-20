@@ -59,12 +59,15 @@ type Timings struct {
 	// ArtworkRetry is how long the Controller answers an image it failed
 	// to fetch as missing before it tries again.
 	ArtworkRetry time.Duration `yaml:"artwork_retry"`
+	// ChangesPages bounds the pages of one changes list a holder reads; a
+	// longer list counts as none, and the refresh tiers cover the gap.
+	ChangesPages int `yaml:"changes_pages"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Attempts: 3, Try: 30 * time.Second, RetryMin: time.Second, RetryMax: 8 * time.Second, Wait: 10 * time.Second, CacheEntries: 4096,
-		RetestMin: time.Minute, RetestMax: time.Hour, ArtworkRetry: 5 * time.Minute,
+		RetestMin: time.Minute, RetestMax: time.Hour, ArtworkRetry: 5 * time.Minute, ChangesPages: 500,
 	}
 }
 

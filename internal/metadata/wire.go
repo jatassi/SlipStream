@@ -72,6 +72,8 @@ func failureToWire(err error) (*metadatav1.Failure, bool) {
 		w := &metadatav1.Failure{Kind: f.kind}
 		if se, ok := errors.AsType[*works.SourceError](err); ok {
 			w.Source, w.UntilUnixMicro, w.Words = se.Source, unixMicro(se.Until), se.Words
+		} else if f.kind == metadatav1.FailureKind_FAILURE_KIND_NO_CHANGES {
+			w.Words = err.Error()
 		}
 		return w, true
 	}
@@ -87,8 +89,11 @@ func failureOf(w *metadatav1.Failure) error {
 			err = f.err
 		}
 	}
-	if w.GetSource() == "" && w.GetWords() == "" {
+	switch {
+	case w.GetSource() == "" && w.GetWords() == "":
 		return err
+	case w.GetSource() == "":
+		return worded{words: w.GetWords(), err: err}
 	}
 	se := &works.SourceError{Source: w.GetSource(), Words: w.GetWords(), Err: err}
 	if u := w.GetUntilUnixMicro(); u != 0 {
@@ -122,3 +127,13 @@ func outcomesOf(ws []*metadatav1.Outcome) []Outcome {
 	}
 	return out
 }
+
+// worded is a holder's failure in the holder's own words.
+type worded struct {
+	words string
+	err   error
+}
+
+func (w worded) Error() string { return w.words }
+
+func (w worded) Unwrap() error { return w.err }
