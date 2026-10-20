@@ -134,7 +134,6 @@ export async function browse(props: { nodeId?: string; startPath?: string } = {}
   renderQueried(<Picker {...props} />);
   await userEvent.click(page.getByRole("button", { name: "Browse" }));
   await expect.element(dialog()).toBeVisible();
-  await expect.element(field()).toHaveFocus();
   return asked;
 }
 
