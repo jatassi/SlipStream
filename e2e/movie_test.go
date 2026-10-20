@@ -129,14 +129,14 @@ func moviesAlone(t *testing.T) *world.Run {
 	return worldtest.LaunchScenario(t, s)
 }
 
-func addMovie(t *testing.T, a *worldtest.API, key string) movieView {
+func addSaltRoad(t *testing.T, a *worldtest.API) movieView {
 	t.Helper()
-	got := decode(t, "addWork "+key, a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+key+`","monitor":true}`), &struct {
+	got := decode(t, "addWork The Salt Road", a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+saltRoad+`","monitor":true}`), &struct {
 		Created bool      `json:"created"`
 		Work    movieView `json:"work"`
 	}{})
 	if !got.Created {
-		t.Fatalf("addWork %s created nothing", key)
+		t.Fatal("addWork The Salt Road created nothing")
 	}
 	return got.Work
 }
@@ -197,7 +197,7 @@ func TestAMovieIsAddedWithItsWholeRecordFromThePreviewsOneFetch(t *testing.T) {
 	}
 
 	set := setFault(t, run, fault.Rule{ID: "second-fetch", Target: "tmdb", Route: "movie"}, "status=500")
-	added := addMovie(t, a, saltRoad)
+	added := addSaltRoad(t, a)
 	if want := saltRoadFields + awardsField; added.fields() != want {
 		t.Fatalf("the added movie's fields are\n%s\nwant\n%s", added.fields(), want)
 	}
@@ -230,7 +230,7 @@ func fetchArtwork(t *testing.T, a *worldtest.API, session, url, size string) ser
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: session})
+	req.Header.Set("Cookie", identity.CookieName+"="+session)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -259,7 +259,7 @@ func TestArtworkIsServedAtEachSizeAndNeverFromAHalfImage(t *testing.T) {
 	run := moviesAlone(t)
 	a := api(t, run)
 	session := a.SignIn("home")
-	work := addMovie(t, a, saltRoad)
+	work := addSaltRoad(t, a)
 	poster := work.art(t, "poster")
 
 	width := 0
@@ -336,7 +336,7 @@ func TestAMovieRefreshesAloneAndWithEveryMovieAndKeepsItsRecordOnceGone(t *testi
 	t.Parallel()
 	run := moviesAlone(t)
 	a := api(t, run)
-	work := addMovie(t, a, saltRoad)
+	work := addSaltRoad(t, a)
 	refresh := "/api/v1/works/" + work.ID + "/refresh"
 
 	cue(t, run, "tmdb-change", `{"id":9000005}`)
@@ -411,7 +411,7 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	})
 
 	cue(t, run, "omdb-cap", `{}`)
-	addMovie(t, a, saltRoad)
+	addSaltRoad(t, a)
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)
 	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb is out of today's allowance. It resets on its own." {
 		t.Fatalf("OMDb once capped = %+v, want out_of_allowance until %s", p, midnight)
@@ -463,7 +463,7 @@ func TestMetadataOnAWorkerCallsFromItsFrontAndLeavesNoKeyOnItsDisk(t *testing.T)
 	if saved.Status != http.StatusOK || !strings.Contains(saved.Body, `"nodeId":"`+seedbox.NodeID+`","reached":true`) {
 		t.Fatalf("setMetadataKey = %d %s, want 200 tested from seedbox", saved.Status, saved.Body)
 	}
-	addMovie(t, a, saltRoad)
+	addSaltRoad(t, a)
 	if from := selected(t, run, opened("seedbox", "tmdb", cut.Seq)); len(from) == 0 {
 		t.Fatal("seedbox opened no connection to TMDB, want the test and the add to leave from it")
 	}
@@ -485,7 +485,7 @@ func TestMetadataOnAWorkerCallsFromItsFrontAndLeavesNoKeyOnItsDisk(t *testing.T)
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("read seedbox's %s: %w", path, err)
 		}
 		if bytes.Contains(data, []byte(key)) {
 			t.Errorf("seedbox keeps the TMDB key in %s", path)
