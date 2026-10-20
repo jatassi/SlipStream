@@ -1,11 +1,20 @@
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { type ComponentType, type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ComponentType,
+  type KeyboardEvent,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type { Clock } from "../format";
 import { useLiveRow } from "../live/torrents";
 import type { Selection } from "../ui/table";
 import type { Row } from "./model";
 import type { Names } from "./names";
+import { PickAllCell, PickCell, type Picking } from "./picking";
+import { WorkTarget, useStepper } from "./row-target";
 import {
   type CellProps,
   NodeCell,
@@ -41,32 +50,15 @@ const rowLook =
 /** Where the Inspector and the row menu plug in: the selected row and each row's menu. */
 export type RowSeams = {
   readonly selection?: Selection<Row> | undefined;
-  readonly menu?: ((row: Row) => ReactNode) | undefined;
+  readonly renderMenu?: ((row: Row) => ReactNode) | undefined;
 };
 
-type Shared = RowSeams & { readonly names: Names; readonly clock: Clock };
-
-function WorkTarget({ props, selection }: { props: CellProps; selection: Selection<Row> }) {
-  const selected = selection.selected === props.row.id;
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={() => {
-        selection.onSelect(props.row);
-      }}
-      className="w-full min-w-0 text-left after:absolute after:inset-0 focus-visible:shadow-none focus-visible:outline-none"
-    >
-      {selected && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-2 left-0 w-[3px] rounded-capsule bg-solid shadow-live-glow"
-        />
-      )}
-      <WorkCell {...props} />
-    </button>
-  );
-}
+type Shared = RowSeams & {
+  readonly names: Names;
+  readonly clock: Clock;
+  readonly picking?: Picking | undefined;
+  readonly onStep?: ((event: KeyboardEvent<HTMLElement>) => void) | undefined;
+};
 
 function TorrentRow({
   row,
@@ -76,7 +68,9 @@ function TorrentRow({
   names,
   clock,
   selection,
-  menu,
+  renderMenu,
+  picking,
+  onStep,
 }: Shared & {
   row: Row;
   index: number;
@@ -90,24 +84,30 @@ function TorrentRow({
       data-index={index}
       aria-rowindex={index + 2}
       data-torrent-row=""
+      data-torrent-id={row.id}
       className={rowLook}
       style={{ transform: `translateY(${start}px)` }}
     >
       {columns.map(({ id, header, cell: Cell }) => (
         <td key={id} data-col={id} data-label={header} className="min-w-0">
           {id === "work" && selection !== undefined ? (
-            <WorkTarget props={props} selection={selection} />
+            <WorkTarget props={props} selection={selection} onStep={onStep} />
           ) : (
             <Cell {...props} />
           )}
         </td>
       ))}
-      {menu && <td data-col="menu">{menu(row)}</td>}
+      {picking && <PickCell row={row} picking={picking} names={names} />}
+      {renderMenu && (
+        <td data-col="menu" className="relative">
+          {renderMenu(row)}
+        </td>
+      )}
     </tr>
   );
 }
 
-function Head({ menu }: { menu: boolean }) {
+function Head({ menu, picking }: { menu: boolean; picking: Picking | undefined }) {
   return (
     <thead data-torrent-head="" className="block">
       <tr aria-rowindex={1} data-torrent-row="" className="h-8 text-label text-ink-3">
@@ -116,6 +116,7 @@ function Head({ menu }: { menu: boolean }) {
             {header}
           </th>
         ))}
+        {picking && <PickAllCell picking={picking} />}
         {menu && (
           <th scope="col" data-col="menu">
             <span className="sr-only">Actions</span>
@@ -163,6 +164,7 @@ export function TorrentTable({
     scrollMargin: body.offset,
     getItemKey: (index) => rows[index]?.id ?? index,
   });
+  const onStep = useStepper(rows, shared.selection, virtualizer.scrollToIndex);
   return (
     <div className="torrents">
       <table
@@ -170,7 +172,7 @@ export function TorrentTable({
         aria-rowcount={rows.length + 1}
         className="block rounded-card bg-glass ring-1 ring-hairline ring-inset"
       >
-        <Head menu={shared.menu !== undefined} />
+        <Head menu={shared.renderMenu !== undefined} picking={shared.picking} />
         <tbody
           ref={body.ref}
           className="relative block"
@@ -186,6 +188,7 @@ export function TorrentTable({
                   index={item.index}
                   start={item.start - virtualizer.options.scrollMargin}
                   measure={virtualizer.measureElement}
+                  onStep={onStep}
                   {...shared}
                 />
               )

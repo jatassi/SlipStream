@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { getListTorrentsSuspenseQueryOptions } from "../../../api/gen/query/downloadclients/downloadclients";
@@ -12,7 +12,7 @@ import {
   getListWorksSuspenseQueryOptions,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
-import { type TorrentsSearch, TorrentsView } from "../../../torrents/view";
+import { TorrentsPage } from "../../../torrents/torrents-page";
 import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/activity/torrents")({
@@ -30,17 +30,5 @@ export const Route = createFileRoute("/_app/activity/torrents")({
       ensureQuery(context.queryClient, getListCutsSuspenseQueryOptions()),
     ]),
   pendingComponent: () => <Skeleton label="Loading Torrents" />,
-  component: Torrents,
+  component: TorrentsPage,
 });
-
-function Torrents() {
-  const navigate = useNavigate({ from: Route.fullPath });
-  return (
-    <TorrentsView
-      search={Route.useSearch()}
-      onSearchChange={(change: Partial<TorrentsSearch>) => {
-        void navigate({ search: (prev) => ({ ...prev, ...change }), replace: true });
-      }}
-    />
-  );
-}

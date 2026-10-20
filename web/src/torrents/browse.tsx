@@ -1,11 +1,12 @@
-import { useDeferredValue, useState } from "react";
+import { type ReactNode, useDeferredValue, useState } from "react";
 
 import type { DownloadclientsTorrentList } from "../api/gen/model";
 import type { Clock } from "../format";
 import { useShell } from "../ui/shell-context";
 import { NoMatch } from "./empty";
-import { type Tab, matches, tabCount } from "./model";
+import { type Row, type Tab, matches, tabCount } from "./model";
 import type { Names } from "./names";
+import { usePicking } from "./picking";
 import { type RowSeams, TorrentTable } from "./table";
 import { Toolbar } from "./toolbar";
 
@@ -18,7 +19,11 @@ export type TorrentsSearch = {
 
 const rowEstimate = { desktop: 60, phone: 220 } as const;
 
-type BrowseProps = RowSeams & {
+export type Seams = RowSeams & {
+  readonly renderBulk?: ((picked: readonly Row[], clear: () => void) => ReactNode) | undefined;
+};
+
+type BrowseProps = Seams & {
   list: DownloadclientsTorrentList;
   search: TorrentsSearch;
   onSearchChange: (change: Partial<TorrentsSearch>) => void;
@@ -26,13 +31,34 @@ type BrowseProps = RowSeams & {
   clock: Clock;
 };
 
-export function Browse({ list, search, onSearchChange, names, clock, ...seams }: BrowseProps) {
+// The search box's text: deferred for the filter, and kept in the address.
+function useDraft(
+  initial: string | undefined,
+  onSearchChange: (change: Partial<TorrentsSearch>) => void,
+) {
+  const [draft, setDraft] = useState(initial ?? "");
+  const write = (next: string) => {
+    setDraft(next);
+    onSearchChange({ q: next === "" ? undefined : next });
+  };
+  return { draft, setDraft, q: useDeferredValue(draft), write };
+}
+
+export function Browse({
+  list,
+  search,
+  onSearchChange,
+  names,
+  clock,
+  renderBulk,
+  ...seams
+}: BrowseProps) {
   const shell = useShell();
-  const [draft, setDraft] = useState(search.q ?? "");
-  const q = useDeferredValue(draft);
+  const { draft, setDraft, q, write } = useDraft(search.q, onSearchChange);
   const tab = search.tab ?? (shell === "phone" ? "all" : "downloading");
   const filter = { tab, node: search.node, type: search.type, q };
   const shown = list.rows.filter((row) => matches(row, filter, names.work(row.workId)));
+  const { picking, picked, clear: unpick } = usePicking(shown);
   const narrowed = search.node !== undefined || search.type !== undefined || q !== "";
   const clear = () => {
     setDraft("");
@@ -47,12 +73,10 @@ export function Browse({ list, search, onSearchChange, names, clock, ...seams }:
         node={search.node}
         type={search.type}
         q={draft}
-        onQChange={(next) => {
-          setDraft(next);
-          onSearchChange({ q: next === "" ? undefined : next });
-        }}
+        onQChange={write}
         onChange={onSearchChange}
       />
+      {renderBulk !== undefined && picked.length > 0 && renderBulk(picked, unpick)}
       {shown.length === 0 ? (
         <NoMatch onClear={narrowed ? clear : undefined} />
       ) : (
@@ -61,6 +85,7 @@ export function Browse({ list, search, onSearchChange, names, clock, ...seams }:
           estimate={rowEstimate[shell]}
           names={names}
           clock={clock}
+          picking={renderBulk === undefined ? undefined : picking}
           {...seams}
         />
       )}

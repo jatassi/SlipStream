@@ -1,4 +1,10 @@
+import { HttpResponse, http } from "msw";
+
 import type {
+  ActInputBody,
+  DownloadclientsActResult,
+  DownloadclientsPreview,
+  DownloadclientsTorrentDetail,
   DownloadclientsTorrentList,
   DownloadclientsTorrentRow,
   WorksListedWork,
@@ -86,15 +92,82 @@ export function listOf(rows: readonly Row[]): DownloadclientsTorrentList {
   };
 }
 
+/** A row's detail as GET /torrents/{id} answers it while its Node is in step. */
+export function detailOf(
+  row: Row,
+  more: Partial<DownloadclientsTorrentDetail> = {},
+): DownloadclientsTorrentDetail {
+  return {
+    ...row,
+    downloaded: row.done,
+    activeSeconds: 3600,
+    infoHash: "0102030405060708090a0b0c0d0e0f1011121314",
+    saveFolder: `/srv/downloads/Movies/0102030405060708090a0b0c0d0e0f1011121314`,
+    pieceSize: 4 * 1024 * 1024,
+    private: true,
+    trackers: [],
+    files: [{ index: 0, path: `${row.name}/${row.name}.mkv`, size: row.size, done: row.done }],
+    grabs: [],
+    live: true,
+    ...more,
+  };
+}
+
+/**
+ * POST /torrents/actions as the Controller answers it: each action done
+ * unless `refuse` names a refusal for its id, and a dry run's preview.
+ */
+export function actionsServer({
+  preview = { cancels: [], stopSeeding: [], frees: 0, linked: false },
+  refuse,
+}: {
+  preview?: DownloadclientsPreview;
+  refuse?: (id: string, body: ActInputBody) => DownloadclientsActResult["refusal"];
+} = {}) {
+  const bodies: ActInputBody[] = [];
+  return {
+    bodies,
+    handler: http.post("*/api/v1/torrents/actions", async ({ request }) => {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the generated client sends the body it types
+      const body = (await request.json()) as ActInputBody;
+      bodies.push(body);
+      return HttpResponse.json({
+        results: body.ids.map((id) => {
+          const refusal = refuse?.(id, body);
+          return refusal === undefined ? { id, done: true } : { id, done: false, refusal };
+        }),
+        ...(body.dryRun === true && { preview }),
+      });
+    }),
+  };
+}
+
+// GET /torrents/:id: the detail of a row the list holds, else not found.
+function detailHandler(
+  rows: () => readonly Row[],
+  details: (row: Row) => DownloadclientsTorrentDetail,
+) {
+  return http.get("*/api/v1/torrents/:id", ({ params }) => {
+    const row = rows().find(({ id }) => id === params["id"]);
+    return row === undefined
+      ? HttpResponse.json({ code: "torrent_not_found", title: "No such torrent" }, { status: 404 })
+      : HttpResponse.json(details(row));
+  });
+}
+
 /**
  * The Controller's Torrents and what the view reads beside them. `rows` is
  * what GET /torrents answers from now on; `asked` records each ids splice.
  */
-export function torrentsServer(initial: readonly Row[]) {
+export function torrentsServer(
+  initial: readonly Row[],
+  details: (row: Row) => DownloadclientsTorrentDetail = (row) => detailOf(row),
+) {
   let rows = [...initial];
   const asked: string[][] = [];
   return {
     handlers: [
+      detailHandler(() => rows, details),
       getListTorrentsMockHandler(({ request }) => {
         const ids = new URL(request.url).searchParams.get("ids");
         if (ids === null) {

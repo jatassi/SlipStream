@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { Page } from "../../../shell/page";
+import { Page, useShellSlots } from "../../../shell/page";
 import { PageTabs, pageTab } from "../../../ui/page-tabs";
 import { Segmented } from "../../../ui/segmented";
 import { useShell } from "../../../ui/shell-context";
@@ -35,9 +35,10 @@ export const Route = createFileRoute("/_app/activity")({
 });
 
 function ActivityLayout() {
+  const pushed = useShellSlots().heading.kind === "bar";
   if (useShell() === "phone") {
     return (
-      <Page title="Activity" beside={<PhoneViews />}>
+      <Page title="Activity" beside={pushed ? undefined : <PhoneViews />}>
         <Outlet />
       </Page>
     );
