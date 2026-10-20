@@ -13,7 +13,6 @@ import (
 
 	"github.com/jatassi/slipstream/conformance/internal/shape"
 	conformance "github.com/jatassi/slipstream/conformance/tmdb"
-	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/metadata"
 	provider "github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -62,7 +61,7 @@ func get(t *testing.T, key, list string, v any) {
 	t.Helper()
 	u := provider.DefaultEndpoints().API.JoinPath("configuration", list)
 	u.RawQuery = "api_key=" + key
-	req, err := http.NewRequestWithContext(worldtest.Context(t), http.MethodGet, u.String(), http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
