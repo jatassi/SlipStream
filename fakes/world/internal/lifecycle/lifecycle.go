@@ -114,13 +114,16 @@ type Node struct {
 	// pid is the latest process's: proc's, or that of the successor whose
 	// readiness record came last.
 	pid int
+	// successor is the latest process when a restart started it, watched
+	// from its readiness record while pid still names it.
+	successor *proc.Watched
 	// announced is closed by the next readiness record.
 	announced chan struct{}
 	// leaving is the state an action ending the process moves to on its
 	// exit.
 	leaving State
-	// gone is closed once the process's node.exited record is written and
-	// its state moved.
+	// gone is closed once the process and its successor have exited, its
+	// node.exited record is written and its state moved.
 	gone chan struct{}
 }
 
@@ -253,7 +256,17 @@ func (n *Node) adopt(ready node.Ready, again bool) {
 	n.ready, n.pid = ready, ready.PID
 	announced := n.announced
 	n.announced = make(chan struct{})
+	var watchErr error
+	if again && ready.PID != old {
+		if n.successor != nil {
+			n.successor.Close()
+		}
+		n.successor, watchErr = proc.Watch(ready.PID)
+	}
 	n.mu.Unlock()
+	if watchErr != nil {
+		n.fault(watchErr)
+	}
 	if again {
 		n.cfg.Changed()
 		n.cfg.Append(events.Record{Kind: events.NodeRestarted, Node: n.cfg.Name, Data: data(restarted{OldPID: old, PID: ready.PID})})
@@ -263,9 +276,20 @@ func (n *Node) adopt(ready node.Ready, again bool) {
 }
 
 // await records p's exit and moves the Node to the state the action that
-// ended it named, or to exited.
+// ended it named, or to exited. A successor holding p's stderr closes it
+// before it counts as exited, so await waits for the successor too.
 func (n *Node) await(p *proc.Process, logFile *os.File, gone chan struct{}) {
 	<-p.Exited()
+	n.mu.Lock()
+	successor := n.successor
+	n.successor = nil
+	n.mu.Unlock()
+	if successor != nil {
+		if err := successor.Wait(); err != nil {
+			n.fault(err)
+		}
+		successor.Close()
+	}
 	_ = logFile.Close()
 	n.cfg.Append(events.Record{Kind: events.NodeExited, Node: n.cfg.Name, Data: data(exited{PID: p.PID, Code: p.ExitCode()})})
 	n.mu.Lock()
@@ -279,6 +303,11 @@ func (n *Node) await(p *proc.Process, logFile *os.File, gone chan struct{}) {
 	if to == Exited {
 		n.cfg.Changed()
 	}
+}
+
+// fault records the harness failing to follow the Node's processes.
+func (n *Node) fault(err error) {
+	n.cfg.Append(events.Record{Kind: events.NodeError, Node: n.cfg.Name, Data: data(err.Error())})
 }
 
 // leave marks the running Node as leaving for to and returns its process
