@@ -18,7 +18,11 @@ const tabs = () => page.getByRole("navigation", { name: "Tabs" });
 
 function counting(activity: number) {
   return http.get("*/api/v1/counts", () =>
-    HttpResponse.json({ activity, alerts: { nodes: null } }),
+    HttpResponse.json({
+      activity,
+      downloads: { done: 0, wanted: 0, allPaused: false },
+      alerts: { nodes: null },
+    }),
   );
 }
 
@@ -85,7 +89,11 @@ test("in More, the Nodes row carries the alert's dot", async () => {
     handlers: [
       getListContentTypesMockHandler({ contentTypes: [cinema] }),
       http.get("*/api/v1/counts", () =>
-        HttpResponse.json({ activity: 0, alerts: { nodes: "warn" } }),
+        HttpResponse.json({
+          activity: 0,
+          downloads: { done: 0, wanted: 0, allPaused: false },
+          alerts: { nodes: "warn" },
+        }),
       ),
     ],
   });

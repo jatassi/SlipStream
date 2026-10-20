@@ -1,3 +1,4 @@
+import type { ShellCounts } from "../api/gen/model";
 import {
   getGetDownloadClientSettingsQueryKey,
   getListDownloadClientsQueryKey,
@@ -12,7 +13,12 @@ export const downloadEffects = {
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh({ queryKey: getListDownloadClientsQueryKey() });
   },
-  "torrents.live": () => {},
+  "torrents.live": (data, { queryClient }) => {
+    queryClient.setQueryData<ShellCounts>(
+      getGetCountsQueryKey(),
+      (counts) => counts && { ...counts, downloads: data.downloads },
+    );
+  },
   "download-clients.changed": (data, { refresh }) => {
     refresh({ queryKey: getListDownloadClientsQueryKey() });
     for (const nodeId of data.nodeIds) {
