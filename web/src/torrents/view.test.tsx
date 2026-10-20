@@ -90,7 +90,7 @@ test("a tab, a Node and a search narrow the table", async () => {
     .toMatchTextContent("Seeding");
   await expect
     .element(table().getByRole("row", { name: /^Orchard Harvest/u }))
-    .toMatchTextContent("Ratio 1.42 · 6 days");
+    .toMatchTextContent("Seeded 6 days");
 
   await userEvent.click(page.getByRole("combobox", { name: "Node" }));
   await userEvent.click(page.getByRole("option", { name: "Every Node" }));

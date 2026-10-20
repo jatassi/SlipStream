@@ -76,7 +76,15 @@ const moving = new Set<Row["state"]>(["downloading", "checking"]);
 export function ProgressCell({ row, live }: CellProps) {
   const progress = progressOf(row, live);
   if (progress.done >= progress.wanted) {
-    return <span className="text-meta text-ink-2">{seedWords(row)}</span>;
+    return (
+      <span className="truncate text-meta text-ink-2">
+        {seedWords(row)}
+        <span data-column-echo="">
+          {" · Ratio "}
+          <Data>{row.ratio.toFixed(2)}</Data>
+        </span>
+      </span>
+    );
   }
   const percent = percentOf(progress);
   const label = `${stateWords[row.state]} ${row.name}`;
@@ -89,7 +97,7 @@ export function ProgressCell({ row, live }: CellProps) {
         <Data className="truncate">
           {eta}
           {rate !== "" && (
-            <span data-progress-rate="">
+            <span data-column-echo="">
               {eta === "" ? "" : " · "}
               {rate}
             </span>

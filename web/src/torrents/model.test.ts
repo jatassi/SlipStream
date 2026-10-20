@@ -120,8 +120,11 @@ test("rates, time left and seed words", () => {
     "10 min left",
   );
   expect(etaWords({ ...live, downBps: 0, wanted: 10 })).toBe("");
-  expect(seedWords(torrent({ state: "seeding", ratio: 1.4249, seedingSeconds: 6 * 86_400 }))).toBe(
-    "Ratio 1.42 · 6 days",
+  expect(seedWords(torrent({ state: "seeding", seedingSeconds: 6 * 86_400 }))).toBe(
+    "Seeded 6 days",
+  );
+  expect(seedWords(torrent({ state: "seeding", seedingSeconds: 30 }))).toBe(
+    "Seeding since just now",
   );
 });
 

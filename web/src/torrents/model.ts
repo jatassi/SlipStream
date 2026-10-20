@@ -196,7 +196,7 @@ export function etaWords(live: LiveRow | undefined): string {
 const hour = 3600;
 const day = 24 * hour;
 
-export function seedTimeWords(seconds: number): string {
+function seedLength(seconds: number): string {
   if (seconds < hour) {
     return `${Math.floor(seconds / 60)} min`;
   }
@@ -207,8 +207,8 @@ export function seedTimeWords(seconds: number): string {
 }
 
 /** A seed's progress cell, until seeding goals take its place. */
-export const seedWords = (row: Row): string =>
-  `Ratio ${row.ratio.toFixed(2)} · ${seedTimeWords(row.seedingSeconds)}`;
+export const seedWords = ({ seedingSeconds }: Row): string =>
+  seedingSeconds < 60 ? "Seeding since just now" : `Seeded ${seedLength(seedingSeconds)}`;
 
 export const tabCount = (counts: DownloadclientsCounts, tab: Tab): number =>
   counts.byTab.find((count) => count.tab === tab)?.torrents ?? 0;

@@ -40,12 +40,12 @@
   grid-area: menu;
 }
 
-.torrents [data-progress-rate] {
+.torrents [data-column-echo] {
   display: none;
 }
 
 @container torrents (width < 980px) {
-  .torrents [data-progress-rate] {
+  .torrents [data-column-echo] {
     display: inline;
   }
 
@@ -60,7 +60,7 @@
 }
 
 @container torrents (width < 620px) {
-  .torrents [data-progress-rate] {
+  .torrents [data-column-echo] {
     display: none;
   }
 
