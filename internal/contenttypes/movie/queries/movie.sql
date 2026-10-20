@@ -65,3 +65,9 @@ VALUES (sqlc.arg(work_id), sqlc.arg(country), sqlc.arg(kind), sqlc.arg(date), sq
 -- name: InsertCredit :exec
 INSERT INTO movie_credit (work_id, position, person_id, name, department, role, photo_path)
 VALUES (sqlc.arg(work_id), sqlc.arg(position), sqlc.arg(person_id), sqlc.arg(name), sqlc.arg(department), sqlc.arg(role), sqlc.arg(photo_path));
+
+-- name: GetSettings :one
+SELECT counts_as, cinema_delay_seconds FROM movie_settings WHERE id = 1;
+
+-- name: SetSettings :exec
+UPDATE movie_settings SET counts_as = sqlc.arg(counts_as), cinema_delay_seconds = sqlc.arg(cinema_delay_seconds) WHERE id = 1;

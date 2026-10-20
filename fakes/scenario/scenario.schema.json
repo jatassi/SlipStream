@@ -398,6 +398,14 @@
             },
             "cache_entries": {
               "type": "integer"
+            },
+            "retest_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "retest_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
           },
           "additionalProperties": false,

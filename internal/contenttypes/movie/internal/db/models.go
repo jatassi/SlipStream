@@ -60,7 +60,7 @@ type MovieRelease struct {
 
 type MovieSetting struct {
 	ID                 Singleton
-	CountsAs           *string
+	CountsAs           *CountsAs
 	CinemaDelaySeconds *int64
 }
 

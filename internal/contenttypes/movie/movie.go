@@ -3,7 +3,6 @@
 package movie
 
 import (
-	"cmp"
 	"context"
 	"embed"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
-	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -199,8 +197,8 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	return t, nil
 }
 
-// Timings answers each movie's runtime, and its release date as its
-// earliest digital or physical release in the region, else in any country.
+// Timings answers each movie's runtime, and its release date as the day
+// it counts as out under the movie settings in the region.
 func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.ItemID]targets.Timing, error) {
 	q := db.New(r)
 	movies, err := q.ListMovies(ctx, ws)
@@ -215,6 +213,10 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.
 	if err != nil {
 		return nil, err
 	}
+	rule, err := ruleIn(ctx, q, region)
+	if err != nil {
+		return nil, err
+	}
 	items, err := works.ItemsOf(ctx, r, ws)
 	if err != nil {
 		return nil, err
@@ -226,12 +228,12 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.
 	out := map[works.ItemID]targets.Timing{}
 	for _, mv := range movies {
 		var t targets.Timing
-		if date := atHome(of[mv.WorkID], region); date != "" {
-			day, err := works.ParseDate(date)
+		if b, ok := rule.available(of[mv.WorkID], mv.PrimaryRelease); ok {
+			day, words, err := b.day()
 			if err != nil {
 				return nil, fmt.Errorf("movie %d: %w", mv.TmdbID, err)
 			}
-			t.Released = release.Known(day)
+			t.Released, t.Basis = release.Known(day), words
 		}
 		if mv.RuntimeMinutes != nil {
 			t.Runtime = release.Known(time.Duration(*mv.RuntimeMinutes) * time.Minute)
@@ -241,24 +243,6 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws []works.
 		}
 	}
 	return out, nil
-}
-
-// atHome is the earliest digital or physical release date in region, else
-// in any country, "" when there is none.
-func atHome(rs []releaseDate, region string) string {
-	var inRegion, anywhere string
-	for _, r := range rs {
-		if r.Kind != tmdb.Digital && r.Kind != tmdb.Physical {
-			continue
-		}
-		if anywhere == "" || r.Date < anywhere {
-			anywhere = r.Date
-		}
-		if r.Country == region && (inRegion == "" || r.Date < inRegion) {
-			inRegion = r.Date
-		}
-	}
-	return cmp.Or(inRegion, anywhere)
 }
 
 // Cuts answers none: every cut a movie names is built in.

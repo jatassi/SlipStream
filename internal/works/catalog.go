@@ -29,6 +29,7 @@ type Catalog interface {
 	// Fields reads the type's own rows for one Work: values keyed by node,
 	// each of the kind its FieldSpec declares.
 	Fields(ctx context.Context, r storage.Reader[storage.Library], w WorkID) (FieldSet, error)
+	Settings
 }
 
 // Source is the network: a Content Type's metadata source, reached through

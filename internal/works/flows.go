@@ -244,14 +244,19 @@ var errPreview = errors.New("works: a preview rolls back")
 // tree has an added Work's shape and nothing commits. Its ids name
 // nothing. A key already in the library answers the stored Work, with
 // stored true.
-func (w *Works) Preview(ctx context.Context, by identity.Admin, t TypeID, key Key) (tree Tree, stored bool, err error) {
+func (w *Works) Preview(ctx context.Context, _ identity.Admin, t TypeID, key Key, within func(context.Context, storage.Reader[file], Tree) error) (tree Tree, stored bool, err error) {
 	reg, err := w.open(ctx, t)
 	if err != nil {
 		return Tree{}, false, err
 	}
 	row, err := db.New(w.cfg.Library).GetWorkByKey(ctx, db.GetWorkByKeyParams{ContentType: t, Key: key})
 	if err == nil {
-		tree, err = w.Get(ctx, by, row.ID)
+		err = w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+			if tree, err = w.read(ctx, r, row.ID); err != nil {
+				return err
+			}
+			return within(ctx, r, tree)
+		})
 		return tree, true, err
 	}
 	if !errors.Is(err, storage.ErrNoRows) {
@@ -276,6 +281,9 @@ func (w *Works) Preview(ctx context.Context, by identity.Admin, t TypeID, key Ke
 			}
 		}
 		if tree, err = w.read(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := within(ctx, tx, tree); err != nil {
 			return err
 		}
 		return errPreview
